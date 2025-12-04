@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Plus, Package, Loader2, Pencil, Trash2, Search } from 'lucide-react';
+import { Plus, Package, Loader2, Pencil, Trash2, Search, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -44,6 +44,11 @@ interface PecaForm {
   descricao: string;
 }
 
+type SortField = 'codigo' | 'descricao';
+type SortDirection = 'asc' | 'desc';
+
+const ITEMS_PER_PAGE = 10;
+
 export default function AdminPecas() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -54,6 +59,9 @@ export default function AdminPecas() {
   const [deletingPeca, setDeletingPeca] = useState<Peca | null>(null);
   const [form, setForm] = useState<PecaForm>({ codigo: '', nome: '', descricao: '' });
   const [search, setSearch] = useState('');
+  const [sortField, setSortField] = useState<SortField>('codigo');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+  const [currentPage, setCurrentPage] = useState(1);
 
   const { data: pecas, isLoading } = useQuery({
     queryKey: ['pecas-admin'],
@@ -67,10 +75,46 @@ export default function AdminPecas() {
     },
   });
 
-  const filteredPecas = pecas?.filter((peca) =>
-    peca.codigo.toLowerCase().includes(search.toLowerCase()) ||
-    peca.descricao?.toLowerCase().includes(search.toLowerCase())
+  const filteredAndSortedPecas = useMemo(() => {
+    if (!pecas) return [];
+    
+    let result = pecas.filter((peca) =>
+      peca.codigo.toLowerCase().includes(search.toLowerCase()) ||
+      peca.descricao?.toLowerCase().includes(search.toLowerCase())
+    );
+
+    result.sort((a, b) => {
+      const aValue = a[sortField] || '';
+      const bValue = b[sortField] || '';
+      const comparison = aValue.localeCompare(bValue, 'pt-BR', { sensitivity: 'base' });
+      return sortDirection === 'asc' ? comparison : -comparison;
+    });
+
+    return result;
+  }, [pecas, search, sortField, sortDirection]);
+
+  const totalPages = Math.ceil(filteredAndSortedPecas.length / ITEMS_PER_PAGE);
+  const paginatedPecas = filteredAndSortedPecas.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
   );
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+    setCurrentPage(1);
+  };
+
+  const getSortIcon = (field: SortField) => {
+    if (sortField !== field) return <ArrowUpDown className="ml-2 h-4 w-4" />;
+    return sortDirection === 'asc' 
+      ? <ArrowUp className="ml-2 h-4 w-4" />
+      : <ArrowDown className="ml-2 h-4 w-4" />;
+  };
 
   const createPeca = useMutation({
     mutationFn: async (data: PecaForm) => {
@@ -227,7 +271,7 @@ export default function AdminPecas() {
         <Input
           placeholder="Buscar por código ou descrição..."
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
           className="pl-10"
         />
       </div>
@@ -236,48 +280,87 @@ export default function AdminPecas() {
         <div className="flex justify-center py-12">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
-      ) : filteredPecas && filteredPecas.length > 0 ? (
-        <Card>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Cod OnFarm</TableHead>
-                <TableHead>Descrição</TableHead>
-                <TableHead className="w-[100px]">Ações</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredPecas.map((peca) => (
-                <TableRow key={peca.id}>
-                  <TableCell className="font-medium">{peca.codigo}</TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {peca.descricao || '-'}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => openEditDialog(peca)}
-                        className="h-8 w-8"
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => openDeleteDialog(peca)}
-                        className="h-8 w-8 text-destructive hover:text-destructive"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
+      ) : paginatedPecas.length > 0 ? (
+        <>
+          <Card>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>
+                    <Button variant="ghost" onClick={() => handleSort('codigo')} className="h-auto p-0 font-medium hover:bg-transparent">
+                      Cod OnFarm {getSortIcon('codigo')}
+                    </Button>
+                  </TableHead>
+                  <TableHead>
+                    <Button variant="ghost" onClick={() => handleSort('descricao')} className="h-auto p-0 font-medium hover:bg-transparent">
+                      Descrição {getSortIcon('descricao')}
+                    </Button>
+                  </TableHead>
+                  <TableHead className="w-[100px]">Ações</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </Card>
+              </TableHeader>
+              <TableBody>
+                {paginatedPecas.map((peca) => (
+                  <TableRow key={peca.id}>
+                    <TableCell className="font-medium">{peca.codigo}</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {peca.descricao || '-'}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => openEditDialog(peca)}
+                          className="h-8 w-8"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => openDeleteDialog(peca)}
+                          className="h-8 w-8 text-destructive hover:text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </Card>
+
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-muted-foreground">
+                Mostrando {((currentPage - 1) * ITEMS_PER_PAGE) + 1} a {Math.min(currentPage * ITEMS_PER_PAGE, filteredAndSortedPecas.length)} de {filteredAndSortedPecas.length} registros
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <span className="text-sm">
+                  Página {currentPage} de {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
+        </>
       ) : (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12 text-center">
