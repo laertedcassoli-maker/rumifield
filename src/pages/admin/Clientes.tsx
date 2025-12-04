@@ -5,24 +5,52 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Plus, Building2, MapPin, Phone, Mail, Loader2 } from 'lucide-react';
+import { Plus, Building2, Loader2, Pencil, Trash2, Home } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+
+interface Cliente {
+  id: string;
+  nome: string;
+  fazenda: string | null;
+  cod_imilk: string | null;
+  cidade: string | null;
+  estado: string | null;
+  endereco: string | null;
+  telefone: string | null;
+  email: string | null;
+  observacoes: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+interface ClienteForm {
+  nome: string;
+  fazenda: string;
+  cod_imilk: string;
+}
 
 export default function AdminClientes() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
-  const [form, setForm] = useState({
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [editingCliente, setEditingCliente] = useState<Cliente | null>(null);
+  const [deletingCliente, setDeletingCliente] = useState<Cliente | null>(null);
+  const [form, setForm] = useState<ClienteForm>({
     nome: '',
     fazenda: '',
-    endereco: '',
-    cidade: '',
-    estado: '',
-    telefone: '',
-    email: '',
-    observacoes: '',
+    cod_imilk: '',
   });
 
   const { data: clientes, isLoading } = useQuery({
@@ -33,20 +61,23 @@ export default function AdminClientes() {
         .select('*')
         .order('nome');
       if (error) throw error;
-      return data;
+      return data as Cliente[];
     },
   });
 
   const createCliente = useMutation({
-    mutationFn: async (data: typeof form) => {
-      const { error } = await supabase.from('clientes').insert(data);
+    mutationFn: async (data: ClienteForm) => {
+      const { error } = await supabase.from('clientes').insert({
+        nome: data.nome,
+        fazenda: data.fazenda || null,
+        cod_imilk: data.cod_imilk || null,
+      });
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['clientes-admin'] });
       queryClient.invalidateQueries({ queryKey: ['clientes'] });
-      setOpen(false);
-      setForm({ nome: '', fazenda: '', endereco: '', cidade: '', estado: '', telefone: '', email: '', observacoes: '' });
+      closeDialog();
       toast({ title: 'Cliente cadastrado com sucesso!' });
     },
     onError: (error: Error) => {
@@ -54,110 +85,141 @@ export default function AdminClientes() {
     },
   });
 
+  const updateCliente = useMutation({
+    mutationFn: async ({ id, data }: { id: string; data: ClienteForm }) => {
+      const { error } = await supabase
+        .from('clientes')
+        .update({
+          nome: data.nome,
+          fazenda: data.fazenda || null,
+          cod_imilk: data.cod_imilk || null,
+        })
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['clientes-admin'] });
+      queryClient.invalidateQueries({ queryKey: ['clientes'] });
+      closeDialog();
+      toast({ title: 'Cliente atualizado com sucesso!' });
+    },
+    onError: (error: Error) => {
+      toast({ variant: 'destructive', title: 'Erro ao atualizar', description: error.message });
+    },
+  });
+
+  const deleteCliente = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('clientes').delete().eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['clientes-admin'] });
+      queryClient.invalidateQueries({ queryKey: ['clientes'] });
+      setDeleteDialogOpen(false);
+      setDeletingCliente(null);
+      toast({ title: 'Cliente excluído com sucesso!' });
+    },
+    onError: (error: Error) => {
+      toast({ variant: 'destructive', title: 'Erro ao excluir', description: error.message });
+    },
+  });
+
+  const closeDialog = () => {
+    setOpen(false);
+    setEditingCliente(null);
+    setForm({ nome: '', fazenda: '', cod_imilk: '' });
+  };
+
+  const openEditDialog = (cliente: Cliente) => {
+    setEditingCliente(cliente);
+    setForm({
+      nome: cliente.nome,
+      fazenda: cliente.fazenda || '',
+      cod_imilk: cliente.cod_imilk || '',
+    });
+    setOpen(true);
+  };
+
+  const openDeleteDialog = (cliente: Cliente) => {
+    setDeletingCliente(cliente);
+    setDeleteDialogOpen(true);
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.nome.trim()) {
-      toast({ variant: 'destructive', title: 'Nome é obrigatório' });
+      toast({ variant: 'destructive', title: 'Nome do produtor é obrigatório' });
       return;
     }
-    createCliente.mutate(form);
+
+    if (editingCliente) {
+      updateCliente.mutate({ id: editingCliente.id, data: form });
+    } else {
+      createCliente.mutate(form);
+    }
   };
+
+  const isPending = createCliente.isPending || updateCliente.isPending;
 
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Clientes</h1>
-          <p className="text-muted-foreground">Gerencie os clientes e fazendas</p>
+          <p className="text-muted-foreground">Gerencie os produtores e fazendas</p>
         </div>
-        <Dialog open={open} onOpenChange={setOpen}>
+        <Dialog open={open} onOpenChange={(isOpen) => {
+          if (!isOpen) closeDialog();
+          else setOpen(true);
+        }}>
           <DialogTrigger asChild>
             <Button>
               <Plus className="mr-2 h-4 w-4" />
               Novo Cliente
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-lg">
+          <DialogContent>
             <DialogHeader>
-              <DialogTitle>Cadastrar Novo Cliente</DialogTitle>
+              <DialogTitle>{editingCliente ? 'Editar Cliente' : 'Cadastrar Novo Cliente'}</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Nome *</Label>
-                  <Input
-                    value={form.nome}
-                    onChange={(e) => setForm({ ...form, nome: e.target.value })}
-                    placeholder="Nome do cliente"
-                    required
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Fazenda</Label>
-                  <Input
-                    value={form.fazenda}
-                    onChange={(e) => setForm({ ...form, fazenda: e.target.value })}
-                    placeholder="Nome da fazenda"
-                  />
-                </div>
-              </div>
               <div className="space-y-2">
-                <Label>Endereço</Label>
+                <Label htmlFor="nome">Nome Produtor *</Label>
                 <Input
-                  value={form.endereco}
-                  onChange={(e) => setForm({ ...form, endereco: e.target.value })}
-                  placeholder="Endereço completo"
+                  id="nome"
+                  value={form.nome}
+                  onChange={(e) => setForm({ ...form, nome: e.target.value })}
+                  placeholder="Nome do produtor"
+                  required
                 />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Cidade</Label>
-                  <Input
-                    value={form.cidade}
-                    onChange={(e) => setForm({ ...form, cidade: e.target.value })}
-                    placeholder="Cidade"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Estado</Label>
-                  <Input
-                    value={form.estado}
-                    onChange={(e) => setForm({ ...form, estado: e.target.value })}
-                    placeholder="UF"
-                    maxLength={2}
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Telefone</Label>
-                  <Input
-                    value={form.telefone}
-                    onChange={(e) => setForm({ ...form, telefone: e.target.value })}
-                    placeholder="(00) 00000-0000"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label>Email</Label>
-                  <Input
-                    type="email"
-                    value={form.email}
-                    onChange={(e) => setForm({ ...form, email: e.target.value })}
-                    placeholder="email@exemplo.com"
-                  />
-                </div>
               </div>
               <div className="space-y-2">
-                <Label>Observações</Label>
-                <Textarea
-                  value={form.observacoes}
-                  onChange={(e) => setForm({ ...form, observacoes: e.target.value })}
-                  placeholder="Observações sobre o cliente..."
-                  rows={2}
+                <Label htmlFor="fazenda">Nome da Fazenda</Label>
+                <Input
+                  id="fazenda"
+                  value={form.fazenda}
+                  onChange={(e) => setForm({ ...form, fazenda: e.target.value })}
+                  placeholder="Nome da fazenda"
                 />
               </div>
-              <Button type="submit" className="w-full" disabled={createCliente.isPending}>
-                {createCliente.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Cadastrar Cliente'}
+              <div className="space-y-2">
+                <Label htmlFor="cod_imilk">Cod Imilk</Label>
+                <Input
+                  id="cod_imilk"
+                  value={form.cod_imilk}
+                  onChange={(e) => setForm({ ...form, cod_imilk: e.target.value })}
+                  placeholder="Código Imilk"
+                />
+              </div>
+              <Button type="submit" className="w-full" disabled={isPending}>
+                {isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : editingCliente ? (
+                  'Salvar Alterações'
+                ) : (
+                  'Cadastrar Cliente'
+                )}
               </Button>
             </form>
           </DialogContent>
@@ -179,33 +241,43 @@ export default function AdminClientes() {
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {clientes?.map((cliente) => (
-            <Card key={cliente.id}>
+            <Card key={cliente.id} className="group">
               <CardHeader className="pb-2">
-                <CardTitle className="flex items-center gap-2 text-lg">
-                  <Building2 className="h-4 w-4 text-primary" />
-                  {cliente.nome}
-                </CardTitle>
-                {cliente.fazenda && (
-                  <p className="text-sm text-muted-foreground">{cliente.fazenda}</p>
-                )}
+                <div className="flex items-start justify-between">
+                  <CardTitle className="flex items-center gap-2 text-lg">
+                    <Building2 className="h-4 w-4 text-primary" />
+                    {cliente.nome}
+                  </CardTitle>
+                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => openEditDialog(cliente)}
+                      className="h-8 w-8"
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => openDeleteDialog(cliente)}
+                      className="h-8 w-8 text-destructive hover:text-destructive"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
               </CardHeader>
               <CardContent className="space-y-2 text-sm">
-                {cliente.cidade && (
+                {cliente.fazenda && (
                   <div className="flex items-center gap-2 text-muted-foreground">
-                    <MapPin className="h-3 w-3" />
-                    {cliente.cidade}{cliente.estado && `, ${cliente.estado}`}
+                    <Home className="h-3 w-3" />
+                    {cliente.fazenda}
                   </div>
                 )}
-                {cliente.telefone && (
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <Phone className="h-3 w-3" />
-                    {cliente.telefone}
-                  </div>
-                )}
-                {cliente.email && (
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <Mail className="h-3 w-3" />
-                    {cliente.email}
+                {cliente.cod_imilk && (
+                  <div className="text-muted-foreground">
+                    <span className="font-medium">Cod Imilk:</span> {cliente.cod_imilk}
                   </div>
                 )}
               </CardContent>
@@ -213,6 +285,26 @@ export default function AdminClientes() {
           ))}
         </div>
       )}
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar Exclusão</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir o cliente "{deletingCliente?.nome}"? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setDeletingCliente(null)}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => deletingCliente && deleteCliente.mutate(deletingCliente.id)}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteCliente.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Excluir'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
