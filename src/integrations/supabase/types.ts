@@ -17,6 +17,7 @@ export type Database = {
       clientes: {
         Row: {
           cidade: string | null
+          cod_imilk: string | null
           created_at: string
           email: string | null
           endereco: string | null
@@ -30,6 +31,7 @@ export type Database = {
         }
         Insert: {
           cidade?: string | null
+          cod_imilk?: string | null
           created_at?: string
           email?: string | null
           endereco?: string | null
@@ -43,6 +45,7 @@ export type Database = {
         }
         Update: {
           cidade?: string | null
+          cod_imilk?: string | null
           created_at?: string
           email?: string | null
           endereco?: string | null
