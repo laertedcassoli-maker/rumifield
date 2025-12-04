@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -6,7 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Plus, Building2, Loader2, Pencil, Trash2, Search } from 'lucide-react';
+import { Plus, Building2, Loader2, Pencil, Trash2, Search, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -48,6 +48,11 @@ interface ClienteForm {
   cod_imilk: string;
 }
 
+type SortField = 'nome' | 'fazenda' | 'cod_imilk';
+type SortDirection = 'asc' | 'desc';
+
+const ITEMS_PER_PAGE = 10;
+
 export default function AdminClientes() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -61,6 +66,9 @@ export default function AdminClientes() {
     cod_imilk: '',
   });
   const [search, setSearch] = useState('');
+  const [sortField, setSortField] = useState<SortField>('nome');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+  const [currentPage, setCurrentPage] = useState(1);
 
   const { data: clientes, isLoading } = useQuery({
     queryKey: ['clientes-admin'],
@@ -74,11 +82,47 @@ export default function AdminClientes() {
     },
   });
 
-  const filteredClientes = clientes?.filter((cliente) =>
-    cliente.nome.toLowerCase().includes(search.toLowerCase()) ||
-    cliente.fazenda?.toLowerCase().includes(search.toLowerCase()) ||
-    cliente.cod_imilk?.toLowerCase().includes(search.toLowerCase())
+  const filteredAndSortedClientes = useMemo(() => {
+    if (!clientes) return [];
+    
+    let result = clientes.filter((cliente) =>
+      cliente.nome.toLowerCase().includes(search.toLowerCase()) ||
+      cliente.fazenda?.toLowerCase().includes(search.toLowerCase()) ||
+      cliente.cod_imilk?.toLowerCase().includes(search.toLowerCase())
+    );
+
+    result.sort((a, b) => {
+      const aValue = a[sortField] || '';
+      const bValue = b[sortField] || '';
+      const comparison = aValue.localeCompare(bValue, 'pt-BR', { sensitivity: 'base' });
+      return sortDirection === 'asc' ? comparison : -comparison;
+    });
+
+    return result;
+  }, [clientes, search, sortField, sortDirection]);
+
+  const totalPages = Math.ceil(filteredAndSortedClientes.length / ITEMS_PER_PAGE);
+  const paginatedClientes = filteredAndSortedClientes.slice(
+    (currentPage - 1) * ITEMS_PER_PAGE,
+    currentPage * ITEMS_PER_PAGE
   );
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+    setCurrentPage(1);
+  };
+
+  const getSortIcon = (field: SortField) => {
+    if (sortField !== field) return <ArrowUpDown className="ml-2 h-4 w-4" />;
+    return sortDirection === 'asc' 
+      ? <ArrowUp className="ml-2 h-4 w-4" />
+      : <ArrowDown className="ml-2 h-4 w-4" />;
+  };
 
   const createCliente = useMutation({
     mutationFn: async (data: ClienteForm) => {
@@ -246,7 +290,7 @@ export default function AdminClientes() {
         <Input
           placeholder="Buscar por nome, fazenda ou código..."
           value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
           className="pl-10"
         />
       </div>
@@ -255,52 +299,95 @@ export default function AdminClientes() {
         <div className="flex justify-center py-12">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
-      ) : filteredClientes && filteredClientes.length > 0 ? (
-        <Card>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Nome Produtor</TableHead>
-                <TableHead>Nome da Fazenda</TableHead>
-                <TableHead>Cod Imilk</TableHead>
-                <TableHead className="w-[100px]">Ações</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredClientes.map((cliente) => (
-                <TableRow key={cliente.id}>
-                  <TableCell className="font-medium">{cliente.nome}</TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {cliente.fazenda || '-'}
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {cliente.cod_imilk || '-'}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => openEditDialog(cliente)}
-                        className="h-8 w-8"
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => openDeleteDialog(cliente)}
-                        className="h-8 w-8 text-destructive hover:text-destructive"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
+      ) : paginatedClientes.length > 0 ? (
+        <>
+          <Card>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>
+                    <Button variant="ghost" onClick={() => handleSort('nome')} className="h-auto p-0 font-medium hover:bg-transparent">
+                      Nome Produtor {getSortIcon('nome')}
+                    </Button>
+                  </TableHead>
+                  <TableHead>
+                    <Button variant="ghost" onClick={() => handleSort('fazenda')} className="h-auto p-0 font-medium hover:bg-transparent">
+                      Nome da Fazenda {getSortIcon('fazenda')}
+                    </Button>
+                  </TableHead>
+                  <TableHead>
+                    <Button variant="ghost" onClick={() => handleSort('cod_imilk')} className="h-auto p-0 font-medium hover:bg-transparent">
+                      Cod Imilk {getSortIcon('cod_imilk')}
+                    </Button>
+                  </TableHead>
+                  <TableHead className="w-[100px]">Ações</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </Card>
+              </TableHeader>
+              <TableBody>
+                {paginatedClientes.map((cliente) => (
+                  <TableRow key={cliente.id}>
+                    <TableCell className="font-medium">{cliente.nome}</TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {cliente.fazenda || '-'}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {cliente.cod_imilk || '-'}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => openEditDialog(cliente)}
+                          className="h-8 w-8"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => openDeleteDialog(cliente)}
+                          className="h-8 w-8 text-destructive hover:text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </Card>
+
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-muted-foreground">
+                Mostrando {((currentPage - 1) * ITEMS_PER_PAGE) + 1} a {Math.min(currentPage * ITEMS_PER_PAGE, filteredAndSortedClientes.length)} de {filteredAndSortedClientes.length} registros
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <span className="text-sm">
+                  Página {currentPage} de {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
+        </>
       ) : (
         <Card>
           <CardContent className="py-12 text-center">
