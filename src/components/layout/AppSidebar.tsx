@@ -1,4 +1,4 @@
-import { Home, MapPin, Package, ShoppingCart, Users, Settings, LogOut, Beaker } from 'lucide-react';
+import { Home, MapPin, Package, ShoppingCart, Users, Settings, LogOut, Beaker, Cog } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   Sidebar,
@@ -28,6 +28,7 @@ export function AppSidebar() {
 
   const adminMenuItems = [
     { title: 'Clientes', icon: Package, url: '/admin/clientes' },
+    { title: 'Peças', icon: Cog, url: '/admin/pecas' },
     { title: 'Usuários', icon: Users, url: '/admin/usuarios' },
     { title: 'Configurações', icon: Settings, url: '/admin/config' },
   ];
