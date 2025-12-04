@@ -1,15 +1,15 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Beaker, Building2, Loader2, Save } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { Beaker, Building2, Loader2, Save, ChevronsUpDown, Check } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
 
 export default function Estoque() {
   const { user } = useAuth();
@@ -17,11 +17,12 @@ export default function Estoque() {
   const queryClient = useQueryClient();
   const [selectedCliente, setSelectedCliente] = useState<string>('');
   const [quantidades, setQuantidades] = useState<Record<string, string>>({});
+  const [clienteOpen, setClienteOpen] = useState(false);
 
   const { data: clientes } = useQuery({
     queryKey: ['clientes'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('clientes').select('*');
+      const { data, error } = await supabase.from('clientes').select('*').order('nome');
       if (error) throw error;
       return data;
     },
@@ -78,7 +79,7 @@ export default function Estoque() {
   });
 
   // Atualizar quantidades quando estoque carregar
-  useState(() => {
+  useEffect(() => {
     if (estoque) {
       const newQuantidades: Record<string, string> = {};
       estoque.forEach((item) => {
@@ -86,9 +87,13 @@ export default function Estoque() {
       });
       setQuantidades(newQuantidades);
     }
-  });
+  }, [estoque]);
 
   const clienteSelecionado = clientes?.find((c) => c.id === selectedCliente);
+
+  const getClienteLabel = (cliente: typeof clientes extends (infer T)[] ? T : never) => {
+    return cliente.fazenda ? `${cliente.nome} - ${cliente.fazenda}` : cliente.nome;
+  };
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -102,18 +107,54 @@ export default function Estoque() {
           <CardTitle className="text-lg">Selecione o Cliente</CardTitle>
         </CardHeader>
         <CardContent>
-          <Select value={selectedCliente} onValueChange={setSelectedCliente}>
-            <SelectTrigger>
-              <SelectValue placeholder="Escolha um cliente / fazenda" />
-            </SelectTrigger>
-            <SelectContent>
-              {clientes?.map((cliente) => (
-                <SelectItem key={cliente.id} value={cliente.id}>
-                  {cliente.nome} {cliente.fazenda && `- ${cliente.fazenda}`}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <Popover open={clienteOpen} onOpenChange={setClienteOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                role="combobox"
+                aria-expanded={clienteOpen}
+                className="w-full justify-between font-normal"
+              >
+                {selectedCliente && clienteSelecionado
+                  ? getClienteLabel(clienteSelecionado)
+                  : "Buscar cliente / fazenda..."}
+                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+              <Command>
+                <CommandInput placeholder="Digite para buscar..." />
+                <CommandList>
+                  <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
+                  <CommandGroup>
+                    {clientes?.map((cliente) => (
+                      <CommandItem
+                        key={cliente.id}
+                        value={getClienteLabel(cliente)}
+                        onSelect={() => {
+                          setSelectedCliente(cliente.id);
+                          setClienteOpen(false);
+                        }}
+                      >
+                        <Check
+                          className={cn(
+                            "mr-2 h-4 w-4",
+                            selectedCliente === cliente.id ? "opacity-100" : "opacity-0"
+                          )}
+                        />
+                        <div className="flex flex-col">
+                          <span>{cliente.nome}</span>
+                          {cliente.fazenda && (
+                            <span className="text-xs text-muted-foreground">{cliente.fazenda}</span>
+                          )}
+                        </div>
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
         </CardContent>
       </Card>
 
