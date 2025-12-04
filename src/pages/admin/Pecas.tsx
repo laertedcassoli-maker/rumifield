@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Plus, Package, Loader2, Pencil, Trash2 } from 'lucide-react';
+import { Plus, Package, Loader2, Pencil, Trash2, Search } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -19,6 +19,14 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
 
 interface Peca {
   id: string;
@@ -45,6 +53,7 @@ export default function AdminPecas() {
   const [editingPeca, setEditingPeca] = useState<Peca | null>(null);
   const [deletingPeca, setDeletingPeca] = useState<Peca | null>(null);
   const [form, setForm] = useState<PecaForm>({ codigo: '', nome: '', descricao: '' });
+  const [search, setSearch] = useState('');
 
   const { data: pecas, isLoading } = useQuery({
     queryKey: ['pecas-admin'],
@@ -58,11 +67,16 @@ export default function AdminPecas() {
     },
   });
 
+  const filteredPecas = pecas?.filter((peca) =>
+    peca.codigo.toLowerCase().includes(search.toLowerCase()) ||
+    peca.descricao?.toLowerCase().includes(search.toLowerCase())
+  );
+
   const createPeca = useMutation({
     mutationFn: async (data: PecaForm) => {
       const { error } = await supabase.from('pecas').insert({
         codigo: data.codigo,
-        nome: data.codigo, // Using codigo as nome since it's required
+        nome: data.codigo,
         descricao: data.descricao || null,
       });
       if (error) throw error;
@@ -208,52 +222,72 @@ export default function AdminPecas() {
         </Dialog>
       </div>
 
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <Input
+          placeholder="Buscar por código ou descrição..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="pl-10"
+        />
+      </div>
+
       {isLoading ? (
         <div className="flex justify-center py-12">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
-      ) : pecas && pecas.length > 0 ? (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {pecas.map((peca) => (
-            <Card key={peca.id} className="group">
-              <CardContent className="flex items-start gap-4 py-4">
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-primary/10">
-                  <Package className="h-5 w-5 text-primary" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium">{peca.codigo}</p>
-                  <p className="text-sm text-muted-foreground line-clamp-2">
-                    {peca.descricao || 'Sem descrição'}
-                  </p>
-                </div>
-                <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => openEditDialog(peca)}
-                    className="h-8 w-8"
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => openDeleteDialog(peca)}
-                    className="h-8 w-8 text-destructive hover:text-destructive"
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+      ) : filteredPecas && filteredPecas.length > 0 ? (
+        <Card>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Cod OnFarm</TableHead>
+                <TableHead>Descrição</TableHead>
+                <TableHead className="w-[100px]">Ações</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredPecas.map((peca) => (
+                <TableRow key={peca.id}>
+                  <TableCell className="font-medium">{peca.codigo}</TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {peca.descricao || '-'}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => openEditDialog(peca)}
+                        className="h-8 w-8"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => openDeleteDialog(peca)}
+                        className="h-8 w-8 text-destructive hover:text-destructive"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </Card>
       ) : (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-12 text-center">
             <Package className="h-12 w-12 text-muted-foreground/50 mb-4" />
-            <h3 className="text-lg font-medium">Nenhuma peça cadastrada</h3>
-            <p className="text-muted-foreground">Clique em "Nova Peça" para adicionar</p>
+            <h3 className="text-lg font-medium">
+              {search ? 'Nenhuma peça encontrada' : 'Nenhuma peça cadastrada'}
+            </h3>
+            <p className="text-muted-foreground">
+              {search ? 'Tente outra busca' : 'Clique em "Nova Peça" para adicionar'}
+            </p>
           </CardContent>
         </Card>
       )}
