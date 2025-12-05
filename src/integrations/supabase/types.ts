@@ -19,6 +19,7 @@ export type Database = {
           cidade: string | null
           cod_imilk: string | null
           created_at: string
+          data_ativacao_rumiflow: string | null
           email: string | null
           endereco: string | null
           estado: string | null
@@ -26,6 +27,7 @@ export type Database = {
           id: string
           nome: string
           observacoes: string | null
+          status: string
           telefone: string | null
           updated_at: string
         }
@@ -33,6 +35,7 @@ export type Database = {
           cidade?: string | null
           cod_imilk?: string | null
           created_at?: string
+          data_ativacao_rumiflow?: string | null
           email?: string | null
           endereco?: string | null
           estado?: string | null
@@ -40,6 +43,7 @@ export type Database = {
           id?: string
           nome: string
           observacoes?: string | null
+          status?: string
           telefone?: string | null
           updated_at?: string
         }
@@ -47,6 +51,7 @@ export type Database = {
           cidade?: string | null
           cod_imilk?: string | null
           created_at?: string
+          data_ativacao_rumiflow?: string | null
           email?: string | null
           endereco?: string | null
           estado?: string | null
@@ -54,6 +59,7 @@ export type Database = {
           id?: string
           nome?: string
           observacoes?: string | null
+          status?: string
           telefone?: string | null
           updated_at?: string
         }

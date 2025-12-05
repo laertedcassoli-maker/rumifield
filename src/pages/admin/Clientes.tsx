@@ -6,7 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Plus, Building2, Loader2, Pencil, Trash2, Search, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Building2, Loader2, Pencil, Trash2, Search, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -26,6 +26,19 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar as CalendarComponent } from '@/components/ui/calendar';
+import { cn } from '@/lib/utils';
 
 interface Cliente {
   id: string;
@@ -38,6 +51,8 @@ interface Cliente {
   telefone: string | null;
   email: string | null;
   observacoes: string | null;
+  status: string;
+  data_ativacao_rumiflow: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -46,12 +61,20 @@ interface ClienteForm {
   nome: string;
   fazenda: string;
   cod_imilk: string;
+  status: string;
+  data_ativacao_rumiflow: Date | undefined;
 }
 
-type SortField = 'nome' | 'fazenda' | 'cod_imilk';
+type SortField = 'nome' | 'fazenda' | 'cod_imilk' | 'status';
 type SortDirection = 'asc' | 'desc';
 
 const ITEMS_PER_PAGE = 10;
+
+const statusOptions = [
+  { value: 'ativo', label: 'Ativo', color: 'bg-success text-success-foreground' },
+  { value: 'inativo', label: 'Inativo', color: 'bg-muted text-muted-foreground' },
+  { value: 'suspenso', label: 'Suspenso', color: 'bg-warning text-warning-foreground' },
+];
 
 export default function AdminClientes() {
   const { toast } = useToast();
@@ -64,6 +87,8 @@ export default function AdminClientes() {
     nome: '',
     fazenda: '',
     cod_imilk: '',
+    status: 'ativo',
+    data_ativacao_rumiflow: undefined,
   });
   const [search, setSearch] = useState('');
   const [sortField, setSortField] = useState<SortField>('nome');
@@ -130,6 +155,8 @@ export default function AdminClientes() {
         nome: data.nome,
         fazenda: data.fazenda || null,
         cod_imilk: data.cod_imilk || null,
+        status: data.status,
+        data_ativacao_rumiflow: data.data_ativacao_rumiflow ? format(data.data_ativacao_rumiflow, 'yyyy-MM-dd') : null,
       });
       if (error) throw error;
     },
@@ -152,6 +179,8 @@ export default function AdminClientes() {
           nome: data.nome,
           fazenda: data.fazenda || null,
           cod_imilk: data.cod_imilk || null,
+          status: data.status,
+          data_ativacao_rumiflow: data.data_ativacao_rumiflow ? format(data.data_ativacao_rumiflow, 'yyyy-MM-dd') : null,
         })
         .eq('id', id);
       if (error) throw error;
@@ -187,7 +216,7 @@ export default function AdminClientes() {
   const closeDialog = () => {
     setOpen(false);
     setEditingCliente(null);
-    setForm({ nome: '', fazenda: '', cod_imilk: '' });
+    setForm({ nome: '', fazenda: '', cod_imilk: '', status: 'ativo', data_ativacao_rumiflow: undefined });
   };
 
   const openEditDialog = (cliente: Cliente) => {
@@ -196,6 +225,8 @@ export default function AdminClientes() {
       nome: cliente.nome,
       fazenda: cliente.fazenda || '',
       cod_imilk: cliente.cod_imilk || '',
+      status: cliente.status || 'ativo',
+      data_ativacao_rumiflow: cliente.data_ativacao_rumiflow ? new Date(cliente.data_ativacao_rumiflow) : undefined,
     });
     setOpen(true);
   };
@@ -271,6 +302,56 @@ export default function AdminClientes() {
                   placeholder="Código Imilk"
                 />
               </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Status</Label>
+                  <Select
+                    value={form.status}
+                    onValueChange={(value) => setForm({ ...form, status: value })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {statusOptions.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Data Ativação RumiFlow</Label>
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        className={cn(
+                          "w-full justify-start text-left font-normal",
+                          !form.data_ativacao_rumiflow && "text-muted-foreground"
+                        )}
+                      >
+                        <Calendar className="mr-2 h-4 w-4" />
+                        {form.data_ativacao_rumiflow ? (
+                          format(form.data_ativacao_rumiflow, "dd/MM/yyyy", { locale: ptBR })
+                        ) : (
+                          "Selecione"
+                        )}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="start">
+                      <CalendarComponent
+                        mode="single"
+                        selected={form.data_ativacao_rumiflow}
+                        onSelect={(date) => setForm({ ...form, data_ativacao_rumiflow: date })}
+                        locale={ptBR}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                </div>
+              </div>
               <Button type="submit" className="w-full" disabled={isPending}>
                 {isPending ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
@@ -320,11 +401,18 @@ export default function AdminClientes() {
                       Cod Imilk {getSortIcon('cod_imilk')}
                     </Button>
                   </TableHead>
+                  <TableHead>
+                    <Button variant="ghost" onClick={() => handleSort('status')} className="h-auto p-0 font-medium hover:bg-transparent">
+                      Status {getSortIcon('status')}
+                    </Button>
+                  </TableHead>
                   <TableHead className="w-[100px]">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {paginatedClientes.map((cliente) => (
+                {paginatedClientes.map((cliente) => {
+                  const statusOption = statusOptions.find(s => s.value === cliente.status) || statusOptions[0];
+                  return (
                   <TableRow key={cliente.id}>
                     <TableCell className="font-medium">{cliente.nome}</TableCell>
                     <TableCell className="text-muted-foreground">
@@ -332,6 +420,11 @@ export default function AdminClientes() {
                     </TableCell>
                     <TableCell className="text-muted-foreground">
                       {cliente.cod_imilk || '-'}
+                    </TableCell>
+                    <TableCell>
+                      <Badge className={cn("text-xs", statusOption.color)}>
+                        {statusOption.label}
+                      </Badge>
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-1">
@@ -354,7 +447,8 @@ export default function AdminClientes() {
                       </div>
                     </TableCell>
                   </TableRow>
-                ))}
+                  );
+                })}
               </TableBody>
             </Table>
           </Card>
