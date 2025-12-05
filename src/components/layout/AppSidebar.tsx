@@ -45,7 +45,7 @@ export function AppSidebar() {
     icon: Truck,
     url: '/admin/envios'
   }, {
-    title: 'Configurações',
+    title: 'Cadastros',
     icon: Settings,
     url: '/admin/config'
   }];
