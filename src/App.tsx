@@ -9,7 +9,7 @@ import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import Visitas from "./pages/Visitas";
 import Estoque from "./pages/Estoque";
-import ProdutoDetalhe from "./pages/estoque/ProdutoDetalhe";
+import Consumo from "./pages/estoque/Consumo";
 import Pedidos from "./pages/Pedidos";
 import AdminClientes from "./pages/admin/Clientes";
 import AdminEnvios from "./pages/admin/Envios";
@@ -53,10 +53,10 @@ const App = () => (
               }
             />
             <Route
-              path="/estoque/produto/:produtoId"
+              path="/estoque/consumo"
               element={
                 <AppLayout>
-                  <ProdutoDetalhe />
+                  <Consumo />
                 </AppLayout>
               }
             />

@@ -39,7 +39,11 @@ type SortDirection = 'asc' | 'desc' | null;
 
 type ViewMode = 'periodo' | '30dias';
 
-export function ConsumoTab() {
+interface ConsumoTabProps {
+  produtoId?: string;
+}
+
+export function ConsumoTab({ produtoId }: ConsumoTabProps) {
   const [filters, setFilters] = useState({
     cliente: '',
     fazenda: '',
@@ -50,9 +54,13 @@ export function ConsumoTab() {
   const [viewMode, setViewMode] = useState<ViewMode>('periodo');
 
   const { data: produtos } = useQuery({
-    queryKey: ['produtos-quimicos-consumo'],
+    queryKey: ['produtos-quimicos-consumo', produtoId],
     queryFn: async () => {
-      const { data, error } = await supabase.from('produtos_quimicos').select('id, nome').eq('ativo', true);
+      let query = supabase.from('produtos_quimicos').select('id, nome').eq('ativo', true);
+      if (produtoId) {
+        query = query.eq('id', produtoId);
+      }
+      const { data, error } = await query;
       if (error) throw error;
       return data as ProdutoInfo[];
     },
