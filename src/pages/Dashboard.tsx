@@ -96,12 +96,12 @@ export default function Dashboard() {
     },
   });
 
-  // Query para análise de desvios por produto
+  // Query para análise de desvios por produto (mesma lógica do ConsumoTab)
   const { data: desviosProdutos, isLoading: isLoadingDesvios } = useQuery({
     queryKey: ['dashboard-desvios-produtos'],
     queryFn: async () => {
-      const hoje = new Date();
-      const limite30dias = format(subDays(hoje, 30), 'yyyy-MM-dd');
+      const hoje = format(new Date(), 'yyyy-MM-dd');
+      const limite30dias = format(subDays(new Date(), 30), 'yyyy-MM-dd');
 
       // Busca produtos ativos
       const { data: produtos, error: produtosError } = await supabase
@@ -111,139 +111,211 @@ export default function Dashboard() {
 
       if (produtosError) throw produtosError;
 
-      // Busca aferições dos últimos 30 dias com vacas_lactacao
-      const { data: afericoesRecentes, error: afericoesError } = await supabase
+      // Busca clientes com data de ativação
+      const { data: clientes, error: clientesError } = await supabase
+        .from('clientes')
+        .select('id, nome, fazenda, data_ativacao_rumiflow')
+        .eq('status', 'ativo');
+
+      if (clientesError) throw clientesError;
+
+      // Busca todas as aferições (ordenadas por data)
+      const { data: afericoes, error: afericoesError } = await supabase
         .from('estoque_cliente')
         .select('cliente_id, produto_id, galoes_cheios, nivel_galao_parcial, vacas_lactacao, data_afericao')
-        .gte('data_afericao', limite30dias)
-        .order('data_afericao', { ascending: false });
+        .lte('data_afericao', hoje) // Ignora datas futuras!
+        .order('data_afericao', { ascending: true });
 
       if (afericoesError) throw afericoesError;
 
-      // Busca envios dos últimos 60 dias (para calcular consumo)
-      const limite60dias = format(subDays(hoje, 60), 'yyyy-MM-dd');
+      // Busca todos os envios
       const { data: envios, error: enviosError } = await supabase
         .from('envios_produtos')
-        .select('cliente_id, produto_id, galoes, data_envio')
-        .gte('data_envio', limite60dias);
+        .select('cliente_id, produto_id, quantidade, data_envio');
 
       if (enviosError) throw enviosError;
 
-      // Busca aferições anteriores para calcular consumo
-      const { data: todasAfericoes, error: todasError } = await supabase
-        .from('estoque_cliente')
-        .select('cliente_id, produto_id, galoes_cheios, nivel_galao_parcial, data_afericao')
-        .gte('data_afericao', limite60dias)
-        .order('data_afericao', { ascending: false });
-
-      if (todasError) throw todasError;
-
-      // Agrupa por cliente/produto - pega a última aferição com vacas_lactacao
-      const ultimaAfericaoPorClienteProduto: Record<string, {
-        vacas_lactacao: number;
-        galoes_cheios: number;
-        nivel_galao_parcial: number | null;
-        data_afericao: string;
-      }> = {};
-
-      afericoesRecentes?.forEach(af => {
-        const key = `${af.cliente_id}_${af.produto_id}`;
-        if (!ultimaAfericaoPorClienteProduto[key] && af.vacas_lactacao) {
-          ultimaAfericaoPorClienteProduto[key] = {
-            vacas_lactacao: af.vacas_lactacao,
-            galoes_cheios: af.galoes_cheios,
-            nivel_galao_parcial: af.nivel_galao_parcial,
-            data_afericao: af.data_afericao,
-          };
-        }
-      });
-
-      // Para cada cliente/produto, busca aferição anterior
-      const afericaoAnteriorPorClienteProduto: Record<string, {
-        galoes_cheios: number;
-        nivel_galao_parcial: number | null;
-        data_afericao: string;
-      }> = {};
-
-      todasAfericoes?.forEach(af => {
-        const key = `${af.cliente_id}_${af.produto_id}`;
-        const ultimaData = ultimaAfericaoPorClienteProduto[key]?.data_afericao;
-        
-        if (ultimaData && af.data_afericao < ultimaData) {
-          if (!afericaoAnteriorPorClienteProduto[key]) {
-            afericaoAnteriorPorClienteProduto[key] = {
-              galoes_cheios: af.galoes_cheios,
-              nivel_galao_parcial: af.nivel_galao_parcial,
-              data_afericao: af.data_afericao,
-            };
-          }
-        }
-      });
-
-      // Mantém envios com datas para filtrar por período
-      const enviosComData = envios || [];
-
-      // Calcula desvios por produto
-      const desviosPorProduto: Record<string, {
-        orcado: number;
-        realizado: number;
-        fazendas: Set<string>;
-      }> = {};
-
       const LITROS_POR_GALAO = 50;
 
-      Object.entries(ultimaAfericaoPorClienteProduto).forEach(([key, dados]) => {
-        const [clienteId, produtoId] = key.split('_');
-        const produto = produtos?.find(p => p.id === produtoId);
+      const calcularTotalLitros = (galoesCheios: number, nivelParcial: number | null) => {
+        const cheios = galoesCheios * LITROS_POR_GALAO;
+        const parcial = nivelParcial !== null ? (nivelParcial / 100) * LITROS_POR_GALAO : 0;
+        return Math.round(cheios + parcial);
+      };
+
+      // Agrupa aferições por cliente e data
+      const afericoesPorCliente: Record<string, {
+        data_ativacao: string | null;
+        afericoes: Array<{
+          data: string;
+          vacas_lactacao: number | null;
+          produtos: Record<string, number>;
+        }>;
+      }> = {};
+
+      const clientesMap = new Map(clientes?.map(c => [c.id, c]) || []);
+
+      afericoes?.forEach(af => {
+        const cliente = clientesMap.get(af.cliente_id);
+        if (!afericoesPorCliente[af.cliente_id]) {
+          afericoesPorCliente[af.cliente_id] = {
+            data_ativacao: cliente?.data_ativacao_rumiflow || null,
+            afericoes: [],
+          };
+        }
         
-        if (!produto || !produto.litros_por_vaca_mes) return;
-
-        const anterior = afericaoAnteriorPorClienteProduto[key];
+        const dataKey = af.data_afericao;
+        let entry = afericoesPorCliente[af.cliente_id].afericoes.find(e => e.data === dataKey);
         
-        if (!anterior) return; // Precisa de 2 aferições para calcular consumo
-
-        // Calcula período em dias
-        const diasPeriodo = differenceInDays(
-          parseISO(dados.data_afericao),
-          parseISO(anterior.data_afericao)
-        );
-
-        if (diasPeriodo <= 0) return;
-
-        // Calcula estoque em litros (galões cheios + parcial)
-        const estoqueAtualLitros = (dados.galoes_cheios * LITROS_POR_GALAO) + 
-          ((dados.nivel_galao_parcial || 0) * LITROS_POR_GALAO / 100);
-        const estoqueAnteriorLitros = (anterior.galoes_cheios * LITROS_POR_GALAO) + 
-          ((anterior.nivel_galao_parcial || 0) * LITROS_POR_GALAO / 100);
-
-        // Envios recebidos APENAS no período entre as duas aferições
-        const enviosNoPeriodo = enviosComData
-          .filter(env => 
-            env.cliente_id === clienteId && 
-            env.produto_id === produtoId &&
-            env.data_envio > anterior.data_afericao &&
-            env.data_envio <= dados.data_afericao
-          )
-          .reduce((sum, env) => sum + env.galoes, 0);
+        if (!entry) {
+          entry = { data: dataKey, vacas_lactacao: af.vacas_lactacao, produtos: {} };
+          afericoesPorCliente[af.cliente_id].afericoes.push(entry);
+        }
         
-        const enviosRecebidos = enviosNoPeriodo * LITROS_POR_GALAO;
+        if (af.vacas_lactacao !== null) {
+          entry.vacas_lactacao = af.vacas_lactacao;
+        }
+        
+        entry.produtos[af.produto_id] = calcularTotalLitros(af.galoes_cheios, af.nivel_galao_parcial);
+      });
 
-        // Consumo realizado = estoque anterior + envios - estoque atual
-        const consumoRealizado = estoqueAnteriorLitros + enviosRecebidos - estoqueAtualLitros;
+      // Agrupa envios por cliente/produto
+      const enviosPorClienteProduto: Record<string, Record<string, Array<{ data: string; quantidade: number }>>> = {};
+      
+      envios?.forEach(env => {
+        if (!enviosPorClienteProduto[env.cliente_id]) {
+          enviosPorClienteProduto[env.cliente_id] = {};
+        }
+        if (!enviosPorClienteProduto[env.cliente_id][env.produto_id]) {
+          enviosPorClienteProduto[env.cliente_id][env.produto_id] = [];
+        }
+        enviosPorClienteProduto[env.cliente_id][env.produto_id].push({
+          data: env.data_envio,
+          quantidade: env.quantidade,
+        });
+      });
 
-        // Normaliza para 30 dias
-        const consumoRealizado30dias = (consumoRealizado / diasPeriodo) * 30;
+      // Calcula consumo entre aferições consecutivas
+      interface ConsumoItem {
+        cliente_id: string;
+        data_inicial: string;
+        data_final: string;
+        dias_periodo: number;
+        vacas_lactacao: number | null;
+        produtos: Record<string, { consumo_30dias: number; orcado_30dias: number | null }>;
+      }
 
-        // Orçado = vacas × litros/vaca/mês (já é mensal)
-        const orcado30dias = dados.vacas_lactacao * produto.litros_por_vaca_mes;
+      const todosConsumos: ConsumoItem[] = [];
 
-        if (!desviosPorProduto[produtoId]) {
-          desviosPorProduto[produtoId] = { orcado: 0, realizado: 0, fazendas: new Set() };
+      Object.entries(afericoesPorCliente).forEach(([clienteId, clienteData]) => {
+        const afs = clienteData.afericoes;
+        const dataAtivacao = clienteData.data_ativacao;
+        
+        // Primeiro registro: usa data de ativação como estoque inicial
+        if (afs.length > 0 && dataAtivacao && dataAtivacao < afs[0].data) {
+          const primeiraAfericao = afs[0];
+          const diasPeriodo = differenceInDays(parseISO(primeiraAfericao.data), parseISO(dataAtivacao));
+
+          const consumoItem: ConsumoItem = {
+            cliente_id: clienteId,
+            data_inicial: dataAtivacao,
+            data_final: primeiraAfericao.data,
+            dias_periodo: diasPeriodo,
+            vacas_lactacao: primeiraAfericao.vacas_lactacao,
+            produtos: {},
+          };
+
+          produtos?.forEach(produto => {
+            const estoqueFinal = primeiraAfericao.produtos[produto.id] || 0;
+            let totalEnvios = 0;
+            const enviosProduto = enviosPorClienteProduto[clienteId]?.[produto.id] || [];
+            enviosProduto.forEach(env => {
+              if (env.data <= primeiraAfericao.data) {
+                totalEnvios += env.quantidade;
+              }
+            });
+
+            const consumo = Math.max(0, totalEnvios - estoqueFinal);
+            const consumo30dias = diasPeriodo > 0 ? Math.round((consumo / diasPeriodo) * 30) : 0;
+            const orcado30dias = (primeiraAfericao.vacas_lactacao && produto.litros_por_vaca_mes) 
+              ? Math.round(primeiraAfericao.vacas_lactacao * produto.litros_por_vaca_mes)
+              : null;
+
+            consumoItem.produtos[produto.id] = { consumo_30dias: consumo30dias, orcado_30dias: orcado30dias };
+          });
+
+          todosConsumos.push(consumoItem);
         }
 
-        desviosPorProduto[produtoId].orcado += orcado30dias;
-        desviosPorProduto[produtoId].realizado += consumoRealizado30dias;
-        desviosPorProduto[produtoId].fazendas.add(clienteId);
+        // Aferições consecutivas
+        for (let i = 1; i < afs.length; i++) {
+          const anterior = afs[i - 1];
+          const atual = afs[i];
+          const diasPeriodo = differenceInDays(parseISO(atual.data), parseISO(anterior.data));
+
+          const consumoItem: ConsumoItem = {
+            cliente_id: clienteId,
+            data_inicial: anterior.data,
+            data_final: atual.data,
+            dias_periodo: diasPeriodo,
+            vacas_lactacao: atual.vacas_lactacao,
+            produtos: {},
+          };
+
+          produtos?.forEach(produto => {
+            const estoqueInicial = anterior.produtos[produto.id] || 0;
+            const estoqueFinal = atual.produtos[produto.id] || 0;
+
+            let totalEnvios = 0;
+            const enviosProduto = enviosPorClienteProduto[clienteId]?.[produto.id] || [];
+            enviosProduto.forEach(env => {
+              if (env.data > anterior.data && env.data <= atual.data) {
+                totalEnvios += env.quantidade;
+              }
+            });
+
+            const consumo = Math.max(0, estoqueInicial + totalEnvios - estoqueFinal);
+            const consumo30dias = diasPeriodo > 0 ? Math.round((consumo / diasPeriodo) * 30) : 0;
+            const orcado30dias = (atual.vacas_lactacao && produto.litros_por_vaca_mes) 
+              ? Math.round(atual.vacas_lactacao * produto.litros_por_vaca_mes)
+              : null;
+
+            consumoItem.produtos[produto.id] = { consumo_30dias: consumo30dias, orcado_30dias: orcado30dias };
+          });
+
+          todosConsumos.push(consumoItem);
+        }
+      });
+
+      // Filtra apenas consumos com data_final nos últimos 30 dias
+      const consumosRecentes = todosConsumos.filter(c => c.data_final >= limite30dias && c.data_final <= hoje);
+
+      // Pega apenas o último registro de cada cliente
+      const ultimoPorCliente: Record<string, ConsumoItem> = {};
+      consumosRecentes.forEach(item => {
+        const existing = ultimoPorCliente[item.cliente_id];
+        if (!existing || item.data_final > existing.data_final) {
+          ultimoPorCliente[item.cliente_id] = item;
+        }
+      });
+
+      const consumosFinais = Object.values(ultimoPorCliente);
+
+      // Agrega por produto
+      const desviosPorProduto: Record<string, { orcado: number; realizado: number; fazendas: Set<string> }> = {};
+
+      consumosFinais.forEach(consumo => {
+        Object.entries(consumo.produtos).forEach(([produtoId, dados]) => {
+          if (!desviosPorProduto[produtoId]) {
+            desviosPorProduto[produtoId] = { orcado: 0, realizado: 0, fazendas: new Set() };
+          }
+          
+          desviosPorProduto[produtoId].realizado += dados.consumo_30dias;
+          if (dados.orcado_30dias !== null) {
+            desviosPorProduto[produtoId].orcado += dados.orcado_30dias;
+          }
+          desviosPorProduto[produtoId].fazendas.add(consumo.cliente_id);
+        });
       });
 
       // Formata resultado
@@ -256,9 +328,9 @@ export default function Dashboard() {
           return {
             produto_id: produtoId,
             produto_nome: produto?.nome || 'Desconhecido',
-            orcado_litros: Math.round(dados.orcado),
-            realizado_litros: Math.round(dados.realizado),
-            desvio_litros: Math.round(desvioLitros),
+            orcado_litros: dados.orcado,
+            realizado_litros: dados.realizado,
+            desvio_litros: desvioLitros,
             desvio_percentual: Math.round(desvioPercentual * 10) / 10,
             fazendas_analisadas: dados.fazendas.size,
           };
