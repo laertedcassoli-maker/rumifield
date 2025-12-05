@@ -64,7 +64,9 @@ export type Database = {
           atualizado_por: string | null
           cliente_id: string
           data_atualizacao: string
+          galoes_cheios: number
           id: string
+          nivel_galao_parcial: number | null
           observacoes: string | null
           produto_id: string
           quantidade: number
@@ -73,7 +75,9 @@ export type Database = {
           atualizado_por?: string | null
           cliente_id: string
           data_atualizacao?: string
+          galoes_cheios?: number
           id?: string
+          nivel_galao_parcial?: number | null
           observacoes?: string | null
           produto_id: string
           quantidade?: number
@@ -82,7 +86,9 @@ export type Database = {
           atualizado_por?: string | null
           cliente_id?: string
           data_atualizacao?: string
+          galoes_cheios?: number
           id?: string
+          nivel_galao_parcial?: number | null
           observacoes?: string | null
           produto_id?: string
           quantidade?: number
