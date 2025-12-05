@@ -4,19 +4,29 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
-import { Beaker, Building2, Loader2, Save, ChevronsUpDown, Check } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
+import { Beaker, Building2, Loader2, Save, ChevronsUpDown, Check, Minus, Plus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+
+const VOLUME_GALAO = 50; // Litros
+
+interface EstoqueItem {
+  produtoId: string;
+  galoesCheios: number;
+  galaoEmUso: boolean;
+  nivelGalaoParcial: number; // 0, 25, 50, 75
+}
 
 export default function Estoque() {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [selectedCliente, setSelectedCliente] = useState<string>('');
-  const [quantidades, setQuantidades] = useState<Record<string, string>>({});
+  const [estoqueItems, setEstoqueItems] = useState<Record<string, EstoqueItem>>({});
   const [clienteOpen, setClienteOpen] = useState(false);
 
   const { data: clientes } = useQuery({
@@ -55,13 +65,25 @@ export default function Estoque() {
     mutationFn: async () => {
       if (!selectedCliente || !produtos) return;
 
-      const updates = produtos.map((produto) => ({
-        cliente_id: selectedCliente,
-        produto_id: produto.id,
-        quantidade: parseFloat(quantidades[produto.id] || '0'),
-        atualizado_por: user?.id,
-        data_atualizacao: new Date().toISOString(),
-      }));
+      const updates = produtos.map((produto) => {
+        const item = estoqueItems[produto.id];
+        const galoesCheios = item?.galoesCheios || 0;
+        const nivelParcial = item?.galaoEmUso ? (item.nivelGalaoParcial || 0) : null;
+        
+        // Calcular quantidade total em litros
+        const quantidadeTotal = (galoesCheios * VOLUME_GALAO) + 
+          (nivelParcial !== null ? (nivelParcial / 100) * VOLUME_GALAO : 0);
+
+        return {
+          cliente_id: selectedCliente,
+          produto_id: produto.id,
+          quantidade: quantidadeTotal,
+          galoes_cheios: galoesCheios,
+          nivel_galao_parcial: nivelParcial,
+          atualizado_por: user?.id,
+          data_atualizacao: new Date().toISOString(),
+        };
+      });
 
       const { error } = await supabase.from('estoque_cliente').upsert(updates, {
         onConflict: 'cliente_id,produto_id',
@@ -78,22 +100,49 @@ export default function Estoque() {
     },
   });
 
-  // Atualizar quantidades quando estoque carregar
+  // Atualizar estado quando estoque carregar
   useEffect(() => {
-    if (estoque) {
-      const newQuantidades: Record<string, string> = {};
-      estoque.forEach((item) => {
-        newQuantidades[item.produto_id] = item.quantidade.toString();
+    if (estoque && produtos) {
+      const newItems: Record<string, EstoqueItem> = {};
+      produtos.forEach((produto) => {
+        const estoqueItem = estoque.find((e) => e.produto_id === produto.id);
+        newItems[produto.id] = {
+          produtoId: produto.id,
+          galoesCheios: estoqueItem?.galoes_cheios || 0,
+          galaoEmUso: estoqueItem?.nivel_galao_parcial !== null && estoqueItem?.nivel_galao_parcial !== undefined,
+          nivelGalaoParcial: estoqueItem?.nivel_galao_parcial || 0,
+        };
       });
-      setQuantidades(newQuantidades);
+      setEstoqueItems(newItems);
     }
-  }, [estoque]);
+  }, [estoque, produtos]);
 
   const clienteSelecionado = clientes?.find((c) => c.id === selectedCliente);
 
   const getClienteLabel = (cliente: typeof clientes extends (infer T)[] ? T : never) => {
     return cliente.fazenda ? `${cliente.nome} - ${cliente.fazenda}` : cliente.nome;
   };
+
+  const updateEstoqueItem = (produtoId: string, updates: Partial<EstoqueItem>) => {
+    setEstoqueItems((prev) => ({
+      ...prev,
+      [produtoId]: { ...prev[produtoId], ...updates },
+    }));
+  };
+
+  const calcularTotalLitros = (item: EstoqueItem | undefined) => {
+    if (!item) return 0;
+    const cheios = item.galoesCheios * VOLUME_GALAO;
+    const parcial = item.galaoEmUso ? (item.nivelGalaoParcial / 100) * VOLUME_GALAO : 0;
+    return cheios + parcial;
+  };
+
+  const niveisDisponiveis = [
+    { value: 25, label: '25%' },
+    { value: 50, label: '50%' },
+    { value: 75, label: '75%' },
+    { value: 0, label: 'Vazio' },
+  ];
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -179,36 +228,129 @@ export default function Estoque() {
               Salvar
             </Button>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-6">
             {isLoading ? (
               <div className="flex justify-center py-8">
                 <Loader2 className="h-6 w-6 animate-spin text-primary" />
               </div>
             ) : (
               produtos?.map((produto) => {
-                const estoqueItem = estoque?.find((e) => e.produto_id === produto.id);
+                const item = estoqueItems[produto.id];
+                const totalLitros = calcularTotalLitros(item);
+                
                 return (
-                  <div key={produto.id} className="flex items-center gap-4 rounded-lg border p-4">
-                    <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-                      <Beaker className="h-5 w-5 text-primary" />
+                  <div key={produto.id} className="rounded-lg border p-4 space-y-4">
+                    {/* Header do produto */}
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
+                        <Beaker className="h-5 w-5 text-primary" />
+                      </div>
+                      <div className="flex-1">
+                        <p className="font-semibold">{produto.nome}</p>
+                        {produto.descricao && (
+                          <p className="text-sm text-muted-foreground">{produto.descricao}</p>
+                        )}
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm text-muted-foreground">Total estimado</p>
+                        <p className="font-bold text-lg text-primary">{totalLitros}L</p>
+                      </div>
                     </div>
-                    <div className="flex-1">
-                      <p className="font-medium">{produto.nome}</p>
-                      <p className="text-sm text-muted-foreground">{produto.descricao}</p>
+
+                    {/* Galões Cheios */}
+                    <div className="flex items-center justify-between bg-muted/50 rounded-lg p-3">
+                      <Label className="text-sm font-medium">Galões Cheios (50L)</Label>
+                      <div className="flex items-center gap-3">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => updateEstoqueItem(produto.id, { 
+                            galoesCheios: Math.max(0, (item?.galoesCheios || 0) - 1) 
+                          })}
+                        >
+                          <Minus className="h-4 w-4" />
+                        </Button>
+                        <span className="w-12 text-center font-bold text-lg">
+                          {item?.galoesCheios || 0}
+                        </span>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => updateEstoqueItem(produto.id, { 
+                            galoesCheios: (item?.galoesCheios || 0) + 1 
+                          })}
+                        >
+                          <Plus className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        className="w-24 text-right"
-                        value={quantidades[produto.id] || estoqueItem?.quantidade || ''}
-                        onChange={(e) =>
-                          setQuantidades((prev) => ({ ...prev, [produto.id]: e.target.value }))
-                        }
-                        placeholder="0"
-                      />
-                      <span className="text-sm text-muted-foreground w-12">{produto.unidade}</span>
+
+                    {/* Galão em Uso */}
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor={`galao-uso-${produto.id}`} className="text-sm font-medium">
+                          Galão em Uso
+                        </Label>
+                        <Switch
+                          id={`galao-uso-${produto.id}`}
+                          checked={item?.galaoEmUso || false}
+                          onCheckedChange={(checked) => 
+                            updateEstoqueItem(produto.id, { 
+                              galaoEmUso: checked,
+                              nivelGalaoParcial: checked ? 50 : 0 
+                            })
+                          }
+                        />
+                      </div>
+
+                      {/* Seletor de Nível com Barra Visual */}
+                      {item?.galaoEmUso && (
+                        <div className="space-y-3 pl-4 border-l-2 border-primary/30">
+                          <p className="text-sm text-muted-foreground">Nível do galão em uso:</p>
+                          
+                          {/* Botões de seleção */}
+                          <div className="flex gap-2 flex-wrap">
+                            {niveisDisponiveis.map((nivel) => (
+                              <Button
+                                key={nivel.value}
+                                type="button"
+                                variant={item.nivelGalaoParcial === nivel.value ? "default" : "outline"}
+                                size="sm"
+                                onClick={() => updateEstoqueItem(produto.id, { nivelGalaoParcial: nivel.value })}
+                                className="min-w-[60px]"
+                              >
+                                {nivel.label}
+                              </Button>
+                            ))}
+                          </div>
+
+                          {/* Barra visual de progresso */}
+                          <div className="space-y-1">
+                            <div className="h-6 w-full bg-muted rounded-full overflow-hidden border">
+                              <div
+                                className={cn(
+                                  "h-full transition-all duration-300 rounded-full",
+                                  item.nivelGalaoParcial >= 75 ? "bg-primary" :
+                                  item.nivelGalaoParcial >= 50 ? "bg-primary/80" :
+                                  item.nivelGalaoParcial >= 25 ? "bg-primary/60" :
+                                  "bg-muted-foreground/20"
+                                )}
+                                style={{ width: `${item.nivelGalaoParcial}%` }}
+                              />
+                            </div>
+                            <p className="text-xs text-muted-foreground text-center">
+                              {item.nivelGalaoParcial > 0 
+                                ? `${(item.nivelGalaoParcial / 100) * VOLUME_GALAO}L restantes`
+                                : 'Galão vazio'
+                              }
+                            </p>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
