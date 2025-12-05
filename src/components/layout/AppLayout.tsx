@@ -17,7 +17,7 @@ const pageTitles: Record<string, string> = {
   '/admin/clientes': 'Clientes',
   '/admin/usuarios': 'Usuários',
   '/admin/envios': 'Envios',
-  '/admin/config': 'Configurações',
+  '/admin/config': 'Cadastros',
 };
 
 export function AppLayout({ children }: AppLayoutProps) {
