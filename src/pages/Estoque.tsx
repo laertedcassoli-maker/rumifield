@@ -1,10 +1,12 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Beaker, Loader2, Plus, Calendar, User } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Beaker, Loader2, Plus, Calendar, User, ArrowUpDown, ArrowUp, ArrowDown, X } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { NovaAfericaoDialog } from '@/components/estoque/NovaAfericaoDialog';
@@ -16,8 +18,29 @@ interface ProdutoInfo {
   nome: string;
 }
 
+type SortDirection = 'asc' | 'desc' | null;
+type SortColumn = 'cliente' | 'fazenda' | 'data' | 'responsavel' | string;
+
+interface Filters {
+  cliente: string;
+  fazenda: string;
+  responsavel: string;
+  dataInicio: string;
+  dataFim: string;
+}
+
 export default function Estoque() {
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [sortColumn, setSortColumn] = useState<SortColumn | null>(null);
+  const [sortDirection, setSortDirection] = useState<SortDirection>(null);
+  const [filters, setFilters] = useState<Filters>({
+    cliente: '',
+    fazenda: '',
+    responsavel: '',
+    dataInicio: '',
+    dataFim: '',
+  });
+  const [showFilters, setShowFilters] = useState(false);
 
   const { data: produtos } = useQuery({
     queryKey: ['produtos-quimicos'],
@@ -45,37 +68,97 @@ export default function Estoque() {
   });
 
   // Agrupa aferições por cliente_id + data_afericao + responsavel
-  const afericoesAgrupadas = afericoes?.reduce((acc, item) => {
-    const key = `${item.cliente_id}-${item.data_afericao}-${item.responsavel}`;
-    if (!acc[key]) {
-      acc[key] = {
-        cliente_id: item.cliente_id,
-        cliente_nome: item.clientes?.nome || '',
-        cliente_fazenda: item.clientes?.fazenda || '',
-        data_afericao: item.data_afericao,
-        responsavel: item.responsavel,
-        data_atualizacao: item.data_atualizacao,
-        produtosPorId: {} as Record<string, { galoes_cheios: number; nivel_galao_parcial: number | null; quantidade: number }>,
+  const afericoesAgrupadas = useMemo(() => {
+    return afericoes?.reduce((acc, item) => {
+      const key = `${item.cliente_id}-${item.data_afericao}-${item.responsavel}`;
+      if (!acc[key]) {
+        acc[key] = {
+          cliente_id: item.cliente_id,
+          cliente_nome: item.clientes?.nome || '',
+          cliente_fazenda: item.clientes?.fazenda || '',
+          data_afericao: item.data_afericao,
+          responsavel: item.responsavel,
+          data_atualizacao: item.data_atualizacao,
+          produtosPorId: {} as Record<string, { galoes_cheios: number; nivel_galao_parcial: number | null; quantidade: number }>,
+        };
+      }
+      const produtoId = item.produtos_quimicos?.id || item.produto_id;
+      acc[key].produtosPorId[produtoId] = {
+        galoes_cheios: item.galoes_cheios,
+        nivel_galao_parcial: item.nivel_galao_parcial,
+        quantidade: item.quantidade,
       };
-    }
-    const produtoId = item.produtos_quimicos?.id || item.produto_id;
-    acc[key].produtosPorId[produtoId] = {
-      galoes_cheios: item.galoes_cheios,
-      nivel_galao_parcial: item.nivel_galao_parcial,
-      quantidade: item.quantidade,
-    };
-    return acc;
-  }, {} as Record<string, {
-    cliente_id: string;
-    cliente_nome: string;
-    cliente_fazenda: string;
-    data_afericao: string;
-    responsavel: string;
-    data_atualizacao: string;
-    produtosPorId: Record<string, { galoes_cheios: number; nivel_galao_parcial: number | null; quantidade: number }>;
-  }>);
+      return acc;
+    }, {} as Record<string, {
+      cliente_id: string;
+      cliente_nome: string;
+      cliente_fazenda: string;
+      data_afericao: string;
+      responsavel: string;
+      data_atualizacao: string;
+      produtosPorId: Record<string, { galoes_cheios: number; nivel_galao_parcial: number | null; quantidade: number }>;
+    }>);
+  }, [afericoes]);
 
-  const listaAfericoes = Object.values(afericoesAgrupadas || {});
+  // Filtra e ordena os dados
+  const listaAfericoes = useMemo(() => {
+    let lista = Object.values(afericoesAgrupadas || {});
+
+    // Aplicar filtros
+    if (filters.cliente) {
+      lista = lista.filter(a => 
+        a.cliente_nome.toLowerCase().includes(filters.cliente.toLowerCase())
+      );
+    }
+    if (filters.fazenda) {
+      lista = lista.filter(a => 
+        a.cliente_fazenda?.toLowerCase().includes(filters.fazenda.toLowerCase())
+      );
+    }
+    if (filters.responsavel) {
+      lista = lista.filter(a => a.responsavel === filters.responsavel);
+    }
+    if (filters.dataInicio) {
+      lista = lista.filter(a => a.data_afericao >= filters.dataInicio);
+    }
+    if (filters.dataFim) {
+      lista = lista.filter(a => a.data_afericao <= filters.dataFim);
+    }
+
+    // Aplicar ordenação
+    if (sortColumn && sortDirection) {
+      lista.sort((a, b) => {
+        let valueA: string | number = '';
+        let valueB: string | number = '';
+
+        if (sortColumn === 'cliente') {
+          valueA = a.cliente_nome.toLowerCase();
+          valueB = b.cliente_nome.toLowerCase();
+        } else if (sortColumn === 'fazenda') {
+          valueA = (a.cliente_fazenda || '').toLowerCase();
+          valueB = (b.cliente_fazenda || '').toLowerCase();
+        } else if (sortColumn === 'data') {
+          valueA = a.data_afericao || '';
+          valueB = b.data_afericao || '';
+        } else if (sortColumn === 'responsavel') {
+          valueA = a.responsavel;
+          valueB = b.responsavel;
+        } else {
+          // É um produto - ordenar por quantidade total
+          const produtoA = a.produtosPorId[sortColumn];
+          const produtoB = b.produtosPorId[sortColumn];
+          valueA = produtoA ? calcularTotalLitros(produtoA.galoes_cheios, produtoA.nivel_galao_parcial) : 0;
+          valueB = produtoB ? calcularTotalLitros(produtoB.galoes_cheios, produtoB.nivel_galao_parcial) : 0;
+        }
+
+        if (valueA < valueB) return sortDirection === 'asc' ? -1 : 1;
+        if (valueA > valueB) return sortDirection === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
+
+    return lista;
+  }, [afericoesAgrupadas, filters, sortColumn, sortDirection]);
 
   const calcularTotalLitros = (galoesCheios: number, nivelParcial: number | null) => {
     const cheios = galoesCheios * VOLUME_GALAO;
@@ -97,6 +180,42 @@ export default function Estoque() {
     );
   };
 
+  const handleSort = (column: SortColumn) => {
+    if (sortColumn === column) {
+      if (sortDirection === 'asc') {
+        setSortDirection('desc');
+      } else if (sortDirection === 'desc') {
+        setSortColumn(null);
+        setSortDirection(null);
+      }
+    } else {
+      setSortColumn(column);
+      setSortDirection('asc');
+    }
+  };
+
+  const getSortIcon = (column: SortColumn) => {
+    if (sortColumn !== column) {
+      return <ArrowUpDown className="h-4 w-4 ml-1 opacity-50" />;
+    }
+    if (sortDirection === 'asc') {
+      return <ArrowUp className="h-4 w-4 ml-1" />;
+    }
+    return <ArrowDown className="h-4 w-4 ml-1" />;
+  };
+
+  const clearFilters = () => {
+    setFilters({
+      cliente: '',
+      fazenda: '',
+      responsavel: '',
+      dataInicio: '',
+      dataFim: '',
+    });
+  };
+
+  const hasActiveFilters = Object.values(filters).some(v => v !== '');
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
@@ -112,10 +231,90 @@ export default function Estoque() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg flex items-center gap-2">
-            <Beaker className="h-5 w-5 text-primary" />
-            Aferições Registradas
-          </CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-lg flex items-center gap-2">
+              <Beaker className="h-5 w-5 text-primary" />
+              Aferições Registradas
+              {listaAfericoes.length > 0 && (
+                <span className="text-sm font-normal text-muted-foreground">
+                  ({listaAfericoes.length} registros)
+                </span>
+              )}
+            </CardTitle>
+            <div className="flex items-center gap-2">
+              {hasActiveFilters && (
+                <Button variant="ghost" size="sm" onClick={clearFilters}>
+                  <X className="h-4 w-4 mr-1" />
+                  Limpar filtros
+                </Button>
+              )}
+              <Button 
+                variant={showFilters ? "secondary" : "outline"} 
+                size="sm" 
+                onClick={() => setShowFilters(!showFilters)}
+              >
+                Filtros
+              </Button>
+            </div>
+          </div>
+
+          {/* Filtros */}
+          {showFilters && (
+            <div className="grid grid-cols-2 md:grid-cols-5 gap-3 pt-4 border-t mt-4">
+              <div className="space-y-1">
+                <label className="text-xs text-muted-foreground">Cliente</label>
+                <Input
+                  placeholder="Filtrar..."
+                  value={filters.cliente}
+                  onChange={(e) => setFilters(f => ({ ...f, cliente: e.target.value }))}
+                  className="h-8"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs text-muted-foreground">Fazenda</label>
+                <Input
+                  placeholder="Filtrar..."
+                  value={filters.fazenda}
+                  onChange={(e) => setFilters(f => ({ ...f, fazenda: e.target.value }))}
+                  className="h-8"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs text-muted-foreground">Responsável</label>
+                <Select 
+                  value={filters.responsavel} 
+                  onValueChange={(v) => setFilters(f => ({ ...f, responsavel: v === 'all' ? '' : v }))}
+                >
+                  <SelectTrigger className="h-8">
+                    <SelectValue placeholder="Todos" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos</SelectItem>
+                    <SelectItem value="Cliente">Cliente</SelectItem>
+                    <SelectItem value="CSM">CSM</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs text-muted-foreground">Data início</label>
+                <Input
+                  type="date"
+                  value={filters.dataInicio}
+                  onChange={(e) => setFilters(f => ({ ...f, dataInicio: e.target.value }))}
+                  className="h-8"
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-xs text-muted-foreground">Data fim</label>
+                <Input
+                  type="date"
+                  value={filters.dataFim}
+                  onChange={(e) => setFilters(f => ({ ...f, dataFim: e.target.value }))}
+                  className="h-8"
+                />
+              </div>
+            </div>
+          )}
         </CardHeader>
         <CardContent>
           {isLoading ? (
@@ -124,20 +323,62 @@ export default function Estoque() {
             </div>
           ) : listaAfericoes.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
-              Nenhuma aferição registrada ainda.
+              {hasActiveFilters 
+                ? 'Nenhuma aferição encontrada com os filtros aplicados.'
+                : 'Nenhuma aferição registrada ainda.'
+              }
             </div>
           ) : (
             <div className="overflow-x-auto">
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Cliente</TableHead>
-                    <TableHead>Fazenda</TableHead>
-                    <TableHead>Data Aferição</TableHead>
-                    <TableHead>Responsável</TableHead>
+                    <TableHead 
+                      className="cursor-pointer hover:bg-muted/50 select-none"
+                      onClick={() => handleSort('cliente')}
+                    >
+                      <div className="flex items-center">
+                        Cliente
+                        {getSortIcon('cliente')}
+                      </div>
+                    </TableHead>
+                    <TableHead 
+                      className="cursor-pointer hover:bg-muted/50 select-none"
+                      onClick={() => handleSort('fazenda')}
+                    >
+                      <div className="flex items-center">
+                        Fazenda
+                        {getSortIcon('fazenda')}
+                      </div>
+                    </TableHead>
+                    <TableHead 
+                      className="cursor-pointer hover:bg-muted/50 select-none"
+                      onClick={() => handleSort('data')}
+                    >
+                      <div className="flex items-center">
+                        Data Aferição
+                        {getSortIcon('data')}
+                      </div>
+                    </TableHead>
+                    <TableHead 
+                      className="cursor-pointer hover:bg-muted/50 select-none"
+                      onClick={() => handleSort('responsavel')}
+                    >
+                      <div className="flex items-center">
+                        Responsável
+                        {getSortIcon('responsavel')}
+                      </div>
+                    </TableHead>
                     {produtos?.map((produto) => (
-                      <TableHead key={produto.id} className="text-center">
-                        {produto.nome}
+                      <TableHead 
+                        key={produto.id} 
+                        className="text-center cursor-pointer hover:bg-muted/50 select-none"
+                        onClick={() => handleSort(produto.id)}
+                      >
+                        <div className="flex items-center justify-center">
+                          {produto.nome}
+                          {getSortIcon(produto.id)}
+                        </div>
                       </TableHead>
                     ))}
                   </TableRow>
