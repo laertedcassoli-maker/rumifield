@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Plus, Package, Pencil, Trash2, Beaker, Minus, ChevronsUpDown, Check, Calendar, Save, Loader2, ShieldAlert } from "lucide-react";
+import { Plus, Package, Pencil, Trash2, Beaker, Minus, ChevronsUpDown, Check, Calendar, Save, Loader2, ShieldAlert, Filter, ArrowUpDown, ArrowUp, ArrowDown, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
@@ -69,6 +69,16 @@ interface EnvioAgrupado {
   envioIds: string[];
 }
 
+interface Filters {
+  cliente: string;
+  fazenda: string;
+  dataInicio: string;
+  dataFim: string;
+}
+
+type SortColumn = 'data' | 'cliente' | 'fazenda' | string;
+type SortDirection = 'asc' | 'desc' | null;
+
 const Envios = () => {
   const { role, user } = useAuth();
   const queryClient = useQueryClient();
@@ -80,6 +90,17 @@ const Envios = () => {
   const [dataEnvio, setDataEnvio] = useState(format(new Date(), "yyyy-MM-dd"));
   const [observacoes, setObservacoes] = useState("");
   const [envioItems, setEnvioItems] = useState<Record<string, EnvioItem>>({});
+  
+  // Filter and sort states
+  const [showFilters, setShowFilters] = useState(false);
+  const [filters, setFilters] = useState<Filters>({
+    cliente: "",
+    fazenda: "",
+    dataInicio: "",
+    dataFim: "",
+  });
+  const [sortColumn, setSortColumn] = useState<SortColumn>('data');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('desc');
 
   const isAdmin = role === "admin";
 
@@ -130,7 +151,7 @@ const Envios = () => {
     enabled: isAdmin,
   });
 
-  // Group envios by date + client
+  // Group envios by date + client, then filter and sort
   const enviosAgrupados = useMemo(() => {
     const grupos: Record<string, EnvioAgrupado> = {};
     
@@ -158,10 +179,73 @@ const Envios = () => {
       grupos[chave].envioIds.push(envio.id);
     });
     
-    return Object.values(grupos).sort((a, b) => 
-      new Date(b.data_envio).getTime() - new Date(a.data_envio).getTime()
-    );
-  }, [envios]);
+    let lista = Object.values(grupos);
+    
+    // Apply filters
+    if (filters.cliente) {
+      lista = lista.filter(g => 
+        g.cliente_nome.toLowerCase().includes(filters.cliente.toLowerCase())
+      );
+    }
+    if (filters.fazenda) {
+      lista = lista.filter(g => 
+        g.cliente_fazenda?.toLowerCase().includes(filters.fazenda.toLowerCase())
+      );
+    }
+    if (filters.dataInicio) {
+      lista = lista.filter(g => g.data_envio >= filters.dataInicio);
+    }
+    if (filters.dataFim) {
+      lista = lista.filter(g => g.data_envio <= filters.dataFim);
+    }
+    
+    // Apply sorting
+    if (sortColumn && sortDirection) {
+      lista.sort((a, b) => {
+        let comparison = 0;
+        
+        if (sortColumn === 'data') {
+          comparison = new Date(a.data_envio).getTime() - new Date(b.data_envio).getTime();
+        } else if (sortColumn === 'cliente') {
+          comparison = a.cliente_nome.localeCompare(b.cliente_nome);
+        } else if (sortColumn === 'fazenda') {
+          comparison = (a.cliente_fazenda || '').localeCompare(b.cliente_fazenda || '');
+        } else {
+          // Sort by product column (by quantidade)
+          const qtyA = a.produtos[sortColumn]?.quantidade || 0;
+          const qtyB = b.produtos[sortColumn]?.quantidade || 0;
+          comparison = qtyA - qtyB;
+        }
+        
+        return sortDirection === 'desc' ? -comparison : comparison;
+      });
+    }
+    
+    return lista;
+  }, [envios, filters, sortColumn, sortDirection]);
+
+  const handleSort = (column: SortColumn) => {
+    if (sortColumn === column) {
+      if (sortDirection === 'asc') setSortDirection('desc');
+      else if (sortDirection === 'desc') {
+        setSortColumn('data');
+        setSortDirection('desc');
+      }
+    } else {
+      setSortColumn(column);
+      setSortDirection('asc');
+    }
+  };
+
+  const getSortIcon = (column: SortColumn) => {
+    if (sortColumn !== column) return <ArrowUpDown className="h-4 w-4 ml-1 opacity-50" />;
+    if (sortDirection === 'asc') return <ArrowUp className="h-4 w-4 ml-1" />;
+    return <ArrowDown className="h-4 w-4 ml-1" />;
+  };
+
+  const clearFilters = () => {
+    setFilters({ cliente: "", fazenda: "", dataInicio: "", dataFim: "" });
+  };
 
   useEffect(() => {
     if (produtos && produtos.length > 0 && Object.keys(envioItems).length === 0 && !editingGroup) {
@@ -578,13 +662,67 @@ const Envios = () => {
       </div>
 
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle className="flex items-center gap-2">
             <Package className="h-5 w-5" />
             Histórico de Envios
           </CardTitle>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowFilters(!showFilters)}
+          >
+            <Filter className="h-4 w-4 mr-2" />
+            Filtros
+          </Button>
         </CardHeader>
-        <CardContent>
+        <CardContent className="space-y-4">
+          {/* Filter section */}
+          {showFilters && (
+            <div className="p-4 border rounded-lg bg-muted/30 space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="space-y-2">
+                  <Label>Cliente</Label>
+                  <Input
+                    placeholder="Filtrar por cliente..."
+                    value={filters.cliente}
+                    onChange={(e) => setFilters({ ...filters, cliente: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Fazenda</Label>
+                  <Input
+                    placeholder="Filtrar por fazenda..."
+                    value={filters.fazenda}
+                    onChange={(e) => setFilters({ ...filters, fazenda: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Data Início</Label>
+                  <Input
+                    type="date"
+                    value={filters.dataInicio}
+                    onChange={(e) => setFilters({ ...filters, dataInicio: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Data Fim</Label>
+                  <Input
+                    type="date"
+                    value={filters.dataFim}
+                    onChange={(e) => setFilters({ ...filters, dataFim: e.target.value })}
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end">
+                <Button variant="ghost" size="sm" onClick={clearFilters}>
+                  <X className="h-4 w-4 mr-1" />
+                  Limpar filtros
+                </Button>
+              </div>
+            </div>
+          )}
+
           {isLoading ? (
             <p className="text-center py-8 text-muted-foreground">Carregando...</p>
           ) : enviosAgrupados.length === 0 ? (
@@ -596,12 +734,43 @@ const Envios = () => {
               <Table>
                 <TableHeader>
                   <TableRow>
-                    <TableHead>Data</TableHead>
-                    <TableHead>Cliente</TableHead>
-                    <TableHead>Fazenda</TableHead>
+                    <TableHead 
+                      className="cursor-pointer select-none"
+                      onClick={() => handleSort('data')}
+                    >
+                      <div className="flex items-center">
+                        Data
+                        {getSortIcon('data')}
+                      </div>
+                    </TableHead>
+                    <TableHead 
+                      className="cursor-pointer select-none"
+                      onClick={() => handleSort('cliente')}
+                    >
+                      <div className="flex items-center">
+                        Cliente
+                        {getSortIcon('cliente')}
+                      </div>
+                    </TableHead>
+                    <TableHead 
+                      className="cursor-pointer select-none"
+                      onClick={() => handleSort('fazenda')}
+                    >
+                      <div className="flex items-center">
+                        Fazenda
+                        {getSortIcon('fazenda')}
+                      </div>
+                    </TableHead>
                     {produtos.map((produto) => (
-                      <TableHead key={produto.id} className="text-center">
-                        {produto.nome}
+                      <TableHead 
+                        key={produto.id} 
+                        className="text-center cursor-pointer select-none"
+                        onClick={() => handleSort(produto.id)}
+                      >
+                        <div className="flex items-center justify-center">
+                          {produto.nome}
+                          {getSortIcon(produto.id)}
+                        </div>
                       </TableHead>
                     ))}
                     <TableHead>Obs.</TableHead>
@@ -623,12 +792,14 @@ const Envios = () => {
                         return (
                           <TableCell key={produto.id} className="text-center">
                             {produtoEnvio ? (
-                              <span className="font-medium">
-                                {produtoEnvio.galoes} gal.
-                                <span className="text-xs text-muted-foreground ml-1">
-                                  ({produtoEnvio.quantidade}L)
+                              <div className="flex flex-col">
+                                <span className="font-bold text-primary">
+                                  {produtoEnvio.quantidade}L
                                 </span>
-                              </span>
+                                <span className="text-xs text-muted-foreground">
+                                  ({produtoEnvio.galoes} galões de 50L)
+                                </span>
+                              </div>
                             ) : (
                               <span className="text-muted-foreground">-</span>
                             )}
