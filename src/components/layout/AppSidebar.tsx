@@ -23,8 +23,11 @@ export function AppSidebar() {
     { title: 'Início', icon: Home, url: '/' },
     { title: 'Visitas', icon: MapPin, url: '/visitas' },
     { title: 'Estoque', icon: Beaker, url: '/estoque' },
-    { title: 'Envios', icon: Truck, url: '/envios' },
     { title: 'Pedidos', icon: ShoppingCart, url: '/pedidos' },
+  ];
+
+  const adminOnlyItems = [
+    { title: 'Envios', icon: Truck, url: '/envios' },
   ];
 
   const adminMenuItems = [
@@ -34,6 +37,7 @@ export function AppSidebar() {
   ];
 
   const showAdminMenu = role === 'admin' || role === 'gestor';
+  const isAdmin = role === 'admin';
 
   return (
     <Sidebar>
@@ -55,6 +59,16 @@ export function AppSidebar() {
           <SidebarGroupContent>
             <SidebarMenu>
               {mainMenuItems.map((item) => (
+                <SidebarMenuItem key={item.title}>
+                  <SidebarMenuButton asChild isActive={location.pathname === item.url}>
+                    <Link to={item.url}>
+                      <item.icon className="h-4 w-4" />
+                      <span>{item.title}</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              ))}
+              {isAdmin && adminOnlyItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild isActive={location.pathname === item.url}>
                     <Link to={item.url}>
