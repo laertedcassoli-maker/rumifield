@@ -351,6 +351,44 @@ export function ConsumoTab({ produtoId }: ConsumoTabProps) {
     return lista;
   }, [consumoData, filters, sortColumn, sortDirection, viewMode]);
 
+  // Calcula totais
+  const totais = useMemo(() => {
+    if (!produtos || consumoFiltrado.length === 0) return null;
+    
+    const result: Record<string, { orcado: number; realizado: number; desvioL: number; desvioP: number | null }> = {};
+    
+    produtos.forEach(produto => {
+      let totalOrcado = 0;
+      let totalRealizado = 0;
+      let countWithOrcado = 0;
+      
+      consumoFiltrado.forEach(item => {
+        const dados = item.produtos[produto.id];
+        if (dados) {
+          const consumo = viewMode === 'periodo' ? dados.consumo : dados.consumo_30dias;
+          totalRealizado += consumo;
+          
+          if (dados.orcado_30dias !== null && dados.orcado_30dias !== undefined) {
+            totalOrcado += dados.orcado_30dias;
+            countWithOrcado++;
+          }
+        }
+      });
+      
+      const desvioL = totalRealizado - totalOrcado;
+      const desvioP = totalOrcado > 0 ? Math.round(((totalRealizado - totalOrcado) / totalOrcado) * 100) : null;
+      
+      result[produto.id] = {
+        orcado: totalOrcado,
+        realizado: totalRealizado,
+        desvioL,
+        desvioP
+      };
+    });
+    
+    return result;
+  }, [consumoFiltrado, produtos, viewMode]);
+
   const handleSort = (column: SortColumn) => {
     if (sortColumn === column) {
       if (sortDirection === 'asc') {
@@ -612,6 +650,51 @@ export function ConsumoTab({ produtoId }: ConsumoTabProps) {
                   </TableRow>
                 ))}
               </TableBody>
+              {totais && (
+                <tfoot className="border-t-2 bg-muted/50">
+                  <tr>
+                    <td colSpan={5} className="px-4 py-3 font-semibold text-sm">
+                      Total ({consumoFiltrado.length} períodos)
+                    </td>
+                    {produtos?.map((produto) => {
+                      const dados = totais[produto.id];
+                      const getSemaforoColor = (desvio: number | null) => {
+                        if (desvio === null) return 'bg-muted text-muted-foreground';
+                        if (desvio <= 0) return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400';
+                        if (desvio <= 20) return 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400';
+                        return 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400';
+                      };
+                      
+                      return (
+                        <>
+                          <td key={`${produto.id}-orc-total`} className="px-4 py-3 text-center border-l">
+                            <span className="text-sm font-medium text-muted-foreground">
+                              {dados.orcado}L
+                            </span>
+                          </td>
+                          <td key={`${produto.id}-real-total`} className="px-4 py-3 text-center">
+                            <span className="text-sm font-semibold">
+                              {dados.realizado}L
+                            </span>
+                          </td>
+                          <td key={`${produto.id}-desv-l-total`} className="px-4 py-3 text-center">
+                            <span className="text-sm font-medium">
+                              {dados.desvioL > 0 ? '+' : ''}{dados.desvioL}L
+                            </span>
+                          </td>
+                          <td key={`${produto.id}-desv-p-total`} className="px-4 py-3 text-center">
+                            {dados.desvioP !== null ? (
+                              <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-bold ${getSemaforoColor(dados.desvioP)}`}>
+                                {dados.desvioP > 0 ? '+' : ''}{dados.desvioP}%
+                              </span>
+                            ) : '-'}
+                          </td>
+                        </>
+                      );
+                    })}
+                  </tr>
+                </tfoot>
+              )}
             </Table>
           </div>
         )}
