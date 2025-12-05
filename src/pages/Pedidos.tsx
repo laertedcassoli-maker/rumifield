@@ -36,12 +36,15 @@ const statusLabels: Record<string, string> = {
 };
 
 export default function Pedidos() {
-  const { user } = useAuth();
+  const { user, role } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ cliente_id: '', observacoes: '' });
   const [itens, setItens] = useState<{ peca_id: string; quantidade: number }[]>([]);
+  const [viewAll, setViewAll] = useState(false);
+  
+  const isAdmin = role === 'admin' || role === 'gestor';
 
   const { data: clientes } = useQuery({
     queryKey: ['clientes'],
@@ -62,15 +65,23 @@ export default function Pedidos() {
   });
 
   const { data: pedidos, isLoading } = useQuery({
-    queryKey: ['pedidos'],
+    queryKey: ['pedidos', viewAll, user?.id],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('pedidos')
-        .select('*, clientes(nome, fazenda), pedido_itens(*, pecas(nome, codigo))')
+        .select('*, clientes(nome, fazenda), pedido_itens(*, pecas(nome, codigo)), profiles:solicitante_id(nome, email)')
         .order('created_at', { ascending: false });
+      
+      // Se não for admin ou se for admin mas não quer ver todos, filtra pelo usuário
+      if (!isAdmin || !viewAll) {
+        query = query.eq('solicitante_id', user?.id);
+      }
+      
+      const { data, error } = await query;
       if (error) throw error;
       return data;
     },
+    enabled: !!user?.id,
   });
 
   const createPedido = useMutation({
@@ -218,10 +229,22 @@ export default function Pedidos() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Pedidos de Peças</h1>
-          <p className="text-muted-foreground">Solicite peças para seus clientes</p>
+          <p className="text-muted-foreground">
+            {isAdmin && viewAll ? 'Todos os pedidos' : 'Seus pedidos'}
+          </p>
         </div>
-        <Dialog open={open} onOpenChange={setOpen}>
-          <DialogTrigger asChild>
+        <div className="flex items-center gap-2">
+          {isAdmin && (
+            <Button 
+              variant={viewAll ? "secondary" : "outline"} 
+              size="sm"
+              onClick={() => setViewAll(!viewAll)}
+            >
+              {viewAll ? 'Ver meus pedidos' : 'Ver todos'}
+            </Button>
+          )}
+          <Dialog open={open} onOpenChange={setOpen}>
+            <DialogTrigger asChild>
             <Button>
               <Plus className="mr-2 h-4 w-4" />
               Novo Pedido
@@ -373,6 +396,7 @@ export default function Pedidos() {
             </form>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       {/* Filters */}
@@ -445,6 +469,9 @@ export default function Pedidos() {
                     <ArrowUpDown className="ml-2 h-4 w-4" />
                   </Button>
                 </TableHead>
+                {isAdmin && viewAll && (
+                  <TableHead>Solicitante</TableHead>
+                )}
                 <TableHead>
                   <Button 
                     variant="ghost" 
@@ -478,6 +505,12 @@ export default function Pedidos() {
                       {format(new Date(pedido.created_at), "HH:mm", { locale: ptBR })}
                     </span>
                   </TableCell>
+                  {isAdmin && viewAll && (
+                    <TableCell>
+                      <div className="font-medium">{(pedido as any).profiles?.nome || '-'}</div>
+                      <div className="text-xs text-muted-foreground">{(pedido as any).profiles?.email}</div>
+                    </TableCell>
+                  )}
                   <TableCell>
                     <div className="font-medium">{pedido.clientes?.nome}</div>
                     {pedido.clientes?.fazenda && (
