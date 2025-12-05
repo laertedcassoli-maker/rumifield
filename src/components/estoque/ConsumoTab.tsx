@@ -5,14 +5,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { TrendingDown, Loader2, Calendar, X, ArrowUpDown, ArrowUp, ArrowDown, CalendarIcon, Users } from 'lucide-react';
-import { format, parseISO, differenceInDays, subDays } from 'date-fns';
+import { TrendingDown, Loader2, Calendar, X, ArrowUpDown, ArrowUp, ArrowDown, Users } from 'lucide-react';
+import { format, parseISO, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Calendar as CalendarComponent } from '@/components/ui/calendar';
-import { cn } from '@/lib/utils';
 
 const VOLUME_GALAO = 50;
 
@@ -53,8 +50,6 @@ export function ConsumoTab({ produtoId }: ConsumoTabProps) {
   const [filters, setFilters] = useState({
     cliente: '',
     fazenda: '',
-    dataInicial: subDays(new Date(), 30) as Date | null,
-    dataFinal: new Date() as Date | null,
   });
   const [showFilters, setShowFilters] = useState(false);
   const [sortColumn, setSortColumn] = useState<SortColumn | null>(null);
@@ -328,14 +323,6 @@ export function ConsumoTab({ produtoId }: ConsumoTabProps) {
         c.cliente_fazenda?.toLowerCase().includes(filters.fazenda.toLowerCase())
       );
     }
-    if (filters.dataInicial) {
-      const dataInicialStr = format(filters.dataInicial, 'yyyy-MM-dd');
-      lista = lista.filter(c => c.data_final >= dataInicialStr);
-    }
-    if (filters.dataFinal) {
-      const dataFinalStr = format(filters.dataFinal, 'yyyy-MM-dd');
-      lista = lista.filter(c => c.data_final <= dataFinalStr);
-    }
 
     if (sortColumn && sortDirection) {
       lista.sort((a, b) => {
@@ -440,10 +427,10 @@ export function ConsumoTab({ produtoId }: ConsumoTabProps) {
   };
 
   const clearFilters = () => {
-    setFilters({ cliente: '', fazenda: '', dataInicial: subDays(new Date(), 30), dataFinal: new Date() });
+    setFilters({ cliente: '', fazenda: '' });
   };
 
-  const hasActiveFilters = filters.cliente !== '' || filters.fazenda !== '' || filters.dataInicial !== null || filters.dataFinal !== null;
+  const hasActiveFilters = filters.cliente !== '' || filters.fazenda !== '';
   
   // Contador de fazendas únicas
   const totalFazendas = useMemo(() => {
@@ -500,71 +487,15 @@ export function ConsumoTab({ produtoId }: ConsumoTabProps) {
               </TabsList>
             </Tabs>
           </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <Button
-              variant={apenasUltimaMedida ? "default" : "outline"}
-              size="sm"
-              onClick={() => setApenasUltimaMedida(!apenasUltimaMedida)}
-              className="h-8 text-xs"
-            >
-              <Calendar className="h-3 w-3 mr-1" />
-              Última Medida
-            </Button>
-            
-            <div className="flex items-center gap-1">
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className={cn(
-                      "h-8 text-xs justify-start",
-                      !filters.dataInicial && "text-muted-foreground"
-                    )}
-                  >
-                    <CalendarIcon className="mr-1 h-3 w-3" />
-                    {filters.dataInicial ? format(filters.dataInicial, "dd/MM/yy") : "Início"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <CalendarComponent
-                    mode="single"
-                    selected={filters.dataInicial || undefined}
-                    onSelect={(date) => setFilters(f => ({ ...f, dataInicial: date || null }))}
-                    initialFocus
-                    className={cn("p-3 pointer-events-auto")}
-                    locale={ptBR}
-                  />
-                </PopoverContent>
-              </Popover>
-              <span className="text-xs text-muted-foreground">a</span>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className={cn(
-                      "h-8 text-xs justify-start",
-                      !filters.dataFinal && "text-muted-foreground"
-                    )}
-                  >
-                    <CalendarIcon className="mr-1 h-3 w-3" />
-                    {filters.dataFinal ? format(filters.dataFinal, "dd/MM/yy") : "Fim"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <CalendarComponent
-                    mode="single"
-                    selected={filters.dataFinal || undefined}
-                    onSelect={(date) => setFilters(f => ({ ...f, dataFinal: date || null }))}
-                    initialFocus
-                    className={cn("p-3 pointer-events-auto")}
-                    locale={ptBR}
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-          </div>
+          <Button
+            variant={apenasUltimaMedida ? "default" : "outline"}
+            size="sm"
+            onClick={() => setApenasUltimaMedida(!apenasUltimaMedida)}
+            className="h-8 text-xs"
+          >
+            <Calendar className="h-3 w-3 mr-1" />
+            Última Medida
+          </Button>
         </div>
 
         {showFilters && (
