@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -12,7 +12,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
-import { Plus, ShoppingCart, Building2, Loader2, Package, Trash2, Minus, Check, ChevronsUpDown } from 'lucide-react';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Plus, ShoppingCart, Loader2, Package, Trash2, Minus, Check, ChevronsUpDown, ArrowUpDown, Search, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -111,6 +112,60 @@ export default function Pedidos() {
   });
 
   const [openPopovers, setOpenPopovers] = useState<Record<number, boolean>>({});
+  
+  // Filter and sort state
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [sortField, setSortField] = useState<'created_at' | 'cliente' | 'status'>('created_at');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+
+  const filteredAndSortedPedidos = useMemo(() => {
+    if (!pedidos) return [];
+    
+    let filtered = pedidos.filter(pedido => {
+      const matchesSearch = searchTerm === '' || 
+        pedido.clientes?.nome?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        pedido.clientes?.fazenda?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        pedido.pedido_itens?.some((item: any) => 
+          item.pecas?.codigo?.toLowerCase().includes(searchTerm.toLowerCase())
+        );
+      
+      const matchesStatus = statusFilter === 'all' || pedido.status === statusFilter;
+      
+      return matchesSearch && matchesStatus;
+    });
+    
+    filtered.sort((a, b) => {
+      let comparison = 0;
+      
+      if (sortField === 'created_at') {
+        comparison = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      } else if (sortField === 'cliente') {
+        comparison = (a.clientes?.nome || '').localeCompare(b.clientes?.nome || '');
+      } else if (sortField === 'status') {
+        const statusOrder = ['solicitado', 'processamento', 'faturado', 'enviado', 'entregue'];
+        comparison = statusOrder.indexOf(a.status) - statusOrder.indexOf(b.status);
+      }
+      
+      return sortOrder === 'asc' ? comparison : -comparison;
+    });
+    
+    return filtered;
+  }, [pedidos, searchTerm, statusFilter, sortField, sortOrder]);
+
+  const toggleSort = (field: 'created_at' | 'cliente' | 'status') => {
+    if (sortField === field) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortOrder('asc');
+    }
+  };
+
+  const clearFilters = () => {
+    setSearchTerm('');
+    setStatusFilter('all');
+  };
 
   const addItem = () => {
     setItens([...itens, { peca_id: '', quantidade: 1 }]);
@@ -320,6 +375,41 @@ export default function Pedidos() {
         </Dialog>
       </div>
 
+      {/* Filters */}
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex flex-col sm:flex-row gap-4">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar por cliente, fazenda ou código da peça..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-9"
+              />
+            </div>
+            <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <SelectTrigger className="w-full sm:w-[180px]">
+                <SelectValue placeholder="Status" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os status</SelectItem>
+                <SelectItem value="solicitado">Solicitado</SelectItem>
+                <SelectItem value="processamento">Em Processamento</SelectItem>
+                <SelectItem value="faturado">Faturado</SelectItem>
+                <SelectItem value="enviado">Enviado</SelectItem>
+                <SelectItem value="entregue">Entregue</SelectItem>
+              </SelectContent>
+            </Select>
+            {(searchTerm || statusFilter !== 'all') && (
+              <Button variant="ghost" size="icon" onClick={clearFilters}>
+                <X className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
       {isLoading ? (
         <div className="flex justify-center py-12">
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -332,48 +422,91 @@ export default function Pedidos() {
             <p className="text-muted-foreground">Clique em "Novo Pedido" para solicitar peças.</p>
           </CardContent>
         </Card>
+      ) : filteredAndSortedPedidos.length === 0 ? (
+        <Card>
+          <CardContent className="py-12 text-center">
+            <Search className="mx-auto h-12 w-12 text-muted-foreground/50" />
+            <h3 className="mt-4 font-semibold">Nenhum pedido encontrado</h3>
+            <p className="text-muted-foreground">Tente ajustar os filtros de busca.</p>
+          </CardContent>
+        </Card>
       ) : (
-        <div className="grid gap-4">
-          {pedidos?.map((pedido) => (
-            <Card key={pedido.id}>
-              <CardHeader className="pb-2">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <CardTitle className="flex items-center gap-2 text-lg">
-                      <Building2 className="h-4 w-4 text-primary" />
-                      {pedido.clientes?.nome}
-                    </CardTitle>
+        <Card>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>
+                  <Button 
+                    variant="ghost" 
+                    className="h-auto p-0 font-medium hover:bg-transparent"
+                    onClick={() => toggleSort('created_at')}
+                  >
+                    Data
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                  </Button>
+                </TableHead>
+                <TableHead>
+                  <Button 
+                    variant="ghost" 
+                    className="h-auto p-0 font-medium hover:bg-transparent"
+                    onClick={() => toggleSort('cliente')}
+                  >
+                    Cliente / Fazenda
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                  </Button>
+                </TableHead>
+                <TableHead>Peças</TableHead>
+                <TableHead>
+                  <Button 
+                    variant="ghost" 
+                    className="h-auto p-0 font-medium hover:bg-transparent"
+                    onClick={() => toggleSort('status')}
+                  >
+                    Status
+                    <ArrowUpDown className="ml-2 h-4 w-4" />
+                  </Button>
+                </TableHead>
+                <TableHead>NF</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredAndSortedPedidos.map((pedido) => (
+                <TableRow key={pedido.id}>
+                  <TableCell className="whitespace-nowrap">
+                    {format(new Date(pedido.created_at), "dd/MM/yyyy", { locale: ptBR })}
+                    <span className="block text-xs text-muted-foreground">
+                      {format(new Date(pedido.created_at), "HH:mm", { locale: ptBR })}
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    <div className="font-medium">{pedido.clientes?.nome}</div>
                     {pedido.clientes?.fazenda && (
-                      <p className="text-sm text-muted-foreground">{pedido.clientes.fazenda}</p>
+                      <div className="text-sm text-muted-foreground">{pedido.clientes.fazenda}</div>
                     )}
-                  </div>
-                  <Badge variant="outline" className={statusColors[pedido.status]}>
-                    {statusLabels[pedido.status]}
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-3">
-                <div className="flex flex-wrap gap-2">
-                  {pedido.pedido_itens?.map((item: any) => (
-                    <Badge key={item.id} variant="secondary">
-                      <Package className="mr-1 h-3 w-3" />
-                      {item.pecas?.codigo} x{item.quantidade}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex flex-wrap gap-1 max-w-[200px]">
+                      {pedido.pedido_itens?.map((item: any) => (
+                        <Badge key={item.id} variant="secondary" className="text-xs">
+                          <Package className="mr-1 h-3 w-3" />
+                          {item.pecas?.codigo} x{item.quantidade}
+                        </Badge>
+                      ))}
+                    </div>
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="outline" className={statusColors[pedido.status]}>
+                      {statusLabels[pedido.status]}
                     </Badge>
-                  ))}
-                </div>
-                {pedido.observacoes && (
-                  <p className="text-sm text-muted-foreground">{pedido.observacoes}</p>
-                )}
-                <div className="flex items-center justify-between text-xs text-muted-foreground">
-                  <span>
-                    Criado em {format(new Date(pedido.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
-                  </span>
-                  {pedido.omie_nf_numero && <span>NF: {pedido.omie_nf_numero}</span>}
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+                  </TableCell>
+                  <TableCell className="text-muted-foreground">
+                    {pedido.omie_nf_numero || '-'}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </Card>
       )}
     </div>
   );
