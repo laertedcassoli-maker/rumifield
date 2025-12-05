@@ -5,11 +5,14 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { TrendingDown, Loader2, Calendar, X, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { TrendingDown, Loader2, Calendar, X, ArrowUpDown, ArrowUp, ArrowDown, CalendarIcon, Users } from 'lucide-react';
 import { format, parseISO, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar as CalendarComponent } from '@/components/ui/calendar';
+import { cn } from '@/lib/utils';
 
 const VOLUME_GALAO = 50;
 
@@ -50,6 +53,8 @@ export function ConsumoTab({ produtoId }: ConsumoTabProps) {
   const [filters, setFilters] = useState({
     cliente: '',
     fazenda: '',
+    dataInicial: null as Date | null,
+    dataFinal: null as Date | null,
   });
   const [showFilters, setShowFilters] = useState(false);
   const [sortColumn, setSortColumn] = useState<SortColumn | null>(null);
@@ -326,6 +331,14 @@ export function ConsumoTab({ produtoId }: ConsumoTabProps) {
         c.cliente_fazenda?.toLowerCase().includes(filters.fazenda.toLowerCase())
       );
     }
+    if (filters.dataInicial) {
+      const dataInicialStr = format(filters.dataInicial, 'yyyy-MM-dd');
+      lista = lista.filter(c => c.data_final >= dataInicialStr);
+    }
+    if (filters.dataFinal) {
+      const dataFinalStr = format(filters.dataFinal, 'yyyy-MM-dd');
+      lista = lista.filter(c => c.data_final <= dataFinalStr);
+    }
 
     if (sortColumn && sortDirection) {
       lista.sort((a, b) => {
@@ -430,10 +443,16 @@ export function ConsumoTab({ produtoId }: ConsumoTabProps) {
   };
 
   const clearFilters = () => {
-    setFilters({ cliente: '', fazenda: '' });
+    setFilters({ cliente: '', fazenda: '', dataInicial: null, dataFinal: null });
   };
 
-  const hasActiveFilters = Object.values(filters).some(v => v !== '');
+  const hasActiveFilters = filters.cliente !== '' || filters.fazenda !== '' || filters.dataInicial !== null || filters.dataFinal !== null;
+  
+  // Contador de fazendas únicas
+  const totalFazendas = useMemo(() => {
+    const clientesUnicos = new Set(consumoFiltrado.map(c => c.cliente_id));
+    return clientesUnicos.size;
+  }, [consumoFiltrado]);
   const isLoading = loadingAfericoes || loadingEnvios;
 
   return (
@@ -444,9 +463,13 @@ export function ConsumoTab({ produtoId }: ConsumoTabProps) {
             <TrendingDown className="h-5 w-5 text-primary" />
             Análise de Consumo
             {consumoFiltrado.length > 0 && (
-              <span className="text-sm font-normal text-muted-foreground">
-                ({consumoFiltrado.length} períodos)
-              </span>
+              <div className="flex items-center gap-3 text-sm font-normal text-muted-foreground">
+                <span>{consumoFiltrado.length} períodos</span>
+                <span className="flex items-center gap-1">
+                  <Users className="h-3.5 w-3.5" />
+                  {totalFazendas} fazendas
+                </span>
+              </div>
             )}
           </CardTitle>
           <div className="flex items-center gap-2">
@@ -492,7 +515,7 @@ export function ConsumoTab({ produtoId }: ConsumoTabProps) {
         </div>
 
         {showFilters && (
-          <div className="grid grid-cols-2 gap-3 pt-4 border-t mt-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 pt-4 border-t mt-4">
             <div className="space-y-1">
               <label className="text-xs text-muted-foreground">Cliente</label>
               <Input
@@ -510,6 +533,60 @@ export function ConsumoTab({ produtoId }: ConsumoTabProps) {
                 onChange={(e) => setFilters(f => ({ ...f, fazenda: e.target.value }))}
                 className="h-8"
               />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">Data Inicial</label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full h-8 justify-start text-left font-normal",
+                      !filters.dataInicial && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-3 w-3" />
+                    {filters.dataInicial ? format(filters.dataInicial, "dd/MM/yyyy") : <span>Selecionar</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <CalendarComponent
+                    mode="single"
+                    selected={filters.dataInicial || undefined}
+                    onSelect={(date) => setFilters(f => ({ ...f, dataInicial: date || null }))}
+                    initialFocus
+                    className={cn("p-3 pointer-events-auto")}
+                    locale={ptBR}
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">Data Final</label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full h-8 justify-start text-left font-normal",
+                      !filters.dataFinal && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-3 w-3" />
+                    {filters.dataFinal ? format(filters.dataFinal, "dd/MM/yyyy") : <span>Selecionar</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <CalendarComponent
+                    mode="single"
+                    selected={filters.dataFinal || undefined}
+                    onSelect={(date) => setFilters(f => ({ ...f, dataFinal: date || null }))}
+                    initialFocus
+                    className={cn("p-3 pointer-events-auto")}
+                    locale={ptBR}
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
           </div>
         )}
