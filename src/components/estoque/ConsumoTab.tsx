@@ -55,6 +55,7 @@ export function ConsumoTab({ produtoId }: ConsumoTabProps) {
   const [sortColumn, setSortColumn] = useState<SortColumn | null>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>(null);
   const [viewMode, setViewMode] = useState<ViewMode>('periodo');
+  const [apenasUltimaMedida, setApenasUltimaMedida] = useState(false);
 
   const { data: produtos } = useQuery({
     queryKey: ['produtos-quimicos-consumo', produtoId],
@@ -303,6 +304,18 @@ export function ConsumoTab({ produtoId }: ConsumoTabProps) {
   const consumoFiltrado = useMemo(() => {
     let lista = [...consumoData];
 
+    // Filtro "Última Medida" - mantém apenas o registro mais recente de cada cliente
+    if (apenasUltimaMedida) {
+      const ultimaPorCliente: Record<string, ConsumoItem> = {};
+      lista.forEach(item => {
+        const existing = ultimaPorCliente[item.cliente_id];
+        if (!existing || item.data_final > existing.data_final) {
+          ultimaPorCliente[item.cliente_id] = item;
+        }
+      });
+      lista = Object.values(ultimaPorCliente);
+    }
+
     if (filters.cliente) {
       lista = lista.filter(c => 
         c.cliente_nome.toLowerCase().includes(filters.cliente.toLowerCase())
@@ -349,7 +362,7 @@ export function ConsumoTab({ produtoId }: ConsumoTabProps) {
     }
 
     return lista;
-  }, [consumoData, filters, sortColumn, sortDirection, viewMode]);
+  }, [consumoData, filters, sortColumn, sortDirection, viewMode, apenasUltimaMedida]);
 
   // Calcula totais
   const totais = useMemo(() => {
@@ -453,18 +466,29 @@ export function ConsumoTab({ produtoId }: ConsumoTabProps) {
           </div>
         </div>
 
-        <div className="flex items-center gap-2 pt-4 border-t mt-4">
-          <span className="text-sm text-muted-foreground">Visualização:</span>
-          <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as ViewMode)}>
-            <TabsList className="h-8">
-              <TabsTrigger value="periodo" className="text-xs px-3 h-7">
-                Consumo no Período
-              </TabsTrigger>
-              <TabsTrigger value="30dias" className="text-xs px-3 h-7">
-                Consumo/30 dias
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
+        <div className="flex items-center justify-between gap-4 pt-4 border-t mt-4">
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">Visualização:</span>
+            <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as ViewMode)}>
+              <TabsList className="h-8">
+                <TabsTrigger value="periodo" className="text-xs px-3 h-7">
+                  Consumo no Período
+                </TabsTrigger>
+                <TabsTrigger value="30dias" className="text-xs px-3 h-7">
+                  Consumo/30 dias
+                </TabsTrigger>
+              </TabsList>
+            </Tabs>
+          </div>
+          <Button
+            variant={apenasUltimaMedida ? "default" : "outline"}
+            size="sm"
+            onClick={() => setApenasUltimaMedida(!apenasUltimaMedida)}
+            className="h-8 text-xs"
+          >
+            <Calendar className="h-3 w-3 mr-1" />
+            Última Medida
+          </Button>
         </div>
 
         {showFilters && (
