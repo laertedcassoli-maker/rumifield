@@ -1,65 +1,69 @@
-import { Home, MapPin, Package, ShoppingCart, Users, Settings, LogOut, Beaker, Truck, ChevronDown, ClipboardCheck, TrendingDown } from 'lucide-react';
+import { Home, MapPin, ShoppingCart, Users, Settings, LogOut, Beaker, Truck, ChevronDown, ClipboardCheck, TrendingDown, Play } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarFooter,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarGroupLabel,
-  SidebarHeader,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  SidebarMenuSub,
-  SidebarMenuSubItem,
-  SidebarMenuSubButton,
-} from '@/components/ui/sidebar';
+import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarMenuSub, SidebarMenuSubItem, SidebarMenuSubButton } from '@/components/ui/sidebar';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Link, useLocation } from 'react-router-dom';
-
 export function AppSidebar() {
-  const { profile, role, signOut } = useAuth();
+  const {
+    profile,
+    role,
+    signOut
+  } = useAuth();
   const location = useLocation();
-
-  const mainMenuItems = [
-    { title: 'Início', icon: Home, url: '/' },
-    // { title: 'Visitas', icon: MapPin, url: '/visitas' }, // Temporariamente oculto
-    { title: 'Solicitação Peças', icon: ShoppingCart, url: '/pedidos' },
-  ];
-
-  const estoqueItems = [
-    { title: 'Aferição', icon: ClipboardCheck, url: '/estoque' },
-    { title: 'Consumo', icon: TrendingDown, url: '/estoque/consumo' },
-  ];
-
+  const mainMenuItems = [{
+    title: 'Início',
+    icon: Home,
+    url: '/'
+  },
+  // { title: 'Visitas', icon: MapPin, url: '/visitas' }, // Temporariamente oculto
+  {
+    title: 'Solicitação Peças',
+    icon: ShoppingCart,
+    url: '/pedidos'
+  }];
+  const estoqueItems = [{
+    title: 'Aferição',
+    icon: ClipboardCheck,
+    url: '/estoque'
+  }, {
+    title: 'Consumo',
+    icon: TrendingDown,
+    url: '/estoque/consumo'
+  }];
   const isEstoqueActive = location.pathname === '/estoque' || location.pathname.startsWith('/estoque/');
-
-  const adminMenuItems = [
-    { title: 'Clientes', icon: Package, url: '/admin/clientes' },
-    { title: 'Usuários', icon: Users, url: '/admin/usuarios' },
-    { title: 'Envios', icon: Truck, url: '/admin/envios' },
-    { title: 'Configurações', icon: Settings, url: '/admin/config' },
-  ];
-
+  const adminMenuItems = [{
+    title: 'Clientes',
+    icon: Package,
+    url: '/admin/clientes'
+  }, {
+    title: 'Usuários',
+    icon: Users,
+    url: '/admin/usuarios'
+  }, {
+    title: 'Envios',
+    icon: Truck,
+    url: '/admin/envios'
+  }, {
+    title: 'Configurações',
+    icon: Settings,
+    url: '/admin/config'
+  }];
   const showAdminMenu = role === 'admin' || role === 'gestor';
 
   // Filter admin menu items - Envios only for admin
-  const filteredAdminItems = adminMenuItems.filter((item) => {
+  const filteredAdminItems = adminMenuItems.filter(item => {
     if (item.url === '/admin/envios') return role === 'admin';
     return true;
   });
-
-  return (
-    <Sidebar>
+  return <Sidebar>
       <SidebarHeader className="border-b border-sidebar-border p-4">
         <div className="flex items-center gap-3">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-sidebar-primary">
-            <Package className="h-5 w-5 text-sidebar-primary-foreground" />
+            <Play className="h-5 w-5 text-sidebar-primary-foreground" />
           </div>
           <div>
-            <h1 className="font-semibold text-sidebar-foreground">AgriField</h1>
+            <h1 className="font-semibold text-sidebar-foreground">RumiField</h1>
             <p className="text-xs text-sidebar-foreground/60">Gestão de Campo</p>
           </div>
         </div>
@@ -70,16 +74,14 @@ export function AppSidebar() {
           <SidebarGroupLabel>Menu Principal</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {mainMenuItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
+              {mainMenuItems.map(item => <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild isActive={location.pathname === item.url}>
                     <Link to={item.url}>
                       <item.icon className="h-4 w-4" />
                       <span>{item.title}</span>
                     </Link>
                   </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
+                </SidebarMenuItem>)}
 
               {/* Estoque com submenu */}
               <Collapsible defaultOpen={isEstoqueActive} className="group/collapsible">
@@ -93,19 +95,14 @@ export function AppSidebar() {
                   </CollapsibleTrigger>
                   <CollapsibleContent>
                     <SidebarMenuSub>
-                      {estoqueItems.map((item) => (
-                        <SidebarMenuSubItem key={item.title}>
-                          <SidebarMenuSubButton 
-                            asChild 
-                            isActive={location.pathname === item.url}
-                          >
+                      {estoqueItems.map(item => <SidebarMenuSubItem key={item.title}>
+                          <SidebarMenuSubButton asChild isActive={location.pathname === item.url}>
                             <Link to={item.url}>
                               <item.icon className="h-4 w-4" />
                               <span>{item.title}</span>
                             </Link>
                           </SidebarMenuSubButton>
-                        </SidebarMenuSubItem>
-                      ))}
+                        </SidebarMenuSubItem>)}
                     </SidebarMenuSub>
                   </CollapsibleContent>
                 </SidebarMenuItem>
@@ -114,25 +111,21 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {showAdminMenu && (
-          <SidebarGroup>
+        {showAdminMenu && <SidebarGroup>
             <SidebarGroupLabel>Administração</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                {filteredAdminItems.map((item) => (
-                  <SidebarMenuItem key={item.title}>
+                {filteredAdminItems.map(item => <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton asChild isActive={location.pathname === item.url}>
                       <Link to={item.url}>
                         <item.icon className="h-4 w-4" />
                         <span>{item.title}</span>
                       </Link>
                     </SidebarMenuButton>
-                  </SidebarMenuItem>
-                ))}
+                  </SidebarMenuItem>)}
               </SidebarMenu>
             </SidebarGroupContent>
-          </SidebarGroup>
-        )}
+          </SidebarGroup>}
       </SidebarContent>
 
       <SidebarFooter className="border-t border-sidebar-border p-4">
@@ -148,14 +141,10 @@ export function AppSidebar() {
             </p>
             <p className="text-xs text-sidebar-foreground/60 capitalize">{role}</p>
           </div>
-          <button
-            onClick={signOut}
-            className="p-2 rounded-md hover:bg-sidebar-accent transition-colors"
-          >
+          <button onClick={signOut} className="p-2 rounded-md hover:bg-sidebar-accent transition-colors">
             <LogOut className="h-4 w-4 text-sidebar-foreground/60" />
           </button>
         </div>
       </SidebarFooter>
-    </Sidebar>
-  );
+    </Sidebar>;
 }
