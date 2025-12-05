@@ -6,13 +6,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Beaker, Loader2, Plus, Calendar, User, ArrowUpDown, ArrowUp, ArrowDown, X, TrendingDown, Pencil } from 'lucide-react';
+import { Beaker, Loader2, Plus, Calendar, User, ArrowUpDown, ArrowUp, ArrowDown, X, Pencil } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { NovaAfericaoDialog } from '@/components/estoque/NovaAfericaoDialog';
 import { EditarAfericaoDialog } from '@/components/estoque/EditarAfericaoDialog';
-import { ConsumoTab } from '@/components/estoque/ConsumoTab';
 
 const VOLUME_GALAO = 50;
 
@@ -238,28 +236,14 @@ export default function Estoque() {
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Controle de Estoque</h1>
-          <p className="text-muted-foreground">Aferições e análise de consumo de produtos químicos</p>
+          <h1 className="text-2xl font-bold">Aferição de Estoque</h1>
+          <p className="text-muted-foreground">Registro de estoque de produtos químicos nas fazendas</p>
         </div>
         <Button onClick={() => setDialogOpen(true)}>
           <Plus className="mr-2 h-4 w-4" />
           Nova Aferição
         </Button>
       </div>
-
-      <Tabs defaultValue="afericoes" className="w-full">
-        <TabsList>
-          <TabsTrigger value="afericoes" className="flex items-center gap-2">
-            <Beaker className="h-4 w-4" />
-            Aferições
-          </TabsTrigger>
-          <TabsTrigger value="consumo" className="flex items-center gap-2">
-            <TrendingDown className="h-4 w-4" />
-            Consumo
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="afericoes" className="mt-4">
 
       <Card>
         <CardHeader>
@@ -462,14 +446,8 @@ export default function Estoque() {
           )}
         </CardContent>
       </Card>
-        </TabsContent>
 
-        <TabsContent value="consumo" className="mt-4">
-          <ConsumoTab />
-        </TabsContent>
-      </Tabs>
-
-      <NovaAfericaoDialog 
+      <NovaAfericaoDialog
         open={dialogOpen} 
         onOpenChange={setDialogOpen}
         onSuccess={() => {
