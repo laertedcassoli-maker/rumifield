@@ -6,9 +6,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { TrendingDown, Loader2, Calendar, X, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 const VOLUME_GALAO = 50;
 
@@ -23,16 +24,20 @@ interface ConsumoItem {
   cliente_fazenda: string;
   data_inicial: string;
   data_final: string;
+  dias_periodo: number;
   produtos: Record<string, {
     estoque_inicial: number;
     estoque_final: number;
     envios: number;
     consumo: number;
+    consumo_30dias: number;
   }>;
 }
 
 type SortColumn = 'cliente' | 'fazenda' | 'periodo' | string;
 type SortDirection = 'asc' | 'desc' | null;
+
+type ViewMode = 'periodo' | '30dias';
 
 export function ConsumoTab() {
   const [filters, setFilters] = useState({
@@ -42,6 +47,7 @@ export function ConsumoTab() {
   const [showFilters, setShowFilters] = useState(false);
   const [sortColumn, setSortColumn] = useState<SortColumn | null>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>('periodo');
 
   const { data: produtos } = useQuery({
     queryKey: ['produtos-quimicos-consumo'],
@@ -147,12 +153,16 @@ export function ConsumoTab() {
         const anterior = afs[i - 1];
         const atual = afs[i];
 
+        // Calcula dias entre as aferições
+        const diasPeriodo = differenceInDays(parseISO(atual.data), parseISO(anterior.data));
+
         const consumoItem: ConsumoItem = {
           cliente_id: clienteId,
           cliente_nome: atual.cliente_nome,
           cliente_fazenda: atual.cliente_fazenda,
           data_inicial: anterior.data,
           data_final: atual.data,
+          dias_periodo: diasPeriodo,
           produtos: {},
         };
 
@@ -171,12 +181,17 @@ export function ConsumoTab() {
 
           // Consumo = Estoque Inicial + Envios - Estoque Final
           const consumo = estoqueInicial + totalEnvios - estoqueFinal;
+          const consumoPositivo = Math.max(0, consumo);
+
+          // Consumo padronizado para 30 dias
+          const consumo30dias = diasPeriodo > 0 ? Math.round((consumoPositivo / diasPeriodo) * 30) : 0;
 
           consumoItem.produtos[produto.id] = {
             estoque_inicial: estoqueInicial,
             estoque_final: estoqueFinal,
             envios: totalEnvios,
-            consumo: Math.max(0, consumo), // Não mostrar consumo negativo
+            consumo: consumoPositivo,
+            consumo_30dias: consumo30dias,
           };
         });
 
@@ -216,10 +231,18 @@ export function ConsumoTab() {
         } else if (sortColumn === 'periodo') {
           valueA = a.data_final;
           valueB = b.data_final;
+        } else if (sortColumn === 'dias') {
+          valueA = a.dias_periodo;
+          valueB = b.dias_periodo;
         } else {
-          // É um produto - ordenar por consumo
-          valueA = a.produtos[sortColumn]?.consumo || 0;
-          valueB = b.produtos[sortColumn]?.consumo || 0;
+          // É um produto - ordenar por consumo ou consumo/30 dias
+          if (viewMode === '30dias') {
+            valueA = a.produtos[sortColumn]?.consumo_30dias || 0;
+            valueB = b.produtos[sortColumn]?.consumo_30dias || 0;
+          } else {
+            valueA = a.produtos[sortColumn]?.consumo || 0;
+            valueB = b.produtos[sortColumn]?.consumo || 0;
+          }
         }
 
         if (valueA < valueB) return sortDirection === 'asc' ? -1 : 1;
@@ -229,7 +252,7 @@ export function ConsumoTab() {
     }
 
     return lista;
-  }, [consumoData, filters, sortColumn, sortDirection]);
+  }, [consumoData, filters, sortColumn, sortDirection, viewMode]);
 
   const handleSort = (column: SortColumn) => {
     if (sortColumn === column) {
@@ -290,6 +313,20 @@ export function ConsumoTab() {
               Filtros
             </Button>
           </div>
+        </div>
+
+        <div className="flex items-center gap-2 pt-4 border-t mt-4">
+          <span className="text-sm text-muted-foreground">Visualização:</span>
+          <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as ViewMode)}>
+            <TabsList className="h-8">
+              <TabsTrigger value="periodo" className="text-xs px-3 h-7">
+                Consumo no Período
+              </TabsTrigger>
+              <TabsTrigger value="30dias" className="text-xs px-3 h-7">
+                Consumo/30 dias
+              </TabsTrigger>
+            </TabsList>
+          </Tabs>
         </div>
 
         {showFilters && (
@@ -359,6 +396,15 @@ export function ConsumoTab() {
                       {getSortIcon('periodo')}
                     </div>
                   </TableHead>
+                  <TableHead 
+                    className="cursor-pointer hover:bg-muted/50 select-none text-center"
+                    onClick={() => handleSort('dias')}
+                  >
+                    <div className="flex items-center justify-center">
+                      Dias
+                      {getSortIcon('dias')}
+                    </div>
+                  </TableHead>
                   {produtos?.map((produto) => (
                     <TableHead 
                       key={produto.id} 
@@ -388,21 +434,37 @@ export function ConsumoTab() {
                         </span>
                       </div>
                     </TableCell>
+                    <TableCell className="text-center">
+                      <span className="text-sm font-medium">{item.dias_periodo}</span>
+                    </TableCell>
                     {produtos?.map((produto) => {
                       const dados = item.produtos[produto.id];
                       return (
                         <TableCell key={produto.id} className="text-center">
                           {dados ? (
                             <div className="text-sm">
-                              <div className="font-medium text-destructive">
-                                -{dados.consumo}L
-                              </div>
-                              <div className="text-xs text-muted-foreground">
-                                {dados.estoque_inicial}L → {dados.estoque_final}L
-                                {dados.envios > 0 && (
-                                  <span className="text-green-600 ml-1">+{dados.envios}L</span>
-                                )}
-                              </div>
+                              {viewMode === 'periodo' ? (
+                                <>
+                                  <div className="font-medium text-destructive">
+                                    -{dados.consumo}L
+                                  </div>
+                                  <div className="text-xs text-muted-foreground">
+                                    {dados.estoque_inicial}L → {dados.estoque_final}L
+                                    {dados.envios > 0 && (
+                                      <span className="text-green-600 ml-1">+{dados.envios}L</span>
+                                    )}
+                                  </div>
+                                </>
+                              ) : (
+                                <>
+                                  <div className="font-medium text-destructive">
+                                    -{dados.consumo_30dias}L
+                                  </div>
+                                  <div className="text-xs text-muted-foreground">
+                                    /30 dias
+                                  </div>
+                                </>
+                              )}
                             </div>
                           ) : '-'}
                         </TableCell>
