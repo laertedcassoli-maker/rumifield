@@ -1,0 +1,420 @@
+import { useState, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { TrendingDown, Loader2, Calendar, X, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
+import { format, parseISO } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import { Button } from '@/components/ui/button';
+
+const VOLUME_GALAO = 50;
+
+interface ProdutoInfo {
+  id: string;
+  nome: string;
+}
+
+interface ConsumoItem {
+  cliente_id: string;
+  cliente_nome: string;
+  cliente_fazenda: string;
+  data_inicial: string;
+  data_final: string;
+  produtos: Record<string, {
+    estoque_inicial: number;
+    estoque_final: number;
+    envios: number;
+    consumo: number;
+  }>;
+}
+
+type SortColumn = 'cliente' | 'fazenda' | 'periodo' | string;
+type SortDirection = 'asc' | 'desc' | null;
+
+export function ConsumoTab() {
+  const [filters, setFilters] = useState({
+    cliente: '',
+    fazenda: '',
+  });
+  const [showFilters, setShowFilters] = useState(false);
+  const [sortColumn, setSortColumn] = useState<SortColumn | null>(null);
+  const [sortDirection, setSortDirection] = useState<SortDirection>(null);
+
+  const { data: produtos } = useQuery({
+    queryKey: ['produtos-quimicos-consumo'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('produtos_quimicos').select('id, nome').eq('ativo', true);
+      if (error) throw error;
+      return data as ProdutoInfo[];
+    },
+  });
+
+  const { data: afericoes, isLoading: loadingAfericoes } = useQuery({
+    queryKey: ['afericoes-consumo'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('estoque_cliente')
+        .select(`
+          *,
+          clientes(nome, fazenda)
+        `)
+        .order('data_afericao', { ascending: true });
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { data: envios, isLoading: loadingEnvios } = useQuery({
+    queryKey: ['envios-consumo'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('envios_produtos')
+        .select('*')
+        .order('data_envio', { ascending: true });
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const calcularTotalLitros = (galoesCheios: number, nivelParcial: number | null) => {
+    const cheios = galoesCheios * VOLUME_GALAO;
+    const parcial = nivelParcial !== null ? (nivelParcial / 100) * VOLUME_GALAO : 0;
+    return cheios + parcial;
+  };
+
+  // Calcula consumo comparando aferições consecutivas por cliente
+  const consumoData = useMemo(() => {
+    if (!afericoes || !envios || !produtos) return [];
+
+    // Agrupa aferições por cliente e data
+    const afericoesPorCliente: Record<string, Array<{
+      data: string;
+      cliente_nome: string;
+      cliente_fazenda: string;
+      produtos: Record<string, number>;
+    }>> = {};
+
+    afericoes.forEach(af => {
+      if (!afericoesPorCliente[af.cliente_id]) {
+        afericoesPorCliente[af.cliente_id] = [];
+      }
+      
+      const dataKey = af.data_afericao;
+      let entry = afericoesPorCliente[af.cliente_id].find(e => e.data === dataKey);
+      
+      if (!entry) {
+        entry = {
+          data: dataKey,
+          cliente_nome: af.clientes?.nome || '',
+          cliente_fazenda: af.clientes?.fazenda || '',
+          produtos: {},
+        };
+        afericoesPorCliente[af.cliente_id].push(entry);
+      }
+      
+      entry.produtos[af.produto_id] = calcularTotalLitros(af.galoes_cheios, af.nivel_galao_parcial);
+    });
+
+    // Ordena por data
+    Object.keys(afericoesPorCliente).forEach(clienteId => {
+      afericoesPorCliente[clienteId].sort((a, b) => a.data.localeCompare(b.data));
+    });
+
+    // Agrupa envios por cliente e produto
+    const enviosPorClienteProduto: Record<string, Record<string, Array<{ data: string; quantidade: number }>>> = {};
+    
+    envios.forEach(env => {
+      if (!enviosPorClienteProduto[env.cliente_id]) {
+        enviosPorClienteProduto[env.cliente_id] = {};
+      }
+      if (!enviosPorClienteProduto[env.cliente_id][env.produto_id]) {
+        enviosPorClienteProduto[env.cliente_id][env.produto_id] = [];
+      }
+      enviosPorClienteProduto[env.cliente_id][env.produto_id].push({
+        data: env.data_envio,
+        quantidade: env.quantidade,
+      });
+    });
+
+    // Calcula consumo entre aferições consecutivas
+    const result: ConsumoItem[] = [];
+
+    Object.entries(afericoesPorCliente).forEach(([clienteId, afs]) => {
+      for (let i = 1; i < afs.length; i++) {
+        const anterior = afs[i - 1];
+        const atual = afs[i];
+
+        const consumoItem: ConsumoItem = {
+          cliente_id: clienteId,
+          cliente_nome: atual.cliente_nome,
+          cliente_fazenda: atual.cliente_fazenda,
+          data_inicial: anterior.data,
+          data_final: atual.data,
+          produtos: {},
+        };
+
+        produtos.forEach(produto => {
+          const estoqueInicial = anterior.produtos[produto.id] || 0;
+          const estoqueFinal = atual.produtos[produto.id] || 0;
+
+          // Soma envios no período
+          let totalEnvios = 0;
+          const enviosProduto = enviosPorClienteProduto[clienteId]?.[produto.id] || [];
+          enviosProduto.forEach(env => {
+            if (env.data > anterior.data && env.data <= atual.data) {
+              totalEnvios += env.quantidade;
+            }
+          });
+
+          // Consumo = Estoque Inicial + Envios - Estoque Final
+          const consumo = estoqueInicial + totalEnvios - estoqueFinal;
+
+          consumoItem.produtos[produto.id] = {
+            estoque_inicial: estoqueInicial,
+            estoque_final: estoqueFinal,
+            envios: totalEnvios,
+            consumo: Math.max(0, consumo), // Não mostrar consumo negativo
+          };
+        });
+
+        result.push(consumoItem);
+      }
+    });
+
+    return result;
+  }, [afericoes, envios, produtos]);
+
+  // Filtra e ordena
+  const consumoFiltrado = useMemo(() => {
+    let lista = [...consumoData];
+
+    if (filters.cliente) {
+      lista = lista.filter(c => 
+        c.cliente_nome.toLowerCase().includes(filters.cliente.toLowerCase())
+      );
+    }
+    if (filters.fazenda) {
+      lista = lista.filter(c => 
+        c.cliente_fazenda?.toLowerCase().includes(filters.fazenda.toLowerCase())
+      );
+    }
+
+    if (sortColumn && sortDirection) {
+      lista.sort((a, b) => {
+        let valueA: string | number = '';
+        let valueB: string | number = '';
+
+        if (sortColumn === 'cliente') {
+          valueA = a.cliente_nome.toLowerCase();
+          valueB = b.cliente_nome.toLowerCase();
+        } else if (sortColumn === 'fazenda') {
+          valueA = (a.cliente_fazenda || '').toLowerCase();
+          valueB = (b.cliente_fazenda || '').toLowerCase();
+        } else if (sortColumn === 'periodo') {
+          valueA = a.data_final;
+          valueB = b.data_final;
+        } else {
+          // É um produto - ordenar por consumo
+          valueA = a.produtos[sortColumn]?.consumo || 0;
+          valueB = b.produtos[sortColumn]?.consumo || 0;
+        }
+
+        if (valueA < valueB) return sortDirection === 'asc' ? -1 : 1;
+        if (valueA > valueB) return sortDirection === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
+
+    return lista;
+  }, [consumoData, filters, sortColumn, sortDirection]);
+
+  const handleSort = (column: SortColumn) => {
+    if (sortColumn === column) {
+      if (sortDirection === 'asc') {
+        setSortDirection('desc');
+      } else if (sortDirection === 'desc') {
+        setSortColumn(null);
+        setSortDirection(null);
+      }
+    } else {
+      setSortColumn(column);
+      setSortDirection('asc');
+    }
+  };
+
+  const getSortIcon = (column: SortColumn) => {
+    if (sortColumn !== column) {
+      return <ArrowUpDown className="h-4 w-4 ml-1 opacity-50" />;
+    }
+    if (sortDirection === 'asc') {
+      return <ArrowUp className="h-4 w-4 ml-1" />;
+    }
+    return <ArrowDown className="h-4 w-4 ml-1" />;
+  };
+
+  const clearFilters = () => {
+    setFilters({ cliente: '', fazenda: '' });
+  };
+
+  const hasActiveFilters = Object.values(filters).some(v => v !== '');
+  const isLoading = loadingAfericoes || loadingEnvios;
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-lg flex items-center gap-2">
+            <TrendingDown className="h-5 w-5 text-primary" />
+            Análise de Consumo
+            {consumoFiltrado.length > 0 && (
+              <span className="text-sm font-normal text-muted-foreground">
+                ({consumoFiltrado.length} períodos)
+              </span>
+            )}
+          </CardTitle>
+          <div className="flex items-center gap-2">
+            {hasActiveFilters && (
+              <Button variant="ghost" size="sm" onClick={clearFilters}>
+                <X className="h-4 w-4 mr-1" />
+                Limpar filtros
+              </Button>
+            )}
+            <Button 
+              variant={showFilters ? "secondary" : "outline"} 
+              size="sm" 
+              onClick={() => setShowFilters(!showFilters)}
+            >
+              Filtros
+            </Button>
+          </div>
+        </div>
+
+        {showFilters && (
+          <div className="grid grid-cols-2 gap-3 pt-4 border-t mt-4">
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">Cliente</label>
+              <Input
+                placeholder="Filtrar..."
+                value={filters.cliente}
+                onChange={(e) => setFilters(f => ({ ...f, cliente: e.target.value }))}
+                className="h-8"
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-xs text-muted-foreground">Fazenda</label>
+              <Input
+                placeholder="Filtrar..."
+                value={filters.fazenda}
+                onChange={(e) => setFilters(f => ({ ...f, fazenda: e.target.value }))}
+                className="h-8"
+              />
+            </div>
+          </div>
+        )}
+      </CardHeader>
+      <CardContent>
+        {isLoading ? (
+          <div className="flex justify-center py-8">
+            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          </div>
+        ) : consumoFiltrado.length === 0 ? (
+          <div className="text-center py-8 text-muted-foreground">
+            <p>Nenhum dado de consumo disponível.</p>
+            <p className="text-sm mt-2">
+              São necessárias pelo menos 2 aferições do mesmo cliente para calcular o consumo.
+            </p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead 
+                    className="cursor-pointer hover:bg-muted/50 select-none"
+                    onClick={() => handleSort('cliente')}
+                  >
+                    <div className="flex items-center">
+                      Cliente
+                      {getSortIcon('cliente')}
+                    </div>
+                  </TableHead>
+                  <TableHead 
+                    className="cursor-pointer hover:bg-muted/50 select-none"
+                    onClick={() => handleSort('fazenda')}
+                  >
+                    <div className="flex items-center">
+                      Fazenda
+                      {getSortIcon('fazenda')}
+                    </div>
+                  </TableHead>
+                  <TableHead 
+                    className="cursor-pointer hover:bg-muted/50 select-none"
+                    onClick={() => handleSort('periodo')}
+                  >
+                    <div className="flex items-center">
+                      Período
+                      {getSortIcon('periodo')}
+                    </div>
+                  </TableHead>
+                  {produtos?.map((produto) => (
+                    <TableHead 
+                      key={produto.id} 
+                      className="text-center cursor-pointer hover:bg-muted/50 select-none"
+                      onClick={() => handleSort(produto.id)}
+                    >
+                      <div className="flex items-center justify-center">
+                        {produto.nome}
+                        {getSortIcon(produto.id)}
+                      </div>
+                    </TableHead>
+                  ))}
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {consumoFiltrado.map((item, index) => (
+                  <TableRow key={index}>
+                    <TableCell className="font-medium">{item.cliente_nome}</TableCell>
+                    <TableCell>{item.cliente_fazenda || '-'}</TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1 text-sm">
+                        <Calendar className="h-4 w-4 text-muted-foreground" />
+                        <span>
+                          {format(parseISO(item.data_inicial), 'dd/MM', { locale: ptBR })}
+                          {' → '}
+                          {format(parseISO(item.data_final), 'dd/MM/yy', { locale: ptBR })}
+                        </span>
+                      </div>
+                    </TableCell>
+                    {produtos?.map((produto) => {
+                      const dados = item.produtos[produto.id];
+                      return (
+                        <TableCell key={produto.id} className="text-center">
+                          {dados ? (
+                            <div className="text-sm">
+                              <div className="font-medium text-destructive">
+                                -{dados.consumo}L
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                {dados.estoque_inicial}L → {dados.estoque_final}L
+                                {dados.envios > 0 && (
+                                  <span className="text-green-600 ml-1">+{dados.envios}L</span>
+                                )}
+                              </div>
+                            </div>
+                          ) : '-'}
+                        </TableCell>
+                      );
+                    })}
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
