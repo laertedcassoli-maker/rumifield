@@ -96,7 +96,7 @@ export function ConsumoTab({ produtoId }: ConsumoTabProps) {
   const calcularTotalLitros = (galoesCheios: number, nivelParcial: number | null) => {
     const cheios = galoesCheios * VOLUME_GALAO;
     const parcial = nivelParcial !== null ? (nivelParcial / 100) * VOLUME_GALAO : 0;
-    return cheios + parcial;
+    return Math.round(cheios + parcial);
   };
 
   // Calcula consumo comparando aferições consecutivas por cliente
