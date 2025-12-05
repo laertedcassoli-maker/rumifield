@@ -360,23 +360,26 @@ export function ConsumoTab({ produtoId }: ConsumoTabProps) {
     produtos.forEach(produto => {
       let totalOrcado = 0;
       let totalRealizado = 0;
-      let countWithOrcado = 0;
       
       consumoFiltrado.forEach(item => {
         const dados = item.produtos[produto.id];
         if (dados) {
-          const consumo = viewMode === 'periodo' ? dados.consumo : dados.consumo_30dias;
-          totalRealizado += consumo;
-          
-          if (dados.orcado_30dias !== null && dados.orcado_30dias !== undefined) {
-            totalOrcado += dados.orcado_30dias;
-            countWithOrcado++;
+          if (viewMode === 'periodo') {
+            totalRealizado += dados.consumo;
+            if (dados.orcado_30dias !== null && dados.orcado_30dias !== undefined) {
+              totalOrcado += Math.round(dados.orcado_30dias * (item.dias_periodo / 30));
+            }
+          } else {
+            totalRealizado += dados.consumo_30dias;
+            if (dados.orcado_30dias !== null && dados.orcado_30dias !== undefined) {
+              totalOrcado += dados.orcado_30dias;
+            }
           }
         }
       });
       
       const desvioL = totalRealizado - totalOrcado;
-      const desvioP = totalOrcado > 0 ? Math.round(((totalRealizado - totalOrcado) / totalOrcado) * 100) : null;
+      const desvioP = totalOrcado > 0 ? Math.round((desvioL / totalOrcado) * 100) : null;
       
       result[produto.id] = {
         orcado: totalOrcado,
@@ -601,12 +604,36 @@ export function ConsumoTab({ produtoId }: ConsumoTabProps) {
                     </TableCell>
                     {produtos?.map((produto) => {
                       const dados = item.produtos[produto.id];
-                      const desvioPercent = dados && dados.orcado_30dias 
-                        ? Math.round(((dados.consumo_30dias - dados.orcado_30dias) / dados.orcado_30dias) * 100)
-                        : null;
-                      const desvioLitros = dados && dados.orcado_30dias !== null
-                        ? dados.consumo_30dias - dados.orcado_30dias
-                        : null;
+                      
+                      // Calcula orçado e desvio baseado no modo de visualização
+                      let orcadoExibir: number | null = null;
+                      let consumoExibir: number = 0;
+                      let desvioLitros: number | null = null;
+                      let desvioPercent: number | null = null;
+                      
+                      if (dados) {
+                        if (viewMode === 'periodo') {
+                          // No modo período: orçado proporcional aos dias
+                          consumoExibir = dados.consumo;
+                          if (dados.orcado_30dias !== null && dados.orcado_30dias !== undefined) {
+                            orcadoExibir = Math.round(dados.orcado_30dias * (item.dias_periodo / 30));
+                            desvioLitros = consumoExibir - orcadoExibir;
+                            desvioPercent = orcadoExibir > 0 
+                              ? Math.round((desvioLitros / orcadoExibir) * 100)
+                              : null;
+                          }
+                        } else {
+                          // No modo 30 dias: valores normalizados
+                          consumoExibir = dados.consumo_30dias;
+                          orcadoExibir = dados.orcado_30dias;
+                          if (orcadoExibir !== null && orcadoExibir !== undefined) {
+                            desvioLitros = consumoExibir - orcadoExibir;
+                            desvioPercent = orcadoExibir > 0 
+                              ? Math.round((desvioLitros / orcadoExibir) * 100)
+                              : null;
+                          }
+                        }
+                      }
                       
                       // Cores do semáforo
                       const getSemaforoColor = (desvio: number | null) => {
@@ -619,26 +646,24 @@ export function ConsumoTab({ produtoId }: ConsumoTabProps) {
                       return (
                         <>
                           <TableCell key={`${produto.id}-orc`} className="text-center border-l">
-                            {dados?.orcado_30dias !== null && dados?.orcado_30dias !== undefined ? (
-                              <span className="text-sm text-muted-foreground">{dados.orcado_30dias}L</span>
+                            {orcadoExibir !== null ? (
+                              <span className="text-sm text-muted-foreground">{orcadoExibir}L</span>
                             ) : '-'}
                           </TableCell>
                           <TableCell key={`${produto.id}-real`} className="text-center">
                             {dados ? (
-                              <span className="text-sm font-medium">
-                                {viewMode === 'periodo' ? dados.consumo : dados.consumo_30dias}L
-                              </span>
+                              <span className="text-sm font-medium">{consumoExibir}L</span>
                             ) : '-'}
                           </TableCell>
                           <TableCell key={`${produto.id}-desv-l`} className="text-center">
-                            {dados && desvioLitros !== null ? (
+                            {desvioLitros !== null ? (
                               <span className="text-sm">
                                 {desvioLitros > 0 ? '+' : ''}{desvioLitros}L
                               </span>
                             ) : '-'}
                           </TableCell>
                           <TableCell key={`${produto.id}-desv-p`} className="text-center">
-                            {dados && desvioPercent !== null ? (
+                            {desvioPercent !== null ? (
                               <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${getSemaforoColor(desvioPercent)}`}>
                                 {desvioPercent > 0 ? '+' : ''}{desvioPercent}%
                               </span>
