@@ -157,6 +157,71 @@ export function ConsumoTab({ produtoId }: ConsumoTabProps) {
     const result: ConsumoItem[] = [];
 
     Object.entries(afericoesPorCliente).forEach(([clienteId, afs]) => {
+      // Primeiro registro: usa envios como estoque inicial
+      if (afs.length > 0) {
+        const primeiraAfericao = afs[0];
+        
+        // Encontra a data do primeiro envio para este cliente
+        let primeiraDataEnvio: string | null = null;
+        Object.values(enviosPorClienteProduto[clienteId] || {}).forEach(enviosProduto => {
+          enviosProduto.forEach(env => {
+            if (env.data <= primeiraAfericao.data) {
+              if (!primeiraDataEnvio || env.data < primeiraDataEnvio) {
+                primeiraDataEnvio = env.data;
+              }
+            }
+          });
+        });
+
+        // Só cria o registro inicial se houver envios antes da primeira aferição
+        if (primeiraDataEnvio) {
+          const diasPeriodoInicial = differenceInDays(parseISO(primeiraAfericao.data), parseISO(primeiraDataEnvio));
+
+          const consumoItemInicial: ConsumoItem = {
+            cliente_id: clienteId,
+            cliente_nome: primeiraAfericao.cliente_nome,
+            cliente_fazenda: primeiraAfericao.cliente_fazenda,
+            data_inicial: primeiraDataEnvio,
+            data_final: primeiraAfericao.data,
+            dias_periodo: diasPeriodoInicial,
+            produtos: {},
+          };
+
+          produtos.forEach(produto => {
+            // Estoque inicial = 0 (antes de qualquer envio)
+            const estoqueInicial = 0;
+            const estoqueFinal = primeiraAfericao.produtos[produto.id] || 0;
+
+            // Soma todos os envios até a primeira aferição
+            let totalEnvios = 0;
+            const enviosProduto = enviosPorClienteProduto[clienteId]?.[produto.id] || [];
+            enviosProduto.forEach(env => {
+              if (env.data <= primeiraAfericao.data) {
+                totalEnvios += env.quantidade;
+              }
+            });
+
+            // Consumo = Envios - Estoque Final
+            const consumo = totalEnvios - estoqueFinal;
+            const consumoPositivo = Math.max(0, consumo);
+
+            // Consumo padronizado para 30 dias
+            const consumo30dias = diasPeriodoInicial > 0 ? Math.round((consumoPositivo / diasPeriodoInicial) * 30) : 0;
+
+            consumoItemInicial.produtos[produto.id] = {
+              estoque_inicial: estoqueInicial,
+              estoque_final: estoqueFinal,
+              envios: totalEnvios,
+              consumo: consumoPositivo,
+              consumo_30dias: consumo30dias,
+            };
+          });
+
+          result.push(consumoItemInicial);
+        }
+      }
+
+      // Aferições consecutivas (a partir da segunda)
       for (let i = 1; i < afs.length; i++) {
         const anterior = afs[i - 1];
         const atual = afs[i];
