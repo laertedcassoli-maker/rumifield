@@ -1,4 +1,4 @@
-import { Home, MapPin, Package, ShoppingCart, Users, Settings, LogOut, Beaker } from 'lucide-react';
+import { Home, MapPin, Package, ShoppingCart, Users, Settings, LogOut, Beaker, Truck } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   Sidebar,
@@ -23,6 +23,7 @@ export function AppSidebar() {
     { title: 'Início', icon: Home, url: '/' },
     { title: 'Visitas', icon: MapPin, url: '/visitas' },
     { title: 'Estoque', icon: Beaker, url: '/estoque' },
+    { title: 'Envios', icon: Truck, url: '/envios' },
     { title: 'Pedidos', icon: ShoppingCart, url: '/pedidos' },
   ];
 
