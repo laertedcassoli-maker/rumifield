@@ -206,11 +206,11 @@ export function ConsumoTab({ produtoId }: ConsumoTabProps) {
             const estoqueInicial = 0;
             const estoqueFinal = primeiraAfericao.produtos[produto.id] || 0;
 
-            // Soma todos os envios entre a ativação e a primeira aferição
+            // Soma todos os envios até a primeira aferição (inclusive envios antes da ativação)
             let totalEnvios = 0;
             const enviosProduto = enviosPorClienteProduto[clienteId]?.[produto.id] || [];
             enviosProduto.forEach(env => {
-              if (env.data >= dataAtivacao && env.data <= primeiraAfericao.data) {
+              if (env.data <= primeiraAfericao.data) {
                 totalEnvios += env.quantidade;
               }
             });
