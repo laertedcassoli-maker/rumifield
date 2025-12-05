@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -58,12 +58,23 @@ interface EnvioItem {
   galoesCheios: number;
 }
 
+interface EnvioAgrupado {
+  chave: string;
+  data_envio: string;
+  cliente_id: string;
+  cliente_nome: string;
+  cliente_fazenda: string | null;
+  observacoes: string | null;
+  produtos: Record<string, { id: string; quantidade: number; galoes: number }>;
+  envioIds: string[];
+}
+
 const Envios = () => {
   const { role, user } = useAuth();
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [deleteId, setDeleteId] = useState<string | null>(null);
-  const [editingEnvio, setEditingEnvio] = useState<any>(null);
+  const [deleteIds, setDeleteIds] = useState<string[] | null>(null);
+  const [editingGroup, setEditingGroup] = useState<EnvioAgrupado | null>(null);
   const [selectedCliente, setSelectedCliente] = useState("");
   const [clienteOpen, setClienteOpen] = useState(false);
   const [dataEnvio, setDataEnvio] = useState(format(new Date(), "yyyy-MM-dd"));
@@ -119,8 +130,41 @@ const Envios = () => {
     enabled: isAdmin,
   });
 
+  // Group envios by date + client
+  const enviosAgrupados = useMemo(() => {
+    const grupos: Record<string, EnvioAgrupado> = {};
+    
+    envios.forEach((envio: any) => {
+      const chave = `${envio.data_envio}_${envio.cliente_id}`;
+      
+      if (!grupos[chave]) {
+        grupos[chave] = {
+          chave,
+          data_envio: envio.data_envio,
+          cliente_id: envio.cliente_id,
+          cliente_nome: envio.cliente?.nome || "-",
+          cliente_fazenda: envio.cliente?.fazenda || null,
+          observacoes: envio.observacoes,
+          produtos: {},
+          envioIds: [],
+        };
+      }
+      
+      grupos[chave].produtos[envio.produto_id] = {
+        id: envio.id,
+        quantidade: envio.quantidade,
+        galoes: Math.round(envio.quantidade / VOLUME_GALAO),
+      };
+      grupos[chave].envioIds.push(envio.id);
+    });
+    
+    return Object.values(grupos).sort((a, b) => 
+      new Date(b.data_envio).getTime() - new Date(a.data_envio).getTime()
+    );
+  }, [envios]);
+
   useEffect(() => {
-    if (produtos && produtos.length > 0 && Object.keys(envioItems).length === 0 && !editingEnvio) {
+    if (produtos && produtos.length > 0 && Object.keys(envioItems).length === 0 && !editingGroup) {
       initializeEnvioItems();
     }
   }, [produtos]);
@@ -141,22 +185,22 @@ const Envios = () => {
     setSelectedCliente("");
     setDataEnvio(format(new Date(), "yyyy-MM-dd"));
     setObservacoes("");
-    setEditingEnvio(null);
+    setEditingGroup(null);
     initializeEnvioItems();
   };
 
-  const handleEdit = (envio: any) => {
-    setEditingEnvio(envio);
-    setSelectedCliente(envio.cliente_id);
-    setDataEnvio(envio.data_envio);
-    setObservacoes(envio.observacoes || "");
+  const handleEdit = (grupo: EnvioAgrupado) => {
+    setEditingGroup(grupo);
+    setSelectedCliente(grupo.cliente_id);
+    setDataEnvio(grupo.data_envio);
+    setObservacoes(grupo.observacoes || "");
     
-    // Set the specific product's galões
     const newItems: Record<string, EnvioItem> = {};
     produtos.forEach((produto) => {
+      const produtoEnvio = grupo.produtos[produto.id];
       newItems[produto.id] = {
         produtoId: produto.id,
-        galoesCheios: produto.id === envio.produto_id ? Math.round(envio.quantidade / VOLUME_GALAO) : 0,
+        galoesCheios: produtoEnvio ? produtoEnvio.galoes : 0,
       };
     });
     setEnvioItems(newItems);
@@ -208,104 +252,53 @@ const Envios = () => {
   // Update mutation with logging
   const updateMutation = useMutation({
     mutationFn: async () => {
-      if (!editingEnvio || !selectedCliente) return;
+      if (!editingGroup || !selectedCliente) return;
 
-      // Find the product with galões > 0
-      const produtoEnviado = produtos.find((produto) => {
+      // Delete existing envios for this group
+      const { error: deleteError } = await supabase
+        .from("envios_produtos")
+        .delete()
+        .in("id", editingGroup.envioIds);
+
+      if (deleteError) throw deleteError;
+
+      // Insert new envios
+      const produtosComEnvio = produtos.filter((produto) => {
         const item = envioItems[produto.id];
         return item && item.galoesCheios > 0;
       });
 
-      if (!produtoEnviado) {
+      if (produtosComEnvio.length === 0) {
         throw new Error("Informe pelo menos um produto.");
       }
 
-      const item = envioItems[produtoEnviado.id];
-      const novaQuantidade = (item?.galoesCheios || 0) * VOLUME_GALAO;
+      const inserts = produtosComEnvio.map((produto) => {
+        const item = envioItems[produto.id];
+        const quantidadeTotal = (item?.galoesCheios || 0) * VOLUME_GALAO;
 
-      // Prepare log entries for changes
-      const logs: Array<{
-        envio_id: string;
-        usuario_id: string | undefined;
-        campo_alterado: string;
-        valor_anterior: string;
-        valor_novo: string;
-      }> = [];
-
-      if (editingEnvio.cliente_id !== selectedCliente) {
-        const clienteAnterior = clientes.find(c => c.id === editingEnvio.cliente_id);
-        const clienteNovo = clientes.find(c => c.id === selectedCliente);
-        logs.push({
-          envio_id: editingEnvio.id,
-          usuario_id: user?.id,
-          campo_alterado: "cliente",
-          valor_anterior: clienteAnterior ? `${clienteAnterior.nome}${clienteAnterior.fazenda ? ` - ${clienteAnterior.fazenda}` : ''}` : editingEnvio.cliente_id,
-          valor_novo: clienteNovo ? `${clienteNovo.nome}${clienteNovo.fazenda ? ` - ${clienteNovo.fazenda}` : ''}` : selectedCliente,
-        });
-      }
-
-      if (editingEnvio.produto_id !== produtoEnviado.id) {
-        const produtoAnterior = produtos.find(p => p.id === editingEnvio.produto_id);
-        logs.push({
-          envio_id: editingEnvio.id,
-          usuario_id: user?.id,
-          campo_alterado: "produto",
-          valor_anterior: produtoAnterior?.nome || editingEnvio.produto_id,
-          valor_novo: produtoEnviado.nome,
-        });
-      }
-
-      if (editingEnvio.quantidade !== novaQuantidade) {
-        logs.push({
-          envio_id: editingEnvio.id,
-          usuario_id: user?.id,
-          campo_alterado: "quantidade",
-          valor_anterior: `${editingEnvio.quantidade}L (${Math.round(editingEnvio.quantidade / VOLUME_GALAO)} galões)`,
-          valor_novo: `${novaQuantidade}L (${item?.galoesCheios || 0} galões)`,
-        });
-      }
-
-      if (editingEnvio.data_envio !== dataEnvio) {
-        logs.push({
-          envio_id: editingEnvio.id,
-          usuario_id: user?.id,
-          campo_alterado: "data_envio",
-          valor_anterior: format(new Date(editingEnvio.data_envio), "dd/MM/yyyy"),
-          valor_novo: format(new Date(dataEnvio), "dd/MM/yyyy"),
-        });
-      }
-
-      if ((editingEnvio.observacoes || "") !== (observacoes || "")) {
-        logs.push({
-          envio_id: editingEnvio.id,
-          usuario_id: user?.id,
-          campo_alterado: "observacoes",
-          valor_anterior: editingEnvio.observacoes || "(vazio)",
-          valor_novo: observacoes || "(vazio)",
-        });
-      }
-
-      // Update the envio
-      const { error: updateError } = await supabase
-        .from("envios_produtos")
-        .update({
+        return {
           cliente_id: selectedCliente,
-          produto_id: produtoEnviado.id,
-          quantidade: novaQuantidade,
+          produto_id: produto.id,
+          quantidade: quantidadeTotal,
           data_envio: dataEnvio,
           observacoes: observacoes || null,
-        })
-        .eq("id", editingEnvio.id);
+          registrado_por: user?.id,
+        };
+      });
 
-      if (updateError) throw updateError;
+      const { error: insertError } = await supabase.from("envios_produtos").insert(inserts);
+      if (insertError) throw insertError;
 
-      // Insert logs if there are changes
-      if (logs.length > 0) {
-        const { error: logError } = await supabase
-          .from("envios_log")
-          .insert(logs);
-        if (logError) console.error("Erro ao registrar log:", logError);
-      }
+      // Log the edit
+      const clienteNovo = clientes.find(c => c.id === selectedCliente);
+      const { error: logError } = await supabase.from("envios_log").insert({
+        envio_id: editingGroup.envioIds[0],
+        usuario_id: user?.id,
+        campo_alterado: "envio_atualizado",
+        valor_anterior: `${editingGroup.cliente_nome} - ${editingGroup.data_envio}`,
+        valor_novo: `${clienteNovo?.nome || selectedCliente} - ${dataEnvio}`,
+      });
+      if (logError) console.error("Erro ao registrar log:", logError);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["envios"] });
@@ -318,19 +311,19 @@ const Envios = () => {
     },
   });
 
-  // Delete mutation
+  // Delete mutation (deletes all envios in a group)
   const deleteMutation = useMutation({
-    mutationFn: async (id: string) => {
+    mutationFn: async (ids: string[]) => {
       const { error } = await supabase
         .from("envios_produtos")
         .delete()
-        .eq("id", id);
+        .in("id", ids);
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["envios"] });
       toast.success("Envio excluído com sucesso!");
-      setDeleteId(null);
+      setDeleteIds(null);
     },
     onError: (error: Error) => {
       toast.error("Erro ao excluir envio: " + error.message);
@@ -356,7 +349,7 @@ const Envios = () => {
   });
 
   const handleSubmit = () => {
-    if (editingEnvio) {
+    if (editingGroup) {
       updateMutation.mutate();
     } else {
       createMutation.mutate();
@@ -400,7 +393,7 @@ const Envios = () => {
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle>
-                {editingEnvio ? "Editar Envio" : "Registrar Novo Envio"}
+                {editingGroup ? "Editar Envio" : "Registrar Novo Envio"}
               </DialogTitle>
             </DialogHeader>
 
@@ -479,7 +472,7 @@ const Envios = () => {
                 />
               </div>
 
-              {/* Produtos - Apenas galões cheios */}
+              {/* Produtos */}
               {selectedCliente &&
                 produtos?.map((produto) => {
                   const item = envioItems[produto.id];
@@ -576,7 +569,7 @@ const Envios = () => {
                   ) : (
                     <Save className="mr-2 h-4 w-4" />
                   )}
-                  {editingEnvio ? "Salvar Alterações" : "Registrar Envio"}
+                  {editingGroup ? "Salvar Alterações" : "Registrar Envio"}
                 </Button>
               </div>
             </div>
@@ -594,67 +587,85 @@ const Envios = () => {
         <CardContent>
           {isLoading ? (
             <p className="text-center py-8 text-muted-foreground">Carregando...</p>
-          ) : envios.length === 0 ? (
+          ) : enviosAgrupados.length === 0 ? (
             <p className="text-center py-8 text-muted-foreground">
               Nenhum envio registrado ainda.
             </p>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Data</TableHead>
-                  <TableHead>Cliente</TableHead>
-                  <TableHead>Fazenda</TableHead>
-                  <TableHead>Produto</TableHead>
-                  <TableHead className="text-right">Qtd (Galões)</TableHead>
-                  <TableHead>Observações</TableHead>
-                  <TableHead className="w-[100px]">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {envios.map((envio: any) => (
-                  <TableRow key={envio.id}>
-                    <TableCell>
-                      {format(new Date(envio.data_envio), "dd/MM/yyyy", {
-                        locale: ptBR,
-                      })}
-                    </TableCell>
-                    <TableCell>{envio.cliente?.nome || "-"}</TableCell>
-                    <TableCell>{envio.cliente?.fazenda || "-"}</TableCell>
-                    <TableCell>{envio.produto?.nome || "-"}</TableCell>
-                    <TableCell className="text-right">
-                      {envio.quantidade}L ({Math.round(envio.quantidade / VOLUME_GALAO)} gal.)
-                    </TableCell>
-                    <TableCell className="max-w-[200px] truncate">
-                      {envio.observacoes || "-"}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleEdit(envio)}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => setDeleteId(envio.id)}
-                        >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </div>
-                    </TableCell>
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Data</TableHead>
+                    <TableHead>Cliente</TableHead>
+                    <TableHead>Fazenda</TableHead>
+                    {produtos.map((produto) => (
+                      <TableHead key={produto.id} className="text-center">
+                        {produto.nome}
+                      </TableHead>
+                    ))}
+                    <TableHead>Obs.</TableHead>
+                    <TableHead className="w-[100px]">Ações</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {enviosAgrupados.map((grupo) => (
+                    <TableRow key={grupo.chave}>
+                      <TableCell>
+                        {format(new Date(grupo.data_envio), "dd/MM/yyyy", {
+                          locale: ptBR,
+                        })}
+                      </TableCell>
+                      <TableCell>{grupo.cliente_nome}</TableCell>
+                      <TableCell>{grupo.cliente_fazenda || "-"}</TableCell>
+                      {produtos.map((produto) => {
+                        const produtoEnvio = grupo.produtos[produto.id];
+                        return (
+                          <TableCell key={produto.id} className="text-center">
+                            {produtoEnvio ? (
+                              <span className="font-medium">
+                                {produtoEnvio.galoes} gal.
+                                <span className="text-xs text-muted-foreground ml-1">
+                                  ({produtoEnvio.quantidade}L)
+                                </span>
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            )}
+                          </TableCell>
+                        );
+                      })}
+                      <TableCell className="max-w-[150px] truncate">
+                        {grupo.observacoes || "-"}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleEdit(grupo)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setDeleteIds(grupo.envioIds)}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           )}
         </CardContent>
       </Card>
 
-      <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
+      <AlertDialog open={!!deleteIds} onOpenChange={() => setDeleteIds(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
@@ -666,7 +677,7 @@ const Envios = () => {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => deleteId && deleteMutation.mutate(deleteId)}
+              onClick={() => deleteIds && deleteMutation.mutate(deleteIds)}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               Excluir
