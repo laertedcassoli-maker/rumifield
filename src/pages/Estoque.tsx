@@ -1,429 +1,166 @@
-import { useState, useEffect } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
-import { Switch } from '@/components/ui/switch';
-import { Label } from '@/components/ui/label';
-import { Beaker, Building2, Loader2, Save, ChevronsUpDown, Check, Minus, Plus, Calendar } from 'lucide-react';
-import { useToast } from '@/hooks/use-toast';
-import { cn } from '@/lib/utils';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { format } from 'date-fns';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Beaker, Loader2, Plus, Calendar, User } from 'lucide-react';
+import { format, parseISO } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import { NovaAfericaoDialog } from '@/components/estoque/NovaAfericaoDialog';
 
-const VOLUME_GALAO = 50; // Litros
-
-interface EstoqueItem {
-  produtoId: string;
-  galoesCheios: number;
-  galaoEmUso: boolean;
-  nivelGalaoParcial: number; // 0, 25, 50, 75
-}
+const VOLUME_GALAO = 50;
 
 export default function Estoque() {
-  const { user } = useAuth();
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
-  const [selectedCliente, setSelectedCliente] = useState<string>('');
-  const [estoqueItems, setEstoqueItems] = useState<Record<string, EstoqueItem>>({});
-  const [clienteOpen, setClienteOpen] = useState(false);
-  const [dataAfericao, setDataAfericao] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
-  const [responsavel, setResponsavel] = useState<'Cliente' | 'CSM'>('Cliente');
+  const [dialogOpen, setDialogOpen] = useState(false);
 
-  const { data: clientes } = useQuery({
-    queryKey: ['clientes'],
+  const { data: afericoes, isLoading, refetch } = useQuery({
+    queryKey: ['afericoes-estoque'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('clientes').select('*').order('nome');
-      if (error) throw error;
-      return data;
-    },
-  });
-
-  const { data: produtos } = useQuery({
-    queryKey: ['produtos-quimicos'],
-    queryFn: async () => {
-      const { data, error } = await supabase.from('produtos_quimicos').select('*').eq('ativo', true);
-      if (error) throw error;
-      return data;
-    },
-  });
-
-  const { data: estoque, isLoading } = useQuery({
-    queryKey: ['estoque', selectedCliente],
-    queryFn: async () => {
-      if (!selectedCliente) return [];
       const { data, error } = await supabase
         .from('estoque_cliente')
-        .select('*, produtos_quimicos(nome, unidade)')
-        .eq('cliente_id', selectedCliente);
+        .select(`
+          *,
+          clientes(nome, fazenda),
+          produtos_quimicos(nome)
+        `)
+        .order('data_afericao', { ascending: false });
       if (error) throw error;
       return data;
     },
-    enabled: !!selectedCliente,
   });
 
-  // Validação: verifica se todos os produtos têm estoque informado
-  const isEstoqueCompleto = () => {
-    if (!produtos) return false;
-    return produtos.every((produto) => {
-      const item = estoqueItems[produto.id];
-      if (!item) return false;
-      // Precisa ter pelo menos 1 galão cheio OU ter um galão em uso
-      return item.galoesCheios > 0 || item.galaoEmUso;
-    });
-  };
-
-  const saveEstoque = useMutation({
-    mutationFn: async () => {
-      if (!selectedCliente || !produtos) return;
-
-      // Validar antes de salvar
-      if (!isEstoqueCompleto()) {
-        throw new Error('Informe o estoque de todos os produtos antes de salvar.');
-      }
-
-      const updates = produtos.map((produto) => {
-        const item = estoqueItems[produto.id];
-        const galoesCheios = item?.galoesCheios || 0;
-        const nivelParcial = item?.galaoEmUso ? (item.nivelGalaoParcial || 0) : null;
-        
-        // Calcular quantidade total em litros
-        const quantidadeTotal = (galoesCheios * VOLUME_GALAO) + 
-          (nivelParcial !== null ? (nivelParcial / 100) * VOLUME_GALAO : 0);
-
-        return {
-          cliente_id: selectedCliente,
-          produto_id: produto.id,
-          quantidade: quantidadeTotal,
-          galoes_cheios: galoesCheios,
-          nivel_galao_parcial: nivelParcial,
-          atualizado_por: user?.id,
-          data_atualizacao: new Date().toISOString(),
-          data_afericao: dataAfericao,
-          responsavel: responsavel,
-        };
-      });
-
-      const { error } = await supabase.from('estoque_cliente').upsert(updates, {
-        onConflict: 'cliente_id,produto_id',
-      });
-
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['estoque'] });
-      toast({ title: 'Estoque atualizado com sucesso!' });
-    },
-    onError: (error: Error) => {
-      toast({ variant: 'destructive', title: 'Erro ao salvar', description: error.message });
-    },
-  });
-
-  // Atualizar estado quando estoque carregar
-  useEffect(() => {
-    if (estoque && produtos) {
-      const newItems: Record<string, EstoqueItem> = {};
-      produtos.forEach((produto) => {
-        const estoqueItem = estoque.find((e) => e.produto_id === produto.id);
-        newItems[produto.id] = {
-          produtoId: produto.id,
-          galoesCheios: estoqueItem?.galoes_cheios || 0,
-          galaoEmUso: estoqueItem?.nivel_galao_parcial !== null && estoqueItem?.nivel_galao_parcial !== undefined,
-          nivelGalaoParcial: estoqueItem?.nivel_galao_parcial || 0,
-        };
-      });
-      setEstoqueItems(newItems);
-
-      // Carregar data e responsável do primeiro registro existente (se houver)
-      const primeiroEstoque = estoque[0];
-      if (primeiroEstoque) {
-        if (primeiroEstoque.data_afericao) {
-          setDataAfericao(primeiroEstoque.data_afericao);
-        }
-        if (primeiroEstoque.responsavel) {
-          setResponsavel(primeiroEstoque.responsavel as 'Cliente' | 'CSM');
-        }
-      }
+  // Agrupa aferições por cliente_id + data_afericao + responsavel para mostrar como uma linha
+  const afericoesAgrupadas = afericoes?.reduce((acc, item) => {
+    const key = `${item.cliente_id}-${item.data_afericao}-${item.responsavel}`;
+    if (!acc[key]) {
+      acc[key] = {
+        cliente_id: item.cliente_id,
+        cliente_nome: item.clientes?.nome || '',
+        cliente_fazenda: item.clientes?.fazenda || '',
+        data_afericao: item.data_afericao,
+        responsavel: item.responsavel,
+        data_atualizacao: item.data_atualizacao,
+        produtos: [],
+      };
     }
-  }, [estoque, produtos]);
+    acc[key].produtos.push({
+      nome: item.produtos_quimicos?.nome || '',
+      galoes_cheios: item.galoes_cheios,
+      nivel_galao_parcial: item.nivel_galao_parcial,
+      quantidade: item.quantidade,
+    });
+    return acc;
+  }, {} as Record<string, {
+    cliente_id: string;
+    cliente_nome: string;
+    cliente_fazenda: string;
+    data_afericao: string;
+    responsavel: string;
+    data_atualizacao: string;
+    produtos: { nome: string; galoes_cheios: number; nivel_galao_parcial: number | null; quantidade: number }[];
+  }>);
 
-  const clienteSelecionado = clientes?.find((c) => c.id === selectedCliente);
+  const listaAfericoes = Object.values(afericoesAgrupadas || {});
 
-  const getClienteLabel = (cliente: typeof clientes extends (infer T)[] ? T : never) => {
-    return cliente.fazenda ? `${cliente.nome} - ${cliente.fazenda}` : cliente.nome;
-  };
-
-  const updateEstoqueItem = (produtoId: string, updates: Partial<EstoqueItem>) => {
-    setEstoqueItems((prev) => ({
-      ...prev,
-      [produtoId]: { ...prev[produtoId], ...updates },
-    }));
-  };
-
-  const calcularTotalLitros = (item: EstoqueItem | undefined) => {
-    if (!item) return 0;
-    const cheios = item.galoesCheios * VOLUME_GALAO;
-    const parcial = item.galaoEmUso ? (item.nivelGalaoParcial / 100) * VOLUME_GALAO : 0;
+  const calcularTotalLitros = (galoesCheios: number, nivelParcial: number | null) => {
+    const cheios = galoesCheios * VOLUME_GALAO;
+    const parcial = nivelParcial !== null ? (nivelParcial / 100) * VOLUME_GALAO : 0;
     return cheios + parcial;
   };
 
-  const niveisDisponiveis = [
-    { value: 25, label: '25%' },
-    { value: 50, label: '50%' },
-    { value: 75, label: '75%' },
-    { value: 0, label: 'Vazio' },
-  ];
-
   return (
     <div className="space-y-6 animate-fade-in">
-      <div>
-        <h1 className="text-2xl font-bold">Controle de Estoque</h1>
-        <p className="text-muted-foreground">Registre o estoque de produtos químicos por cliente</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">Controle de Estoque</h1>
+          <p className="text-muted-foreground">Histórico de aferições de produtos químicos</p>
+        </div>
+        <Button onClick={() => setDialogOpen(true)}>
+          <Plus className="mr-2 h-4 w-4" />
+          Nova Aferição
+        </Button>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">Selecione o Cliente</CardTitle>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Beaker className="h-5 w-5 text-primary" />
+            Aferições Registradas
+          </CardTitle>
         </CardHeader>
         <CardContent>
-          <Popover open={clienteOpen} onOpenChange={setClienteOpen}>
-            <PopoverTrigger asChild>
-              <Button
-                variant="outline"
-                role="combobox"
-                aria-expanded={clienteOpen}
-                className="w-full justify-between font-normal"
-              >
-                {selectedCliente && clienteSelecionado
-                  ? getClienteLabel(clienteSelecionado)
-                  : "Buscar cliente / fazenda..."}
-                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
-              <Command>
-                <CommandInput placeholder="Digite para buscar..." />
-                <CommandList>
-                  <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
-                  <CommandGroup>
-                    {clientes?.map((cliente) => (
-                      <CommandItem
-                        key={cliente.id}
-                        value={getClienteLabel(cliente)}
-                        onSelect={() => {
-                          setSelectedCliente(cliente.id);
-                          setClienteOpen(false);
-                        }}
-                      >
-                        <Check
-                          className={cn(
-                            "mr-2 h-4 w-4",
-                            selectedCliente === cliente.id ? "opacity-100" : "opacity-0"
-                          )}
-                        />
-                        <div className="flex flex-col">
-                          <span>{cliente.nome}</span>
-                          {cliente.fazenda && (
-                            <span className="text-xs text-muted-foreground">{cliente.fazenda}</span>
-                          )}
+          {isLoading ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+            </div>
+          ) : listaAfericoes.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground">
+              Nenhuma aferição registrada ainda.
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Cliente</TableHead>
+                    <TableHead>Fazenda</TableHead>
+                    <TableHead>Data Aferição</TableHead>
+                    <TableHead>Responsável</TableHead>
+                    <TableHead>Produtos</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {listaAfericoes.map((afericao, index) => (
+                    <TableRow key={index}>
+                      <TableCell className="font-medium">{afericao.cliente_nome}</TableCell>
+                      <TableCell>{afericao.cliente_fazenda || '-'}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1">
+                          <Calendar className="h-4 w-4 text-muted-foreground" />
+                          {afericao.data_afericao 
+                            ? format(parseISO(afericao.data_afericao), 'dd/MM/yyyy', { locale: ptBR })
+                            : '-'
+                          }
                         </div>
-                      </CommandItem>
-                    ))}
-                  </CommandGroup>
-                </CommandList>
-              </Command>
-            </PopoverContent>
-          </Popover>
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-1">
+                          <User className="h-4 w-4 text-muted-foreground" />
+                          {afericao.responsavel}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <div className="space-y-1">
+                          {afericao.produtos.map((produto, pIndex) => (
+                            <div key={pIndex} className="text-sm">
+                              <span className="font-medium">{produto.nome}:</span>{' '}
+                              <span className="text-muted-foreground">
+                                {produto.galoes_cheios} galões
+                                {produto.nivel_galao_parcial !== null && ` + ${produto.nivel_galao_parcial}%`}
+                                {' '}({calcularTotalLitros(produto.galoes_cheios, produto.nivel_galao_parcial)}L)
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
         </CardContent>
       </Card>
 
-      {selectedCliente && (
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                <Building2 className="h-5 w-5 text-primary" />
-                {clienteSelecionado?.nome}
-              </CardTitle>
-              {clienteSelecionado?.fazenda && (
-                <p className="text-sm text-muted-foreground">{clienteSelecionado.fazenda}</p>
-              )}
-            </div>
-            <Button 
-              onClick={() => saveEstoque.mutate()} 
-              disabled={saveEstoque.isPending || !isEstoqueCompleto()}
-            >
-              {saveEstoque.isPending ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Save className="mr-2 h-4 w-4" />
-              )}
-              Salvar
-            </Button>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            {/* Campos de aferição */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 bg-muted/30 rounded-lg border">
-              <div className="space-y-2">
-                <Label htmlFor="data-afericao" className="flex items-center gap-2">
-                  <Calendar className="h-4 w-4" />
-                  Data da Aferição
-                </Label>
-                <Input
-                  id="data-afericao"
-                  type="date"
-                  value={dataAfericao}
-                  onChange={(e) => setDataAfericao(e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="responsavel">Responsável</Label>
-                <Select value={responsavel} onValueChange={(v) => setResponsavel(v as 'Cliente' | 'CSM')}>
-                  <SelectTrigger id="responsavel">
-                    <SelectValue placeholder="Selecione..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Cliente">Cliente</SelectItem>
-                    <SelectItem value="CSM">CSM</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            {isLoading ? (
-              <div className="flex justify-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin text-primary" />
-              </div>
-            ) : (
-              produtos?.map((produto) => {
-                const item = estoqueItems[produto.id];
-                const totalLitros = calcularTotalLitros(item);
-                
-                return (
-                  <div key={produto.id} className="rounded-lg border p-4 space-y-4">
-                    {/* Header do produto */}
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10">
-                        <Beaker className="h-5 w-5 text-primary" />
-                      </div>
-                      <div className="flex-1">
-                        <p className="font-semibold">{produto.nome}</p>
-                        {produto.descricao && (
-                          <p className="text-sm text-muted-foreground">{produto.descricao}</p>
-                        )}
-                      </div>
-                      <div className="text-right">
-                        <p className="text-sm text-muted-foreground">Total estimado</p>
-                        <p className="font-bold text-lg text-primary">{totalLitros}L</p>
-                      </div>
-                    </div>
-
-                    {/* Galões Cheios */}
-                    <div className="flex items-center justify-between bg-muted/50 rounded-lg p-3">
-                      <Label className="text-sm font-medium">Galões Cheios (50L)</Label>
-                      <div className="flex items-center gap-3">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() => updateEstoqueItem(produto.id, { 
-                            galoesCheios: Math.max(0, (item?.galoesCheios || 0) - 1) 
-                          })}
-                        >
-                          <Minus className="h-4 w-4" />
-                        </Button>
-                        <span className="w-12 text-center font-bold text-lg">
-                          {item?.galoesCheios || 0}
-                        </span>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() => updateEstoqueItem(produto.id, { 
-                            galoesCheios: (item?.galoesCheios || 0) + 1 
-                          })}
-                        >
-                          <Plus className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-
-                    {/* Galão em Uso */}
-                    <div className="space-y-3">
-                      <div className="flex items-center justify-between">
-                        <Label htmlFor={`galao-uso-${produto.id}`} className="text-sm font-medium">
-                          Galão em Uso
-                        </Label>
-                        <Switch
-                          id={`galao-uso-${produto.id}`}
-                          checked={item?.galaoEmUso || false}
-                          onCheckedChange={(checked) => 
-                            updateEstoqueItem(produto.id, { 
-                              galaoEmUso: checked,
-                              nivelGalaoParcial: checked ? 50 : 0 
-                            })
-                          }
-                        />
-                      </div>
-
-                      {/* Seletor de Nível com Barra Visual */}
-                      {item?.galaoEmUso && (
-                        <div className="space-y-3 pl-4 border-l-2 border-primary/30">
-                          <p className="text-sm text-muted-foreground">Nível do galão em uso:</p>
-                          
-                          {/* Botões de seleção */}
-                          <div className="flex gap-2 flex-wrap">
-                            {niveisDisponiveis.map((nivel) => (
-                              <Button
-                                key={nivel.value}
-                                type="button"
-                                variant={item.nivelGalaoParcial === nivel.value ? "default" : "outline"}
-                                size="sm"
-                                onClick={() => updateEstoqueItem(produto.id, { nivelGalaoParcial: nivel.value })}
-                                className="min-w-[60px]"
-                              >
-                                {nivel.label}
-                              </Button>
-                            ))}
-                          </div>
-
-                          {/* Barra visual de progresso */}
-                          <div className="space-y-1">
-                            <div className="h-6 w-full bg-muted rounded-full overflow-hidden border">
-                              <div
-                                className={cn(
-                                  "h-full transition-all duration-300 rounded-full",
-                                  item.nivelGalaoParcial >= 75 ? "bg-primary" :
-                                  item.nivelGalaoParcial >= 50 ? "bg-primary/80" :
-                                  item.nivelGalaoParcial >= 25 ? "bg-primary/60" :
-                                  "bg-muted-foreground/20"
-                                )}
-                                style={{ width: `${item.nivelGalaoParcial}%` }}
-                              />
-                            </div>
-                            <p className="text-xs text-muted-foreground text-center">
-                              {item.nivelGalaoParcial > 0 
-                                ? `${(item.nivelGalaoParcial / 100) * VOLUME_GALAO}L restantes`
-                                : 'Galão vazio'
-                              }
-                            </p>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })
-            )}
-          </CardContent>
-        </Card>
-      )}
+      <NovaAfericaoDialog 
+        open={dialogOpen} 
+        onOpenChange={setDialogOpen}
+        onSuccess={() => {
+          setDialogOpen(false);
+          refetch();
+        }}
+      />
     </div>
   );
 }
