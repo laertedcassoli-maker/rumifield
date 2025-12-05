@@ -13,7 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, ShoppingCart, Loader2, Package, Trash2, Minus, Check, ChevronsUpDown, ArrowUpDown, Search, X } from 'lucide-react';
+import { Plus, ShoppingCart, Loader2, Package, Trash2, Minus, Check, ChevronsUpDown, ArrowUpDown, Search, X, Eye } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -485,14 +485,28 @@ export default function Pedidos() {
                     )}
                   </TableCell>
                   <TableCell>
-                    <div className="flex flex-wrap gap-1 max-w-[200px]">
-                      {pedido.pedido_itens?.map((item: any) => (
-                        <Badge key={item.id} variant="secondary" className="text-xs">
-                          <Package className="mr-1 h-3 w-3" />
-                          {item.pecas?.codigo} x{item.quantidade}
-                        </Badge>
-                      ))}
-                    </div>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button variant="ghost" size="sm" className="h-auto p-1 gap-1.5">
+                          <Package className="h-4 w-4 text-muted-foreground" />
+                          <span>{pedido.pedido_itens?.length || 0} {pedido.pedido_itens?.length === 1 ? 'item' : 'itens'}</span>
+                          <Eye className="h-3 w-3 text-muted-foreground" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-3" align="start">
+                        <div className="space-y-2">
+                          <p className="text-sm font-medium">Itens do Pedido</p>
+                          <div className="space-y-1">
+                            {pedido.pedido_itens?.map((item: any) => (
+                              <div key={item.id} className="flex items-center justify-between gap-4 text-sm">
+                                <span className="text-muted-foreground">{item.pecas?.codigo}</span>
+                                <span className="font-medium">x{item.quantidade}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </PopoverContent>
+                    </Popover>
                   </TableCell>
                   <TableCell>
                     <Badge variant="outline" className={statusColors[pedido.status]}>
