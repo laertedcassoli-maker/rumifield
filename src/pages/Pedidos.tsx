@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -10,10 +10,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
-import { Plus, ShoppingCart, Building2, Loader2, Package, Trash2 } from 'lucide-react';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { Plus, ShoppingCart, Building2, Loader2, Package, Trash2, Minus, Check, ChevronsUpDown } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
 
 const statusColors: Record<string, string> = {
   solicitado: 'bg-info/10 text-info border-info/20',
@@ -107,6 +110,8 @@ export default function Pedidos() {
     },
   });
 
+  const [openPopovers, setOpenPopovers] = useState<Record<number, boolean>>({});
+
   const addItem = () => {
     setItens([...itens, { peca_id: '', quantidade: 1 }]);
   };
@@ -117,8 +122,27 @@ export default function Pedidos() {
     setItens(newItens);
   };
 
+  const incrementQuantity = (index: number) => {
+    const newItens = [...itens];
+    newItens[index] = { ...newItens[index], quantidade: newItens[index].quantidade + 1 };
+    setItens(newItens);
+  };
+
+  const decrementQuantity = (index: number) => {
+    const newItens = [...itens];
+    if (newItens[index].quantidade > 1) {
+      newItens[index] = { ...newItens[index], quantidade: newItens[index].quantidade - 1 };
+      setItens(newItens);
+    }
+  };
+
   const removeItem = (index: number) => {
     setItens(itens.filter((_, i) => i !== index));
+  };
+
+  const getPecaLabel = (pecaId: string) => {
+    const peca = pecas?.find(p => p.id === pecaId);
+    return peca ? `${peca.codigo} - ${peca.nome}` : 'Selecione a peça';
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -177,35 +201,90 @@ export default function Pedidos() {
                     Adicionar
                   </Button>
                 </div>
-                <div className="space-y-2 max-h-48 overflow-y-auto">
+                <div className="space-y-3 max-h-60 overflow-y-auto">
                   {itens.map((item, index) => (
-                    <div key={index} className="flex items-center gap-2">
-                      <Select
-                        value={item.peca_id}
-                        onValueChange={(v) => updateItem(index, 'peca_id', v)}
+                    <div key={index} className="flex items-center gap-2 p-2 rounded-lg border bg-muted/30">
+                      <Popover 
+                        open={openPopovers[index]} 
+                        onOpenChange={(open) => setOpenPopovers({ ...openPopovers, [index]: open })}
                       >
-                        <SelectTrigger className="flex-1">
-                          <SelectValue placeholder="Selecione a peça" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {pecas?.map((peca) => (
-                            <SelectItem key={peca.id} value={peca.id}>
-                              {peca.codigo} - {peca.nome}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <Input
-                        type="number"
-                        min="1"
-                        className="w-20"
-                        value={item.quantidade}
-                        onChange={(e) => updateItem(index, 'quantidade', parseInt(e.target.value) || 1)}
-                      />
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            role="combobox"
+                            className="flex-1 justify-between font-normal"
+                          >
+                            <span className="truncate">
+                              {item.peca_id ? getPecaLabel(item.peca_id) : 'Buscar peça...'}
+                            </span>
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[300px] p-0" align="start">
+                          <Command>
+                            <CommandInput placeholder="Buscar por código, nome ou descrição..." />
+                            <CommandList>
+                              <CommandEmpty>Nenhuma peça encontrada.</CommandEmpty>
+                              <CommandGroup>
+                                {pecas?.map((peca) => (
+                                  <CommandItem
+                                    key={peca.id}
+                                    value={`${peca.codigo} ${peca.nome} ${peca.descricao || ''}`}
+                                    onSelect={() => {
+                                      updateItem(index, 'peca_id', peca.id);
+                                      setOpenPopovers({ ...openPopovers, [index]: false });
+                                    }}
+                                  >
+                                    <Check
+                                      className={cn(
+                                        "mr-2 h-4 w-4",
+                                        item.peca_id === peca.id ? "opacity-100" : "opacity-0"
+                                      )}
+                                    />
+                                    <div className="flex flex-col">
+                                      <span className="font-medium">{peca.codigo} - {peca.nome}</span>
+                                      {peca.descricao && (
+                                        <span className="text-xs text-muted-foreground truncate max-w-[250px]">
+                                          {peca.descricao}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </CommandItem>
+                                ))}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
+                      
+                      <div className="flex items-center gap-1">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => decrementQuantity(index)}
+                          disabled={item.quantidade <= 1}
+                        >
+                          <Minus className="h-3 w-3" />
+                        </Button>
+                        <span className="w-8 text-center font-medium">{item.quantidade}</span>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => incrementQuantity(index)}
+                        >
+                          <Plus className="h-3 w-3" />
+                        </Button>
+                      </div>
+                      
                       <Button
                         type="button"
                         variant="ghost"
                         size="icon"
+                        className="h-8 w-8"
                         onClick={() => removeItem(index)}
                       >
                         <Trash2 className="h-4 w-4 text-destructive" />
