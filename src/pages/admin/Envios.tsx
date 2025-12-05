@@ -174,7 +174,7 @@ const Envios = () => {
       grupos[chave].produtos[envio.produto_id] = {
         id: envio.id,
         quantidade: envio.quantidade,
-        galoes: Math.round(envio.quantidade / VOLUME_GALAO),
+        galoes: envio.galoes || Math.round(envio.quantidade / VOLUME_GALAO),
       };
       grupos[chave].envioIds.push(envio.id);
     });
@@ -307,12 +307,14 @@ const Envios = () => {
 
       const inserts = produtosComEnvio.map((produto) => {
         const item = envioItems[produto.id];
-        const quantidadeTotal = (item?.galoesCheios || 0) * VOLUME_GALAO;
+        const galoes = item?.galoesCheios || 0;
+        const quantidadeTotal = galoes * VOLUME_GALAO;
 
         return {
           cliente_id: selectedCliente,
           produto_id: produto.id,
           quantidade: quantidadeTotal,
+          galoes: galoes,
           data_envio: dataEnvio,
           observacoes: observacoes || null,
           registrado_por: user?.id,
@@ -358,12 +360,14 @@ const Envios = () => {
 
       const inserts = produtosComEnvio.map((produto) => {
         const item = envioItems[produto.id];
-        const quantidadeTotal = (item?.galoesCheios || 0) * VOLUME_GALAO;
+        const galoes = item?.galoesCheios || 0;
+        const quantidadeTotal = galoes * VOLUME_GALAO;
 
         return {
           cliente_id: selectedCliente,
           produto_id: produto.id,
           quantidade: quantidadeTotal,
+          galoes: galoes,
           data_envio: dataEnvio,
           observacoes: observacoes || null,
           registrado_por: user?.id,

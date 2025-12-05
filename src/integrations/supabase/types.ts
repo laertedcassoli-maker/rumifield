@@ -102,6 +102,7 @@ export type Database = {
           cliente_id: string
           created_at: string
           data_envio: string
+          galoes: number
           id: string
           observacoes: string | null
           produto_id: string
@@ -112,6 +113,7 @@ export type Database = {
           cliente_id: string
           created_at?: string
           data_envio?: string
+          galoes?: number
           id?: string
           observacoes?: string | null
           produto_id: string
@@ -122,6 +124,7 @@ export type Database = {
           cliente_id?: string
           created_at?: string
           data_envio?: string
+          galoes?: number
           id?: string
           observacoes?: string | null
           produto_id?: string
