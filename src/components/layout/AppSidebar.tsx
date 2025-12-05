@@ -25,8 +25,8 @@ export function AppSidebar() {
 
   const mainMenuItems = [
     { title: 'Início', icon: Home, url: '/' },
-    { title: 'Visitas', icon: MapPin, url: '/visitas' },
-    { title: 'Pedidos', icon: ShoppingCart, url: '/pedidos' },
+    // { title: 'Visitas', icon: MapPin, url: '/visitas' }, // Temporariamente oculto
+    { title: 'Solicitação Peças', icon: ShoppingCart, url: '/pedidos' },
   ];
 
   const estoqueItems = [
@@ -87,7 +87,7 @@ export function AppSidebar() {
                   <CollapsibleTrigger asChild>
                     <SidebarMenuButton isActive={isEstoqueActive}>
                       <Beaker className="h-4 w-4" />
-                      <span>Estoque</span>
+                      <span>Estoque Químicos</span>
                       <ChevronDown className="ml-auto h-4 w-4 transition-transform group-data-[state=open]/collapsible:rotate-180" />
                     </SidebarMenuButton>
                   </CollapsibleTrigger>
