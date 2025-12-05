@@ -47,12 +47,26 @@ export default function AdminUsuarios() {
   const { data: usuarios, isLoading } = useQuery({
     queryKey: ['usuarios-admin'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      // Busca profiles e user_roles separadamente (não há FK entre elas)
+      const { data: profiles, error: profilesError } = await supabase
         .from('profiles')
-        .select('*, user_roles(role)')
+        .select('*')
         .order('nome');
-      if (error) throw error;
-      return data;
+      if (profilesError) throw profilesError;
+
+      const { data: roles, error: rolesError } = await supabase
+        .from('user_roles')
+        .select('user_id, role');
+      if (rolesError) throw rolesError;
+
+      // Mapeia roles por user_id
+      const rolesMap = new Map(roles?.map(r => [r.user_id, r.role]) || []);
+
+      // Combina profiles com seus roles
+      return profiles?.map(profile => ({
+        ...profile,
+        user_roles: rolesMap.has(profile.id) ? [{ role: rolesMap.get(profile.id) }] : []
+      })) || [];
     },
   });
 
