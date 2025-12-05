@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow, TableFooter } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -492,6 +492,22 @@ export default function ProdutoDetalhe() {
                       </TableRow>
                     ))}
                   </TableBody>
+                  <TableFooter>
+                    <TableRow className="bg-muted/50 font-medium">
+                      <TableCell colSpan={3}>Total ({consumoFiltrado.length} períodos)</TableCell>
+                      <TableCell className="text-center">
+                        {Math.round(consumoFiltrado.reduce((acc, c) => acc + c.dias_periodo, 0) / consumoFiltrado.length || 0)} média
+                      </TableCell>
+                      <TableCell className="text-center">-</TableCell>
+                      <TableCell className="text-center text-green-600 font-medium">
+                        +{totais.totalEnvios}L
+                      </TableCell>
+                      <TableCell className="text-center">-</TableCell>
+                      <TableCell className="text-center font-bold text-destructive">
+                        -{totais.totalConsumo}L
+                      </TableCell>
+                    </TableRow>
+                  </TableFooter>
                 </Table>
               )}
             </CardContent>
@@ -597,6 +613,22 @@ export default function ProdutoDetalhe() {
                       </TableRow>
                     ))}
                   </TableBody>
+                  <TableFooter>
+                    <TableRow className="bg-muted/50 font-medium">
+                      <TableCell colSpan={3}>Total / Média ({consumoFiltrado.length} períodos)</TableCell>
+                      <TableCell className="text-center">
+                        {Math.round(consumoFiltrado.reduce((acc, c) => acc + c.dias_periodo, 0) / consumoFiltrado.length || 0)} média
+                      </TableCell>
+                      <TableCell className="text-center font-medium">
+                        {totais.totalConsumo}L
+                      </TableCell>
+                      <TableCell className="text-center font-bold text-destructive">
+                        -{totais.totalConsumo30dias}L
+                      </TableCell>
+                      <TableCell className="text-center text-muted-foreground">-</TableCell>
+                      <TableCell className="text-center text-muted-foreground">-</TableCell>
+                    </TableRow>
+                  </TableFooter>
                 </Table>
               )}
             </CardContent>
