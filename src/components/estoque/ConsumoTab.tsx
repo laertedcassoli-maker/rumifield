@@ -509,15 +509,34 @@ export function ConsumoTab({ produtoId }: ConsumoTabProps) {
                   </TableHead>
                   {produtos?.map((produto) => (
                     <TableHead 
-                      key={produto.id} 
-                      className="text-center cursor-pointer hover:bg-muted/50 select-none"
-                      onClick={() => handleSort(produto.id)}
+                      key={`${produto.id}-orcado`} 
+                      colSpan={2}
+                      className="text-center border-l"
                     >
-                      <div className="flex items-center justify-center">
+                      <div className="flex items-center justify-center font-medium">
                         {produto.nome}
-                        {getSortIcon(produto.id)}
                       </div>
                     </TableHead>
+                  ))}
+                </TableRow>
+                <TableRow>
+                  <TableHead colSpan={5}></TableHead>
+                  {produtos?.map((produto) => (
+                    <>
+                      <TableHead key={`${produto.id}-orc`} className="text-center text-xs border-l">
+                        Orçado
+                      </TableHead>
+                      <TableHead 
+                        key={`${produto.id}-real`} 
+                        className="text-center text-xs cursor-pointer hover:bg-muted/50 select-none"
+                        onClick={() => handleSort(produto.id)}
+                      >
+                        <div className="flex items-center justify-center">
+                          Realizado
+                          {getSortIcon(produto.id)}
+                        </div>
+                      </TableHead>
+                    </>
                   ))}
                 </TableRow>
               </TableHeader>
@@ -544,37 +563,52 @@ export function ConsumoTab({ produtoId }: ConsumoTabProps) {
                     </TableCell>
                     {produtos?.map((produto) => {
                       const dados = item.produtos[produto.id];
+                      const desvio = dados && dados.orcado_30dias 
+                        ? Math.round(((dados.consumo_30dias - dados.orcado_30dias) / dados.orcado_30dias) * 100)
+                        : null;
+                      
+                      // Cores do semáforo
+                      const getSemaforoColor = (desvio: number | null) => {
+                        if (desvio === null) return 'bg-muted text-muted-foreground';
+                        if (desvio <= 0) return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400';
+                        if (desvio <= 20) return 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400';
+                        return 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400';
+                      };
+                      
                       return (
-                        <TableCell key={produto.id} className="text-center">
-                          {dados ? (
-                            <div className="text-sm">
-                              {viewMode === 'periodo' ? (
-                                <>
-                                  <div className="font-medium text-destructive">
-                                    -{dados.consumo}L
-                                  </div>
-                                  <div className="text-xs text-muted-foreground">
-                                    {dados.estoque_inicial}L → {dados.estoque_final}L
-                                    {dados.envios > 0 && (
-                                      <span className="text-green-600 ml-1">+{dados.envios}L</span>
-                                    )}
-                                  </div>
-                                </>
-                              ) : (
-                                <>
-                                  <div className="font-medium text-destructive">
-                                    -{dados.consumo_30dias}L
-                                  </div>
-                                  {dados.orcado_30dias !== null && (
-                                    <div className={`text-xs ${dados.consumo_30dias > dados.orcado_30dias ? 'text-orange-500' : 'text-green-600'}`}>
-                                      orçado: {dados.orcado_30dias}L
+                        <>
+                          <TableCell key={`${produto.id}-orc`} className="text-center border-l">
+                            {dados?.orcado_30dias !== null && dados?.orcado_30dias !== undefined ? (
+                              <span className="text-sm text-muted-foreground">{dados.orcado_30dias}L</span>
+                            ) : '-'}
+                          </TableCell>
+                          <TableCell key={`${produto.id}-real`} className="text-center">
+                            {dados ? (
+                              <div className="text-sm">
+                                {viewMode === 'periodo' ? (
+                                  <>
+                                    <div className="font-medium">{dados.consumo}L</div>
+                                    <div className="text-xs text-muted-foreground">
+                                      {dados.estoque_inicial}→{dados.estoque_final}
+                                      {dados.envios > 0 && <span className="text-green-600 ml-1">+{dados.envios}</span>}
                                     </div>
-                                  )}
-                                </>
-                              )}
-                            </div>
-                          ) : '-'}
-                        </TableCell>
+                                  </>
+                                ) : (
+                                  <div className="flex items-center justify-center gap-1">
+                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getSemaforoColor(desvio)}`}>
+                                      {dados.consumo_30dias}L
+                                      {desvio !== null && (
+                                        <span className="ml-1">
+                                          ({desvio > 0 ? '+' : ''}{desvio}%)
+                                        </span>
+                                      )}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                            ) : '-'}
+                          </TableCell>
+                        </>
                       );
                     })}
                   </TableRow>
