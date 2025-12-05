@@ -63,6 +63,7 @@ export type Database = {
         Row: {
           atualizado_por: string | null
           cliente_id: string
+          data_afericao: string
           data_atualizacao: string
           galoes_cheios: number
           id: string
@@ -70,10 +71,12 @@ export type Database = {
           observacoes: string | null
           produto_id: string
           quantidade: number
+          responsavel: string
         }
         Insert: {
           atualizado_por?: string | null
           cliente_id: string
+          data_afericao?: string
           data_atualizacao?: string
           galoes_cheios?: number
           id?: string
@@ -81,10 +84,12 @@ export type Database = {
           observacoes?: string | null
           produto_id: string
           quantidade?: number
+          responsavel?: string
         }
         Update: {
           atualizado_por?: string | null
           cliente_id?: string
+          data_afericao?: string
           data_atualizacao?: string
           galoes_cheios?: number
           id?: string
@@ -92,6 +97,7 @@ export type Database = {
           observacoes?: string | null
           produto_id?: string
           quantidade?: number
+          responsavel?: string
         }
         Relationships: [
           {

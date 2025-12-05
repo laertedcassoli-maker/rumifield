@@ -8,9 +8,12 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { Beaker, Building2, Loader2, Save, ChevronsUpDown, Check, Minus, Plus } from 'lucide-react';
+import { Beaker, Building2, Loader2, Save, ChevronsUpDown, Check, Minus, Plus, Calendar } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { format } from 'date-fns';
 
 const VOLUME_GALAO = 50; // Litros
 
@@ -28,6 +31,8 @@ export default function Estoque() {
   const [selectedCliente, setSelectedCliente] = useState<string>('');
   const [estoqueItems, setEstoqueItems] = useState<Record<string, EstoqueItem>>({});
   const [clienteOpen, setClienteOpen] = useState(false);
+  const [dataAfericao, setDataAfericao] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
+  const [responsavel, setResponsavel] = useState<'Cliente' | 'CSM'>('Cliente');
 
   const { data: clientes } = useQuery({
     queryKey: ['clientes'],
@@ -98,6 +103,8 @@ export default function Estoque() {
           nivel_galao_parcial: nivelParcial,
           atualizado_por: user?.id,
           data_atualizacao: new Date().toISOString(),
+          data_afericao: dataAfericao,
+          responsavel: responsavel,
         };
       });
 
@@ -130,6 +137,17 @@ export default function Estoque() {
         };
       });
       setEstoqueItems(newItems);
+
+      // Carregar data e responsável do primeiro registro existente (se houver)
+      const primeiroEstoque = estoque[0];
+      if (primeiroEstoque) {
+        if (primeiroEstoque.data_afericao) {
+          setDataAfericao(primeiroEstoque.data_afericao);
+        }
+        if (primeiroEstoque.responsavel) {
+          setResponsavel(primeiroEstoque.responsavel as 'Cliente' | 'CSM');
+        }
+      }
     }
   }, [estoque, produtos]);
 
@@ -248,6 +266,34 @@ export default function Estoque() {
             </Button>
           </CardHeader>
           <CardContent className="space-y-6">
+            {/* Campos de aferição */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4 bg-muted/30 rounded-lg border">
+              <div className="space-y-2">
+                <Label htmlFor="data-afericao" className="flex items-center gap-2">
+                  <Calendar className="h-4 w-4" />
+                  Data da Aferição
+                </Label>
+                <Input
+                  id="data-afericao"
+                  type="date"
+                  value={dataAfericao}
+                  onChange={(e) => setDataAfericao(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="responsavel">Responsável</Label>
+                <Select value={responsavel} onValueChange={(v) => setResponsavel(v as 'Cliente' | 'CSM')}>
+                  <SelectTrigger id="responsavel">
+                    <SelectValue placeholder="Selecione..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Cliente">Cliente</SelectItem>
+                    <SelectItem value="CSM">CSM</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
             {isLoading ? (
               <div className="flex justify-center py-8">
                 <Loader2 className="h-6 w-6 animate-spin text-primary" />
