@@ -180,12 +180,8 @@ export default function Dashboard() {
         }
       });
 
-      // Agrupa envios por cliente/produto
-      const enviosPorClienteProduto: Record<string, number> = {};
-      envios?.forEach(env => {
-        const key = `${env.cliente_id}_${env.produto_id}`;
-        enviosPorClienteProduto[key] = (enviosPorClienteProduto[key] || 0) + env.galoes;
-      });
+      // Mantém envios com datas para filtrar por período
+      const enviosComData = envios || [];
 
       // Calcula desvios por produto
       const desviosPorProduto: Record<string, {
@@ -220,8 +216,17 @@ export default function Dashboard() {
         const estoqueAnteriorLitros = (anterior.galoes_cheios * LITROS_POR_GALAO) + 
           ((anterior.nivel_galao_parcial || 0) * LITROS_POR_GALAO / 100);
 
-        // Envios recebidos no período
-        const enviosRecebidos = (enviosPorClienteProduto[key] || 0) * LITROS_POR_GALAO;
+        // Envios recebidos APENAS no período entre as duas aferições
+        const enviosNoPeriodo = enviosComData
+          .filter(env => 
+            env.cliente_id === clienteId && 
+            env.produto_id === produtoId &&
+            env.data_envio > anterior.data_afericao &&
+            env.data_envio <= dados.data_afericao
+          )
+          .reduce((sum, env) => sum + env.galoes, 0);
+        
+        const enviosRecebidos = enviosNoPeriodo * LITROS_POR_GALAO;
 
         // Consumo realizado = estoque anterior + envios - estoque atual
         const consumoRealizado = estoqueAnteriorLitros + enviosRecebidos - estoqueAtualLitros;
