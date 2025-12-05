@@ -37,7 +37,7 @@ export function NovaAfericaoDialog({ open, onOpenChange, onSuccess }: NovaAferic
   const [estoqueItems, setEstoqueItems] = useState<Record<string, EstoqueItem>>({});
   const [clienteOpen, setClienteOpen] = useState(false);
   const [dataAfericao, setDataAfericao] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
-  const [responsavel, setResponsavel] = useState<'Cliente' | 'CSM'>('Cliente');
+  const [responsavel, setResponsavel] = useState<'Cliente' | 'CSM' | ''>('');
   const [vacasLactacao, setVacasLactacao] = useState<string>('');
 
   const { data: clientes } = useQuery({
@@ -79,7 +79,7 @@ export function NovaAfericaoDialog({ open, onOpenChange, onSuccess }: NovaAferic
     if (!open) {
       setSelectedCliente('');
       setDataAfericao(format(new Date(), 'yyyy-MM-dd'));
-      setResponsavel('Cliente');
+      setResponsavel('');
       setVacasLactacao('');
       if (produtos) {
         const newItems: Record<string, EstoqueItem> = {};
@@ -111,6 +111,10 @@ export function NovaAfericaoDialog({ open, onOpenChange, onSuccess }: NovaAferic
 
       if (!isEstoqueCompleto()) {
         throw new Error('Informe o estoque de todos os produtos antes de salvar.');
+      }
+
+      if (!responsavel) {
+        throw new Error('Selecione o responsável pela aferição.');
       }
 
       const vacasNum = vacasLactacao ? parseInt(vacasLactacao) : null;
@@ -251,7 +255,7 @@ export function NovaAfericaoDialog({ open, onOpenChange, onSuccess }: NovaAferic
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="responsavel">Responsável</Label>
+              <Label htmlFor="responsavel">Responsável *</Label>
               <Select value={responsavel} onValueChange={(v) => setResponsavel(v as 'Cliente' | 'CSM')}>
                 <SelectTrigger id="responsavel">
                   <SelectValue placeholder="Selecione..." />
@@ -391,7 +395,7 @@ export function NovaAfericaoDialog({ open, onOpenChange, onSuccess }: NovaAferic
           <div className="flex justify-end pt-4">
             <Button 
               onClick={() => saveEstoque.mutate()} 
-              disabled={saveEstoque.isPending || !selectedCliente || !isEstoqueCompleto()}
+              disabled={saveEstoque.isPending || !selectedCliente || !isEstoqueCompleto() || !responsavel}
             >
               {saveEstoque.isPending ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
