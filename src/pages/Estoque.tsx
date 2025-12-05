@@ -178,7 +178,7 @@ export default function Estoque() {
   const calcularTotalLitros = (galoesCheios: number, nivelParcial: number | null) => {
     const cheios = galoesCheios * VOLUME_GALAO;
     const parcial = nivelParcial !== null ? (nivelParcial / 100) * VOLUME_GALAO : 0;
-    return cheios + parcial;
+    return Math.round(cheios + parcial);
   };
 
   const formatarProduto = (dados: { galoes_cheios: number; nivel_galao_parcial: number | null } | undefined) => {
