@@ -274,15 +274,6 @@ export default function Pedidos() {
                           </Button>
                         </div>
                         
-                        {selectedPeca && (
-                          <div className="text-xs text-muted-foreground pl-1">
-                            <span className="font-medium">Cód:</span> {selectedPeca.codigo}
-                            {selectedPeca.descricao && (
-                              <span className="ml-2">• {selectedPeca.descricao}</span>
-                            )}
-                          </div>
-                        )}
-                        
                         <div className="flex items-center justify-between">
                           <span className="text-sm font-medium">Quantidade:</span>
                           <div className="flex items-center gap-1">
