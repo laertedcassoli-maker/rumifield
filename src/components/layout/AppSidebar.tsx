@@ -1,7 +1,5 @@
-import { Home, MapPin, Package, ShoppingCart, Users, Settings, LogOut, Beaker, Truck, ChevronDown } from 'lucide-react';
+import { Home, MapPin, Package, ShoppingCart, Users, Settings, LogOut, Beaker, Truck, ChevronDown, ClipboardCheck, TrendingDown } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import {
   Sidebar,
   SidebarContent,
@@ -25,23 +23,15 @@ export function AppSidebar() {
   const { profile, role, signOut } = useAuth();
   const location = useLocation();
 
-  const { data: produtos } = useQuery({
-    queryKey: ['produtos-sidebar'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('produtos_quimicos')
-        .select('id, nome')
-        .eq('ativo', true)
-        .order('nome');
-      if (error) throw error;
-      return data;
-    },
-  });
-
   const mainMenuItems = [
     { title: 'Início', icon: Home, url: '/' },
     { title: 'Visitas', icon: MapPin, url: '/visitas' },
     { title: 'Pedidos', icon: ShoppingCart, url: '/pedidos' },
+  ];
+
+  const estoqueItems = [
+    { title: 'Aferição', icon: ClipboardCheck, url: '/estoque' },
+    { title: 'Consumo', icon: TrendingDown, url: '/estoque/consumo' },
   ];
 
   const isEstoqueActive = location.pathname === '/estoque' || location.pathname.startsWith('/estoque/');
@@ -103,21 +93,15 @@ export function AppSidebar() {
                   </CollapsibleTrigger>
                   <CollapsibleContent>
                     <SidebarMenuSub>
-                      <SidebarMenuSubItem>
-                        <SidebarMenuSubButton asChild isActive={location.pathname === '/estoque'}>
-                          <Link to="/estoque">
-                            <span>Visão Geral</span>
-                          </Link>
-                        </SidebarMenuSubButton>
-                      </SidebarMenuSubItem>
-                      {produtos?.map((produto) => (
-                        <SidebarMenuSubItem key={produto.id}>
+                      {estoqueItems.map((item) => (
+                        <SidebarMenuSubItem key={item.title}>
                           <SidebarMenuSubButton 
                             asChild 
-                            isActive={location.pathname === `/estoque/produto/${produto.id}`}
+                            isActive={location.pathname === item.url}
                           >
-                            <Link to={`/estoque/produto/${produto.id}`}>
-                              <span>{produto.nome}</span>
+                            <Link to={item.url}>
+                              <item.icon className="h-4 w-4" />
+                              <span>{item.title}</span>
                             </Link>
                           </SidebarMenuSubButton>
                         </SidebarMenuSubItem>
