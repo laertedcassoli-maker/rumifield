@@ -440,7 +440,7 @@ export function ConsumoTab({ produtoId }: ConsumoTabProps) {
   };
 
   const clearFilters = () => {
-    setFilters({ cliente: '', fazenda: '', dataInicial: null, dataFinal: null });
+    setFilters({ cliente: '', fazenda: '', dataInicial: subDays(new Date(), 30), dataFinal: new Date() });
   };
 
   const hasActiveFilters = filters.cliente !== '' || filters.fazenda !== '' || filters.dataInicial !== null || filters.dataFinal !== null;
