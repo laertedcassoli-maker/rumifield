@@ -38,6 +38,7 @@ interface AfericaoAgrupada {
   cliente_fazenda: string;
   data_afericao: string;
   responsavel: string;
+  vacas_lactacao: number | null;
   data_atualizacao: string;
   produtosPorId: Record<string, { galoes_cheios: number; nivel_galao_parcial: number | null; quantidade: number }>;
 }
@@ -93,6 +94,7 @@ export default function Estoque() {
           cliente_fazenda: item.clientes?.fazenda || '',
           data_afericao: item.data_afericao,
           responsavel: item.responsavel,
+          vacas_lactacao: item.vacas_lactacao,
           data_atualizacao: item.data_atualizacao,
           produtosPorId: {} as Record<string, { galoes_cheios: number; nivel_galao_parcial: number | null; quantidade: number }>,
         };
@@ -110,6 +112,7 @@ export default function Estoque() {
       cliente_fazenda: string;
       data_afericao: string;
       responsavel: string;
+      vacas_lactacao: number | null;
       data_atualizacao: string;
       produtosPorId: Record<string, { galoes_cheios: number; nivel_galao_parcial: number | null; quantidade: number }>;
     }>);

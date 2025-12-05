@@ -16,6 +16,7 @@ const VOLUME_GALAO = 50;
 interface ProdutoInfo {
   id: string;
   nome: string;
+  litros_por_vaca_mes: number | null;
 }
 
 interface ConsumoItem {
@@ -25,12 +26,14 @@ interface ConsumoItem {
   data_inicial: string;
   data_final: string;
   dias_periodo: number;
+  vacas_lactacao: number | null;
   produtos: Record<string, {
     estoque_inicial: number;
     estoque_final: number;
     envios: number;
     consumo: number;
     consumo_30dias: number;
+    orcado_30dias: number | null;
   }>;
 }
 
@@ -56,7 +59,7 @@ export function ConsumoTab({ produtoId }: ConsumoTabProps) {
   const { data: produtos } = useQuery({
     queryKey: ['produtos-quimicos-consumo', produtoId],
     queryFn: async () => {
-      let query = supabase.from('produtos_quimicos').select('id, nome').eq('ativo', true);
+      let query = supabase.from('produtos_quimicos').select('id, nome, litros_por_vaca_mes').eq('ativo', true);
       if (produtoId) {
         query = query.eq('id', produtoId);
       }
@@ -108,6 +111,7 @@ export function ConsumoTab({ produtoId }: ConsumoTabProps) {
       data: string;
       cliente_nome: string;
       cliente_fazenda: string;
+      vacas_lactacao: number | null;
       produtos: Record<string, number>;
     }>> = {};
 
@@ -124,9 +128,15 @@ export function ConsumoTab({ produtoId }: ConsumoTabProps) {
           data: dataKey,
           cliente_nome: af.clientes?.nome || '',
           cliente_fazenda: af.clientes?.fazenda || '',
+          vacas_lactacao: af.vacas_lactacao,
           produtos: {},
         };
         afericoesPorCliente[af.cliente_id].push(entry);
+      }
+      
+      // Atualiza vacas se tiver valor
+      if (af.vacas_lactacao !== null) {
+        entry.vacas_lactacao = af.vacas_lactacao;
       }
       
       entry.produtos[af.produto_id] = calcularTotalLitros(af.galoes_cheios, af.nivel_galao_parcial);
@@ -184,6 +194,7 @@ export function ConsumoTab({ produtoId }: ConsumoTabProps) {
             data_inicial: primeiraDataEnvio,
             data_final: primeiraAfericao.data,
             dias_periodo: diasPeriodoInicial,
+            vacas_lactacao: primeiraAfericao.vacas_lactacao,
             produtos: {},
           };
 
@@ -208,12 +219,18 @@ export function ConsumoTab({ produtoId }: ConsumoTabProps) {
             // Consumo padronizado para 30 dias
             const consumo30dias = diasPeriodoInicial > 0 ? Math.round((consumoPositivo / diasPeriodoInicial) * 30) : 0;
 
+            // Orçado = vacas * litros_por_vaca_mes
+            const orcado30dias = (primeiraAfericao.vacas_lactacao && produto.litros_por_vaca_mes) 
+              ? Math.round(primeiraAfericao.vacas_lactacao * produto.litros_por_vaca_mes)
+              : null;
+
             consumoItemInicial.produtos[produto.id] = {
               estoque_inicial: estoqueInicial,
               estoque_final: estoqueFinal,
               envios: totalEnvios,
               consumo: consumoPositivo,
               consumo_30dias: consumo30dias,
+              orcado_30dias: orcado30dias,
             };
           });
 
@@ -236,6 +253,7 @@ export function ConsumoTab({ produtoId }: ConsumoTabProps) {
           data_inicial: anterior.data,
           data_final: atual.data,
           dias_periodo: diasPeriodo,
+          vacas_lactacao: atual.vacas_lactacao,
           produtos: {},
         };
 
@@ -259,12 +277,18 @@ export function ConsumoTab({ produtoId }: ConsumoTabProps) {
           // Consumo padronizado para 30 dias
           const consumo30dias = diasPeriodo > 0 ? Math.round((consumoPositivo / diasPeriodo) * 30) : 0;
 
+          // Orçado = vacas * litros_por_vaca_mes
+          const orcado30dias = (atual.vacas_lactacao && produto.litros_por_vaca_mes) 
+            ? Math.round(atual.vacas_lactacao * produto.litros_por_vaca_mes)
+            : null;
+
           consumoItem.produtos[produto.id] = {
             estoque_inicial: estoqueInicial,
             estoque_final: estoqueFinal,
             envios: totalEnvios,
             consumo: consumoPositivo,
             consumo_30dias: consumo30dias,
+            orcado_30dias: orcado30dias,
           };
         });
 
@@ -478,6 +502,11 @@ export function ConsumoTab({ produtoId }: ConsumoTabProps) {
                       {getSortIcon('dias')}
                     </div>
                   </TableHead>
+                  <TableHead className="text-center">
+                    <div className="flex items-center justify-center">
+                      Vacas
+                    </div>
+                  </TableHead>
                   {produtos?.map((produto) => (
                     <TableHead 
                       key={produto.id} 
@@ -510,6 +539,9 @@ export function ConsumoTab({ produtoId }: ConsumoTabProps) {
                     <TableCell className="text-center">
                       <span className="text-sm font-medium">{item.dias_periodo}</span>
                     </TableCell>
+                    <TableCell className="text-center">
+                      <span className="text-sm">{item.vacas_lactacao || '-'}</span>
+                    </TableCell>
                     {produtos?.map((produto) => {
                       const dados = item.produtos[produto.id];
                       return (
@@ -533,9 +565,11 @@ export function ConsumoTab({ produtoId }: ConsumoTabProps) {
                                   <div className="font-medium text-destructive">
                                     -{dados.consumo_30dias}L
                                   </div>
-                                  <div className="text-xs text-muted-foreground">
-                                    /30 dias
-                                  </div>
+                                  {dados.orcado_30dias !== null && (
+                                    <div className={`text-xs ${dados.consumo_30dias > dados.orcado_30dias ? 'text-orange-500' : 'text-green-600'}`}>
+                                      orçado: {dados.orcado_30dias}L
+                                    </div>
+                                  )}
                                 </>
                               )}
                             </div>

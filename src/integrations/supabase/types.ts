@@ -161,6 +161,7 @@ export type Database = {
           produto_id: string
           quantidade: number
           responsavel: string
+          vacas_lactacao: number | null
         }
         Insert: {
           atualizado_por?: string | null
@@ -174,6 +175,7 @@ export type Database = {
           produto_id: string
           quantidade?: number
           responsavel?: string
+          vacas_lactacao?: number | null
         }
         Update: {
           atualizado_por?: string | null
@@ -187,6 +189,7 @@ export type Database = {
           produto_id?: string
           quantidade?: number
           responsavel?: string
+          vacas_lactacao?: number | null
         }
         Relationships: [
           {
@@ -327,6 +330,7 @@ export type Database = {
           created_at: string
           descricao: string | null
           id: string
+          litros_por_vaca_mes: number | null
           nome: string
           unidade: string
         }
@@ -335,6 +339,7 @@ export type Database = {
           created_at?: string
           descricao?: string | null
           id?: string
+          litros_por_vaca_mes?: number | null
           nome: string
           unidade?: string
         }
@@ -343,6 +348,7 @@ export type Database = {
           created_at?: string
           descricao?: string | null
           id?: string
+          litros_por_vaca_mes?: number | null
           nome?: string
           unidade?: string
         }
