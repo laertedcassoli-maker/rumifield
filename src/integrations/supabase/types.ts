@@ -59,6 +59,54 @@ export type Database = {
         }
         Relationships: []
       }
+      envios_produtos: {
+        Row: {
+          cliente_id: string
+          created_at: string
+          data_envio: string
+          id: string
+          observacoes: string | null
+          produto_id: string
+          quantidade: number
+          registrado_por: string | null
+        }
+        Insert: {
+          cliente_id: string
+          created_at?: string
+          data_envio?: string
+          id?: string
+          observacoes?: string | null
+          produto_id: string
+          quantidade?: number
+          registrado_por?: string | null
+        }
+        Update: {
+          cliente_id?: string
+          created_at?: string
+          data_envio?: string
+          id?: string
+          observacoes?: string | null
+          produto_id?: string
+          quantidade?: number
+          registrado_por?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "envios_produtos_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "envios_produtos_produto_id_fkey"
+            columns: ["produto_id"]
+            isOneToOne: false
+            referencedRelation: "produtos_quimicos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       estoque_cliente: {
         Row: {
           atualizado_por: string | null
