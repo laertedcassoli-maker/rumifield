@@ -13,7 +13,7 @@ import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, ShoppingCart, Loader2, Package, Trash2, Minus, Check, ChevronsUpDown, ArrowUpDown, Search, X, Eye } from 'lucide-react';
+import { Plus, ShoppingCart, Loader2, Package, Trash2, Minus, Check, ChevronsUpDown, ArrowUpDown, Search, X, Eye, Pencil } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -40,6 +40,7 @@ export default function Pedidos() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
+  const [editingPedido, setEditingPedido] = useState<any>(null);
   const [form, setForm] = useState({ cliente_id: '', observacoes: '' });
   const [itens, setItens] = useState<{ peca_id: string; quantidade: number }[]>([]);
   const [viewAll, setViewAll] = useState(false);
@@ -138,6 +139,77 @@ export default function Pedidos() {
       toast({ variant: 'destructive', title: 'Erro ao criar pedido', description: error.message });
     },
   });
+
+  const updatePedido = useMutation({
+    mutationFn: async () => {
+      if (!editingPedido || !form.cliente_id || itens.length === 0) return;
+
+      // Atualizar o pedido
+      const { error: pedidoError } = await supabase
+        .from('pedidos')
+        .update({
+          cliente_id: form.cliente_id,
+          observacoes: form.observacoes,
+        })
+        .eq('id', editingPedido.id);
+
+      if (pedidoError) throw pedidoError;
+
+      // Deletar itens antigos
+      const { error: deleteError } = await supabase
+        .from('pedido_itens')
+        .delete()
+        .eq('pedido_id', editingPedido.id);
+
+      if (deleteError) throw deleteError;
+
+      // Inserir novos itens
+      const { error: itensError } = await supabase.from('pedido_itens').insert(
+        itens.map((item) => ({
+          pedido_id: editingPedido.id,
+          peca_id: item.peca_id,
+          quantidade: item.quantidade,
+        }))
+      );
+
+      if (itensError) throw itensError;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pedidos'] });
+      setOpen(false);
+      setEditingPedido(null);
+      setForm({ cliente_id: '', observacoes: '' });
+      setItens([]);
+      toast({ title: 'Pedido atualizado com sucesso!' });
+    },
+    onError: (error: Error) => {
+      toast({ variant: 'destructive', title: 'Erro ao atualizar pedido', description: error.message });
+    },
+  });
+
+  const handleEditPedido = (pedido: any) => {
+    setEditingPedido(pedido);
+    setForm({
+      cliente_id: pedido.cliente_id,
+      observacoes: pedido.observacoes || '',
+    });
+    setItens(
+      pedido.pedido_itens?.map((item: any) => ({
+        peca_id: item.peca_id,
+        quantidade: item.quantidade,
+      })) || []
+    );
+    setOpen(true);
+  };
+
+  const handleCloseDialog = (isOpen: boolean) => {
+    setOpen(isOpen);
+    if (!isOpen) {
+      setEditingPedido(null);
+      setForm({ cliente_id: '', observacoes: '' });
+      setItens([]);
+    }
+  };
 
   const [openPopovers, setOpenPopovers] = useState<Record<number, boolean>>({});
   
@@ -238,7 +310,11 @@ export default function Pedidos() {
       toast({ variant: 'destructive', title: 'Adicione pelo menos uma peça válida' });
       return;
     }
-    createPedido.mutate();
+    if (editingPedido) {
+      updatePedido.mutate();
+    } else {
+      createPedido.mutate();
+    }
   };
 
   return (
@@ -260,7 +336,7 @@ export default function Pedidos() {
               {viewAll ? 'Ver meus pedidos' : 'Ver todos'}
             </Button>
           )}
-          <Dialog open={open} onOpenChange={setOpen}>
+          <Dialog open={open} onOpenChange={handleCloseDialog}>
             <DialogTrigger asChild>
             <Button>
               <Plus className="mr-2 h-4 w-4" />
@@ -269,7 +345,7 @@ export default function Pedidos() {
           </DialogTrigger>
           <DialogContent className="max-w-lg">
             <DialogHeader>
-              <DialogTitle>Novo Pedido de Peças</DialogTitle>
+              <DialogTitle>{editingPedido ? 'Editar Pedido' : 'Novo Pedido de Peças'}</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
@@ -407,8 +483,14 @@ export default function Pedidos() {
                 />
               </div>
 
-              <Button type="submit" className="w-full" disabled={createPedido.isPending}>
-                {createPedido.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Criar Pedido'}
+              <Button type="submit" className="w-full" disabled={createPedido.isPending || updatePedido.isPending}>
+                {(createPedido.isPending || updatePedido.isPending) ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : editingPedido ? (
+                  'Salvar Alterações'
+                ) : (
+                  'Criar Pedido'
+                )}
               </Button>
             </form>
           </DialogContent>
@@ -511,6 +593,7 @@ export default function Pedidos() {
                   </Button>
                 </TableHead>
                 <TableHead>NF</TableHead>
+                <TableHead className="w-[60px]"></TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -568,6 +651,18 @@ export default function Pedidos() {
                   </TableCell>
                   <TableCell className="text-muted-foreground">
                     {pedido.omie_nf_numero || '-'}
+                  </TableCell>
+                  <TableCell>
+                    {pedido.status === 'solicitado' && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => handleEditPedido(pedido)}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                    )}
                   </TableCell>
                 </TableRow>
               ))}
