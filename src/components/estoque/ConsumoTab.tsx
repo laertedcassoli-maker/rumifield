@@ -593,16 +593,14 @@ export function ConsumoTab({ produtoId }: ConsumoTabProps) {
                                       {dados.envios > 0 && <span className="text-green-600 ml-1">+{dados.envios}</span>}
                                     </div>
                                   </>
-                                ) : (
-                                  <div className="flex items-center justify-center gap-1">
-                                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${getSemaforoColor(desvio)}`}>
-                                      {dados.consumo_30dias}L
-                                      {desvio !== null && (
-                                        <span className="ml-1">
-                                          ({desvio > 0 ? '+' : ''}{desvio}%)
-                                        </span>
-                                      )}
-                                    </span>
+                              ) : (
+                                  <div className="flex flex-col items-center gap-0.5">
+                                    <span className="font-medium">{dados.consumo_30dias}L</span>
+                                    {desvio !== null && (
+                                      <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${getSemaforoColor(desvio)}`}>
+                                        {desvio > 0 ? '+' : ''}{desvio}%
+                                      </span>
+                                    )}
                                   </div>
                                 )}
                               </div>
