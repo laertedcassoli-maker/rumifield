@@ -11,8 +11,22 @@ import { NovaAfericaoDialog } from '@/components/estoque/NovaAfericaoDialog';
 
 const VOLUME_GALAO = 50;
 
+interface ProdutoInfo {
+  id: string;
+  nome: string;
+}
+
 export default function Estoque() {
   const [dialogOpen, setDialogOpen] = useState(false);
+
+  const { data: produtos } = useQuery({
+    queryKey: ['produtos-quimicos'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('produtos_quimicos').select('id, nome').eq('ativo', true);
+      if (error) throw error;
+      return data as ProdutoInfo[];
+    },
+  });
 
   const { data: afericoes, isLoading, refetch } = useQuery({
     queryKey: ['afericoes-estoque'],
@@ -22,7 +36,7 @@ export default function Estoque() {
         .select(`
           *,
           clientes(nome, fazenda),
-          produtos_quimicos(nome)
+          produtos_quimicos(id, nome)
         `)
         .order('data_afericao', { ascending: false });
       if (error) throw error;
@@ -30,7 +44,7 @@ export default function Estoque() {
     },
   });
 
-  // Agrupa aferições por cliente_id + data_afericao + responsavel para mostrar como uma linha
+  // Agrupa aferições por cliente_id + data_afericao + responsavel
   const afericoesAgrupadas = afericoes?.reduce((acc, item) => {
     const key = `${item.cliente_id}-${item.data_afericao}-${item.responsavel}`;
     if (!acc[key]) {
@@ -41,15 +55,15 @@ export default function Estoque() {
         data_afericao: item.data_afericao,
         responsavel: item.responsavel,
         data_atualizacao: item.data_atualizacao,
-        produtos: [],
+        produtosPorId: {} as Record<string, { galoes_cheios: number; nivel_galao_parcial: number | null; quantidade: number }>,
       };
     }
-    acc[key].produtos.push({
-      nome: item.produtos_quimicos?.nome || '',
+    const produtoId = item.produtos_quimicos?.id || item.produto_id;
+    acc[key].produtosPorId[produtoId] = {
       galoes_cheios: item.galoes_cheios,
       nivel_galao_parcial: item.nivel_galao_parcial,
       quantidade: item.quantidade,
-    });
+    };
     return acc;
   }, {} as Record<string, {
     cliente_id: string;
@@ -58,7 +72,7 @@ export default function Estoque() {
     data_afericao: string;
     responsavel: string;
     data_atualizacao: string;
-    produtos: { nome: string; galoes_cheios: number; nivel_galao_parcial: number | null; quantidade: number }[];
+    produtosPorId: Record<string, { galoes_cheios: number; nivel_galao_parcial: number | null; quantidade: number }>;
   }>);
 
   const listaAfericoes = Object.values(afericoesAgrupadas || {});
@@ -67,6 +81,20 @@ export default function Estoque() {
     const cheios = galoesCheios * VOLUME_GALAO;
     const parcial = nivelParcial !== null ? (nivelParcial / 100) * VOLUME_GALAO : 0;
     return cheios + parcial;
+  };
+
+  const formatarProduto = (dados: { galoes_cheios: number; nivel_galao_parcial: number | null } | undefined) => {
+    if (!dados) return '-';
+    const total = calcularTotalLitros(dados.galoes_cheios, dados.nivel_galao_parcial);
+    return (
+      <div className="text-sm">
+        <div className="font-medium">{total}L</div>
+        <div className="text-muted-foreground text-xs">
+          {dados.galoes_cheios} galões
+          {dados.nivel_galao_parcial !== null && ` + ${dados.nivel_galao_parcial}%`}
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -107,7 +135,11 @@ export default function Estoque() {
                     <TableHead>Fazenda</TableHead>
                     <TableHead>Data Aferição</TableHead>
                     <TableHead>Responsável</TableHead>
-                    <TableHead>Produtos</TableHead>
+                    {produtos?.map((produto) => (
+                      <TableHead key={produto.id} className="text-center">
+                        {produto.nome}
+                      </TableHead>
+                    ))}
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -130,20 +162,11 @@ export default function Estoque() {
                           {afericao.responsavel}
                         </div>
                       </TableCell>
-                      <TableCell>
-                        <div className="space-y-1">
-                          {afericao.produtos.map((produto, pIndex) => (
-                            <div key={pIndex} className="text-sm">
-                              <span className="font-medium">{produto.nome}:</span>{' '}
-                              <span className="text-muted-foreground">
-                                {produto.galoes_cheios} galões
-                                {produto.nivel_galao_parcial !== null && ` + ${produto.nivel_galao_parcial}%`}
-                                {' '}({calcularTotalLitros(produto.galoes_cheios, produto.nivel_galao_parcial)}L)
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      </TableCell>
+                      {produtos?.map((produto) => (
+                        <TableCell key={produto.id} className="text-center">
+                          {formatarProduto(afericao.produtosPorId[produto.id])}
+                        </TableCell>
+                      ))}
                     </TableRow>
                   ))}
                 </TableBody>
