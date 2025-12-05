@@ -7,10 +7,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Beaker, Loader2, Plus, Calendar, User, ArrowUpDown, ArrowUp, ArrowDown, X, TrendingDown } from 'lucide-react';
+import { Beaker, Loader2, Plus, Calendar, User, ArrowUpDown, ArrowUp, ArrowDown, X, TrendingDown, Pencil } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { NovaAfericaoDialog } from '@/components/estoque/NovaAfericaoDialog';
+import { EditarAfericaoDialog } from '@/components/estoque/EditarAfericaoDialog';
 import { ConsumoTab } from '@/components/estoque/ConsumoTab';
 
 const VOLUME_GALAO = 50;
@@ -31,8 +32,20 @@ interface Filters {
   dataFim: string;
 }
 
+interface AfericaoAgrupada {
+  cliente_id: string;
+  cliente_nome: string;
+  cliente_fazenda: string;
+  data_afericao: string;
+  responsavel: string;
+  data_atualizacao: string;
+  produtosPorId: Record<string, { galoes_cheios: number; nivel_galao_parcial: number | null; quantidade: number }>;
+}
+
 export default function Estoque() {
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [selectedAfericao, setSelectedAfericao] = useState<AfericaoAgrupada | null>(null);
   const [sortColumn, setSortColumn] = useState<SortColumn | null>(null);
   const [sortDirection, setSortDirection] = useState<SortDirection>(null);
   const [filters, setFilters] = useState<Filters>({
@@ -397,6 +410,7 @@ export default function Estoque() {
                         </div>
                       </TableHead>
                     ))}
+                    <TableHead className="w-[60px]"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -424,6 +438,19 @@ export default function Estoque() {
                           {formatarProduto(afericao.produtosPorId[produto.id])}
                         </TableCell>
                       ))}
+                      <TableCell>
+                        <Button 
+                          variant="ghost" 
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => {
+                            setSelectedAfericao(afericao);
+                            setEditDialogOpen(true);
+                          }}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
                     </TableRow>
                   ))}
                 </TableBody>
@@ -444,6 +471,17 @@ export default function Estoque() {
         onOpenChange={setDialogOpen}
         onSuccess={() => {
           setDialogOpen(false);
+          refetch();
+        }}
+      />
+
+      <EditarAfericaoDialog 
+        open={editDialogOpen} 
+        onOpenChange={setEditDialogOpen}
+        afericao={selectedAfericao}
+        onSuccess={() => {
+          setEditDialogOpen(false);
+          setSelectedAfericao(null);
           refetch();
         }}
       />
