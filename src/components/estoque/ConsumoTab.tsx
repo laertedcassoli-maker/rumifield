@@ -508,20 +508,6 @@ export function ConsumoTab({ produtoId }: ConsumoTabProps) {
                     </div>
                   </TableHead>
                   {produtos?.map((produto) => (
-                    <TableHead 
-                      key={`${produto.id}-orcado`} 
-                      colSpan={3}
-                      className="text-center border-l"
-                    >
-                      <div className="flex items-center justify-center font-medium">
-                        {produto.nome}
-                      </div>
-                    </TableHead>
-                  ))}
-                </TableRow>
-                <TableRow>
-                  <TableHead colSpan={5}></TableHead>
-                  {produtos?.map((produto) => (
                     <>
                       <TableHead key={`${produto.id}-orc`} className="text-center text-xs border-l">
                         Orçado
