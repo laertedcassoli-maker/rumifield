@@ -496,10 +496,13 @@ export default function Pedidos() {
                       <PopoverContent className="w-auto p-3" align="start">
                         <div className="space-y-2">
                           <p className="text-sm font-medium">Itens do Pedido</p>
-                          <div className="space-y-1">
+                          <div className="space-y-1.5">
                             {pedido.pedido_itens?.map((item: any) => (
                               <div key={item.id} className="flex items-center justify-between gap-4 text-sm">
-                                <span className="text-muted-foreground">{item.pecas?.codigo}</span>
+                                <div>
+                                  <span className="font-medium">{item.pecas?.codigo}</span>
+                                  <span className="text-muted-foreground"> - {item.pecas?.nome}</span>
+                                </div>
                                 <span className="font-medium">x{item.quantidade}</span>
                               </div>
                             ))}
