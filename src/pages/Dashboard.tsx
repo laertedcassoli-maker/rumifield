@@ -1,9 +1,9 @@
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Beaker, AlertTriangle, CheckCircle, Users, Calendar, ExternalLink } from 'lucide-react';
+import { Beaker, AlertTriangle, CheckCircle, Users, Calendar, ExternalLink, TrendingDown, TrendingUp, Minus } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { format, differenceInDays, parseISO } from 'date-fns';
+import { format, differenceInDays, parseISO, subDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -16,6 +16,16 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
+
+interface DesviosProduto {
+  produto_id: string;
+  produto_nome: string;
+  orcado_litros: number;
+  realizado_litros: number;
+  desvio_litros: number;
+  desvio_percentual: number;
+  fazendas_analisadas: number;
+}
 
 interface FazendaStatus {
   id: string;
@@ -83,6 +93,174 @@ export default function Dashboard() {
       });
 
       return fazendasComStatus;
+    },
+  });
+
+  // Query para análise de desvios por produto
+  const { data: desviosProdutos, isLoading: isLoadingDesvios } = useQuery({
+    queryKey: ['dashboard-desvios-produtos'],
+    queryFn: async () => {
+      const hoje = new Date();
+      const limite30dias = format(subDays(hoje, 30), 'yyyy-MM-dd');
+
+      // Busca produtos ativos
+      const { data: produtos, error: produtosError } = await supabase
+        .from('produtos_quimicos')
+        .select('id, nome, litros_por_vaca_mes')
+        .eq('ativo', true);
+
+      if (produtosError) throw produtosError;
+
+      // Busca aferições dos últimos 30 dias com vacas_lactacao
+      const { data: afericoesRecentes, error: afericoesError } = await supabase
+        .from('estoque_cliente')
+        .select('cliente_id, produto_id, galoes_cheios, nivel_galao_parcial, vacas_lactacao, data_afericao')
+        .gte('data_afericao', limite30dias)
+        .order('data_afericao', { ascending: false });
+
+      if (afericoesError) throw afericoesError;
+
+      // Busca envios dos últimos 60 dias (para calcular consumo)
+      const limite60dias = format(subDays(hoje, 60), 'yyyy-MM-dd');
+      const { data: envios, error: enviosError } = await supabase
+        .from('envios_produtos')
+        .select('cliente_id, produto_id, galoes, data_envio')
+        .gte('data_envio', limite60dias);
+
+      if (enviosError) throw enviosError;
+
+      // Busca aferições anteriores para calcular consumo
+      const { data: todasAfericoes, error: todasError } = await supabase
+        .from('estoque_cliente')
+        .select('cliente_id, produto_id, galoes_cheios, nivel_galao_parcial, data_afericao')
+        .gte('data_afericao', limite60dias)
+        .order('data_afericao', { ascending: false });
+
+      if (todasError) throw todasError;
+
+      // Agrupa por cliente/produto - pega a última aferição com vacas_lactacao
+      const ultimaAfericaoPorClienteProduto: Record<string, {
+        vacas_lactacao: number;
+        galoes_cheios: number;
+        nivel_galao_parcial: number | null;
+        data_afericao: string;
+      }> = {};
+
+      afericoesRecentes?.forEach(af => {
+        const key = `${af.cliente_id}_${af.produto_id}`;
+        if (!ultimaAfericaoPorClienteProduto[key] && af.vacas_lactacao) {
+          ultimaAfericaoPorClienteProduto[key] = {
+            vacas_lactacao: af.vacas_lactacao,
+            galoes_cheios: af.galoes_cheios,
+            nivel_galao_parcial: af.nivel_galao_parcial,
+            data_afericao: af.data_afericao,
+          };
+        }
+      });
+
+      // Para cada cliente/produto, busca aferição anterior
+      const afericaoAnteriorPorClienteProduto: Record<string, {
+        galoes_cheios: number;
+        nivel_galao_parcial: number | null;
+        data_afericao: string;
+      }> = {};
+
+      todasAfericoes?.forEach(af => {
+        const key = `${af.cliente_id}_${af.produto_id}`;
+        const ultimaData = ultimaAfericaoPorClienteProduto[key]?.data_afericao;
+        
+        if (ultimaData && af.data_afericao < ultimaData) {
+          if (!afericaoAnteriorPorClienteProduto[key]) {
+            afericaoAnteriorPorClienteProduto[key] = {
+              galoes_cheios: af.galoes_cheios,
+              nivel_galao_parcial: af.nivel_galao_parcial,
+              data_afericao: af.data_afericao,
+            };
+          }
+        }
+      });
+
+      // Agrupa envios por cliente/produto
+      const enviosPorClienteProduto: Record<string, number> = {};
+      envios?.forEach(env => {
+        const key = `${env.cliente_id}_${env.produto_id}`;
+        enviosPorClienteProduto[key] = (enviosPorClienteProduto[key] || 0) + env.galoes;
+      });
+
+      // Calcula desvios por produto
+      const desviosPorProduto: Record<string, {
+        orcado: number;
+        realizado: number;
+        fazendas: Set<string>;
+      }> = {};
+
+      const LITROS_POR_GALAO = 50;
+
+      Object.entries(ultimaAfericaoPorClienteProduto).forEach(([key, dados]) => {
+        const [clienteId, produtoId] = key.split('_');
+        const produto = produtos?.find(p => p.id === produtoId);
+        
+        if (!produto || !produto.litros_por_vaca_mes) return;
+
+        const anterior = afericaoAnteriorPorClienteProduto[key];
+        
+        if (!anterior) return; // Precisa de 2 aferições para calcular consumo
+
+        // Calcula período em dias
+        const diasPeriodo = differenceInDays(
+          parseISO(dados.data_afericao),
+          parseISO(anterior.data_afericao)
+        );
+
+        if (diasPeriodo <= 0) return;
+
+        // Calcula estoque em litros (galões cheios + parcial)
+        const estoqueAtualLitros = (dados.galoes_cheios * LITROS_POR_GALAO) + 
+          ((dados.nivel_galao_parcial || 0) * LITROS_POR_GALAO / 100);
+        const estoqueAnteriorLitros = (anterior.galoes_cheios * LITROS_POR_GALAO) + 
+          ((anterior.nivel_galao_parcial || 0) * LITROS_POR_GALAO / 100);
+
+        // Envios recebidos no período
+        const enviosRecebidos = (enviosPorClienteProduto[key] || 0) * LITROS_POR_GALAO;
+
+        // Consumo realizado = estoque anterior + envios - estoque atual
+        const consumoRealizado = estoqueAnteriorLitros + enviosRecebidos - estoqueAtualLitros;
+
+        // Normaliza para 30 dias
+        const consumoRealizado30dias = (consumoRealizado / diasPeriodo) * 30;
+
+        // Orçado = vacas × litros/vaca/mês (já é mensal)
+        const orcado30dias = dados.vacas_lactacao * produto.litros_por_vaca_mes;
+
+        if (!desviosPorProduto[produtoId]) {
+          desviosPorProduto[produtoId] = { orcado: 0, realizado: 0, fazendas: new Set() };
+        }
+
+        desviosPorProduto[produtoId].orcado += orcado30dias;
+        desviosPorProduto[produtoId].realizado += consumoRealizado30dias;
+        desviosPorProduto[produtoId].fazendas.add(clienteId);
+      });
+
+      // Formata resultado
+      const resultado: DesviosProduto[] = Object.entries(desviosPorProduto)
+        .map(([produtoId, dados]) => {
+          const produto = produtos?.find(p => p.id === produtoId);
+          const desvioLitros = dados.realizado - dados.orcado;
+          const desvioPercentual = dados.orcado > 0 ? (desvioLitros / dados.orcado) * 100 : 0;
+
+          return {
+            produto_id: produtoId,
+            produto_nome: produto?.nome || 'Desconhecido',
+            orcado_litros: Math.round(dados.orcado),
+            realizado_litros: Math.round(dados.realizado),
+            desvio_litros: Math.round(desvioLitros),
+            desvio_percentual: Math.round(desvioPercentual * 10) / 10,
+            fazendas_analisadas: dados.fazendas.size,
+          };
+        })
+        .filter(d => d.fazendas_analisadas > 0);
+
+      return resultado;
     },
   });
 
@@ -168,6 +346,89 @@ export default function Dashboard() {
           </Card>
         ))}
       </div>
+
+      {/* Análise de Desvios por Produto */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <Beaker className="h-5 w-5 text-primary" />
+            Análise de Consumo vs Orçado (30 dias)
+          </CardTitle>
+          <p className="text-sm text-muted-foreground">
+            Comparativo baseado em fazendas com aferição nos últimos 30 dias
+          </p>
+        </CardHeader>
+        <CardContent>
+          {isLoadingDesvios ? (
+            <p className="text-muted-foreground text-sm">Carregando análise...</p>
+          ) : !desviosProdutos || desviosProdutos.length === 0 ? (
+            <div className="text-center py-8">
+              <Beaker className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+              <p className="text-muted-foreground">
+                Dados insuficientes para análise. Necessário pelo menos 2 aferições por fazenda.
+              </p>
+            </div>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2">
+              {desviosProdutos.map((produto) => {
+                const isPositivo = produto.desvio_litros > 0;
+                const isNeutro = produto.desvio_litros === 0;
+                const DesvioIcon = isNeutro ? Minus : isPositivo ? TrendingUp : TrendingDown;
+                const desvioColor = isNeutro 
+                  ? 'text-muted-foreground' 
+                  : isPositivo 
+                    ? 'text-warning' 
+                    : 'text-success';
+
+                return (
+                  <Card key={produto.produto_id} className="border">
+                    <CardContent className="pt-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="font-semibold">{produto.produto_nome}</h4>
+                        <Badge variant="secondary">
+                          {produto.fazendas_analisadas} fazenda{produto.fazendas_analisadas !== 1 ? 's' : ''}
+                        </Badge>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-4 mb-3">
+                        <div>
+                          <p className="text-xs text-muted-foreground">Orçado</p>
+                          <p className="text-lg font-medium">
+                            {produto.orcado_litros.toLocaleString('pt-BR')} L
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-muted-foreground">Realizado</p>
+                          <p className="text-lg font-medium">
+                            {produto.realizado_litros.toLocaleString('pt-BR')} L
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className={`flex items-center gap-2 ${desvioColor}`}>
+                        <DesvioIcon className="h-4 w-4" />
+                        <span className="font-semibold">
+                          {isPositivo ? '+' : ''}{produto.desvio_litros.toLocaleString('pt-BR')} L
+                        </span>
+                        <span className="text-sm">
+                          ({isPositivo ? '+' : ''}{produto.desvio_percentual}%)
+                        </span>
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {isPositivo 
+                          ? 'Consumo acima do esperado' 
+                          : isNeutro 
+                            ? 'Consumo dentro do esperado'
+                            : 'Consumo abaixo do esperado'}
+                      </p>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Lista de fazendas que precisam de aferição */}
       <Card>
