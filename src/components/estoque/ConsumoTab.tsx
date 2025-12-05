@@ -519,12 +519,18 @@ export function ConsumoTab({ produtoId }: ConsumoTabProps) {
                         Realizado
                       </TableHead>
                       <TableHead 
-                        key={`${produto.id}-desv`} 
+                        key={`${produto.id}-desv-l`} 
+                        className="text-center text-xs"
+                      >
+                        Desvio (L)
+                      </TableHead>
+                      <TableHead 
+                        key={`${produto.id}-desv-p`} 
                         className="text-center text-xs cursor-pointer hover:bg-muted/50 select-none"
                         onClick={() => handleSort(produto.id)}
                       >
                         <div className="flex items-center justify-center">
-                          Desvio
+                          %
                           {getSortIcon(produto.id)}
                         </div>
                       </TableHead>
@@ -543,7 +549,9 @@ export function ConsumoTab({ produtoId }: ConsumoTabProps) {
                         <span>
                           {format(parseISO(item.data_inicial), 'dd/MM', { locale: ptBR })}
                           {' → '}
-                          {format(parseISO(item.data_final), 'dd/MM/yy', { locale: ptBR })}
+                          <span className="bg-yellow-100 dark:bg-yellow-900/30 px-1 rounded">
+                            {format(parseISO(item.data_final), 'dd/MM/yy', { locale: ptBR })}
+                          </span>
                         </span>
                       </div>
                     </TableCell>
@@ -579,28 +587,23 @@ export function ConsumoTab({ produtoId }: ConsumoTabProps) {
                           </TableCell>
                           <TableCell key={`${produto.id}-real`} className="text-center">
                             {dados ? (
-                              <div className="text-sm">
-                                {viewMode === 'periodo' ? (
-                                  <>
-                                    <div className="font-medium">{dados.consumo}L</div>
-                                    <div className="text-xs text-muted-foreground">
-                                      {dados.estoque_inicial}→{dados.estoque_final}
-                                      {dados.envios > 0 && <span className="text-green-600 ml-1">+{dados.envios}</span>}
-                                    </div>
-                                  </>
-                                ) : (
-                                  <span className="font-medium">{dados.consumo_30dias}L</span>
-                                )}
-                              </div>
+                              <span className="text-sm font-medium">
+                                {viewMode === 'periodo' ? dados.consumo : dados.consumo_30dias}L
+                              </span>
                             ) : '-'}
                           </TableCell>
-                          <TableCell key={`${produto.id}-desv`} className="text-center">
+                          <TableCell key={`${produto.id}-desv-l`} className="text-center">
                             {dados && desvioLitros !== null ? (
-                              <div className="flex flex-col items-center gap-0.5">
-                                <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${getSemaforoColor(desvioPercent)}`}>
-                                  {desvioLitros > 0 ? '+' : ''}{desvioLitros}L ({desvioPercent > 0 ? '+' : ''}{desvioPercent}%)
-                                </span>
-                              </div>
+                              <span className="text-sm">
+                                {desvioLitros > 0 ? '+' : ''}{desvioLitros}L
+                              </span>
+                            ) : '-'}
+                          </TableCell>
+                          <TableCell key={`${produto.id}-desv-p`} className="text-center">
+                            {dados && desvioPercent !== null ? (
+                              <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${getSemaforoColor(desvioPercent)}`}>
+                                {desvioPercent > 0 ? '+' : ''}{desvioPercent}%
+                              </span>
                             ) : '-'}
                           </TableCell>
                         </>
