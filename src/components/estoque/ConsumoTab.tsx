@@ -82,7 +82,7 @@ export function ConsumoTab({ produtoId }: ConsumoTabProps) {
         .from('estoque_cliente')
         .select(`
           *,
-          clientes(nome, fazenda)
+          clientes(nome, fazenda, data_ativacao_rumiflow)
         `)
         .order('data_afericao', { ascending: true });
       if (error) throw error;
@@ -113,21 +113,27 @@ export function ConsumoTab({ produtoId }: ConsumoTabProps) {
     if (!afericoes || !envios || !produtos) return [];
 
     // Agrupa aferições por cliente e data
-    const afericoesPorCliente: Record<string, Array<{
-      data: string;
-      cliente_nome: string;
-      cliente_fazenda: string;
-      vacas_lactacao: number | null;
-      produtos: Record<string, number>;
-    }>> = {};
+    const afericoesPorCliente: Record<string, {
+      data_ativacao: string | null;
+      afericoes: Array<{
+        data: string;
+        cliente_nome: string;
+        cliente_fazenda: string;
+        vacas_lactacao: number | null;
+        produtos: Record<string, number>;
+      }>;
+    }> = {};
 
     afericoes.forEach(af => {
       if (!afericoesPorCliente[af.cliente_id]) {
-        afericoesPorCliente[af.cliente_id] = [];
+        afericoesPorCliente[af.cliente_id] = {
+          data_ativacao: af.clientes?.data_ativacao_rumiflow || null,
+          afericoes: [],
+        };
       }
       
       const dataKey = af.data_afericao;
-      let entry = afericoesPorCliente[af.cliente_id].find(e => e.data === dataKey);
+      let entry = afericoesPorCliente[af.cliente_id].afericoes.find(e => e.data === dataKey);
       
       if (!entry) {
         entry = {
@@ -137,7 +143,7 @@ export function ConsumoTab({ produtoId }: ConsumoTabProps) {
           vacas_lactacao: af.vacas_lactacao,
           produtos: {},
         };
-        afericoesPorCliente[af.cliente_id].push(entry);
+        afericoesPorCliente[af.cliente_id].afericoes.push(entry);
       }
       
       // Atualiza vacas se tiver valor
@@ -150,7 +156,7 @@ export function ConsumoTab({ produtoId }: ConsumoTabProps) {
 
     // Ordena por data
     Object.keys(afericoesPorCliente).forEach(clienteId => {
-      afericoesPorCliente[clienteId].sort((a, b) => a.data.localeCompare(b.data));
+      afericoesPorCliente[clienteId].afericoes.sort((a, b) => a.data.localeCompare(b.data));
     });
 
     // Agrupa envios por cliente e produto
@@ -172,32 +178,23 @@ export function ConsumoTab({ produtoId }: ConsumoTabProps) {
     // Calcula consumo entre aferições consecutivas
     const result: ConsumoItem[] = [];
 
-    Object.entries(afericoesPorCliente).forEach(([clienteId, afs]) => {
-      // Primeiro registro: usa envios como estoque inicial
-      if (afs.length > 0) {
+    Object.entries(afericoesPorCliente).forEach(([clienteId, clienteData]) => {
+      const afs = clienteData.afericoes;
+      const dataAtivacao = clienteData.data_ativacao;
+      
+      // Primeiro registro: usa data de ativação como estoque inicial
+      if (afs.length > 0 && dataAtivacao) {
         const primeiraAfericao = afs[0];
         
-        // Encontra a data do primeiro envio para este cliente
-        let primeiraDataEnvio: string | null = null;
-        Object.values(enviosPorClienteProduto[clienteId] || {}).forEach(enviosProduto => {
-          enviosProduto.forEach(env => {
-            if (env.data <= primeiraAfericao.data) {
-              if (!primeiraDataEnvio || env.data < primeiraDataEnvio) {
-                primeiraDataEnvio = env.data;
-              }
-            }
-          });
-        });
-
-        // Só cria o registro inicial se houver envios antes da primeira aferição
-        if (primeiraDataEnvio) {
-          const diasPeriodoInicial = differenceInDays(parseISO(primeiraAfericao.data), parseISO(primeiraDataEnvio));
+        // Só cria o registro inicial se a data de ativação for anterior à primeira aferição
+        if (dataAtivacao < primeiraAfericao.data) {
+          const diasPeriodoInicial = differenceInDays(parseISO(primeiraAfericao.data), parseISO(dataAtivacao));
 
           const consumoItemInicial: ConsumoItem = {
             cliente_id: clienteId,
             cliente_nome: primeiraAfericao.cliente_nome,
             cliente_fazenda: primeiraAfericao.cliente_fazenda,
-            data_inicial: primeiraDataEnvio,
+            data_inicial: dataAtivacao,
             data_final: primeiraAfericao.data,
             dias_periodo: diasPeriodoInicial,
             vacas_lactacao: primeiraAfericao.vacas_lactacao,
@@ -209,11 +206,11 @@ export function ConsumoTab({ produtoId }: ConsumoTabProps) {
             const estoqueInicial = 0;
             const estoqueFinal = primeiraAfericao.produtos[produto.id] || 0;
 
-            // Soma todos os envios até a primeira aferição
+            // Soma todos os envios entre a ativação e a primeira aferição
             let totalEnvios = 0;
             const enviosProduto = enviosPorClienteProduto[clienteId]?.[produto.id] || [];
             enviosProduto.forEach(env => {
-              if (env.data <= primeiraAfericao.data) {
+              if (env.data >= dataAtivacao && env.data <= primeiraAfericao.data) {
                 totalEnvios += env.quantidade;
               }
             });
