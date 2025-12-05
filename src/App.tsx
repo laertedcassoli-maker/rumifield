@@ -9,6 +9,7 @@ import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import Visitas from "./pages/Visitas";
 import Estoque from "./pages/Estoque";
+import ProdutoDetalhe from "./pages/estoque/ProdutoDetalhe";
 import Pedidos from "./pages/Pedidos";
 import AdminClientes from "./pages/admin/Clientes";
 import AdminEnvios from "./pages/admin/Envios";
@@ -48,6 +49,14 @@ const App = () => (
               element={
                 <AppLayout>
                   <Estoque />
+                </AppLayout>
+              }
+            />
+            <Route
+              path="/estoque/produto/:produtoId"
+              element={
+                <AppLayout>
+                  <ProdutoDetalhe />
                 </AppLayout>
               }
             />

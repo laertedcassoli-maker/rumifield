@@ -1,5 +1,7 @@
-import { Home, MapPin, Package, ShoppingCart, Users, Settings, LogOut, Beaker, Truck } from 'lucide-react';
+import { Home, MapPin, Package, ShoppingCart, Users, Settings, LogOut, Beaker, Truck, ChevronDown } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 import {
   Sidebar,
   SidebarContent,
@@ -11,20 +13,38 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubItem,
+  SidebarMenuSubButton,
 } from '@/components/ui/sidebar';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Link, useLocation } from 'react-router-dom';
 
 export function AppSidebar() {
   const { profile, role, signOut } = useAuth();
   const location = useLocation();
 
+  const { data: produtos } = useQuery({
+    queryKey: ['produtos-sidebar'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('produtos_quimicos')
+        .select('id, nome')
+        .eq('ativo', true)
+        .order('nome');
+      if (error) throw error;
+      return data;
+    },
+  });
+
   const mainMenuItems = [
     { title: 'Início', icon: Home, url: '/' },
     { title: 'Visitas', icon: MapPin, url: '/visitas' },
-    { title: 'Estoque', icon: Beaker, url: '/estoque' },
     { title: 'Pedidos', icon: ShoppingCart, url: '/pedidos' },
   ];
+
+  const isEstoqueActive = location.pathname === '/estoque' || location.pathname.startsWith('/estoque/');
 
   const adminMenuItems = [
     { title: 'Clientes', icon: Package, url: '/admin/clientes' },
@@ -70,6 +90,42 @@ export function AppSidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
+
+              {/* Estoque com submenu */}
+              <Collapsible defaultOpen={isEstoqueActive} className="group/collapsible">
+                <SidebarMenuItem>
+                  <CollapsibleTrigger asChild>
+                    <SidebarMenuButton isActive={isEstoqueActive}>
+                      <Beaker className="h-4 w-4" />
+                      <span>Estoque</span>
+                      <ChevronDown className="ml-auto h-4 w-4 transition-transform group-data-[state=open]/collapsible:rotate-180" />
+                    </SidebarMenuButton>
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    <SidebarMenuSub>
+                      <SidebarMenuSubItem>
+                        <SidebarMenuSubButton asChild isActive={location.pathname === '/estoque'}>
+                          <Link to="/estoque">
+                            <span>Visão Geral</span>
+                          </Link>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                      {produtos?.map((produto) => (
+                        <SidebarMenuSubItem key={produto.id}>
+                          <SidebarMenuSubButton 
+                            asChild 
+                            isActive={location.pathname === `/estoque/produto/${produto.id}`}
+                          >
+                            <Link to={`/estoque/produto/${produto.id}`}>
+                              <span>{produto.nome}</span>
+                            </Link>
+                          </SidebarMenuSubButton>
+                        </SidebarMenuSubItem>
+                      ))}
+                    </SidebarMenuSub>
+                  </CollapsibleContent>
+                </SidebarMenuItem>
+              </Collapsible>
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
