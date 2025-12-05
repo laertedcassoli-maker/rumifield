@@ -5,10 +5,13 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
-import { Users, Loader2, Shield, Search, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Users, Loader2, Shield, Search, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { z } from 'zod';
 import {
   Table,
   TableBody,
@@ -35,14 +38,29 @@ type SortDirection = 'asc' | 'desc';
 
 const ITEMS_PER_PAGE = 10;
 
+const newUserSchema = z.object({
+  nome: z.string().min(2, 'Nome deve ter no mínimo 2 caracteres'),
+  email: z.string().email('Email inválido'),
+  password: z.string().min(6, 'Senha deve ter no mínimo 6 caracteres'),
+  role: z.enum(['admin', 'gestor', 'tecnico']),
+});
+
 export default function AdminUsuarios() {
-  const { role: currentUserRole, user: currentUser } = useAuth();
+  const { role: currentUserRole, user: currentUser, signUp } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [sortField, setSortField] = useState<SortField>('nome');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const [currentPage, setCurrentPage] = useState(1);
+  const [openDialog, setOpenDialog] = useState(false);
+  const [newUserForm, setNewUserForm] = useState({
+    nome: '',
+    email: '',
+    password: '',
+    role: 'tecnico' as 'admin' | 'gestor' | 'tecnico',
+  });
+  const [isCreating, setIsCreating] = useState(false);
 
   const { data: usuarios, isLoading } = useQuery({
     queryKey: ['usuarios-admin'],
@@ -145,13 +163,131 @@ export default function AdminUsuarios() {
     updateRole.mutate({ userId, newRole });
   };
 
+  const handleCreateUser = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    const result = newUserSchema.safeParse(newUserForm);
+    if (!result.success) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro de validação',
+        description: result.error.errors[0].message,
+      });
+      return;
+    }
+
+    setIsCreating(true);
+    
+    try {
+      // Criar usuário via signUp
+      const { error: signUpError } = await signUp(
+        newUserForm.email, 
+        newUserForm.password, 
+        newUserForm.nome
+      );
+      
+      if (signUpError) throw signUpError;
+
+      // Nota: O role será atualizado manualmente após criar, pois não temos acesso ao user.id aqui
+      // O usuário é criado como 'tecnico' por padrão pelo trigger
+
+      toast({ title: 'Usuário criado com sucesso!', description: newUserForm.role !== 'tecnico' ? 'Atualize a permissão na lista.' : undefined });
+      setOpenDialog(false);
+      setNewUserForm({ nome: '', email: '', password: '', role: 'tecnico' });
+      queryClient.invalidateQueries({ queryKey: ['usuarios-admin'] });
+    } catch (error: any) {
+      if (error.message?.includes('already registered')) {
+        toast({
+          variant: 'destructive',
+          title: 'Email já cadastrado',
+          description: 'Este email já está em uso.',
+        });
+      } else {
+        toast({
+          variant: 'destructive',
+          title: 'Erro ao criar usuário',
+          description: error.message,
+        });
+      }
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
   const isAdmin = currentUserRole === 'admin';
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div>
-        <h1 className="text-2xl font-bold">Usuários</h1>
-        <p className="text-muted-foreground">Gerencie os usuários e suas permissões</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">Usuários</h1>
+          <p className="text-muted-foreground">Gerencie os usuários e suas permissões</p>
+        </div>
+        {isAdmin && (
+          <Dialog open={openDialog} onOpenChange={setOpenDialog}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="mr-2 h-4 w-4" />
+                Novo Usuário
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Cadastrar Novo Usuário</DialogTitle>
+              </DialogHeader>
+              <form onSubmit={handleCreateUser} className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Nome completo</Label>
+                  <Input
+                    placeholder="Nome do usuário"
+                    value={newUserForm.nome}
+                    onChange={(e) => setNewUserForm({ ...newUserForm, nome: e.target.value })}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Email</Label>
+                  <Input
+                    type="email"
+                    placeholder="email@exemplo.com"
+                    value={newUserForm.email}
+                    onChange={(e) => setNewUserForm({ ...newUserForm, email: e.target.value })}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Senha</Label>
+                  <Input
+                    type="password"
+                    placeholder="Mínimo 6 caracteres"
+                    value={newUserForm.password}
+                    onChange={(e) => setNewUserForm({ ...newUserForm, password: e.target.value })}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Permissão</Label>
+                  <Select 
+                    value={newUserForm.role} 
+                    onValueChange={(v: 'admin' | 'gestor' | 'tecnico') => setNewUserForm({ ...newUserForm, role: v })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="admin">Administrador</SelectItem>
+                      <SelectItem value="gestor">Gestor</SelectItem>
+                      <SelectItem value="tecnico">Técnico</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button type="submit" className="w-full" disabled={isCreating}>
+                  {isCreating ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Criar Usuário'}
+                </Button>
+              </form>
+            </DialogContent>
+          </Dialog>
+        )}
       </div>
 
       <div className="relative">
