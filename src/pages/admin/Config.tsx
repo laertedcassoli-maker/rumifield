@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Loader2, Search, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Loader2, Search, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Pencil } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 type ProdutoSortField = 'nome' | 'unidade' | 'descricao';
@@ -16,14 +16,31 @@ type SortDirection = 'asc' | 'desc';
 
 const ITEMS_PER_PAGE = 10;
 
+interface ProdutoFormData {
+  id?: string;
+  nome: string;
+  unidade: string;
+  descricao: string;
+}
+
+interface PecaFormData {
+  id?: string;
+  codigo: string;
+  nome: string;
+  descricao: string;
+  omie_codigo: string;
+}
+
 export default function AdminConfig() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
   const [produtoOpen, setProdutoOpen] = useState(false);
   const [pecaOpen, setPecaOpen] = useState(false);
-  const [produtoForm, setProdutoForm] = useState({ nome: '', unidade: 'litros', descricao: '' });
-  const [pecaForm, setPecaForm] = useState({ codigo: '', nome: '', descricao: '', omie_codigo: '' });
+  const [produtoForm, setProdutoForm] = useState<ProdutoFormData>({ nome: '', unidade: 'litros', descricao: '' });
+  const [pecaForm, setPecaForm] = useState<PecaFormData>({ codigo: '', nome: '', descricao: '', omie_codigo: '' });
+  const [isEditingProduto, setIsEditingProduto] = useState(false);
+  const [isEditingPeca, setIsEditingPeca] = useState(false);
 
   // Search states
   const [produtoSearch, setProdutoSearch] = useState('');
@@ -128,15 +145,18 @@ export default function AdminConfig() {
   };
 
   const createProduto = useMutation({
-    mutationFn: async (data: typeof produtoForm) => {
-      const { error } = await supabase.from('produtos_quimicos').insert(data);
+    mutationFn: async (data: ProdutoFormData) => {
+      const { error } = await supabase.from('produtos_quimicos').insert({
+        nome: data.nome,
+        unidade: data.unidade,
+        descricao: data.descricao,
+      });
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['produtos-config'] });
       queryClient.invalidateQueries({ queryKey: ['produtos-quimicos'] });
-      setProdutoOpen(false);
-      setProdutoForm({ nome: '', unidade: 'litros', descricao: '' });
+      closeProdutoDialog();
       toast({ title: 'Produto cadastrado!' });
     },
     onError: (error: Error) => {
@@ -144,22 +164,139 @@ export default function AdminConfig() {
     },
   });
 
+  const updateProduto = useMutation({
+    mutationFn: async (data: ProdutoFormData) => {
+      if (!data.id) throw new Error('ID do produto não informado');
+      const { error } = await supabase.from('produtos_quimicos').update({
+        nome: data.nome,
+        unidade: data.unidade,
+        descricao: data.descricao,
+      }).eq('id', data.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['produtos-config'] });
+      queryClient.invalidateQueries({ queryKey: ['produtos-quimicos'] });
+      closeProdutoDialog();
+      toast({ title: 'Produto atualizado!' });
+    },
+    onError: (error: Error) => {
+      toast({ variant: 'destructive', title: 'Erro', description: error.message });
+    },
+  });
+
   const createPeca = useMutation({
-    mutationFn: async (data: typeof pecaForm) => {
-      const { error } = await supabase.from('pecas').insert(data);
+    mutationFn: async (data: PecaFormData) => {
+      const { error } = await supabase.from('pecas').insert({
+        codigo: data.codigo,
+        nome: data.nome,
+        descricao: data.descricao,
+        omie_codigo: data.omie_codigo,
+      });
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['pecas-config'] });
       queryClient.invalidateQueries({ queryKey: ['pecas'] });
-      setPecaOpen(false);
-      setPecaForm({ codigo: '', nome: '', descricao: '', omie_codigo: '' });
+      closePecaDialog();
       toast({ title: 'Peça cadastrada!' });
     },
     onError: (error: Error) => {
       toast({ variant: 'destructive', title: 'Erro', description: error.message });
     },
   });
+
+  const updatePeca = useMutation({
+    mutationFn: async (data: PecaFormData) => {
+      if (!data.id) throw new Error('ID da peça não informado');
+      const { error } = await supabase.from('pecas').update({
+        codigo: data.codigo,
+        nome: data.nome,
+        descricao: data.descricao,
+        omie_codigo: data.omie_codigo,
+      }).eq('id', data.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['pecas-config'] });
+      queryClient.invalidateQueries({ queryKey: ['pecas'] });
+      closePecaDialog();
+      toast({ title: 'Peça atualizada!' });
+    },
+    onError: (error: Error) => {
+      toast({ variant: 'destructive', title: 'Erro', description: error.message });
+    },
+  });
+
+  const openNewProduto = () => {
+    setProdutoForm({ nome: '', unidade: 'litros', descricao: '' });
+    setIsEditingProduto(false);
+    setProdutoOpen(true);
+  };
+
+  const openEditProduto = (produto: typeof produtos extends (infer T)[] ? T : never) => {
+    setProdutoForm({
+      id: produto.id,
+      nome: produto.nome,
+      unidade: produto.unidade,
+      descricao: produto.descricao || '',
+    });
+    setIsEditingProduto(true);
+    setProdutoOpen(true);
+  };
+
+  const closeProdutoDialog = () => {
+    setProdutoOpen(false);
+    setProdutoForm({ nome: '', unidade: 'litros', descricao: '' });
+    setIsEditingProduto(false);
+  };
+
+  const openNewPeca = () => {
+    setPecaForm({ codigo: '', nome: '', descricao: '', omie_codigo: '' });
+    setIsEditingPeca(false);
+    setPecaOpen(true);
+  };
+
+  const openEditPeca = (peca: typeof pecas extends (infer T)[] ? T : never) => {
+    setPecaForm({
+      id: peca.id,
+      codigo: peca.codigo,
+      nome: peca.nome,
+      descricao: peca.descricao || '',
+      omie_codigo: peca.omie_codigo || '',
+    });
+    setIsEditingPeca(true);
+    setPecaOpen(true);
+  };
+
+  const closePecaDialog = () => {
+    setPecaOpen(false);
+    setPecaForm({ codigo: '', nome: '', descricao: '', omie_codigo: '' });
+    setIsEditingPeca(false);
+  };
+
+  const handleProdutoSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!produtoForm.nome.trim()) return;
+    if (isEditingProduto) {
+      updateProduto.mutate(produtoForm);
+    } else {
+      createProduto.mutate(produtoForm);
+    }
+  };
+
+  const handlePecaSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!pecaForm.codigo.trim() || !pecaForm.nome.trim()) return;
+    if (isEditingPeca) {
+      updatePeca.mutate(pecaForm);
+    } else {
+      createPeca.mutate(pecaForm);
+    }
+  };
+
+  const isProdutoSaving = createProduto.isPending || updateProduto.isPending;
+  const isPecaSaving = createPeca.isPending || updatePeca.isPending;
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -185,57 +322,50 @@ export default function AdminConfig() {
                 className="pl-10"
               />
             </div>
-            <Dialog open={produtoOpen} onOpenChange={setProdutoOpen}>
-              <DialogTrigger asChild>
-                <Button>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Novo Produto
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Cadastrar Produto Químico</DialogTitle>
-                </DialogHeader>
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    if (!produtoForm.nome.trim()) return;
-                    createProduto.mutate(produtoForm);
-                  }}
-                  className="space-y-4"
-                >
-                  <div className="space-y-2">
-                    <Label>Nome *</Label>
-                    <Input
-                      value={produtoForm.nome}
-                      onChange={(e) => setProdutoForm({ ...produtoForm, nome: e.target.value })}
-                      placeholder="Nome do produto"
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Unidade</Label>
-                    <Input
-                      value={produtoForm.unidade}
-                      onChange={(e) => setProdutoForm({ ...produtoForm, unidade: e.target.value })}
-                      placeholder="litros, kg, unidade..."
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Descrição</Label>
-                    <Input
-                      value={produtoForm.descricao}
-                      onChange={(e) => setProdutoForm({ ...produtoForm, descricao: e.target.value })}
-                      placeholder="Descrição do produto"
-                    />
-                  </div>
-                  <Button type="submit" className="w-full" disabled={createProduto.isPending}>
-                    {createProduto.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Cadastrar'}
-                  </Button>
-                </form>
-              </DialogContent>
-            </Dialog>
+            <Button onClick={openNewProduto}>
+              <Plus className="mr-2 h-4 w-4" />
+              Novo Produto
+            </Button>
           </div>
+
+          {/* Produto Dialog */}
+          <Dialog open={produtoOpen} onOpenChange={(open) => !open && closeProdutoDialog()}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>{isEditingProduto ? 'Editar Produto Químico' : 'Cadastrar Produto Químico'}</DialogTitle>
+              </DialogHeader>
+              <form onSubmit={handleProdutoSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Nome *</Label>
+                  <Input
+                    value={produtoForm.nome}
+                    onChange={(e) => setProdutoForm({ ...produtoForm, nome: e.target.value })}
+                    placeholder="Nome do produto"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Unidade</Label>
+                  <Input
+                    value={produtoForm.unidade}
+                    onChange={(e) => setProdutoForm({ ...produtoForm, unidade: e.target.value })}
+                    placeholder="litros, kg, unidade..."
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Descrição</Label>
+                  <Input
+                    value={produtoForm.descricao}
+                    onChange={(e) => setProdutoForm({ ...produtoForm, descricao: e.target.value })}
+                    placeholder="Descrição do produto"
+                  />
+                </div>
+                <Button type="submit" className="w-full" disabled={isProdutoSaving}>
+                  {isProdutoSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : isEditingProduto ? 'Salvar Alterações' : 'Cadastrar'}
+                </Button>
+              </form>
+            </DialogContent>
+          </Dialog>
 
           {loadingProdutos ? (
             <div className="flex justify-center py-8">
@@ -262,12 +392,13 @@ export default function AdminConfig() {
                           Descrição {getSortIcon('descricao', produtoSortField, produtoSortDirection)}
                         </Button>
                       </TableHead>
+                      <TableHead className="w-[80px]">Ações</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {paginatedProdutos.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={3} className="text-center text-muted-foreground py-8">
+                        <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
                           Nenhum produto encontrado
                         </TableCell>
                       </TableRow>
@@ -277,6 +408,11 @@ export default function AdminConfig() {
                           <TableCell className="font-medium">{produto.nome}</TableCell>
                           <TableCell>{produto.unidade}</TableCell>
                           <TableCell className="text-muted-foreground">{produto.descricao || '-'}</TableCell>
+                          <TableCell>
+                            <Button variant="ghost" size="icon" onClick={() => openEditProduto(produto)}>
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                          </TableCell>
                         </TableRow>
                       ))
                     )}
@@ -315,68 +451,61 @@ export default function AdminConfig() {
                 className="pl-10"
               />
             </div>
-            <Dialog open={pecaOpen} onOpenChange={setPecaOpen}>
-              <DialogTrigger asChild>
-                <Button>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Nova Peça
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Cadastrar Peça</DialogTitle>
-                </DialogHeader>
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    if (!pecaForm.codigo.trim() || !pecaForm.nome.trim()) return;
-                    createPeca.mutate(pecaForm);
-                  }}
-                  className="space-y-4"
-                >
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label>Código *</Label>
-                      <Input
-                        value={pecaForm.codigo}
-                        onChange={(e) => setPecaForm({ ...pecaForm, codigo: e.target.value })}
-                        placeholder="PC-001"
-                        required
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Código Omie</Label>
-                      <Input
-                        value={pecaForm.omie_codigo}
-                        onChange={(e) => setPecaForm({ ...pecaForm, omie_codigo: e.target.value })}
-                        placeholder="Código no Omie"
-                      />
-                    </div>
-                  </div>
+            <Button onClick={openNewPeca}>
+              <Plus className="mr-2 h-4 w-4" />
+              Nova Peça
+            </Button>
+          </div>
+
+          {/* Peça Dialog */}
+          <Dialog open={pecaOpen} onOpenChange={(open) => !open && closePecaDialog()}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>{isEditingPeca ? 'Editar Peça' : 'Cadastrar Peça'}</DialogTitle>
+              </DialogHeader>
+              <form onSubmit={handlePecaSubmit} className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label>Nome *</Label>
+                    <Label>Código *</Label>
                     <Input
-                      value={pecaForm.nome}
-                      onChange={(e) => setPecaForm({ ...pecaForm, nome: e.target.value })}
-                      placeholder="Nome da peça"
+                      value={pecaForm.codigo}
+                      onChange={(e) => setPecaForm({ ...pecaForm, codigo: e.target.value })}
+                      placeholder="PC-001"
                       required
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Descrição</Label>
+                    <Label>Código Omie</Label>
                     <Input
-                      value={pecaForm.descricao}
-                      onChange={(e) => setPecaForm({ ...pecaForm, descricao: e.target.value })}
-                      placeholder="Descrição da peça"
+                      value={pecaForm.omie_codigo}
+                      onChange={(e) => setPecaForm({ ...pecaForm, omie_codigo: e.target.value })}
+                      placeholder="Código no Omie"
                     />
                   </div>
-                  <Button type="submit" className="w-full" disabled={createPeca.isPending}>
-                    {createPeca.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Cadastrar'}
-                  </Button>
-                </form>
-              </DialogContent>
-            </Dialog>
-          </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Nome *</Label>
+                  <Input
+                    value={pecaForm.nome}
+                    onChange={(e) => setPecaForm({ ...pecaForm, nome: e.target.value })}
+                    placeholder="Nome da peça"
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Descrição</Label>
+                  <Input
+                    value={pecaForm.descricao}
+                    onChange={(e) => setPecaForm({ ...pecaForm, descricao: e.target.value })}
+                    placeholder="Descrição da peça"
+                  />
+                </div>
+                <Button type="submit" className="w-full" disabled={isPecaSaving}>
+                  {isPecaSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : isEditingPeca ? 'Salvar Alterações' : 'Cadastrar'}
+                </Button>
+              </form>
+            </DialogContent>
+          </Dialog>
 
           {loadingPecas ? (
             <div className="flex justify-center py-8">
@@ -408,12 +537,13 @@ export default function AdminConfig() {
                           Descrição {getSortIcon('descricao', pecaSortField, pecaSortDirection)}
                         </Button>
                       </TableHead>
+                      <TableHead className="w-[80px]">Ações</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {paginatedPecas.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
+                        <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
                           Nenhuma peça encontrada
                         </TableCell>
                       </TableRow>
@@ -424,6 +554,11 @@ export default function AdminConfig() {
                           <TableCell>{peca.nome}</TableCell>
                           <TableCell>{peca.omie_codigo || '-'}</TableCell>
                           <TableCell className="text-muted-foreground">{peca.descricao || '-'}</TableCell>
+                          <TableCell>
+                            <Button variant="ghost" size="icon" onClick={() => openEditPeca(peca)}>
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                          </TableCell>
                         </TableRow>
                       ))
                     )}
