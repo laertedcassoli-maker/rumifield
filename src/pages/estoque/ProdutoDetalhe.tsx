@@ -1,12 +1,13 @@
-import { useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowLeft, Beaker, TrendingDown, Calendar, Loader2 } from 'lucide-react';
+import { ArrowLeft, Beaker, TrendingDown, Calendar, Loader2, X, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react';
 import { format, parseISO, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -26,8 +27,20 @@ interface ConsumoCliente {
   consumo_30dias: number;
 }
 
+type SortColumn = 'cliente' | 'fazenda' | 'periodo' | 'dias' | 'estoque_inicial' | 'envios' | 'estoque_final' | 'consumo' | 'consumo_30dias';
+type SortDirection = 'asc' | 'desc' | null;
+
+interface Filters {
+  cliente: string;
+  fazenda: string;
+}
+
 export default function ProdutoDetalhe() {
   const { produtoId } = useParams<{ produtoId: string }>();
+  const [filters, setFilters] = useState<Filters>({ cliente: '', fazenda: '' });
+  const [showFilters, setShowFilters] = useState(false);
+  const [sortColumn, setSortColumn] = useState<SortColumn | null>(null);
+  const [sortDirection, setSortDirection] = useState<SortDirection>(null);
 
   const { data: produto, isLoading: loadingProduto } = useQuery({
     queryKey: ['produto', produtoId],
@@ -172,17 +185,115 @@ export default function ProdutoDetalhe() {
     return result.sort((a, b) => b.data_final.localeCompare(a.data_final));
   }, [afericoes, envios]);
 
+  // Filtra e ordena
+  const consumoFiltrado = useMemo(() => {
+    let lista = [...consumoData];
+
+    if (filters.cliente) {
+      lista = lista.filter(c => 
+        c.cliente_nome.toLowerCase().includes(filters.cliente.toLowerCase())
+      );
+    }
+    if (filters.fazenda) {
+      lista = lista.filter(c => 
+        c.cliente_fazenda?.toLowerCase().includes(filters.fazenda.toLowerCase())
+      );
+    }
+
+    if (sortColumn && sortDirection) {
+      lista.sort((a, b) => {
+        let valueA: string | number = '';
+        let valueB: string | number = '';
+
+        switch (sortColumn) {
+          case 'cliente':
+            valueA = a.cliente_nome.toLowerCase();
+            valueB = b.cliente_nome.toLowerCase();
+            break;
+          case 'fazenda':
+            valueA = (a.cliente_fazenda || '').toLowerCase();
+            valueB = (b.cliente_fazenda || '').toLowerCase();
+            break;
+          case 'periodo':
+            valueA = a.data_final;
+            valueB = b.data_final;
+            break;
+          case 'dias':
+            valueA = a.dias_periodo;
+            valueB = b.dias_periodo;
+            break;
+          case 'estoque_inicial':
+            valueA = a.estoque_inicial;
+            valueB = b.estoque_inicial;
+            break;
+          case 'envios':
+            valueA = a.envios;
+            valueB = b.envios;
+            break;
+          case 'estoque_final':
+            valueA = a.estoque_final;
+            valueB = b.estoque_final;
+            break;
+          case 'consumo':
+            valueA = a.consumo;
+            valueB = b.consumo;
+            break;
+          case 'consumo_30dias':
+            valueA = a.consumo_30dias;
+            valueB = b.consumo_30dias;
+            break;
+        }
+
+        if (valueA < valueB) return sortDirection === 'asc' ? -1 : 1;
+        if (valueA > valueB) return sortDirection === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
+
+    return lista;
+  }, [consumoData, filters, sortColumn, sortDirection]);
+
+  const handleSort = (column: SortColumn) => {
+    if (sortColumn === column) {
+      if (sortDirection === 'asc') {
+        setSortDirection('desc');
+      } else if (sortDirection === 'desc') {
+        setSortColumn(null);
+        setSortDirection(null);
+      }
+    } else {
+      setSortColumn(column);
+      setSortDirection('asc');
+    }
+  };
+
+  const getSortIcon = (column: SortColumn) => {
+    if (sortColumn !== column) {
+      return <ArrowUpDown className="h-4 w-4 ml-1 opacity-50" />;
+    }
+    if (sortDirection === 'asc') {
+      return <ArrowUp className="h-4 w-4 ml-1" />;
+    }
+    return <ArrowDown className="h-4 w-4 ml-1" />;
+  };
+
+  const clearFilters = () => {
+    setFilters({ cliente: '', fazenda: '' });
+  };
+
+  const hasActiveFilters = Object.values(filters).some(v => v !== '');
+
   const isLoading = loadingProduto || loadingAfericoes || loadingEnvios;
 
-  // Totais
+  // Totais (dos filtrados)
   const totais = useMemo(() => {
-    const totalConsumo = consumoData.reduce((acc, c) => acc + c.consumo, 0);
-    const totalConsumo30dias = consumoData.length > 0
-      ? Math.round(consumoData.reduce((acc, c) => acc + c.consumo_30dias, 0) / consumoData.length)
+    const totalConsumo = consumoFiltrado.reduce((acc, c) => acc + c.consumo, 0);
+    const totalConsumo30dias = consumoFiltrado.length > 0
+      ? Math.round(consumoFiltrado.reduce((acc, c) => acc + c.consumo_30dias, 0) / consumoFiltrado.length)
       : 0;
-    const totalEnvios = consumoData.reduce((acc, c) => acc + c.envios, 0);
+    const totalEnvios = consumoFiltrado.reduce((acc, c) => acc + c.envios, 0);
     return { totalConsumo, totalConsumo30dias, totalEnvios };
-  }, [consumoData]);
+  }, [consumoFiltrado]);
 
   if (isLoading) {
     return (
@@ -207,6 +318,18 @@ export default function ProdutoDetalhe() {
       </div>
     );
   }
+
+  const SortableHeader = ({ column, children, className = '' }: { column: SortColumn; children: React.ReactNode; className?: string }) => (
+    <TableHead 
+      className={`cursor-pointer hover:bg-muted/50 select-none ${className}`}
+      onClick={() => handleSort(column)}
+    >
+      <div className={`flex items-center ${className.includes('text-center') ? 'justify-center' : ''}`}>
+        {children}
+        {getSortIcon(column)}
+      </div>
+    </TableHead>
+  );
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -270,40 +393,82 @@ export default function ProdutoDetalhe() {
         <TabsContent value="periodo" className="mt-4">
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <TrendingDown className="h-5 w-5 text-primary" />
-                Consumo por Cliente
-                {consumoData.length > 0 && (
-                  <span className="text-sm font-normal text-muted-foreground">
-                    ({consumoData.length} períodos)
-                  </span>
-                )}
-              </CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <TrendingDown className="h-5 w-5 text-primary" />
+                  Consumo por Cliente
+                  {consumoFiltrado.length > 0 && (
+                    <span className="text-sm font-normal text-muted-foreground">
+                      ({consumoFiltrado.length} períodos)
+                    </span>
+                  )}
+                </CardTitle>
+                <div className="flex items-center gap-2">
+                  {hasActiveFilters && (
+                    <Button variant="ghost" size="sm" onClick={clearFilters}>
+                      <X className="h-4 w-4 mr-1" />
+                      Limpar filtros
+                    </Button>
+                  )}
+                  <Button 
+                    variant={showFilters ? "secondary" : "outline"} 
+                    size="sm" 
+                    onClick={() => setShowFilters(!showFilters)}
+                  >
+                    Filtros
+                  </Button>
+                </div>
+              </div>
+
+              {showFilters && (
+                <div className="grid grid-cols-2 gap-3 pt-4 border-t mt-4">
+                  <div className="space-y-1">
+                    <label className="text-xs text-muted-foreground">Cliente</label>
+                    <Input
+                      placeholder="Filtrar..."
+                      value={filters.cliente}
+                      onChange={(e) => setFilters(f => ({ ...f, cliente: e.target.value }))}
+                      className="h-8"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs text-muted-foreground">Fazenda</label>
+                    <Input
+                      placeholder="Filtrar..."
+                      value={filters.fazenda}
+                      onChange={(e) => setFilters(f => ({ ...f, fazenda: e.target.value }))}
+                      className="h-8"
+                    />
+                  </div>
+                </div>
+              )}
             </CardHeader>
             <CardContent>
-              {consumoData.length === 0 ? (
+              {consumoFiltrado.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
-                  <p>Nenhum dado de consumo disponível.</p>
-                  <p className="text-sm mt-2">
-                    São necessárias pelo menos 2 aferições do mesmo cliente.
-                  </p>
+                  <p>{hasActiveFilters ? 'Nenhum resultado com os filtros aplicados.' : 'Nenhum dado de consumo disponível.'}</p>
+                  {!hasActiveFilters && (
+                    <p className="text-sm mt-2">
+                      São necessárias pelo menos 2 aferições do mesmo cliente.
+                    </p>
+                  )}
                 </div>
               ) : (
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Cliente</TableHead>
-                      <TableHead>Fazenda</TableHead>
-                      <TableHead>Período</TableHead>
-                      <TableHead className="text-center">Dias</TableHead>
-                      <TableHead className="text-center">Estoque Inicial</TableHead>
-                      <TableHead className="text-center">Envios</TableHead>
-                      <TableHead className="text-center">Estoque Final</TableHead>
-                      <TableHead className="text-center">Consumo</TableHead>
+                      <SortableHeader column="cliente">Cliente</SortableHeader>
+                      <SortableHeader column="fazenda">Fazenda</SortableHeader>
+                      <SortableHeader column="periodo">Período</SortableHeader>
+                      <SortableHeader column="dias" className="text-center">Dias</SortableHeader>
+                      <SortableHeader column="estoque_inicial" className="text-center">Estoque Inicial</SortableHeader>
+                      <SortableHeader column="envios" className="text-center">Envios</SortableHeader>
+                      <SortableHeader column="estoque_final" className="text-center">Estoque Final</SortableHeader>
+                      <SortableHeader column="consumo" className="text-center">Consumo</SortableHeader>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {consumoData.map((item, index) => (
+                    {consumoFiltrado.map((item, index) => (
                       <TableRow key={index}>
                         <TableCell className="font-medium">{item.cliente_nome}</TableCell>
                         <TableCell>{item.cliente_fazenda || '-'}</TableCell>
@@ -336,32 +501,77 @@ export default function ProdutoDetalhe() {
         <TabsContent value="30dias" className="mt-4">
           <Card>
             <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <TrendingDown className="h-5 w-5 text-primary" />
-                Consumo Padronizado (30 dias)
-              </CardTitle>
+              <div className="flex items-center justify-between">
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <TrendingDown className="h-5 w-5 text-primary" />
+                  Consumo Padronizado (30 dias)
+                  {consumoFiltrado.length > 0 && (
+                    <span className="text-sm font-normal text-muted-foreground">
+                      ({consumoFiltrado.length} períodos)
+                    </span>
+                  )}
+                </CardTitle>
+                <div className="flex items-center gap-2">
+                  {hasActiveFilters && (
+                    <Button variant="ghost" size="sm" onClick={clearFilters}>
+                      <X className="h-4 w-4 mr-1" />
+                      Limpar filtros
+                    </Button>
+                  )}
+                  <Button 
+                    variant={showFilters ? "secondary" : "outline"} 
+                    size="sm" 
+                    onClick={() => setShowFilters(!showFilters)}
+                  >
+                    Filtros
+                  </Button>
+                </div>
+              </div>
+
+              {showFilters && (
+                <div className="grid grid-cols-2 gap-3 pt-4 border-t mt-4">
+                  <div className="space-y-1">
+                    <label className="text-xs text-muted-foreground">Cliente</label>
+                    <Input
+                      placeholder="Filtrar..."
+                      value={filters.cliente}
+                      onChange={(e) => setFilters(f => ({ ...f, cliente: e.target.value }))}
+                      className="h-8"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs text-muted-foreground">Fazenda</label>
+                    <Input
+                      placeholder="Filtrar..."
+                      value={filters.fazenda}
+                      onChange={(e) => setFilters(f => ({ ...f, fazenda: e.target.value }))}
+                      className="h-8"
+                    />
+                  </div>
+                </div>
+              )}
             </CardHeader>
             <CardContent>
-              {consumoData.length === 0 ? (
+              {consumoFiltrado.length === 0 ? (
                 <div className="text-center py-8 text-muted-foreground">
-                  <p>Nenhum dado de consumo disponível.</p>
+                  <p>{hasActiveFilters ? 'Nenhum resultado com os filtros aplicados.' : 'Nenhum dado de consumo disponível.'}</p>
                 </div>
               ) : (
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Cliente</TableHead>
-                      <TableHead>Fazenda</TableHead>
-                      <TableHead>Período</TableHead>
-                      <TableHead className="text-center">Dias</TableHead>
-                      <TableHead className="text-center">Consumo Real</TableHead>
-                      <TableHead className="text-center">Consumo/30 dias</TableHead>
+                      <SortableHeader column="cliente">Cliente</SortableHeader>
+                      <SortableHeader column="fazenda">Fazenda</SortableHeader>
+                      <SortableHeader column="periodo">Período</SortableHeader>
+                      <SortableHeader column="dias" className="text-center">Dias</SortableHeader>
+                      <SortableHeader column="consumo" className="text-center">Consumo Real</SortableHeader>
+                      <SortableHeader column="consumo_30dias" className="text-center">Consumo/30 dias</SortableHeader>
                       <TableHead className="text-center">Orçado</TableHead>
                       <TableHead className="text-center">Diferença</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {consumoData.map((item, index) => (
+                    {consumoFiltrado.map((item, index) => (
                       <TableRow key={index}>
                         <TableCell className="font-medium">{item.cliente_nome}</TableCell>
                         <TableCell>{item.cliente_fazenda || '-'}</TableCell>
@@ -379,11 +589,9 @@ export default function ProdutoDetalhe() {
                           -{item.consumo_30dias}L
                         </TableCell>
                         <TableCell className="text-center text-muted-foreground">
-                          {/* Placeholder para orçado - futuro */}
                           -
                         </TableCell>
                         <TableCell className="text-center text-muted-foreground">
-                          {/* Placeholder para diferença - futuro */}
                           -
                         </TableCell>
                       </TableRow>
