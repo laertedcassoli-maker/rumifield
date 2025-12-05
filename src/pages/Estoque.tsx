@@ -61,9 +61,25 @@ export default function Estoque() {
     enabled: !!selectedCliente,
   });
 
+  // Validação: verifica se todos os produtos têm estoque informado
+  const isEstoqueCompleto = () => {
+    if (!produtos) return false;
+    return produtos.every((produto) => {
+      const item = estoqueItems[produto.id];
+      if (!item) return false;
+      // Precisa ter pelo menos 1 galão cheio OU ter um galão em uso
+      return item.galoesCheios > 0 || item.galaoEmUso;
+    });
+  };
+
   const saveEstoque = useMutation({
     mutationFn: async () => {
       if (!selectedCliente || !produtos) return;
+
+      // Validar antes de salvar
+      if (!isEstoqueCompleto()) {
+        throw new Error('Informe o estoque de todos os produtos antes de salvar.');
+      }
 
       const updates = produtos.map((produto) => {
         const item = estoqueItems[produto.id];
@@ -219,7 +235,10 @@ export default function Estoque() {
                 <p className="text-sm text-muted-foreground">{clienteSelecionado.fazenda}</p>
               )}
             </div>
-            <Button onClick={() => saveEstoque.mutate()} disabled={saveEstoque.isPending}>
+            <Button 
+              onClick={() => saveEstoque.mutate()} 
+              disabled={saveEstoque.isPending || !isEstoqueCompleto()}
+            >
               {saveEstoque.isPending ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
               ) : (
