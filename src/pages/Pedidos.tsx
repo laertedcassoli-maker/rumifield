@@ -69,7 +69,7 @@ export default function Pedidos() {
     queryFn: async () => {
       let query = supabase
         .from('pedidos')
-        .select('*, clientes(nome, fazenda), pedido_itens(*, pecas(nome, codigo)), profiles:solicitante_id(nome, email)')
+        .select('*, clientes(nome, fazenda), pedido_itens(*, pecas(nome, codigo))')
         .order('created_at', { ascending: false });
       
       // Se não for admin ou se for admin mas não quer ver todos, filtra pelo usuário
@@ -79,6 +79,23 @@ export default function Pedidos() {
       
       const { data, error } = await query;
       if (error) throw error;
+      
+      // Se admin está vendo todos, busca os profiles dos solicitantes
+      if (isAdmin && viewAll && data && data.length > 0) {
+        const solicitanteIds = [...new Set(data.map(p => p.solicitante_id))];
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id, nome, email')
+          .in('id', solicitanteIds);
+        
+        // Mapeia os profiles para os pedidos
+        const profilesMap = new Map(profiles?.map(p => [p.id, p]) || []);
+        return data.map(pedido => ({
+          ...pedido,
+          solicitante: profilesMap.get(pedido.solicitante_id) || null
+        }));
+      }
+      
       return data;
     },
     enabled: !!user?.id,
@@ -507,8 +524,8 @@ export default function Pedidos() {
                   </TableCell>
                   {isAdmin && viewAll && (
                     <TableCell>
-                      <div className="font-medium">{(pedido as any).profiles?.nome || '-'}</div>
-                      <div className="text-xs text-muted-foreground">{(pedido as any).profiles?.email}</div>
+                      <div className="font-medium">{(pedido as any).solicitante?.nome || '-'}</div>
+                      <div className="text-xs text-muted-foreground">{(pedido as any).solicitante?.email}</div>
                     </TableCell>
                   )}
                   <TableCell>
