@@ -11,7 +11,6 @@ import Visitas from "./pages/Visitas";
 import Estoque from "./pages/Estoque";
 import Pedidos from "./pages/Pedidos";
 import AdminClientes from "./pages/admin/Clientes";
-import AdminPecas from "./pages/admin/Pecas";
 import AdminUsuarios from "./pages/admin/Usuarios";
 import AdminConfig from "./pages/admin/Config";
 import NotFound from "./pages/NotFound";
@@ -64,14 +63,6 @@ const App = () => (
               element={
                 <AppLayout>
                   <AdminClientes />
-                </AppLayout>
-              }
-            />
-            <Route
-              path="/admin/pecas"
-              element={
-                <AppLayout>
-                  <AdminPecas />
                 </AppLayout>
               }
             />
