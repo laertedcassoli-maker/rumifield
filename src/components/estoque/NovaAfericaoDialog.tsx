@@ -38,6 +38,7 @@ export function NovaAfericaoDialog({ open, onOpenChange, onSuccess }: NovaAferic
   const [clienteOpen, setClienteOpen] = useState(false);
   const [dataAfericao, setDataAfericao] = useState<string>(format(new Date(), 'yyyy-MM-dd'));
   const [responsavel, setResponsavel] = useState<'Cliente' | 'CSM'>('Cliente');
+  const [vacasLactacao, setVacasLactacao] = useState<string>('');
 
   const { data: clientes } = useQuery({
     queryKey: ['clientes'],
@@ -79,6 +80,7 @@ export function NovaAfericaoDialog({ open, onOpenChange, onSuccess }: NovaAferic
       setSelectedCliente('');
       setDataAfericao(format(new Date(), 'yyyy-MM-dd'));
       setResponsavel('Cliente');
+      setVacasLactacao('');
       if (produtos) {
         const newItems: Record<string, EstoqueItem> = {};
         produtos.forEach((produto) => {
@@ -111,6 +113,8 @@ export function NovaAfericaoDialog({ open, onOpenChange, onSuccess }: NovaAferic
         throw new Error('Informe o estoque de todos os produtos antes de salvar.');
       }
 
+      const vacasNum = vacasLactacao ? parseInt(vacasLactacao) : null;
+      
       const inserts = produtos.map((produto) => {
         const item = estoqueItems[produto.id];
         const galoesCheios = item?.galoesCheios || 0;
@@ -128,6 +132,7 @@ export function NovaAfericaoDialog({ open, onOpenChange, onSuccess }: NovaAferic
           data_atualizacao: new Date().toISOString(),
           data_afericao: dataAfericao,
           responsavel: responsavel,
+          vacas_lactacao: vacasNum,
         };
       });
 
@@ -231,8 +236,8 @@ export function NovaAfericaoDialog({ open, onOpenChange, onSuccess }: NovaAferic
             </Popover>
           </div>
 
-          {/* Data e Responsável */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {/* Data, Responsável e Vacas */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="space-y-2">
               <Label htmlFor="data-afericao" className="flex items-center gap-2">
                 <Calendar className="h-4 w-4" />
@@ -256,6 +261,17 @@ export function NovaAfericaoDialog({ open, onOpenChange, onSuccess }: NovaAferic
                   <SelectItem value="CSM">CSM</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="vacas-lactacao">Vacas em Lactação</Label>
+              <Input
+                id="vacas-lactacao"
+                type="number"
+                min="0"
+                value={vacasLactacao}
+                onChange={(e) => setVacasLactacao(e.target.value)}
+                placeholder="Nº de vacas"
+              />
             </div>
           </div>
 

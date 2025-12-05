@@ -21,6 +21,7 @@ interface ProdutoFormData {
   nome: string;
   unidade: string;
   descricao: string;
+  litros_por_vaca_mes: number;
 }
 
 interface PecaFormData {
@@ -37,7 +38,7 @@ export default function AdminConfig() {
   
   const [produtoOpen, setProdutoOpen] = useState(false);
   const [pecaOpen, setPecaOpen] = useState(false);
-  const [produtoForm, setProdutoForm] = useState<ProdutoFormData>({ nome: '', unidade: 'litros', descricao: '' });
+  const [produtoForm, setProdutoForm] = useState<ProdutoFormData>({ nome: '', unidade: 'litros', descricao: '', litros_por_vaca_mes: 0 });
   const [pecaForm, setPecaForm] = useState<PecaFormData>({ codigo: '', nome: '', descricao: '', omie_codigo: '' });
   const [isEditingProduto, setIsEditingProduto] = useState(false);
   const [isEditingPeca, setIsEditingPeca] = useState(false);
@@ -150,6 +151,7 @@ export default function AdminConfig() {
         nome: data.nome,
         unidade: data.unidade,
         descricao: data.descricao,
+        litros_por_vaca_mes: data.litros_por_vaca_mes,
       });
       if (error) throw error;
     },
@@ -171,6 +173,7 @@ export default function AdminConfig() {
         nome: data.nome,
         unidade: data.unidade,
         descricao: data.descricao,
+        litros_por_vaca_mes: data.litros_por_vaca_mes,
       }).eq('id', data.id);
       if (error) throw error;
     },
@@ -229,7 +232,7 @@ export default function AdminConfig() {
   });
 
   const openNewProduto = () => {
-    setProdutoForm({ nome: '', unidade: 'litros', descricao: '' });
+    setProdutoForm({ nome: '', unidade: 'litros', descricao: '', litros_por_vaca_mes: 0 });
     setIsEditingProduto(false);
     setProdutoOpen(true);
   };
@@ -240,6 +243,7 @@ export default function AdminConfig() {
       nome: produto.nome,
       unidade: produto.unidade,
       descricao: produto.descricao || '',
+      litros_por_vaca_mes: produto.litros_por_vaca_mes || 0,
     });
     setIsEditingProduto(true);
     setProdutoOpen(true);
@@ -247,7 +251,7 @@ export default function AdminConfig() {
 
   const closeProdutoDialog = () => {
     setProdutoOpen(false);
-    setProdutoForm({ nome: '', unidade: 'litros', descricao: '' });
+    setProdutoForm({ nome: '', unidade: 'litros', descricao: '', litros_por_vaca_mes: 0 });
     setIsEditingProduto(false);
   };
 
@@ -358,6 +362,17 @@ export default function AdminConfig() {
                     value={produtoForm.descricao}
                     onChange={(e) => setProdutoForm({ ...produtoForm, descricao: e.target.value })}
                     placeholder="Descrição do produto"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Consumo por Vaca (L/vaca.mês)</Label>
+                  <Input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={produtoForm.litros_por_vaca_mes}
+                    onChange={(e) => setProdutoForm({ ...produtoForm, litros_por_vaca_mes: parseFloat(e.target.value) || 0 })}
+                    placeholder="0.00"
                   />
                 </div>
                 <Button type="submit" className="w-full" disabled={isProdutoSaving}>

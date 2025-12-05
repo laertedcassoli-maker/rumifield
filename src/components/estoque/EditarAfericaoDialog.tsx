@@ -37,6 +37,7 @@ interface AfericaoData {
   cliente_fazenda: string;
   data_afericao: string;
   responsavel: string;
+  vacas_lactacao: number | null;
   produtosPorId: Record<string, { galoes_cheios: number; nivel_galao_parcial: number | null }>;
 }
 
@@ -53,6 +54,7 @@ export function EditarAfericaoDialog({ open, onOpenChange, onSuccess, afericao }
   const [estoqueItems, setEstoqueItems] = useState<Record<string, EstoqueItem>>({});
   const [dataAfericao, setDataAfericao] = useState<string>('');
   const [responsavel, setResponsavel] = useState<'Cliente' | 'CSM'>('Cliente');
+  const [vacasLactacao, setVacasLactacao] = useState<string>('');
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   const { data: produtos } = useQuery({
@@ -69,6 +71,7 @@ export function EditarAfericaoDialog({ open, onOpenChange, onSuccess, afericao }
     if (open && afericao && produtos) {
       setDataAfericao(afericao.data_afericao);
       setResponsavel(afericao.responsavel as 'Cliente' | 'CSM');
+      setVacasLactacao(afericao.vacas_lactacao?.toString() || '');
 
       const newItems: Record<string, EstoqueItem> = {};
       produtos.forEach((produto) => {
@@ -110,6 +113,8 @@ export function EditarAfericaoDialog({ open, onOpenChange, onSuccess, afericao }
 
       if (deleteError) throw deleteError;
 
+      const vacasNum = vacasLactacao ? parseInt(vacasLactacao) : null;
+      
       const inserts = produtos.map((produto) => {
         const item = estoqueItems[produto.id];
         const galoesCheios = item?.galoesCheios || 0;
@@ -127,6 +132,7 @@ export function EditarAfericaoDialog({ open, onOpenChange, onSuccess, afericao }
           data_atualizacao: new Date().toISOString(),
           data_afericao: dataAfericao,
           responsavel: responsavel,
+          vacas_lactacao: vacasNum,
         };
       });
 
@@ -207,8 +213,8 @@ export function EditarAfericaoDialog({ open, onOpenChange, onSuccess, afericao }
               </div>
             </div>
 
-            {/* Data e Responsável */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            {/* Data, Responsável e Vacas */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="data-afericao" className="flex items-center gap-2">
                   <Calendar className="h-4 w-4" />
@@ -232,6 +238,17 @@ export function EditarAfericaoDialog({ open, onOpenChange, onSuccess, afericao }
                     <SelectItem value="CSM">CSM</SelectItem>
                   </SelectContent>
                 </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="vacas-lactacao">Vacas em Lactação</Label>
+                <Input
+                  id="vacas-lactacao"
+                  type="number"
+                  min="0"
+                  value={vacasLactacao}
+                  onChange={(e) => setVacasLactacao(e.target.value)}
+                  placeholder="Nº de vacas"
+                />
               </div>
             </div>
 
