@@ -202,95 +202,115 @@ export default function Pedidos() {
                   </Button>
                 </div>
                 <div className="space-y-3 max-h-60 overflow-y-auto">
-                  {itens.map((item, index) => (
-                    <div key={index} className="flex items-center gap-2 p-2 rounded-lg border bg-muted/30">
-                      <Popover 
-                        open={openPopovers[index]} 
-                        onOpenChange={(open) => setOpenPopovers({ ...openPopovers, [index]: open })}
-                      >
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="outline"
-                            role="combobox"
-                            className="flex-1 justify-between font-normal"
+                  {itens.map((item, index) => {
+                    const selectedPeca = pecas?.find(p => p.id === item.peca_id);
+                    const selectedPecaIds = itens.map(i => i.peca_id).filter(id => id !== item.peca_id);
+                    const availablePecas = pecas?.filter(p => !selectedPecaIds.includes(p.id));
+                    
+                    return (
+                      <div key={index} className="p-3 rounded-lg border bg-muted/30 space-y-2">
+                        <div className="flex items-center gap-2">
+                          <Popover 
+                            open={openPopovers[index]} 
+                            onOpenChange={(open) => setOpenPopovers({ ...openPopovers, [index]: open })}
                           >
-                            <span className="truncate">
-                              {item.peca_id ? getPecaLabel(item.peca_id) : 'Buscar peça...'}
-                            </span>
-                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                            <PopoverTrigger asChild>
+                              <Button
+                                variant="outline"
+                                role="combobox"
+                                className="flex-1 justify-between font-normal"
+                              >
+                                <span className="truncate">
+                                  {item.peca_id ? `${selectedPeca?.codigo} - ${selectedPeca?.nome}` : 'Buscar peça...'}
+                                </span>
+                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-[300px] p-0" align="start">
+                              <Command>
+                                <CommandInput placeholder="Buscar por código, nome ou descrição..." />
+                                <CommandList>
+                                  <CommandEmpty>Nenhuma peça encontrada.</CommandEmpty>
+                                  <CommandGroup>
+                                    {availablePecas?.map((peca) => (
+                                      <CommandItem
+                                        key={peca.id}
+                                        value={`${peca.codigo} ${peca.nome} ${peca.descricao || ''}`}
+                                        onSelect={() => {
+                                          updateItem(index, 'peca_id', peca.id);
+                                          setOpenPopovers({ ...openPopovers, [index]: false });
+                                        }}
+                                      >
+                                        <Check
+                                          className={cn(
+                                            "mr-2 h-4 w-4",
+                                            item.peca_id === peca.id ? "opacity-100" : "opacity-0"
+                                          )}
+                                        />
+                                        <div className="flex flex-col">
+                                          <span className="font-medium">{peca.codigo} - {peca.nome}</span>
+                                          {peca.descricao && (
+                                            <span className="text-xs text-muted-foreground truncate max-w-[250px]">
+                                              {peca.descricao}
+                                            </span>
+                                          )}
+                                        </div>
+                                      </CommandItem>
+                                    ))}
+                                  </CommandGroup>
+                                </CommandList>
+                              </Command>
+                            </PopoverContent>
+                          </Popover>
+                          
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => removeItem(index)}
+                          >
+                            <Trash2 className="h-4 w-4 text-destructive" />
                           </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-[300px] p-0" align="start">
-                          <Command>
-                            <CommandInput placeholder="Buscar por código, nome ou descrição..." />
-                            <CommandList>
-                              <CommandEmpty>Nenhuma peça encontrada.</CommandEmpty>
-                              <CommandGroup>
-                                {pecas?.map((peca) => (
-                                  <CommandItem
-                                    key={peca.id}
-                                    value={`${peca.codigo} ${peca.nome} ${peca.descricao || ''}`}
-                                    onSelect={() => {
-                                      updateItem(index, 'peca_id', peca.id);
-                                      setOpenPopovers({ ...openPopovers, [index]: false });
-                                    }}
-                                  >
-                                    <Check
-                                      className={cn(
-                                        "mr-2 h-4 w-4",
-                                        item.peca_id === peca.id ? "opacity-100" : "opacity-0"
-                                      )}
-                                    />
-                                    <div className="flex flex-col">
-                                      <span className="font-medium">{peca.codigo} - {peca.nome}</span>
-                                      {peca.descricao && (
-                                        <span className="text-xs text-muted-foreground truncate max-w-[250px]">
-                                          {peca.descricao}
-                                        </span>
-                                      )}
-                                    </div>
-                                  </CommandItem>
-                                ))}
-                              </CommandGroup>
-                            </CommandList>
-                          </Command>
-                        </PopoverContent>
-                      </Popover>
-                      
-                      <div className="flex items-center gap-1">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() => decrementQuantity(index)}
-                          disabled={item.quantidade <= 1}
-                        >
-                          <Minus className="h-3 w-3" />
-                        </Button>
-                        <span className="w-8 text-center font-medium">{item.quantidade}</span>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() => incrementQuantity(index)}
-                        >
-                          <Plus className="h-3 w-3" />
-                        </Button>
+                        </div>
+                        
+                        {selectedPeca && (
+                          <div className="text-xs text-muted-foreground pl-1">
+                            <span className="font-medium">Cód:</span> {selectedPeca.codigo}
+                            {selectedPeca.descricao && (
+                              <span className="ml-2">• {selectedPeca.descricao}</span>
+                            )}
+                          </div>
+                        )}
+                        
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm font-medium">Quantidade:</span>
+                          <div className="flex items-center gap-1">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => decrementQuantity(index)}
+                              disabled={item.quantidade <= 1}
+                            >
+                              <Minus className="h-3 w-3" />
+                            </Button>
+                            <span className="w-8 text-center font-medium">{item.quantidade}</span>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => incrementQuantity(index)}
+                            >
+                              <Plus className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </div>
                       </div>
-                      
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => removeItem(index)}
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
 
