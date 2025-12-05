@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Package, Loader2 } from 'lucide-react';
+import { Play, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { z } from 'zod';
 
@@ -111,7 +111,7 @@ export default function Auth() {
       <Card className="w-full max-w-md animate-fade-in">
         <CardHeader className="text-center">
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-xl bg-primary">
-            <Package className="h-7 w-7 text-primary-foreground" />
+            <Play className="h-7 w-7 text-primary-foreground" />
           </div>
           <CardTitle className="text-2xl">RumiField</CardTitle>
           <CardDescription>Gestão de Campo para sua Equipe</CardDescription>
