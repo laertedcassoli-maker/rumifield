@@ -26,18 +26,20 @@ export function AppSidebar() {
     { title: 'Pedidos', icon: ShoppingCart, url: '/pedidos' },
   ];
 
-  const adminOnlyItems = [
-    { title: 'Envios', icon: Truck, url: '/envios' },
-  ];
-
   const adminMenuItems = [
     { title: 'Clientes', icon: Package, url: '/admin/clientes' },
     { title: 'Usuários', icon: Users, url: '/admin/usuarios' },
+    { title: 'Envios', icon: Truck, url: '/admin/envios' },
     { title: 'Configurações', icon: Settings, url: '/admin/config' },
   ];
 
   const showAdminMenu = role === 'admin' || role === 'gestor';
-  const isAdmin = role === 'admin';
+
+  // Filter admin menu items - Envios only for admin
+  const filteredAdminItems = adminMenuItems.filter((item) => {
+    if (item.url === '/admin/envios') return role === 'admin';
+    return true;
+  });
 
   return (
     <Sidebar>
@@ -68,16 +70,6 @@ export function AppSidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
-              {isAdmin && adminOnlyItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild isActive={location.pathname === item.url}>
-                    <Link to={item.url}>
-                      <item.icon className="h-4 w-4" />
-                      <span>{item.title}</span>
-                    </Link>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
@@ -87,7 +79,7 @@ export function AppSidebar() {
             <SidebarGroupLabel>Administração</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                {adminMenuItems.map((item) => (
+                {filteredAdminItems.map((item) => (
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton asChild isActive={location.pathname === item.url}>
                       <Link to={item.url}>

@@ -38,7 +38,6 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import {
@@ -57,8 +56,6 @@ const VOLUME_GALAO = 50;
 interface EnvioItem {
   produtoId: string;
   galoesCheios: number;
-  galaoEmUso: boolean;
-  nivelGalaoParcial: number;
 }
 
 const Envios = () => {
@@ -66,13 +63,13 @@ const Envios = () => {
   const queryClient = useQueryClient();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
+  const [editingEnvio, setEditingEnvio] = useState<any>(null);
   const [selectedCliente, setSelectedCliente] = useState("");
   const [clienteOpen, setClienteOpen] = useState(false);
   const [dataEnvio, setDataEnvio] = useState(format(new Date(), "yyyy-MM-dd"));
   const [observacoes, setObservacoes] = useState("");
   const [envioItems, setEnvioItems] = useState<Record<string, EnvioItem>>({});
 
-  // Check if user is admin
   const isAdmin = role === "admin";
 
   // Fetch clientes
@@ -122,9 +119,8 @@ const Envios = () => {
     enabled: isAdmin,
   });
 
-  // Initialize envioItems when produtos load
   useEffect(() => {
-    if (produtos && produtos.length > 0 && Object.keys(envioItems).length === 0) {
+    if (produtos && produtos.length > 0 && Object.keys(envioItems).length === 0 && !editingEnvio) {
       initializeEnvioItems();
     }
   }, [produtos]);
@@ -136,8 +132,6 @@ const Envios = () => {
       newItems[produto.id] = {
         produtoId: produto.id,
         galoesCheios: 0,
-        galaoEmUso: false,
-        nivelGalaoParcial: 0,
       };
     });
     setEnvioItems(newItems);
@@ -147,7 +141,26 @@ const Envios = () => {
     setSelectedCliente("");
     setDataEnvio(format(new Date(), "yyyy-MM-dd"));
     setObservacoes("");
+    setEditingEnvio(null);
     initializeEnvioItems();
+  };
+
+  const handleEdit = (envio: any) => {
+    setEditingEnvio(envio);
+    setSelectedCliente(envio.cliente_id);
+    setDataEnvio(envio.data_envio);
+    setObservacoes(envio.observacoes || "");
+    
+    // Set the specific product's galões
+    const newItems: Record<string, EnvioItem> = {};
+    produtos.forEach((produto) => {
+      newItems[produto.id] = {
+        produtoId: produto.id,
+        galoesCheios: produto.id === envio.produto_id ? Math.round(envio.quantidade / VOLUME_GALAO) : 0,
+      };
+    });
+    setEnvioItems(newItems);
+    setDialogOpen(true);
   };
 
   // Create mutation
@@ -155,10 +168,9 @@ const Envios = () => {
     mutationFn: async () => {
       if (!selectedCliente || !produtos) return;
 
-      // Get products with quantities > 0
       const produtosComEnvio = produtos.filter((produto) => {
         const item = envioItems[produto.id];
-        return item && (item.galoesCheios > 0 || item.galaoEmUso);
+        return item && item.galoesCheios > 0;
       });
 
       if (produtosComEnvio.length === 0) {
@@ -167,11 +179,7 @@ const Envios = () => {
 
       const inserts = produtosComEnvio.map((produto) => {
         const item = envioItems[produto.id];
-        const galoesCheios = item?.galoesCheios || 0;
-        const nivelParcial = item?.galaoEmUso ? (item.nivelGalaoParcial || 0) : 0;
-        const quantidadeTotal =
-          galoesCheios * VOLUME_GALAO +
-          (nivelParcial > 0 ? (nivelParcial / 100) * VOLUME_GALAO : 0);
+        const quantidadeTotal = (item?.galoesCheios || 0) * VOLUME_GALAO;
 
         return {
           cliente_id: selectedCliente,
@@ -194,6 +202,119 @@ const Envios = () => {
     },
     onError: (error: Error) => {
       toast.error("Erro ao registrar envio: " + error.message);
+    },
+  });
+
+  // Update mutation with logging
+  const updateMutation = useMutation({
+    mutationFn: async () => {
+      if (!editingEnvio || !selectedCliente) return;
+
+      // Find the product with galões > 0
+      const produtoEnviado = produtos.find((produto) => {
+        const item = envioItems[produto.id];
+        return item && item.galoesCheios > 0;
+      });
+
+      if (!produtoEnviado) {
+        throw new Error("Informe pelo menos um produto.");
+      }
+
+      const item = envioItems[produtoEnviado.id];
+      const novaQuantidade = (item?.galoesCheios || 0) * VOLUME_GALAO;
+
+      // Prepare log entries for changes
+      const logs: Array<{
+        envio_id: string;
+        usuario_id: string | undefined;
+        campo_alterado: string;
+        valor_anterior: string;
+        valor_novo: string;
+      }> = [];
+
+      if (editingEnvio.cliente_id !== selectedCliente) {
+        const clienteAnterior = clientes.find(c => c.id === editingEnvio.cliente_id);
+        const clienteNovo = clientes.find(c => c.id === selectedCliente);
+        logs.push({
+          envio_id: editingEnvio.id,
+          usuario_id: user?.id,
+          campo_alterado: "cliente",
+          valor_anterior: clienteAnterior ? `${clienteAnterior.nome}${clienteAnterior.fazenda ? ` - ${clienteAnterior.fazenda}` : ''}` : editingEnvio.cliente_id,
+          valor_novo: clienteNovo ? `${clienteNovo.nome}${clienteNovo.fazenda ? ` - ${clienteNovo.fazenda}` : ''}` : selectedCliente,
+        });
+      }
+
+      if (editingEnvio.produto_id !== produtoEnviado.id) {
+        const produtoAnterior = produtos.find(p => p.id === editingEnvio.produto_id);
+        logs.push({
+          envio_id: editingEnvio.id,
+          usuario_id: user?.id,
+          campo_alterado: "produto",
+          valor_anterior: produtoAnterior?.nome || editingEnvio.produto_id,
+          valor_novo: produtoEnviado.nome,
+        });
+      }
+
+      if (editingEnvio.quantidade !== novaQuantidade) {
+        logs.push({
+          envio_id: editingEnvio.id,
+          usuario_id: user?.id,
+          campo_alterado: "quantidade",
+          valor_anterior: `${editingEnvio.quantidade}L (${Math.round(editingEnvio.quantidade / VOLUME_GALAO)} galões)`,
+          valor_novo: `${novaQuantidade}L (${item?.galoesCheios || 0} galões)`,
+        });
+      }
+
+      if (editingEnvio.data_envio !== dataEnvio) {
+        logs.push({
+          envio_id: editingEnvio.id,
+          usuario_id: user?.id,
+          campo_alterado: "data_envio",
+          valor_anterior: format(new Date(editingEnvio.data_envio), "dd/MM/yyyy"),
+          valor_novo: format(new Date(dataEnvio), "dd/MM/yyyy"),
+        });
+      }
+
+      if ((editingEnvio.observacoes || "") !== (observacoes || "")) {
+        logs.push({
+          envio_id: editingEnvio.id,
+          usuario_id: user?.id,
+          campo_alterado: "observacoes",
+          valor_anterior: editingEnvio.observacoes || "(vazio)",
+          valor_novo: observacoes || "(vazio)",
+        });
+      }
+
+      // Update the envio
+      const { error: updateError } = await supabase
+        .from("envios_produtos")
+        .update({
+          cliente_id: selectedCliente,
+          produto_id: produtoEnviado.id,
+          quantidade: novaQuantidade,
+          data_envio: dataEnvio,
+          observacoes: observacoes || null,
+        })
+        .eq("id", editingEnvio.id);
+
+      if (updateError) throw updateError;
+
+      // Insert logs if there are changes
+      if (logs.length > 0) {
+        const { error: logError } = await supabase
+          .from("envios_log")
+          .insert(logs);
+        if (logError) console.error("Erro ao registrar log:", logError);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["envios"] });
+      toast.success("Envio atualizado com sucesso!");
+      resetForm();
+      setDialogOpen(false);
+    },
+    onError: (error: Error) => {
+      toast.error("Erro ao atualizar envio: " + error.message);
     },
   });
 
@@ -223,31 +344,25 @@ const Envios = () => {
     }));
   };
 
-  const calcularTotalLitros = (item: EnvioItem | undefined) => {
-    if (!item) return 0;
-    const cheios = item.galoesCheios * VOLUME_GALAO;
-    const parcial = item.galaoEmUso ? (item.nivelGalaoParcial / 100) * VOLUME_GALAO : 0;
-    return cheios + parcial;
-  };
-
   const clienteSelecionado = clientes?.find((c) => c.id === selectedCliente);
 
   const getClienteLabel = (cliente: any) => {
     return cliente.fazenda ? `${cliente.nome} - ${cliente.fazenda}` : cliente.nome;
   };
 
-  const niveisDisponiveis = [
-    { value: 25, label: "25%" },
-    { value: 50, label: "50%" },
-    { value: 75, label: "75%" },
-  ];
-
   const hasAnyEnvio = produtos.some((produto) => {
     const item = envioItems[produto.id];
-    return item && (item.galoesCheios > 0 || item.galaoEmUso);
+    return item && item.galoesCheios > 0;
   });
 
-  // If not admin, show access denied
+  const handleSubmit = () => {
+    if (editingEnvio) {
+      updateMutation.mutate();
+    } else {
+      createMutation.mutate();
+    }
+  };
+
   if (!isAdmin) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] space-y-4">
@@ -284,7 +399,9 @@ const Envios = () => {
           </DialogTrigger>
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Registrar Novo Envio</DialogTitle>
+              <DialogTitle>
+                {editingEnvio ? "Editar Envio" : "Registrar Novo Envio"}
+              </DialogTitle>
             </DialogHeader>
 
             <div className="space-y-6 py-4">
@@ -362,11 +479,11 @@ const Envios = () => {
                 />
               </div>
 
-              {/* Produtos */}
+              {/* Produtos - Apenas galões cheios */}
               {selectedCliente &&
                 produtos?.map((produto) => {
                   const item = envioItems[produto.id];
-                  const totalLitros = calcularTotalLitros(item);
+                  const totalLitros = (item?.galoesCheios || 0) * VOLUME_GALAO;
 
                   return (
                     <div
@@ -392,7 +509,7 @@ const Envios = () => {
 
                       <div className="flex items-center justify-between bg-muted/50 rounded-lg p-3">
                         <Label className="text-sm font-medium">
-                          Galões Cheios (50L)
+                          Galões (50L cada)
                         </Label>
                         <div className="flex items-center gap-3">
                           <Button
@@ -429,75 +546,6 @@ const Envios = () => {
                           </Button>
                         </div>
                       </div>
-
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between">
-                          <Label
-                            htmlFor={`galao-parcial-${produto.id}`}
-                            className="text-sm font-medium"
-                          >
-                            Galão Parcial
-                          </Label>
-                          <Switch
-                            id={`galao-parcial-${produto.id}`}
-                            checked={item?.galaoEmUso || false}
-                            onCheckedChange={(checked) =>
-                              updateEnvioItem(produto.id, {
-                                galaoEmUso: checked,
-                                nivelGalaoParcial: checked ? 50 : 0,
-                              })
-                            }
-                          />
-                        </div>
-
-                        {item?.galaoEmUso && (
-                          <div className="space-y-3 pl-4 border-l-2 border-primary/30">
-                            <p className="text-sm text-muted-foreground">
-                              Nível do galão:
-                            </p>
-                            <div className="flex gap-2 flex-wrap">
-                              {niveisDisponiveis.map((nivel) => (
-                                <Button
-                                  key={nivel.value}
-                                  type="button"
-                                  variant={
-                                    item.nivelGalaoParcial === nivel.value
-                                      ? "default"
-                                      : "outline"
-                                  }
-                                  size="sm"
-                                  onClick={() =>
-                                    updateEnvioItem(produto.id, {
-                                      nivelGalaoParcial: nivel.value,
-                                    })
-                                  }
-                                  className="min-w-[60px]"
-                                >
-                                  {nivel.label}
-                                </Button>
-                              ))}
-                            </div>
-                            <div className="space-y-1">
-                              <div className="h-6 w-full bg-muted rounded-full overflow-hidden border">
-                                <div
-                                  className={cn(
-                                    "h-full transition-all duration-300 rounded-full",
-                                    item.nivelGalaoParcial >= 75
-                                      ? "bg-primary"
-                                      : item.nivelGalaoParcial >= 50
-                                      ? "bg-primary/80"
-                                      : "bg-primary/60"
-                                  )}
-                                  style={{ width: `${item.nivelGalaoParcial}%` }}
-                                />
-                              </div>
-                              <p className="text-xs text-muted-foreground text-center">
-                                {(item.nivelGalaoParcial / 100) * VOLUME_GALAO}L
-                              </p>
-                            </div>
-                          </div>
-                        )}
-                      </div>
                     </div>
                   );
                 })}
@@ -518,17 +566,17 @@ const Envios = () => {
               {/* Botão Salvar */}
               <div className="flex justify-end pt-4">
                 <Button
-                  onClick={() => createMutation.mutate()}
+                  onClick={handleSubmit}
                   disabled={
-                    createMutation.isPending || !selectedCliente || !hasAnyEnvio
+                    createMutation.isPending || updateMutation.isPending || !selectedCliente || !hasAnyEnvio
                   }
                 >
-                  {createMutation.isPending ? (
+                  {(createMutation.isPending || updateMutation.isPending) ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   ) : (
                     <Save className="mr-2 h-4 w-4" />
                   )}
-                  Registrar Envio
+                  {editingEnvio ? "Salvar Alterações" : "Registrar Envio"}
                 </Button>
               </div>
             </div>
@@ -558,9 +606,9 @@ const Envios = () => {
                   <TableHead>Cliente</TableHead>
                   <TableHead>Fazenda</TableHead>
                   <TableHead>Produto</TableHead>
-                  <TableHead className="text-right">Quantidade</TableHead>
+                  <TableHead className="text-right">Qtd (Galões)</TableHead>
                   <TableHead>Observações</TableHead>
-                  <TableHead className="w-[80px]">Ações</TableHead>
+                  <TableHead className="w-[100px]">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -575,19 +623,28 @@ const Envios = () => {
                     <TableCell>{envio.cliente?.fazenda || "-"}</TableCell>
                     <TableCell>{envio.produto?.nome || "-"}</TableCell>
                     <TableCell className="text-right">
-                      {envio.quantidade} {envio.produto?.unidade || "L"}
+                      {envio.quantidade}L ({Math.round(envio.quantidade / VOLUME_GALAO)} gal.)
                     </TableCell>
                     <TableCell className="max-w-[200px] truncate">
                       {envio.observacoes || "-"}
                     </TableCell>
                     <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => setDeleteId(envio.id)}
-                      >
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
+                      <div className="flex gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleEdit(envio)}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => setDeleteId(envio.id)}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}

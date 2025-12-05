@@ -9,9 +9,9 @@ import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import Visitas from "./pages/Visitas";
 import Estoque from "./pages/Estoque";
-import Envios from "./pages/Envios";
 import Pedidos from "./pages/Pedidos";
 import AdminClientes from "./pages/admin/Clientes";
+import AdminEnvios from "./pages/admin/Envios";
 import AdminUsuarios from "./pages/admin/Usuarios";
 import AdminConfig from "./pages/admin/Config";
 import NotFound from "./pages/NotFound";
@@ -52,14 +52,6 @@ const App = () => (
               }
             />
             <Route
-              path="/envios"
-              element={
-                <AppLayout>
-                  <Envios />
-                </AppLayout>
-              }
-            />
-            <Route
               path="/pedidos"
               element={
                 <AppLayout>
@@ -88,6 +80,14 @@ const App = () => (
               element={
                 <AppLayout>
                   <AdminConfig />
+                </AppLayout>
+              }
+            />
+            <Route
+              path="/admin/envios"
+              element={
+                <AppLayout>
+                  <AdminEnvios />
                 </AppLayout>
               }
             />
