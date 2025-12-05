@@ -385,6 +385,7 @@ export default function Estoque() {
                         {getSortIcon('responsavel')}
                       </div>
                     </TableHead>
+                    <TableHead className="text-center">Vacas</TableHead>
                     {produtos?.map((produto) => (
                       <TableHead 
                         key={produto.id} 
@@ -419,6 +420,9 @@ export default function Estoque() {
                           <User className="h-4 w-4 text-muted-foreground" />
                           {afericao.responsavel}
                         </div>
+                      </TableCell>
+                      <TableCell className="text-center">
+                        {afericao.vacas_lactacao || '-'}
                       </TableCell>
                       {produtos?.map((produto) => (
                         <TableCell key={produto.id} className="text-center">
