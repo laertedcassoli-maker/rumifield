@@ -59,6 +59,44 @@ export type Database = {
         }
         Relationships: []
       }
+      envios_log: {
+        Row: {
+          campo_alterado: string
+          created_at: string
+          envio_id: string
+          id: string
+          usuario_id: string | null
+          valor_anterior: string | null
+          valor_novo: string | null
+        }
+        Insert: {
+          campo_alterado: string
+          created_at?: string
+          envio_id: string
+          id?: string
+          usuario_id?: string | null
+          valor_anterior?: string | null
+          valor_novo?: string | null
+        }
+        Update: {
+          campo_alterado?: string
+          created_at?: string
+          envio_id?: string
+          id?: string
+          usuario_id?: string | null
+          valor_anterior?: string | null
+          valor_novo?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "envios_log_envio_id_fkey"
+            columns: ["envio_id"]
+            isOneToOne: false
+            referencedRelation: "envios_produtos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       envios_produtos: {
         Row: {
           cliente_id: string
