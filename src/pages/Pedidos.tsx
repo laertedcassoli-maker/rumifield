@@ -221,7 +221,9 @@ export default function Pedidos() {
                                 className="flex-1 justify-between font-normal"
                               >
                                 <span className="truncate">
-                                  {item.peca_id ? `${selectedPeca?.codigo} - ${selectedPeca?.nome}` : 'Buscar peça...'}
+                                  {item.peca_id 
+                                    ? `${selectedPeca?.codigo} - ${selectedPeca?.descricao || selectedPeca?.nome}` 
+                                    : 'Buscar peça...'}
                                 </span>
                                 <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                               </Button>
@@ -247,14 +249,9 @@ export default function Pedidos() {
                                             item.peca_id === peca.id ? "opacity-100" : "opacity-0"
                                           )}
                                         />
-                                        <div className="flex flex-col">
-                                          <span className="font-medium">{peca.codigo} - {peca.nome}</span>
-                                          {peca.descricao && (
-                                            <span className="text-xs text-muted-foreground truncate max-w-[250px]">
-                                              {peca.descricao}
-                                            </span>
-                                          )}
-                                        </div>
+                                    <div className="flex flex-col">
+                                      <span className="font-medium">{peca.codigo} - {peca.descricao || peca.nome}</span>
+                                    </div>
                                       </CommandItem>
                                     ))}
                                   </CommandGroup>
