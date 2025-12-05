@@ -510,7 +510,7 @@ export function ConsumoTab({ produtoId }: ConsumoTabProps) {
                   {produtos?.map((produto) => (
                     <TableHead 
                       key={`${produto.id}-orcado`} 
-                      colSpan={2}
+                      colSpan={3}
                       className="text-center border-l"
                     >
                       <div className="flex items-center justify-center font-medium">
@@ -528,11 +528,17 @@ export function ConsumoTab({ produtoId }: ConsumoTabProps) {
                       </TableHead>
                       <TableHead 
                         key={`${produto.id}-real`} 
+                        className="text-center text-xs"
+                      >
+                        Realizado
+                      </TableHead>
+                      <TableHead 
+                        key={`${produto.id}-desv`} 
                         className="text-center text-xs cursor-pointer hover:bg-muted/50 select-none"
                         onClick={() => handleSort(produto.id)}
                       >
                         <div className="flex items-center justify-center">
-                          Realizado
+                          Desvio
                           {getSortIcon(produto.id)}
                         </div>
                       </TableHead>
@@ -563,8 +569,11 @@ export function ConsumoTab({ produtoId }: ConsumoTabProps) {
                     </TableCell>
                     {produtos?.map((produto) => {
                       const dados = item.produtos[produto.id];
-                      const desvio = dados && dados.orcado_30dias 
+                      const desvioPercent = dados && dados.orcado_30dias 
                         ? Math.round(((dados.consumo_30dias - dados.orcado_30dias) / dados.orcado_30dias) * 100)
+                        : null;
+                      const desvioLitros = dados && dados.orcado_30dias !== null
+                        ? dados.consumo_30dias - dados.orcado_30dias
                         : null;
                       
                       // Cores do semáforo
@@ -593,16 +602,18 @@ export function ConsumoTab({ produtoId }: ConsumoTabProps) {
                                       {dados.envios > 0 && <span className="text-green-600 ml-1">+{dados.envios}</span>}
                                     </div>
                                   </>
-                              ) : (
-                                  <div className="flex flex-col items-center gap-0.5">
-                                    <span className="font-medium">{dados.consumo_30dias}L</span>
-                                    {desvio !== null && (
-                                      <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${getSemaforoColor(desvio)}`}>
-                                        {desvio > 0 ? '+' : ''}{desvio}%
-                                      </span>
-                                    )}
-                                  </div>
+                                ) : (
+                                  <span className="font-medium">{dados.consumo_30dias}L</span>
                                 )}
+                              </div>
+                            ) : '-'}
+                          </TableCell>
+                          <TableCell key={`${produto.id}-desv`} className="text-center">
+                            {dados && desvioLitros !== null ? (
+                              <div className="flex flex-col items-center gap-0.5">
+                                <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium ${getSemaforoColor(desvioPercent)}`}>
+                                  {desvioLitros > 0 ? '+' : ''}{desvioLitros}L ({desvioPercent > 0 ? '+' : ''}{desvioPercent}%)
+                                </span>
                               </div>
                             ) : '-'}
                           </TableCell>
