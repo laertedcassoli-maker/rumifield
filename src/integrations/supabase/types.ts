@@ -27,6 +27,7 @@ export type Database = {
           id: string
           nome: string
           observacoes: string | null
+          omie_codigo: string | null
           status: string
           telefone: string | null
           updated_at: string
@@ -43,6 +44,7 @@ export type Database = {
           id?: string
           nome: string
           observacoes?: string | null
+          omie_codigo?: string | null
           status?: string
           telefone?: string | null
           updated_at?: string
@@ -59,6 +61,7 @@ export type Database = {
           id?: string
           nome?: string
           observacoes?: string | null
+          omie_codigo?: string | null
           status?: string
           telefone?: string | null
           updated_at?: string
