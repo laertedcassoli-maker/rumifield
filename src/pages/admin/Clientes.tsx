@@ -6,7 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Plus, Building2, Loader2, Pencil, Trash2, Search, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Calendar } from 'lucide-react';
+import { Plus, Building2, Loader2, Pencil, Trash2, Search, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Calendar, RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -213,6 +213,25 @@ export default function AdminClientes() {
     },
   });
 
+  const syncIlmilk = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase.functions.invoke('sync-imilk-clientes');
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ['clientes-admin'] });
+      queryClient.invalidateQueries({ queryKey: ['clientes'] });
+      toast({ 
+        title: 'Sincronização concluída!',
+        description: `${data.created} novos, ${data.updated} atualizados de ${data.total} clientes`,
+      });
+    },
+    onError: (error: Error) => {
+      toast({ variant: 'destructive', title: 'Erro na sincronização', description: error.message });
+    },
+  });
+
   const closeDialog = () => {
     setOpen(false);
     setEditingCliente(null);
@@ -259,16 +278,29 @@ export default function AdminClientes() {
           <h1 className="text-2xl font-bold">Clientes</h1>
           <p className="text-muted-foreground">Gerencie os produtores e fazendas</p>
         </div>
-        <Dialog open={open} onOpenChange={(isOpen) => {
-          if (!isOpen) closeDialog();
-          else setOpen(true);
-        }}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Novo Cliente
-            </Button>
-          </DialogTrigger>
+        <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            onClick={() => syncIlmilk.mutate()}
+            disabled={syncIlmilk.isPending}
+          >
+            {syncIlmilk.isPending ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <RefreshCw className="mr-2 h-4 w-4" />
+            )}
+            Sincronizar iMilk
+          </Button>
+          <Dialog open={open} onOpenChange={(isOpen) => {
+            if (!isOpen) closeDialog();
+            else setOpen(true);
+          }}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="mr-2 h-4 w-4" />
+                Novo Cliente
+              </Button>
+            </DialogTrigger>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>{editingCliente ? 'Editar Cliente' : 'Cadastrar Novo Cliente'}</DialogTitle>
@@ -363,7 +395,8 @@ export default function AdminClientes() {
               </Button>
             </form>
           </DialogContent>
-        </Dialog>
+          </Dialog>
+        </div>
       </div>
 
       <div className="relative">
