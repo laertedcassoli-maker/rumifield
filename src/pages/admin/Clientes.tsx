@@ -301,8 +301,8 @@ export default function AdminClientes() {
                 Novo Cliente
               </Button>
             </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
+            <DialogContent>
+              <DialogHeader>
               <DialogTitle>{editingCliente ? 'Editar Cliente' : 'Cadastrar Novo Cliente'}</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -394,7 +394,7 @@ export default function AdminClientes() {
                 )}
               </Button>
             </form>
-          </DialogContent>
+            </DialogContent>
           </Dialog>
         </div>
       </div>
