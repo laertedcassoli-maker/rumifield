@@ -94,6 +94,9 @@ export default function AdminClientes() {
   const [sortField, setSortField] = useState<SortField>('nome');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const [currentPage, setCurrentPage] = useState(1);
+  const [lastSyncTime, setLastSyncTime] = useState<string | null>(() => 
+    localStorage.getItem('lastIlmilkSyncTime')
+  );
 
   const { data: clientes, isLoading } = useQuery({
     queryKey: ['clientes-admin'],
@@ -222,6 +225,9 @@ export default function AdminClientes() {
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['clientes-admin'] });
       queryClient.invalidateQueries({ queryKey: ['clientes'] });
+      const now = new Date().toISOString();
+      localStorage.setItem('lastIlmilkSyncTime', now);
+      setLastSyncTime(now);
       toast({ 
         title: 'Sincronização concluída!',
         description: `${data.created} novos, ${data.updated} atualizados de ${data.total} clientes`,
@@ -279,18 +285,25 @@ export default function AdminClientes() {
           <p className="text-muted-foreground">Gerencie os produtores e fazendas</p>
         </div>
         <div className="flex gap-2">
-          <Button 
-            variant="outline" 
-            onClick={() => syncIlmilk.mutate()}
-            disabled={syncIlmilk.isPending}
-          >
-            {syncIlmilk.isPending ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <RefreshCw className="mr-2 h-4 w-4" />
+          <div className="flex flex-col items-end">
+            <Button 
+              variant="outline" 
+              onClick={() => syncIlmilk.mutate()}
+              disabled={syncIlmilk.isPending}
+            >
+              {syncIlmilk.isPending ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <RefreshCw className="mr-2 h-4 w-4" />
+              )}
+              Sincronizar iMilk
+            </Button>
+            {lastSyncTime && (
+              <span className="text-xs text-muted-foreground mt-1">
+                Última sync: {format(new Date(lastSyncTime), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+              </span>
             )}
-            Sincronizar iMilk
-          </Button>
+          </div>
           <Dialog open={open} onOpenChange={(isOpen) => {
             if (!isOpen) closeDialog();
             else setOpen(true);
@@ -415,6 +428,11 @@ export default function AdminClientes() {
         </div>
       ) : paginatedClientes.length > 0 ? (
         <>
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm text-muted-foreground">
+              {filteredAndSortedClientes.length} cliente{filteredAndSortedClientes.length !== 1 ? 's' : ''} encontrado{filteredAndSortedClientes.length !== 1 ? 's' : ''}
+            </span>
+          </div>
           <Card>
             <Table>
               <TableHeader>
