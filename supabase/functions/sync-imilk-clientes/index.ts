@@ -27,7 +27,7 @@ serve(async (req) => {
     const imilkResponse = await fetch('http://n8n.rumina.com.br/webhook/imilk/rumiflow/clientes', {
       method: 'GET',
       headers: {
-        'Authorization': `Bearer ${imilkApiKey}`,
+        'Authorization': imilkApiKey,
         'Content-Type': 'application/json',
       },
     });
@@ -69,17 +69,10 @@ serve(async (req) => {
 
     for (const imilkCliente of imilkClientes) {
       try {
-        // Map iMilk fields to local fields
-        // Adjust field mapping based on actual iMilk API response structure
+        // Map iMilk fields to local fields based on actual API response
         const clienteData = {
-          nome: imilkCliente.nome || imilkCliente.razao_social || imilkCliente.name || 'Sem nome',
-          fazenda: imilkCliente.fazenda || imilkCliente.farm_name || imilkCliente.propriedade || null,
-          cod_imilk: String(imilkCliente.cod_imilk || imilkCliente.codigo || imilkCliente.id || ''),
-          cidade: imilkCliente.cidade || imilkCliente.city || null,
-          estado: imilkCliente.estado || imilkCliente.uf || imilkCliente.state || null,
-          telefone: imilkCliente.telefone || imilkCliente.phone || null,
-          email: imilkCliente.email || null,
-          endereco: imilkCliente.endereco || imilkCliente.address || null,
+          nome: imilkCliente.nome_cliente || 'Sem nome',
+          cod_imilk: String(imilkCliente.id_cliente || ''),
         };
 
         if (!clienteData.cod_imilk) {
