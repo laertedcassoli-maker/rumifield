@@ -357,8 +357,7 @@ export default function Dashboard() {
   // Fazendas sem data de ativação
   const fazendasSemAtivacao = fazendasStatus?.filter(f => !f.data_ativacao_rumiflow) || [];
 
-  const totalAtivas = fazendasStatus?.length || 0;
-  const fazendasComAtivacao = fazendasStatus?.filter(f => f.data_ativacao_rumiflow).length || 0;
+  const totalAtivas = fazendasStatus?.filter(f => f.data_ativacao_rumiflow).length || 0;
 
   const statCards = [
     {
