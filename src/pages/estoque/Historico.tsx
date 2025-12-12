@@ -5,9 +5,25 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Package, ClipboardCheck, TrendingDown, Calendar, Droplets, Users } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Package, ClipboardCheck, TrendingDown, Calendar, Droplets, Users, FlaskConical } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
+
+// Product styling configuration
+const productStyles = [
+  { 
+    icon: Droplets, 
+    activeClass: 'bg-blue-600 hover:bg-blue-700 text-white border-blue-600',
+    inactiveClass: 'text-blue-600 border-blue-300 hover:bg-blue-50 hover:border-blue-400'
+  },
+  { 
+    icon: FlaskConical, 
+    activeClass: 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600',
+    inactiveClass: 'text-emerald-600 border-emerald-300 hover:bg-emerald-50 hover:border-emerald-400'
+  },
+];
 
 type TimelineEventType = 'envio' | 'afericao' | 'consumo';
 
@@ -233,18 +249,29 @@ export default function Historico() {
 
             <div className="space-y-2">
               <label className="text-sm font-medium text-foreground">Produto</label>
-              <Select value={selectedProduto} onValueChange={setSelectedProduto}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione um produto" />
-                </SelectTrigger>
-                <SelectContent>
-                  {produtos?.map(produto => (
-                    <SelectItem key={produto.id} value={produto.id}>
+              <div className="flex gap-2">
+                {produtos?.map((produto, index) => {
+                  const style = productStyles[index % productStyles.length];
+                  const Icon = style.icon;
+                  const isSelected = selectedProduto === produto.id;
+                  
+                  return (
+                    <Button
+                      key={produto.id}
+                      variant="outline"
+                      onClick={() => setSelectedProduto(produto.id)}
+                      disabled={loadingProdutos}
+                      className={cn(
+                        "gap-2 transition-all duration-200 flex-1",
+                        isSelected ? style.activeClass : style.inactiveClass
+                      )}
+                    >
+                      <Icon className="h-4 w-4" />
                       {produto.nome}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                    </Button>
+                  );
+                })}
+              </div>
             </div>
           </div>
         </CardContent>
