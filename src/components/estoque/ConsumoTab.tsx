@@ -482,7 +482,7 @@ export function ConsumoTab({ produtoId }: ConsumoTabProps) {
                   Consumo no Período
                 </TabsTrigger>
                 <TabsTrigger value="30dias" className="text-xs px-3 h-7">
-                  Consumo/30 dias
+                  Consumo em 30d
                 </TabsTrigger>
               </TabsList>
             </Tabs>
