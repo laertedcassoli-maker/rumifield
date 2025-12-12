@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Loader2, Search, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Pencil } from 'lucide-react';
+import { Plus, Loader2, Search, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Pencil, RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 type ProdutoSortField = 'nome' | 'unidade' | 'descricao';
@@ -42,6 +42,7 @@ export default function AdminConfig() {
   const [pecaForm, setPecaForm] = useState<PecaFormData>({ codigo: '', nome: '', descricao: '', omie_codigo: '' });
   const [isEditingProduto, setIsEditingProduto] = useState(false);
   const [isEditingPeca, setIsEditingPeca] = useState(false);
+  const [isSyncingOmie, setIsSyncingOmie] = useState(false);
 
   // Search states
   const [produtoSearch, setProdutoSearch] = useState('');
@@ -302,6 +303,35 @@ export default function AdminConfig() {
   const isProdutoSaving = createProduto.isPending || updateProduto.isPending;
   const isPecaSaving = createPeca.isPending || updatePeca.isPending;
 
+  const handleSyncOmiePecas = async () => {
+    setIsSyncingOmie(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('sync-omie-pecas');
+      
+      if (error) throw error;
+      
+      if (data.success) {
+        toast({
+          title: 'Sincronização concluída!',
+          description: `${data.created} criadas, ${data.updated} atualizadas de ${data.total} peças`,
+        });
+        queryClient.invalidateQueries({ queryKey: ['pecas-config'] });
+        queryClient.invalidateQueries({ queryKey: ['pecas'] });
+      } else {
+        throw new Error(data.error || 'Erro desconhecido');
+      }
+    } catch (error: any) {
+      console.error('Sync error:', error);
+      toast({
+        variant: 'destructive',
+        title: 'Erro na sincronização',
+        description: error.message || 'Não foi possível sincronizar com Omie',
+      });
+    } finally {
+      setIsSyncingOmie(false);
+    }
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div>
@@ -466,10 +496,16 @@ export default function AdminConfig() {
                 className="pl-10"
               />
             </div>
-            <Button onClick={openNewPeca}>
-              <Plus className="mr-2 h-4 w-4" />
-              Nova Peça
-            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={handleSyncOmiePecas} disabled={isSyncingOmie}>
+                {isSyncingOmie ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+                Sincronizar Omie
+              </Button>
+              <Button onClick={openNewPeca}>
+                <Plus className="mr-2 h-4 w-4" />
+                Nova Peça
+              </Button>
+            </div>
           </div>
 
           {/* Peça Dialog */}
