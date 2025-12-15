@@ -1,0 +1,1 @@
+ALTER TABLE public.clientes ALTER COLUMN ordenhas_dia SET DEFAULT 3;
