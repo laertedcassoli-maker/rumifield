@@ -126,7 +126,7 @@ export function ConsumoTab({ produtoId }: ConsumoTabProps) {
       if (!afericoesPorCliente[af.cliente_id]) {
         afericoesPorCliente[af.cliente_id] = {
           data_ativacao: af.clientes?.data_ativacao_rumiflow || null,
-          ordenhas_dia: af.clientes?.ordenhas_dia || 2,
+          ordenhas_dia: af.clientes?.ordenhas_dia || 3,
           afericoes: [],
         };
       }
