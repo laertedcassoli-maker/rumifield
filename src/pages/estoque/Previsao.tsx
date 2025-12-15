@@ -6,6 +6,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { 
   Package, 
   Loader2, 
@@ -18,12 +19,14 @@ import {
   CheckCircle,
   Calendar,
   Droplets,
-  FlaskConical
+  FlaskConical,
+  ShoppingCart
 } from 'lucide-react';
-import { format, addDays } from 'date-fns';
+import { format, addDays, subDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 const VOLUME_GALAO = 50;
+const DIAS_ANTECEDENCIA_PEDIDO = 30;
 
 interface PrevisaoItem {
   cliente_id: string;
@@ -39,12 +42,16 @@ interface PrevisaoItem {
   dias_restantes_teorico: number | null;
   data_esgotamento_real: Date | null;
   data_esgotamento_teorico: Date | null;
+  data_pedido_real: Date | null;
+  data_pedido_teorico: Date | null;
   ultima_afericao: string;
-  status: 'critico' | 'atencao' | 'ok';
+  status_real: 'critico' | 'atencao' | 'ok';
+  status_teorico: 'critico' | 'atencao' | 'ok';
 }
 
-type SortColumn = 'cliente' | 'fazenda' | 'estoque' | 'consumo_real' | 'consumo_teorico' | 'dias_real' | 'dias_teorico';
+type SortColumn = 'cliente' | 'fazenda' | 'estoque' | 'consumo' | 'dias' | 'data_pedido' | 'data_esgotamento';
 type SortDirection = 'asc' | 'desc';
+type ViewMode = 'real' | 'teorico';
 
 // Product styling configuration
 const productStyles = [
@@ -63,8 +70,9 @@ const productStyles = [
 export default function Previsao() {
   const [selectedProdutoId, setSelectedProdutoId] = useState<string>('');
   const [search, setSearch] = useState('');
-  const [sortColumn, setSortColumn] = useState<SortColumn>('dias_real');
+  const [sortColumn, setSortColumn] = useState<SortColumn>('data_pedido');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+  const [viewMode, setViewMode] = useState<ViewMode>('real');
 
   const { data: produtos, isLoading: isLoadingProdutos } = useQuery({
     queryKey: ['produtos-previsao'],
@@ -134,6 +142,12 @@ export default function Previsao() {
     return Math.round(cheios + parcial);
   };
 
+  const getStatus = (dias: number): 'critico' | 'atencao' | 'ok' => {
+    if (dias <= 15) return 'critico';
+    if (dias <= 30) return 'atencao';
+    return 'ok';
+  };
+
   // Calculate forecast data
   const previsaoData = useMemo(() => {
     if (!afericoes || !todasAfericoes || !envios || !produtos) return [];
@@ -142,7 +156,6 @@ export default function Previsao() {
     const ultimaAfericaoPorClienteProduto: Record<string, typeof afericoes[0]> = {};
     
     afericoes.forEach(af => {
-      // Only consider active clients
       if (af.clientes?.status !== 'ativo') return;
       
       const key = `${af.cliente_id}-${af.produto_id}`;
@@ -154,7 +167,6 @@ export default function Previsao() {
     // Calculate average daily consumption for each client/product
     const consumoPorClienteProduto: Record<string, { total: number; dias: number }> = {};
     
-    // Group measurements by client/product
     const afericoesPorClienteProduto: Record<string, typeof todasAfericoes> = {};
     todasAfericoes.forEach(af => {
       const key = `${af.cliente_id}-${af.produto_id}`;
@@ -164,7 +176,6 @@ export default function Previsao() {
       afericoesPorClienteProduto[key].push(af);
     });
 
-    // Group shipments by client/product
     const enviosPorClienteProduto: Record<string, typeof envios> = {};
     envios.forEach(env => {
       const key = `${env.cliente_id}-${env.produto_id}`;
@@ -174,7 +185,6 @@ export default function Previsao() {
       enviosPorClienteProduto[key].push(env);
     });
 
-    // Calculate consumption between consecutive measurements
     Object.entries(afericoesPorClienteProduto).forEach(([key, afs]) => {
       if (afs.length < 2) return;
       
@@ -188,7 +198,6 @@ export default function Previsao() {
         const estoqueInicial = calcularTotalLitros(anterior.galoes_cheios, anterior.nivel_galao_parcial);
         const estoqueFinal = calcularTotalLitros(atual.galoes_cheios, atual.nivel_galao_parcial);
         
-        // Sum shipments in period
         let enviosPeriodo = 0;
         const envsCliente = enviosPorClienteProduto[key] || [];
         envsCliente.forEach(env => {
@@ -211,7 +220,6 @@ export default function Previsao() {
       }
     });
 
-    // Build forecast items
     const result: PrevisaoItem[] = [];
     
     Object.entries(ultimaAfericaoPorClienteProduto).forEach(([key, af]) => {
@@ -220,45 +228,35 @@ export default function Previsao() {
       const vacasLactacao = af.vacas_lactacao;
       const ordenhas = af.clientes?.ordenhas_dia || 3;
       
-      // Get product consumption rates
       const produto = produtos.find(p => p.id === af.produto_id);
       const litrosPorVacaMes = ordenhas === 3 
         ? produto?.litros_por_vaca_3x 
         : produto?.litros_por_vaca_2x;
       
-      // Calculate real consumption
+      // Real consumption
       const consumoRealDiario = consumoData && consumoData.dias > 0 
         ? consumoData.total / consumoData.dias 
         : 0;
       
-      // Calculate theoretical consumption (per day = litros_por_vaca_mes / 30)
+      // Theoretical consumption
       const consumoTeoricoDiario = vacasLactacao && litrosPorVacaMes 
         ? (vacasLactacao * litrosPorVacaMes) / 30 
         : null;
       
-      // Calculate days remaining (use real if available, otherwise skip)
+      // Days remaining
       const diasRestantesReal = consumoRealDiario > 0 ? Math.round(estoqueAtual / consumoRealDiario) : 999;
       const diasRestantesTeorico = consumoTeoricoDiario && consumoTeoricoDiario > 0 
         ? Math.round(estoqueAtual / consumoTeoricoDiario) 
         : null;
       
+      // Depletion dates
       const dataEsgotamentoReal = consumoRealDiario > 0 ? addDays(new Date(), diasRestantesReal) : null;
       const dataEsgotamentoTeorico = diasRestantesTeorico ? addDays(new Date(), diasRestantesTeorico) : null;
       
-      // Determine status based on the minimum of real and theoretical
-      const diasParaStatus = Math.min(
-        diasRestantesReal, 
-        diasRestantesTeorico || diasRestantesReal
-      );
+      // Order dates (30 days before depletion)
+      const dataPedidoReal = dataEsgotamentoReal ? subDays(dataEsgotamentoReal, DIAS_ANTECEDENCIA_PEDIDO) : null;
+      const dataPedidoTeorico = dataEsgotamentoTeorico ? subDays(dataEsgotamentoTeorico, DIAS_ANTECEDENCIA_PEDIDO) : null;
       
-      let status: 'critico' | 'atencao' | 'ok' = 'ok';
-      if (diasParaStatus <= 15) {
-        status = 'critico';
-      } else if (diasParaStatus <= 30) {
-        status = 'atencao';
-      }
-      
-      // Only include if we have at least real consumption data
       if (consumoRealDiario > 0 || consumoTeoricoDiario) {
         result.push({
           cliente_id: af.cliente_id,
@@ -274,8 +272,11 @@ export default function Previsao() {
           dias_restantes_teorico: diasRestantesTeorico,
           data_esgotamento_real: dataEsgotamentoReal,
           data_esgotamento_teorico: dataEsgotamentoTeorico,
+          data_pedido_real: dataPedidoReal,
+          data_pedido_teorico: dataPedidoTeorico,
           ultima_afericao: af.data_afericao,
-          status,
+          status_real: getStatus(diasRestantesReal),
+          status_teorico: diasRestantesTeorico ? getStatus(diasRestantesTeorico) : 'ok',
         });
       }
     });
@@ -283,7 +284,7 @@ export default function Previsao() {
     return result;
   }, [afericoes, todasAfericoes, envios, produtos]);
 
-  // Filter by selected product and search
+  // Filter and sort
   const filteredData = useMemo(() => {
     let data = previsaoData.filter(item => item.produto_id === selectedProdutoId);
     
@@ -295,10 +296,11 @@ export default function Previsao() {
       );
     }
     
-    // Sort
     data.sort((a, b) => {
-      let valueA: string | number = '';
-      let valueB: string | number = '';
+      let valueA: string | number | Date | null = '';
+      let valueB: string | number | Date | null = '';
+      
+      const isReal = viewMode === 'real';
       
       switch (sortColumn) {
         case 'cliente':
@@ -313,21 +315,21 @@ export default function Previsao() {
           valueA = a.estoque_atual;
           valueB = b.estoque_atual;
           break;
-        case 'consumo_real':
-          valueA = a.consumo_real_diario;
-          valueB = b.consumo_real_diario;
+        case 'consumo':
+          valueA = isReal ? a.consumo_real_diario : (a.consumo_teorico_diario || 0);
+          valueB = isReal ? b.consumo_real_diario : (b.consumo_teorico_diario || 0);
           break;
-        case 'consumo_teorico':
-          valueA = a.consumo_teorico_diario || 0;
-          valueB = b.consumo_teorico_diario || 0;
+        case 'dias':
+          valueA = isReal ? a.dias_restantes_real : (a.dias_restantes_teorico || 999);
+          valueB = isReal ? b.dias_restantes_real : (b.dias_restantes_teorico || 999);
           break;
-        case 'dias_real':
-          valueA = a.dias_restantes_real;
-          valueB = b.dias_restantes_real;
+        case 'data_pedido':
+          valueA = isReal ? (a.data_pedido_real?.getTime() || 0) : (a.data_pedido_teorico?.getTime() || 0);
+          valueB = isReal ? (b.data_pedido_real?.getTime() || 0) : (b.data_pedido_teorico?.getTime() || 0);
           break;
-        case 'dias_teorico':
-          valueA = a.dias_restantes_teorico || 999;
-          valueB = b.dias_restantes_teorico || 999;
+        case 'data_esgotamento':
+          valueA = isReal ? (a.data_esgotamento_real?.getTime() || 0) : (a.data_esgotamento_teorico?.getTime() || 0);
+          valueB = isReal ? (b.data_esgotamento_real?.getTime() || 0) : (b.data_esgotamento_teorico?.getTime() || 0);
           break;
       }
       
@@ -337,18 +339,19 @@ export default function Previsao() {
     });
     
     return data;
-  }, [previsaoData, selectedProdutoId, search, sortColumn, sortDirection]);
+  }, [previsaoData, selectedProdutoId, search, sortColumn, sortDirection, viewMode]);
 
-  // Summary counts
+  // Summary counts based on view mode
   const summary = useMemo(() => {
     const data = previsaoData.filter(item => item.produto_id === selectedProdutoId);
+    const statusKey = viewMode === 'real' ? 'status_real' : 'status_teorico';
     return {
-      critico: data.filter(d => d.status === 'critico').length,
-      atencao: data.filter(d => d.status === 'atencao').length,
-      ok: data.filter(d => d.status === 'ok').length,
+      critico: data.filter(d => d[statusKey] === 'critico').length,
+      atencao: data.filter(d => d[statusKey] === 'atencao').length,
+      ok: data.filter(d => d[statusKey] === 'ok').length,
       total: data.length,
     };
-  }, [previsaoData, selectedProdutoId]);
+  }, [previsaoData, selectedProdutoId, viewMode]);
 
   const handleSort = (column: SortColumn) => {
     if (sortColumn === column) {
@@ -394,6 +397,32 @@ export default function Previsao() {
 
   const isLoading = isLoadingProdutos || loadingAfericoes;
 
+  // Helper to get the correct values based on view mode
+  const getValue = (item: PrevisaoItem, field: 'consumo' | 'dias' | 'data_pedido' | 'data_esgotamento' | 'status') => {
+    if (viewMode === 'real') {
+      switch (field) {
+        case 'consumo': return item.consumo_real_diario;
+        case 'dias': return item.dias_restantes_real;
+        case 'data_pedido': return item.data_pedido_real;
+        case 'data_esgotamento': return item.data_esgotamento_real;
+        case 'status': return item.status_real;
+      }
+    } else {
+      switch (field) {
+        case 'consumo': return item.consumo_teorico_diario;
+        case 'dias': return item.dias_restantes_teorico;
+        case 'data_pedido': return item.data_pedido_teorico;
+        case 'data_esgotamento': return item.data_esgotamento_teorico;
+        case 'status': return item.status_teorico;
+      }
+    }
+  };
+
+  const isPastDate = (date: Date | null) => {
+    if (!date) return false;
+    return date < new Date();
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
@@ -425,6 +454,26 @@ export default function Previsao() {
             );
           })}
         </div>
+      </div>
+
+      {/* View Mode Toggle */}
+      <div className="flex items-center gap-4">
+        <span className="text-sm text-muted-foreground">Baseado em:</span>
+        <Tabs value={viewMode} onValueChange={(v) => setViewMode(v as ViewMode)}>
+          <TabsList>
+            <TabsTrigger value="real" className="gap-2">
+              <Calendar className="h-4 w-4" />
+              Consumo Real
+            </TabsTrigger>
+            <TabsTrigger value="teorico" className="gap-2">
+              <ShoppingCart className="h-4 w-4" />
+              Consumo Teórico
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
+        <span className="text-xs text-muted-foreground">
+          {viewMode === 'real' ? '(baseado no histórico de aferições)' : '(baseado em vacas × taxa de consumo)'}
+        </span>
       </div>
 
       {/* Summary Cards */}
@@ -514,61 +563,79 @@ export default function Previsao() {
                         Estoque (L) {getSortIcon('estoque')}
                       </Button>
                     </TableHead>
-                    <TableHead className="text-center border-l">
-                      <div className="text-xs text-muted-foreground mb-1">Consumo Real</div>
-                      <Button variant="ghost" onClick={() => handleSort('consumo_real')} className="h-auto p-0 font-medium hover:bg-transparent text-xs">
-                        L/dia {getSortIcon('consumo_real')}
+                    <TableHead className="text-right">
+                      <Button variant="ghost" onClick={() => handleSort('consumo')} className="h-auto p-0 font-medium hover:bg-transparent">
+                        Consumo/Dia {getSortIcon('consumo')}
                       </Button>
                     </TableHead>
-                    <TableHead className="text-center">
-                      <div className="text-xs text-muted-foreground mb-1">Consumo Real</div>
-                      <Button variant="ghost" onClick={() => handleSort('dias_real')} className="h-auto p-0 font-medium hover:bg-transparent text-xs">
-                        Dias {getSortIcon('dias_real')}
+                    <TableHead className="text-right">
+                      <Button variant="ghost" onClick={() => handleSort('dias')} className="h-auto p-0 font-medium hover:bg-transparent">
+                        Dias Restantes {getSortIcon('dias')}
                       </Button>
                     </TableHead>
-                    <TableHead className="text-center border-l bg-blue-50/50">
-                      <div className="text-xs text-blue-600 mb-1">Consumo Teórico</div>
-                      <Button variant="ghost" onClick={() => handleSort('consumo_teorico')} className="h-auto p-0 font-medium hover:bg-transparent text-xs">
-                        L/dia {getSortIcon('consumo_teorico')}
+                    <TableHead>
+                      <Button variant="ghost" onClick={() => handleSort('data_pedido')} className="h-auto p-0 font-medium hover:bg-transparent">
+                        <ShoppingCart className="h-4 w-4 mr-1" />
+                        Data Pedido {getSortIcon('data_pedido')}
                       </Button>
                     </TableHead>
-                    <TableHead className="text-center bg-blue-50/50">
-                      <div className="text-xs text-blue-600 mb-1">Consumo Teórico</div>
-                      <Button variant="ghost" onClick={() => handleSort('dias_teorico')} className="h-auto p-0 font-medium hover:bg-transparent text-xs">
-                        Dias {getSortIcon('dias_teorico')}
+                    <TableHead>
+                      <Button variant="ghost" onClick={() => handleSort('data_esgotamento')} className="h-auto p-0 font-medium hover:bg-transparent">
+                        Data Esgotamento {getSortIcon('data_esgotamento')}
                       </Button>
                     </TableHead>
                     <TableHead className="text-right">Vacas</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredData.map((item) => (
-                    <TableRow key={`${item.cliente_id}-${item.produto_id}`} className={item.status === 'critico' ? 'bg-red-50/50' : item.status === 'atencao' ? 'bg-yellow-50/50' : ''}>
-                      <TableCell>{getStatusBadge(item.status)}</TableCell>
-                      <TableCell className="font-medium">{item.cliente_nome}</TableCell>
-                      <TableCell className="text-muted-foreground">{item.cliente_fazenda || '-'}</TableCell>
-                      <TableCell className="text-right font-mono">{item.estoque_atual}</TableCell>
-                      <TableCell className="text-center font-mono border-l">{item.consumo_real_diario} L</TableCell>
-                      <TableCell className="text-center">
-                        <span className={`font-bold ${item.dias_restantes_real <= 15 ? 'text-red-600' : item.dias_restantes_real <= 30 ? 'text-yellow-600' : 'text-green-600'}`}>
-                          {item.dias_restantes_real === 999 ? '-' : `${item.dias_restantes_real}d`}
-                        </span>
-                      </TableCell>
-                      <TableCell className="text-center font-mono border-l bg-blue-50/30">
-                        {item.consumo_teorico_diario ? `${item.consumo_teorico_diario} L` : '-'}
-                      </TableCell>
-                      <TableCell className="text-center bg-blue-50/30">
-                        {item.dias_restantes_teorico ? (
-                          <span className={`font-bold ${item.dias_restantes_teorico <= 15 ? 'text-red-600' : item.dias_restantes_teorico <= 30 ? 'text-yellow-600' : 'text-green-600'}`}>
-                            {item.dias_restantes_teorico}d
-                          </span>
-                        ) : '-'}
-                      </TableCell>
-                      <TableCell className="text-right text-muted-foreground">
-                        {item.vacas_lactacao || '-'}
-                      </TableCell>
-                    </TableRow>
-                  ))}
+                  {filteredData.map((item) => {
+                    const status = getValue(item, 'status') as 'critico' | 'atencao' | 'ok';
+                    const consumo = getValue(item, 'consumo') as number | null;
+                    const dias = getValue(item, 'dias') as number | null;
+                    const dataPedido = getValue(item, 'data_pedido') as Date | null;
+                    const dataEsgotamento = getValue(item, 'data_esgotamento') as Date | null;
+                    const pedidoAtrasado = isPastDate(dataPedido);
+                    
+                    return (
+                      <TableRow 
+                        key={`${item.cliente_id}-${item.produto_id}`} 
+                        className={status === 'critico' ? 'bg-red-50/50' : status === 'atencao' ? 'bg-yellow-50/50' : ''}
+                      >
+                        <TableCell>{getStatusBadge(status)}</TableCell>
+                        <TableCell className="font-medium">{item.cliente_nome}</TableCell>
+                        <TableCell className="text-muted-foreground">{item.cliente_fazenda || '-'}</TableCell>
+                        <TableCell className="text-right font-mono">{item.estoque_atual}</TableCell>
+                        <TableCell className="text-right font-mono">
+                          {consumo ? `${consumo} L` : '-'}
+                        </TableCell>
+                        <TableCell className="text-right">
+                          {dias && dias < 999 ? (
+                            <span className={`font-bold ${dias <= 15 ? 'text-red-600' : dias <= 30 ? 'text-yellow-600' : 'text-green-600'}`}>
+                              {dias} dias
+                            </span>
+                          ) : '-'}
+                        </TableCell>
+                        <TableCell>
+                          {dataPedido ? (
+                            <span className={`font-medium ${pedidoAtrasado ? 'text-red-600 font-bold' : ''}`}>
+                              {pedidoAtrasado && <AlertCircle className="h-3 w-3 inline mr-1" />}
+                              {format(dataPedido, "dd/MM/yyyy", { locale: ptBR })}
+                            </span>
+                          ) : '-'}
+                        </TableCell>
+                        <TableCell>
+                          {dataEsgotamento ? (
+                            <span className={status === 'critico' ? 'text-red-600 font-medium' : ''}>
+                              {format(dataEsgotamento, "dd/MM/yyyy", { locale: ptBR })}
+                            </span>
+                          ) : '-'}
+                        </TableCell>
+                        <TableCell className="text-right text-muted-foreground">
+                          {item.vacas_lactacao || '-'}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
                 </TableBody>
               </Table>
             </div>
