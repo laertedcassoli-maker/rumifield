@@ -17,6 +17,8 @@ interface ProdutoInfo {
   id: string;
   nome: string;
   litros_por_vaca_mes: number | null;
+  litros_por_vaca_2x: number | null;
+  litros_por_vaca_3x: number | null;
 }
 
 interface ConsumoItem {
@@ -60,7 +62,7 @@ export function ConsumoTab({ produtoId }: ConsumoTabProps) {
   const { data: produtos } = useQuery({
     queryKey: ['produtos-quimicos-consumo', produtoId],
     queryFn: async () => {
-      let query = supabase.from('produtos_quimicos').select('id, nome, litros_por_vaca_mes').eq('ativo', true);
+      let query = supabase.from('produtos_quimicos').select('id, nome, litros_por_vaca_mes, litros_por_vaca_2x, litros_por_vaca_3x').eq('ativo', true);
       if (produtoId) {
         query = query.eq('id', produtoId);
       }
@@ -77,7 +79,7 @@ export function ConsumoTab({ produtoId }: ConsumoTabProps) {
         .from('estoque_cliente')
         .select(`
           *,
-          clientes(nome, fazenda, data_ativacao_rumiflow)
+          clientes(nome, fazenda, data_ativacao_rumiflow, ordenhas_dia)
         `)
         .order('data_afericao', { ascending: true });
       if (error) throw error;
@@ -110,6 +112,7 @@ export function ConsumoTab({ produtoId }: ConsumoTabProps) {
     // Agrupa aferições por cliente e data
     const afericoesPorCliente: Record<string, {
       data_ativacao: string | null;
+      ordenhas_dia: number;
       afericoes: Array<{
         data: string;
         cliente_nome: string;
@@ -123,6 +126,7 @@ export function ConsumoTab({ produtoId }: ConsumoTabProps) {
       if (!afericoesPorCliente[af.cliente_id]) {
         afericoesPorCliente[af.cliente_id] = {
           data_ativacao: af.clientes?.data_ativacao_rumiflow || null,
+          ordenhas_dia: af.clientes?.ordenhas_dia || 2,
           afericoes: [],
         };
       }
@@ -176,6 +180,7 @@ export function ConsumoTab({ produtoId }: ConsumoTabProps) {
     Object.entries(afericoesPorCliente).forEach(([clienteId, clienteData]) => {
       const afs = clienteData.afericoes;
       const dataAtivacao = clienteData.data_ativacao;
+      const ordenhas = clienteData.ordenhas_dia;
       
       // Primeiro registro: usa data de ativação como estoque inicial
       if (afs.length > 0 && dataAtivacao) {
@@ -217,9 +222,10 @@ export function ConsumoTab({ produtoId }: ConsumoTabProps) {
             // Consumo padronizado para 30 dias
             const consumo30dias = diasPeriodoInicial > 0 ? Math.round((consumoPositivo / diasPeriodoInicial) * 30) : 0;
 
-            // Orçado = vacas * litros_por_vaca_mes
-            const orcado30dias = (primeiraAfericao.vacas_lactacao && produto.litros_por_vaca_mes) 
-              ? Math.round(primeiraAfericao.vacas_lactacao * produto.litros_por_vaca_mes)
+            // Orçado = vacas * litros_por_vaca (baseado em ordenhas)
+            const litrosPorVaca = ordenhas === 3 ? produto.litros_por_vaca_3x : produto.litros_por_vaca_2x;
+            const orcado30dias = (primeiraAfericao.vacas_lactacao && litrosPorVaca) 
+              ? Math.round(primeiraAfericao.vacas_lactacao * litrosPorVaca)
               : null;
 
             consumoItemInicial.produtos[produto.id] = {
@@ -275,9 +281,10 @@ export function ConsumoTab({ produtoId }: ConsumoTabProps) {
           // Consumo padronizado para 30 dias
           const consumo30dias = diasPeriodo > 0 ? Math.round((consumoPositivo / diasPeriodo) * 30) : 0;
 
-          // Orçado = vacas * litros_por_vaca_mes
-          const orcado30dias = (atual.vacas_lactacao && produto.litros_por_vaca_mes) 
-            ? Math.round(atual.vacas_lactacao * produto.litros_por_vaca_mes)
+          // Orçado = vacas * litros_por_vaca (baseado em ordenhas)
+          const litrosPorVaca = ordenhas === 3 ? produto.litros_por_vaca_3x : produto.litros_por_vaca_2x;
+          const orcado30dias = (atual.vacas_lactacao && litrosPorVaca) 
+            ? Math.round(atual.vacas_lactacao * litrosPorVaca)
             : null;
 
           consumoItem.produtos[produto.id] = {

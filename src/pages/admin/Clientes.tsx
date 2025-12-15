@@ -53,6 +53,7 @@ interface Cliente {
   observacoes: string | null;
   status: string;
   data_ativacao_rumiflow: string | null;
+  ordenhas_dia: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -63,6 +64,7 @@ interface ClienteForm {
   cod_imilk: string;
   status: string;
   data_ativacao_rumiflow: Date | undefined;
+  ordenhas_dia: number;
 }
 
 type SortField = 'nome' | 'fazenda' | 'cod_imilk' | 'status';
@@ -89,6 +91,7 @@ export default function AdminClientes() {
     cod_imilk: '',
     status: 'ativo',
     data_ativacao_rumiflow: undefined,
+    ordenhas_dia: 2,
   });
   const [search, setSearch] = useState('');
   const [sortField, setSortField] = useState<SortField>('nome');
@@ -160,6 +163,7 @@ export default function AdminClientes() {
         cod_imilk: data.cod_imilk || null,
         status: data.status,
         data_ativacao_rumiflow: data.data_ativacao_rumiflow ? format(data.data_ativacao_rumiflow, 'yyyy-MM-dd') : null,
+        ordenhas_dia: data.ordenhas_dia,
       });
       if (error) throw error;
     },
@@ -184,6 +188,7 @@ export default function AdminClientes() {
           cod_imilk: data.cod_imilk || null,
           status: data.status,
           data_ativacao_rumiflow: data.data_ativacao_rumiflow ? format(data.data_ativacao_rumiflow, 'yyyy-MM-dd') : null,
+          ordenhas_dia: data.ordenhas_dia,
         })
         .eq('id', id);
       if (error) throw error;
@@ -241,7 +246,7 @@ export default function AdminClientes() {
   const closeDialog = () => {
     setOpen(false);
     setEditingCliente(null);
-    setForm({ nome: '', fazenda: '', cod_imilk: '', status: 'ativo', data_ativacao_rumiflow: undefined });
+    setForm({ nome: '', fazenda: '', cod_imilk: '', status: 'ativo', data_ativacao_rumiflow: undefined, ordenhas_dia: 2 });
   };
 
   const openEditDialog = (cliente: Cliente) => {
@@ -252,6 +257,7 @@ export default function AdminClientes() {
       cod_imilk: cliente.cod_imilk || '',
       status: cliente.status || 'ativo',
       data_ativacao_rumiflow: cliente.data_ativacao_rumiflow ? new Date(cliente.data_ativacao_rumiflow) : undefined,
+      ordenhas_dia: cliente.ordenhas_dia || 2,
     });
     setOpen(true);
   };
@@ -367,35 +373,50 @@ export default function AdminClientes() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Data Ativação RumiFlow</Label>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className={cn(
-                          "w-full justify-start text-left font-normal",
-                          !form.data_ativacao_rumiflow && "text-muted-foreground"
-                        )}
-                      >
-                        <Calendar className="mr-2 h-4 w-4" />
-                        {form.data_ativacao_rumiflow ? (
-                          format(form.data_ativacao_rumiflow, "dd/MM/yyyy", { locale: ptBR })
-                        ) : (
-                          "Selecione"
-                        )}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <CalendarComponent
-                        mode="single"
-                        selected={form.data_ativacao_rumiflow}
-                        onSelect={(date) => setForm({ ...form, data_ativacao_rumiflow: date })}
-                        locale={ptBR}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
+                  <Label>Ordenhas/Dia</Label>
+                  <Select
+                    value={form.ordenhas_dia.toString()}
+                    onValueChange={(value) => setForm({ ...form, ordenhas_dia: parseInt(value) })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="2">2 ordenhas</SelectItem>
+                      <SelectItem value="3">3 ordenhas</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
+              </div>
+              <div className="space-y-2">
+                <Label>Data Ativação RumiFlow</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !form.data_ativacao_rumiflow && "text-muted-foreground"
+                      )}
+                    >
+                      <Calendar className="mr-2 h-4 w-4" />
+                      {form.data_ativacao_rumiflow ? (
+                        format(form.data_ativacao_rumiflow, "dd/MM/yyyy", { locale: ptBR })
+                      ) : (
+                        "Selecione"
+                      )}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <CalendarComponent
+                      mode="single"
+                      selected={form.data_ativacao_rumiflow}
+                      onSelect={(date) => setForm({ ...form, data_ativacao_rumiflow: date })}
+                      locale={ptBR}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
               </div>
               <Button type="submit" className="w-full" disabled={isPending}>
                 {isPending ? (

@@ -21,7 +21,8 @@ interface ProdutoFormData {
   nome: string;
   unidade: string;
   descricao: string;
-  litros_por_vaca_mes: number;
+  litros_por_vaca_2x: number;
+  litros_por_vaca_3x: number;
 }
 
 interface PecaFormData {
@@ -38,7 +39,7 @@ export default function AdminConfig() {
   
   const [produtoOpen, setProdutoOpen] = useState(false);
   const [pecaOpen, setPecaOpen] = useState(false);
-  const [produtoForm, setProdutoForm] = useState<ProdutoFormData>({ nome: '', unidade: 'litros', descricao: '', litros_por_vaca_mes: 0 });
+  const [produtoForm, setProdutoForm] = useState<ProdutoFormData>({ nome: '', unidade: 'litros', descricao: '', litros_por_vaca_2x: 0, litros_por_vaca_3x: 0 });
   const [pecaForm, setPecaForm] = useState<PecaFormData>({ codigo: '', nome: '', descricao: '', omie_codigo: '' });
   const [isEditingProduto, setIsEditingProduto] = useState(false);
   const [isEditingPeca, setIsEditingPeca] = useState(false);
@@ -152,7 +153,8 @@ export default function AdminConfig() {
         nome: data.nome,
         unidade: data.unidade,
         descricao: data.descricao,
-        litros_por_vaca_mes: data.litros_por_vaca_mes,
+        litros_por_vaca_2x: data.litros_por_vaca_2x,
+        litros_por_vaca_3x: data.litros_por_vaca_3x,
       });
       if (error) throw error;
     },
@@ -174,7 +176,8 @@ export default function AdminConfig() {
         nome: data.nome,
         unidade: data.unidade,
         descricao: data.descricao,
-        litros_por_vaca_mes: data.litros_por_vaca_mes,
+        litros_por_vaca_2x: data.litros_por_vaca_2x,
+        litros_por_vaca_3x: data.litros_por_vaca_3x,
       }).eq('id', data.id);
       if (error) throw error;
     },
@@ -233,7 +236,7 @@ export default function AdminConfig() {
   });
 
   const openNewProduto = () => {
-    setProdutoForm({ nome: '', unidade: 'litros', descricao: '', litros_por_vaca_mes: 0 });
+    setProdutoForm({ nome: '', unidade: 'litros', descricao: '', litros_por_vaca_2x: 0, litros_por_vaca_3x: 0 });
     setIsEditingProduto(false);
     setProdutoOpen(true);
   };
@@ -244,7 +247,8 @@ export default function AdminConfig() {
       nome: produto.nome,
       unidade: produto.unidade,
       descricao: produto.descricao || '',
-      litros_por_vaca_mes: produto.litros_por_vaca_mes || 0,
+      litros_por_vaca_2x: produto.litros_por_vaca_2x || 0,
+      litros_por_vaca_3x: produto.litros_por_vaca_3x || 0,
     });
     setIsEditingProduto(true);
     setProdutoOpen(true);
@@ -252,7 +256,7 @@ export default function AdminConfig() {
 
   const closeProdutoDialog = () => {
     setProdutoOpen(false);
-    setProdutoForm({ nome: '', unidade: 'litros', descricao: '', litros_por_vaca_mes: 0 });
+    setProdutoForm({ nome: '', unidade: 'litros', descricao: '', litros_por_vaca_2x: 0, litros_por_vaca_3x: 0 });
     setIsEditingProduto(false);
   };
 
@@ -394,16 +398,29 @@ export default function AdminConfig() {
                     placeholder="Descrição do produto"
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label>Consumo por Vaca (L/vaca.mês)</Label>
-                  <Input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={produtoForm.litros_por_vaca_mes}
-                    onChange={(e) => setProdutoForm({ ...produtoForm, litros_por_vaca_mes: parseFloat(e.target.value) || 0 })}
-                    placeholder="0.00"
-                  />
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label>Consumo 2 Ordenhas (L/vaca.mês)</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={produtoForm.litros_por_vaca_2x}
+                      onChange={(e) => setProdutoForm({ ...produtoForm, litros_por_vaca_2x: parseFloat(e.target.value) || 0 })}
+                      placeholder="0.00"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Consumo 3 Ordenhas (L/vaca.mês)</Label>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={produtoForm.litros_por_vaca_3x}
+                      onChange={(e) => setProdutoForm({ ...produtoForm, litros_por_vaca_3x: parseFloat(e.target.value) || 0 })}
+                      placeholder="0.00"
+                    />
+                  </div>
                 </div>
                 <Button type="submit" className="w-full" disabled={isProdutoSaving}>
                   {isProdutoSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : isEditingProduto ? 'Salvar Alterações' : 'Cadastrar'}
