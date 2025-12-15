@@ -28,6 +28,7 @@ export type Database = {
           nome: string
           observacoes: string | null
           omie_codigo: string | null
+          ordenhas_dia: number | null
           status: string
           telefone: string | null
           updated_at: string
@@ -45,6 +46,7 @@ export type Database = {
           nome: string
           observacoes?: string | null
           omie_codigo?: string | null
+          ordenhas_dia?: number | null
           status?: string
           telefone?: string | null
           updated_at?: string
@@ -62,6 +64,7 @@ export type Database = {
           nome?: string
           observacoes?: string | null
           omie_codigo?: string | null
+          ordenhas_dia?: number | null
           status?: string
           telefone?: string | null
           updated_at?: string
@@ -339,6 +342,8 @@ export type Database = {
           created_at: string
           descricao: string | null
           id: string
+          litros_por_vaca_2x: number | null
+          litros_por_vaca_3x: number | null
           litros_por_vaca_mes: number | null
           nome: string
           unidade: string
@@ -348,6 +353,8 @@ export type Database = {
           created_at?: string
           descricao?: string | null
           id?: string
+          litros_por_vaca_2x?: number | null
+          litros_por_vaca_3x?: number | null
           litros_por_vaca_mes?: number | null
           nome: string
           unidade?: string
@@ -357,6 +364,8 @@ export type Database = {
           created_at?: string
           descricao?: string | null
           id?: string
+          litros_por_vaca_2x?: number | null
+          litros_por_vaca_3x?: number | null
           litros_por_vaca_mes?: number | null
           nome?: string
           unidade?: string
