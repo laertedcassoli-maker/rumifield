@@ -10,6 +10,7 @@ import Dashboard from "./pages/Dashboard";
 import Visitas from "./pages/Visitas";
 import Estoque from "./pages/Estoque";
 import Consumo from "./pages/estoque/Consumo";
+import Previsao from "./pages/estoque/Previsao";
 import Historico from "./pages/estoque/Historico";
 import Pedidos from "./pages/Pedidos";
 import AdminClientes from "./pages/admin/Clientes";
@@ -58,6 +59,14 @@ const App = () => (
               element={
                 <AppLayout>
                   <Consumo />
+                </AppLayout>
+              }
+            />
+            <Route
+              path="/estoque/previsao"
+              element={
+                <AppLayout>
+                  <Previsao />
                 </AppLayout>
               }
             />
