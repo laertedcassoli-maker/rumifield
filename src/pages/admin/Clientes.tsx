@@ -91,7 +91,7 @@ export default function AdminClientes() {
     cod_imilk: '',
     status: 'ativo',
     data_ativacao_rumiflow: undefined,
-    ordenhas_dia: 2,
+    ordenhas_dia: 3,
   });
   const [search, setSearch] = useState('');
   const [sortField, setSortField] = useState<SortField>('nome');
@@ -246,7 +246,7 @@ export default function AdminClientes() {
   const closeDialog = () => {
     setOpen(false);
     setEditingCliente(null);
-    setForm({ nome: '', fazenda: '', cod_imilk: '', status: 'ativo', data_ativacao_rumiflow: undefined, ordenhas_dia: 2 });
+    setForm({ nome: '', fazenda: '', cod_imilk: '', status: 'ativo', data_ativacao_rumiflow: undefined, ordenhas_dia: 3 });
   };
 
   const openEditDialog = (cliente: Cliente) => {
@@ -257,7 +257,7 @@ export default function AdminClientes() {
       cod_imilk: cliente.cod_imilk || '',
       status: cliente.status || 'ativo',
       data_ativacao_rumiflow: cliente.data_ativacao_rumiflow ? new Date(cliente.data_ativacao_rumiflow) : undefined,
-      ordenhas_dia: cliente.ordenhas_dia || 2,
+      ordenhas_dia: cliente.ordenhas_dia || 3,
     });
     setOpen(true);
   };
