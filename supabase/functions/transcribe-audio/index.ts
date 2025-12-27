@@ -98,15 +98,19 @@ serve(async (req) => {
     if (clientesError) {
       console.error('Error fetching clients:', clientesError);
       return new Response(
-        JSON.stringify({ transcription, clienteEncontrado: null }),
+        JSON.stringify({ transcription, clienteEncontrado: null, dataVisita: null }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
     console.log(`Found ${clientes?.length || 0} active clients`);
 
-    // Step 3: Use AI to identify the client mentioned in the transcription
+    // Step 3: Use AI to identify the client AND date mentioned in the transcription
     const clientesList = clientes?.map(c => `- ${c.nome}${c.fazenda ? ` (Fazenda: ${c.fazenda})` : ''}`).join('\n') || '';
+    
+    // Get current date for context
+    const today = new Date();
+    const todayStr = today.toISOString().split('T')[0];
 
     const identifyResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -119,11 +123,23 @@ serve(async (req) => {
         messages: [
           {
             role: "system",
-            content: `Você é um assistente que identifica clientes mencionados em textos. 
-Analise a transcrição e identifique qual cliente da lista está sendo mencionado.
-Considere variações de nome, apelidos, nomes de fazenda e possíveis erros de transcrição.
-Se encontrar um cliente, responda APENAS com o nome exato como aparece na lista.
-Se não encontrar nenhum cliente correspondente, responda "NENHUM_CLIENTE_ENCONTRADO".`
+            content: `Você é um assistente que extrai informações de transcrições de áudio sobre visitas a clientes.
+Analise a transcrição e identifique:
+1. O cliente mencionado (da lista fornecida)
+2. A data da visita mencionada
+
+Para a data, considere:
+- Datas explícitas como "dia 15 de janeiro", "15/01", etc.
+- Referências relativas como "hoje", "ontem", "semana passada", "segunda-feira passada"
+- Se não houver data mencionada, retorne null
+
+A data de hoje é: ${todayStr}
+
+Responda APENAS no formato JSON:
+{
+  "cliente": "Nome exato do cliente da lista ou null",
+  "data": "YYYY-MM-DD ou null"
+}`
           },
           {
             role: "user",
@@ -133,41 +149,62 @@ Se não encontrar nenhum cliente correspondente, responda "NENHUM_CLIENTE_ENCONT
 Lista de clientes cadastrados:
 ${clientesList}
 
-Qual cliente está sendo mencionado nesta transcrição?`
+Extraia o cliente e a data da visita desta transcrição.`
           }
         ]
       }),
     });
 
     let clienteEncontrado = null;
+    let dataVisita = null;
 
     if (identifyResponse.ok) {
       const identifyData = await identifyResponse.json();
-      const clienteNome = identifyData.choices?.[0]?.message?.content?.trim() || "";
+      const responseText = identifyData.choices?.[0]?.message?.content?.trim() || "";
       
-      console.log('AI identified client:', clienteNome);
+      console.log('AI response:', responseText);
 
-      if (clienteNome && clienteNome !== "NENHUM_CLIENTE_ENCONTRADO") {
-        // Find the matching client
-        const matchedCliente = clientes?.find(c => 
-          c.nome.toLowerCase().includes(clienteNome.toLowerCase()) ||
-          clienteNome.toLowerCase().includes(c.nome.toLowerCase())
-        );
+      try {
+        // Try to parse JSON response
+        const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          const parsed = JSON.parse(jsonMatch[0]);
+          
+          // Extract date
+          if (parsed.data && parsed.data !== "null") {
+            dataVisita = parsed.data;
+            console.log('Extracted date:', dataVisita);
+          }
 
-        if (matchedCliente) {
-          clienteEncontrado = {
-            id: matchedCliente.id,
-            nome: matchedCliente.nome,
-            fazenda: matchedCliente.fazenda
-          };
+          // Extract client
+          if (parsed.cliente && parsed.cliente !== "null") {
+            const clienteNome = parsed.cliente;
+            console.log('AI identified client:', clienteNome);
+
+            // Find the matching client
+            const matchedCliente = clientes?.find(c => 
+              c.nome.toLowerCase().includes(clienteNome.toLowerCase()) ||
+              clienteNome.toLowerCase().includes(c.nome.toLowerCase())
+            );
+
+            if (matchedCliente) {
+              clienteEncontrado = {
+                id: matchedCliente.id,
+                nome: matchedCliente.nome,
+                fazenda: matchedCliente.fazenda
+              };
+            }
+          }
         }
+      } catch (parseError) {
+        console.error('Error parsing AI response:', parseError);
       }
     } else {
-      console.error('Error identifying client:', await identifyResponse.text());
+      console.error('Error identifying client/date:', await identifyResponse.text());
     }
 
     return new Response(
-      JSON.stringify({ transcription, clienteEncontrado }),
+      JSON.stringify({ transcription, clienteEncontrado, dataVisita }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
