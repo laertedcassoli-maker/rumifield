@@ -1,9 +1,14 @@
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Mic, Square, Upload, Loader2, User, Building2 } from "lucide-react";
+import { Mic, Square, Upload, Loader2, User, Building2, CalendarIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
+import { format } from "date-fns";
+import { ptBR } from "date-fns/locale";
+import { cn } from "@/lib/utils";
 
 interface ClienteEncontrado {
   id: string;
@@ -16,6 +21,7 @@ const Teste = () => {
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [transcription, setTranscription] = useState("");
   const [clienteEncontrado, setClienteEncontrado] = useState<ClienteEncontrado | null>(null);
+  const [dataVisita, setDataVisita] = useState<Date | undefined>(new Date());
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -225,6 +231,44 @@ const Teste = () => {
               <p className="text-foreground whitespace-pre-wrap">{transcription}</p>
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      {/* Data da Visita */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <CalendarIcon className="h-5 w-5" />
+            Data da Visita
+          </CardTitle>
+          <CardDescription>
+            Selecione a data em que a visita foi realizada
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                className={cn(
+                  "w-full justify-start text-left font-normal",
+                  !dataVisita && "text-muted-foreground"
+                )}
+              >
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {dataVisita ? format(dataVisita, "PPP", { locale: ptBR }) : "Selecione uma data"}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="start">
+              <Calendar
+                mode="single"
+                selected={dataVisita}
+                onSelect={setDataVisita}
+                locale={ptBR}
+                initialFocus
+              />
+            </PopoverContent>
+          </Popover>
         </CardContent>
       </Card>
 
