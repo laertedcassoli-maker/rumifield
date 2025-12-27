@@ -17,6 +17,7 @@ import AdminClientes from "./pages/admin/Clientes";
 import AdminEnvios from "./pages/admin/Envios";
 import AdminUsuarios from "./pages/admin/Usuarios";
 import AdminConfig from "./pages/admin/Config";
+import Teste from "./pages/Teste";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -115,6 +116,14 @@ const App = () => (
               element={
                 <AppLayout>
                   <AdminEnvios />
+                </AppLayout>
+              }
+            />
+            <Route
+              path="/teste"
+              element={
+                <AppLayout>
+                  <Teste />
                 </AppLayout>
               }
             />

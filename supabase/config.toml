@@ -1,1 +1,10 @@
 project_id = "gperaijwlecreqxoygjy"
+
+[functions.sync-imilk-clientes]
+verify_jwt = false
+
+[functions.sync-omie-pecas]
+verify_jwt = false
+
+[functions.transcribe-audio]
+verify_jwt = false
