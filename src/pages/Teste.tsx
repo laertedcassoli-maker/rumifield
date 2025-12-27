@@ -1,14 +1,21 @@
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Mic, Square, Upload, Loader2 } from "lucide-react";
+import { Mic, Square, Upload, Loader2, User, Building2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+
+interface ClienteEncontrado {
+  id: string;
+  nome: string;
+  fazenda: string | null;
+}
 
 const Teste = () => {
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [transcription, setTranscription] = useState("");
+  const [clienteEncontrado, setClienteEncontrado] = useState<ClienteEncontrado | null>(null);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -66,6 +73,7 @@ const Teste = () => {
 
     setIsTranscribing(true);
     setTranscription("");
+    setClienteEncontrado(null);
 
     try {
       // Convert blob to base64 in chunks to avoid stack overflow
@@ -91,7 +99,13 @@ const Teste = () => {
 
       if (data?.transcription) {
         setTranscription(data.transcription);
-        toast.success("Transcrição concluída!");
+        
+        if (data.clienteEncontrado) {
+          setClienteEncontrado(data.clienteEncontrado);
+          toast.success(`Cliente identificado: ${data.clienteEncontrado.nome}`);
+        } else {
+          toast.info("Transcrição concluída. Nenhum cliente identificado.");
+        }
       } else {
         throw new Error("Nenhuma transcrição retornada");
       }
@@ -108,7 +122,7 @@ const Teste = () => {
       <div>
         <h1 className="text-3xl font-bold text-foreground">Teste de Transcrição</h1>
         <p className="text-muted-foreground mt-1">
-          Grave ou envie um áudio para transcrever usando IA
+          Grave ou envie um áudio para transcrever e identificar o cliente
         </p>
       </div>
 
@@ -209,6 +223,49 @@ const Teste = () => {
             <div className="p-4 rounded-lg bg-muted">
               <h4 className="font-medium mb-2">Resultado:</h4>
               <p className="text-foreground whitespace-pre-wrap">{transcription}</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Cliente Identificado */}
+      <Card className={clienteEncontrado ? "border-primary" : ""}>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <User className="h-5 w-5" />
+            Cliente Identificado
+          </CardTitle>
+          <CardDescription>
+            Cliente encontrado com base na transcrição do áudio
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {clienteEncontrado ? (
+            <div className="p-4 rounded-lg bg-primary/10 border border-primary/20">
+              <div className="flex items-start gap-3">
+                <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center">
+                  <User className="h-5 w-5 text-primary" />
+                </div>
+                <div className="flex-1">
+                  <h4 className="font-semibold text-lg text-foreground">
+                    {clienteEncontrado.nome}
+                  </h4>
+                  {clienteEncontrado.fazenda && (
+                    <p className="text-muted-foreground flex items-center gap-1 mt-1">
+                      <Building2 className="h-4 w-4" />
+                      {clienteEncontrado.fazenda}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="p-4 rounded-lg bg-muted text-center">
+              <p className="text-muted-foreground">
+                {transcription 
+                  ? "Nenhum cliente identificado na transcrição"
+                  : "Transcreva um áudio para identificar o cliente"}
+              </p>
             </div>
           )}
         </CardContent>
