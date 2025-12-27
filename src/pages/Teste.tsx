@@ -68,11 +68,18 @@ const Teste = () => {
     setTranscription("");
 
     try {
-      // Convert blob to base64
+      // Convert blob to base64 in chunks to avoid stack overflow
       const arrayBuffer = await audioBlob.arrayBuffer();
-      const base64Audio = btoa(
-        String.fromCharCode(...new Uint8Array(arrayBuffer))
-      );
+      const uint8Array = new Uint8Array(arrayBuffer);
+      
+      // Process in chunks to avoid "Maximum call stack size exceeded"
+      const chunkSize = 8192;
+      let base64Audio = '';
+      for (let i = 0; i < uint8Array.length; i += chunkSize) {
+        const chunk = uint8Array.slice(i, i + chunkSize);
+        base64Audio += String.fromCharCode.apply(null, Array.from(chunk));
+      }
+      base64Audio = btoa(base64Audio);
 
       const { data, error } = await supabase.functions.invoke('transcribe-audio', {
         body: { audio: base64Audio }
