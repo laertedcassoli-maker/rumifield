@@ -108,9 +108,22 @@ const Teste = () => {
         
         if (data.clienteEncontrado) {
           setClienteEncontrado(data.clienteEncontrado);
+        }
+        
+        if (data.dataVisita) {
+          // Parse the date string and set it
+          const parsedDate = new Date(data.dataVisita + 'T12:00:00');
+          setDataVisita(parsedDate);
+        }
+
+        if (data.clienteEncontrado && data.dataVisita) {
+          toast.success(`Cliente: ${data.clienteEncontrado.nome} | Data: ${data.dataVisita}`);
+        } else if (data.clienteEncontrado) {
           toast.success(`Cliente identificado: ${data.clienteEncontrado.nome}`);
+        } else if (data.dataVisita) {
+          toast.success(`Data identificada: ${data.dataVisita}`);
         } else {
-          toast.info("Transcrição concluída. Nenhum cliente identificado.");
+          toast.info("Transcrição concluída. Nenhum cliente ou data identificados.");
         }
       } else {
         throw new Error("Nenhuma transcrição retornada");
