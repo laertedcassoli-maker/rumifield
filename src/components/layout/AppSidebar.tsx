@@ -17,7 +17,7 @@ export function AppSidebar() {
   const location = useLocation();
 
   // Load menu visibility config
-  const { data: menuConfigs } = useQuery({
+  const { data: menuConfigs, isLoading: isLoadingConfig } = useQuery({
     queryKey: ['menu-config'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -27,13 +27,14 @@ export function AppSidebar() {
       if (error) throw error;
       return data;
     },
-    staleTime: 5000, // Cache for 5 seconds only
-    refetchOnMount: 'always',
+    staleTime: 30000, // Cache for 30 seconds
+    gcTime: 60000, // Keep in cache for 1 minute
   });
 
-  const showEstoqueMenu = menuConfigs?.find(c => c.chave === 'estoque_menu_enabled')?.valor !== 'false';
-  const showInicioMenu = menuConfigs?.find(c => c.chave === 'inicio_menu_enabled')?.valor !== 'false';
-  const showVisitasMenu = menuConfigs?.find(c => c.chave === 'visitas_menu_enabled')?.valor === 'true';
+  // Use defaults while loading to prevent flickering
+  const showEstoqueMenu = isLoadingConfig ? true : menuConfigs?.find(c => c.chave === 'estoque_menu_enabled')?.valor !== 'false';
+  const showInicioMenu = isLoadingConfig ? true : menuConfigs?.find(c => c.chave === 'inicio_menu_enabled')?.valor !== 'false';
+  const showVisitasMenu = isLoadingConfig ? false : menuConfigs?.find(c => c.chave === 'visitas_menu_enabled')?.valor === 'true';
   
   const mainMenuItems = [
     ...(showInicioMenu ? [{
