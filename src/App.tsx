@@ -18,6 +18,7 @@ import AdminEnvios from "./pages/admin/Envios";
 import AdminUsuarios from "./pages/admin/Usuarios";
 import AdminConfig from "./pages/admin/Config";
 import Teste from "./pages/Teste";
+import Instalar from "./pages/Instalar";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -127,6 +128,7 @@ const App = () => (
                 </AppLayout>
               }
             />
+            <Route path="/instalar" element={<Instalar />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
