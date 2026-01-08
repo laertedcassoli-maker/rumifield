@@ -57,6 +57,7 @@ export default function Pedidos() {
 
   const [openPopovers, setOpenPopovers] = useState<Record<number, boolean>>({});
   const [clienteSearch, setClienteSearch] = useState('');
+  const [pecaSearches, setPecaSearches] = useState<Record<number, string>>({});
   // Filter and sort state
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -167,6 +168,7 @@ export default function Pedidos() {
       setItens([]);
       setShowConfirmation(false);
       setClienteSearch('');
+      setPecaSearches({});
     }
   };
 
@@ -417,30 +419,48 @@ export default function Pedidos() {
                         
                         return (
                           <div key={index} className="p-2 rounded-lg border bg-muted/30 space-y-2">
-                            <Select 
-                              value={item.peca_id} 
-                              onValueChange={(value) => updateItem(index, 'peca_id', value)}
-                            >
-                              <SelectTrigger className="w-full h-auto min-h-9 text-left [&>span]:whitespace-normal [&>span]:break-words">
-                                <SelectValue placeholder="Selecione a peça">
-                                  {selectedPeca ? (
-                                    <span className="text-sm leading-tight block">
-                                      <span className="font-medium">{selectedPeca.codigo}</span> - {selectedPeca.descricao || selectedPeca.nome}
-                                    </span>
-                                  ) : (
-                                    'Selecione a peça'
-                                  )}
-                                </SelectValue>
-                              </SelectTrigger>
-                              <SelectContent className="max-h-60">
-                                {availablePecas.map((peca) => (
-                                  <SelectItem key={peca.id} value={peca.id}>
+                            <Input
+                              placeholder="Buscar peça por código ou nome..."
+                              value={pecaSearches[index] || ''}
+                              onChange={(e) => setPecaSearches({ ...pecaSearches, [index]: e.target.value })}
+                              className="mb-1"
+                            />
+                            <div className="max-h-32 overflow-y-auto border rounded-md bg-background">
+                              {availablePecas
+                                .filter(p => {
+                                  const search = (pecaSearches[index] || '').toLowerCase();
+                                  return p.codigo.toLowerCase().includes(search) || 
+                                         p.nome.toLowerCase().includes(search) ||
+                                         (p.descricao?.toLowerCase().includes(search) ?? false);
+                                })
+                                .slice(0, 15)
+                                .map((peca) => (
+                                  <div
+                                    key={peca.id}
+                                    onClick={() => {
+                                      updateItem(index, 'peca_id', peca.id);
+                                      setPecaSearches({ ...pecaSearches, [index]: `${peca.codigo} - ${peca.descricao || peca.nome}` });
+                                    }}
+                                    className={cn(
+                                      "px-3 py-2 cursor-pointer hover:bg-muted border-b last:border-b-0 text-sm",
+                                      item.peca_id === peca.id && "bg-primary/10"
+                                    )}
+                                  >
                                     <span className="font-medium">{peca.codigo}</span>
-                                    <span className="text-muted-foreground ml-1">- {peca.descricao || peca.nome}</span>
-                                  </SelectItem>
+                                    <span className="text-muted-foreground ml-1 break-words">- {peca.descricao || peca.nome}</span>
+                                  </div>
                                 ))}
-                              </SelectContent>
-                            </Select>
+                              {availablePecas.filter(p => {
+                                const search = (pecaSearches[index] || '').toLowerCase();
+                                return p.codigo.toLowerCase().includes(search) || 
+                                       p.nome.toLowerCase().includes(search) ||
+                                       (p.descricao?.toLowerCase().includes(search) ?? false);
+                              }).length === 0 && (
+                                <div className="px-3 py-2 text-sm text-muted-foreground">
+                                  Nenhuma peça encontrada
+                                </div>
+                              )}
+                            </div>
                             
                             <div className="flex items-center justify-between">
                               <div className="flex items-center gap-1">
