@@ -331,66 +331,67 @@ export default function Pedidos() {
                     const selectedPeca = pecas?.find(p => p.id === item.peca_id);
                     
                     return (
-                      <div key={index} className="flex items-center gap-2 p-2 rounded-lg border bg-muted/30">
-                        <div className="flex-1 min-w-0">
-                          <Select 
-                            value={item.peca_id} 
-                            onValueChange={(value) => updateItem(index, 'peca_id', value)}
-                          >
-                            <SelectTrigger className="w-full h-9">
-                              <SelectValue placeholder="Selecione a peça">
-                                {selectedPeca ? (
-                                  <span className="truncate text-sm">
-                                    {selectedPeca.codigo} - {selectedPeca.descricao || selectedPeca.nome}
-                                  </span>
-                                ) : (
-                                  'Selecione a peça'
-                                )}
-                              </SelectValue>
-                            </SelectTrigger>
-                            <SelectContent className="max-h-60">
-                              {availablePecas.map((peca) => (
-                                <SelectItem key={peca.id} value={peca.id}>
-                                  <span className="font-medium">{peca.codigo}</span>
-                                  <span className="text-muted-foreground ml-1">- {peca.descricao || peca.nome}</span>
-                                </SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
-                        </div>
-                        
-                        <div className="flex items-center gap-1 shrink-0">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="icon"
-                            className="h-8 w-8"
-                            onClick={() => decrementQuantity(index)}
-                            disabled={item.quantidade <= 1}
-                          >
-                            <Minus className="h-3 w-3" />
-                          </Button>
-                          <span className="w-8 text-center text-sm font-medium">{item.quantidade}</span>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="icon"
-                            className="h-8 w-8"
-                            onClick={() => incrementQuantity(index)}
-                          >
-                            <Plus className="h-3 w-3" />
-                          </Button>
-                        </div>
-                        
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 shrink-0"
-                          onClick={() => removeItem(index)}
+                      <div key={index} className="p-2 rounded-lg border bg-muted/30 space-y-2">
+                        <Select 
+                          value={item.peca_id} 
+                          onValueChange={(value) => updateItem(index, 'peca_id', value)}
                         >
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
+                          <SelectTrigger className="w-full h-auto min-h-9 whitespace-normal text-left">
+                            <SelectValue placeholder="Selecione a peça">
+                              {selectedPeca ? (
+                                <span className="text-sm leading-tight">
+                                  <span className="font-medium">{selectedPeca.codigo}</span> - {selectedPeca.descricao || selectedPeca.nome}
+                                </span>
+                              ) : (
+                                'Selecione a peça'
+                              )}
+                            </SelectValue>
+                          </SelectTrigger>
+                          <SelectContent className="max-h-60">
+                            {availablePecas.map((peca) => (
+                              <SelectItem key={peca.id} value={peca.id}>
+                                <span className="font-medium">{peca.codigo}</span>
+                                <span className="text-muted-foreground ml-1">- {peca.descricao || peca.nome}</span>
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-1">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => decrementQuantity(index)}
+                              disabled={item.quantidade <= 1}
+                            >
+                              <Minus className="h-3 w-3" />
+                            </Button>
+                            <span className="w-8 text-center text-sm font-medium">{item.quantidade}</span>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => incrementQuantity(index)}
+                            >
+                              <Plus className="h-3 w-3" />
+                            </Button>
+                          </div>
+                          
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 text-destructive hover:text-destructive"
+                            onClick={() => removeItem(index)}
+                          >
+                            <Trash2 className="h-4 w-4 mr-1" />
+                            Remover
+                          </Button>
+                        </div>
                       </div>
                     );
                   })}
