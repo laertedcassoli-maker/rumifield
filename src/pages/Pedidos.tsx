@@ -1,7 +1,9 @@
 import { useState, useMemo } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { useLiveQuery } from 'dexie-react-hooks';
 import { useAuth } from '@/contexts/AuthContext';
+import { useOfflinePedidos } from '@/hooks/useOfflinePedidos';
+import { useOffline } from '@/contexts/OfflineContext';
+import { offlineDb } from '@/lib/offline-db';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -13,7 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, ShoppingCart, Loader2, Package, Trash2, Minus, Check, ChevronsUpDown, ArrowUpDown, Search, X, Eye, Pencil } from 'lucide-react';
+import { Plus, ShoppingCart, Loader2, Package, Trash2, Minus, Check, ChevronsUpDown, ArrowUpDown, Search, X, Eye, Pencil, CloudOff, Cloud } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -38,178 +40,20 @@ const statusLabels: Record<string, string> = {
 export default function Pedidos() {
   const { user, role } = useAuth();
   const { toast } = useToast();
-  const queryClient = useQueryClient();
+  const { isOnline } = useOffline();
   const [open, setOpen] = useState(false);
   const [editingPedido, setEditingPedido] = useState<any>(null);
   const [form, setForm] = useState({ cliente_id: '', observacoes: '' });
   const [itens, setItens] = useState<{ peca_id: string; quantidade: number }[]>([]);
   const [viewAll, setViewAll] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   
   const isAdmin = role === 'admin' || role === 'gestor';
 
-  const { data: clientes } = useQuery({
-    queryKey: ['clientes'],
-    queryFn: async () => {
-      const { data, error } = await supabase.from('clientes').select('*');
-      if (error) throw error;
-      return data;
-    },
-  });
-
-  const { data: pecas } = useQuery({
-    queryKey: ['pecas'],
-    queryFn: async () => {
-      const { data, error } = await supabase.from('pecas').select('*').eq('ativo', true);
-      if (error) throw error;
-      return data;
-    },
-  });
-
-  const { data: pedidos, isLoading } = useQuery({
-    queryKey: ['pedidos', viewAll, user?.id],
-    queryFn: async () => {
-      let query = supabase
-        .from('pedidos')
-        .select('*, clientes(nome, fazenda), pedido_itens(*, pecas(nome, codigo))')
-        .order('created_at', { ascending: false });
-      
-      // Se não for admin ou se for admin mas não quer ver todos, filtra pelo usuário
-      if (!isAdmin || !viewAll) {
-        query = query.eq('solicitante_id', user?.id);
-      }
-      
-      const { data, error } = await query;
-      if (error) throw error;
-      
-      // Se admin está vendo todos, busca os profiles dos solicitantes
-      if (isAdmin && viewAll && data && data.length > 0) {
-        const solicitanteIds = [...new Set(data.map(p => p.solicitante_id))];
-        const { data: profiles } = await supabase
-          .from('profiles')
-          .select('id, nome, email')
-          .in('id', solicitanteIds);
-        
-        // Mapeia os profiles para os pedidos
-        const profilesMap = new Map(profiles?.map(p => [p.id, p]) || []);
-        return data.map(pedido => ({
-          ...pedido,
-          solicitante: profilesMap.get(pedido.solicitante_id) || null
-        }));
-      }
-      
-      return data;
-    },
-    enabled: !!user?.id,
-  });
-
-  const createPedido = useMutation({
-    mutationFn: async () => {
-      if (!user?.id || !form.cliente_id || itens.length === 0) return;
-
-      const { data: pedido, error: pedidoError } = await supabase
-        .from('pedidos')
-        .insert({
-          solicitante_id: user.id,
-          cliente_id: form.cliente_id,
-          observacoes: form.observacoes,
-        })
-        .select()
-        .single();
-
-      if (pedidoError) throw pedidoError;
-
-      const { error: itensError } = await supabase.from('pedido_itens').insert(
-        itens.map((item) => ({
-          pedido_id: pedido.id,
-          peca_id: item.peca_id,
-          quantidade: item.quantidade,
-        }))
-      );
-
-      if (itensError) throw itensError;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['pedidos'] });
-      setOpen(false);
-      setForm({ cliente_id: '', observacoes: '' });
-      setItens([]);
-      toast({ title: 'Pedido criado com sucesso!' });
-    },
-    onError: (error: Error) => {
-      toast({ variant: 'destructive', title: 'Erro ao criar pedido', description: error.message });
-    },
-  });
-
-  const updatePedido = useMutation({
-    mutationFn: async () => {
-      if (!editingPedido || !form.cliente_id || itens.length === 0) return;
-
-      // Atualizar o pedido
-      const { error: pedidoError } = await supabase
-        .from('pedidos')
-        .update({
-          cliente_id: form.cliente_id,
-          observacoes: form.observacoes,
-        })
-        .eq('id', editingPedido.id);
-
-      if (pedidoError) throw pedidoError;
-
-      // Deletar itens antigos
-      const { error: deleteError } = await supabase
-        .from('pedido_itens')
-        .delete()
-        .eq('pedido_id', editingPedido.id);
-
-      if (deleteError) throw deleteError;
-
-      // Inserir novos itens
-      const { error: itensError } = await supabase.from('pedido_itens').insert(
-        itens.map((item) => ({
-          pedido_id: editingPedido.id,
-          peca_id: item.peca_id,
-          quantidade: item.quantidade,
-        }))
-      );
-
-      if (itensError) throw itensError;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['pedidos'] });
-      setOpen(false);
-      setEditingPedido(null);
-      setForm({ cliente_id: '', observacoes: '' });
-      setItens([]);
-      toast({ title: 'Pedido atualizado com sucesso!' });
-    },
-    onError: (error: Error) => {
-      toast({ variant: 'destructive', title: 'Erro ao atualizar pedido', description: error.message });
-    },
-  });
-
-  const handleEditPedido = (pedido: any) => {
-    setEditingPedido(pedido);
-    setForm({
-      cliente_id: pedido.cliente_id,
-      observacoes: pedido.observacoes || '',
-    });
-    setItens(
-      pedido.pedido_itens?.map((item: any) => ({
-        peca_id: item.peca_id,
-        quantidade: item.quantidade,
-      })) || []
-    );
-    setOpen(true);
-  };
-
-  const handleCloseDialog = (isOpen: boolean) => {
-    setOpen(isOpen);
-    if (!isOpen) {
-      setEditingPedido(null);
-      setForm({ cliente_id: '', observacoes: '' });
-      setItens([]);
-    }
-  };
+  // Use offline data
+  const clientes = useLiveQuery(() => offlineDb.clientes.toArray(), []);
+  const pecas = useLiveQuery(() => offlineDb.pecas.filter(p => p.ativo !== false).toArray(), []);
+  const { pedidos, isLoading, createPedido, updatePedido } = useOfflinePedidos(user?.id, viewAll, isAdmin);
 
   const [openPopovers, setOpenPopovers] = useState<Record<number, boolean>>({});
   
@@ -300,7 +144,31 @@ export default function Pedidos() {
     return peca ? `${peca.codigo} - ${peca.nome}` : 'Selecione a peça';
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleEditPedido = (pedido: any) => {
+    setEditingPedido(pedido);
+    setForm({
+      cliente_id: pedido.cliente_id,
+      observacoes: pedido.observacoes || '',
+    });
+    setItens(
+      pedido.pedido_itens?.map((item: any) => ({
+        peca_id: item.peca_id,
+        quantidade: item.quantidade,
+      })) || []
+    );
+    setOpen(true);
+  };
+
+  const handleCloseDialog = (isOpen: boolean) => {
+    setOpen(isOpen);
+    if (!isOpen) {
+      setEditingPedido(null);
+      setForm({ cliente_id: '', observacoes: '' });
+      setItens([]);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.cliente_id) {
       toast({ variant: 'destructive', title: 'Selecione um cliente' });
@@ -310,10 +178,33 @@ export default function Pedidos() {
       toast({ variant: 'destructive', title: 'Adicione pelo menos uma peça válida' });
       return;
     }
-    if (editingPedido) {
-      updatePedido.mutate();
-    } else {
-      createPedido.mutate();
+
+    setIsSubmitting(true);
+    try {
+      if (editingPedido) {
+        await updatePedido(editingPedido.id, {
+          cliente_id: form.cliente_id,
+          observacoes: form.observacoes,
+          itens,
+        });
+        toast({ title: 'Pedido atualizado!' + (!isOnline ? ' Será sincronizado quando online.' : '') });
+      } else {
+        await createPedido({
+          solicitante_id: user!.id,
+          cliente_id: form.cliente_id,
+          observacoes: form.observacoes,
+          itens,
+        });
+        toast({ title: 'Pedido criado!' + (!isOnline ? ' Será sincronizado quando online.' : '') });
+      }
+      setOpen(false);
+      setEditingPedido(null);
+      setForm({ cliente_id: '', observacoes: '' });
+      setItens([]);
+    } catch (error: any) {
+      toast({ variant: 'destructive', title: 'Erro ao salvar pedido', description: error.message });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -322,8 +213,14 @@ export default function Pedidos() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Pedidos de Peças</h1>
-          <p className="text-muted-foreground">
+          <p className="text-muted-foreground flex items-center gap-2">
             {isAdmin && viewAll ? 'Todos os pedidos' : 'Seus pedidos'}
+            {!isOnline && (
+              <Badge variant="outline" className="text-orange-500 border-orange-300">
+                <CloudOff className="h-3 w-3 mr-1" />
+                Offline
+              </Badge>
+            )}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -345,7 +242,15 @@ export default function Pedidos() {
           </DialogTrigger>
           <DialogContent className="max-w-lg">
             <DialogHeader>
-              <DialogTitle>{editingPedido ? 'Editar Pedido' : 'Novo Pedido de Peças'}</DialogTitle>
+              <DialogTitle className="flex items-center gap-2">
+                {editingPedido ? 'Editar Pedido' : 'Novo Pedido de Peças'}
+                {!isOnline && (
+                  <Badge variant="outline" className="text-orange-500 border-orange-300 text-xs">
+                    <CloudOff className="h-3 w-3 mr-1" />
+                    Offline
+                  </Badge>
+                )}
+              </DialogTitle>
             </DialogHeader>
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
@@ -483,13 +388,14 @@ export default function Pedidos() {
                 />
               </div>
 
-              <Button type="submit" className="w-full" disabled={createPedido.isPending || updatePedido.isPending}>
-                {(createPedido.isPending || updatePedido.isPending) ? (
+              <Button type="submit" className="w-full" disabled={isSubmitting}>
+                {isSubmitting ? (
                   <Loader2 className="h-4 w-4 animate-spin" />
-                ) : editingPedido ? (
-                  'Salvar Alterações'
                 ) : (
-                  'Criar Pedido'
+                  <>
+                    {!isOnline && <CloudOff className="mr-2 h-4 w-4" />}
+                    {editingPedido ? 'Salvar Alterações' : 'Criar Pedido'}
+                  </>
                 )}
               </Button>
             </form>
@@ -598,17 +504,24 @@ export default function Pedidos() {
             </TableHeader>
             <TableBody>
               {filteredAndSortedPedidos.map((pedido) => (
-                <TableRow key={pedido.id}>
+                <TableRow key={pedido.id} className={pedido._pendingSync ? 'bg-orange-50/50' : ''}>
                   <TableCell className="whitespace-nowrap">
-                    {format(new Date(pedido.created_at), "dd/MM/yyyy", { locale: ptBR })}
+                    <div className="flex items-center gap-1">
+                      {pedido._pendingSync && (
+                        <CloudOff className="h-3 w-3 text-orange-500" />
+                      )}
+                      <span>
+                        {format(new Date(pedido.created_at), "dd/MM/yyyy", { locale: ptBR })}
+                      </span>
+                    </div>
                     <span className="block text-xs text-muted-foreground">
                       {format(new Date(pedido.created_at), "HH:mm", { locale: ptBR })}
                     </span>
                   </TableCell>
                   {isAdmin && viewAll && (
                     <TableCell>
-                      <div className="font-medium">{(pedido as any).solicitante?.nome || '-'}</div>
-                      <div className="text-xs text-muted-foreground">{(pedido as any).solicitante?.email}</div>
+                      <div className="font-medium">{pedido.solicitante?.nome || '-'}</div>
+                      <div className="text-xs text-muted-foreground">{pedido.solicitante?.email}</div>
                     </TableCell>
                   )}
                   <TableCell>
@@ -645,7 +558,8 @@ export default function Pedidos() {
                     </Popover>
                   </TableCell>
                   <TableCell>
-                    <Badge variant="outline" className={statusColors[pedido.status]}>
+                    <Badge variant="outline" className={cn(statusColors[pedido.status], pedido._pendingSync && 'border-dashed')}>
+                      {pedido._pendingSync && <CloudOff className="h-3 w-3 mr-1" />}
                       {statusLabels[pedido.status]}
                     </Badge>
                   </TableCell>

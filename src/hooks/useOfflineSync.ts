@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { offlineDb, SyncQueueItem } from "@/lib/offline-db";
+import { syncPedidosFromServer } from "@/hooks/useOfflinePedidos";
 import { toast } from "sonner";
 
 export type SyncStatus = "idle" | "syncing" | "error" | "offline";
@@ -92,6 +93,10 @@ export function useOfflineSync() {
           await offlineDb.estoque.bulkPut([...(data || []), ...pendingEstoque]);
           break;
         }
+        case "pedidos": {
+          // Use dedicated sync function for pedidos
+          return await syncPedidosFromServer();
+        }
       }
       
       await offlineDb.setLastSync(table);
@@ -143,6 +148,12 @@ export function useOfflineSync() {
         } else if (tableName === "estoque_cliente") {
           const result = await supabase.from("estoque_cliente").insert(cleanData as never);
           if (result.error) throw result.error;
+        } else if (tableName === "pedidos") {
+          const result = await supabase.from("pedidos").insert(cleanData as never);
+          if (result.error) throw result.error;
+        } else if (tableName === "pedido_itens") {
+          const result = await supabase.from("pedido_itens").insert(cleanData as never);
+          if (result.error) throw result.error;
         }
         
         // Update local record to mark as synced
@@ -150,6 +161,10 @@ export function useOfflineSync() {
           await offlineDb.visitas.update(data.id as string, { _pendingSync: false, sincronizado: true });
         } else if (table === "estoque" && data.id) {
           await offlineDb.estoque.update(data.id as string, { _pendingSync: false });
+        } else if (table === "pedidos" && data.id) {
+          await offlineDb.pedidos.update(data.id as string, { _pendingSync: false });
+        } else if (table === "pedido_itens" && data.id) {
+          await offlineDb.pedido_itens.update(data.id as string, { _pendingSync: false });
         }
         break;
       }
@@ -167,6 +182,9 @@ export function useOfflineSync() {
         } else if (tableName === "estoque_cliente") {
           const result = await supabase.from("estoque_cliente").update(cleanData as never).eq("id", id);
           if (result.error) throw result.error;
+        } else if (tableName === "pedidos") {
+          const result = await supabase.from("pedidos").update(cleanData as never).eq("id", id);
+          if (result.error) throw result.error;
         }
         break;
       }
@@ -178,6 +196,9 @@ export function useOfflineSync() {
           if (result.error) throw result.error;
         } else if (tableName === "estoque_cliente") {
           const result = await supabase.from("estoque_cliente").delete().eq("id", id);
+          if (result.error) throw result.error;
+        } else if (tableName === "pedido_itens") {
+          const result = await supabase.from("pedido_itens").delete().eq("id", id);
           if (result.error) throw result.error;
         }
         break;
@@ -199,7 +220,7 @@ export function useOfflineSync() {
       await processSyncQueue();
       
       // Then, pull latest data from server
-      const tables = ["clientes", "pecas", "produtos_quimicos", "visitas", "estoque"];
+      const tables = ["clientes", "pecas", "produtos_quimicos", "visitas", "estoque", "pedidos"];
       const results = await Promise.all(tables.map(syncTableFromServer));
       
       if (results.every(Boolean)) {

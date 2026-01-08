@@ -76,6 +76,36 @@ export interface OfflineEstoque {
   _localId?: string;
 }
 
+export interface OfflinePedido {
+  id: string;
+  solicitante_id: string;
+  cliente_id: string;
+  status: string;
+  observacoes?: string | null;
+  omie_pedido_id?: string | null;
+  omie_nf_numero?: string | null;
+  omie_data_faturamento?: string | null;
+  created_at: string;
+  updated_at: string;
+  // Offline-specific fields
+  _pendingSync?: boolean;
+  // Nested data for display (not synced)
+  clientes?: { nome: string; fazenda?: string | null };
+  pedido_itens?: OfflinePedidoItem[];
+}
+
+export interface OfflinePedidoItem {
+  id: string;
+  pedido_id: string;
+  peca_id: string;
+  quantidade: number;
+  created_at: string;
+  // Offline-specific fields
+  _pendingSync?: boolean;
+  // Nested data for display
+  pecas?: { nome: string; codigo: string };
+}
+
 export interface SyncQueueItem {
   id?: number;
   table: string;
@@ -97,18 +127,22 @@ class OfflineDatabase extends Dexie {
   produtos_quimicos!: Table<OfflineProdutoQuimico, string>;
   visitas!: Table<OfflineVisita, string>;
   estoque!: Table<OfflineEstoque, string>;
+  pedidos!: Table<OfflinePedido, string>;
+  pedido_itens!: Table<OfflinePedidoItem, string>;
   syncQueue!: Table<SyncQueueItem, number>;
   syncMeta!: Table<SyncMeta, string>;
 
   constructor() {
     super("RumiFieldDB");
 
-    this.version(1).stores({
+    this.version(2).stores({
       clientes: "id, nome, status, cidade, estado",
       pecas: "id, codigo, nome, ativo",
       produtos_quimicos: "id, nome, ativo",
       visitas: "id, tecnico_id, cliente_id, data_visita, _pendingSync",
       estoque: "id, cliente_id, produto_id, data_afericao, _pendingSync",
+      pedidos: "id, solicitante_id, cliente_id, status, created_at, _pendingSync",
+      pedido_itens: "id, pedido_id, peca_id, _pendingSync",
       syncQueue: "++id, table, operation, createdAt",
       syncMeta: "id, table, lastSync",
     });
@@ -121,6 +155,8 @@ class OfflineDatabase extends Dexie {
     await this.produtos_quimicos.clear();
     await this.visitas.clear();
     await this.estoque.clear();
+    await this.pedidos.clear();
+    await this.pedido_itens.clear();
     await this.syncQueue.clear();
     await this.syncMeta.clear();
   }
