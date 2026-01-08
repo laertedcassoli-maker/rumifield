@@ -227,8 +227,8 @@ export default function Pedidos() {
 
   return (
     <div className="space-y-6 animate-fade-in w-full overflow-x-hidden">
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
           <h1 className="text-2xl font-bold">Pedidos de Peças</h1>
           <p className="text-muted-foreground flex items-center gap-2">
             {isAdmin && viewAll ? 'Todos os pedidos' : 'Seus pedidos'}
@@ -240,8 +240,9 @@ export default function Pedidos() {
             )}
           </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           {isAdmin && (
+
             <Button 
               variant={viewAll ? "secondary" : "outline"} 
               size="sm"
