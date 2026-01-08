@@ -596,6 +596,16 @@ export default function Pedidos() {
                     />
                   </div>
 
+                  {/* Total de itens */}
+                  {itens.length > 0 && (
+                    <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50 border">
+                      <span className="text-sm text-muted-foreground">Total de peças</span>
+                      <span className="font-bold text-lg">
+                        {itens.reduce((sum, item) => sum + item.quantidade, 0)} {itens.reduce((sum, item) => sum + item.quantidade, 0) === 1 ? 'unidade' : 'unidades'}
+                      </span>
+                    </div>
+                  )}
+
                   <Button type="submit" className="w-full" disabled={isSubmitting}>
                     {isSubmitting ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
