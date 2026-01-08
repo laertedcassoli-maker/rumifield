@@ -2,8 +2,8 @@ import { ReactNode } from 'react';
 import { SidebarProvider, SidebarTrigger, SidebarInset } from '@/components/ui/sidebar';
 import { AppSidebar } from './AppSidebar';
 import { useAuth } from '@/contexts/AuthContext';
-import { Navigate, useLocation } from 'react-router-dom';
-import { Loader2 } from 'lucide-react';
+import { Navigate, useLocation, Link } from 'react-router-dom';
+import { Loader2, Home } from 'lucide-react';
 import { OfflineBanner } from '@/components/OfflineBanner';
 import { useOffline } from '@/contexts/OfflineContext';
 
@@ -26,6 +26,7 @@ export function AppLayout({ children }: AppLayoutProps) {
   const { user, loading } = useAuth();
   const location = useLocation();
   const pageTitle = pageTitles[location.pathname] || 'RumiField';
+  const isHomePage = location.pathname === '/';
 
   if (loading) {
     return (
@@ -54,6 +55,17 @@ export function AppLayout({ children }: AppLayoutProps) {
         <main className="flex-1 overflow-auto p-4 md:p-6">
           {children}
         </main>
+        
+        {/* Floating Home Button - Mobile only, hidden on home page */}
+        {!isHomePage && (
+          <Link
+            to="/"
+            className="fixed bottom-6 right-6 md:hidden z-50 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg active:scale-95 transition-transform"
+            aria-label="Voltar ao Início"
+          >
+            <Home className="h-6 w-6" />
+          </Link>
+        )}
       </SidebarInset>
     </SidebarProvider>
   );
