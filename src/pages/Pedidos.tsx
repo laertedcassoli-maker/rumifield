@@ -39,7 +39,7 @@ const statusLabels: Record<string, string> = {
 export default function Pedidos() {
   const { user, role } = useAuth();
   const { toast } = useToast();
-  const { isOnline } = useOffline();
+  const { isOnline, triggerSync } = useOffline();
   const [open, setOpen] = useState(false);
   const [editingPedido, setEditingPedido] = useState<any>(null);
   const [form, setForm] = useState({ cliente_id: '', observacoes: '' });
@@ -194,7 +194,7 @@ export default function Pedidos() {
           observacoes: form.observacoes,
           itens,
         });
-        toast({ title: 'Pedido atualizado!' + (!isOnline ? ' Será sincronizado quando online.' : '') });
+        toast({ title: 'Pedido atualizado!' });
       } else {
         await createPedido({
           solicitante_id: user!.id,
@@ -202,13 +202,22 @@ export default function Pedidos() {
           observacoes: form.observacoes,
           itens,
         });
-        toast({ title: 'Pedido criado!' + (!isOnline ? ' Será sincronizado quando online.' : '') });
+        toast({ title: 'Pedido criado!' });
       }
       setOpen(false);
       setEditingPedido(null);
       setForm({ cliente_id: '', observacoes: '' });
       setItens([]);
       setShowConfirmation(false);
+      setClienteSearch('');
+      setPecaSearches({});
+      
+      // Force sync when online
+      if (isOnline) {
+        setTimeout(() => {
+          triggerSync();
+        }, 500);
+      }
     } catch (error: any) {
       toast({ variant: 'destructive', title: 'Erro ao salvar pedido', description: error.message });
     } finally {
