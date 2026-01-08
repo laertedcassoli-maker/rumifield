@@ -452,129 +452,205 @@ export default function Pedidos() {
           </CardContent>
         </Card>
       ) : (
-        <Card>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>
-                  <Button 
-                    variant="ghost" 
-                    className="h-auto p-0 font-medium hover:bg-transparent"
-                    onClick={() => toggleSort('created_at')}
-                  >
-                    Data
-                    <ArrowUpDown className="ml-2 h-4 w-4" />
-                  </Button>
-                </TableHead>
-                {isAdmin && viewAll && (
-                  <TableHead>Solicitante</TableHead>
-                )}
-                <TableHead>
-                  <Button 
-                    variant="ghost" 
-                    className="h-auto p-0 font-medium hover:bg-transparent"
-                    onClick={() => toggleSort('cliente')}
-                  >
-                    Cliente / Fazenda
-                    <ArrowUpDown className="ml-2 h-4 w-4" />
-                  </Button>
-                </TableHead>
-                <TableHead>Peças</TableHead>
-                <TableHead>
-                  <Button 
-                    variant="ghost" 
-                    className="h-auto p-0 font-medium hover:bg-transparent"
-                    onClick={() => toggleSort('status')}
-                  >
-                    Status
-                    <ArrowUpDown className="ml-2 h-4 w-4" />
-                  </Button>
-                </TableHead>
-                <TableHead>NF</TableHead>
-                <TableHead className="w-[60px]"></TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredAndSortedPedidos.map((pedido) => (
-                <TableRow key={pedido.id} className={pedido._pendingSync ? 'bg-orange-50/50' : ''}>
-                  <TableCell className="whitespace-nowrap">
-                    <div className="flex items-center gap-1">
-                      {pedido._pendingSync && (
-                        <CloudOff className="h-3 w-3 text-orange-500" />
+        <>
+          {/* Mobile: Cards */}
+          <div className="space-y-3 md:hidden">
+            {filteredAndSortedPedidos.map((pedido) => (
+              <Card key={pedido.id} className={cn(pedido._pendingSync && 'border-orange-300 border-dashed')}>
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <Badge variant="outline" className={cn(statusColors[pedido.status], 'text-xs')}>
+                          {pedido._pendingSync && <CloudOff className="h-3 w-3 mr-1" />}
+                          {statusLabels[pedido.status]}
+                        </Badge>
+                        {pedido._pendingSync && (
+                          <span className="text-xs text-orange-600">Pendente sync</span>
+                        )}
+                      </div>
+                      <h3 className="font-medium mt-2 truncate">{pedido.clientes?.nome}</h3>
+                      {pedido.clientes?.fazenda && (
+                        <p className="text-sm text-muted-foreground truncate">{pedido.clientes.fazenda}</p>
                       )}
-                      <span>
-                        {format(new Date(pedido.created_at), "dd/MM/yyyy", { locale: ptBR })}
-                      </span>
                     </div>
-                    <span className="block text-xs text-muted-foreground">
-                      {format(new Date(pedido.created_at), "HH:mm", { locale: ptBR })}
-                    </span>
-                  </TableCell>
-                  {isAdmin && viewAll && (
-                    <TableCell>
-                      <div className="font-medium">{pedido.solicitante?.nome || '-'}</div>
-                      <div className="text-xs text-muted-foreground">{pedido.solicitante?.email}</div>
-                    </TableCell>
-                  )}
-                  <TableCell>
-                    <div className="font-medium">{pedido.clientes?.nome}</div>
-                    {pedido.clientes?.fazenda && (
-                      <div className="text-sm text-muted-foreground">{pedido.clientes.fazenda}</div>
+                    {pedido.status === 'solicitado' && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-9 w-9 shrink-0"
+                        onClick={() => handleEditPedido(pedido)}
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
                     )}
-                  </TableCell>
-                  <TableCell>
+                  </div>
+                  
+                  <div className="flex items-center justify-between mt-3 pt-3 border-t text-sm">
+                    <div className="flex items-center gap-1 text-muted-foreground">
+                      <span>{format(new Date(pedido.created_at), "dd/MM/yy HH:mm", { locale: ptBR })}</span>
+                    </div>
                     <Popover>
                       <PopoverTrigger asChild>
-                        <Button variant="ghost" size="sm" className="h-auto p-1 gap-1.5">
-                          <Package className="h-4 w-4 text-muted-foreground" />
-                          <span>{pedido.pedido_itens?.length || 0} {pedido.pedido_itens?.length === 1 ? 'item' : 'itens'}</span>
-                          <Eye className="h-3 w-3 text-muted-foreground" />
+                        <Button variant="outline" size="sm" className="h-8 gap-1.5">
+                          <Package className="h-4 w-4" />
+                          <span>{pedido.pedido_itens?.length || 0} {pedido.pedido_itens?.length === 1 ? 'peça' : 'peças'}</span>
                         </Button>
                       </PopoverTrigger>
-                      <PopoverContent className="w-auto p-3" align="start">
+                      <PopoverContent className="w-72 p-3" align="end">
                         <div className="space-y-2">
                           <p className="text-sm font-medium">Itens do Pedido</p>
-                          <div className="space-y-1.5">
+                          <div className="space-y-1.5 max-h-48 overflow-y-auto">
                             {pedido.pedido_itens?.map((item: any) => (
-                              <div key={item.id} className="flex items-center justify-between gap-4 text-sm">
-                                <div>
+                              <div key={item.id} className="flex items-center justify-between gap-2 text-sm">
+                                <div className="min-w-0 flex-1">
                                   <span className="font-medium">{item.pecas?.codigo}</span>
-                                  <span className="text-muted-foreground"> - {item.pecas?.nome}</span>
+                                  <span className="text-muted-foreground truncate block text-xs">{item.pecas?.nome}</span>
                                 </div>
-                                <span className="font-medium">x{item.quantidade}</span>
+                                <span className="font-medium shrink-0">x{item.quantidade}</span>
                               </div>
                             ))}
                           </div>
                         </div>
                       </PopoverContent>
                     </Popover>
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className={cn(statusColors[pedido.status], pedido._pendingSync && 'border-dashed')}>
-                      {pedido._pendingSync && <CloudOff className="h-3 w-3 mr-1" />}
-                      {statusLabels[pedido.status]}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {pedido.omie_nf_numero || '-'}
-                  </TableCell>
-                  <TableCell>
-                    {pedido.status === 'solicitado' && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        onClick={() => handleEditPedido(pedido)}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                    )}
-                  </TableCell>
+                  </div>
+                  
+                  {isAdmin && viewAll && pedido.solicitante && (
+                    <div className="mt-2 pt-2 border-t text-xs text-muted-foreground">
+                      Solicitado por: {pedido.solicitante?.nome}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          {/* Desktop: Table */}
+          <Card className="hidden md:block">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>
+                    <Button 
+                      variant="ghost" 
+                      className="h-auto p-0 font-medium hover:bg-transparent"
+                      onClick={() => toggleSort('created_at')}
+                    >
+                      Data
+                      <ArrowUpDown className="ml-2 h-4 w-4" />
+                    </Button>
+                  </TableHead>
+                  {isAdmin && viewAll && (
+                    <TableHead>Solicitante</TableHead>
+                  )}
+                  <TableHead>
+                    <Button 
+                      variant="ghost" 
+                      className="h-auto p-0 font-medium hover:bg-transparent"
+                      onClick={() => toggleSort('cliente')}
+                    >
+                      Cliente / Fazenda
+                      <ArrowUpDown className="ml-2 h-4 w-4" />
+                    </Button>
+                  </TableHead>
+                  <TableHead>Peças</TableHead>
+                  <TableHead>
+                    <Button 
+                      variant="ghost" 
+                      className="h-auto p-0 font-medium hover:bg-transparent"
+                      onClick={() => toggleSort('status')}
+                    >
+                      Status
+                      <ArrowUpDown className="ml-2 h-4 w-4" />
+                    </Button>
+                  </TableHead>
+                  <TableHead>NF</TableHead>
+                  <TableHead className="w-[60px]"></TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </Card>
+              </TableHeader>
+              <TableBody>
+                {filteredAndSortedPedidos.map((pedido) => (
+                  <TableRow key={pedido.id} className={pedido._pendingSync ? 'bg-orange-50/50' : ''}>
+                    <TableCell className="whitespace-nowrap">
+                      <div className="flex items-center gap-1">
+                        {pedido._pendingSync && (
+                          <CloudOff className="h-3 w-3 text-orange-500" />
+                        )}
+                        <span>
+                          {format(new Date(pedido.created_at), "dd/MM/yyyy", { locale: ptBR })}
+                        </span>
+                      </div>
+                      <span className="block text-xs text-muted-foreground">
+                        {format(new Date(pedido.created_at), "HH:mm", { locale: ptBR })}
+                      </span>
+                    </TableCell>
+                    {isAdmin && viewAll && (
+                      <TableCell>
+                        <div className="font-medium">{pedido.solicitante?.nome || '-'}</div>
+                        <div className="text-xs text-muted-foreground">{pedido.solicitante?.email}</div>
+                      </TableCell>
+                    )}
+                    <TableCell>
+                      <div className="font-medium">{pedido.clientes?.nome}</div>
+                      {pedido.clientes?.fazenda && (
+                        <div className="text-sm text-muted-foreground">{pedido.clientes.fazenda}</div>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button variant="ghost" size="sm" className="h-auto p-1 gap-1.5">
+                            <Package className="h-4 w-4 text-muted-foreground" />
+                            <span>{pedido.pedido_itens?.length || 0} {pedido.pedido_itens?.length === 1 ? 'item' : 'itens'}</span>
+                            <Eye className="h-3 w-3 text-muted-foreground" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-3" align="start">
+                          <div className="space-y-2">
+                            <p className="text-sm font-medium">Itens do Pedido</p>
+                            <div className="space-y-1.5">
+                              {pedido.pedido_itens?.map((item: any) => (
+                                <div key={item.id} className="flex items-center justify-between gap-4 text-sm">
+                                  <div>
+                                    <span className="font-medium">{item.pecas?.codigo}</span>
+                                    <span className="text-muted-foreground"> - {item.pecas?.nome}</span>
+                                  </div>
+                                  <span className="font-medium">x{item.quantidade}</span>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </PopoverContent>
+                      </Popover>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className={cn(statusColors[pedido.status], pedido._pendingSync && 'border-dashed')}>
+                        {pedido._pendingSync && <CloudOff className="h-3 w-3 mr-1" />}
+                        {statusLabels[pedido.status]}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {pedido.omie_nf_numero || '-'}
+                    </TableCell>
+                    <TableCell>
+                      {pedido.status === 'solicitado' && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => handleEditPedido(pedido)}
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </Card>
+        </>
       )}
     </div>
   );
