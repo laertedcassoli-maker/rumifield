@@ -69,14 +69,27 @@ export default function Pedidos() {
     if (!pedidos) return [];
     
     let filtered = pedidos.filter(pedido => {
-      const searchLower = searchTerm.toLowerCase();
-      const matchesSearch = searchTerm === '' || 
-        pedido.clientes?.nome?.toLowerCase().includes(searchLower) ||
-        pedido.clientes?.fazenda?.toLowerCase().includes(searchLower) ||
-        pedido.pedido_itens?.some((item: any) => 
-          item.pecas?.codigo?.toLowerCase().includes(searchLower) ||
-          item.pecas?.nome?.toLowerCase().includes(searchLower)
+      const searchLower = searchTerm.toLowerCase().trim();
+      const searchWords = searchLower.split(/\s+/).filter(w => w.length > 0);
+      
+      const matchesSearch = searchTerm === '' || (() => {
+        // Check if client/farm matches all words
+        const clienteNome = pedido.clientes?.nome?.toLowerCase() || '';
+        const clienteFazenda = pedido.clientes?.fazenda?.toLowerCase() || '';
+        const clienteMatch = searchWords.every(word => 
+          clienteNome.includes(word) || clienteFazenda.includes(word)
         );
+        if (clienteMatch) return true;
+        
+        // Check if any part matches all words
+        return pedido.pedido_itens?.some((item: any) => {
+          const pecaCodigo = item.pecas?.codigo?.toLowerCase() || '';
+          const pecaNome = item.pecas?.nome?.toLowerCase() || '';
+          return searchWords.every(word => 
+            pecaCodigo.includes(word) || pecaNome.includes(word)
+          );
+        });
+      })();
       
       const matchesStatus = statusFilter === 'all' || pedido.status === statusFilter;
       
