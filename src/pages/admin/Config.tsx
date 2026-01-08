@@ -78,6 +78,7 @@ export default function AdminConfig() {
   // Menu visibility states
   const [estoqueMenuEnabled, setEstoqueMenuEnabled] = useState(true);
   const [inicioMenuEnabled, setInicioMenuEnabled] = useState(true);
+  const [visitasMenuEnabled, setVisitasMenuEnabled] = useState(false);
 
   // Set form values when config loads
   useEffect(() => {
@@ -86,10 +87,12 @@ export default function AdminConfig() {
       const appSecret = allConfigs.find(c => c.chave === 'omie_app_secret')?.valor || '';
       const estoqueEnabled = allConfigs.find(c => c.chave === 'estoque_menu_enabled')?.valor !== 'false';
       const inicioEnabled = allConfigs.find(c => c.chave === 'inicio_menu_enabled')?.valor !== 'false';
+      const visitasEnabled = allConfigs.find(c => c.chave === 'visitas_menu_enabled')?.valor === 'true';
       setOmieAppKey(appKey);
       setOmieAppSecret(appSecret);
       setEstoqueMenuEnabled(estoqueEnabled);
       setInicioMenuEnabled(inicioEnabled);
+      setVisitasMenuEnabled(visitasEnabled);
     }
   }, [allConfigs]);
 
@@ -505,6 +508,35 @@ export default function AdminConfig() {
     }
   };
 
+  const handleToggleVisitasMenu = async (enabled: boolean) => {
+    setVisitasMenuEnabled(enabled);
+    try {
+      const { data: existing } = await supabase
+        .from('configuracoes')
+        .select('id')
+        .eq('chave', 'visitas_menu_enabled')
+        .single();
+
+      if (existing) {
+        await supabase
+          .from('configuracoes')
+          .update({ valor: enabled ? 'true' : 'false' })
+          .eq('chave', 'visitas_menu_enabled');
+      } else {
+        await supabase
+          .from('configuracoes')
+          .insert({ chave: 'visitas_menu_enabled', valor: enabled ? 'true' : 'false', descricao: 'Exibir menu Visitas' });
+      }
+
+      queryClient.invalidateQueries({ queryKey: ['app-config'] });
+      queryClient.invalidateQueries({ queryKey: ['menu-config'] });
+      toast({ title: enabled ? 'Menu Visitas ativado' : 'Menu Visitas desativado' });
+    } catch (error: any) {
+      setVisitasMenuEnabled(!enabled);
+      toast({ variant: 'destructive', title: 'Erro ao salvar configuração', description: error.message });
+    }
+  };
+
   const handleTestImilkConnection = async () => {
     setIsTestingImilk(true);
     setImilkStatus('idle');
@@ -572,7 +604,7 @@ export default function AdminConfig() {
                   onCheckedChange={handleToggleInicioMenu}
                 />
               </div>
-              <div className="flex items-center justify-between py-2">
+              <div className="flex items-center justify-between py-2 border-b">
                 <div>
                   <p className="font-medium">Menu Estoque Químicos</p>
                   <p className="text-sm text-muted-foreground">
@@ -582,6 +614,18 @@ export default function AdminConfig() {
                 <Switch
                   checked={estoqueMenuEnabled}
                   onCheckedChange={handleToggleEstoqueMenu}
+                />
+              </div>
+              <div className="flex items-center justify-between py-2">
+                <div>
+                  <p className="font-medium">Menu Visitas</p>
+                  <p className="text-sm text-muted-foreground">
+                    Registro de visitas técnicas aos clientes
+                  </p>
+                </div>
+                <Switch
+                  checked={visitasMenuEnabled}
+                  onCheckedChange={handleToggleVisitasMenu}
                 />
               </div>
             </CardContent>

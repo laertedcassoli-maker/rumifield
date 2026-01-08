@@ -23,7 +23,7 @@ export function AppSidebar() {
       const { data, error } = await supabase
         .from('configuracoes')
         .select('chave, valor')
-        .in('chave', ['estoque_menu_enabled', 'inicio_menu_enabled']);
+        .in('chave', ['estoque_menu_enabled', 'inicio_menu_enabled', 'visitas_menu_enabled']);
       if (error) throw error;
       return data;
     },
@@ -33,6 +33,7 @@ export function AppSidebar() {
 
   const showEstoqueMenu = menuConfigs?.find(c => c.chave === 'estoque_menu_enabled')?.valor !== 'false';
   const showInicioMenu = menuConfigs?.find(c => c.chave === 'inicio_menu_enabled')?.valor !== 'false';
+  const showVisitasMenu = menuConfigs?.find(c => c.chave === 'visitas_menu_enabled')?.valor === 'true';
   
   const mainMenuItems = [
     ...(showInicioMenu ? [{
@@ -40,7 +41,11 @@ export function AppSidebar() {
       icon: Home,
       url: '/'
     }] : []),
-    // { title: 'Visitas', icon: MapPin, url: '/visitas' }, // Temporariamente oculto
+    ...(showVisitasMenu ? [{
+      title: 'Visitas',
+      icon: MapPin,
+      url: '/visitas'
+    }] : []),
     {
       title: 'Solicitação Peças',
       icon: ShoppingCart,
