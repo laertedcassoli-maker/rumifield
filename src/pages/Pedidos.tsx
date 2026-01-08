@@ -240,7 +240,7 @@ export default function Pedidos() {
               Novo Pedido
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-lg max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">
                 {editingPedido ? 'Editar Pedido' : 'Novo Pedido de Peças'}
@@ -252,7 +252,7 @@ export default function Pedidos() {
                 )}
               </DialogTitle>
             </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4 flex-1 overflow-y-auto pr-1">
+            <form onSubmit={handleSubmit} className="space-y-4">
               <div className="space-y-2">
                 <Label>Cliente / Fazenda</Label>
                 <Popover open={clientePopoverOpen} onOpenChange={setClientePopoverOpen}>
@@ -313,13 +313,13 @@ export default function Pedidos() {
 
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <Label>Peças</Label>
+                  <Label>Peças ({itens.length})</Label>
                   <Button type="button" variant="outline" size="sm" onClick={addItem}>
                     <Plus className="mr-1 h-3 w-3" />
                     Adicionar
                   </Button>
                 </div>
-                <div className="space-y-3 max-h-48 overflow-y-auto">
+                <div className="space-y-2">
                   {itens.length === 0 && (
                     <p className="text-sm text-muted-foreground text-center py-4">
                       Clique em "Adicionar" para incluir peças ao pedido
@@ -331,82 +331,66 @@ export default function Pedidos() {
                     const selectedPeca = pecas?.find(p => p.id === item.peca_id);
                     
                     return (
-                      <div key={index} className="p-3 rounded-lg border bg-muted/30 space-y-2">
-                        <div className="flex items-start gap-2">
-                          <div className="flex-1">
-                            <Select 
-                              value={item.peca_id} 
-                              onValueChange={(value) => updateItem(index, 'peca_id', value)}
-                            >
-                              <SelectTrigger className="w-full">
-                                <SelectValue placeholder="Selecione a peça">
-                                  {selectedPeca ? (
-                                    <span className="truncate block text-left">
-                                      {selectedPeca.codigo} - {selectedPeca.descricao || selectedPeca.nome}
-                                    </span>
-                                  ) : (
-                                    'Selecione a peça'
-                                  )}
-                                </SelectValue>
-                              </SelectTrigger>
-                              <SelectContent className="max-h-60">
-                                {availablePecas.map((peca) => (
-                                  <SelectItem key={peca.id} value={peca.id}>
-                                    <span className="font-medium">{peca.codigo}</span>
-                                    <span className="text-muted-foreground ml-1">
-                                      - {peca.descricao || peca.nome}
-                                    </span>
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-                          
+                      <div key={index} className="flex items-center gap-2 p-2 rounded-lg border bg-muted/30">
+                        <div className="flex-1 min-w-0">
+                          <Select 
+                            value={item.peca_id} 
+                            onValueChange={(value) => updateItem(index, 'peca_id', value)}
+                          >
+                            <SelectTrigger className="w-full h-9">
+                              <SelectValue placeholder="Selecione a peça">
+                                {selectedPeca ? (
+                                  <span className="truncate text-sm">
+                                    {selectedPeca.codigo} - {selectedPeca.descricao || selectedPeca.nome}
+                                  </span>
+                                ) : (
+                                  'Selecione a peça'
+                                )}
+                              </SelectValue>
+                            </SelectTrigger>
+                            <SelectContent className="max-h-60">
+                              {availablePecas.map((peca) => (
+                                <SelectItem key={peca.id} value={peca.id}>
+                                  <span className="font-medium">{peca.codigo}</span>
+                                  <span className="text-muted-foreground ml-1">- {peca.descricao || peca.nome}</span>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        
+                        <div className="flex items-center gap-1 shrink-0">
                           <Button
                             type="button"
-                            variant="ghost"
+                            variant="outline"
                             size="icon"
-                            className="h-9 w-9 shrink-0"
-                            onClick={() => removeItem(index)}
+                            className="h-8 w-8"
+                            onClick={() => decrementQuantity(index)}
+                            disabled={item.quantidade <= 1}
                           >
-                            <Trash2 className="h-4 w-4 text-destructive" />
+                            <Minus className="h-3 w-3" />
+                          </Button>
+                          <span className="w-8 text-center text-sm font-medium">{item.quantidade}</span>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => incrementQuantity(index)}
+                          >
+                            <Plus className="h-3 w-3" />
                           </Button>
                         </div>
                         
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm font-medium">Quantidade:</span>
-                          <div className="flex items-center gap-1">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="icon"
-                              className="h-8 w-8"
-                              onClick={() => decrementQuantity(index)}
-                              disabled={item.quantidade <= 1}
-                            >
-                              <Minus className="h-3 w-3" />
-                            </Button>
-                            <Input
-                              type="number"
-                              min="1"
-                              value={item.quantidade}
-                              onChange={(e) => {
-                                const val = parseInt(e.target.value) || 1;
-                                updateItem(index, 'quantidade', Math.max(1, val));
-                              }}
-                              className="w-16 h-8 text-center"
-                            />
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="icon"
-                              className="h-8 w-8"
-                              onClick={() => incrementQuantity(index)}
-                            >
-                              <Plus className="h-3 w-3" />
-                            </Button>
-                          </div>
-                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 shrink-0"
+                          onClick={() => removeItem(index)}
+                        >
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
                       </div>
                     );
                   })}
