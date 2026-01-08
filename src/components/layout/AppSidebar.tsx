@@ -95,7 +95,7 @@ export function AppSidebar() {
   });
   return <Sidebar>
       <SidebarHeader className="border-b border-sidebar-border p-4">
-        <div className="flex items-center gap-3">
+        <Link to="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-sidebar-primary">
             <Play className="h-5 w-5 text-sidebar-primary-foreground" />
           </div>
@@ -103,7 +103,7 @@ export function AppSidebar() {
             <h1 className="font-semibold text-sidebar-foreground">RumiField</h1>
             <p className="text-xs text-sidebar-foreground/60">Gestão de Campo</p>
           </div>
-        </div>
+        </Link>
       </SidebarHeader>
 
       <SidebarContent>
