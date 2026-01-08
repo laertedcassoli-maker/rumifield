@@ -11,6 +11,7 @@ interface OmieProduto {
   codigo: string;
   descricao: string;
   inativo: string;
+  descricao_familia?: string;
 }
 
 interface OmieResponse {
@@ -74,7 +75,7 @@ serve(async (req) => {
             pagina: currentPage,
             registros_por_pagina: 50,
             apenas_importado_api: 'N',
-            filtrar_apenas_familia: 'RUMIFLOW',
+            inativo: 'N',
           }],
         }),
       });
@@ -94,9 +95,13 @@ serve(async (req) => {
       console.log(`Page ${currentPage}: ${data.registros || 0} records, total pages: ${data.total_de_paginas || 1}`);
       
       if (data.produto_servico_cadastro) {
-        // Filter only active products (inativo = 'N')
-        const activePecas = data.produto_servico_cadastro.filter(p => p.inativo === 'N');
-        allPecas.push(...activePecas);
+        // Filter only products from RUMIFLOW family (case insensitive)
+        const rumiflowPecas = data.produto_servico_cadastro.filter(p => {
+          const familia = (p.descricao_familia || '').toUpperCase();
+          return familia === 'RUMIFLOW' || familia.includes('RUMIFLOW');
+        });
+        console.log(`Found ${rumiflowPecas.length} RUMIFLOW products on page ${currentPage}`);
+        allPecas.push(...rumiflowPecas);
       }
 
       totalPages = data.total_de_paginas || 1;
