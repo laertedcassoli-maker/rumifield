@@ -100,10 +100,10 @@
     @apply border-border;
   }
 
-  html,
-  body {
+  /* Prevent horizontal scroll caused by off-canvas UI (e.g. mobile sidebar sheet) */
+  #root {
     width: 100%;
-    overflow-x: hidden;
+    overflow-x: clip;
   }
 
   body {
@@ -111,6 +111,7 @@
     font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
   }
 }
+
 
 
 @layer utilities {

@@ -226,7 +226,7 @@ export default function Pedidos() {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in w-full overflow-x-hidden">
+    <div className="space-y-6 animate-fade-in w-full">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
           <h1 className="text-2xl font-bold">Pedidos de Peças</h1>
