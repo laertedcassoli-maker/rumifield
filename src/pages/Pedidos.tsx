@@ -13,8 +13,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Loader2, Trash2, Minus, ArrowUpDown, Search, X, Eye, Pencil, CloudOff, ShoppingCart, Package } from 'lucide-react';
+import { Plus, Loader2, Trash2, Minus, ArrowUpDown, Search, X, Eye, Pencil, CloudOff, ShoppingCart, Package, Check, ChevronsUpDown } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -55,7 +56,7 @@ export default function Pedidos() {
   const { pedidos, isLoading, createPedido, updatePedido } = useOfflinePedidos(user?.id, viewAll, isAdmin);
 
   const [openPopovers, setOpenPopovers] = useState<Record<number, boolean>>({});
-  
+  const [clientePopoverOpen, setClientePopoverOpen] = useState(false);
   // Filter and sort state
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -254,18 +255,60 @@ export default function Pedidos() {
             <form onSubmit={handleSubmit} className="space-y-4 flex-1 overflow-y-auto pr-1">
               <div className="space-y-2">
                 <Label>Cliente / Fazenda</Label>
-                <Select value={form.cliente_id} onValueChange={(v) => setForm({ ...form, cliente_id: v })}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione o cliente" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {clientes?.map((cliente) => (
-                      <SelectItem key={cliente.id} value={cliente.id}>
-                        {cliente.nome} {cliente.fazenda && `- ${cliente.fazenda}`}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Popover open={clientePopoverOpen} onOpenChange={setClientePopoverOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      aria-expanded={clientePopoverOpen}
+                      className="w-full justify-between font-normal"
+                    >
+                      {form.cliente_id ? (
+                        <span className="truncate">
+                          {clientes?.find(c => c.id === form.cliente_id)?.nome}
+                          {clientes?.find(c => c.id === form.cliente_id)?.fazenda && 
+                            ` - ${clientes?.find(c => c.id === form.cliente_id)?.fazenda}`}
+                        </span>
+                      ) : (
+                        <span className="text-muted-foreground">Buscar cliente ou fazenda...</span>
+                      )}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Digite para buscar..." />
+                      <CommandList>
+                        <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
+                        <CommandGroup>
+                          {clientes?.map((cliente) => (
+                            <CommandItem
+                              key={cliente.id}
+                              value={`${cliente.nome} ${cliente.fazenda || ''}`}
+                              onSelect={() => {
+                                setForm({ ...form, cliente_id: cliente.id });
+                                setClientePopoverOpen(false);
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  form.cliente_id === cliente.id ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              <div className="flex flex-col">
+                                <span className="font-medium">{cliente.nome}</span>
+                                {cliente.fazenda && (
+                                  <span className="text-xs text-muted-foreground">{cliente.fazenda}</span>
+                                )}
+                              </div>
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
               </div>
 
               <div className="space-y-2">
