@@ -134,21 +134,18 @@ export default function Home() {
     <Link
       to={item.url}
       className={cn(
-        "flex flex-col items-center justify-center p-6 rounded-2xl border-2 border-transparent",
+        "flex flex-col items-center justify-center p-4 rounded-2xl border-2 border-transparent",
         "bg-card hover:border-primary/20 hover:shadow-lg transition-all duration-200",
         "active:scale-95 group"
       )}
     >
       <div className={cn(
-        "w-16 h-16 rounded-2xl flex items-center justify-center mb-4 transition-transform group-hover:scale-110",
+        "w-14 h-14 rounded-2xl flex items-center justify-center mb-2 transition-transform group-hover:scale-110",
         item.bgColor
       )}>
-        <item.icon className={cn("w-8 h-8", item.color)} />
+        <item.icon className={cn("w-7 h-7", item.color)} />
       </div>
       <h3 className="font-semibold text-center text-sm">{item.title}</h3>
-      <p className="text-xs text-muted-foreground text-center mt-1 line-clamp-2">
-        {item.description}
-      </p>
     </Link>
   );
 
