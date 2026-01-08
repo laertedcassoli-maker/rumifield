@@ -13,7 +13,8 @@ import {
   TrendingDown,
   Package,
   History,
-  FlaskConical
+  FlaskConical,
+  MapPin
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -36,7 +37,7 @@ export default function Home() {
       const { data, error } = await supabase
         .from('configuracoes')
         .select('chave, valor')
-        .in('chave', ['estoque_menu_enabled', 'inicio_menu_enabled']);
+        .in('chave', ['estoque_menu_enabled', 'inicio_menu_enabled', 'visitas_menu_enabled']);
       if (error) throw error;
       return data;
     },
@@ -44,10 +45,19 @@ export default function Home() {
   });
 
   const showEstoqueMenu = menuConfigs?.find(c => c.chave === 'estoque_menu_enabled')?.valor !== 'false';
+  const showVisitasMenu = menuConfigs?.find(c => c.chave === 'visitas_menu_enabled')?.valor === 'true';
   const isAdmin = role === 'admin' || role === 'gestor';
 
   // Main menu items
   const mainMenuItems: MenuItem[] = [
+    ...(showVisitasMenu ? [{
+      title: 'Visitas',
+      description: 'Registrar visitas técnicas',
+      icon: MapPin,
+      url: '/visitas',
+      color: 'text-rose-600',
+      bgColor: 'bg-rose-100 dark:bg-rose-900/30',
+    }] : []),
     {
       title: 'Solicitação Peças',
       description: 'Solicitar peças para clientes',
