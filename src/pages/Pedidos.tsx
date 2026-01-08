@@ -549,21 +549,23 @@ export default function Pedidos() {
                                   type="button"
                                   variant="outline"
                                   size="icon"
-                                  className="h-8 w-8"
+                                  className="h-9 w-9"
                                   onClick={() => decrementQuantity(index)}
                                   disabled={item.quantidade <= 1}
                                 >
-                                  <Minus className="h-3 w-3" />
+                                  <Minus className="h-4 w-4" />
                                 </Button>
-                                <span className="w-8 text-center text-sm font-medium">{item.quantidade}</span>
+                                <div className="min-w-14 h-9 flex items-center justify-center rounded-md bg-primary text-primary-foreground font-bold text-lg px-3">
+                                  {item.quantidade}
+                                </div>
                                 <Button
                                   type="button"
                                   variant="outline"
                                   size="icon"
-                                  className="h-8 w-8"
+                                  className="h-9 w-9"
                                   onClick={() => incrementQuantity(index)}
                                 >
-                                  <Plus className="h-3 w-3" />
+                                  <Plus className="h-4 w-4" />
                                 </Button>
                               </div>
                               
