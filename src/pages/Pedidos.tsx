@@ -411,7 +411,7 @@ export default function Pedidos() {
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <Label>Peças ({itens.length})</Label>
-                      <Button type="button" variant="outline" size="sm" onClick={addItem}>
+                      <Button type="button" size="sm" onClick={addItem} className="bg-green-600 hover:bg-green-700 text-white">
                         <Plus className="mr-1 h-3 w-3" />
                         Adicionar
                       </Button>
