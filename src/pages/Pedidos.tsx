@@ -253,9 +253,9 @@ export default function Pedidos() {
           )}
           <Dialog open={open} onOpenChange={handleCloseDialog}>
             <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Novo Pedido
+            <Button className="bg-success hover:bg-success/90 text-success-foreground">
+              <Plus className="h-4 w-4 md:mr-2" />
+              <span className="hidden md:inline">Novo Pedido</span>
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
