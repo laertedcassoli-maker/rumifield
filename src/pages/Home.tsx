@@ -31,7 +31,7 @@ export default function Home() {
   const { profile, role } = useAuth();
 
   // Load menu visibility config
-  const { data: menuConfigs } = useQuery({
+  const { data: menuConfigs, isLoading: isLoadingConfig } = useQuery({
     queryKey: ['menu-config'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -41,11 +41,13 @@ export default function Home() {
       if (error) throw error;
       return data;
     },
-    staleTime: 5000,
+    staleTime: 30000, // Cache for 30 seconds
+    gcTime: 60000,
   });
 
-  const showEstoqueMenu = menuConfigs?.find(c => c.chave === 'estoque_menu_enabled')?.valor !== 'false';
-  const showVisitasMenu = menuConfigs?.find(c => c.chave === 'visitas_menu_enabled')?.valor === 'true';
+  // Use defaults while loading
+  const showEstoqueMenu = isLoadingConfig ? true : menuConfigs?.find(c => c.chave === 'estoque_menu_enabled')?.valor !== 'false';
+  const showVisitasMenu = isLoadingConfig ? false : menuConfigs?.find(c => c.chave === 'visitas_menu_enabled')?.valor === 'true';
   const isAdmin = role === 'admin' || role === 'gestor';
 
   // Main menu items
