@@ -77,6 +77,9 @@ export default function Auth() {
               <Input
                 id="login-email"
                 type="email"
+                inputMode="email"
+                autoComplete="email"
+                autoFocus={false}
                 placeholder="seu@email.com"
                 value={loginForm.email}
                 onChange={(e) => setLoginForm({ ...loginForm, email: e.target.value })}
