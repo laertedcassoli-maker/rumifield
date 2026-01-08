@@ -18,7 +18,7 @@ export function AppSidebar() {
 
   // Load menu visibility config
   const { data: menuConfigs } = useQuery({
-    queryKey: ['app-config'],
+    queryKey: ['menu-config'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('configuracoes')
@@ -27,7 +27,8 @@ export function AppSidebar() {
       if (error) throw error;
       return data;
     },
-    staleTime: 30000, // Cache for 30 seconds
+    staleTime: 5000, // Cache for 5 seconds only
+    refetchOnMount: 'always',
   });
 
   const showEstoqueMenu = menuConfigs?.find(c => c.chave === 'estoque_menu_enabled')?.valor !== 'false';

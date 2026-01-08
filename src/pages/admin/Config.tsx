@@ -462,6 +462,7 @@ export default function AdminConfig() {
       }
 
       queryClient.invalidateQueries({ queryKey: ['app-config'] });
+      queryClient.invalidateQueries({ queryKey: ['menu-config'] });
       toast({ title: enabled ? 'Menu Estoque ativado' : 'Menu Estoque desativado' });
     } catch (error: any) {
       setEstoqueMenuEnabled(!enabled); // Revert on error
@@ -490,6 +491,7 @@ export default function AdminConfig() {
       }
 
       queryClient.invalidateQueries({ queryKey: ['app-config'] });
+      queryClient.invalidateQueries({ queryKey: ['menu-config'] });
       toast({ title: enabled ? 'Menu Início ativado' : 'Menu Início desativado' });
     } catch (error: any) {
       setInicioMenuEnabled(!enabled);
