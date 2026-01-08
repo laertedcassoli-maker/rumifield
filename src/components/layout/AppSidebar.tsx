@@ -17,32 +17,35 @@ export function AppSidebar() {
   const location = useLocation();
 
   // Load menu visibility config
-  const { data: menuConfig } = useQuery({
+  const { data: menuConfigs } = useQuery({
     queryKey: ['app-config'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('configuracoes')
         .select('chave, valor')
-        .eq('chave', 'estoque_menu_enabled')
-        .maybeSingle();
+        .in('chave', ['estoque_menu_enabled', 'inicio_menu_enabled']);
       if (error) throw error;
       return data;
     },
     staleTime: 30000, // Cache for 30 seconds
   });
 
-  const showEstoqueMenu = menuConfig?.valor !== 'false';
-  const mainMenuItems = [{
-    title: 'Início',
-    icon: Home,
-    url: '/'
-  },
-  // { title: 'Visitas', icon: MapPin, url: '/visitas' }, // Temporariamente oculto
-  {
-    title: 'Solicitação Peças',
-    icon: ShoppingCart,
-    url: '/pedidos'
-  }];
+  const showEstoqueMenu = menuConfigs?.find(c => c.chave === 'estoque_menu_enabled')?.valor !== 'false';
+  const showInicioMenu = menuConfigs?.find(c => c.chave === 'inicio_menu_enabled')?.valor !== 'false';
+  
+  const mainMenuItems = [
+    ...(showInicioMenu ? [{
+      title: 'Início',
+      icon: Home,
+      url: '/'
+    }] : []),
+    // { title: 'Visitas', icon: MapPin, url: '/visitas' }, // Temporariamente oculto
+    {
+      title: 'Solicitação Peças',
+      icon: ShoppingCart,
+      url: '/pedidos'
+    }
+  ];
   const estoqueItems = [{
     title: 'Aferição',
     icon: ClipboardCheck,
