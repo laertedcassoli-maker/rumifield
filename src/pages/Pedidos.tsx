@@ -282,16 +282,16 @@ export default function Pedidos() {
                       {itens.map((item, index) => {
                         const peca = pecas?.find(p => p.id === item.peca_id);
                         return (
-                          <div key={index} className="flex items-center justify-between p-2 rounded border bg-muted/30">
-                            <div className="min-w-0 flex-1">
+                          <div key={index} className="p-2 rounded border bg-muted/30 space-y-1">
+                            <div className="flex items-center justify-between">
                               <span className="font-medium text-sm">{peca?.codigo}</span>
-                              <p className="text-xs text-muted-foreground truncate">
-                                {peca?.descricao || peca?.nome}
-                              </p>
+                              <Badge variant="secondary" className="shrink-0">
+                                x{item.quantidade}
+                              </Badge>
                             </div>
-                            <Badge variant="secondary" className="ml-2 shrink-0">
-                              x{item.quantidade}
-                            </Badge>
+                            <p className="text-xs text-muted-foreground break-words">
+                              {peca?.descricao || peca?.nome}
+                            </p>
                           </div>
                         );
                       })}
@@ -433,10 +433,10 @@ export default function Pedidos() {
                               value={item.peca_id} 
                               onValueChange={(value) => updateItem(index, 'peca_id', value)}
                             >
-                              <SelectTrigger className="w-full h-auto min-h-9 whitespace-normal text-left">
+                              <SelectTrigger className="w-full h-auto min-h-9 text-left [&>span]:whitespace-normal [&>span]:break-words">
                                 <SelectValue placeholder="Selecione a peça">
                                   {selectedPeca ? (
-                                    <span className="text-sm leading-tight">
+                                    <span className="text-sm leading-tight block">
                                       <span className="font-medium">{selectedPeca.codigo}</span> - {selectedPeca.descricao || selectedPeca.nome}
                                     </span>
                                   ) : (
