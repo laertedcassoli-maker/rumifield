@@ -58,6 +58,11 @@ export default function AdminConfig() {
   const [connectionMessage, setConnectionMessage] = useState('');
   const [isSavingOmieConfig, setIsSavingOmieConfig] = useState(false);
 
+  // iMilk integration states
+  const [isTestingImilk, setIsTestingImilk] = useState(false);
+  const [imilkStatus, setImilkStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [imilkMessage, setImilkMessage] = useState('');
+
   // Load all configs from database
   const { data: allConfigs } = useQuery({
     queryKey: ['app-config'],
@@ -500,6 +505,34 @@ export default function AdminConfig() {
     }
   };
 
+  const handleTestImilkConnection = async () => {
+    setIsTestingImilk(true);
+    setImilkStatus('idle');
+    setImilkMessage('');
+
+    try {
+      const { data, error } = await supabase.functions.invoke('test-imilk-connection');
+
+      if (error) throw error;
+
+      if (data.success) {
+        setImilkStatus('success');
+        setImilkMessage(data.message + (data.total_clientes ? ` (${data.total_clientes} clientes encontrados)` : ''));
+        toast({ title: 'Conexão OK!', description: data.message });
+      } else {
+        setImilkStatus('error');
+        setImilkMessage(data.error || 'Falha na conexão');
+        toast({ variant: 'destructive', title: 'Falha na conexão', description: data.error });
+      }
+    } catch (error: any) {
+      setImilkStatus('error');
+      setImilkMessage(error.message || 'Erro ao testar conexão');
+      toast({ variant: 'destructive', title: 'Erro', description: error.message });
+    } finally {
+      setIsTestingImilk(false);
+    }
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div>
@@ -885,6 +918,33 @@ export default function AdminConfig() {
                   </Badge>
                 </div>
               </div>
+
+              <div className="flex items-center gap-4">
+                <Button onClick={handleTestImilkConnection} disabled={isTestingImilk}>
+                  {isTestingImilk ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Testando...
+                    </>
+                  ) : (
+                    'Testar Conexão'
+                  )}
+                </Button>
+
+                {imilkStatus === 'success' && (
+                  <div className="flex items-center gap-2 text-green-600">
+                    <CheckCircle2 className="h-5 w-5" />
+                    <span className="text-sm">{imilkMessage}</span>
+                  </div>
+                )}
+                {imilkStatus === 'error' && (
+                  <div className="flex items-center gap-2 text-destructive">
+                    <XCircle className="h-5 w-5" />
+                    <span className="text-sm">{imilkMessage}</span>
+                  </div>
+                )}
+              </div>
+
               <p className="text-sm text-muted-foreground">
                 A sincronização de clientes do iMilk está disponível na tela de Clientes. O secret IMILK_API_KEY está configurado no backend.
               </p>
