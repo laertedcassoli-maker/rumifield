@@ -484,10 +484,10 @@ export default function Pedidos() {
                                 <div className="max-h-40 overflow-y-auto border rounded-md bg-background">
                                   {availablePecas
                                     .filter(p => {
-                                      const search = (pecaSearches[index] || '').toLowerCase();
-                                      return p.codigo.toLowerCase().includes(search) || 
-                                             p.nome.toLowerCase().includes(search) ||
-                                             (p.descricao?.toLowerCase().includes(search) ?? false);
+                                      const searchTerms = (pecaSearches[index] || '').toLowerCase().trim().split(/\s+/).filter(Boolean);
+                                      if (searchTerms.length === 0) return true;
+                                      const searchableText = `${p.codigo} ${p.nome} ${p.descricao || ''}`.toLowerCase();
+                                      return searchTerms.every(term => searchableText.includes(term));
                                     })
                                     .slice(0, 15)
                                     .map((peca) => (
@@ -503,10 +503,10 @@ export default function Pedidos() {
                                       </div>
                                     ))}
                                   {availablePecas.filter(p => {
-                                    const search = (pecaSearches[index] || '').toLowerCase();
-                                    return p.codigo.toLowerCase().includes(search) || 
-                                           p.nome.toLowerCase().includes(search) ||
-                                           (p.descricao?.toLowerCase().includes(search) ?? false);
+                                    const searchTerms = (pecaSearches[index] || '').toLowerCase().trim().split(/\s+/).filter(Boolean);
+                                    if (searchTerms.length === 0) return true;
+                                    const searchableText = `${p.codigo} ${p.nome} ${p.descricao || ''}`.toLowerCase();
+                                    return searchTerms.every(term => searchableText.includes(term));
                                   }).length === 0 && (
                                     <div className="px-3 py-2 text-sm text-muted-foreground">
                                       Nenhuma peça encontrada
