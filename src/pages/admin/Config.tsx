@@ -7,7 +7,8 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Loader2, Search, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Pencil, RefreshCw } from 'lucide-react';
+import { Plus, Loader2, Search, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Pencil, RefreshCw, CheckCircle2, XCircle, Eye, EyeOff } from 'lucide-react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 
 type ProdutoSortField = 'nome' | 'unidade' | 'descricao';
@@ -45,6 +46,14 @@ export default function AdminConfig() {
   const [isEditingPeca, setIsEditingPeca] = useState(false);
   const [isSyncingOmie, setIsSyncingOmie] = useState(false);
 
+  // Omie integration states
+  const [omieAppKey, setOmieAppKey] = useState('');
+  const [omieAppSecret, setOmieAppSecret] = useState('');
+  const [showAppKey, setShowAppKey] = useState(false);
+  const [showAppSecret, setShowAppSecret] = useState(false);
+  const [isTestingConnection, setIsTestingConnection] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [connectionMessage, setConnectionMessage] = useState('');
   // Search states
   const [produtoSearch, setProdutoSearch] = useState('');
   const [pecaSearch, setPecaSearch] = useState('');
@@ -336,6 +345,41 @@ export default function AdminConfig() {
     }
   };
 
+  const handleTestOmieConnection = async () => {
+    if (!omieAppKey.trim() || !omieAppSecret.trim()) {
+      toast({ variant: 'destructive', title: 'Erro', description: 'Preencha APP KEY e APP SECRET' });
+      return;
+    }
+
+    setIsTestingConnection(true);
+    setConnectionStatus('idle');
+    setConnectionMessage('');
+
+    try {
+      const { data, error } = await supabase.functions.invoke('test-omie-connection', {
+        body: { app_key: omieAppKey, app_secret: omieAppSecret },
+      });
+
+      if (error) throw error;
+
+      if (data.success) {
+        setConnectionStatus('success');
+        setConnectionMessage(data.message + (data.total_registros ? ` (${data.total_registros} produtos encontrados)` : ''));
+        toast({ title: 'Conexão OK!', description: data.message });
+      } else {
+        setConnectionStatus('error');
+        setConnectionMessage(data.error || 'Falha na conexão');
+        toast({ variant: 'destructive', title: 'Falha na conexão', description: data.error });
+      }
+    } catch (error: any) {
+      setConnectionStatus('error');
+      setConnectionMessage(error.message || 'Erro ao testar conexão');
+      toast({ variant: 'destructive', title: 'Erro', description: error.message });
+    } finally {
+      setIsTestingConnection(false);
+    }
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div>
@@ -347,6 +391,7 @@ export default function AdminConfig() {
         <TabsList>
           <TabsTrigger value="produtos">Produtos Químicos</TabsTrigger>
           <TabsTrigger value="pecas">Catálogo de Peças</TabsTrigger>
+          <TabsTrigger value="integracoes">Integrações</TabsTrigger>
         </TabsList>
 
         <TabsContent value="produtos" className="space-y-4">
@@ -652,6 +697,91 @@ export default function AdminConfig() {
               )}
             </>
           )}
+        </TabsContent>
+
+        <TabsContent value="integracoes" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Conexão Omie</CardTitle>
+              <CardDescription>Configure as credenciais de API para integração com o Omie ERP</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="omie-app-key">APP KEY</Label>
+                  <div className="relative">
+                    <Input
+                      id="omie-app-key"
+                      type={showAppKey ? 'text' : 'password'}
+                      value={omieAppKey}
+                      onChange={(e) => { setOmieAppKey(e.target.value); setConnectionStatus('idle'); }}
+                      placeholder="Digite o APP KEY"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                      onClick={() => setShowAppKey(!showAppKey)}
+                    >
+                      {showAppKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </Button>
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="omie-app-secret">APP SECRET</Label>
+                  <div className="relative">
+                    <Input
+                      id="omie-app-secret"
+                      type={showAppSecret ? 'text' : 'password'}
+                      value={omieAppSecret}
+                      onChange={(e) => { setOmieAppSecret(e.target.value); setConnectionStatus('idle'); }}
+                      placeholder="Digite o APP SECRET"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                      onClick={() => setShowAppSecret(!showAppSecret)}
+                    >
+                      {showAppSecret ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-4">
+                <Button onClick={handleTestOmieConnection} disabled={isTestingConnection || !omieAppKey.trim() || !omieAppSecret.trim()}>
+                  {isTestingConnection ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Testando...
+                    </>
+                  ) : (
+                    'Testar Conexão'
+                  )}
+                </Button>
+
+                {connectionStatus === 'success' && (
+                  <div className="flex items-center gap-2 text-green-600">
+                    <CheckCircle2 className="h-5 w-5" />
+                    <span className="text-sm">{connectionMessage}</span>
+                  </div>
+                )}
+                {connectionStatus === 'error' && (
+                  <div className="flex items-center gap-2 text-destructive">
+                    <XCircle className="h-5 w-5" />
+                    <span className="text-sm">{connectionMessage}</span>
+                  </div>
+                )}
+              </div>
+
+              <p className="text-sm text-muted-foreground">
+                As credenciais são usadas para sincronizar peças e clientes do Omie. Obtenha as credenciais no painel da API do Omie.
+              </p>
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>
