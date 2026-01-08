@@ -61,6 +61,7 @@ export default function Pedidos() {
   // Filter and sort state
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [dateFilter, setDateFilter] = useState<'7' | '30' | 'all'>('all');
   const [sortField, setSortField] = useState<'created_at' | 'cliente' | 'status'>('created_at');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
@@ -68,16 +69,27 @@ export default function Pedidos() {
     if (!pedidos) return [];
     
     let filtered = pedidos.filter(pedido => {
+      const searchLower = searchTerm.toLowerCase();
       const matchesSearch = searchTerm === '' || 
-        pedido.clientes?.nome?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        pedido.clientes?.fazenda?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        pedido.clientes?.nome?.toLowerCase().includes(searchLower) ||
+        pedido.clientes?.fazenda?.toLowerCase().includes(searchLower) ||
         pedido.pedido_itens?.some((item: any) => 
-          item.pecas?.codigo?.toLowerCase().includes(searchTerm.toLowerCase())
+          item.pecas?.codigo?.toLowerCase().includes(searchLower) ||
+          item.pecas?.nome?.toLowerCase().includes(searchLower)
         );
       
       const matchesStatus = statusFilter === 'all' || pedido.status === statusFilter;
       
-      return matchesSearch && matchesStatus;
+      // Date filter
+      let matchesDate = true;
+      if (dateFilter !== 'all') {
+        const daysAgo = parseInt(dateFilter);
+        const cutoffDate = new Date();
+        cutoffDate.setDate(cutoffDate.getDate() - daysAgo);
+        matchesDate = new Date(pedido.created_at) >= cutoffDate;
+      }
+      
+      return matchesSearch && matchesStatus && matchesDate;
     });
     
     filtered.sort((a, b) => {
@@ -96,7 +108,7 @@ export default function Pedidos() {
     });
     
     return filtered;
-  }, [pedidos, searchTerm, statusFilter, sortField, sortOrder]);
+  }, [pedidos, searchTerm, statusFilter, dateFilter, sortField, sortOrder]);
 
   const toggleSort = (field: 'created_at' | 'cliente' | 'status') => {
     if (sortField === field) {
@@ -110,6 +122,7 @@ export default function Pedidos() {
   const clearFilters = () => {
     setSearchTerm('');
     setStatusFilter('all');
+    setDateFilter('all');
   };
 
   const addItem = () => {
@@ -588,12 +601,12 @@ export default function Pedidos() {
 
       {/* Filters */}
       <Card>
-        <CardContent className="p-4">
-          <div className="flex flex-col sm:flex-row gap-4">
+        <CardContent className="p-4 space-y-3">
+          <div className="flex flex-col sm:flex-row gap-3">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
-                placeholder="Buscar por cliente, fazenda ou código da peça..."
+                placeholder="Buscar cliente, fazenda, código ou nome da peça..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-9"
@@ -612,11 +625,42 @@ export default function Pedidos() {
                 <SelectItem value="entregue">Entregue</SelectItem>
               </SelectContent>
             </Select>
-            {(searchTerm || statusFilter !== 'all') && (
+            {(searchTerm || statusFilter !== 'all' || dateFilter !== 'all') && (
               <Button variant="ghost" size="icon" onClick={clearFilters}>
                 <X className="h-4 w-4" />
               </Button>
             )}
+          </div>
+          
+          {/* Date quick filters */}
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-sm text-muted-foreground">Período:</span>
+            <div className="flex gap-1">
+              <Button
+                variant={dateFilter === '7' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setDateFilter(dateFilter === '7' ? 'all' : '7')}
+                className="h-7 text-xs"
+              >
+                7 dias
+              </Button>
+              <Button
+                variant={dateFilter === '30' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setDateFilter(dateFilter === '30' ? 'all' : '30')}
+                className="h-7 text-xs"
+              >
+                30 dias
+              </Button>
+              <Button
+                variant={dateFilter === 'all' ? 'secondary' : 'outline'}
+                size="sm"
+                onClick={() => setDateFilter('all')}
+                className="h-7 text-xs"
+              >
+                Todos
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
