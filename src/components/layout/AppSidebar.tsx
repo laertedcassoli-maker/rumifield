@@ -5,6 +5,9 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Link, useLocation } from 'react-router-dom';
 import { OfflineIndicator } from '@/components/OfflineIndicator';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+
 export function AppSidebar() {
   const {
     profile,
@@ -12,6 +15,23 @@ export function AppSidebar() {
     signOut
   } = useAuth();
   const location = useLocation();
+
+  // Load menu visibility config
+  const { data: menuConfig } = useQuery({
+    queryKey: ['app-config'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('configuracoes')
+        .select('chave, valor')
+        .eq('chave', 'estoque_menu_enabled')
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    staleTime: 30000, // Cache for 30 seconds
+  });
+
+  const showEstoqueMenu = menuConfig?.valor !== 'false';
   const mainMenuItems = [{
     title: 'Início',
     icon: Home,
@@ -96,30 +116,32 @@ export function AppSidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>)}
 
-              {/* Estoque com submenu */}
-              <Collapsible defaultOpen={isEstoqueActive} className="group/collapsible">
-                <SidebarMenuItem>
-                  <CollapsibleTrigger asChild>
-                    <SidebarMenuButton isActive={isEstoqueActive}>
-                      <Beaker className="h-4 w-4" />
-                      <span>Estoque Químicos</span>
-                      <ChevronDown className="ml-auto h-4 w-4 transition-transform group-data-[state=open]/collapsible:rotate-180" />
-                    </SidebarMenuButton>
-                  </CollapsibleTrigger>
-                  <CollapsibleContent>
-                    <SidebarMenuSub>
-                      {estoqueItems.map(item => <SidebarMenuSubItem key={item.title}>
-                          <SidebarMenuSubButton asChild isActive={location.pathname === item.url}>
-                            <Link to={item.url}>
-                              <item.icon className="h-4 w-4" />
-                              <span>{item.title}</span>
-                            </Link>
-                          </SidebarMenuSubButton>
-                        </SidebarMenuSubItem>)}
-                    </SidebarMenuSub>
-                  </CollapsibleContent>
-                </SidebarMenuItem>
-              </Collapsible>
+              {/* Estoque com submenu - condicional */}
+              {showEstoqueMenu && (
+                <Collapsible defaultOpen={isEstoqueActive} className="group/collapsible">
+                  <SidebarMenuItem>
+                    <CollapsibleTrigger asChild>
+                      <SidebarMenuButton isActive={isEstoqueActive}>
+                        <Beaker className="h-4 w-4" />
+                        <span>Estoque Químicos</span>
+                        <ChevronDown className="ml-auto h-4 w-4 transition-transform group-data-[state=open]/collapsible:rotate-180" />
+                      </SidebarMenuButton>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <SidebarMenuSub>
+                        {estoqueItems.map(item => <SidebarMenuSubItem key={item.title}>
+                            <SidebarMenuSubButton asChild isActive={location.pathname === item.url}>
+                              <Link to={item.url}>
+                                <item.icon className="h-4 w-4" />
+                                <span>{item.title}</span>
+                              </Link>
+                            </SidebarMenuSubButton>
+                          </SidebarMenuSubItem>)}
+                      </SidebarMenuSub>
+                    </CollapsibleContent>
+                  </SidebarMenuItem>
+                </Collapsible>
+              )}
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>

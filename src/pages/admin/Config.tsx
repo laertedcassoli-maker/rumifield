@@ -7,9 +7,10 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Loader2, Search, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Pencil, RefreshCw, CheckCircle2, XCircle, Eye, EyeOff } from 'lucide-react';
+import { Plus, Loader2, Search, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Pencil, RefreshCw, CheckCircle2, XCircle, Eye, EyeOff, Settings } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
+import { Switch } from '@/components/ui/switch';
 
 type ProdutoSortField = 'nome' | 'unidade' | 'descricao';
 type PecaSortField = 'codigo' | 'nome' | 'omie_codigo' | 'descricao';
@@ -56,28 +57,32 @@ export default function AdminConfig() {
   const [connectionMessage, setConnectionMessage] = useState('');
   const [isSavingOmieConfig, setIsSavingOmieConfig] = useState(false);
 
-  // Load Omie credentials from database
-  const { data: omieConfig } = useQuery({
-    queryKey: ['omie-config'],
+  // Load all configs from database
+  const { data: allConfigs } = useQuery({
+    queryKey: ['app-config'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('configuracoes')
-        .select('chave, valor')
-        .in('chave', ['omie_app_key', 'omie_app_secret']);
+        .select('chave, valor');
       if (error) throw error;
       return data;
     },
   });
 
+  // Estoque menu visibility
+  const [estoqueMenuEnabled, setEstoqueMenuEnabled] = useState(true);
+
   // Set form values when config loads
   useEffect(() => {
-    if (omieConfig) {
-      const appKey = omieConfig.find(c => c.chave === 'omie_app_key')?.valor || '';
-      const appSecret = omieConfig.find(c => c.chave === 'omie_app_secret')?.valor || '';
+    if (allConfigs) {
+      const appKey = allConfigs.find(c => c.chave === 'omie_app_key')?.valor || '';
+      const appSecret = allConfigs.find(c => c.chave === 'omie_app_secret')?.valor || '';
+      const estoqueEnabled = allConfigs.find(c => c.chave === 'estoque_menu_enabled')?.valor !== 'false';
       setOmieAppKey(appKey);
       setOmieAppSecret(appSecret);
+      setEstoqueMenuEnabled(estoqueEnabled);
     }
-  }, [omieConfig]);
+  }, [allConfigs]);
 
   // Search states
   const [produtoSearch, setProdutoSearch] = useState('');
@@ -423,12 +428,41 @@ export default function AdminConfig() {
       
       if (error2) throw error2;
 
-      queryClient.invalidateQueries({ queryKey: ['omie-config'] });
+      queryClient.invalidateQueries({ queryKey: ['app-config'] });
       toast({ title: 'Credenciais salvas!', description: 'As credenciais do Omie foram salvas com sucesso.' });
     } catch (error: any) {
       toast({ variant: 'destructive', title: 'Erro ao salvar', description: error.message });
     } finally {
       setIsSavingOmieConfig(false);
+    }
+  };
+
+  const handleToggleEstoqueMenu = async (enabled: boolean) => {
+    setEstoqueMenuEnabled(enabled);
+    try {
+      // Check if config exists
+      const { data: existing } = await supabase
+        .from('configuracoes')
+        .select('id')
+        .eq('chave', 'estoque_menu_enabled')
+        .single();
+
+      if (existing) {
+        await supabase
+          .from('configuracoes')
+          .update({ valor: enabled ? 'true' : 'false' })
+          .eq('chave', 'estoque_menu_enabled');
+      } else {
+        await supabase
+          .from('configuracoes')
+          .insert({ chave: 'estoque_menu_enabled', valor: enabled ? 'true' : 'false', descricao: 'Exibir menu Estoque Químicos' });
+      }
+
+      queryClient.invalidateQueries({ queryKey: ['app-config'] });
+      toast({ title: enabled ? 'Menu Estoque ativado' : 'Menu Estoque desativado' });
+    } catch (error: any) {
+      setEstoqueMenuEnabled(!enabled); // Revert on error
+      toast({ variant: 'destructive', title: 'Erro ao salvar configuração', description: error.message });
     }
   };
 
@@ -441,10 +475,39 @@ export default function AdminConfig() {
 
       <Tabs defaultValue="produtos">
         <TabsList>
+          <TabsTrigger value="config">Configuração</TabsTrigger>
           <TabsTrigger value="produtos">Produtos Químicos</TabsTrigger>
           <TabsTrigger value="pecas">Catálogo de Peças</TabsTrigger>
           <TabsTrigger value="integracoes">Integrações</TabsTrigger>
         </TabsList>
+
+        <TabsContent value="config" className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Settings className="h-5 w-5" />
+                Visibilidade de Menus
+              </CardTitle>
+              <CardDescription>
+                Ative ou desative menus do sistema
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between py-2">
+                <div>
+                  <p className="font-medium">Menu Estoque Químicos</p>
+                  <p className="text-sm text-muted-foreground">
+                    Controle de estoque, aferição, consumo e previsão de envios
+                  </p>
+                </div>
+                <Switch
+                  checked={estoqueMenuEnabled}
+                  onCheckedChange={handleToggleEstoqueMenu}
+                />
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
 
         <TabsContent value="produtos" className="space-y-4">
           <div className="flex flex-col sm:flex-row gap-4 justify-between">
