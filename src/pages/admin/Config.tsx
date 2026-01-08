@@ -69,8 +69,9 @@ export default function AdminConfig() {
     },
   });
 
-  // Estoque menu visibility
+  // Menu visibility states
   const [estoqueMenuEnabled, setEstoqueMenuEnabled] = useState(true);
+  const [inicioMenuEnabled, setInicioMenuEnabled] = useState(true);
 
   // Set form values when config loads
   useEffect(() => {
@@ -78,9 +79,11 @@ export default function AdminConfig() {
       const appKey = allConfigs.find(c => c.chave === 'omie_app_key')?.valor || '';
       const appSecret = allConfigs.find(c => c.chave === 'omie_app_secret')?.valor || '';
       const estoqueEnabled = allConfigs.find(c => c.chave === 'estoque_menu_enabled')?.valor !== 'false';
+      const inicioEnabled = allConfigs.find(c => c.chave === 'inicio_menu_enabled')?.valor !== 'false';
       setOmieAppKey(appKey);
       setOmieAppSecret(appSecret);
       setEstoqueMenuEnabled(estoqueEnabled);
+      setInicioMenuEnabled(inicioEnabled);
     }
   }, [allConfigs]);
 
@@ -466,6 +469,34 @@ export default function AdminConfig() {
     }
   };
 
+  const handleToggleInicioMenu = async (enabled: boolean) => {
+    setInicioMenuEnabled(enabled);
+    try {
+      const { data: existing } = await supabase
+        .from('configuracoes')
+        .select('id')
+        .eq('chave', 'inicio_menu_enabled')
+        .single();
+
+      if (existing) {
+        await supabase
+          .from('configuracoes')
+          .update({ valor: enabled ? 'true' : 'false' })
+          .eq('chave', 'inicio_menu_enabled');
+      } else {
+        await supabase
+          .from('configuracoes')
+          .insert({ chave: 'inicio_menu_enabled', valor: enabled ? 'true' : 'false', descricao: 'Exibir menu Início' });
+      }
+
+      queryClient.invalidateQueries({ queryKey: ['app-config'] });
+      toast({ title: enabled ? 'Menu Início ativado' : 'Menu Início desativado' });
+    } catch (error: any) {
+      setInicioMenuEnabled(!enabled);
+      toast({ variant: 'destructive', title: 'Erro ao salvar configuração', description: error.message });
+    }
+  };
+
   return (
     <div className="space-y-6 animate-fade-in">
       <div>
@@ -493,6 +524,18 @@ export default function AdminConfig() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
+              <div className="flex items-center justify-between py-2 border-b">
+                <div>
+                  <p className="font-medium">Menu Início</p>
+                  <p className="text-sm text-muted-foreground">
+                    Página inicial do sistema (Dashboard)
+                  </p>
+                </div>
+                <Switch
+                  checked={inicioMenuEnabled}
+                  onCheckedChange={handleToggleInicioMenu}
+                />
+              </div>
               <div className="flex items-center justify-between py-2">
                 <div>
                   <p className="font-medium">Menu Estoque Químicos</p>
