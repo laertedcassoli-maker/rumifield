@@ -47,6 +47,7 @@ export default function Pedidos() {
   const [itens, setItens] = useState<{ peca_id: string; quantidade: number }[]>([]);
   const [viewAll, setViewAll] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showConfirmation, setShowConfirmation] = useState(false);
   
   const isAdmin = role === 'admin' || role === 'gestor';
 
@@ -165,10 +166,11 @@ export default function Pedidos() {
       setEditingPedido(null);
       setForm({ cliente_id: '', observacoes: '' });
       setItens([]);
+      setShowConfirmation(false);
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleShowConfirmation = (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.cliente_id) {
       toast({ variant: 'destructive', title: 'Selecione um cliente' });
@@ -178,7 +180,10 @@ export default function Pedidos() {
       toast({ variant: 'destructive', title: 'Adicione pelo menos uma peça válida' });
       return;
     }
+    setShowConfirmation(true);
+  };
 
+  const handleSubmit = async () => {
     setIsSubmitting(true);
     try {
       if (editingPedido) {
@@ -201,6 +206,7 @@ export default function Pedidos() {
       setEditingPedido(null);
       setForm({ cliente_id: '', observacoes: '' });
       setItens([]);
+      setShowConfirmation(false);
     } catch (error: any) {
       toast({ variant: 'destructive', title: 'Erro ao salvar pedido', description: error.message });
     } finally {
@@ -241,184 +247,277 @@ export default function Pedidos() {
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle className="flex items-center gap-2">
-                {editingPedido ? 'Editar Pedido' : 'Novo Pedido de Peças'}
-                {!isOnline && (
-                  <Badge variant="outline" className="text-orange-500 border-orange-300 text-xs">
-                    <CloudOff className="h-3 w-3 mr-1" />
-                    Offline
-                  </Badge>
-                )}
-              </DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label>Cliente / Fazenda</Label>
-                <Popover open={clientePopoverOpen} onOpenChange={setClientePopoverOpen}>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      role="combobox"
-                      aria-expanded={clientePopoverOpen}
-                      className="w-full justify-between font-normal"
-                    >
-                      {form.cliente_id ? (
-                        <span className="truncate">
-                          {clientes?.find(c => c.id === form.cliente_id)?.nome}
-                          {clientes?.find(c => c.id === form.cliente_id)?.fazenda && 
-                            ` - ${clientes?.find(c => c.id === form.cliente_id)?.fazenda}`}
-                        </span>
-                      ) : (
-                        <span className="text-muted-foreground">Buscar cliente ou fazenda...</span>
-                      )}
-                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
-                    <Command>
-                      <CommandInput placeholder="Digite para buscar..." />
-                      <CommandList>
-                        <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
-                        <CommandGroup>
-                          {clientes?.map((cliente) => (
-                            <CommandItem
-                              key={cliente.id}
-                              value={`${cliente.nome} ${cliente.fazenda || ''}`}
-                              onSelect={() => {
-                                setForm({ ...form, cliente_id: cliente.id });
-                                setClientePopoverOpen(false);
-                              }}
-                            >
-                              <Check
-                                className={cn(
-                                  "mr-2 h-4 w-4",
-                                  form.cliente_id === cliente.id ? "opacity-100" : "opacity-0"
-                                )}
-                              />
-                              <div className="flex flex-col">
-                                <span className="font-medium">{cliente.nome}</span>
-                                {cliente.fazenda && (
-                                  <span className="text-xs text-muted-foreground">{cliente.fazenda}</span>
-                                )}
-                              </div>
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label>Peças ({itens.length})</Label>
-                  <Button type="button" variant="outline" size="sm" onClick={addItem}>
-                    <Plus className="mr-1 h-3 w-3" />
-                    Adicionar
-                  </Button>
-                </div>
-                <div className="space-y-2">
-                  {itens.length === 0 && (
-                    <p className="text-sm text-muted-foreground text-center py-4">
-                      Clique em "Adicionar" para incluir peças ao pedido
+            {showConfirmation && !editingPedido ? (
+              <>
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    Confirmar Pedido
+                    {!isOnline && (
+                      <Badge variant="outline" className="text-orange-500 border-orange-300 text-xs">
+                        <CloudOff className="h-3 w-3 mr-1" />
+                        Offline
+                      </Badge>
+                    )}
+                  </DialogTitle>
+                </DialogHeader>
+                
+                <div className="space-y-4">
+                  {/* Cliente destaque */}
+                  <div className="p-4 rounded-lg bg-primary/10 border border-primary/20">
+                    <p className="text-xs text-muted-foreground mb-1">Cliente</p>
+                    <p className="font-semibold text-lg">
+                      {clientes?.find(c => c.id === form.cliente_id)?.nome}
                     </p>
-                  )}
-                  {itens.map((item, index) => {
-                    const selectedPecaIds = itens.map(i => i.peca_id).filter(id => id !== item.peca_id);
-                    const availablePecas = pecas?.filter(p => !selectedPecaIds.includes(p.id)) || [];
-                    const selectedPeca = pecas?.find(p => p.id === item.peca_id);
-                    
-                    return (
-                      <div key={index} className="p-2 rounded-lg border bg-muted/30 space-y-2">
-                        <Select 
-                          value={item.peca_id} 
-                          onValueChange={(value) => updateItem(index, 'peca_id', value)}
-                        >
-                          <SelectTrigger className="w-full h-auto min-h-9 whitespace-normal text-left">
-                            <SelectValue placeholder="Selecione a peça">
-                              {selectedPeca ? (
-                                <span className="text-sm leading-tight">
-                                  <span className="font-medium">{selectedPeca.codigo}</span> - {selectedPeca.descricao || selectedPeca.nome}
-                                </span>
-                              ) : (
-                                'Selecione a peça'
-                              )}
-                            </SelectValue>
-                          </SelectTrigger>
-                          <SelectContent className="max-h-60">
-                            {availablePecas.map((peca) => (
-                              <SelectItem key={peca.id} value={peca.id}>
-                                <span className="font-medium">{peca.codigo}</span>
-                                <span className="text-muted-foreground ml-1">- {peca.descricao || peca.nome}</span>
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                        
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-1">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="icon"
-                              className="h-8 w-8"
-                              onClick={() => decrementQuantity(index)}
-                              disabled={item.quantidade <= 1}
-                            >
-                              <Minus className="h-3 w-3" />
-                            </Button>
-                            <span className="w-8 text-center text-sm font-medium">{item.quantidade}</span>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="icon"
-                              className="h-8 w-8"
-                              onClick={() => incrementQuantity(index)}
-                            >
-                              <Plus className="h-3 w-3" />
-                            </Button>
+                    {clientes?.find(c => c.id === form.cliente_id)?.fazenda && (
+                      <p className="text-muted-foreground">
+                        {clientes?.find(c => c.id === form.cliente_id)?.fazenda}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Itens do pedido */}
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium">Itens do Pedido ({itens.length})</p>
+                    <div className="space-y-2 max-h-48 overflow-y-auto">
+                      {itens.map((item, index) => {
+                        const peca = pecas?.find(p => p.id === item.peca_id);
+                        return (
+                          <div key={index} className="flex items-center justify-between p-2 rounded border bg-muted/30">
+                            <div className="min-w-0 flex-1">
+                              <span className="font-medium text-sm">{peca?.codigo}</span>
+                              <p className="text-xs text-muted-foreground truncate">
+                                {peca?.descricao || peca?.nome}
+                              </p>
+                            </div>
+                            <Badge variant="secondary" className="ml-2 shrink-0">
+                              x{item.quantidade}
+                            </Badge>
                           </div>
-                          
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 text-destructive hover:text-destructive"
-                            onClick={() => removeItem(index)}
-                          >
-                            <Trash2 className="h-4 w-4 mr-1" />
-                            Remover
-                          </Button>
-                        </div>
-                      </div>
-                    );
-                  })}
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Observações */}
+                  {form.observacoes && (
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium">Observações</p>
+                      <p className="text-sm text-muted-foreground bg-muted/50 p-2 rounded">
+                        {form.observacoes}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Botões */}
+                  <div className="flex gap-2 pt-2">
+                    <Button 
+                      type="button" 
+                      variant="outline" 
+                      className="flex-1"
+                      onClick={() => setShowConfirmation(false)}
+                    >
+                      Voltar
+                    </Button>
+                    <Button 
+                      type="button" 
+                      className="flex-1"
+                      onClick={handleSubmit}
+                      disabled={isSubmitting}
+                    >
+                      {isSubmitting ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <>
+                          {!isOnline && <CloudOff className="mr-2 h-4 w-4" />}
+                          Enviar Pedido
+                        </>
+                      )}
+                    </Button>
+                  </div>
                 </div>
-              </div>
+              </>
+            ) : (
+              <>
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2">
+                    {editingPedido ? 'Editar Pedido' : 'Novo Pedido de Peças'}
+                    {!isOnline && (
+                      <Badge variant="outline" className="text-orange-500 border-orange-300 text-xs">
+                        <CloudOff className="h-3 w-3 mr-1" />
+                        Offline
+                      </Badge>
+                    )}
+                  </DialogTitle>
+                </DialogHeader>
+                <form onSubmit={editingPedido ? (e) => { e.preventDefault(); handleSubmit(); } : handleShowConfirmation} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label>Cliente / Fazenda</Label>
+                    <Popover open={clientePopoverOpen} onOpenChange={setClientePopoverOpen}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          aria-expanded={clientePopoverOpen}
+                          className="w-full justify-between font-normal"
+                        >
+                          {form.cliente_id ? (
+                            <span className="truncate">
+                              {clientes?.find(c => c.id === form.cliente_id)?.nome}
+                              {clientes?.find(c => c.id === form.cliente_id)?.fazenda && 
+                                ` - ${clientes?.find(c => c.id === form.cliente_id)?.fazenda}`}
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground">Buscar cliente ou fazenda...</span>
+                          )}
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                        <Command>
+                          <CommandInput placeholder="Digite para buscar..." />
+                          <CommandList>
+                            <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
+                            <CommandGroup>
+                              {clientes?.map((cliente) => (
+                                <CommandItem
+                                  key={cliente.id}
+                                  value={`${cliente.nome} ${cliente.fazenda || ''}`}
+                                  onSelect={() => {
+                                    setForm({ ...form, cliente_id: cliente.id });
+                                    setClientePopoverOpen(false);
+                                  }}
+                                >
+                                  <Check
+                                    className={cn(
+                                      "mr-2 h-4 w-4",
+                                      form.cliente_id === cliente.id ? "opacity-100" : "opacity-0"
+                                    )}
+                                  />
+                                  <div className="flex flex-col">
+                                    <span className="font-medium">{cliente.nome}</span>
+                                    {cliente.fazenda && (
+                                      <span className="text-xs text-muted-foreground">{cliente.fazenda}</span>
+                                    )}
+                                  </div>
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
 
-              <div className="space-y-2">
-                <Label>Observações</Label>
-                <Textarea
-                  placeholder="Observações adicionais..."
-                  value={form.observacoes}
-                  onChange={(e) => setForm({ ...form, observacoes: e.target.value })}
-                  rows={2}
-                />
-              </div>
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <Label>Peças ({itens.length})</Label>
+                      <Button type="button" variant="outline" size="sm" onClick={addItem}>
+                        <Plus className="mr-1 h-3 w-3" />
+                        Adicionar
+                      </Button>
+                    </div>
+                    <div className="space-y-2">
+                      {itens.length === 0 && (
+                        <p className="text-sm text-muted-foreground text-center py-4">
+                          Clique em "Adicionar" para incluir peças ao pedido
+                        </p>
+                      )}
+                      {itens.map((item, index) => {
+                        const selectedPecaIds = itens.map(i => i.peca_id).filter(id => id !== item.peca_id);
+                        const availablePecas = pecas?.filter(p => !selectedPecaIds.includes(p.id)) || [];
+                        const selectedPeca = pecas?.find(p => p.id === item.peca_id);
+                        
+                        return (
+                          <div key={index} className="p-2 rounded-lg border bg-muted/30 space-y-2">
+                            <Select 
+                              value={item.peca_id} 
+                              onValueChange={(value) => updateItem(index, 'peca_id', value)}
+                            >
+                              <SelectTrigger className="w-full h-auto min-h-9 whitespace-normal text-left">
+                                <SelectValue placeholder="Selecione a peça">
+                                  {selectedPeca ? (
+                                    <span className="text-sm leading-tight">
+                                      <span className="font-medium">{selectedPeca.codigo}</span> - {selectedPeca.descricao || selectedPeca.nome}
+                                    </span>
+                                  ) : (
+                                    'Selecione a peça'
+                                  )}
+                                </SelectValue>
+                              </SelectTrigger>
+                              <SelectContent className="max-h-60">
+                                {availablePecas.map((peca) => (
+                                  <SelectItem key={peca.id} value={peca.id}>
+                                    <span className="font-medium">{peca.codigo}</span>
+                                    <span className="text-muted-foreground ml-1">- {peca.descricao || peca.nome}</span>
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                            
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-1">
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="icon"
+                                  className="h-8 w-8"
+                                  onClick={() => decrementQuantity(index)}
+                                  disabled={item.quantidade <= 1}
+                                >
+                                  <Minus className="h-3 w-3" />
+                                </Button>
+                                <span className="w-8 text-center text-sm font-medium">{item.quantidade}</span>
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="icon"
+                                  className="h-8 w-8"
+                                  onClick={() => incrementQuantity(index)}
+                                >
+                                  <Plus className="h-3 w-3" />
+                                </Button>
+                              </div>
+                              
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="h-8 text-destructive hover:text-destructive"
+                                onClick={() => removeItem(index)}
+                              >
+                                <Trash2 className="h-4 w-4 mr-1" />
+                                Remover
+                              </Button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
 
-              <Button type="submit" className="w-full" disabled={isSubmitting}>
-                {isSubmitting ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <>
-                    {!isOnline && <CloudOff className="mr-2 h-4 w-4" />}
-                    {editingPedido ? 'Salvar Alterações' : 'Criar Pedido'}
-                  </>
-                )}
-              </Button>
-            </form>
+                  <div className="space-y-2">
+                    <Label>Observações</Label>
+                    <Textarea
+                      placeholder="Observações adicionais..."
+                      value={form.observacoes}
+                      onChange={(e) => setForm({ ...form, observacoes: e.target.value })}
+                      rows={2}
+                    />
+                  </div>
+
+                  <Button type="submit" className="w-full" disabled={isSubmitting}>
+                    {isSubmitting ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <>
+                        {!isOnline && <CloudOff className="mr-2 h-4 w-4" />}
+                        {editingPedido ? 'Salvar Alterações' : 'Revisar Pedido'}
+                      </>
+                    )}
+                  </Button>
+                </form>
+              </>
+            )}
           </DialogContent>
         </Dialog>
         </div>
