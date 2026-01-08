@@ -55,18 +55,18 @@ export function AppLayout({ children }: AppLayoutProps) {
         <main className="flex-1 overflow-x-hidden overflow-y-auto p-4 md:p-6">
           {children}
         </main>
-        
-        {/* Floating Home Button - Mobile only, hidden on home page */}
-        {!isHomePage && (
-          <Link
-            to="/"
-            className="fixed bottom-6 right-6 md:hidden z-50 flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg active:scale-95 transition-transform"
-            aria-label="Voltar ao Início"
-          >
-            <Home className="h-6 w-6" />
-          </Link>
-        )}
       </SidebarInset>
+      
+      {/* Floating Home Button - Mobile only, hidden on home page */}
+      {!isHomePage && (
+        <Link
+          to="/"
+          className="fixed bottom-6 right-6 md:hidden z-[100] flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg active:scale-95 transition-transform"
+          aria-label="Voltar ao Início"
+        >
+          <Home className="h-6 w-6" />
+        </Link>
+      )}
     </SidebarProvider>
   );
 }
