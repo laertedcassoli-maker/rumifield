@@ -75,6 +75,7 @@ serve(async (req) => {
             pagina: currentPage,
             registros_por_pagina: 50,
             apenas_importado_api: 'N',
+            inativo: 'N',
             filtrar_apenas_omiepdv: 'N',
           }],
         }),
@@ -87,18 +88,19 @@ serve(async (req) => {
       }
 
       const data: OmieResponse = await omieResponse.json();
-      
+
       if (data.faultstring) {
         throw new Error(`Omie API fault: ${data.faultstring}`);
       }
 
       console.log(`Page ${currentPage}: ${data.registros || 0} records, total pages: ${data.total_de_paginas || 1}`);
-      
+
       if (data.produto_servico_cadastro) {
-        // Filter only products from RUMIFLOW family (case insensitive)
+        // Filter only ACTIVE products from RUMIFLOW family (case insensitive)
         const rumiflowPecas = data.produto_servico_cadastro.filter(p => {
           const familia = (p.descricao_familia || '').toUpperCase();
-          return familia === 'RUMIFLOW' || familia.includes('RUMIFLOW');
+          const ativo = (p.inativo || '').toUpperCase() === 'N';
+          return ativo && (familia === 'RUMIFLOW' || familia.includes('RUMIFLOW'));
         });
         console.log(`Found ${rumiflowPecas.length} RUMIFLOW products on page ${currentPage}`);
         allPecas.push(...rumiflowPecas);
