@@ -659,9 +659,9 @@ export default function Pedidos() {
                           <span className="text-xs text-orange-600">Pendente sync</span>
                         )}
                       </div>
-                      <h3 className="font-medium mt-2 truncate">{pedido.clientes?.nome}</h3>
+                      <h3 className="font-medium mt-2 break-words">{pedido.clientes?.nome}</h3>
                       {pedido.clientes?.fazenda && (
-                        <p className="text-sm text-muted-foreground truncate">{pedido.clientes.fazenda}</p>
+                        <p className="text-sm text-muted-foreground break-words">{pedido.clientes.fazenda}</p>
                       )}
                     </div>
                     {pedido.status === 'solicitado' && (
