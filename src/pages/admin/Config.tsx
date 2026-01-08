@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -54,6 +54,31 @@ export default function AdminConfig() {
   const [isTestingConnection, setIsTestingConnection] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [connectionMessage, setConnectionMessage] = useState('');
+  const [isSavingOmieConfig, setIsSavingOmieConfig] = useState(false);
+
+  // Load Omie credentials from database
+  const { data: omieConfig } = useQuery({
+    queryKey: ['omie-config'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('configuracoes')
+        .select('chave, valor')
+        .in('chave', ['omie_app_key', 'omie_app_secret']);
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  // Set form values when config loads
+  useEffect(() => {
+    if (omieConfig) {
+      const appKey = omieConfig.find(c => c.chave === 'omie_app_key')?.valor || '';
+      const appSecret = omieConfig.find(c => c.chave === 'omie_app_secret')?.valor || '';
+      setOmieAppKey(appKey);
+      setOmieAppSecret(appSecret);
+    }
+  }, [omieConfig]);
+
   // Search states
   const [produtoSearch, setProdutoSearch] = useState('');
   const [pecaSearch, setPecaSearch] = useState('');
@@ -377,6 +402,33 @@ export default function AdminConfig() {
       toast({ variant: 'destructive', title: 'Erro', description: error.message });
     } finally {
       setIsTestingConnection(false);
+    }
+  };
+
+  const handleSaveOmieConfig = async () => {
+    setIsSavingOmieConfig(true);
+    try {
+      // Update both keys
+      const { error: error1 } = await supabase
+        .from('configuracoes')
+        .update({ valor: omieAppKey })
+        .eq('chave', 'omie_app_key');
+      
+      if (error1) throw error1;
+
+      const { error: error2 } = await supabase
+        .from('configuracoes')
+        .update({ valor: omieAppSecret })
+        .eq('chave', 'omie_app_secret');
+      
+      if (error2) throw error2;
+
+      queryClient.invalidateQueries({ queryKey: ['omie-config'] });
+      toast({ title: 'Credenciais salvas!', description: 'As credenciais do Omie foram salvas com sucesso.' });
+    } catch (error: any) {
+      toast({ variant: 'destructive', title: 'Erro ao salvar', description: error.message });
+    } finally {
+      setIsSavingOmieConfig(false);
     }
   };
 
@@ -775,6 +827,23 @@ export default function AdminConfig() {
                     <span className="text-sm">{connectionMessage}</span>
                   </div>
                 )}
+              </div>
+
+              <div className="flex items-center gap-4 pt-2 border-t">
+                <Button 
+                  onClick={handleSaveOmieConfig} 
+                  disabled={isSavingOmieConfig || !omieAppKey.trim() || !omieAppSecret.trim()}
+                  variant="default"
+                >
+                  {isSavingOmieConfig ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Salvando...
+                    </>
+                  ) : (
+                    'Salvar Credenciais'
+                  )}
+                </Button>
               </div>
 
               <p className="text-sm text-muted-foreground">
