@@ -4,6 +4,7 @@ import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupConte
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Link, useLocation } from 'react-router-dom';
+import { OfflineIndicator } from '@/components/OfflineIndicator';
 export function AppSidebar() {
   const {
     profile,
@@ -140,7 +141,10 @@ export function AppSidebar() {
           </SidebarGroup>}
       </SidebarContent>
 
-      <SidebarFooter className="border-t border-sidebar-border p-4">
+      <SidebarFooter className="border-t border-sidebar-border p-4 space-y-3">
+        <div className="flex items-center justify-center">
+          <OfflineIndicator />
+        </div>
         <div className="flex items-center gap-3">
           <Avatar className="h-9 w-9">
             <AvatarFallback className="bg-sidebar-primary text-sidebar-primary-foreground">
