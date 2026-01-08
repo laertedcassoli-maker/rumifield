@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import Dashboard from '@/pages/Dashboard';
+import Home from '@/pages/Home';
 
 export function HomeRedirect() {
   const navigate = useNavigate();
@@ -28,7 +28,7 @@ export function HomeRedirect() {
     }
   }, [isLoading, showInicioMenu, navigate]);
 
-  // Show loading or Dashboard based on config
+  // Show loading or Home based on config
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[50vh]">
@@ -41,5 +41,5 @@ export function HomeRedirect() {
     return null; // Will redirect
   }
 
-  return <Dashboard />;
+  return <Home />;
 }
