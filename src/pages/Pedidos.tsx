@@ -599,9 +599,9 @@ export default function Pedidos() {
                   {/* Total de itens */}
                   {itens.length > 0 && (
                     <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50 border">
-                      <span className="text-sm text-muted-foreground">Total de peças</span>
+                      <span className="text-sm text-muted-foreground">Total</span>
                       <span className="font-bold text-lg">
-                        {itens.reduce((sum, item) => sum + item.quantidade, 0)} {itens.reduce((sum, item) => sum + item.quantidade, 0) === 1 ? 'unidade' : 'unidades'}
+                        {itens.filter(i => i.peca_id).length} {itens.filter(i => i.peca_id).length === 1 ? 'peça' : 'peças'}, {itens.reduce((sum, item) => sum + item.quantidade, 0)} {itens.reduce((sum, item) => sum + item.quantidade, 0) === 1 ? 'unidade' : 'unidades'}
                       </span>
                     </div>
                   )}
@@ -753,7 +753,9 @@ export default function Pedidos() {
                       <PopoverTrigger asChild>
                         <Button variant="outline" size="sm" className="h-8 gap-1.5">
                           <Package className="h-4 w-4" />
-                          <span>{pedido.pedido_itens?.length || 0} {pedido.pedido_itens?.length === 1 ? 'peça' : 'peças'}</span>
+                          <span>
+                            {pedido.pedido_itens?.length || 0} {pedido.pedido_itens?.length === 1 ? 'peça' : 'peças'}, {pedido.pedido_itens?.reduce((sum: number, item: any) => sum + item.quantidade, 0) || 0} un
+                          </span>
                         </Button>
                       </PopoverTrigger>
                       <PopoverContent className="w-72 p-3" align="end">
@@ -861,7 +863,9 @@ export default function Pedidos() {
                         <PopoverTrigger asChild>
                           <Button variant="ghost" size="sm" className="h-auto p-1 gap-1.5">
                             <Package className="h-4 w-4 text-muted-foreground" />
-                            <span>{pedido.pedido_itens?.length || 0} {pedido.pedido_itens?.length === 1 ? 'item' : 'itens'}</span>
+                            <span>
+                              {pedido.pedido_itens?.length || 0} {pedido.pedido_itens?.length === 1 ? 'peça' : 'peças'}, {pedido.pedido_itens?.reduce((sum: number, item: any) => sum + item.quantidade, 0) || 0} un
+                            </span>
                             <Eye className="h-3 w-3 text-muted-foreground" />
                           </Button>
                         </PopoverTrigger>
