@@ -354,48 +354,72 @@ export default function Pedidos() {
                 <form onSubmit={editingPedido ? (e) => { e.preventDefault(); handleSubmit(); } : handleShowConfirmation} className="space-y-4">
                   <div className="space-y-2">
                     <Label>Cliente / Fazenda</Label>
-                    <Input
-                      placeholder="Digite para buscar cliente..."
-                      value={clienteSearch}
-                      onChange={(e) => setClienteSearch(e.target.value)}
-                      className="mb-2"
-                    />
-                    <div className="max-h-40 overflow-y-auto border rounded-md bg-background">
-                      {clientes
-                        ?.filter(c => {
-                          const search = clienteSearch.toLowerCase();
-                          return c.nome.toLowerCase().includes(search) || 
-                                 (c.fazenda?.toLowerCase().includes(search) ?? false);
-                        })
-                        .slice(0, 20)
-                        .map((cliente) => (
-                          <div
-                            key={cliente.id}
-                            onClick={() => {
-                              setForm({ ...form, cliente_id: cliente.id });
-                              setClienteSearch(cliente.nome + (cliente.fazenda ? ` - ${cliente.fazenda}` : ''));
-                            }}
-                            className={cn(
-                              "px-3 py-2 cursor-pointer hover:bg-muted border-b last:border-b-0",
-                              form.cliente_id === cliente.id && "bg-primary/10"
-                            )}
-                          >
-                            <div className="font-medium text-sm">{cliente.nome}</div>
-                            {cliente.fazenda && (
-                              <div className="text-xs text-muted-foreground">{cliente.fazenda}</div>
-                            )}
+                    {form.cliente_id ? (
+                      <div className="flex items-center gap-2 p-3 rounded-md border bg-primary/5">
+                        <div className="flex-1">
+                          <div className="font-medium text-sm">
+                            {clientes?.find(c => c.id === form.cliente_id)?.nome}
                           </div>
-                        ))}
-                      {clientes?.filter(c => {
-                        const search = clienteSearch.toLowerCase();
-                        return c.nome.toLowerCase().includes(search) || 
-                               (c.fazenda?.toLowerCase().includes(search) ?? false);
-                      }).length === 0 && (
-                        <div className="px-3 py-2 text-sm text-muted-foreground">
-                          Nenhum cliente encontrado
+                          {clientes?.find(c => c.id === form.cliente_id)?.fazenda && (
+                            <div className="text-xs text-muted-foreground">
+                              {clientes?.find(c => c.id === form.cliente_id)?.fazenda}
+                            </div>
+                          )}
                         </div>
-                      )}
-                    </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            setForm({ ...form, cliente_id: '' });
+                            setClienteSearch('');
+                          }}
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ) : (
+                      <>
+                        <Input
+                          placeholder="Digite para buscar cliente..."
+                          value={clienteSearch}
+                          onChange={(e) => setClienteSearch(e.target.value)}
+                          className="mb-2"
+                        />
+                        <div className="max-h-40 overflow-y-auto border rounded-md bg-background">
+                          {clientes
+                            ?.filter(c => {
+                              const search = clienteSearch.toLowerCase();
+                              return c.nome.toLowerCase().includes(search) || 
+                                     (c.fazenda?.toLowerCase().includes(search) ?? false);
+                            })
+                            .slice(0, 20)
+                            .map((cliente) => (
+                              <div
+                                key={cliente.id}
+                                onClick={() => {
+                                  setForm({ ...form, cliente_id: cliente.id });
+                                }}
+                                className="px-3 py-2 cursor-pointer hover:bg-muted border-b last:border-b-0"
+                              >
+                                <div className="font-medium text-sm">{cliente.nome}</div>
+                                {cliente.fazenda && (
+                                  <div className="text-xs text-muted-foreground">{cliente.fazenda}</div>
+                                )}
+                              </div>
+                            ))}
+                          {clientes?.filter(c => {
+                            const search = clienteSearch.toLowerCase();
+                            return c.nome.toLowerCase().includes(search) || 
+                                   (c.fazenda?.toLowerCase().includes(search) ?? false);
+                          }).length === 0 && (
+                            <div className="px-3 py-2 text-sm text-muted-foreground">
+                              Nenhum cliente encontrado
+                            </div>
+                          )}
+                        </div>
+                      </>
+                    )}
                   </div>
 
                   <div className="space-y-2">
