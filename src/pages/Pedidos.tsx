@@ -479,8 +479,9 @@ export default function Pedidos() {
                                   placeholder="Buscar peça por código ou nome..."
                                   value={pecaSearches[index] || ''}
                                   onChange={(e) => setPecaSearches({ ...pecaSearches, [index]: e.target.value })}
+                                  autoFocus
                                 />
-                                <div className="max-h-32 overflow-y-auto border rounded-md bg-background">
+                                <div className="max-h-40 overflow-y-auto border rounded-md bg-background">
                                   {availablePecas
                                     .filter(p => {
                                       const search = (pecaSearches[index] || '').toLowerCase();
