@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Plus, Loader2, Search, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Pencil, RefreshCw, CheckCircle2, XCircle, Eye, EyeOff, Settings } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
 import { Switch } from '@/components/ui/switch';
 
@@ -860,6 +861,37 @@ export default function AdminConfig() {
         </TabsContent>
 
         <TabsContent value="integracoes" className="space-y-6">
+          {/* iMilk Integration */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Conexão iMilk</CardTitle>
+              <CardDescription>Integração para sincronização de clientes do iMilk</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="p-4 rounded-lg bg-muted/50 border space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">Endpoint</span>
+                  <code className="text-xs bg-muted px-2 py-1 rounded">http://n8n.rumina.com.br/webhook/imilk/rumiflow/clientes</code>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">Autenticação</span>
+                  <span className="text-sm text-muted-foreground">API Key (Header Authorization)</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-sm font-medium">Secret configurado</span>
+                  <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">
+                    <CheckCircle2 className="h-3 w-3 mr-1" />
+                    IMILK_API_KEY
+                  </Badge>
+                </div>
+              </div>
+              <p className="text-sm text-muted-foreground">
+                A sincronização de clientes do iMilk está disponível na tela de Clientes. O secret IMILK_API_KEY está configurado no backend.
+              </p>
+            </CardContent>
+          </Card>
+
+          {/* Omie Integration */}
           <Card>
             <CardHeader>
               <CardTitle>Conexão Omie</CardTitle>
