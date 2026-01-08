@@ -75,7 +75,7 @@ serve(async (req) => {
             pagina: currentPage,
             registros_por_pagina: 50,
             apenas_importado_api: 'N',
-            inativo: 'N',
+            filtrar_apenas_omiepdv: 'N',
           }],
         }),
       });
