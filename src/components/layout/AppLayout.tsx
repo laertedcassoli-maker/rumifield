@@ -4,6 +4,8 @@ import { AppSidebar } from './AppSidebar';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigate, useLocation } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
+import { OfflineBanner } from '@/components/OfflineBanner';
+import { useOffline } from '@/contexts/OfflineContext';
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -37,10 +39,14 @@ export function AppLayout({ children }: AppLayoutProps) {
     return <Navigate to="/auth" replace />;
   }
 
+  const { isOnline, pendingCount, syncStatus } = useOffline();
+  const showBanner = !isOnline || syncStatus === "syncing" || pendingCount > 0;
+
   return (
     <SidebarProvider>
+      <OfflineBanner />
       <AppSidebar />
-      <SidebarInset>
+      <SidebarInset className={showBanner ? "pt-10" : ""}>
         <header className="sticky top-0 z-40 flex h-14 items-center gap-3 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4 md:px-6">
           <SidebarTrigger className="h-9 w-9 md:h-7 md:w-7 [&>svg]:h-5 [&>svg]:w-5 md:[&>svg]:h-4 md:[&>svg]:w-4" />
           <span className="font-semibold md:hidden">{pageTitle}</span>
