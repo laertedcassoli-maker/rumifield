@@ -7,7 +7,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { OfflineProvider } from "@/contexts/OfflineContext";
 import { AppLayout } from "@/components/layout/AppLayout";
 import Auth from "./pages/Auth";
-import Dashboard from "./pages/Dashboard";
+import { HomeRedirect } from "./components/HomeRedirect";
 import Visitas from "./pages/Visitas";
 import Estoque from "./pages/Estoque";
 import Consumo from "./pages/estoque/Consumo";
@@ -38,7 +38,7 @@ const App = () => (
               path="/"
               element={
                 <AppLayout>
-                  <Dashboard />
+                  <HomeRedirect />
                 </AppLayout>
               }
             />
