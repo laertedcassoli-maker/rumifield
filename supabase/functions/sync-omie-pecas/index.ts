@@ -6,12 +6,17 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+interface OmieImagem {
+  url_imagem: string;
+}
+
 interface OmieProduto {
   codigo_produto: number;
   codigo: string;
   descricao: string;
   inativo: string;
   descricao_familia?: string;
+  imagens?: OmieImagem[];
 }
 
 interface OmieResponse {
@@ -132,6 +137,11 @@ serve(async (req) => {
 
     for (const omiePeca of allPecas) {
       try {
+        // Get first image URL if available
+        const imagemUrl = omiePeca.imagens && omiePeca.imagens.length > 0 
+          ? omiePeca.imagens[0].url_imagem 
+          : null;
+
         const pecaData = {
           codigo: omiePeca.codigo || '',
           nome: omiePeca.descricao || 'Sem descrição',
@@ -139,6 +149,7 @@ serve(async (req) => {
           omie_codigo: String(omiePeca.codigo_produto),
           familia: omiePeca.descricao_familia || null,
           ativo: true,
+          imagem_url: imagemUrl,
         };
 
         if (!pecaData.omie_codigo) {
@@ -158,6 +169,7 @@ serve(async (req) => {
               descricao: pecaData.descricao,
               familia: pecaData.familia,
               ativo: pecaData.ativo,
+              imagem_url: pecaData.imagem_url,
             })
             .eq('id', existingId);
 
