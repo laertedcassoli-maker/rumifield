@@ -47,6 +47,7 @@ export default function Pedidos() {
   const [viewAll, setViewAll] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
+  const [imagePreview, setImagePreview] = useState<{ url: string; nome: string } | null>(null);
   
   const isAdmin = role === 'admin' || role === 'gestor';
 
@@ -322,11 +323,17 @@ export default function Pedidos() {
                         return (
                           <div key={index} className="p-2 rounded border bg-muted/30 flex gap-3">
                             {peca?.imagem_url ? (
-                              <img
-                                src={peca.imagem_url}
-                                alt={peca.nome}
-                                className="h-12 w-12 object-cover rounded shrink-0"
-                              />
+                              <button
+                                type="button"
+                                onClick={() => setImagePreview({ url: peca.imagem_url!, nome: peca.nome })}
+                                className="shrink-0 hover:opacity-80 transition-opacity"
+                              >
+                                <img
+                                  src={peca.imagem_url}
+                                  alt={peca.nome}
+                                  className="h-12 w-12 object-cover rounded"
+                                />
+                              </button>
                             ) : (
                               <div className="h-12 w-12 flex items-center justify-center bg-muted rounded shrink-0">
                                 <ImageIcon className="h-5 w-5 text-muted-foreground" />
@@ -495,11 +502,17 @@ export default function Pedidos() {
                             {selectedPeca ? (
                               <div className="flex items-center gap-3 p-2 rounded-md border bg-primary/5">
                                 {selectedPeca.imagem_url ? (
-                                  <img
-                                    src={selectedPeca.imagem_url}
-                                    alt={selectedPeca.nome}
-                                    className="h-12 w-12 object-cover rounded shrink-0"
-                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => setImagePreview({ url: selectedPeca.imagem_url!, nome: selectedPeca.nome })}
+                                    className="shrink-0 hover:opacity-80 transition-opacity"
+                                  >
+                                    <img
+                                      src={selectedPeca.imagem_url}
+                                      alt={selectedPeca.nome}
+                                      className="h-12 w-12 object-cover rounded"
+                                    />
+                                  </button>
                                 ) : (
                                   <div className="h-12 w-12 flex items-center justify-center bg-muted rounded shrink-0">
                                     <ImageIcon className="h-5 w-5 text-muted-foreground" />
@@ -978,6 +991,24 @@ export default function Pedidos() {
           </Card>
         </>
       )}
+
+      {/* Image Preview Dialog */}
+      <Dialog open={!!imagePreview} onOpenChange={(open) => !open && setImagePreview(null)}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{imagePreview?.nome || 'Imagem da Peça'}</DialogTitle>
+          </DialogHeader>
+          <div className="flex items-center justify-center p-4">
+            {imagePreview?.url && (
+              <img
+                src={imagePreview.url}
+                alt={imagePreview.nome}
+                className="max-w-full max-h-[60vh] object-contain rounded-lg"
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
