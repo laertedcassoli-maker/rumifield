@@ -42,7 +42,7 @@ const statusLabels: Record<string, string> = {
 export default function Pedidos() {
   const { user, role } = useAuth();
   const { toast } = useToast();
-  const { isOnline, triggerSync } = useOffline();
+  const { isOnline, triggerSync, lastSyncTime, syncStatus } = useOffline();
   const [open, setOpen] = useState(false);
   const [editingPedido, setEditingPedido] = useState<any>(null);
   const [form, setForm] = useState({ cliente_id: '', observacoes: '' });
@@ -340,14 +340,28 @@ export default function Pedidos() {
   return (
     <div className="space-y-6 animate-fade-in w-full">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0 flex items-center gap-2">
-          <h1 className="text-2xl font-bold">Pedidos de Peças</h1>
-          {!isOnline && (
-            <Badge variant="outline" className="text-orange-500 border-orange-300">
-              <CloudOff className="h-3 w-3 mr-1" />
-              Offline
-            </Badge>
-          )}
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold">Pedidos de Peças</h1>
+            {!isOnline && (
+              <Badge variant="outline" className="text-orange-500 border-orange-300">
+                <CloudOff className="h-3 w-3 mr-1" />
+                Offline
+              </Badge>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground mt-1">
+            {syncStatus === 'syncing' ? (
+              <span className="flex items-center gap-1">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                Sincronizando...
+              </span>
+            ) : lastSyncTime ? (
+              `Última sync: ${format(lastSyncTime, "dd/MM 'às' HH:mm", { locale: ptBR })}`
+            ) : (
+              'Nunca sincronizado'
+            )}
+          </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Dialog open={open} onOpenChange={handleCloseDialog}>
