@@ -15,7 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus, Loader2, Trash2, Minus, ArrowUpDown, Search, X, Eye, Pencil, CloudOff, ShoppingCart, Package, ImageIcon, Send, FileText } from 'lucide-react';
+import { Plus, Loader2, Trash2, Minus, ArrowUpDown, Search, X, Eye, Pencil, CloudOff, ShoppingCart, Package, ImageIcon, Send, FileText, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -71,6 +71,10 @@ export default function Pedidos() {
   const [activeTab, setActiveTab] = useState<'rascunhos' | 'pedidos'>('pedidos');
   const [isTransmitting, setIsTransmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 10;
 
   const [openPopovers, setOpenPopovers] = useState<Record<number, boolean>>({});
   const [clienteSearch, setClienteSearch] = useState('');
@@ -153,6 +157,23 @@ export default function Pedidos() {
     
     return filtered;
   }, [pedidos, rascunhos, pedidosTransmitidos, activeTab, searchTerm, statusFilter, dateFilter, sortField, sortOrder]);
+
+  // Paginated data (only for Transmitidos tab)
+  const paginatedPedidos = useMemo(() => {
+    if (activeTab === 'rascunhos') return filteredAndSortedPedidos;
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    return filteredAndSortedPedidos.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  }, [filteredAndSortedPedidos, currentPage, activeTab, ITEMS_PER_PAGE]);
+
+  const totalPages = useMemo(() => {
+    if (activeTab === 'rascunhos') return 1;
+    return Math.ceil(filteredAndSortedPedidos.length / ITEMS_PER_PAGE);
+  }, [filteredAndSortedPedidos.length, activeTab, ITEMS_PER_PAGE]);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, statusFilter, dateFilter, activeTab]);
 
   const toggleSort = (field: 'created_at' | 'cliente' | 'status') => {
     if (sortField === field) {
@@ -915,7 +936,7 @@ export default function Pedidos() {
         <>
           {/* Mobile: Cards */}
           <div className="space-y-3 md:hidden">
-            {filteredAndSortedPedidos.map((pedido) => (
+            {paginatedPedidos.map((pedido) => (
               <Card key={pedido.id} className={cn(pedido._pendingSync && 'border-orange-300 border-dashed')}>
                 <CardContent className="p-4">
                   <div className="flex items-start justify-between gap-2">
@@ -1043,7 +1064,7 @@ export default function Pedidos() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredAndSortedPedidos.map((pedido) => (
+                {paginatedPedidos.map((pedido) => (
                   <TableRow key={pedido.id} className={pedido._pendingSync ? 'bg-orange-50/50' : ''}>
                     <TableCell className="whitespace-nowrap">
                       <div className="flex items-center gap-1">
@@ -1136,6 +1157,65 @@ export default function Pedidos() {
               </TableBody>
             </Table>
           </Card>
+          
+          {/* Pagination Controls */}
+          {activeTab === 'pedidos' && totalPages > 1 && (
+            <div className="flex items-center justify-between px-2 py-3">
+              <p className="text-sm text-muted-foreground">
+                Mostrando {((currentPage - 1) * ITEMS_PER_PAGE) + 1} a {Math.min(currentPage * ITEMS_PER_PAGE, filteredAndSortedPedidos.length)} de {filteredAndSortedPedidos.length}
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                  className="h-8 gap-1"
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                  <span className="hidden sm:inline">Anterior</span>
+                </Button>
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1)
+                    .filter(page => {
+                      // Show first, last, current, and adjacent pages
+                      if (page === 1 || page === totalPages) return true;
+                      if (Math.abs(page - currentPage) <= 1) return true;
+                      return false;
+                    })
+                    .map((page, index, arr) => {
+                      // Check if we need ellipsis before this page
+                      const showEllipsisBefore = index > 0 && page - arr[index - 1] > 1;
+                      return (
+                        <div key={page} className="flex items-center gap-1">
+                          {showEllipsisBefore && (
+                            <span className="px-2 text-muted-foreground">...</span>
+                          )}
+                          <Button
+                            variant={currentPage === page ? 'default' : 'outline'}
+                            size="sm"
+                            onClick={() => setCurrentPage(page)}
+                            className="h-8 w-8 p-0"
+                          >
+                            {page}
+                          </Button>
+                        </div>
+                      );
+                    })}
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                  className="h-8 gap-1"
+                >
+                  <span className="hidden sm:inline">Próximo</span>
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
         </>
       )}
       </Tabs>
