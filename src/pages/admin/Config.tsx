@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Loader2, Search, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Pencil, RefreshCw, CheckCircle2, XCircle, Eye, EyeOff, Settings } from 'lucide-react';
+import { Plus, Loader2, Search, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Pencil, RefreshCw, CheckCircle2, XCircle, Eye, EyeOff, Settings, ImageIcon } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
@@ -42,6 +42,8 @@ export default function AdminConfig() {
   
   const [produtoOpen, setProdutoOpen] = useState(false);
   const [pecaOpen, setPecaOpen] = useState(false);
+  const [imagePreviewOpen, setImagePreviewOpen] = useState(false);
+  const [previewImage, setPreviewImage] = useState<{ url: string; nome: string } | null>(null);
   const [produtoForm, setProdutoForm] = useState<ProdutoFormData>({ nome: '', unidade: 'litros', descricao: '', litros_por_vaca_2x: 0, litros_por_vaca_3x: 0 });
   const [pecaForm, setPecaForm] = useState<PecaFormData>({ codigo: '', nome: '', descricao: '', omie_codigo: '' });
   const [isEditingProduto, setIsEditingProduto] = useState(false);
@@ -868,6 +870,7 @@ export default function AdminConfig() {
                 <Table>
                   <TableHeader>
                     <TableRow>
+                      <TableHead className="w-[50px]">Foto</TableHead>
                       <TableHead>
                         <Button variant="ghost" onClick={() => handlePecaSort('codigo')} className="hover:bg-transparent p-0">
                           Código {getSortIcon('codigo', pecaSortField, pecaSortDirection)}
@@ -899,13 +902,36 @@ export default function AdminConfig() {
                   <TableBody>
                     {paginatedPecas.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                        <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                           Nenhuma peça encontrada
                         </TableCell>
                       </TableRow>
                     ) : (
                       paginatedPecas.map((peca) => (
                         <TableRow key={peca.id}>
+                          <TableCell>
+                            {peca.imagem_url ? (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={() => {
+                                  setPreviewImage({ url: peca.imagem_url!, nome: peca.nome });
+                                  setImagePreviewOpen(true);
+                                }}
+                              >
+                                <img
+                                  src={peca.imagem_url}
+                                  alt={peca.nome}
+                                  className="h-8 w-8 object-cover rounded"
+                                />
+                              </Button>
+                            ) : (
+                              <div className="h-8 w-8 flex items-center justify-center text-muted-foreground">
+                                <ImageIcon className="h-4 w-4" />
+                              </div>
+                            )}
+                          </TableCell>
                           <TableCell className="font-medium">{peca.codigo}</TableCell>
                           <TableCell>{peca.nome}</TableCell>
                           <TableCell>
@@ -1109,6 +1135,24 @@ export default function AdminConfig() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      {/* Image Preview Dialog */}
+      <Dialog open={imagePreviewOpen} onOpenChange={setImagePreviewOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{previewImage?.nome || 'Imagem da Peça'}</DialogTitle>
+          </DialogHeader>
+          <div className="flex items-center justify-center p-4">
+            {previewImage?.url && (
+              <img
+                src={previewImage.url}
+                alt={previewImage.nome}
+                className="max-w-full max-h-[60vh] object-contain rounded-lg"
+              />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
