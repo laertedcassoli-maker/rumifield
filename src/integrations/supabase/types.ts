@@ -255,6 +255,7 @@ export type Database = {
           descricao: string | null
           familia: string | null
           id: string
+          imagem_url: string | null
           nome: string
           omie_codigo: string | null
         }
@@ -265,6 +266,7 @@ export type Database = {
           descricao?: string | null
           familia?: string | null
           id?: string
+          imagem_url?: string | null
           nome: string
           omie_codigo?: string | null
         }
@@ -275,6 +277,7 @@ export type Database = {
           descricao?: string | null
           familia?: string | null
           id?: string
+          imagem_url?: string | null
           nome?: string
           omie_codigo?: string | null
         }
