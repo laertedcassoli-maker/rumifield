@@ -28,6 +28,7 @@ export interface OfflinePeca {
   familia?: string | null;
   ativo?: boolean | null;
   omie_codigo?: string | null;
+  imagem_url?: string | null;
   created_at: string;
 }
 
