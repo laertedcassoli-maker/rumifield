@@ -57,11 +57,12 @@ export default function Pedidos() {
   // Use offline data
   const clientes = useLiveQuery(() => offlineDb.clientes.toArray(), []);
   const pecas = useLiveQuery(() => offlineDb.pecas.filter(p => p.ativo !== false).toArray(), []);
-  const { pedidos, isLoading, createPedido, updatePedido, transmitirPedido, transmitirTodos } = useOfflinePedidos(user?.id, viewAll, isAdmin);
+  const { pedidos, isLoading, createPedido, updatePedido, transmitirPedido, transmitirTodos, deletePedido } = useOfflinePedidos(user?.id, viewAll, isAdmin);
 
   // Tab state for drafts vs submitted
   const [activeTab, setActiveTab] = useState<'rascunhos' | 'pedidos'>('pedidos');
   const [isTransmitting, setIsTransmitting] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const [openPopovers, setOpenPopovers] = useState<Record<number, boolean>>({});
   const [clienteSearch, setClienteSearch] = useState('');
@@ -192,6 +193,26 @@ export default function Pedidos() {
       toast({ variant: 'destructive', title: 'Erro ao transmitir', description: error.message });
     } finally {
       setIsTransmitting(false);
+    }
+  };
+
+  const handleDeletePedido = async () => {
+    if (!editingPedido) return;
+    setIsDeleting(true);
+    try {
+      await deletePedido(editingPedido.id);
+      toast({ title: 'Rascunho excluído!' });
+      setOpen(false);
+      setEditingPedido(null);
+      setForm({ cliente_id: '', observacoes: '' });
+      setItens([]);
+      if (isOnline) {
+        setTimeout(() => triggerSync(), 500);
+      }
+    } catch (error: any) {
+      toast({ variant: 'destructive', title: 'Erro ao excluir', description: error.message });
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -714,16 +735,37 @@ export default function Pedidos() {
                     </div>
                   )}
 
-                  <Button type="submit" className="w-full" disabled={isSubmitting}>
-                    {isSubmitting ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <>
-                        {!isOnline && <CloudOff className="mr-2 h-4 w-4" />}
-                        Salvar
-                      </>
+                  {/* Buttons - Delete and Save when editing draft */}
+                  <div className="flex gap-2">
+                    {editingPedido && editingPedido.status === 'rascunho' && (
+                      <Button 
+                        type="button" 
+                        variant="destructive" 
+                        className="flex-1"
+                        onClick={handleDeletePedido}
+                        disabled={isDeleting || isSubmitting}
+                      >
+                        {isDeleting ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <>
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Excluir
+                          </>
+                        )}
+                      </Button>
                     )}
-                  </Button>
+                    <Button type="submit" className={editingPedido?.status === 'rascunho' ? 'flex-1' : 'w-full'} disabled={isSubmitting || isDeleting}>
+                      {isSubmitting ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <>
+                          {!isOnline && <CloudOff className="mr-2 h-4 w-4" />}
+                          Salvar
+                        </>
+                      )}
+                    </Button>
+                  </div>
                 </form>
               </>
             )}
