@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useAuth } from '@/contexts/AuthContext';
 import { useOfflinePedidos } from '@/hooks/useOfflinePedidos';
@@ -58,6 +58,13 @@ export default function Pedidos() {
   const clientes = useLiveQuery(() => offlineDb.clientes.toArray(), []);
   const pecas = useLiveQuery(() => offlineDb.pecas.filter(p => p.ativo !== false).toArray(), []);
   const { pedidos, isLoading, createPedido, updatePedido, transmitirPedido, transmitirTodos, deletePedido } = useOfflinePedidos(user?.id, viewAll, isAdmin);
+
+  // Auto-sync when page loads and online
+  useEffect(() => {
+    if (isOnline) {
+      triggerSync();
+    }
+  }, []);
 
   // Tab state for drafts vs submitted
   const [activeTab, setActiveTab] = useState<'rascunhos' | 'pedidos'>('pedidos');
