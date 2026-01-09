@@ -9,7 +9,7 @@ function generateId(): string {
 }
 
 export interface PedidoComItens extends OfflinePedido {
-  pedido_itens: (OfflinePedidoItem & { pecas?: { nome: string; codigo: string } })[];
+  pedido_itens: (OfflinePedidoItem & { pecas?: { nome: string; codigo: string; familia?: string | null } })[];
   clientes?: { nome: string; fazenda?: string | null };
   solicitante?: { nome: string; email: string } | null;
 }
@@ -46,7 +46,7 @@ export function useOfflinePedidos(userId?: string, viewAll = false, isAdmin = fa
           const peca = offlinePecas.find(p => p.id === item.peca_id);
           return {
             ...item,
-            pecas: peca ? { nome: peca.nome, codigo: peca.codigo } : undefined,
+            pecas: peca ? { nome: peca.nome, codigo: peca.codigo, familia: peca.familia } : undefined,
           };
         });
 

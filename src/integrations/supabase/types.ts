@@ -253,6 +253,7 @@ export type Database = {
           codigo: string
           created_at: string
           descricao: string | null
+          familia: string | null
           id: string
           nome: string
           omie_codigo: string | null
@@ -262,6 +263,7 @@ export type Database = {
           codigo: string
           created_at?: string
           descricao?: string | null
+          familia?: string | null
           id?: string
           nome: string
           omie_codigo?: string | null
@@ -271,6 +273,7 @@ export type Database = {
           codigo?: string
           created_at?: string
           descricao?: string | null
+          familia?: string | null
           id?: string
           nome?: string
           omie_codigo?: string | null

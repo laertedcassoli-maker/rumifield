@@ -137,6 +137,7 @@ serve(async (req) => {
           nome: omiePeca.descricao || 'Sem descrição',
           descricao: omiePeca.descricao || '',
           omie_codigo: String(omiePeca.codigo_produto),
+          familia: omiePeca.descricao_familia || null,
           ativo: true,
         };
 
@@ -155,6 +156,7 @@ serve(async (req) => {
               codigo: pecaData.codigo,
               nome: pecaData.nome,
               descricao: pecaData.descricao,
+              familia: pecaData.familia,
               ativo: pecaData.ativo,
             })
             .eq('id', existingId);
