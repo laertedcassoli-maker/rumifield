@@ -14,13 +14,15 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Loader2, Trash2, Minus, ArrowUpDown, Search, X, Eye, Pencil, CloudOff, ShoppingCart, Package, Check, ImageIcon } from 'lucide-react';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Plus, Loader2, Trash2, Minus, ArrowUpDown, Search, X, Eye, Pencil, CloudOff, ShoppingCart, Package, ImageIcon, Send, FileText } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 
 const statusColors: Record<string, string> = {
+  rascunho: 'bg-muted text-muted-foreground border-muted-foreground/30',
   solicitado: 'bg-info/10 text-info border-info/20',
   processamento: 'bg-warning/10 text-warning border-warning/20',
   faturado: 'bg-primary/10 text-primary border-primary/20',
@@ -29,6 +31,7 @@ const statusColors: Record<string, string> = {
 };
 
 const statusLabels: Record<string, string> = {
+  rascunho: 'Rascunho',
   solicitado: 'Solicitado',
   processamento: 'Em Processamento',
   faturado: 'Faturado',
@@ -54,7 +57,11 @@ export default function Pedidos() {
   // Use offline data
   const clientes = useLiveQuery(() => offlineDb.clientes.toArray(), []);
   const pecas = useLiveQuery(() => offlineDb.pecas.filter(p => p.ativo !== false).toArray(), []);
-  const { pedidos, isLoading, createPedido, updatePedido } = useOfflinePedidos(user?.id, viewAll, isAdmin);
+  const { pedidos, isLoading, createPedido, updatePedido, transmitirPedido, transmitirTodos } = useOfflinePedidos(user?.id, viewAll, isAdmin);
+
+  // Tab state for drafts vs submitted
+  const [activeTab, setActiveTab] = useState<'rascunhos' | 'pedidos'>('pedidos');
+  const [isTransmitting, setIsTransmitting] = useState(false);
 
   const [openPopovers, setOpenPopovers] = useState<Record<number, boolean>>({});
   const [clienteSearch, setClienteSearch] = useState('');
@@ -66,10 +73,23 @@ export default function Pedidos() {
   const [sortField, setSortField] = useState<'created_at' | 'cliente' | 'status'>('created_at');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
-  const filteredAndSortedPedidos = useMemo(() => {
+  // Separate drafts from transmitted orders
+  const rascunhos = useMemo(() => {
     if (!pedidos) return [];
+    return pedidos.filter(p => p.status === 'rascunho');
+  }, [pedidos]);
+
+  const pedidosTransmitidos = useMemo(() => {
+    if (!pedidos) return [];
+    return pedidos.filter(p => p.status !== 'rascunho');
+  }, [pedidos]);
+
+  const filteredAndSortedPedidos = useMemo(() => {
+    // Use different source based on active tab
+    const source = activeTab === 'rascunhos' ? rascunhos : pedidosTransmitidos;
+    if (!source.length) return [];
     
-    let filtered = pedidos.filter(pedido => {
+    let filtered = source.filter(pedido => {
       const searchLower = searchTerm.toLowerCase().trim();
       const searchWords = searchLower.split(/\s+/).filter(w => w.length > 0);
       
@@ -92,7 +112,8 @@ export default function Pedidos() {
         });
       })();
       
-      const matchesStatus = statusFilter === 'all' || pedido.status === statusFilter;
+      // Status filter only applies to transmitted orders tab
+      const matchesStatus = activeTab === 'rascunhos' || statusFilter === 'all' || pedido.status === statusFilter;
       
       // Date filter
       let matchesDate = true;
@@ -114,7 +135,7 @@ export default function Pedidos() {
       } else if (sortField === 'cliente') {
         comparison = (a.clientes?.nome || '').localeCompare(b.clientes?.nome || '');
       } else if (sortField === 'status') {
-        const statusOrder = ['solicitado', 'processamento', 'faturado', 'enviado', 'entregue'];
+        const statusOrder = ['rascunho', 'solicitado', 'processamento', 'faturado', 'enviado', 'entregue'];
         comparison = statusOrder.indexOf(a.status) - statusOrder.indexOf(b.status);
       }
       
@@ -122,7 +143,7 @@ export default function Pedidos() {
     });
     
     return filtered;
-  }, [pedidos, searchTerm, statusFilter, dateFilter, sortField, sortOrder]);
+  }, [pedidos, rascunhos, pedidosTransmitidos, activeTab, searchTerm, statusFilter, dateFilter, sortField, sortOrder]);
 
   const toggleSort = (field: 'created_at' | 'cliente' | 'status') => {
     if (sortField === field) {
@@ -137,6 +158,41 @@ export default function Pedidos() {
     setSearchTerm('');
     setStatusFilter('all');
     setDateFilter('all');
+  };
+
+  const handleTransmitir = async (pedidoId: string) => {
+    setIsTransmitting(true);
+    try {
+      await transmitirPedido(pedidoId);
+      toast({ title: 'Pedido transmitido!', description: 'O pedido foi enviado para processamento.' });
+      if (isOnline) {
+        setTimeout(() => triggerSync(), 500);
+      }
+    } catch (error: any) {
+      toast({ variant: 'destructive', title: 'Erro ao transmitir', description: error.message });
+    } finally {
+      setIsTransmitting(false);
+    }
+  };
+
+  const handleTransmitirTodos = async () => {
+    if (rascunhos.length === 0) return;
+    setIsTransmitting(true);
+    try {
+      await transmitirTodos(rascunhos.map(r => r.id));
+      toast({ 
+        title: 'Todos os rascunhos transmitidos!', 
+        description: `${rascunhos.length} pedido(s) enviado(s) para processamento.` 
+      });
+      setActiveTab('pedidos');
+      if (isOnline) {
+        setTimeout(() => triggerSync(), 500);
+      }
+    } catch (error: any) {
+      toast({ variant: 'destructive', title: 'Erro ao transmitir', description: error.message });
+    } finally {
+      setIsTransmitting(false);
+    }
   };
 
   const addItem = () => {
@@ -229,7 +285,8 @@ export default function Pedidos() {
           observacoes: form.observacoes,
           itens,
         });
-        toast({ title: 'Pedido criado!' });
+        toast({ title: 'Rascunho salvo!', description: 'Clique em "Transmitir" para enviar o pedido.' });
+        setActiveTab('rascunhos'); // Switch to drafts tab
       }
       setOpen(false);
       setEditingPedido(null);
@@ -290,7 +347,7 @@ export default function Pedidos() {
               <>
                 <DialogHeader>
                   <DialogTitle className="flex items-center gap-2">
-                    Confirmar Pedido
+                    Confirmar Rascunho
                     {!isOnline && (
                       <Badge variant="outline" className="text-orange-500 border-orange-300 text-xs">
                         <CloudOff className="h-3 w-3 mr-1" />
@@ -387,7 +444,8 @@ export default function Pedidos() {
                       ) : (
                         <>
                           {!isOnline && <CloudOff className="mr-2 h-4 w-4" />}
-                          Enviar Pedido
+                          <FileText className="mr-2 h-4 w-4" />
+                          Salvar Rascunho
                         </>
                       )}
                     </Button>
@@ -674,71 +732,108 @@ export default function Pedidos() {
         </div>
       </div>
 
-      {/* Filters */}
-      <Card>
-        <CardContent className="p-4 space-y-3">
-          <div className="flex flex-col sm:flex-row gap-3">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Buscar cliente, fazenda, código ou nome da peça..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9"
-              />
-            </div>
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-full sm:w-[180px]">
-                <SelectValue placeholder="Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os status</SelectItem>
-                <SelectItem value="solicitado">Solicitado</SelectItem>
-                <SelectItem value="processamento">Em Processamento</SelectItem>
-                <SelectItem value="faturado">Faturado</SelectItem>
-                <SelectItem value="enviado">Enviado</SelectItem>
-                <SelectItem value="entregue">Entregue</SelectItem>
-              </SelectContent>
-            </Select>
-            {(searchTerm || statusFilter !== 'all' || dateFilter !== 'all') && (
-              <Button variant="ghost" size="icon" onClick={clearFilters}>
-                <X className="h-4 w-4" />
-              </Button>
-            )}
-          </div>
+      {/* Tabs for Drafts and Transmitted Orders */}
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'rascunhos' | 'pedidos')} className="w-full">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
+          <TabsList className="grid grid-cols-2 w-full sm:w-auto">
+            <TabsTrigger value="rascunhos" className="gap-2">
+              <FileText className="h-4 w-4" />
+              <span>Rascunhos</span>
+              {rascunhos.length > 0 && (
+                <Badge variant="secondary" className="ml-1 h-5 px-1.5">
+                  {rascunhos.length}
+                </Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger value="pedidos" className="gap-2">
+              <Send className="h-4 w-4" />
+              <span>Transmitidos</span>
+            </TabsTrigger>
+          </TabsList>
           
-          {/* Date quick filters */}
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-sm text-muted-foreground">Período:</span>
-            <div className="flex gap-1">
-              <Button
-                variant={dateFilter === '7' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setDateFilter(dateFilter === '7' ? 'all' : '7')}
-                className="h-7 text-xs"
-              >
-                7 dias
-              </Button>
-              <Button
-                variant={dateFilter === '30' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setDateFilter(dateFilter === '30' ? 'all' : '30')}
-                className="h-7 text-xs"
-              >
-                30 dias
-              </Button>
-              <Button
-                variant={dateFilter === 'all' ? 'secondary' : 'outline'}
-                size="sm"
-                onClick={() => setDateFilter('all')}
-                className="h-7 text-xs"
-              >
-                Todos
-              </Button>
+          {activeTab === 'rascunhos' && rascunhos.length > 0 && (
+            <Button 
+              onClick={handleTransmitirTodos}
+              disabled={isTransmitting}
+              className="bg-success hover:bg-success/90 text-success-foreground"
+            >
+              {isTransmitting ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : (
+                <Send className="h-4 w-4 mr-2" />
+              )}
+              Transmitir Todos ({rascunhos.length})
+            </Button>
+          )}
+        </div>
+
+        {/* Filters */}
+        <Card className="mb-4">
+          <CardContent className="p-4 space-y-3">
+            <div className="flex flex-col sm:flex-row gap-3">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar cliente, fazenda, código ou nome da peça..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+              {activeTab === 'pedidos' && (
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="w-full sm:w-[180px]">
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos os status</SelectItem>
+                    <SelectItem value="solicitado">Solicitado</SelectItem>
+                    <SelectItem value="processamento">Em Processamento</SelectItem>
+                    <SelectItem value="faturado">Faturado</SelectItem>
+                    <SelectItem value="enviado">Enviado</SelectItem>
+                    <SelectItem value="entregue">Entregue</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
+              {(searchTerm || statusFilter !== 'all' || dateFilter !== 'all') && (
+                <Button variant="ghost" size="icon" onClick={clearFilters}>
+                  <X className="h-4 w-4" />
+                </Button>
+              )}
             </div>
-          </div>
-        </CardContent>
-      </Card>
+            
+            {/* Date quick filters */}
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-sm text-muted-foreground">Período:</span>
+              <div className="flex gap-1">
+                <Button
+                  variant={dateFilter === '7' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setDateFilter(dateFilter === '7' ? 'all' : '7')}
+                  className="h-7 text-xs"
+                >
+                  7 dias
+                </Button>
+                <Button
+                  variant={dateFilter === '30' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setDateFilter(dateFilter === '30' ? 'all' : '30')}
+                  className="h-7 text-xs"
+                >
+                  30 dias
+                </Button>
+                <Button
+                  variant={dateFilter === 'all' ? 'secondary' : 'outline'}
+                  size="sm"
+                  onClick={() => setDateFilter('all')}
+                  className="h-7 text-xs"
+                >
+                  Todos
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
 
       {isLoading ? (
         <div className="flex justify-center py-12">
@@ -783,16 +878,29 @@ export default function Pedidos() {
                         <p className="text-sm text-muted-foreground break-words">{pedido.clientes.fazenda}</p>
                       )}
                     </div>
-                    {pedido.status === 'solicitado' && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-9 w-9 shrink-0"
-                        onClick={() => handleEditPedido(pedido)}
-                      >
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                    )}
+                    <div className="flex items-center gap-1 shrink-0">
+                      {pedido.status === 'rascunho' && (
+                        <>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-9 w-9"
+                            onClick={() => handleEditPedido(pedido)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            className="bg-success hover:bg-success/90 text-success-foreground h-9 gap-1"
+                            onClick={() => handleTransmitir(pedido.id)}
+                            disabled={isTransmitting}
+                          >
+                            {isTransmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                            <span className="hidden sm:inline">Transmitir</span>
+                          </Button>
+                        </>
+                      )}
+                    </div>
                   </div>
                   
                   <div className="mt-3 pt-3 border-t text-sm space-y-2">
@@ -973,15 +1081,26 @@ export default function Pedidos() {
                       {pedido.omie_nf_numero || '-'}
                     </TableCell>
                     <TableCell>
-                      {pedido.status === 'solicitado' && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() => handleEditPedido(pedido)}
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </Button>
+                      {pedido.status === 'rascunho' && (
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8"
+                            onClick={() => handleEditPedido(pedido)}
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            className="bg-success hover:bg-success/90 text-success-foreground h-8 gap-1"
+                            onClick={() => handleTransmitir(pedido.id)}
+                            disabled={isTransmitting}
+                          >
+                            {isTransmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                            Transmitir
+                          </Button>
+                        </div>
                       )}
                     </TableCell>
                   </TableRow>
@@ -991,6 +1110,7 @@ export default function Pedidos() {
           </Card>
         </>
       )}
+      </Tabs>
 
       {/* Image Preview Dialog */}
       <Dialog open={!!imagePreview} onOpenChange={(open) => !open && setImagePreview(null)}>

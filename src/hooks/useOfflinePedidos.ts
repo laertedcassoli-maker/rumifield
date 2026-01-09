@@ -77,12 +77,12 @@ export function useOfflinePedidos(userId?: string, viewAll = false, isAdmin = fa
     const now = new Date().toISOString();
     const pedidoId = generateId();
 
-    // Create pedido
+    // Create pedido - starts as draft ("rascunho")
     const pedido: OfflinePedido = {
       id: pedidoId,
       solicitante_id: data.solicitante_id,
       cliente_id: data.cliente_id,
-      status: "solicitado",
+      status: "rascunho",
       observacoes: data.observacoes || null,
       created_at: now,
       updated_at: now,
@@ -183,11 +183,49 @@ export function useOfflinePedidos(userId?: string, viewAll = false, isAdmin = fa
     return offlineDb.pedidos.get(pedidoId);
   }, []);
 
+  const transmitirPedido = useCallback(async (pedidoId: string) => {
+    const now = new Date().toISOString();
+
+    // Update status from rascunho to solicitado
+    await offlineDb.pedidos.update(pedidoId, {
+      status: "solicitado",
+      updated_at: now,
+      _pendingSync: true,
+    });
+
+    // Add to sync queue
+    await offlineDb.addToSyncQueue("pedidos", "update", {
+      id: pedidoId,
+      status: "solicitado",
+    } as unknown as Record<string, unknown>);
+
+    return offlineDb.pedidos.get(pedidoId);
+  }, []);
+
+  const transmitirTodos = useCallback(async (pedidoIds: string[]) => {
+    const now = new Date().toISOString();
+
+    for (const pedidoId of pedidoIds) {
+      await offlineDb.pedidos.update(pedidoId, {
+        status: "solicitado",
+        updated_at: now,
+        _pendingSync: true,
+      });
+
+      await offlineDb.addToSyncQueue("pedidos", "update", {
+        id: pedidoId,
+        status: "solicitado",
+      } as unknown as Record<string, unknown>);
+    }
+  }, []);
+
   return {
     pedidos,
     isLoading,
     createPedido,
     updatePedido,
+    transmitirPedido,
+    transmitirTodos,
   };
 }
 
