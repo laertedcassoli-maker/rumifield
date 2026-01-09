@@ -745,39 +745,49 @@ export default function Pedidos() {
                     )}
                   </div>
                   
-                  <div className="flex items-center justify-between mt-3 pt-3 border-t text-sm">
-                    <div className="flex items-center gap-1 text-muted-foreground">
-                      <span>{format(new Date(pedido.created_at), "dd/MM/yy HH:mm", { locale: ptBR })}</span>
-                    </div>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button variant="outline" size="sm" className="h-8 gap-1.5">
-                          <Package className="h-4 w-4" />
-                          <span>
-                            {pedido.pedido_itens?.length || 0} {pedido.pedido_itens?.length === 1 ? 'peça' : 'peças'}, {pedido.pedido_itens?.reduce((sum: number, item: any) => sum + item.quantidade, 0) || 0} un
-                          </span>
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-72 p-3" align="end">
-                        <div className="space-y-2">
-                          <p className="text-sm font-medium">Itens do Pedido</p>
-                          <div className="space-y-1.5 max-h-48 overflow-y-auto">
-                                            {pedido.pedido_itens?.map((item: any) => (
-                                              <div key={item.id} className="flex items-center justify-between gap-2 text-sm">
-                                                <div className="min-w-0 flex-1">
-                                                  <span className="font-medium">{item.pecas?.codigo}</span>
-                                                  <span className="text-muted-foreground truncate block text-xs">{item.pecas?.nome}</span>
-                                                  {item.pecas?.familia && (
-                                                    <Badge variant="secondary" className="text-[10px] h-4 mt-0.5">{item.pecas.familia}</Badge>
-                                                  )}
-                                                </div>
-                                                <span className="font-medium shrink-0">x{item.quantidade}</span>
-                                              </div>
-                                            ))}
+                  <div className="mt-3 pt-3 border-t text-sm space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1 text-muted-foreground">
+                        <span>{format(new Date(pedido.created_at), "dd/MM/yy HH:mm", { locale: ptBR })}</span>
+                      </div>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" size="sm" className="h-8 gap-1.5">
+                            <Package className="h-4 w-4" />
+                            <span>
+                              {pedido.pedido_itens?.length || 0} {pedido.pedido_itens?.length === 1 ? 'peça' : 'peças'}, {pedido.pedido_itens?.reduce((sum: number, item: any) => sum + item.quantidade, 0) || 0} un
+                            </span>
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-72 p-3" align="end">
+                          <div className="space-y-2">
+                            <p className="text-sm font-medium">Itens do Pedido</p>
+                            <div className="space-y-1.5 max-h-48 overflow-y-auto">
+                              {pedido.pedido_itens?.map((item: any) => (
+                                <div key={item.id} className="flex items-center justify-between gap-2 text-sm">
+                                  <div className="min-w-0 flex-1">
+                                    <span className="font-medium">{item.pecas?.codigo}</span>
+                                    <span className="text-muted-foreground truncate block text-xs">{item.pecas?.nome}</span>
+                                  </div>
+                                  <span className="font-medium shrink-0">x{item.quantidade}</span>
+                                </div>
+                              ))}
+                            </div>
                           </div>
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                    {/* Família tags */}
+                    {(() => {
+                      const familias = [...new Set(pedido.pedido_itens?.map((item: any) => item.pecas?.familia).filter(Boolean))];
+                      return familias.length > 0 ? (
+                        <div className="flex flex-wrap gap-1">
+                          {familias.map((familia: string) => (
+                            <Badge key={familia} variant="secondary" className="text-[10px] h-5">{familia}</Badge>
+                          ))}
                         </div>
-                      </PopoverContent>
-                    </Popover>
+                      ) : null;
+                    })()}
                   </div>
                   
                   {isAdmin && viewAll && pedido.solicitante && (
@@ -862,36 +872,46 @@ export default function Pedidos() {
                       )}
                     </TableCell>
                     <TableCell>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button variant="ghost" size="sm" className="h-auto p-1 gap-1.5">
-                            <Package className="h-4 w-4 text-muted-foreground" />
-                            <span>
-                              {pedido.pedido_itens?.length || 0} {pedido.pedido_itens?.length === 1 ? 'peça' : 'peças'}, {pedido.pedido_itens?.reduce((sum: number, item: any) => sum + item.quantidade, 0) || 0} un
-                            </span>
-                            <Eye className="h-3 w-3 text-muted-foreground" />
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-3" align="start">
-                          <div className="space-y-2">
-                            <p className="text-sm font-medium">Itens do Pedido</p>
-                            <div className="space-y-1.5">
-                                              {pedido.pedido_itens?.map((item: any) => (
-                                                <div key={item.id} className="flex items-center justify-between gap-4 text-sm">
-                                                  <div>
-                                                    <span className="font-medium">{item.pecas?.codigo}</span>
-                                                    <span className="text-muted-foreground"> - {item.pecas?.nome}</span>
-                                                    {item.pecas?.familia && (
-                                                      <Badge variant="secondary" className="text-[10px] h-4 ml-2">{item.pecas.familia}</Badge>
-                                                    )}
-                                                  </div>
-                                                  <span className="font-medium">x{item.quantidade}</span>
-                                                </div>
-                                              ))}
+                      <div className="space-y-1">
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <Button variant="ghost" size="sm" className="h-auto p-1 gap-1.5">
+                              <Package className="h-4 w-4 text-muted-foreground" />
+                              <span>
+                                {pedido.pedido_itens?.length || 0} {pedido.pedido_itens?.length === 1 ? 'peça' : 'peças'}, {pedido.pedido_itens?.reduce((sum: number, item: any) => sum + item.quantidade, 0) || 0} un
+                              </span>
+                              <Eye className="h-3 w-3 text-muted-foreground" />
+                            </Button>
+                          </PopoverTrigger>
+                          <PopoverContent className="w-auto p-3" align="start">
+                            <div className="space-y-2">
+                              <p className="text-sm font-medium">Itens do Pedido</p>
+                              <div className="space-y-1.5">
+                                {pedido.pedido_itens?.map((item: any) => (
+                                  <div key={item.id} className="flex items-center justify-between gap-4 text-sm">
+                                    <div>
+                                      <span className="font-medium">{item.pecas?.codigo}</span>
+                                      <span className="text-muted-foreground"> - {item.pecas?.nome}</span>
+                                    </div>
+                                    <span className="font-medium">x{item.quantidade}</span>
+                                  </div>
+                                ))}
+                              </div>
                             </div>
-                          </div>
-                        </PopoverContent>
-                      </Popover>
+                          </PopoverContent>
+                        </Popover>
+                        {/* Família tags */}
+                        {(() => {
+                          const familias = [...new Set(pedido.pedido_itens?.map((item: any) => item.pecas?.familia).filter(Boolean))];
+                          return familias.length > 0 ? (
+                            <div className="flex flex-wrap gap-1">
+                              {familias.map((familia: string) => (
+                                <Badge key={familia} variant="secondary" className="text-[10px] h-5">{familia}</Badge>
+                              ))}
+                            </div>
+                          ) : null;
+                        })()}
+                      </div>
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline" className={cn(statusColors[pedido.status], pedido._pendingSync && 'border-dashed')}>
