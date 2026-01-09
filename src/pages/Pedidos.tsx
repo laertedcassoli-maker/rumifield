@@ -343,16 +343,6 @@ export default function Pedidos() {
           )}
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          {isAdmin && (
-
-            <Button 
-              variant={viewAll ? "secondary" : "outline"} 
-              size="sm"
-              onClick={() => setViewAll(!viewAll)}
-            >
-              {viewAll ? 'Ver meus pedidos' : 'Ver todos'}
-            </Button>
-          )}
           <Dialog open={open} onOpenChange={handleCloseDialog}>
             <DialogTrigger asChild>
             <Button className="bg-success hover:bg-success/90 text-success-foreground">
