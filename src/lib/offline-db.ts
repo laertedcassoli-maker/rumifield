@@ -25,6 +25,7 @@ export interface OfflinePeca {
   codigo: string;
   nome: string;
   descricao?: string | null;
+  familia?: string | null;
   ativo?: boolean | null;
   omie_codigo?: string | null;
   created_at: string;

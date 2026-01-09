@@ -762,15 +762,18 @@ export default function Pedidos() {
                         <div className="space-y-2">
                           <p className="text-sm font-medium">Itens do Pedido</p>
                           <div className="space-y-1.5 max-h-48 overflow-y-auto">
-                            {pedido.pedido_itens?.map((item: any) => (
-                              <div key={item.id} className="flex items-center justify-between gap-2 text-sm">
-                                <div className="min-w-0 flex-1">
-                                  <span className="font-medium">{item.pecas?.codigo}</span>
-                                  <span className="text-muted-foreground truncate block text-xs">{item.pecas?.nome}</span>
-                                </div>
-                                <span className="font-medium shrink-0">x{item.quantidade}</span>
-                              </div>
-                            ))}
+                                            {pedido.pedido_itens?.map((item: any) => (
+                                              <div key={item.id} className="flex items-center justify-between gap-2 text-sm">
+                                                <div className="min-w-0 flex-1">
+                                                  <span className="font-medium">{item.pecas?.codigo}</span>
+                                                  <span className="text-muted-foreground truncate block text-xs">{item.pecas?.nome}</span>
+                                                  {item.pecas?.familia && (
+                                                    <Badge variant="secondary" className="text-[10px] h-4 mt-0.5">{item.pecas.familia}</Badge>
+                                                  )}
+                                                </div>
+                                                <span className="font-medium shrink-0">x{item.quantidade}</span>
+                                              </div>
+                                            ))}
                           </div>
                         </div>
                       </PopoverContent>
@@ -873,15 +876,18 @@ export default function Pedidos() {
                           <div className="space-y-2">
                             <p className="text-sm font-medium">Itens do Pedido</p>
                             <div className="space-y-1.5">
-                              {pedido.pedido_itens?.map((item: any) => (
-                                <div key={item.id} className="flex items-center justify-between gap-4 text-sm">
-                                  <div>
-                                    <span className="font-medium">{item.pecas?.codigo}</span>
-                                    <span className="text-muted-foreground"> - {item.pecas?.nome}</span>
-                                  </div>
-                                  <span className="font-medium">x{item.quantidade}</span>
-                                </div>
-                              ))}
+                                              {pedido.pedido_itens?.map((item: any) => (
+                                                <div key={item.id} className="flex items-center justify-between gap-4 text-sm">
+                                                  <div>
+                                                    <span className="font-medium">{item.pecas?.codigo}</span>
+                                                    <span className="text-muted-foreground"> - {item.pecas?.nome}</span>
+                                                    {item.pecas?.familia && (
+                                                      <Badge variant="secondary" className="text-[10px] h-4 ml-2">{item.pecas.familia}</Badge>
+                                                    )}
+                                                  </div>
+                                                  <span className="font-medium">x{item.quantidade}</span>
+                                                </div>
+                                              ))}
                             </div>
                           </div>
                         </PopoverContent>
