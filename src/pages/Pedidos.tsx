@@ -45,6 +45,7 @@ export default function Pedidos() {
   const { isOnline, triggerSync, lastSyncTime, syncStatus } = useOffline();
   const [open, setOpen] = useState(false);
   const [editingPedido, setEditingPedido] = useState<any>(null);
+  const [viewingPedido, setViewingPedido] = useState<any>(null);
   const [form, setForm] = useState({ cliente_id: '', observacoes: '' });
   const [itens, setItens] = useState<{ peca_id: string; quantidade: number }[]>([]);
   const [viewAll, setViewAll] = useState(false);
@@ -958,32 +959,17 @@ export default function Pedidos() {
                       <div className="flex items-center gap-1 text-muted-foreground">
                         <span>{format(new Date(pedido.created_at), "dd/MM/yy HH:mm", { locale: ptBR })}</span>
                       </div>
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button variant="outline" size="sm" className="h-8 gap-1.5">
-                            <Package className="h-4 w-4" />
-                            <span>
-                              {pedido.pedido_itens?.length || 0} {pedido.pedido_itens?.length === 1 ? 'peça' : 'peças'}, {pedido.pedido_itens?.reduce((sum: number, item: any) => sum + item.quantidade, 0) || 0} un
-                            </span>
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-72 p-3" align="end">
-                          <div className="space-y-2">
-                            <p className="text-sm font-medium">Itens do Pedido</p>
-                            <div className="space-y-1.5 max-h-48 overflow-y-auto">
-                              {pedido.pedido_itens?.map((item: any) => (
-                                <div key={item.id} className="flex items-center justify-between gap-2 text-sm">
-                                  <div className="min-w-0 flex-1">
-                                    <span className="font-medium">{item.pecas?.codigo}</span>
-                                    <span className="text-muted-foreground truncate block text-xs">{item.pecas?.nome}</span>
-                                  </div>
-                                  <span className="font-medium shrink-0">x{item.quantidade}</span>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                        </PopoverContent>
-                      </Popover>
+                      <div className="flex items-center gap-1">
+                        <Button 
+                          variant="outline" 
+                          size="sm" 
+                          className="h-8 gap-1.5"
+                          onClick={() => setViewingPedido(pedido)}
+                        >
+                          <Eye className="h-4 w-4" />
+                          <span>Ver detalhes</span>
+                        </Button>
+                      </div>
                     </div>
                     {/* Família tags */}
                     {(() => {
@@ -1131,27 +1117,38 @@ export default function Pedidos() {
                       {pedido.omie_nf_numero || '-'}
                     </TableCell>
                     <TableCell>
-                      {pedido.status === 'rascunho' && (
-                        <div className="flex items-center gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8"
-                            onClick={() => handleEditPedido(pedido)}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            className="bg-success hover:bg-success/90 text-success-foreground h-8 gap-1"
-                            onClick={() => handleTransmitir(pedido.id)}
-                            disabled={isTransmitting}
-                          >
-                            {isTransmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                            Transmitir
-                          </Button>
-                        </div>
-                      )}
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
+                          onClick={() => setViewingPedido(pedido)}
+                          title="Ver detalhes"
+                        >
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        {pedido.status === 'rascunho' && (
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8"
+                              onClick={() => handleEditPedido(pedido)}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              size="sm"
+                              className="bg-success hover:bg-success/90 text-success-foreground h-8 gap-1"
+                              onClick={() => handleTransmitir(pedido.id)}
+                              disabled={isTransmitting}
+                            >
+                              {isTransmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                              Transmitir
+                            </Button>
+                          </>
+                        )}
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -1161,6 +1158,148 @@ export default function Pedidos() {
         </>
       )}
       </Tabs>
+
+      {/* View Order Dialog (Read-Only) */}
+      <Dialog open={!!viewingPedido} onOpenChange={(open) => !open && setViewingPedido(null)}>
+        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Eye className="h-5 w-5" />
+              Detalhes do Pedido
+            </DialogTitle>
+          </DialogHeader>
+          
+          {viewingPedido && (
+            <div className="space-y-4">
+              {/* Status Badge */}
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className={cn(statusColors[viewingPedido.status], 'text-sm')}>
+                  {statusLabels[viewingPedido.status]}
+                </Badge>
+                {viewingPedido._pendingSync && (
+                  <Badge variant="outline" className="text-orange-500 border-orange-300">
+                    <CloudOff className="h-3 w-3 mr-1" />
+                    Pendente sync
+                  </Badge>
+                )}
+              </div>
+
+              {/* Cliente Info */}
+              <div className="p-3 rounded-lg bg-muted/50 border">
+                <p className="text-sm text-muted-foreground">Cliente</p>
+                <p className="font-semibold">{viewingPedido.clientes?.nome}</p>
+                {viewingPedido.clientes?.fazenda && (
+                  <p className="text-sm text-muted-foreground">{viewingPedido.clientes.fazenda}</p>
+                )}
+              </div>
+
+              {/* Data */}
+              <div className="flex gap-4 text-sm">
+                <div>
+                  <span className="text-muted-foreground">Criado em: </span>
+                  <span className="font-medium">
+                    {format(new Date(viewingPedido.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                  </span>
+                </div>
+              </div>
+
+              {/* Itens */}
+              <div className="space-y-2">
+                <Label>Itens do Pedido</Label>
+                <div className="space-y-2 max-h-[40vh] overflow-y-auto">
+                  {viewingPedido.pedido_itens?.map((item: any) => {
+                    const peca = pecas?.find(p => p.id === item.peca_id) || item.pecas;
+                    return (
+                      <div
+                        key={item.id}
+                        className="flex items-center gap-3 p-3 rounded-lg border bg-card"
+                      >
+                        {/* Imagem da peça */}
+                        <div 
+                          className={cn(
+                            "w-14 h-14 rounded-lg border flex items-center justify-center bg-muted shrink-0",
+                            peca?.imagem_url && "cursor-pointer hover:ring-2 ring-primary"
+                          )}
+                          onClick={() => {
+                            if (peca?.imagem_url) {
+                              setImagePreview({ url: peca.imagem_url, nome: peca.nome });
+                            }
+                          }}
+                        >
+                          {peca?.imagem_url ? (
+                            <img
+                              src={peca.imagem_url}
+                              alt={peca?.nome}
+                              className="w-full h-full object-cover rounded-lg"
+                            />
+                          ) : (
+                            <ImageIcon className="h-6 w-6 text-muted-foreground" />
+                          )}
+                        </div>
+
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono text-sm font-medium">{peca?.codigo}</span>
+                            {peca?.familia && (
+                              <Badge variant="secondary" className="text-[10px] h-5">{peca.familia}</Badge>
+                            )}
+                          </div>
+                          <p className="text-sm text-muted-foreground truncate">{peca?.nome}</p>
+                        </div>
+
+                        <div className="text-right shrink-0">
+                          <span className="font-bold text-lg">x{item.quantidade}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {/* Observações */}
+              {viewingPedido.observacoes && (
+                <div className="space-y-2">
+                  <Label>Observações</Label>
+                  <p className="text-sm p-3 rounded-lg bg-muted/50 border">
+                    {viewingPedido.observacoes}
+                  </p>
+                </div>
+              )}
+
+              {/* Total */}
+              <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50 border">
+                <span className="text-sm text-muted-foreground">Total</span>
+                <span className="font-bold text-lg">
+                  {viewingPedido.pedido_itens?.length || 0} {viewingPedido.pedido_itens?.length === 1 ? 'peça' : 'peças'}, {viewingPedido.pedido_itens?.reduce((sum: number, item: any) => sum + item.quantidade, 0) || 0} {viewingPedido.pedido_itens?.reduce((sum: number, item: any) => sum + item.quantidade, 0) === 1 ? 'unidade' : 'unidades'}
+                </span>
+              </div>
+
+              {/* NF Info if exists */}
+              {viewingPedido.omie_nf_numero && (
+                <div className="flex items-center gap-4 text-sm p-3 rounded-lg bg-success/10 border border-success/20">
+                  <div>
+                    <span className="text-muted-foreground">NF: </span>
+                    <span className="font-medium">{viewingPedido.omie_nf_numero}</span>
+                  </div>
+                  {viewingPedido.omie_data_faturamento && (
+                    <div>
+                      <span className="text-muted-foreground">Faturado em: </span>
+                      <span className="font-medium">
+                        {format(new Date(viewingPedido.omie_data_faturamento), "dd/MM/yyyy", { locale: ptBR })}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Close button */}
+              <Button variant="outline" className="w-full" onClick={() => setViewingPedido(null)}>
+                Fechar
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Image Preview Dialog */}
       <Dialog open={!!imagePreview} onOpenChange={(open) => !open && setImagePreview(null)}>
