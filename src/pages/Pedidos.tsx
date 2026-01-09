@@ -1067,33 +1067,18 @@ export default function Pedidos() {
                     </TableCell>
                     <TableCell>
                       <div className="space-y-1">
-                        <Popover>
-                          <PopoverTrigger asChild>
-                            <Button variant="ghost" size="sm" className="h-auto p-1 gap-1.5">
-                              <Package className="h-4 w-4 text-muted-foreground" />
-                              <span>
-                                {pedido.pedido_itens?.length || 0} {pedido.pedido_itens?.length === 1 ? 'peça' : 'peças'}, {pedido.pedido_itens?.reduce((sum: number, item: any) => sum + item.quantidade, 0) || 0} un
-                              </span>
-                              <Eye className="h-3 w-3 text-muted-foreground" />
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-auto p-3" align="start">
-                            <div className="space-y-2">
-                              <p className="text-sm font-medium">Itens do Pedido</p>
-                              <div className="space-y-1.5">
-                                {pedido.pedido_itens?.map((item: any) => (
-                                  <div key={item.id} className="flex items-center justify-between gap-4 text-sm">
-                                    <div>
-                                      <span className="font-medium">{item.pecas?.codigo}</span>
-                                      <span className="text-muted-foreground"> - {item.pecas?.nome}</span>
-                                    </div>
-                                    <span className="font-medium">x{item.quantidade}</span>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-                          </PopoverContent>
-                        </Popover>
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-auto p-1 gap-1.5"
+                          onClick={() => setViewingPedido(pedido)}
+                        >
+                          <Package className="h-4 w-4 text-muted-foreground" />
+                          <span>
+                            {pedido.pedido_itens?.length || 0} {pedido.pedido_itens?.length === 1 ? 'peça' : 'peças'}, {pedido.pedido_itens?.reduce((sum: number, item: any) => sum + item.quantidade, 0) || 0} un
+                          </span>
+                          <Eye className="h-3 w-3 text-muted-foreground" />
+                        </Button>
                         {/* Família tags */}
                         {(() => {
                           const familias = [...new Set(pedido.pedido_itens?.map((item: any) => item.pecas?.familia).filter(Boolean))];
@@ -1118,15 +1103,6 @@ export default function Pedidos() {
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() => setViewingPedido(pedido)}
-                          title="Ver detalhes"
-                        >
-                          <Eye className="h-4 w-4" />
-                        </Button>
                         {pedido.status === 'rascunho' && (
                           <>
                             <Button
