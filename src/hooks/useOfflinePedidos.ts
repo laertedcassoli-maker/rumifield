@@ -194,8 +194,8 @@ export function useOfflinePedidos(userId?: string, viewAll = false, isAdmin = fa
 // Sync pedidos from server
 export async function syncPedidosFromServer(userId?: string, isAdmin = false): Promise<boolean> {
   try {
-    // Fetch pedidos
-    let query = supabase
+    // Fetch pedidos from server
+    const query = supabase
       .from("pedidos")
       .select("*, clientes(nome, fazenda), pedido_itens(*, pecas(nome, codigo))")
       .order("created_at", { ascending: false });
@@ -203,12 +203,29 @@ export async function syncPedidosFromServer(userId?: string, isAdmin = false): P
     const { data, error } = await query;
     if (error) throw error;
 
-    // Keep pending pedidos
-    const pendingPedidos = await offlineDb.pedidos.filter(p => p._pendingSync === true).toArray();
+    // Check for items still in sync queue (not yet sent to server)
+    const syncQueueItems = await offlineDb.getPendingSyncItems();
+    const pendingPedidoIdsInQueue = new Set(
+      syncQueueItems
+        .filter(item => item.table === "pedidos" && (item.operation === "insert" || item.operation === "update"))
+        .map(item => item.data.id as string)
+    );
+    const pendingItemIdsInQueue = new Set(
+      syncQueueItems
+        .filter(item => item.table === "pedido_itens" && item.operation === "insert")
+        .map(item => item.data.id as string)
+    );
+
+    // Only keep truly pending items (those still in sync queue)
+    const pendingPedidos = await offlineDb.pedidos
+      .filter(p => p._pendingSync === true && pendingPedidoIdsInQueue.has(p.id))
+      .toArray();
     const pendingPedidoIds = new Set(pendingPedidos.map(p => p.id));
 
-    // Keep pending itens
-    const pendingItens = await offlineDb.pedido_itens.filter(i => i._pendingSync === true).toArray();
+    const pendingItens = await offlineDb.pedido_itens
+      .filter(i => i._pendingSync === true && pendingItemIdsInQueue.has(i.id))
+      .toArray();
+    const pendingItemPedidoIds = new Set(pendingItens.map(i => i.pedido_id));
 
     // Clear and repopulate
     await offlineDb.pedidos.clear();
@@ -217,7 +234,7 @@ export async function syncPedidosFromServer(userId?: string, isAdmin = false): P
     // Add server data
     if (data) {
       for (const pedido of data) {
-        // Skip if we have a pending version
+        // Skip if we have a pending version in queue
         if (pendingPedidoIds.has(pedido.id)) continue;
 
         await offlineDb.pedidos.put({
@@ -234,7 +251,8 @@ export async function syncPedidosFromServer(userId?: string, isAdmin = false): P
           clientes: pedido.clientes,
         });
 
-        if (pedido.pedido_itens) {
+        // Only add server items if pedido doesn't have pending items in queue
+        if (pedido.pedido_itens && !pendingItemPedidoIds.has(pedido.id)) {
           for (const item of pedido.pedido_itens) {
             await offlineDb.pedido_itens.put({
               id: item.id,
@@ -249,7 +267,7 @@ export async function syncPedidosFromServer(userId?: string, isAdmin = false): P
       }
     }
 
-    // Re-add pending items
+    // Re-add pending items that are still in queue
     await offlineDb.pedidos.bulkPut(pendingPedidos);
     await offlineDb.pedido_itens.bulkPut(pendingItens);
 
