@@ -219,6 +219,30 @@ export function useOfflinePedidos(userId?: string, viewAll = false, isAdmin = fa
     }
   }, []);
 
+  const deletePedido = useCallback(async (pedidoId: string) => {
+    // Get the pedido to check if it was synced
+    const pedido = await offlineDb.pedidos.get(pedidoId);
+    if (!pedido) return;
+
+    // Delete all items for this pedido
+    const itens = await offlineDb.pedido_itens.filter(i => i.pedido_id === pedidoId).toArray();
+    for (const item of itens) {
+      await offlineDb.pedido_itens.delete(item.id);
+      // Only add to sync queue if item was already synced
+      if (!item._pendingSync) {
+        await offlineDb.addToSyncQueue("pedido_itens", "delete", { id: item.id });
+      }
+    }
+
+    // Delete the pedido
+    await offlineDb.pedidos.delete(pedidoId);
+
+    // Only add to sync queue if pedido was already synced to server
+    if (!pedido._pendingSync) {
+      await offlineDb.addToSyncQueue("pedidos", "delete", { id: pedidoId });
+    }
+  }, []);
+
   return {
     pedidos,
     isLoading,
@@ -226,6 +250,7 @@ export function useOfflinePedidos(userId?: string, viewAll = false, isAdmin = fa
     updatePedido,
     transmitirPedido,
     transmitirTodos,
+    deletePedido,
   };
 }
 
