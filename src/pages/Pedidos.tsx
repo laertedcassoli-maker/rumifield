@@ -346,8 +346,8 @@ export default function Pedidos() {
           <Dialog open={open} onOpenChange={handleCloseDialog}>
             <DialogTrigger asChild>
             <Button className="bg-success hover:bg-success/90 text-success-foreground">
-              <Plus className="h-4 w-4 md:mr-2" />
-              <span className="hidden md:inline">Novo Pedido</span>
+              <Plus className="h-4 w-4 mr-2" />
+              Novo pedido
             </Button>
           </DialogTrigger>
           <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
