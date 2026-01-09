@@ -8,6 +8,8 @@ import { OfflineIndicator } from '@/components/OfflineIndicator';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 
+import { useSidebar } from '@/components/ui/sidebar';
+
 export function AppSidebar() {
   const {
     profile,
@@ -15,6 +17,13 @@ export function AppSidebar() {
     signOut
   } = useAuth();
   const location = useLocation();
+  const { setOpenMobile, isMobile } = useSidebar();
+
+  const handleMenuClick = () => {
+    if (isMobile) {
+      setOpenMobile(false);
+    }
+  };
 
   // Load menu visibility config
   const { data: menuConfigs, isLoading: isLoadingConfig } = useQuery({
@@ -101,7 +110,7 @@ export function AppSidebar() {
   });
   return <Sidebar>
       <SidebarHeader className="border-b border-sidebar-border p-4">
-        <Link to="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
+        <Link to="/" onClick={handleMenuClick} className="flex items-center gap-3 hover:opacity-80 transition-opacity">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-sidebar-primary">
             <Play className="h-5 w-5 text-sidebar-primary-foreground" />
           </div>
@@ -119,7 +128,7 @@ export function AppSidebar() {
             <SidebarMenu>
               {mainMenuItems.map(item => <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild isActive={location.pathname === item.url}>
-                    <Link to={item.url}>
+                    <Link to={item.url} onClick={handleMenuClick}>
                       <item.icon className="h-4 w-4" />
                       <span>{item.title}</span>
                     </Link>
@@ -141,7 +150,7 @@ export function AppSidebar() {
                       <SidebarMenuSub>
                         {estoqueItems.map(item => <SidebarMenuSubItem key={item.title}>
                             <SidebarMenuSubButton asChild isActive={location.pathname === item.url}>
-                              <Link to={item.url}>
+                              <Link to={item.url} onClick={handleMenuClick}>
                                 <item.icon className="h-4 w-4" />
                                 <span>{item.title}</span>
                               </Link>
@@ -162,7 +171,7 @@ export function AppSidebar() {
               <SidebarMenu>
                 {filteredAdminItems.map(item => <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton asChild isActive={location.pathname === item.url}>
-                      <Link to={item.url}>
+                      <Link to={item.url} onClick={handleMenuClick}>
                         <item.icon className="h-4 w-4" />
                         <span>{item.title}</span>
                       </Link>
