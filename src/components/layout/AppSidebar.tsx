@@ -34,7 +34,7 @@ export function AppSidebar() {
   // Use defaults while loading to prevent flickering
   const showEstoqueMenu = isLoadingConfig ? true : menuConfigs?.find(c => c.chave === 'estoque_menu_enabled')?.valor !== 'false';
   const showInicioMenu = isLoadingConfig ? true : menuConfigs?.find(c => c.chave === 'inicio_menu_enabled')?.valor !== 'false';
-  const showVisitasMenu = isLoadingConfig ? false : menuConfigs?.find(c => c.chave === 'visitas_menu_enabled')?.valor === 'true';
+  const showVisitasMenu = isLoadingConfig ? true : (menuConfigs?.find(c => c.chave === 'visitas_menu_enabled')?.valor ?? 'false') === 'true';
   
   const mainMenuItems = [
     ...(showInicioMenu ? [{
