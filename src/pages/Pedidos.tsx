@@ -14,7 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Loader2, Trash2, Minus, ArrowUpDown, Search, X, Eye, Pencil, CloudOff, ShoppingCart, Package, Check } from 'lucide-react';
+import { Plus, Loader2, Trash2, Minus, ArrowUpDown, Search, X, Eye, Pencil, CloudOff, ShoppingCart, Package, Check, ImageIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -320,16 +320,29 @@ export default function Pedidos() {
                       {itens.map((item, index) => {
                         const peca = pecas?.find(p => p.id === item.peca_id);
                         return (
-                          <div key={index} className="p-2 rounded border bg-muted/30 space-y-1">
-                            <div className="flex items-center justify-between">
-                              <span className="font-medium text-sm">{peca?.codigo}</span>
-                              <Badge variant="secondary" className="shrink-0">
-                                x{item.quantidade}
-                              </Badge>
+                          <div key={index} className="p-2 rounded border bg-muted/30 flex gap-3">
+                            {peca?.imagem_url ? (
+                              <img
+                                src={peca.imagem_url}
+                                alt={peca.nome}
+                                className="h-12 w-12 object-cover rounded shrink-0"
+                              />
+                            ) : (
+                              <div className="h-12 w-12 flex items-center justify-center bg-muted rounded shrink-0">
+                                <ImageIcon className="h-5 w-5 text-muted-foreground" />
+                              </div>
+                            )}
+                            <div className="flex-1 min-w-0 space-y-1">
+                              <div className="flex items-center justify-between">
+                                <span className="font-medium text-sm">{peca?.codigo}</span>
+                                <Badge variant="secondary" className="shrink-0">
+                                  x{item.quantidade}
+                                </Badge>
+                              </div>
+                              <p className="text-xs text-muted-foreground break-words">
+                                {peca?.descricao || peca?.nome}
+                              </p>
                             </div>
-                            <p className="text-xs text-muted-foreground break-words">
-                              {peca?.descricao || peca?.nome}
-                            </p>
                           </div>
                         );
                       })}
@@ -480,7 +493,18 @@ export default function Pedidos() {
                         return (
                           <div key={index} className="p-2 rounded-lg border bg-muted/30 space-y-2">
                             {selectedPeca ? (
-                              <div className="flex items-center gap-2 p-2 rounded-md border bg-primary/5">
+                              <div className="flex items-center gap-3 p-2 rounded-md border bg-primary/5">
+                                {selectedPeca.imagem_url ? (
+                                  <img
+                                    src={selectedPeca.imagem_url}
+                                    alt={selectedPeca.nome}
+                                    className="h-12 w-12 object-cover rounded shrink-0"
+                                  />
+                                ) : (
+                                  <div className="h-12 w-12 flex items-center justify-center bg-muted rounded shrink-0">
+                                    <ImageIcon className="h-5 w-5 text-muted-foreground" />
+                                  </div>
+                                )}
                                 <div className="flex-1 min-w-0">
                                   <div className="font-medium text-sm">{selectedPeca.codigo}</div>
                                   <div className="text-xs text-muted-foreground break-words">
@@ -523,10 +547,23 @@ export default function Pedidos() {
                                         onClick={() => {
                                           updateItem(index, 'peca_id', peca.id);
                                         }}
-                                        className="px-3 py-2 cursor-pointer hover:bg-muted border-b last:border-b-0 text-sm"
+                                        className="px-3 py-2 cursor-pointer hover:bg-muted border-b last:border-b-0 text-sm flex items-center gap-2"
                                       >
-                                        <span className="font-medium">{peca.codigo}</span>
-                                        <span className="text-muted-foreground ml-1 break-words">- {peca.descricao || peca.nome}</span>
+                                        {peca.imagem_url ? (
+                                          <img
+                                            src={peca.imagem_url}
+                                            alt={peca.nome}
+                                            className="h-8 w-8 object-cover rounded shrink-0"
+                                          />
+                                        ) : (
+                                          <div className="h-8 w-8 flex items-center justify-center bg-muted rounded shrink-0">
+                                            <ImageIcon className="h-4 w-4 text-muted-foreground" />
+                                          </div>
+                                        )}
+                                        <div className="flex-1 min-w-0">
+                                          <span className="font-medium">{peca.codigo}</span>
+                                          <span className="text-muted-foreground ml-1 break-words">- {peca.descricao || peca.nome}</span>
+                                        </div>
                                       </div>
                                     ))}
                                   {availablePecas.filter(p => {
