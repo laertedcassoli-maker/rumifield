@@ -799,6 +799,11 @@ export default function Pedidos() {
             <TabsTrigger value="pedidos" className="gap-2">
               <Send className="h-4 w-4" />
               <span>Transmitidos</span>
+              {pedidosTransmitidos.length > 0 && (
+                <Badge variant="secondary" className="ml-1 h-5 px-1.5">
+                  {pedidosTransmitidos.length}
+                </Badge>
+              )}
             </TabsTrigger>
           </TabsList>
           
