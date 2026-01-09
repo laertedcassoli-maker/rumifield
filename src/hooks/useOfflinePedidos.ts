@@ -197,7 +197,7 @@ export async function syncPedidosFromServer(userId?: string, isAdmin = false): P
     // Fetch pedidos from server
     const query = supabase
       .from("pedidos")
-      .select("*, clientes(nome, fazenda), pedido_itens(*, pecas(nome, codigo))")
+      .select("*, clientes(nome, fazenda), pedido_itens(*, pecas(nome, codigo, familia))")
       .order("created_at", { ascending: false });
 
     const { data, error } = await query;
