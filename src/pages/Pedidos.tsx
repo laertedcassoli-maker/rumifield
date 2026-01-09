@@ -720,7 +720,7 @@ export default function Pedidos() {
                     ) : (
                       <>
                         {!isOnline && <CloudOff className="mr-2 h-4 w-4" />}
-                        {editingPedido ? 'Salvar' : 'Revisar Pedido'}
+                        Salvar
                       </>
                     )}
                   </Button>
