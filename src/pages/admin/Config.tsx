@@ -14,7 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Switch } from '@/components/ui/switch';
 
 type ProdutoSortField = 'nome' | 'unidade' | 'descricao';
-type PecaSortField = 'codigo' | 'nome' | 'omie_codigo' | 'descricao';
+type PecaSortField = 'codigo' | 'nome' | 'familia' | 'omie_codigo' | 'descricao';
 type SortDirection = 'asc' | 'desc';
 
 const ITEMS_PER_PAGE = 10;
@@ -879,6 +879,11 @@ export default function AdminConfig() {
                         </Button>
                       </TableHead>
                       <TableHead>
+                        <Button variant="ghost" onClick={() => handlePecaSort('familia')} className="hover:bg-transparent p-0">
+                          Família {getSortIcon('familia', pecaSortField, pecaSortDirection)}
+                        </Button>
+                      </TableHead>
+                      <TableHead>
                         <Button variant="ghost" onClick={() => handlePecaSort('omie_codigo')} className="hover:bg-transparent p-0">
                           Cód. Omie {getSortIcon('omie_codigo', pecaSortField, pecaSortDirection)}
                         </Button>
@@ -894,7 +899,7 @@ export default function AdminConfig() {
                   <TableBody>
                     {paginatedPecas.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+                        <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                           Nenhuma peça encontrada
                         </TableCell>
                       </TableRow>
@@ -903,6 +908,13 @@ export default function AdminConfig() {
                         <TableRow key={peca.id}>
                           <TableCell className="font-medium">{peca.codigo}</TableCell>
                           <TableCell>{peca.nome}</TableCell>
+                          <TableCell>
+                            {peca.familia ? (
+                              <Badge variant="secondary">{peca.familia}</Badge>
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            )}
+                          </TableCell>
                           <TableCell>{peca.omie_codigo || '-'}</TableCell>
                           <TableCell className="text-muted-foreground">{peca.descricao || '-'}</TableCell>
                           <TableCell>
