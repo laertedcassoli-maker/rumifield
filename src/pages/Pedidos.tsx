@@ -1214,13 +1214,13 @@ export default function Pedidos() {
                         </div>
 
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-mono text-sm font-medium">{peca?.codigo}</span>
                             {peca?.familia && (
                               <Badge variant="secondary" className="text-[10px] h-5">{peca.familia}</Badge>
                             )}
                           </div>
-                          <p className="text-sm text-muted-foreground truncate">{peca?.nome}</p>
+                          <p className="text-sm text-muted-foreground break-words whitespace-normal">{peca?.nome}</p>
                         </div>
 
                         <div className="text-right shrink-0">
