@@ -25,8 +25,11 @@ const pageTitles: Record<string, string> = {
 export function AppLayout({ children }: AppLayoutProps) {
   const { user, loading } = useAuth();
   const location = useLocation();
+  const { isOnline, pendingCount, syncStatus } = useOffline();
+  
   const pageTitle = pageTitles[location.pathname] || 'RumiField';
   const isHomePage = location.pathname === '/';
+  const showBanner = !isOnline || syncStatus === "syncing" || pendingCount > 0;
 
   if (loading) {
     return (
@@ -39,9 +42,6 @@ export function AppLayout({ children }: AppLayoutProps) {
   if (!user) {
     return <Navigate to="/auth" replace />;
   }
-
-  const { isOnline, pendingCount, syncStatus } = useOffline();
-  const showBanner = !isOnline || syncStatus === "syncing" || pendingCount > 0;
 
   return (
     <SidebarProvider>
