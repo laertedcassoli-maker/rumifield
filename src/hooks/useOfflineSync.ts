@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { offlineDb, SyncQueueItem } from "@/lib/offline-db";
 import { syncPedidosFromServer } from "@/hooks/useOfflinePedidos";
@@ -12,12 +12,17 @@ export function useOfflineSync() {
   const [pendingCount, setPendingCount] = useState(0);
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
 
+  // Ref to hold the latest syncAll function
+  const syncAllRef = useRef<() => Promise<void>>();
+
   // Update online status
   useEffect(() => {
     const handleOnline = () => {
       setIsOnline(true);
       // Auto-sync when coming back online
-      syncAll();
+      if (syncAllRef.current) {
+        syncAllRef.current();
+      }
     };
     const handleOffline = () => {
       setIsOnline(false);
@@ -237,6 +242,11 @@ export function useOfflineSync() {
       toast.error("Erro na sincronização");
     }
   }, [processSyncQueue, syncTableFromServer]);
+
+  // Keep ref updated with latest syncAll
+  useEffect(() => {
+    syncAllRef.current = syncAll;
+  }, [syncAll]);
 
   // Manual sync trigger
   const triggerSync = useCallback(async () => {
