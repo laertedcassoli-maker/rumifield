@@ -799,11 +799,6 @@ export default function Pedidos() {
             <TabsTrigger value="pedidos" className="gap-2">
               <Send className="h-4 w-4" />
               <span>Transmitidos</span>
-              {pedidosTransmitidos.length > 0 && (
-                <Badge variant="secondary" className="ml-1 h-5 px-1.5">
-                  {pedidosTransmitidos.length}
-                </Badge>
-              )}
             </TabsTrigger>
           </TabsList>
           
@@ -887,6 +882,11 @@ export default function Pedidos() {
                   Todos
                 </Button>
               </div>
+              {filteredAndSortedPedidos.length > 0 && (
+                <Badge variant="outline" className="ml-2 h-6 px-2">
+                  {filteredAndSortedPedidos.length} {filteredAndSortedPedidos.length === 1 ? 'pedido' : 'pedidos'}
+                </Badge>
+              )}
             </div>
           </CardContent>
         </Card>
