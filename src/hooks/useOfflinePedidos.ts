@@ -44,7 +44,6 @@ export function useOfflinePedidos(userId?: string, viewAll = false, isAdmin = fa
         .filter(i => i.pedido_id === pedido.id)
         .map(item => {
           const peca = offlinePecas.find(p => p.id === item.peca_id);
-          console.log('Peca encontrada:', peca?.codigo, 'familia:', peca?.familia);
           return {
             ...item,
             pecas: peca ? { nome: peca.nome, codigo: peca.codigo, familia: peca.familia } : undefined,
