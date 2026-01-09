@@ -52,8 +52,10 @@ export function AppLayout({ children }: AppLayoutProps) {
           <SidebarTrigger className="h-9 w-9 md:h-7 md:w-7 [&>svg]:h-5 [&>svg]:w-5 md:[&>svg]:h-4 md:[&>svg]:w-4" />
           <span className="font-semibold md:hidden">{pageTitle}</span>
         </header>
-        <main className="flex-1 overflow-y-auto p-4 md:p-6">
-          {children}
+        <main className="flex-1 overflow-x-hidden overflow-y-auto p-4 md:p-6 max-w-full">
+          <div className="w-full max-w-full overflow-x-hidden">
+            {children}
+          </div>
         </main>
       </SidebarInset>
       
