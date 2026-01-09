@@ -102,6 +102,13 @@
 
   /* Prevent horizontal scroll caused by off-canvas UI (e.g. mobile sidebar sheet)
      without clipping the viewport on mobile Safari */
+  html,
+  body {
+    width: 100%;
+    max-width: 100vw;
+    overflow-x: hidden;
+  }
+
   #root {
     width: 100%;
     max-width: 100vw;
