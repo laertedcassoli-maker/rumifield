@@ -339,7 +339,7 @@ export default function Pedidos() {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in w-full">
+    <div className="space-y-6 animate-fade-in w-full max-w-full overflow-x-hidden">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
