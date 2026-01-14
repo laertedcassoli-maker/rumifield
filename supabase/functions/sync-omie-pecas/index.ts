@@ -19,6 +19,24 @@ interface OmieProduto {
   imagens?: OmieImagem[];
 }
 
+interface OmieEstoqueItem {
+  codigo_local_estoque: number;
+  nCodProd: number;
+  cCodigo: string;
+  cDescricao: string;
+  nEstoque: number;
+  nSaldo: number;
+}
+
+interface OmieEstoqueResponse {
+  nPagina: number;
+  nTotPaginas: number;
+  nRegistros: number;
+  nTotRegistros: number;
+  lista_posestoque: OmieEstoqueItem[];
+  faultstring?: string;
+}
+
 interface OmieResponse {
   pagina: number;
   total_de_paginas: number;
@@ -117,6 +135,61 @@ serve(async (req) => {
 
     console.log(`Total active parts found: ${allPecas.length}`);
 
+    // Fetch stock information from Omie
+    console.log('Fetching stock information from Omie...');
+    const estoqueMap = new Map<string, number>();
+    
+    // Get today's date in DD/MM/YYYY format for Omie API
+    const today = new Date();
+    const dataFormatted = `${String(today.getDate()).padStart(2, '0')}/${String(today.getMonth() + 1).padStart(2, '0')}/${today.getFullYear()}`;
+    
+    let estoqueCurrentPage = 1;
+    let estoqueTotalPages = 1;
+    
+    while (estoqueCurrentPage <= estoqueTotalPages) {
+      console.log(`Fetching stock page ${estoqueCurrentPage}...`);
+      
+      const estoqueResponse = await fetch('https://app.omie.com.br/api/v1/estoque/consulta/', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          call: 'ListarPosEstoque',
+          app_key: omieAppKey,
+          app_secret: omieAppSecret,
+          param: [{
+            nPagina: estoqueCurrentPage,
+            nRegPorPagina: 100,
+            dDataPosicao: dataFormatted,
+          }],
+        }),
+      });
+
+      if (estoqueResponse.ok) {
+        const estoqueData: OmieEstoqueResponse = await estoqueResponse.json();
+        
+        if (!estoqueData.faultstring && estoqueData.lista_posestoque) {
+          for (const item of estoqueData.lista_posestoque) {
+            // Use nCodProd as key (same as codigo_produto from products)
+            estoqueMap.set(String(item.nCodProd), item.nSaldo || item.nEstoque || 0);
+          }
+          console.log(`Stock page ${estoqueCurrentPage}: ${estoqueData.nRegistros || 0} records`);
+          estoqueTotalPages = estoqueData.nTotPaginas || 1;
+        } else if (estoqueData.faultstring) {
+          console.warn('Omie stock API warning:', estoqueData.faultstring);
+          break;
+        }
+      } else {
+        console.warn('Failed to fetch stock data, continuing without stock info');
+        break;
+      }
+      
+      estoqueCurrentPage++;
+    }
+    
+    console.log(`Stock info fetched for ${estoqueMap.size} products`);
+
     // Get existing parts by omie_codigo
     const { data: existingPecas, error: fetchError } = await supabase
       .from('pecas')
@@ -142,6 +215,9 @@ serve(async (req) => {
           ? omiePeca.imagens[0].url_imagem 
           : null;
 
+        // Get stock quantity for this product
+        const quantidadeEstoque = estoqueMap.get(String(omiePeca.codigo_produto)) || 0;
+
         const pecaData = {
           codigo: omiePeca.codigo || '',
           nome: omiePeca.descricao || 'Sem descrição',
@@ -150,6 +226,7 @@ serve(async (req) => {
           familia: omiePeca.descricao_familia || null,
           ativo: true,
           imagem_url: imagemUrl,
+          quantidade_estoque: quantidadeEstoque,
         };
 
         if (!pecaData.omie_codigo) {
@@ -170,6 +247,7 @@ serve(async (req) => {
               familia: pecaData.familia,
               ativo: pecaData.ativo,
               imagem_url: pecaData.imagem_url,
+              quantidade_estoque: pecaData.quantidade_estoque,
             })
             .eq('id', existingId);
 

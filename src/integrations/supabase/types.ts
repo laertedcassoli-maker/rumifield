@@ -258,6 +258,7 @@ export type Database = {
           imagem_url: string | null
           nome: string
           omie_codigo: string | null
+          quantidade_estoque: number | null
         }
         Insert: {
           ativo?: boolean | null
@@ -269,6 +270,7 @@ export type Database = {
           imagem_url?: string | null
           nome: string
           omie_codigo?: string | null
+          quantidade_estoque?: number | null
         }
         Update: {
           ativo?: boolean | null
@@ -280,6 +282,7 @@ export type Database = {
           imagem_url?: string | null
           nome?: string
           omie_codigo?: string | null
+          quantidade_estoque?: number | null
         }
         Relationships: []
       }
