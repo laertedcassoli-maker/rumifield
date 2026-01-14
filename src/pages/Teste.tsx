@@ -1,7 +1,7 @@
 import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import { Mic, Square, Upload, Loader2, User, Building2, CalendarIcon } from "lucide-react";
+import { Mic, Square, Upload, Loader2, User, Building2, CalendarIcon, ListChecks } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -22,6 +22,7 @@ const Teste = () => {
   const [transcription, setTranscription] = useState("");
   const [clienteEncontrado, setClienteEncontrado] = useState<ClienteEncontrado | null>(null);
   const [dataVisita, setDataVisita] = useState<Date | undefined>(new Date());
+  const [resumo, setResumo] = useState<string[]>([]);
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
@@ -80,6 +81,7 @@ const Teste = () => {
     setIsTranscribing(true);
     setTranscription("");
     setClienteEncontrado(null);
+    setResumo([]);
 
     try {
       // Convert blob to base64 in chunks to avoid stack overflow
@@ -114,6 +116,10 @@ const Teste = () => {
           // Parse the date string and set it
           const parsedDate = new Date(data.dataVisita + 'T12:00:00');
           setDataVisita(parsedDate);
+        }
+
+        if (data.resumo && Array.isArray(data.resumo)) {
+          setResumo(data.resumo);
         }
 
         if (data.clienteEncontrado && data.dataVisita) {
@@ -282,6 +288,39 @@ const Teste = () => {
               />
             </PopoverContent>
           </Popover>
+        </CardContent>
+      </Card>
+
+      {/* Resumo da Visita */}
+      <Card className={resumo.length > 0 ? "border-primary" : ""}>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <ListChecks className="h-5 w-5" />
+            Resumo da Visita
+          </CardTitle>
+          <CardDescription>
+            Pontos principais identificados na transcrição
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {resumo.length > 0 ? (
+            <ul className="space-y-2">
+              {resumo.map((item, index) => (
+                <li key={index} className="flex items-start gap-2">
+                  <span className="h-2 w-2 rounded-full bg-primary mt-2 shrink-0" />
+                  <span className="text-foreground">{item}</span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <div className="p-4 rounded-lg bg-muted text-center">
+              <p className="text-muted-foreground">
+                {transcription 
+                  ? "Nenhum ponto resumido identificado"
+                  : "Transcreva um áudio para gerar o resumo"}
+              </p>
+            </div>
+          )}
         </CardContent>
       </Card>
 
