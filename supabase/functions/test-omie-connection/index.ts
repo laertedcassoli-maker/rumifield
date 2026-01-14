@@ -20,8 +20,37 @@ serve(async (req) => {
       );
     }
 
-    // Test connection by listing products (first page only)
-    const response = await fetch('https://app.omie.com.br/api/v1/geral/produtos/', {
+    // First, get company info using ListarEmpresas
+    const empresaResponse = await fetch('https://app.omie.com.br/api/v1/geral/empresas/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        call: 'ListarEmpresas',
+        app_key: app_key,
+        app_secret: app_secret,
+        param: [{}],
+      }),
+    });
+
+    const empresaData = await empresaResponse.json();
+
+    if (empresaData.faultstring) {
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: empresaData.faultstring,
+          details: 'Credenciais inválidas ou sem permissão'
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
+      );
+    }
+
+    // Extract company info from response
+    const empresas = empresaData.empresas_cadastro || [];
+    const empresa = empresas[0] || {};
+    
+    // Also get product count
+    const prodResponse = await fetch('https://app.omie.com.br/api/v1/geral/produtos/', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -36,24 +65,18 @@ serve(async (req) => {
       }),
     });
 
-    const data = await response.json();
-
-    if (data.faultstring) {
-      return new Response(
-        JSON.stringify({ 
-          success: false, 
-          error: data.faultstring,
-          details: 'Credenciais inválidas ou sem permissão'
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
-      );
-    }
+    const prodData = await prodResponse.json();
 
     return new Response(
       JSON.stringify({ 
         success: true, 
         message: 'Conexão estabelecida com sucesso!',
-        total_registros: data.total_de_registros || 0
+        empresa: {
+          cnpj: empresa.cnpj || null,
+          razao_social: empresa.razao_social || null,
+          nome_fantasia: empresa.nome_fantasia || null,
+        },
+        total_produtos: prodData.total_de_registros || 0
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

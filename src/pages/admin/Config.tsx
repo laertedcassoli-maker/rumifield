@@ -408,8 +408,18 @@ export default function AdminConfig() {
 
       if (data.success) {
         setConnectionStatus('success');
-        setConnectionMessage(data.message + (data.total_registros ? ` (${data.total_registros} produtos encontrados)` : ''));
-        toast({ title: 'Conexão OK!', description: data.message });
+        let message = data.message;
+        if (data.empresa?.razao_social) {
+          message += `\n\nEmpresa: ${data.empresa.razao_social}`;
+        }
+        if (data.empresa?.cnpj) {
+          message += `\nCNPJ: ${data.empresa.cnpj}`;
+        }
+        if (data.total_produtos) {
+          message += `\n${data.total_produtos} produtos cadastrados`;
+        }
+        setConnectionMessage(message);
+        toast({ title: 'Conexão OK!', description: data.empresa?.razao_social || data.message });
       } else {
         setConnectionStatus('error');
         setConnectionMessage(data.error || 'Falha na conexão');
@@ -1108,15 +1118,15 @@ export default function AdminConfig() {
                 </Button>
 
                 {connectionStatus === 'success' && (
-                  <div className="flex items-center gap-2 text-green-600">
-                    <CheckCircle2 className="h-5 w-5" />
-                    <span className="text-sm">{connectionMessage}</span>
+                  <div className="flex items-start gap-2 text-green-600">
+                    <CheckCircle2 className="h-5 w-5 mt-0.5 flex-shrink-0" />
+                    <span className="text-sm whitespace-pre-line">{connectionMessage}</span>
                   </div>
                 )}
                 {connectionStatus === 'error' && (
-                  <div className="flex items-center gap-2 text-destructive">
-                    <XCircle className="h-5 w-5" />
-                    <span className="text-sm">{connectionMessage}</span>
+                  <div className="flex items-start gap-2 text-destructive">
+                    <XCircle className="h-5 w-5 mt-0.5 flex-shrink-0" />
+                    <span className="text-sm whitespace-pre-line">{connectionMessage}</span>
                   </div>
                 )}
               </div>
