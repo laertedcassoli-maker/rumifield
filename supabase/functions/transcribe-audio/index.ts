@@ -127,18 +127,26 @@ serve(async (req) => {
 Analise a transcrição e identifique:
 1. O cliente mencionado (da lista fornecida)
 2. A data da visita mencionada
+3. Um resumo objetivo da visita em bullet points
 
 Para a data, considere:
 - Datas explícitas como "dia 15 de janeiro", "15/01", etc.
 - Referências relativas como "hoje", "ontem", "semana passada", "segunda-feira passada"
 - Se não houver data mencionada, retorne null
 
+Para o resumo, extraia os pontos principais mencionados na visita como:
+- Problemas identificados
+- Ações realizadas
+- Observações importantes
+- Próximos passos sugeridos
+
 A data de hoje é: ${todayStr}
 
 Responda APENAS no formato JSON:
 {
   "cliente": "Nome exato do cliente da lista ou null",
-  "data": "YYYY-MM-DD ou null"
+  "data": "YYYY-MM-DD ou null",
+  "resumo": ["Ponto 1", "Ponto 2", "Ponto 3"] ou []
 }`
           },
           {
@@ -157,6 +165,7 @@ Extraia o cliente e a data da visita desta transcrição.`
 
     let clienteEncontrado = null;
     let dataVisita = null;
+    let resumo: string[] = [];
 
     if (identifyResponse.ok) {
       const identifyData = await identifyResponse.json();
@@ -174,6 +183,12 @@ Extraia o cliente e a data da visita desta transcrição.`
           if (parsed.data && parsed.data !== "null") {
             dataVisita = parsed.data;
             console.log('Extracted date:', dataVisita);
+          }
+
+          // Extract resumo
+          if (parsed.resumo && Array.isArray(parsed.resumo)) {
+            resumo = parsed.resumo;
+            console.log('Extracted resumo:', resumo);
           }
 
           // Extract client
@@ -204,7 +219,7 @@ Extraia o cliente e a data da visita desta transcrição.`
     }
 
     return new Response(
-      JSON.stringify({ transcription, clienteEncontrado, dataVisita }),
+      JSON.stringify({ transcription, clienteEncontrado, dataVisita, resumo }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
