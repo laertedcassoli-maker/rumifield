@@ -20,6 +20,7 @@ import AdminUsuarios from "./pages/admin/Usuarios";
 import AdminConfig from "./pages/admin/Config";
 import Teste from "./pages/Teste";
 import Instalar from "./pages/Instalar";
+import Nfc from "./pages/Nfc";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -131,6 +132,14 @@ const App = () => (
               }
             />
             <Route path="/instalar" element={<Instalar />} />
+            <Route
+              path="/nfc"
+              element={
+                <AppLayout>
+                  <Nfc />
+                </AppLayout>
+              }
+            />
             <Route path="*" element={<NotFound />} />
           </Routes>
           </TooltipProvider>
