@@ -167,21 +167,36 @@ serve(async (req) => {
       });
 
       if (estoqueResponse.ok) {
-        const estoqueData: OmieEstoqueResponse = await estoqueResponse.json();
+        const estoqueData = await estoqueResponse.json();
+        console.log('Stock API raw response:', JSON.stringify(estoqueData).substring(0, 500));
         
-        if (!estoqueData.faultstring && estoqueData.lista_posestoque) {
-          for (const item of estoqueData.lista_posestoque) {
-            // Use nCodProd as key (same as codigo_produto from products)
-            estoqueMap.set(String(item.nCodProd), item.nSaldo || item.nEstoque || 0);
+        // Check for different response formats from Omie
+        if (estoqueData.faultstring) {
+          console.warn('Omie stock API fault:', estoqueData.faultstring);
+          break;
+        }
+        
+        // The API might return produtos_cadastro or lista_posestoque
+        const estoqueItems = estoqueData.lista_posestoque || estoqueData.produtos || [];
+        
+        if (estoqueItems.length > 0) {
+          for (const item of estoqueItems) {
+            // Try different field names that Omie might use
+            const codigoProduto = item.nCodProd || item.codigo_produto || item.nCodigo;
+            const quantidade = item.nSaldo || item.nEstoque || item.saldo || item.estoque || 0;
+            if (codigoProduto) {
+              estoqueMap.set(String(codigoProduto), quantidade);
+            }
           }
-          console.log(`Stock page ${estoqueCurrentPage}: ${estoqueData.nRegistros || 0} records`);
-          estoqueTotalPages = estoqueData.nTotPaginas || 1;
-        } else if (estoqueData.faultstring) {
-          console.warn('Omie stock API warning:', estoqueData.faultstring);
+          console.log(`Stock page ${estoqueCurrentPage}: ${estoqueItems.length} records`);
+          estoqueTotalPages = estoqueData.nTotPaginas || estoqueData.total_de_paginas || 1;
+        } else {
+          console.log('No stock items in response, keys:', Object.keys(estoqueData));
           break;
         }
       } else {
-        console.warn('Failed to fetch stock data, continuing without stock info');
+        const errorText = await estoqueResponse.text();
+        console.warn('Failed to fetch stock data:', estoqueResponse.status, errorText);
         break;
       }
       
