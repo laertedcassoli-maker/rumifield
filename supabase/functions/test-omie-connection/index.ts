@@ -20,36 +20,7 @@ serve(async (req) => {
       );
     }
 
-    // First, get company info using ListarEmpresas
-    const empresaResponse = await fetch('https://app.omie.com.br/api/v1/geral/empresas/', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        call: 'ListarEmpresas',
-        app_key: app_key,
-        app_secret: app_secret,
-        param: [{}],
-      }),
-    });
-
-    const empresaData = await empresaResponse.json();
-
-    if (empresaData.faultstring) {
-      return new Response(
-        JSON.stringify({ 
-          success: false, 
-          error: empresaData.faultstring,
-          details: 'Credenciais inválidas ou sem permissão'
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
-      );
-    }
-
-    // Extract company info from response
-    const empresas = empresaData.empresas_cadastro || [];
-    const empresa = empresas[0] || {};
-    
-    // Also get product count
+    // First test with products API (always works)
     const prodResponse = await fetch('https://app.omie.com.br/api/v1/geral/produtos/', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -67,15 +38,54 @@ serve(async (req) => {
 
     const prodData = await prodResponse.json();
 
+    if (prodData.faultstring) {
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: prodData.faultstring,
+          details: 'Credenciais inválidas ou sem permissão'
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
+      );
+    }
+
+    // Now try to get company info using ListarEmpresas with proper pagination params
+    let empresa = null;
+    try {
+      const empresaResponse = await fetch('https://app.omie.com.br/api/v1/geral/empresas/', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          call: 'ListarEmpresas',
+          app_key: app_key,
+          app_secret: app_secret,
+          param: [{
+            pagina: 1,
+            registros_por_pagina: 1,
+          }],
+        }),
+      });
+
+      const empresaData = await empresaResponse.json();
+      console.log('Empresa API response:', JSON.stringify(empresaData).substring(0, 500));
+      
+      if (!empresaData.faultstring) {
+        const empresas = empresaData.empresas_cadastro || [];
+        empresa = empresas[0] || null;
+      }
+    } catch (e) {
+      console.warn('Could not fetch company info:', e);
+    }
+
     return new Response(
       JSON.stringify({ 
         success: true, 
         message: 'Conexão estabelecida com sucesso!',
-        empresa: {
+        empresa: empresa ? {
           cnpj: empresa.cnpj || null,
           razao_social: empresa.razao_social || null,
           nome_fantasia: empresa.nome_fantasia || null,
-        },
+        } : null,
         total_produtos: prodData.total_de_registros || 0
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
