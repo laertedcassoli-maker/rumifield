@@ -81,6 +81,7 @@ export default function AdminConfig() {
   const [estoqueMenuEnabled, setEstoqueMenuEnabled] = useState(true);
   const [inicioMenuEnabled, setInicioMenuEnabled] = useState(true);
   const [visitasMenuEnabled, setVisitasMenuEnabled] = useState(false);
+  const [nfcMenuEnabled, setNfcMenuEnabled] = useState(true);
 
   // Set form values when config loads
   useEffect(() => {
@@ -90,11 +91,13 @@ export default function AdminConfig() {
       const estoqueEnabled = allConfigs.find(c => c.chave === 'estoque_menu_enabled')?.valor !== 'false';
       const inicioEnabled = allConfigs.find(c => c.chave === 'inicio_menu_enabled')?.valor !== 'false';
       const visitasEnabled = allConfigs.find(c => c.chave === 'visitas_menu_enabled')?.valor === 'true';
+      const nfcEnabled = allConfigs.find(c => c.chave === 'nfc_menu_enabled')?.valor !== 'false';
       setOmieAppKey(appKey);
       setOmieAppSecret(appSecret);
       setEstoqueMenuEnabled(estoqueEnabled);
       setInicioMenuEnabled(inicioEnabled);
       setVisitasMenuEnabled(visitasEnabled);
+      setNfcMenuEnabled(nfcEnabled);
     }
   }, [allConfigs]);
 
@@ -549,6 +552,35 @@ export default function AdminConfig() {
     }
   };
 
+  const handleToggleNfcMenu = async (enabled: boolean) => {
+    setNfcMenuEnabled(enabled);
+    try {
+      const { data: existing } = await supabase
+        .from('configuracoes')
+        .select('id')
+        .eq('chave', 'nfc_menu_enabled')
+        .single();
+
+      if (existing) {
+        await supabase
+          .from('configuracoes')
+          .update({ valor: enabled ? 'true' : 'false' })
+          .eq('chave', 'nfc_menu_enabled');
+      } else {
+        await supabase
+          .from('configuracoes')
+          .insert({ chave: 'nfc_menu_enabled', valor: enabled ? 'true' : 'false', descricao: 'Exibir menu Leitura NFC' });
+      }
+
+      queryClient.invalidateQueries({ queryKey: ['app-config'] });
+      queryClient.invalidateQueries({ queryKey: ['menu-config'] });
+      toast({ title: enabled ? 'Menu Leitura NFC ativado' : 'Menu Leitura NFC desativado' });
+    } catch (error: any) {
+      setNfcMenuEnabled(!enabled);
+      toast({ variant: 'destructive', title: 'Erro ao salvar configuração', description: error.message });
+    }
+  };
+
   const handleTestImilkConnection = async () => {
     setIsTestingImilk(true);
     setImilkStatus('idle');
@@ -628,7 +660,7 @@ export default function AdminConfig() {
                   onCheckedChange={handleToggleEstoqueMenu}
                 />
               </div>
-              <div className="flex items-center justify-between py-2">
+              <div className="flex items-center justify-between py-2 border-b">
                 <div>
                   <p className="font-medium">Menu Visitas</p>
                   <p className="text-sm text-muted-foreground">
@@ -638,6 +670,18 @@ export default function AdminConfig() {
                 <Switch
                   checked={visitasMenuEnabled}
                   onCheckedChange={handleToggleVisitasMenu}
+                />
+              </div>
+              <div className="flex items-center justify-between py-2">
+                <div>
+                  <p className="font-medium">Menu Leitura NFC</p>
+                  <p className="text-sm text-muted-foreground">
+                    Leitura de tags e dispositivos NFC
+                  </p>
+                </div>
+                <Switch
+                  checked={nfcMenuEnabled}
+                  onCheckedChange={handleToggleNfcMenu}
                 />
               </div>
             </CardContent>
