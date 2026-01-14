@@ -14,7 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Switch } from '@/components/ui/switch';
 
 type ProdutoSortField = 'nome' | 'unidade' | 'descricao';
-type PecaSortField = 'codigo' | 'nome' | 'familia' | 'omie_codigo' | 'descricao';
+type PecaSortField = 'codigo' | 'nome' | 'familia' | 'omie_codigo' | 'descricao' | 'quantidade_estoque';
 type SortDirection = 'asc' | 'desc';
 
 const ITEMS_PER_PAGE = 10;
@@ -896,13 +896,18 @@ export default function AdminConfig() {
                           Descrição {getSortIcon('descricao', pecaSortField, pecaSortDirection)}
                         </Button>
                       </TableHead>
+                      <TableHead className="text-right">
+                        <Button variant="ghost" onClick={() => handlePecaSort('quantidade_estoque')} className="hover:bg-transparent p-0">
+                          Estoque {getSortIcon('quantidade_estoque', pecaSortField, pecaSortDirection)}
+                        </Button>
+                      </TableHead>
                       <TableHead className="w-[80px]">Ações</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {paginatedPecas.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
+                        <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
                           Nenhuma peça encontrada
                         </TableCell>
                       </TableRow>
@@ -943,6 +948,11 @@ export default function AdminConfig() {
                           </TableCell>
                           <TableCell>{peca.omie_codigo || '-'}</TableCell>
                           <TableCell className="text-muted-foreground">{peca.descricao || '-'}</TableCell>
+                          <TableCell className="text-right">
+                            <span className={peca.quantidade_estoque && peca.quantidade_estoque > 0 ? 'text-green-600 font-medium' : 'text-muted-foreground'}>
+                              {peca.quantidade_estoque ?? 0}
+                            </span>
+                          </TableCell>
                           <TableCell>
                             <Button variant="ghost" size="icon" onClick={() => openEditPeca(peca)}>
                               <Pencil className="h-4 w-4" />
