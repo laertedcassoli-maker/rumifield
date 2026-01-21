@@ -14,6 +14,135 @@ export type Database = {
   }
   public: {
     Tables: {
+      activities: {
+        Row: {
+          allows_quantity: boolean
+          created_at: string
+          execution_type: Database["public"]["Enums"]["execution_type"]
+          id: string
+          is_active: boolean
+          name: string
+          requires_unique_item: boolean
+          updated_at: string
+        }
+        Insert: {
+          allows_quantity?: boolean
+          created_at?: string
+          execution_type?: Database["public"]["Enums"]["execution_type"]
+          id?: string
+          is_active?: boolean
+          name: string
+          requires_unique_item?: boolean
+          updated_at?: string
+        }
+        Update: {
+          allows_quantity?: boolean
+          created_at?: string
+          execution_type?: Database["public"]["Enums"]["execution_type"]
+          id?: string
+          is_active?: boolean
+          name?: string
+          requires_unique_item?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      activity_products: {
+        Row: {
+          activity_id: string
+          created_at: string
+          id: string
+          is_default: boolean | null
+          omie_product_id: string
+          requires_meter_hours: boolean | null
+        }
+        Insert: {
+          activity_id: string
+          created_at?: string
+          id?: string
+          is_default?: boolean | null
+          omie_product_id: string
+          requires_meter_hours?: boolean | null
+        }
+        Update: {
+          activity_id?: string
+          created_at?: string
+          id?: string
+          is_default?: boolean | null
+          omie_product_id?: string
+          requires_meter_hours?: boolean | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "activity_products_activity_id_fkey"
+            columns: ["activity_id"]
+            isOneToOne: false
+            referencedRelation: "activities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "activity_products_omie_product_id_fkey"
+            columns: ["omie_product_id"]
+            isOneToOne: false
+            referencedRelation: "pecas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      asset_meter_readings: {
+        Row: {
+          created_at: string
+          id: string
+          measured_at: string
+          meter_type: Database["public"]["Enums"]["meter_type"]
+          notes: string | null
+          reading_unit: string
+          reading_value: number
+          user_id: string
+          work_order_id: string | null
+          workshop_item_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          measured_at?: string
+          meter_type?: Database["public"]["Enums"]["meter_type"]
+          notes?: string | null
+          reading_unit?: string
+          reading_value: number
+          user_id: string
+          work_order_id?: string | null
+          workshop_item_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          measured_at?: string
+          meter_type?: Database["public"]["Enums"]["meter_type"]
+          notes?: string | null
+          reading_unit?: string
+          reading_value?: number
+          user_id?: string
+          work_order_id?: string | null
+          workshop_item_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "asset_meter_readings_work_order_id_fkey"
+            columns: ["work_order_id"]
+            isOneToOne: false
+            referencedRelation: "work_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "asset_meter_readings_workshop_item_id_fkey"
+            columns: ["workshop_item_id"]
+            isOneToOne: false
+            referencedRelation: "workshop_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clientes: {
         Row: {
           cidade: string | null
@@ -603,11 +732,256 @@ export type Database = {
           },
         ]
       }
+      work_order_items: {
+        Row: {
+          created_at: string
+          id: string
+          meter_hours_entry: number | null
+          meter_hours_exit: number | null
+          notes: string | null
+          omie_product_id: string | null
+          quantity: number
+          status: string | null
+          work_order_id: string
+          workshop_item_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          meter_hours_entry?: number | null
+          meter_hours_exit?: number | null
+          notes?: string | null
+          omie_product_id?: string | null
+          quantity?: number
+          status?: string | null
+          work_order_id: string
+          workshop_item_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          meter_hours_entry?: number | null
+          meter_hours_exit?: number | null
+          notes?: string | null
+          omie_product_id?: string | null
+          quantity?: number
+          status?: string | null
+          work_order_id?: string
+          workshop_item_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "work_order_items_omie_product_id_fkey"
+            columns: ["omie_product_id"]
+            isOneToOne: false
+            referencedRelation: "pecas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_order_items_work_order_id_fkey"
+            columns: ["work_order_id"]
+            isOneToOne: false
+            referencedRelation: "work_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_order_items_workshop_item_id_fkey"
+            columns: ["workshop_item_id"]
+            isOneToOne: false
+            referencedRelation: "workshop_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      work_order_parts_used: {
+        Row: {
+          added_by_user_id: string
+          created_at: string
+          id: string
+          notes: string | null
+          omie_product_id: string
+          quantity: number
+          work_order_id: string
+        }
+        Insert: {
+          added_by_user_id: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          omie_product_id: string
+          quantity?: number
+          work_order_id: string
+        }
+        Update: {
+          added_by_user_id?: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          omie_product_id?: string
+          quantity?: number
+          work_order_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "work_order_parts_used_omie_product_id_fkey"
+            columns: ["omie_product_id"]
+            isOneToOne: false
+            referencedRelation: "pecas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_order_parts_used_work_order_id_fkey"
+            columns: ["work_order_id"]
+            isOneToOne: false
+            referencedRelation: "work_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      work_order_time_entries: {
+        Row: {
+          created_at: string
+          duration_seconds: number | null
+          ended_at: string | null
+          id: string
+          started_at: string
+          status: Database["public"]["Enums"]["time_entry_status"]
+          user_id: string
+          work_order_id: string
+        }
+        Insert: {
+          created_at?: string
+          duration_seconds?: number | null
+          ended_at?: string | null
+          id?: string
+          started_at?: string
+          status?: Database["public"]["Enums"]["time_entry_status"]
+          user_id: string
+          work_order_id: string
+        }
+        Update: {
+          created_at?: string
+          duration_seconds?: number | null
+          ended_at?: string | null
+          id?: string
+          started_at?: string
+          status?: Database["public"]["Enums"]["time_entry_status"]
+          user_id?: string
+          work_order_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "work_order_time_entries_work_order_id_fkey"
+            columns: ["work_order_id"]
+            isOneToOne: false
+            referencedRelation: "work_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      work_orders: {
+        Row: {
+          activity_id: string
+          assigned_to_user_id: string | null
+          code: string
+          created_at: string
+          created_by_user_id: string
+          end_time: string | null
+          id: string
+          notes: string | null
+          start_time: string | null
+          status: Database["public"]["Enums"]["work_order_status"]
+          total_time_seconds: number
+          updated_at: string
+        }
+        Insert: {
+          activity_id: string
+          assigned_to_user_id?: string | null
+          code: string
+          created_at?: string
+          created_by_user_id: string
+          end_time?: string | null
+          id?: string
+          notes?: string | null
+          start_time?: string | null
+          status?: Database["public"]["Enums"]["work_order_status"]
+          total_time_seconds?: number
+          updated_at?: string
+        }
+        Update: {
+          activity_id?: string
+          assigned_to_user_id?: string | null
+          code?: string
+          created_at?: string
+          created_by_user_id?: string
+          end_time?: string | null
+          id?: string
+          notes?: string | null
+          start_time?: string | null
+          status?: Database["public"]["Enums"]["work_order_status"]
+          total_time_seconds?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "work_orders_activity_id_fkey"
+            columns: ["activity_id"]
+            isOneToOne: false
+            referencedRelation: "activities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      workshop_items: {
+        Row: {
+          created_at: string
+          id: string
+          meter_hours_last: number | null
+          meter_hours_updated_at: string | null
+          notes: string | null
+          omie_product_id: string
+          status: string | null
+          unique_code: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          meter_hours_last?: number | null
+          meter_hours_updated_at?: string | null
+          notes?: string | null
+          omie_product_id: string
+          status?: string | null
+          unique_code: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          meter_hours_last?: number | null
+          meter_hours_updated_at?: string | null
+          notes?: string | null
+          omie_product_id?: string
+          status?: string | null
+          unique_code?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "workshop_items_omie_product_id_fkey"
+            columns: ["omie_product_id"]
+            isOneToOne: false
+            referencedRelation: "pecas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      generate_work_order_code: { Args: never; Returns: string }
       is_admin_or_coordinator: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
@@ -618,6 +992,8 @@ export type Database = {
         | "coordenador_servicos"
         | "tecnico_campo"
         | "tecnico_oficina"
+      execution_type: "UNIVOCA" | "LOTE"
+      meter_type: "horimetro"
       pedido_status:
         | "rascunho"
         | "solicitado"
@@ -625,6 +1001,8 @@ export type Database = {
         | "faturado"
         | "enviado"
         | "entregue"
+      time_entry_status: "running" | "paused" | "finished"
+      work_order_status: "aguardando" | "em_manutencao" | "concluido"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -760,6 +1138,8 @@ export const Constants = {
         "tecnico_campo",
         "tecnico_oficina",
       ],
+      execution_type: ["UNIVOCA", "LOTE"],
+      meter_type: ["horimetro"],
       pedido_status: [
         "rascunho",
         "solicitado",
@@ -768,6 +1148,8 @@ export const Constants = {
         "enviado",
         "entregue",
       ],
+      time_entry_status: ["running", "paused", "finished"],
+      work_order_status: ["aguardando", "em_manutencao", "concluido"],
     },
   },
 } as const
