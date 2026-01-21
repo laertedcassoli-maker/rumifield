@@ -48,7 +48,7 @@ export default function Home() {
   // Use defaults while loading
   const showEstoqueMenu = isLoadingConfig ? true : menuConfigs?.find(c => c.chave === 'estoque_menu_enabled')?.valor !== 'false';
   const showVisitasMenu = isLoadingConfig ? true : (menuConfigs?.find(c => c.chave === 'visitas_menu_enabled')?.valor ?? 'false') === 'true';
-  const isAdmin = role === 'admin' || role === 'gestor';
+  const isAdmin = role === 'admin' || role === 'coordenador_rplus' || role === 'coordenador_servicos';
 
   // Main menu items
   const mainMenuItems: MenuItem[] = [

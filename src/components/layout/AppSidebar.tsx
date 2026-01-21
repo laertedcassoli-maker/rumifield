@@ -107,7 +107,7 @@ export function AppSidebar() {
     icon: FlaskConical,
     url: '/teste'
   }];
-  const showAdminMenu = role === 'admin' || role === 'gestor';
+  const showAdminMenu = role === 'admin' || role === 'coordenador_rplus' || role === 'coordenador_servicos';
 
   // Filter admin menu items - Envios only for admin
   const filteredAdminItems = adminMenuItems.filter(item => {
