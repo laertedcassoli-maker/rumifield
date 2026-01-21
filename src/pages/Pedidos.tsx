@@ -53,7 +53,7 @@ export default function Pedidos() {
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [imagePreview, setImagePreview] = useState<{ url: string; nome: string } | null>(null);
   
-  const isAdmin = role === 'admin' || role === 'gestor';
+  const isAdmin = role === 'admin' || role === 'coordenador_rplus' || role === 'coordenador_servicos';
 
   // Use offline data
   const clientes = useLiveQuery(() => offlineDb.clientes.toArray(), []);

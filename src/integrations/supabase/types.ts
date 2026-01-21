@@ -575,20 +575,16 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      get_user_role: {
-        Args: { _user_id: string }
-        Returns: Database["public"]["Enums"]["app_role"]
-      }
-      has_role: {
-        Args: {
-          _role: Database["public"]["Enums"]["app_role"]
-          _user_id: string
-        }
-        Returns: boolean
-      }
+      [_ in never]: never
     }
     Enums: {
-      app_role: "admin" | "gestor" | "tecnico"
+      app_role:
+        | "admin"
+        | "coordenador_rplus"
+        | "consultor_rplus"
+        | "coordenador_servicos"
+        | "tecnico_campo"
+        | "tecnico_oficina"
       pedido_status:
         | "rascunho"
         | "solicitado"
@@ -723,7 +719,14 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "gestor", "tecnico"],
+      app_role: [
+        "admin",
+        "coordenador_rplus",
+        "consultor_rplus",
+        "coordenador_servicos",
+        "tecnico_campo",
+        "tecnico_oficina",
+      ],
       pedido_status: [
         "rascunho",
         "solicitado",

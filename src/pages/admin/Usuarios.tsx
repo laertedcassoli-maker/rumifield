@@ -23,14 +23,20 @@ import {
 
 const roleLabels: Record<string, string> = {
   admin: 'Administrador',
-  gestor: 'Gestor',
-  tecnico: 'Técnico',
+  coordenador_rplus: 'Coordenador R+',
+  consultor_rplus: 'Consultor R+',
+  coordenador_servicos: 'Coordenador de Serviços',
+  tecnico_campo: 'Técnico de Campo',
+  tecnico_oficina: 'Técnico de Oficina',
 };
 
 const roleColors: Record<string, string> = {
   admin: 'bg-destructive/10 text-destructive border-destructive/20',
-  gestor: 'bg-warning/10 text-warning border-warning/20',
-  tecnico: 'bg-primary/10 text-primary border-primary/20',
+  coordenador_rplus: 'bg-warning/10 text-warning border-warning/20',
+  coordenador_servicos: 'bg-orange-500/10 text-orange-600 border-orange-500/20',
+  consultor_rplus: 'bg-primary/10 text-primary border-primary/20',
+  tecnico_campo: 'bg-green-500/10 text-green-600 border-green-500/20',
+  tecnico_oficina: 'bg-blue-500/10 text-blue-600 border-blue-500/20',
 };
 
 type SortField = 'nome' | 'email' | 'role';
@@ -42,7 +48,7 @@ const newUserSchema = z.object({
   nome: z.string().min(2, 'Nome deve ter no mínimo 2 caracteres'),
   email: z.string().email('Email inválido'),
   password: z.string().min(6, 'Senha deve ter no mínimo 6 caracteres'),
-  role: z.enum(['admin', 'gestor', 'tecnico']),
+  role: z.enum(['admin', 'coordenador_rplus', 'consultor_rplus', 'coordenador_servicos', 'tecnico_campo', 'tecnico_oficina']),
 });
 
 export default function AdminUsuarios() {
@@ -58,7 +64,7 @@ export default function AdminUsuarios() {
     nome: '',
     email: '',
     password: '',
-    role: 'tecnico' as 'admin' | 'gestor' | 'tecnico',
+    role: 'consultor_rplus' as 'admin' | 'coordenador_rplus' | 'consultor_rplus' | 'coordenador_servicos' | 'tecnico_campo' | 'tecnico_oficina',
   });
   const [isCreating, setIsCreating] = useState(false);
 
@@ -101,8 +107,8 @@ export default function AdminUsuarios() {
       let bValue: string;
 
       if (sortField === 'role') {
-        aValue = a.user_roles?.[0]?.role || 'tecnico';
-        bValue = b.user_roles?.[0]?.role || 'tecnico';
+        aValue = a.user_roles?.[0]?.role || 'consultor_rplus';
+        bValue = b.user_roles?.[0]?.role || 'consultor_rplus';
       } else {
         aValue = a[sortField] || '';
         bValue = b[sortField] || '';
@@ -142,7 +148,7 @@ export default function AdminUsuarios() {
     mutationFn: async ({ userId, newRole }: { userId: string; newRole: string }) => {
       const { error } = await supabase
         .from('user_roles')
-        .update({ role: newRole as 'admin' | 'gestor' | 'tecnico' })
+        .update({ role: newRole as 'admin' | 'coordenador_rplus' | 'consultor_rplus' | 'coordenador_servicos' | 'tecnico_campo' | 'tecnico_oficina' })
         .eq('user_id', userId);
       if (error) throw error;
     },
@@ -189,11 +195,11 @@ export default function AdminUsuarios() {
       if (signUpError) throw signUpError;
 
       // Nota: O role será atualizado manualmente após criar, pois não temos acesso ao user.id aqui
-      // O usuário é criado como 'tecnico' por padrão pelo trigger
+      // O usuário é criado como 'consultor_rplus' por padrão pelo trigger
 
-      toast({ title: 'Usuário criado com sucesso!', description: newUserForm.role !== 'tecnico' ? 'Atualize a permissão na lista.' : undefined });
+      toast({ title: 'Usuário criado com sucesso!', description: newUserForm.role !== 'consultor_rplus' ? 'Atualize a permissão na lista.' : undefined });
       setOpenDialog(false);
-      setNewUserForm({ nome: '', email: '', password: '', role: 'tecnico' });
+      setNewUserForm({ nome: '', email: '', password: '', role: 'consultor_rplus' });
       queryClient.invalidateQueries({ queryKey: ['usuarios-admin'] });
     } catch (error: any) {
       if (error.message?.includes('already registered')) {
@@ -269,15 +275,18 @@ export default function AdminUsuarios() {
                   <Label>Permissão</Label>
                   <Select 
                     value={newUserForm.role} 
-                    onValueChange={(v: 'admin' | 'gestor' | 'tecnico') => setNewUserForm({ ...newUserForm, role: v })}
+                    onValueChange={(v: 'admin' | 'coordenador_rplus' | 'consultor_rplus' | 'coordenador_servicos' | 'tecnico_campo' | 'tecnico_oficina') => setNewUserForm({ ...newUserForm, role: v })}
                   >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="admin">Administrador</SelectItem>
-                      <SelectItem value="gestor">Gestor</SelectItem>
-                      <SelectItem value="tecnico">Técnico</SelectItem>
+                      <SelectItem value="coordenador_rplus">Coordenador R+</SelectItem>
+                      <SelectItem value="consultor_rplus">Consultor R+</SelectItem>
+                      <SelectItem value="coordenador_servicos">Coordenador de Serviços</SelectItem>
+                      <SelectItem value="tecnico_campo">Técnico de Campo</SelectItem>
+                      <SelectItem value="tecnico_oficina">Técnico de Oficina</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -329,7 +338,7 @@ export default function AdminUsuarios() {
               </TableHeader>
               <TableBody>
                 {paginatedUsuarios.map((usuario: any) => {
-                  const userRole = usuario.user_roles?.[0]?.role || 'tecnico';
+                  const userRole = usuario.user_roles?.[0]?.role || 'consultor_rplus';
                   const isCurrentUser = usuario.id === currentUser?.id;
 
                   return (
@@ -355,8 +364,11 @@ export default function AdminUsuarios() {
                             </SelectTrigger>
                             <SelectContent>
                               <SelectItem value="admin">Administrador</SelectItem>
-                              <SelectItem value="gestor">Gestor</SelectItem>
-                              <SelectItem value="tecnico">Técnico</SelectItem>
+                              <SelectItem value="coordenador_rplus">Coordenador R+</SelectItem>
+                              <SelectItem value="consultor_rplus">Consultor R+</SelectItem>
+                              <SelectItem value="coordenador_servicos">Coordenador de Serviços</SelectItem>
+                              <SelectItem value="tecnico_campo">Técnico de Campo</SelectItem>
+                              <SelectItem value="tecnico_oficina">Técnico de Oficina</SelectItem>
                             </SelectContent>
                           </Select>
                         ) : (
