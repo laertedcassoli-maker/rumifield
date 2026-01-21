@@ -1,0 +1,421 @@
+import { useState } from 'react';
+import { useQuery, useMutation } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import { toast } from 'sonner';
+import { Search, Package } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogClose } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/components/ui/badge';
+
+interface Activity {
+  id: string;
+  name: string;
+  execution_type: 'UNIVOCA' | 'LOTE';
+  requires_unique_item: boolean;
+}
+
+interface WorkshopItem {
+  id: string;
+  unique_code: string;
+  omie_product_id: string;
+  meter_hours_last: number | null;
+  pecas?: {
+    nome: string;
+    codigo: string;
+  };
+}
+
+interface ActivityProduct {
+  activity_id: string;
+  omie_product_id: string;
+  requires_meter_hours: boolean;
+}
+
+interface NovaOSDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSuccess: () => void;
+}
+
+export function NovaOSDialog({ open, onOpenChange, onSuccess }: NovaOSDialogProps) {
+  const { user } = useAuth();
+  const [creationPath, setCreationPath] = useState<'activity' | 'item'>('activity');
+  const [selectedActivityId, setSelectedActivityId] = useState('');
+  const [selectedItemId, setSelectedItemId] = useState('');
+  const [itemSearch, setItemSearch] = useState('');
+  const [quantity, setQuantity] = useState(1);
+  const [meterHoursEntry, setMeterHoursEntry] = useState('');
+  const [notes, setNotes] = useState('');
+
+  // Fetch activities
+  const { data: activities = [] } = useQuery({
+    queryKey: ['activities-for-os'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('activities')
+        .select('*')
+        .eq('is_active', true)
+        .order('name');
+      if (error) throw error;
+      return data as Activity[];
+    },
+    enabled: open,
+  });
+
+  // Fetch workshop items
+  const { data: workshopItems = [] } = useQuery({
+    queryKey: ['workshop-items-for-os'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('workshop_items')
+        .select(`
+          *,
+          pecas:omie_product_id (nome, codigo)
+        `)
+        .eq('status', 'disponivel')
+        .order('unique_code');
+      if (error) throw error;
+      return data as WorkshopItem[];
+    },
+    enabled: open,
+  });
+
+  // Fetch activity products to know which activities are associated with selected item
+  const { data: activityProducts = [] } = useQuery({
+    queryKey: ['activity-products-for-os'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('activity_products')
+        .select('*');
+      if (error) throw error;
+      return data as ActivityProduct[];
+    },
+    enabled: open,
+  });
+
+  const selectedActivity = activities.find(a => a.id === selectedActivityId);
+  const selectedItem = workshopItems.find(i => i.id === selectedItemId);
+  
+  // Check if selected item requires meter hours
+  const itemRequiresMeterHours = selectedItem && activityProducts.some(
+    ap => ap.omie_product_id === selectedItem.omie_product_id && ap.requires_meter_hours
+  );
+
+  // Filter activities based on selected item (via activity_products)
+  const filteredActivitiesForItem = activities.filter(activity => {
+    if (!selectedItem) return true;
+    return activityProducts.some(
+      ap => ap.activity_id === activity.id && ap.omie_product_id === selectedItem.omie_product_id
+    );
+  });
+
+  // Filter items based on search
+  const filteredItems = workshopItems.filter(item =>
+    item.unique_code.toLowerCase().includes(itemSearch.toLowerCase()) ||
+    item.pecas?.nome?.toLowerCase().includes(itemSearch.toLowerCase())
+  );
+
+  // Create OS mutation
+  const createOSMutation = useMutation({
+    mutationFn: async () => {
+      if (!user?.id || !selectedActivityId) {
+        throw new Error('Dados obrigatórios não preenchidos');
+      }
+
+      // Generate code
+      const { data: codeData, error: codeError } = await supabase.rpc('generate_work_order_code');
+      if (codeError) throw codeError;
+      
+      const code = codeData as string;
+
+      // Create work order
+      const { data: osData, error: osError } = await supabase
+        .from('work_orders')
+        .insert({
+          code,
+          activity_id: selectedActivityId,
+          created_by_user_id: user.id,
+          assigned_to_user_id: user.id,
+          notes: notes || null,
+        })
+        .select()
+        .single();
+
+      if (osError) throw osError;
+
+      // Create work order item
+      const itemData: Record<string, unknown> = {
+        work_order_id: osData.id,
+        quantity: selectedActivity?.execution_type === 'LOTE' ? quantity : 1,
+      };
+
+      if (selectedActivity?.execution_type === 'UNIVOCA' && selectedItem) {
+        itemData.workshop_item_id = selectedItem.id;
+        if (itemRequiresMeterHours && meterHoursEntry) {
+          itemData.meter_hours_entry = parseFloat(meterHoursEntry);
+        }
+      } else {
+        // For LOTE, we need a product ID
+        const firstProduct = activityProducts.find(ap => ap.activity_id === selectedActivityId);
+        if (firstProduct) {
+          itemData.omie_product_id = firstProduct.omie_product_id;
+        }
+      }
+
+      const { error: itemError } = await supabase
+        .from('work_order_items')
+        .insert([itemData as { work_order_id: string; quantity: number; workshop_item_id?: string; meter_hours_entry?: number; omie_product_id?: string }]);
+
+      if (itemError) throw itemError;
+
+      // Update workshop item status if UNIVOCA
+      if (selectedActivity?.execution_type === 'UNIVOCA' && selectedItem) {
+        const { error: updateError } = await supabase
+          .from('workshop_items')
+          .update({ status: 'em_manutencao' })
+          .eq('id', selectedItem.id);
+        if (updateError) throw updateError;
+      }
+
+      return osData;
+    },
+    onSuccess: () => {
+      toast.success('Ordem de Serviço criada com sucesso!');
+      onSuccess();
+      onOpenChange(false);
+      resetForm();
+    },
+    onError: (error) => {
+      toast.error('Erro ao criar OS: ' + error.message);
+    },
+  });
+
+  const resetForm = () => {
+    setCreationPath('activity');
+    setSelectedActivityId('');
+    setSelectedItemId('');
+    setItemSearch('');
+    setQuantity(1);
+    setMeterHoursEntry('');
+    setNotes('');
+  };
+
+  const canSubmit = () => {
+    if (!selectedActivityId) return false;
+    
+    if (selectedActivity?.execution_type === 'UNIVOCA') {
+      if (!selectedItemId) return false;
+      if (itemRequiresMeterHours && !meterHoursEntry) return false;
+    } else {
+      if (quantity < 1) return false;
+    }
+    
+    return true;
+  };
+
+  const handleSubmit = () => {
+    if (!canSubmit()) {
+      toast.error('Preencha todos os campos obrigatórios');
+      return;
+    }
+    createOSMutation.mutate();
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(o) => { onOpenChange(o); if (!o) resetForm(); }}>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>Nova Ordem de Serviço</DialogTitle>
+        </DialogHeader>
+
+        <Tabs value={creationPath} onValueChange={(v) => setCreationPath(v as 'activity' | 'item')}>
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="activity">Por Atividade</TabsTrigger>
+            <TabsTrigger value="item">Por Código do Item</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="activity" className="space-y-4">
+            <div>
+              <Label>Atividade</Label>
+              <Select value={selectedActivityId} onValueChange={setSelectedActivityId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione a atividade" />
+                </SelectTrigger>
+                <SelectContent>
+                  {activities.map((activity) => (
+                    <SelectItem key={activity.id} value={activity.id}>
+                      <div className="flex items-center gap-2">
+                        {activity.name}
+                        <Badge variant="outline" className="text-xs">
+                          {activity.execution_type}
+                        </Badge>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {selectedActivity?.execution_type === 'UNIVOCA' && (
+              <div>
+                <Label>Item Único</Label>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <Search className="h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Buscar por código..."
+                      value={itemSearch}
+                      onChange={(e) => setItemSearch(e.target.value)}
+                    />
+                  </div>
+                  <div className="max-h-[200px] overflow-auto border rounded-lg">
+                    {filteredItems.length === 0 ? (
+                      <div className="p-4 text-center text-muted-foreground">
+                        Nenhum item disponível
+                      </div>
+                    ) : (
+                      filteredItems.map((item) => (
+                        <div
+                          key={item.id}
+                          className={`p-3 border-b last:border-b-0 cursor-pointer hover:bg-muted/50 ${
+                            selectedItemId === item.id ? 'bg-primary/10' : ''
+                          }`}
+                          onClick={() => setSelectedItemId(item.id)}
+                        >
+                          <p className="font-mono font-medium">{item.unique_code}</p>
+                          <p className="text-xs text-muted-foreground">{item.pecas?.nome}</p>
+                          {item.meter_hours_last !== null && (
+                            <p className="text-xs text-muted-foreground">
+                              Último horímetro: {item.meter_hours_last}h
+                            </p>
+                          )}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {selectedActivity?.execution_type === 'LOTE' && (
+              <div>
+                <Label>Quantidade</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  value={quantity}
+                  onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
+                />
+              </div>
+            )}
+          </TabsContent>
+
+          <TabsContent value="item" className="space-y-4">
+            <div>
+              <Label>Código do Item</Label>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Search className="h-4 w-4 text-muted-foreground" />
+                  <Input
+                    placeholder="Buscar por código..."
+                    value={itemSearch}
+                    onChange={(e) => setItemSearch(e.target.value)}
+                  />
+                </div>
+                <div className="max-h-[150px] overflow-auto border rounded-lg">
+                  {filteredItems.length === 0 ? (
+                    <div className="p-4 text-center text-muted-foreground">
+                      Nenhum item disponível
+                    </div>
+                  ) : (
+                    filteredItems.map((item) => (
+                      <div
+                        key={item.id}
+                        className={`p-3 border-b last:border-b-0 cursor-pointer hover:bg-muted/50 ${
+                          selectedItemId === item.id ? 'bg-primary/10' : ''
+                        }`}
+                        onClick={() => setSelectedItemId(item.id)}
+                      >
+                        <p className="font-mono font-medium">{item.unique_code}</p>
+                        <p className="text-xs text-muted-foreground">{item.pecas?.nome}</p>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {selectedItem && (
+              <div>
+                <Label>Atividade</Label>
+                <Select value={selectedActivityId} onValueChange={setSelectedActivityId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione a atividade" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {filteredActivitiesForItem.length === 0 ? (
+                      <div className="p-2 text-center text-muted-foreground text-sm">
+                        Nenhuma atividade vinculada a este produto
+                      </div>
+                    ) : (
+                      filteredActivitiesForItem.map((activity) => (
+                        <SelectItem key={activity.id} value={activity.id}>
+                          {activity.name}
+                        </SelectItem>
+                      ))
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+          </TabsContent>
+        </Tabs>
+
+        {/* Meter hours input */}
+        {itemRequiresMeterHours && selectedItem && (
+          <div>
+            <Label>Horímetro na Entrada (horas) *</Label>
+            <Input
+              type="number"
+              min={0}
+              step="0.1"
+              value={meterHoursEntry}
+              onChange={(e) => setMeterHoursEntry(e.target.value)}
+              placeholder={selectedItem.meter_hours_last ? `Último: ${selectedItem.meter_hours_last}h` : '0'}
+            />
+            {selectedItem.meter_hours_last !== null && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Último registro: {selectedItem.meter_hours_last} horas
+              </p>
+            )}
+          </div>
+        )}
+
+        <div>
+          <Label>Observações</Label>
+          <Textarea
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="Observações sobre a OS..."
+          />
+        </div>
+
+        <DialogFooter>
+          <DialogClose asChild>
+            <Button variant="outline">Cancelar</Button>
+          </DialogClose>
+          <Button onClick={handleSubmit} disabled={createOSMutation.isPending || !canSubmit()}>
+            {createOSMutation.isPending ? 'Criando...' : 'Criar OS'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
