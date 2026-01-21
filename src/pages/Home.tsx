@@ -11,7 +11,11 @@ import {
   Package,
   History,
   MapPin,
-  Shield
+  Shield,
+  Wrench,
+  FileText,
+  ListChecks,
+  Box
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useMenuPermissions } from '@/hooks/useMenuPermissions';
@@ -84,6 +88,33 @@ export default function Home() {
     },
   ];
 
+  const allOficinaMenuItems: MenuItem[] = [
+    {
+      title: 'Ordens de Serviço',
+      icon: FileText,
+      url: '/oficina/os',
+      color: 'text-teal-600',
+      bgColor: 'bg-teal-100 dark:bg-teal-900/30',
+      permKey: 'oficina_os',
+    },
+    {
+      title: 'Atividades',
+      icon: ListChecks,
+      url: '/oficina/atividades',
+      color: 'text-pink-600',
+      bgColor: 'bg-pink-100 dark:bg-pink-900/30',
+      permKey: 'oficina_atividades',
+    },
+    {
+      title: 'Itens Oficina',
+      icon: Box,
+      url: '/oficina/itens',
+      color: 'text-lime-600',
+      bgColor: 'bg-lime-100 dark:bg-lime-900/30',
+      permKey: 'oficina_itens',
+    },
+  ];
+
   const allAdminMenuItems: MenuItem[] = [
     {
       title: 'Clientes',
@@ -132,6 +163,9 @@ export default function Home() {
   const estoqueMenuItems = canAccess('estoque') 
     ? allEstoqueMenuItems.filter(item => canAccess(item.permKey))
     : [];
+  const oficinaMenuItems = canAccess('oficina')
+    ? allOficinaMenuItems.filter(item => canAccess(item.permKey))
+    : [];
   const adminMenuItems = allAdminMenuItems.filter(item => canAccess(item.permKey));
 
   const MenuCard = ({ item }: { item: MenuItem }) => (
@@ -168,7 +202,7 @@ export default function Home() {
       {/* Main Actions */}
       <div className="space-y-6">
         {/* Principal */}
-        {(mainMenuItems.length > 0 || estoqueMenuItems.length > 0) && (
+        {(mainMenuItems.length > 0 || estoqueMenuItems.length > 0 || oficinaMenuItems.length > 0) && (
           <div>
             <h2 className="text-sm font-medium text-muted-foreground mb-3 px-1">
               Ações Rápidas
@@ -178,6 +212,9 @@ export default function Home() {
                 <MenuCard key={item.url} item={item} />
               ))}
               {estoqueMenuItems.map((item) => (
+                <MenuCard key={item.url} item={item} />
+              ))}
+              {oficinaMenuItems.map((item) => (
                 <MenuCard key={item.url} item={item} />
               ))}
             </div>
