@@ -47,15 +47,22 @@ export function AppSidebar() {
   const showEstoqueMenu = canAccess('estoque') && estoqueItems.length > 0;
   const isEstoqueActive = location.pathname === '/estoque' || location.pathname.startsWith('/estoque/');
 
-  // Oficina submenu items
+  // Oficina submenu items (operational - OS and Assets)
   const oficinaItems = [
     { title: 'Ordens de Serviço', icon: FileText, url: '/oficina/os', permKey: 'oficina_os' },
-    { title: 'Atividades', icon: ListChecks, url: '/oficina/atividades', permKey: 'oficina_atividades' },
     { title: 'Cadastro Ativos', icon: Box, url: '/oficina/itens', permKey: 'oficina_itens' },
   ].filter(item => canAccess(item.permKey));
 
   const showOficinaMenu = canAccess('oficina') && oficinaItems.length > 0;
-  const isOficinaActive = location.pathname.startsWith('/oficina');
+  const isOficinaActive = location.pathname.startsWith('/oficina') && !location.pathname.includes('/atividades');
+
+  // Admin Oficina submenu (configuration items)
+  const adminOficinaItems = [
+    { title: 'Atividades', icon: ListChecks, url: '/oficina/atividades', permKey: 'oficina_atividades' },
+  ].filter(item => canAccess(item.permKey));
+
+  const showAdminOficinaMenu = adminOficinaItems.length > 0;
+  const isAdminOficinaActive = location.pathname === '/oficina/atividades';
 
   // Admin menu items
   const adminMenuItems = [
@@ -67,7 +74,7 @@ export function AppSidebar() {
     { title: 'Teste Transcrição', icon: FlaskConical, url: '/teste', permKey: 'admin_cadastros' },
   ].filter(item => canAccess(item.permKey));
 
-  const showAdminMenu = adminMenuItems.length > 0;
+  const showAdminMenu = adminMenuItems.length > 0 || showAdminOficinaMenu;
 
   return (
     <Sidebar>
@@ -175,6 +182,35 @@ export function AppSidebar() {
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 ))}
+
+                {/* Oficina submenu dentro de Administração */}
+                {showAdminOficinaMenu && (
+                  <Collapsible defaultOpen={isAdminOficinaActive} className="group/collapsible">
+                    <SidebarMenuItem>
+                      <CollapsibleTrigger asChild>
+                        <SidebarMenuButton isActive={isAdminOficinaActive}>
+                          <Wrench className="h-4 w-4" />
+                          <span>Oficina</span>
+                          <ChevronDown className="ml-auto h-4 w-4 transition-transform group-data-[state=open]/collapsible:rotate-180" />
+                        </SidebarMenuButton>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent>
+                        <SidebarMenuSub>
+                          {adminOficinaItems.map(item => (
+                            <SidebarMenuSubItem key={item.title}>
+                              <SidebarMenuSubButton asChild isActive={location.pathname === item.url}>
+                                <Link to={item.url} onClick={handleMenuClick}>
+                                  <item.icon className="h-4 w-4" />
+                                  <span>{item.title}</span>
+                                </Link>
+                              </SidebarMenuSubButton>
+                            </SidebarMenuSubItem>
+                          ))}
+                        </SidebarMenuSub>
+                      </CollapsibleContent>
+                    </SidebarMenuItem>
+                  </Collapsible>
+                )}
               </SidebarMenu>
             </SidebarGroupContent>
           </SidebarGroup>
