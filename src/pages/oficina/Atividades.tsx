@@ -88,6 +88,18 @@ export default function Atividades() {
     },
   });
 
+  // Fetch all activity products counts
+  const { data: allActivityProducts = [] } = useQuery({
+    queryKey: ['all-activity-products'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('activity_products')
+        .select('activity_id');
+      if (error) throw error;
+      return data as { activity_id: string }[];
+    },
+  });
+
   // Fetch activity products for selected activity
   const { data: activityProducts = [] } = useQuery({
     queryKey: ['activity-products', selectedActivityForProducts?.id],
@@ -254,6 +266,11 @@ export default function Atividades() {
     a.name.toLowerCase().includes(search.toLowerCase())
   );
 
+  // Count products per activity
+  const getProductCount = (activityId: string) => {
+    return allActivityProducts.filter(ap => ap.activity_id === activityId).length;
+  };
+
   // Filter products by search (supports multi-word)
   const filteredPecas = pecas.filter(peca => {
     if (!productSearch.trim()) return true;
@@ -362,17 +379,25 @@ export default function Atividades() {
                 <TableRow>
                   <TableHead>Nome</TableHead>
                   <TableHead>Tipo</TableHead>
+                  <TableHead>Produtos</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredActivities.map((activity) => (
+                {filteredActivities.map((activity) => {
+                  const productCount = getProductCount(activity.id);
+                  return (
                   <TableRow key={activity.id}>
                     <TableCell className="font-medium">{activity.name}</TableCell>
                     <TableCell>
                       <Badge variant={activity.execution_type === 'UNIVOCA' ? 'default' : 'secondary'}>
                         {activity.execution_type}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={productCount > 0 ? 'outline' : 'destructive'} className="font-mono">
+                        {productCount}
                       </Badge>
                     </TableCell>
                     <TableCell>
@@ -413,7 +438,8 @@ export default function Atividades() {
                       </div>
                     </TableCell>
                   </TableRow>
-                ))}
+                  );
+                })}
               </TableBody>
             </Table>
           )}
@@ -427,8 +453,11 @@ export default function Atividades() {
       }}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
               Produtos Vinculados: {selectedActivityForProducts?.name}
+              <Badge variant="secondary" className="font-mono">
+                {activityProducts.length}
+              </Badge>
             </DialogTitle>
           </DialogHeader>
           <div className="flex items-center gap-2 mb-2">
