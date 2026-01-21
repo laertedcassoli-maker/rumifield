@@ -209,8 +209,8 @@ export default function ItensOficina() {
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold">Itens de Oficina</h1>
-          <p className="text-muted-foreground">Ativos físicos com identificação única</p>
+          <h1 className="text-2xl font-bold">Ativos</h1>
+          <p className="text-muted-foreground">Equipamentos físicos com identificação única</p>
         </div>
         {isAdmin && (
           <Dialog open={dialogOpen} onOpenChange={(open) => { setDialogOpen(open); if (!open) resetForm(); }}>
