@@ -11,8 +11,7 @@ import {
   Package,
   History,
   MapPin,
-  Shield,
-  Nfc
+  Shield
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useMenuPermissions } from '@/hooks/useMenuPermissions';
@@ -47,14 +46,6 @@ export default function Home() {
       color: 'text-blue-600',
       bgColor: 'bg-blue-100 dark:bg-blue-900/30',
       permKey: 'pedidos',
-    },
-    {
-      title: 'Leitura NFC',
-      icon: Nfc,
-      url: '/nfc',
-      color: 'text-teal-600',
-      bgColor: 'bg-teal-100 dark:bg-teal-900/30',
-      permKey: 'nfc',
     },
   ];
 
