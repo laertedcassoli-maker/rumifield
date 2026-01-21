@@ -98,14 +98,6 @@ export default function Home() {
       permKey: 'oficina_os',
     },
     {
-      title: 'Atividades',
-      icon: ListChecks,
-      url: '/oficina/atividades',
-      color: 'text-pink-600',
-      bgColor: 'bg-pink-100 dark:bg-pink-900/30',
-      permKey: 'oficina_atividades',
-    },
-    {
       title: 'Cadastro Ativos',
       icon: Box,
       url: '/oficina/itens',
@@ -155,6 +147,14 @@ export default function Home() {
       color: 'text-red-600',
       bgColor: 'bg-red-100 dark:bg-red-900/30',
       permKey: 'admin_permissoes',
+    },
+    {
+      title: 'Atividades Oficina',
+      icon: ListChecks,
+      url: '/oficina/atividades',
+      color: 'text-pink-600',
+      bgColor: 'bg-pink-100 dark:bg-pink-900/30',
+      permKey: 'oficina_atividades',
     },
   ];
 
