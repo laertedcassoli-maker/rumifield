@@ -19,6 +19,9 @@ import AdminEnvios from "./pages/admin/Envios";
 import AdminUsuarios from "./pages/admin/Usuarios";
 import AdminConfig from "./pages/admin/Config";
 import AdminPermissoes from "./pages/admin/Permissoes";
+import OficinaAtividades from "./pages/oficina/Atividades";
+import OficinaItens from "./pages/oficina/ItensOficina";
+import OficinaOS from "./pages/oficina/OrdensServico";
 import Teste from "./pages/Teste";
 import Instalar from "./pages/Instalar";
 import Nfc from "./pages/Nfc";
@@ -129,6 +132,30 @@ const App = () => (
               element={
                 <AppLayout>
                   <AdminPermissoes />
+                </AppLayout>
+              }
+            />
+            <Route
+              path="/oficina/atividades"
+              element={
+                <AppLayout>
+                  <OficinaAtividades />
+                </AppLayout>
+              }
+            />
+            <Route
+              path="/oficina/itens"
+              element={
+                <AppLayout>
+                  <OficinaItens />
+                </AppLayout>
+              }
+            />
+            <Route
+              path="/oficina/os"
+              element={
+                <AppLayout>
+                  <OficinaOS />
                 </AppLayout>
               }
             />

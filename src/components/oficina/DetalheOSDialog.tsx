@@ -105,7 +105,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
       return data as TimeEntry | null;
     },
     enabled: open && !!user?.id,
-    refetchInterval: activeTimeEntry ? 1000 : false,
+    refetchInterval: (query) => query.state.data ? 1000 : false,
   });
 
   // Fetch parts used
