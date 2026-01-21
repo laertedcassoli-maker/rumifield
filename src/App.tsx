@@ -18,6 +18,7 @@ import AdminClientes from "./pages/admin/Clientes";
 import AdminEnvios from "./pages/admin/Envios";
 import AdminUsuarios from "./pages/admin/Usuarios";
 import AdminConfig from "./pages/admin/Config";
+import AdminPermissoes from "./pages/admin/Permissoes";
 import Teste from "./pages/Teste";
 import Instalar from "./pages/Instalar";
 import Nfc from "./pages/Nfc";
@@ -120,6 +121,14 @@ const App = () => (
               element={
                 <AppLayout>
                   <AdminEnvios />
+                </AppLayout>
+              }
+            />
+            <Route
+              path="/admin/permissoes"
+              element={
+                <AppLayout>
+                  <AdminPermissoes />
                 </AppLayout>
               }
             />

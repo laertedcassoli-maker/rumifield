@@ -1,10 +1,7 @@
 import { useAuth } from '@/contexts/AuthContext';
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { Link } from 'react-router-dom';
 import { 
   ShoppingCart, 
-  Beaker, 
   Building2, 
   Users, 
   Truck, 
@@ -13,134 +10,138 @@ import {
   TrendingDown,
   Package,
   History,
-  FlaskConical,
-  MapPin
+  MapPin,
+  Shield,
+  Nfc
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useMenuPermissions } from '@/hooks/useMenuPermissions';
 
 interface MenuItem {
   title: string;
-  description: string;
   icon: React.ElementType;
   url: string;
   color: string;
   bgColor: string;
+  permKey: string;
 }
 
 export default function Home() {
-  const { profile, role } = useAuth();
+  const { profile } = useAuth();
+  const { canAccess } = useMenuPermissions();
 
-  // Load menu visibility config
-  const { data: menuConfigs, isLoading: isLoadingConfig } = useQuery({
-    queryKey: ['menu-config'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('configuracoes')
-        .select('chave, valor')
-        .in('chave', ['estoque_menu_enabled', 'inicio_menu_enabled', 'visitas_menu_enabled']);
-      if (error) throw error;
-      return data;
-    },
-    staleTime: 30000, // Cache for 30 seconds
-    gcTime: 60000,
-  });
-
-  // Use defaults while loading
-  const showEstoqueMenu = isLoadingConfig ? true : menuConfigs?.find(c => c.chave === 'estoque_menu_enabled')?.valor !== 'false';
-  const showVisitasMenu = isLoadingConfig ? true : (menuConfigs?.find(c => c.chave === 'visitas_menu_enabled')?.valor ?? 'false') === 'true';
-  const isAdmin = role === 'admin' || role === 'coordenador_rplus' || role === 'coordenador_servicos';
-
-  // Main menu items
-  const mainMenuItems: MenuItem[] = [
-    ...(showVisitasMenu ? [{
+  // All possible menu items with permission keys
+  const allMainMenuItems: MenuItem[] = [
+    {
       title: 'Visitas',
-      description: 'Registrar visitas técnicas',
       icon: MapPin,
       url: '/visitas',
       color: 'text-rose-600',
       bgColor: 'bg-rose-100 dark:bg-rose-900/30',
-    }] : []),
+      permKey: 'visitas',
+    },
     {
       title: 'Solicitação Peças',
-      description: 'Solicitar peças para clientes',
       icon: ShoppingCart,
       url: '/pedidos',
       color: 'text-blue-600',
       bgColor: 'bg-blue-100 dark:bg-blue-900/30',
+      permKey: 'pedidos',
+    },
+    {
+      title: 'Leitura NFC',
+      icon: Nfc,
+      url: '/nfc',
+      color: 'text-teal-600',
+      bgColor: 'bg-teal-100 dark:bg-teal-900/30',
+      permKey: 'nfc',
     },
   ];
 
-  // Estoque menu items (conditional)
-  const estoqueMenuItems: MenuItem[] = showEstoqueMenu ? [
+  const allEstoqueMenuItems: MenuItem[] = [
     {
       title: 'Aferição',
-      description: 'Registrar medições de estoque',
       icon: ClipboardCheck,
       url: '/estoque',
       color: 'text-emerald-600',
       bgColor: 'bg-emerald-100 dark:bg-emerald-900/30',
+      permKey: 'estoque_afericao',
     },
     {
       title: 'Consumo',
-      description: 'Análise de consumo por fazenda',
       icon: TrendingDown,
       url: '/estoque/consumo',
       color: 'text-amber-600',
       bgColor: 'bg-amber-100 dark:bg-amber-900/30',
+      permKey: 'estoque_consumo',
     },
     {
       title: 'Previsão Envios',
-      description: 'Previsão de reabastecimento',
       icon: Package,
       url: '/estoque/previsao',
       color: 'text-purple-600',
       bgColor: 'bg-purple-100 dark:bg-purple-900/30',
+      permKey: 'estoque_previsao',
     },
     {
       title: 'Histórico',
-      description: 'Histórico de aferições',
       icon: History,
       url: '/estoque/historico',
       color: 'text-slate-600',
       bgColor: 'bg-slate-100 dark:bg-slate-900/30',
+      permKey: 'estoque_historico',
     },
-  ] : [];
+  ];
 
-  // Admin menu items (conditional)
-  const adminMenuItems: MenuItem[] = isAdmin ? [
+  const allAdminMenuItems: MenuItem[] = [
     {
       title: 'Clientes',
-      description: 'Gerenciar clientes e fazendas',
       icon: Building2,
       url: '/admin/clientes',
       color: 'text-cyan-600',
       bgColor: 'bg-cyan-100 dark:bg-cyan-900/30',
+      permKey: 'admin_clientes',
     },
     {
       title: 'Usuários',
-      description: 'Gerenciar usuários do sistema',
       icon: Users,
       url: '/admin/usuarios',
       color: 'text-indigo-600',
       bgColor: 'bg-indigo-100 dark:bg-indigo-900/30',
+      permKey: 'admin_usuarios',
     },
-    ...(role === 'admin' ? [{
+    {
       title: 'Envios',
-      description: 'Registro de envios de produtos',
       icon: Truck,
       url: '/admin/envios',
       color: 'text-orange-600',
       bgColor: 'bg-orange-100 dark:bg-orange-900/30',
-    }] : []),
+      permKey: 'admin_envios',
+    },
     {
       title: 'Cadastros',
-      description: 'Configurações e cadastros',
       icon: Settings,
       url: '/admin/config',
       color: 'text-gray-600',
       bgColor: 'bg-gray-100 dark:bg-gray-900/30',
+      permKey: 'admin_cadastros',
     },
-  ] : [];
+    {
+      title: 'Permissões',
+      icon: Shield,
+      url: '/admin/permissoes',
+      color: 'text-red-600',
+      bgColor: 'bg-red-100 dark:bg-red-900/30',
+      permKey: 'admin_permissoes',
+    },
+  ];
+
+  // Filter based on permissions
+  const mainMenuItems = allMainMenuItems.filter(item => canAccess(item.permKey));
+  const estoqueMenuItems = canAccess('estoque') 
+    ? allEstoqueMenuItems.filter(item => canAccess(item.permKey))
+    : [];
+  const adminMenuItems = allAdminMenuItems.filter(item => canAccess(item.permKey));
 
   const MenuCard = ({ item }: { item: MenuItem }) => (
     <Link
@@ -176,19 +177,21 @@ export default function Home() {
       {/* Main Actions */}
       <div className="space-y-6">
         {/* Principal */}
-        <div>
-          <h2 className="text-sm font-medium text-muted-foreground mb-3 px-1">
-            Ações Rápidas
-          </h2>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-            {mainMenuItems.map((item) => (
-              <MenuCard key={item.url} item={item} />
-            ))}
-            {estoqueMenuItems.map((item) => (
-              <MenuCard key={item.url} item={item} />
-            ))}
+        {(mainMenuItems.length > 0 || estoqueMenuItems.length > 0) && (
+          <div>
+            <h2 className="text-sm font-medium text-muted-foreground mb-3 px-1">
+              Ações Rápidas
+            </h2>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+              {mainMenuItems.map((item) => (
+                <MenuCard key={item.url} item={item} />
+              ))}
+              {estoqueMenuItems.map((item) => (
+                <MenuCard key={item.url} item={item} />
+              ))}
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Administração */}
         {adminMenuItems.length > 0 && (
