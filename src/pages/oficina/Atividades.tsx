@@ -49,6 +49,7 @@ export default function Atividades() {
   const [productsDialogOpen, setProductsDialogOpen] = useState(false);
   const [editingActivity, setEditingActivity] = useState<Activity | null>(null);
   const [selectedActivityForProducts, setSelectedActivityForProducts] = useState<Activity | null>(null);
+  const [productSearch, setProductSearch] = useState('');
   
   const [formData, setFormData] = useState({
     name: '',
@@ -253,6 +254,14 @@ export default function Atividades() {
     a.name.toLowerCase().includes(search.toLowerCase())
   );
 
+  // Filter products by search (supports multi-word)
+  const filteredPecas = pecas.filter(peca => {
+    if (!productSearch.trim()) return true;
+    const searchTerms = productSearch.toLowerCase().split(' ').filter(Boolean);
+    const searchText = `${peca.nome} ${peca.codigo} ${peca.familia || ''}`.toLowerCase();
+    return searchTerms.every(term => searchText.includes(term));
+  });
+
   const isProductLinked = (productId: string) => {
     return activityProducts.some(ap => ap.omie_product_id === productId);
   };
@@ -412,16 +421,31 @@ export default function Atividades() {
       </Card>
 
       {/* Products Association Dialog */}
-      <Dialog open={productsDialogOpen} onOpenChange={setProductsDialogOpen}>
+      <Dialog open={productsDialogOpen} onOpenChange={(open) => {
+        setProductsDialogOpen(open);
+        if (!open) setProductSearch('');
+      }}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>
               Produtos Vinculados: {selectedActivityForProducts?.name}
             </DialogTitle>
           </DialogHeader>
+          <div className="flex items-center gap-2 mb-2">
+            <Search className="h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar peças..."
+              value={productSearch}
+              onChange={(e) => setProductSearch(e.target.value)}
+              className="flex-1"
+            />
+          </div>
           <ScrollArea className="max-h-[60vh]">
             <div className="space-y-2 pr-4">
-              {pecas.map((peca) => {
+              {filteredPecas.length === 0 ? (
+                <p className="text-center text-muted-foreground py-4">Nenhuma peça encontrada</p>
+              ) : (
+                filteredPecas.map((peca) => {
                 const isLinked = isProductLinked(peca.id);
                 const requiresMeter = getProductMeterHours(peca.id);
                 
@@ -469,7 +493,8 @@ export default function Atividades() {
                     )}
                   </div>
                 );
-              })}
+              })
+              )}
             </div>
           </ScrollArea>
           <DialogFooter>
