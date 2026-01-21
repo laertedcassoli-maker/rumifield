@@ -51,7 +51,7 @@ export function AppSidebar() {
   const oficinaItems = [
     { title: 'Ordens de Serviço', icon: FileText, url: '/oficina/os', permKey: 'oficina_os' },
     { title: 'Atividades', icon: ListChecks, url: '/oficina/atividades', permKey: 'oficina_atividades' },
-    { title: 'Itens', icon: Box, url: '/oficina/itens', permKey: 'oficina_itens' },
+    { title: 'Cadastro Ativos', icon: Box, url: '/oficina/itens', permKey: 'oficina_itens' },
   ].filter(item => canAccess(item.permKey));
 
   const showOficinaMenu = canAccess('oficina') && oficinaItems.length > 0;

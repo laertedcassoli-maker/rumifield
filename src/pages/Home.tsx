@@ -106,7 +106,7 @@ export default function Home() {
       permKey: 'oficina_atividades',
     },
     {
-      title: 'Itens Oficina',
+      title: 'Cadastro Ativos',
       icon: Box,
       url: '/oficina/itens',
       color: 'text-lime-600',
