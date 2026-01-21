@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import { Plus, Search, Edit, History, Clock } from 'lucide-react';
+import { Plus, Search, Edit, History, Clock, Check, ChevronsUpDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -13,6 +13,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -56,6 +59,7 @@ export default function ItensOficina() {
   const [historyDialogOpen, setHistoryDialogOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<WorkshopItem | null>(null);
   const [selectedItemForHistory, setSelectedItemForHistory] = useState<WorkshopItem | null>(null);
+  const [productPopoverOpen, setProductPopoverOpen] = useState(false);
   
   const [formData, setFormData] = useState({
     unique_code: '',
@@ -234,21 +238,54 @@ export default function ItensOficina() {
                 </div>
                 <div>
                   <Label>Produto</Label>
-                  <Select 
-                    value={formData.omie_product_id} 
-                    onValueChange={(v) => setFormData(prev => ({ ...prev, omie_product_id: v }))}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione o produto" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {pecas.map((peca) => (
-                        <SelectItem key={peca.id} value={peca.id}>
-                          {peca.nome} ({peca.codigo})
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Popover open={productPopoverOpen} onOpenChange={setProductPopoverOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="outline"
+                        role="combobox"
+                        aria-expanded={productPopoverOpen}
+                        className="w-full justify-between font-normal"
+                      >
+                        {formData.omie_product_id
+                          ? pecas.find((p) => p.id === formData.omie_product_id)?.nome || 'Produto selecionado'
+                          : 'Selecione o produto...'}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-[400px] p-0" align="start">
+                      <Command>
+                        <CommandInput placeholder="Buscar produto..." />
+                        <CommandList>
+                          <CommandEmpty>Nenhum produto encontrado.</CommandEmpty>
+                          <CommandGroup>
+                            {pecas.map((peca) => (
+                              <CommandItem
+                                key={peca.id}
+                                value={`${peca.nome} ${peca.codigo} ${peca.familia || ''}`}
+                                onSelect={() => {
+                                  setFormData(prev => ({ ...prev, omie_product_id: peca.id }));
+                                  setProductPopoverOpen(false);
+                                }}
+                              >
+                                <Check
+                                  className={cn(
+                                    "mr-2 h-4 w-4",
+                                    formData.omie_product_id === peca.id ? "opacity-100" : "opacity-0"
+                                  )}
+                                />
+                                <div className="flex flex-col">
+                                  <span>{peca.nome}</span>
+                                  <span className="text-xs text-muted-foreground">
+                                    {peca.codigo} {peca.familia && `• ${peca.familia}`}
+                                  </span>
+                                </div>
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
                 </div>
                 <div>
                   <Label>Status</Label>
