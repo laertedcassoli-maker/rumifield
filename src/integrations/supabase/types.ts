@@ -438,6 +438,39 @@ export type Database = {
         }
         Relationships: []
       }
+      role_menu_permissions: {
+        Row: {
+          can_access: boolean
+          created_at: string
+          id: string
+          menu_group: string
+          menu_key: string
+          menu_label: string
+          role: Database["public"]["Enums"]["app_role"]
+          updated_at: string
+        }
+        Insert: {
+          can_access?: boolean
+          created_at?: string
+          id?: string
+          menu_group?: string
+          menu_key: string
+          menu_label: string
+          role: Database["public"]["Enums"]["app_role"]
+          updated_at?: string
+        }
+        Update: {
+          can_access?: boolean
+          created_at?: string
+          id?: string
+          menu_group?: string
+          menu_key?: string
+          menu_label?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
       tecnico_clientes: {
         Row: {
           cliente_id: string
