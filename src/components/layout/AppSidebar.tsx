@@ -1,23 +1,27 @@
-import { Home, MapPin, ShoppingCart, Users, Settings, LogOut, Beaker, Truck, ChevronDown, ClipboardCheck, TrendingDown, Play, Building2, History, Package, FlaskConical, Nfc } from 'lucide-react';
+import { Home, MapPin, ShoppingCart, Users, Settings, LogOut, Beaker, Truck, ChevronDown, ClipboardCheck, TrendingDown, Play, Building2, History, Package, FlaskConical, Nfc, Shield } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarMenuSub, SidebarMenuSubItem, SidebarMenuSubButton } from '@/components/ui/sidebar';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Link, useLocation } from 'react-router-dom';
 import { OfflineIndicator } from '@/components/OfflineIndicator';
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-
+import { useMenuPermissions } from '@/hooks/useMenuPermissions';
 import { useSidebar } from '@/components/ui/sidebar';
 
+const roleLabels: Record<string, string> = {
+  admin: 'Administrador',
+  coordenador_rplus: 'Coordenador R+',
+  consultor_rplus: 'Consultor R+',
+  coordenador_servicos: 'Coord. Serviços',
+  tecnico_campo: 'Técnico Campo',
+  tecnico_oficina: 'Técnico Oficina',
+};
+
 export function AppSidebar() {
-  const {
-    profile,
-    role,
-    signOut
-  } = useAuth();
+  const { profile, role, signOut } = useAuth();
   const location = useLocation();
   const { setOpenMobile, isMobile } = useSidebar();
+  const { canAccess, canAccessAny, isLoading } = useMenuPermissions();
 
   const handleMenuClick = () => {
     if (isMobile) {
@@ -25,96 +29,39 @@ export function AppSidebar() {
     }
   };
 
-  // Load menu visibility config
-  const { data: menuConfigs, isLoading: isLoadingConfig } = useQuery({
-    queryKey: ['menu-config'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('configuracoes')
-        .select('chave, valor')
-        .in('chave', ['estoque_menu_enabled', 'inicio_menu_enabled', 'visitas_menu_enabled', 'nfc_menu_enabled']);
-      if (error) throw error;
-      return data;
-    },
-    staleTime: 30000, // Cache for 30 seconds
-    gcTime: 60000, // Keep in cache for 1 minute
-  });
-
-  // Use defaults while loading to prevent flickering
-  const showEstoqueMenu = isLoadingConfig ? true : menuConfigs?.find(c => c.chave === 'estoque_menu_enabled')?.valor !== 'false';
-  const showInicioMenu = isLoadingConfig ? true : menuConfigs?.find(c => c.chave === 'inicio_menu_enabled')?.valor !== 'false';
-  const showVisitasMenu = isLoadingConfig ? true : (menuConfigs?.find(c => c.chave === 'visitas_menu_enabled')?.valor ?? 'false') === 'true';
-  const showNfcMenu = isLoadingConfig ? true : menuConfigs?.find(c => c.chave === 'nfc_menu_enabled')?.valor !== 'false';
-  
+  // Main menu items with permission keys
   const mainMenuItems = [
-    ...(showInicioMenu ? [{
-      title: 'Início',
-      icon: Home,
-      url: '/'
-    }] : []),
-    ...(showVisitasMenu ? [{
-      title: 'Visitas',
-      icon: MapPin,
-      url: '/visitas'
-    }] : []),
-    {
-      title: 'Solicitação Peças',
-      icon: ShoppingCart,
-      url: '/pedidos'
-    },
-    ...(showNfcMenu ? [{
-      title: 'Leitura NFC',
-      icon: Nfc,
-      url: '/nfc'
-    }] : [])
-  ];
-  const estoqueItems = [{
-    title: 'Aferição',
-    icon: ClipboardCheck,
-    url: '/estoque'
-  }, {
-    title: 'Consumo',
-    icon: TrendingDown,
-    url: '/estoque/consumo'
-  }, {
-    title: 'Previsão Envios',
-    icon: Package,
-    url: '/estoque/previsao'
-  }, {
-    title: 'Histórico',
-    icon: History,
-    url: '/estoque/historico'
-  }];
-  const isEstoqueActive = location.pathname === '/estoque' || location.pathname.startsWith('/estoque/');
-  const adminMenuItems = [{
-    title: 'Clientes',
-    icon: Building2,
-    url: '/admin/clientes'
-  }, {
-    title: 'Usuários',
-    icon: Users,
-    url: '/admin/usuarios'
-  }, {
-    title: 'Envios',
-    icon: Truck,
-    url: '/admin/envios'
-  }, {
-    title: 'Cadastros',
-    icon: Settings,
-    url: '/admin/config'
-  }, {
-    title: 'Teste Transcrição',
-    icon: FlaskConical,
-    url: '/teste'
-  }];
-  const showAdminMenu = role === 'admin' || role === 'coordenador_rplus' || role === 'coordenador_servicos';
+    { title: 'Início', icon: Home, url: '/', permKey: 'inicio' },
+    { title: 'Visitas', icon: MapPin, url: '/visitas', permKey: 'visitas' },
+    { title: 'Solicitação Peças', icon: ShoppingCart, url: '/pedidos', permKey: 'pedidos' },
+    { title: 'Leitura NFC', icon: Nfc, url: '/nfc', permKey: 'nfc' },
+  ].filter(item => canAccess(item.permKey));
 
-  // Filter admin menu items - Envios only for admin
-  const filteredAdminItems = adminMenuItems.filter(item => {
-    if (item.url === '/admin/envios') return role === 'admin';
-    return true;
-  });
-  return <Sidebar>
+  // Estoque submenu
+  const estoqueItems = [
+    { title: 'Aferição', icon: ClipboardCheck, url: '/estoque', permKey: 'estoque_afericao' },
+    { title: 'Consumo', icon: TrendingDown, url: '/estoque/consumo', permKey: 'estoque_consumo' },
+    { title: 'Previsão Envios', icon: Package, url: '/estoque/previsao', permKey: 'estoque_previsao' },
+    { title: 'Histórico', icon: History, url: '/estoque/historico', permKey: 'estoque_historico' },
+  ].filter(item => canAccess(item.permKey));
+
+  const showEstoqueMenu = canAccess('estoque') && estoqueItems.length > 0;
+  const isEstoqueActive = location.pathname === '/estoque' || location.pathname.startsWith('/estoque/');
+
+  // Admin menu items
+  const adminMenuItems = [
+    { title: 'Clientes', icon: Building2, url: '/admin/clientes', permKey: 'admin_clientes' },
+    { title: 'Usuários', icon: Users, url: '/admin/usuarios', permKey: 'admin_usuarios' },
+    { title: 'Envios', icon: Truck, url: '/admin/envios', permKey: 'admin_envios' },
+    { title: 'Cadastros', icon: Settings, url: '/admin/config', permKey: 'admin_cadastros' },
+    { title: 'Permissões', icon: Shield, url: '/admin/permissoes', permKey: 'admin_permissoes' },
+    { title: 'Teste Transcrição', icon: FlaskConical, url: '/teste', permKey: 'admin_cadastros' },
+  ].filter(item => canAccess(item.permKey));
+
+  const showAdminMenu = adminMenuItems.length > 0;
+
+  return (
+    <Sidebar>
       <SidebarHeader className="border-b border-sidebar-border p-4">
         <Link to="/" onClick={handleMenuClick} className="flex items-center gap-3 hover:opacity-80 transition-opacity">
           <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-sidebar-primary">
@@ -132,16 +79,18 @@ export function AppSidebar() {
           <SidebarGroupLabel>Menu Principal</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {mainMenuItems.map(item => <SidebarMenuItem key={item.title}>
+              {mainMenuItems.map(item => (
+                <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild isActive={location.pathname === item.url}>
                     <Link to={item.url} onClick={handleMenuClick}>
                       <item.icon className="h-4 w-4" />
                       <span>{item.title}</span>
                     </Link>
                   </SidebarMenuButton>
-                </SidebarMenuItem>)}
+                </SidebarMenuItem>
+              ))}
 
-              {/* Estoque com submenu - condicional */}
+              {/* Estoque com submenu */}
               {showEstoqueMenu && (
                 <Collapsible defaultOpen={isEstoqueActive} className="group/collapsible">
                   <SidebarMenuItem>
@@ -154,14 +103,16 @@ export function AppSidebar() {
                     </CollapsibleTrigger>
                     <CollapsibleContent>
                       <SidebarMenuSub>
-                        {estoqueItems.map(item => <SidebarMenuSubItem key={item.title}>
+                        {estoqueItems.map(item => (
+                          <SidebarMenuSubItem key={item.title}>
                             <SidebarMenuSubButton asChild isActive={location.pathname === item.url}>
                               <Link to={item.url} onClick={handleMenuClick}>
                                 <item.icon className="h-4 w-4" />
                                 <span>{item.title}</span>
                               </Link>
                             </SidebarMenuSubButton>
-                          </SidebarMenuSubItem>)}
+                          </SidebarMenuSubItem>
+                        ))}
                       </SidebarMenuSub>
                     </CollapsibleContent>
                   </SidebarMenuItem>
@@ -171,21 +122,25 @@ export function AppSidebar() {
           </SidebarGroupContent>
         </SidebarGroup>
 
-        {showAdminMenu && <SidebarGroup>
+        {showAdminMenu && (
+          <SidebarGroup>
             <SidebarGroupLabel>Administração</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                {filteredAdminItems.map(item => <SidebarMenuItem key={item.title}>
+                {adminMenuItems.map(item => (
+                  <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton asChild isActive={location.pathname === item.url}>
                       <Link to={item.url} onClick={handleMenuClick}>
                         <item.icon className="h-4 w-4" />
                         <span>{item.title}</span>
                       </Link>
                     </SidebarMenuButton>
-                  </SidebarMenuItem>)}
+                  </SidebarMenuItem>
+                ))}
               </SidebarMenu>
             </SidebarGroupContent>
-          </SidebarGroup>}
+          </SidebarGroup>
+        )}
       </SidebarContent>
 
       <SidebarFooter className="border-t border-sidebar-border p-4 space-y-3">
@@ -202,12 +157,13 @@ export function AppSidebar() {
             <p className="text-sm font-medium text-sidebar-foreground truncate">
               {profile?.nome || 'Usuário'}
             </p>
-            <p className="text-xs text-sidebar-foreground/60 capitalize">{role}</p>
+            <p className="text-xs text-sidebar-foreground/60">{roleLabels[role || ''] || role}</p>
           </div>
           <button onClick={signOut} className="p-2 rounded-md hover:bg-sidebar-accent transition-colors">
             <LogOut className="h-4 w-4 text-sidebar-foreground/60" />
           </button>
         </div>
       </SidebarFooter>
-    </Sidebar>;
+    </Sidebar>
+  );
 }
