@@ -28,6 +28,8 @@ import PreventivasRotas from "./pages/preventivas/Rotas";
 import PreventivasNovaRota from "./pages/preventivas/NovaRota";
 import PreventivasDetalheRota from "./pages/preventivas/DetalheRota";
 import PreventivasCalendario from "./pages/preventivas/Calendario";
+import PreventivasChecklists from "./pages/preventivas/Checklists";
+import PreventivasChecklistEditor from "./pages/preventivas/ChecklistEditor";
 import Teste from "./pages/Teste";
 import Instalar from "./pages/Instalar";
 import Nfc from "./pages/Nfc";
@@ -227,6 +229,22 @@ const App = () => (
               element={
                 <AppLayout>
                   <PreventivasCalendario />
+                </AppLayout>
+              }
+            />
+            <Route
+              path="/preventivas/checklists"
+              element={
+                <AppLayout>
+                  <PreventivasChecklists />
+                </AppLayout>
+              }
+            />
+            <Route
+              path="/preventivas/checklists/:id"
+              element={
+                <AppLayout>
+                  <PreventivasChecklistEditor />
                 </AppLayout>
               }
             />

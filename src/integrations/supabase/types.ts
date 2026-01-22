@@ -143,6 +143,135 @@ export type Database = {
           },
         ]
       }
+      checklist_item_corrective_actions: {
+        Row: {
+          action_label: string
+          active: boolean
+          created_at: string
+          id: string
+          item_id: string
+          order_index: number
+        }
+        Insert: {
+          action_label: string
+          active?: boolean
+          created_at?: string
+          id?: string
+          item_id: string
+          order_index?: number
+        }
+        Update: {
+          action_label?: string
+          active?: boolean
+          created_at?: string
+          id?: string
+          item_id?: string
+          order_index?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checklist_item_corrective_actions_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "checklist_template_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      checklist_template_blocks: {
+        Row: {
+          block_name: string
+          created_at: string
+          id: string
+          order_index: number
+          template_id: string
+        }
+        Insert: {
+          block_name: string
+          created_at?: string
+          id?: string
+          order_index?: number
+          template_id: string
+        }
+        Update: {
+          block_name?: string
+          created_at?: string
+          id?: string
+          order_index?: number
+          template_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checklist_template_blocks_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "checklist_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      checklist_template_items: {
+        Row: {
+          active: boolean
+          block_id: string
+          created_at: string
+          id: string
+          item_name: string
+          order_index: number
+        }
+        Insert: {
+          active?: boolean
+          block_id: string
+          created_at?: string
+          id?: string
+          item_name: string
+          order_index?: number
+        }
+        Update: {
+          active?: boolean
+          block_id?: string
+          created_at?: string
+          id?: string
+          item_name?: string
+          order_index?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checklist_template_items_block_id_fkey"
+            columns: ["block_id"]
+            isOneToOne: false
+            referencedRelation: "checklist_template_blocks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      checklist_templates: {
+        Row: {
+          active: boolean
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       clientes: {
         Row: {
           cidade: string | null
@@ -631,6 +760,186 @@ export type Database = {
             columns: ["cliente_id"]
             isOneToOne: false
             referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      preventive_checklist_blocks: {
+        Row: {
+          block_name_snapshot: string
+          checklist_id: string
+          created_at: string
+          id: string
+          order_index: number
+          template_block_id: string | null
+        }
+        Insert: {
+          block_name_snapshot: string
+          checklist_id: string
+          created_at?: string
+          id?: string
+          order_index?: number
+          template_block_id?: string | null
+        }
+        Update: {
+          block_name_snapshot?: string
+          checklist_id?: string
+          created_at?: string
+          id?: string
+          order_index?: number
+          template_block_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "preventive_checklist_blocks_checklist_id_fkey"
+            columns: ["checklist_id"]
+            isOneToOne: false
+            referencedRelation: "preventive_checklists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "preventive_checklist_blocks_template_block_id_fkey"
+            columns: ["template_block_id"]
+            isOneToOne: false
+            referencedRelation: "checklist_template_blocks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      preventive_checklist_item_actions: {
+        Row: {
+          action_label_snapshot: string
+          created_at: string
+          exec_item_id: string
+          id: string
+          selected_at: string
+          template_action_id: string | null
+        }
+        Insert: {
+          action_label_snapshot: string
+          created_at?: string
+          exec_item_id: string
+          id?: string
+          selected_at?: string
+          template_action_id?: string | null
+        }
+        Update: {
+          action_label_snapshot?: string
+          created_at?: string
+          exec_item_id?: string
+          id?: string
+          selected_at?: string
+          template_action_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "preventive_checklist_item_actions_exec_item_id_fkey"
+            columns: ["exec_item_id"]
+            isOneToOne: false
+            referencedRelation: "preventive_checklist_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "preventive_checklist_item_actions_template_action_id_fkey"
+            columns: ["template_action_id"]
+            isOneToOne: false
+            referencedRelation: "checklist_item_corrective_actions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      preventive_checklist_items: {
+        Row: {
+          answered_at: string | null
+          created_at: string
+          exec_block_id: string
+          id: string
+          item_name_snapshot: string
+          notes: string | null
+          order_index: number
+          status: Database["public"]["Enums"]["checklist_item_status"] | null
+          template_item_id: string | null
+        }
+        Insert: {
+          answered_at?: string | null
+          created_at?: string
+          exec_block_id: string
+          id?: string
+          item_name_snapshot: string
+          notes?: string | null
+          order_index?: number
+          status?: Database["public"]["Enums"]["checklist_item_status"] | null
+          template_item_id?: string | null
+        }
+        Update: {
+          answered_at?: string | null
+          created_at?: string
+          exec_block_id?: string
+          id?: string
+          item_name_snapshot?: string
+          notes?: string | null
+          order_index?: number
+          status?: Database["public"]["Enums"]["checklist_item_status"] | null
+          template_item_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "preventive_checklist_items_exec_block_id_fkey"
+            columns: ["exec_block_id"]
+            isOneToOne: false
+            referencedRelation: "preventive_checklist_blocks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "preventive_checklist_items_template_item_id_fkey"
+            columns: ["template_item_id"]
+            isOneToOne: false
+            referencedRelation: "checklist_template_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      preventive_checklists: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          id: string
+          preventive_id: string
+          started_at: string
+          status: Database["public"]["Enums"]["checklist_execution_status"]
+          template_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          preventive_id: string
+          started_at?: string
+          status?: Database["public"]["Enums"]["checklist_execution_status"]
+          template_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          preventive_id?: string
+          started_at?: string
+          status?: Database["public"]["Enums"]["checklist_execution_status"]
+          template_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "preventive_checklists_preventive_id_fkey"
+            columns: ["preventive_id"]
+            isOneToOne: false
+            referencedRelation: "preventive_maintenance"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "preventive_checklists_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "checklist_templates"
             referencedColumns: ["id"]
           },
         ]
@@ -1471,6 +1780,8 @@ export type Database = {
         | "coordenador_servicos"
         | "tecnico_campo"
         | "tecnico_oficina"
+      checklist_execution_status: "em_andamento" | "concluido"
+      checklist_item_status: "S" | "N" | "NA"
       execution_type: "UNIVOCA" | "LOTE"
       meter_type: "horimetro"
       pedido_status:
@@ -1624,6 +1935,8 @@ export const Constants = {
         "tecnico_campo",
         "tecnico_oficina",
       ],
+      checklist_execution_status: ["em_andamento", "concluido"],
+      checklist_item_status: ["S", "N", "NA"],
       execution_type: ["UNIVOCA", "LOTE"],
       meter_type: ["horimetro"],
       pedido_status: [
