@@ -749,7 +749,13 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
                   Peças Utilizadas
                 </p>
                 {workOrder.status !== 'concluido' && (
-                  <Button size="sm" variant="outline" onClick={() => setAddPartDialogOpen(true)}>
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    onClick={() => setAddPartDialogOpen(true)}
+                    disabled={!activeTimeEntry}
+                    title={!activeTimeEntry ? 'Inicie o cronômetro para adicionar peças' : undefined}
+                  >
                     <Plus className="h-4 w-4 mr-1" />
                     Adicionar
                   </Button>
