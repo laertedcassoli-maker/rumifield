@@ -49,9 +49,17 @@ Deno.serve(async (req) => {
     let latitude: number | null = null;
     let longitude: number | null = null;
 
+    // Some redirects include URL-encoded characters. Decode safely for regex parsing.
+    let decodedUrl = finalUrl;
+    try {
+      decodedUrl = decodeURIComponent(finalUrl);
+    } catch {
+      // keep original
+    }
+
     // Pattern 1: @lat,lng in URL (most common after redirect)
     const atPattern = /@(-?\d+\.?\d*),(-?\d+\.?\d*)/;
-    const atMatch = finalUrl.match(atPattern);
+    const atMatch = decodedUrl.match(atPattern);
     if (atMatch) {
       latitude = parseFloat(atMatch[1]);
       longitude = parseFloat(atMatch[2]);
@@ -60,8 +68,9 @@ Deno.serve(async (req) => {
 
     // Pattern 2: /maps/search/lat,lng format (common for pin drops)
     if (!latitude || !longitude) {
-      const searchPattern = /\/maps\/search\/(-?\d+\.?\d*),\+?(-?\d+\.?\d*)/;
-      const searchMatch = finalUrl.match(searchPattern);
+      // Accept both ",lng" and ",+lng" (Google sometimes returns ",+-47.123")
+      const searchPattern = /\/maps\/search\/(-?\d+(?:\.\d+)?),\s*\+?(-?\d+(?:\.\d+)?)/;
+      const searchMatch = decodedUrl.match(searchPattern);
       if (searchMatch) {
         latitude = parseFloat(searchMatch[1]);
         longitude = parseFloat(searchMatch[2]);
@@ -71,8 +80,8 @@ Deno.serve(async (req) => {
 
     // Pattern 3: ?q=lat,lng or &q=lat,lng
     if (!latitude || !longitude) {
-      const qPattern = /[?&]q=(-?\d+\.?\d*),\+?(-?\d+\.?\d*)/;
-      const qMatch = finalUrl.match(qPattern);
+      const qPattern = /[?&]q=(-?\d+(?:\.\d+)?),\s*\+?(-?\d+(?:\.\d+)?)/;
+      const qMatch = decodedUrl.match(qPattern);
       if (qMatch) {
         latitude = parseFloat(qMatch[1]);
         longitude = parseFloat(qMatch[2]);
@@ -83,7 +92,7 @@ Deno.serve(async (req) => {
     // Pattern 3: /place/.../@lat,lng
     if (!latitude || !longitude) {
       const placePattern = /\/place\/[^/]+\/@(-?\d+\.?\d*),(-?\d+\.?\d*)/;
-      const placeMatch = finalUrl.match(placePattern);
+      const placeMatch = decodedUrl.match(placePattern);
       if (placeMatch) {
         latitude = parseFloat(placeMatch[1]);
         longitude = parseFloat(placeMatch[2]);
@@ -94,7 +103,7 @@ Deno.serve(async (req) => {
     // Pattern 4: !3d and !4d parameters (embedded maps)
     if (!latitude || !longitude) {
       const dataPattern = /!3d(-?\d+\.?\d*)!4d(-?\d+\.?\d*)/;
-      const dataMatch = finalUrl.match(dataPattern);
+      const dataMatch = decodedUrl.match(dataPattern);
       if (dataMatch) {
         latitude = parseFloat(dataMatch[1]);
         longitude = parseFloat(dataMatch[2]);
@@ -105,7 +114,7 @@ Deno.serve(async (req) => {
     // Pattern 5: ll= parameter
     if (!latitude || !longitude) {
       const llPattern = /[?&]ll=(-?\d+\.?\d*),(-?\d+\.?\d*)/;
-      const llMatch = finalUrl.match(llPattern);
+      const llMatch = decodedUrl.match(llPattern);
       if (llMatch) {
         latitude = parseFloat(llMatch[1]);
         longitude = parseFloat(llMatch[2]);
@@ -117,7 +126,7 @@ Deno.serve(async (req) => {
     if (!latitude || !longitude) {
       // This pattern is less common in URLs but may appear in some formats
       const dmsPattern = /(\d+)°(\d+)'([\d.]+)"([NS])\s*(\d+)°(\d+)'([\d.]+)"([EW])/;
-      const dmsMatch = finalUrl.match(dmsPattern);
+      const dmsMatch = decodedUrl.match(dmsPattern);
       if (dmsMatch) {
         const latDeg = parseInt(dmsMatch[1]);
         const latMin = parseInt(dmsMatch[2]);
