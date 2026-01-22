@@ -460,8 +460,10 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
             {univocaItem && (
               <div>
                 <p className="text-sm text-muted-foreground mb-2">Item</p>
-                <div className="p-3 border rounded-lg">
-                  <p className="font-mono font-medium">{univocaItem.workshop_items?.unique_code}</p>
+                <div className="p-3 border rounded-lg space-y-2">
+                  <Badge variant="secondary" className="font-mono text-sm">
+                    {univocaItem.workshop_items?.unique_code}
+                  </Badge>
                   {univocaItem.meter_hours_entry && (
                     <p className="text-xs text-muted-foreground">
                       Horímetro entrada: {univocaItem.meter_hours_entry}h
