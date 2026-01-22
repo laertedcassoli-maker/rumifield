@@ -1,4 +1,4 @@
-import { Clock, Eye, Package } from 'lucide-react';
+import { Clock, Eye, Package, Wrench } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -29,6 +29,8 @@ interface WorkOrder {
   item_info?: {
     unique_code?: string;
     product_name?: string;
+    meter_hours_last?: number;
+    motor_replaced_at_meter_hours?: number;
   };
   parts_count?: number;
 }
@@ -118,6 +120,14 @@ function KanbanColumn({
                   <p className="text-xs text-muted-foreground break-words whitespace-normal mt-1 mb-2">
                     {os.item_info.product_name}
                   </p>
+                )}
+
+                {/* Motor hours since last replacement */}
+                {os.item_info?.motor_replaced_at_meter_hours != null && os.item_info?.meter_hours_last != null && (
+                  <div className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400 mb-2">
+                    <Wrench className="h-3 w-3" />
+                    <span>Motor: {(os.item_info.meter_hours_last - os.item_info.motor_replaced_at_meter_hours).toFixed(0)}h</span>
+                  </div>
                 )}
 
                 {os.profiles?.nome && (
