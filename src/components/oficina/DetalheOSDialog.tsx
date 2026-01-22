@@ -984,6 +984,8 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
                 workshopItemId={univocaItem.workshop_item_id} 
                 isAdmin={isAdmin}
                 currentMeterValue={meterHoursCurrent ? parseFloat(meterHoursCurrent) : undefined}
+                workOrderId={workOrder.id}
+                workOrderStatus={workOrder.status}
               />
             )}
 
