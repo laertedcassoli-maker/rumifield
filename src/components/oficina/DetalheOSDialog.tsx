@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import { Play, Pause, Square, Plus, Trash2, Clock, Package, CheckCircle, Wrench } from 'lucide-react';
+import { Play, Pause, Square, Plus, Trash2, Clock, Package, CheckCircle, Wrench, ChevronDown, ChevronRight, History } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -12,8 +12,20 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+
+interface TimeEntryWithUser {
+  id: string;
+  work_order_id: string;
+  user_id: string;
+  started_at: string;
+  ended_at: string | null;
+  duration_seconds: number | null;
+  status: 'running' | 'paused' | 'finished';
+  user_name?: string;
+}
 
 interface WorkOrder {
   id: string;
@@ -93,6 +105,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
   const [partQuantity, setPartQuantity] = useState(1);
   const [meterHoursExit, setMeterHoursExit] = useState('');
   const [isMotorReplacement, setIsMotorReplacement] = useState(false);
+  const [timeHistoryOpen, setTimeHistoryOpen] = useState(false);
 
   // Fetch active time entry for this user on this OS
   const { data: activeTimeEntry } = useQuery({
@@ -131,6 +144,35 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
     enabled: open,
   });
 
+  // Fetch all time entries for history
+  const { data: timeEntries = [] } = useQuery({
+    queryKey: ['time-entries-history', workOrder.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('work_order_time_entries')
+        .select('*')
+        .eq('work_order_id', workOrder.id)
+        .order('started_at', { ascending: true });
+      if (error) throw error;
+
+      // Fetch user names
+      const userIds = [...new Set(data?.map(e => e.user_id) || [])];
+      let usersMap: Record<string, string> = {};
+      if (userIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id, nome')
+          .in('id', userIds);
+        usersMap = (profiles || []).reduce((acc, p) => ({ ...acc, [p.id]: p.nome }), {});
+      }
+
+      return (data || []).map(entry => ({
+        ...entry,
+        user_name: usersMap[entry.user_id] || 'Desconhecido',
+      })) as TimeEntryWithUser[];
+    },
+    enabled: open,
+  });
   // Fetch work order items
   const { data: workOrderItems = [] } = useQuery({
     queryKey: ['work-order-items', workOrder.id],
@@ -647,7 +689,84 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
               </Card>
             )}
 
-            {/* Item Info (if UNIVOCA) */}
+            {/* Time History Section */}
+            {timeEntries.length > 0 && (
+              <Collapsible open={timeHistoryOpen} onOpenChange={setTimeHistoryOpen}>
+                <CollapsibleTrigger asChild>
+                  <Button variant="ghost" size="sm" className="w-full justify-between p-2 h-auto">
+                    <span className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <History className="h-4 w-4" />
+                      Histórico de Tempos ({timeEntries.length} {timeEntries.length === 1 ? 'registro' : 'registros'})
+                    </span>
+                    {timeHistoryOpen ? (
+                      <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                    ) : (
+                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                    )}
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent>
+                  <div className="mt-2 space-y-2 border rounded-lg p-3 bg-muted/30">
+                    {timeEntries.map((entry, index) => {
+                      const startDate = new Date(entry.started_at);
+                      const endDate = entry.ended_at ? new Date(entry.ended_at) : null;
+                      const duration = entry.duration_seconds || 
+                        (entry.status === 'running' 
+                          ? Math.floor((Date.now() - startDate.getTime()) / 1000) 
+                          : 0);
+                      
+                      const formatDuration = (seconds: number) => {
+                        const hrs = Math.floor(seconds / 3600);
+                        const mins = Math.floor((seconds % 3600) / 60);
+                        if (hrs > 0) return `${hrs}h${mins.toString().padStart(2, '0')}min`;
+                        return `${mins}min`;
+                      };
+
+                      return (
+                        <div 
+                          key={entry.id} 
+                          className="flex items-center gap-2 text-sm"
+                        >
+                          <span className="text-muted-foreground">
+                            {index === timeEntries.length - 1 ? '└─' : '├─'}
+                          </span>
+                          <span className="font-mono text-xs">
+                            {format(startDate, 'dd/MM HH:mm', { locale: ptBR })}
+                          </span>
+                          <span className="text-muted-foreground">→</span>
+                          {entry.status === 'running' ? (
+                            <span className="text-green-600 font-medium">▶ rodando</span>
+                          ) : entry.status === 'paused' ? (
+                            <span className="text-amber-600 font-medium">⏸ pausado</span>
+                          ) : endDate ? (
+                            <span className="font-mono text-xs">
+                              {format(endDate, 'HH:mm', { locale: ptBR })}
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground">-</span>
+                          )}
+                          <span className="text-muted-foreground">
+                            ({formatDuration(duration)})
+                          </span>
+                          <span className="text-muted-foreground">-</span>
+                          <span className="text-xs truncate max-w-[80px]" title={entry.user_name}>
+                            {entry.user_name?.split(' ')[0]}
+                          </span>
+                          {entry.status === 'finished' && (
+                            <CheckCircle className="h-3 w-3 text-green-600" />
+                          )}
+                        </div>
+                      );
+                    })}
+                    <Separator className="my-2" />
+                    <div className="flex justify-between text-sm font-medium">
+                      <span>Total acumulado:</span>
+                      <span className="font-mono">{formatTime(workOrder.total_time_seconds)}</span>
+                    </div>
+                  </div>
+                </CollapsibleContent>
+              </Collapsible>
+            )}
             {univocaItem && (
               <div>
                 <p className="text-sm font-semibold mb-2">Item</p>
