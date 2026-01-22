@@ -105,8 +105,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
   const [addPartDialogOpen, setAddPartDialogOpen] = useState(false);
   const [selectedPecaId, setSelectedPecaId] = useState('');
   const [partQuantity, setPartQuantity] = useState(1);
-  const [meterHoursEntry, setMeterHoursEntry] = useState('');
-  const [meterHoursExit, setMeterHoursExit] = useState('');
+  const [meterHoursCurrent, setMeterHoursCurrent] = useState('');
   const [isMotorReplacement, setIsMotorReplacement] = useState(false);
   const [timeHistoryOpen, setTimeHistoryOpen] = useState(false);
 
@@ -341,7 +340,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
       queryClient.invalidateQueries({ queryKey: ['active-time-entry', workOrder.id, user?.id] });
       queryClient.invalidateQueries({ queryKey: ['work-orders'] });
       queryClient.invalidateQueries({ queryKey: ['work-order-items', workOrder.id] });
-      setMeterHoursEntry('');
+      setMeterHoursCurrent('');
       onUpdate();
       toast.success('Cronômetro iniciado!');
     },
@@ -570,40 +569,14 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
 
       const univocaItem = workOrderItems.find(item => item.workshop_item_id);
       
-      // Save entry meter hours if provided and not yet registered
-      if (univocaItem && meterHoursEntry && !univocaItem.meter_hours_entry) {
-        const entryValue = parseFloat(meterHoursEntry);
+      // Save meter hours if provided
+      if (univocaItem && meterHoursCurrent) {
+        const meterValue = parseFloat(meterHoursCurrent);
         
-        // Update work order item with entry meter hours
-        const { error: entryItemError } = await supabase
-          .from('work_order_items')
-          .update({ meter_hours_entry: entryValue })
-          .eq('id', univocaItem.id);
-        if (entryItemError) throw entryItemError;
-
-        // Create meter reading record for entry
-        if (univocaItem.workshop_item_id) {
-          const { error: entryReadingError } = await supabase
-            .from('asset_meter_readings')
-            .insert({
-              workshop_item_id: univocaItem.workshop_item_id,
-              work_order_id: workOrder.id,
-              reading_value: entryValue,
-              user_id: user?.id,
-              notes: 'Horímetro de entrada',
-            });
-          if (entryReadingError) throw entryReadingError;
-        }
-      }
-
-      // Update meter hours exit if provided
-      if (univocaItem && meterHoursExit) {
-        const exitValue = parseFloat(meterHoursExit);
-        
-        // Update work order item
+        // Update work order item with meter hours (stored in meter_hours_exit for simplicity)
         const { error: itemError } = await supabase
           .from('work_order_items')
-          .update({ meter_hours_exit: exitValue })
+          .update({ meter_hours_exit: meterValue })
           .eq('id', univocaItem.id);
         if (itemError) throw itemError;
 
@@ -614,13 +587,13 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
             status: string; 
             motor_replaced_at_meter_hours?: number; 
           } = {
-            meter_hours_last: exitValue,
+            meter_hours_last: meterValue,
             status: 'disponivel',
           };
 
           // If motor was replaced, set the motor replacement marker
           if (isMotorReplacement) {
-            workshopUpdate.motor_replaced_at_meter_hours = exitValue;
+            workshopUpdate.motor_replaced_at_meter_hours = meterValue;
           }
 
           const { error: workshopError } = await supabase
@@ -629,15 +602,15 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
             .eq('id', univocaItem.workshop_item_id);
           if (workshopError) throw workshopError;
 
-          // Create meter reading record for exit
+          // Create meter reading record
           const { error: readingError } = await supabase
             .from('asset_meter_readings')
             .insert({
               workshop_item_id: univocaItem.workshop_item_id,
               work_order_id: workOrder.id,
-              reading_value: exitValue,
+              reading_value: meterValue,
               user_id: user?.id,
-              notes: isMotorReplacement ? 'Horímetro de saída - Troca de motor realizada' : 'Horímetro de saída',
+              notes: isMotorReplacement ? 'Troca de motor realizada' : null,
             });
           if (readingError) throw readingError;
         }
@@ -698,19 +671,15 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
   };
 
   const univocaItem = workOrderItems.find(item => item.workshop_item_id);
-  const requiresMeterHoursExit = workOrder.activities?.execution_type === 'UNIVOCA' && univocaItem;
   
-  // Check if this activity requires meter hours entry
-  const requiresMeterHoursEntry = (() => {
+  // Check if this activity requires meter hours
+  const requiresMeterHours = (() => {
     if (workOrder.activities?.execution_type !== 'UNIVOCA' || !univocaItem) return false;
     // Check if any activity_product requires meter hours
     const workshopProductId = univocaItem.workshop_items?.omie_product_id;
     if (!workshopProductId) return activityProducts.some(ap => ap.requires_meter_hours);
     return activityProducts.some(ap => ap.omie_product_id === workshopProductId && ap.requires_meter_hours);
   })();
-  
-  // Check if entry meter hours already registered
-  const entryMeterHoursRegistered = univocaItem?.meter_hours_entry != null;
 
   return (
     <>
@@ -926,38 +895,29 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
             {/* Complete Section */}
             {workOrder.status !== 'concluido' && (
               <div className="space-y-4">
-                {requiresMeterHoursEntry && (
+                {requiresMeterHours && (
                   <>
-                    {/* Horímetro de Entrada */}
-                    <div>
-                      <Label>Horímetro na Entrada (horas) *</Label>
-                      <Input
-                        type="number"
-                        min={0}
-                        step="0.1"
-                        value={meterHoursEntry}
-                        onChange={(e) => setMeterHoursEntry(e.target.value)}
-                        placeholder={univocaItem?.workshop_items?.meter_hours_last 
-                          ? `Último: ${univocaItem.workshop_items.meter_hours_last}h` 
-                          : '0'}
-                        disabled={entryMeterHoursRegistered}
-                      />
-                      {entryMeterHoursRegistered && (
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Registrado: {univocaItem?.meter_hours_entry}h
+                    {/* Última medição (readonly) */}
+                    {univocaItem?.workshop_items?.meter_hours_last != null && (
+                      <div className="p-3 bg-muted/50 rounded-lg">
+                        <p className="text-xs text-muted-foreground">Última medição registrada</p>
+                        <p className="font-mono font-medium text-lg">
+                          {univocaItem.workshop_items.meter_hours_last}h
                         </p>
-                      )}
-                    </div>
-                    {/* Horímetro de Saída */}
+                      </div>
+                    )}
+                    {/* Horímetro atual */}
                     <div>
-                      <Label>Horímetro na Saída (horas) *</Label>
+                      <Label>Horímetro Atual (horas) *</Label>
                       <Input
                         type="number"
-                        min={0}
+                        min={univocaItem?.workshop_items?.meter_hours_last ?? 0}
                         step="0.1"
-                        value={meterHoursExit}
-                        onChange={(e) => setMeterHoursExit(e.target.value)}
-                        placeholder="Horímetro atual"
+                        value={meterHoursCurrent}
+                        onChange={(e) => setMeterHoursCurrent(e.target.value)}
+                        placeholder={univocaItem?.workshop_items?.meter_hours_last 
+                          ? `Mínimo: ${univocaItem.workshop_items.meter_hours_last}h` 
+                          : 'Informe o horímetro'}
                       />
                     </div>
                     {/* Motor replacement checkbox */}
@@ -996,22 +956,16 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
                   className="w-full"
                   onClick={() => {
                     // Validate meter hours if required
-                    if (requiresMeterHoursEntry) {
-                      const entryValue = entryMeterHoursRegistered 
-                        ? univocaItem?.meter_hours_entry 
-                        : parseFloat(meterHoursEntry);
-                      const exitValue = parseFloat(meterHoursExit);
+                    if (requiresMeterHours) {
+                      const currentValue = parseFloat(meterHoursCurrent);
+                      const lastValue = univocaItem?.workshop_items?.meter_hours_last ?? 0;
                       
-                      if (!entryMeterHoursRegistered && (!meterHoursEntry || isNaN(entryValue as number))) {
-                        toast.error('Informe o horímetro de entrada');
+                      if (!meterHoursCurrent || isNaN(currentValue)) {
+                        toast.error('Informe o horímetro atual');
                         return;
                       }
-                      if (!meterHoursExit || isNaN(exitValue)) {
-                        toast.error('Informe o horímetro de saída');
-                        return;
-                      }
-                      if (exitValue < (entryValue as number)) {
-                        toast.error('Horímetro de saída não pode ser menor que o de entrada');
+                      if (currentValue < lastValue) {
+                        toast.error(`Horímetro não pode ser menor que a última medição (${lastValue}h)`);
                         return;
                       }
                     }
