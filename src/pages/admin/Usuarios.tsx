@@ -194,10 +194,37 @@ export default function AdminUsuarios() {
       
       if (signUpError) throw signUpError;
 
-      // Nota: O role será atualizado manualmente após criar, pois não temos acesso ao user.id aqui
-      // O usuário é criado como 'consultor_rplus' por padrão pelo trigger
+      // Aguardar um pouco para o trigger criar o profile e role
+      await new Promise(resolve => setTimeout(resolve, 1000));
 
-      toast({ title: 'Usuário criado com sucesso!', description: newUserForm.role !== 'consultor_rplus' ? 'Atualize a permissão na lista.' : undefined });
+      // Buscar o usuário recém-criado pelo email
+      const { data: newProfile } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('email', newUserForm.email)
+        .single();
+
+      // Se o role selecionado for diferente do padrão, atualizar
+      if (newProfile && newUserForm.role !== 'consultor_rplus') {
+        const { error: roleError } = await supabase
+          .from('user_roles')
+          .update({ role: newUserForm.role })
+          .eq('user_id', newProfile.id);
+        
+        if (roleError) {
+          console.error('Erro ao atualizar role:', roleError);
+          toast({ 
+            title: 'Usuário criado!', 
+            description: 'Atualize a permissão manualmente na lista.',
+            variant: 'default'
+          });
+        } else {
+          toast({ title: 'Usuário criado com sucesso!' });
+        }
+      } else {
+        toast({ title: 'Usuário criado com sucesso!' });
+      }
+
       setOpenDialog(false);
       setNewUserForm({ nome: '', email: '', password: '', role: 'consultor_rplus' });
       queryClient.invalidateQueries({ queryKey: ['usuarios-admin'] });
