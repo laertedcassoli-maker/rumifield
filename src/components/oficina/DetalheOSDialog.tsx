@@ -326,17 +326,26 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
         .eq('id', activeTimeEntry.id);
       if (entryError) throw entryError;
 
+      // Fetch current total from DB to avoid stale prop issues
+      const { data: currentOS } = await supabase
+        .from('work_orders')
+        .select('total_time_seconds')
+        .eq('id', workOrder.id)
+        .single();
+      
+      const currentTotal = currentOS?.total_time_seconds ?? 0;
+
       // Update work order total time
       const { error: osError } = await supabase
         .from('work_orders')
         .update({
-          total_time_seconds: workOrder.total_time_seconds + durationSoFar,
+          total_time_seconds: currentTotal + durationSoFar,
         })
         .eq('id', workOrder.id);
       if (osError) throw osError;
 
       // Update local total immediately to prevent UI reset until queries/props refresh
-      setLocalTotalSeconds((prev) => prev + durationSoFar);
+      setLocalTotalSeconds(currentTotal + durationSoFar);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['active-time-entry', workOrder.id, user?.id] });
@@ -420,16 +429,25 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
 
       // Update work order total time only if was running
       if (activeTimeEntry.status === 'running') {
+        // Fetch current total from DB to avoid stale prop issues
+        const { data: currentOS } = await supabase
+          .from('work_orders')
+          .select('total_time_seconds')
+          .eq('id', workOrder.id)
+          .single();
+        
+        const currentTotal = currentOS?.total_time_seconds ?? 0;
+
         const { error: osError } = await supabase
           .from('work_orders')
           .update({
-            total_time_seconds: workOrder.total_time_seconds + durationSeconds,
+            total_time_seconds: currentTotal + durationSeconds,
           })
           .eq('id', workOrder.id);
         if (osError) throw osError;
 
         // Update local total immediately to prevent UI reset until queries/props refresh
-        setLocalTotalSeconds((prev) => prev + durationSeconds);
+        setLocalTotalSeconds(currentTotal + durationSeconds);
       }
     },
     onSuccess: () => {
