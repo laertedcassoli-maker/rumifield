@@ -278,24 +278,82 @@ export default function CalendarioPreventivas() {
 
   const isLoading = clientsLoading || preventivesLoading;
 
-  // Calculate summary stats
+  // Calculate summary stats - count FARMS not cells
   const summaryStats = useMemo(() => {
     let concluidas = 0;
     let atrasadas = 0;
     let planejadas = 0;
     let semPreventiva = 0;
     
+    // Count unique farms with at least one of each status across all months
     calendarData.forEach(months => {
+      let hasConcluida = false;
+      let hasAtrasada = false;
+      let hasPlanejada = false;
+      let hasAny = false;
+      
       months.forEach(monthData => {
-        if (monthData.status === 'concluida') concluidas++;
-        else if (monthData.status === 'atrasada') atrasadas++;
-        else if (monthData.status === 'planejada') planejadas++;
-        else semPreventiva++;
+        if (monthData.status !== 'sem_preventiva') hasAny = true;
+        if (monthData.status === 'concluida') hasConcluida = true;
+        if (monthData.status === 'atrasada') hasAtrasada = true;
+        if (monthData.status === 'planejada') hasPlanejada = true;
       });
+      
+      if (hasConcluida) concluidas++;
+      if (hasAtrasada) atrasadas++;
+      if (hasPlanejada) planejadas++;
+      if (!hasAny) semPreventiva++;
     });
     
     return { concluidas, atrasadas, planejadas, semPreventiva };
   }, [calendarData]);
+
+  // Calculate totals per month
+  const monthTotals = useMemo(() => {
+    const totals = new Map<string, { concluidas: number; atrasadas: number; planejadas: number }>();
+    
+    monthColumns.forEach(col => {
+      const key = `${col.year}-${col.month}`;
+      totals.set(key, { concluidas: 0, atrasadas: 0, planejadas: 0 });
+    });
+    
+    calendarData.forEach(months => {
+      months.forEach((monthData, key) => {
+        const total = totals.get(key);
+        if (total) {
+          if (monthData.status === 'concluida') total.concluidas++;
+          else if (monthData.status === 'atrasada') total.atrasadas++;
+          else if (monthData.status === 'planejada') total.planejadas++;
+        }
+      });
+    });
+    
+    return totals;
+  }, [calendarData, monthColumns]);
+
+  // Calculate totals per year (shown in December column)
+  const yearTotals = useMemo(() => {
+    const totals = new Map<number, { concluidas: number; atrasadas: number; planejadas: number }>();
+    
+    [selectedYear, selectedYear + 1].forEach(year => {
+      totals.set(year, { concluidas: 0, atrasadas: 0, planejadas: 0 });
+    });
+    
+    calendarData.forEach(months => {
+      months.forEach((monthData, key) => {
+        const [yearStr] = key.split('-');
+        const year = parseInt(yearStr);
+        const total = totals.get(year);
+        if (total) {
+          if (monthData.status === 'concluida') total.concluidas++;
+          else if (monthData.status === 'atrasada') total.atrasadas++;
+          else if (monthData.status === 'planejada') total.planejadas++;
+        }
+      });
+    });
+    
+    return totals;
+  }, [calendarData, selectedYear]);
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -535,6 +593,59 @@ export default function CalendarioPreventivas() {
                       </tr>
                     );
                   })}
+                  {/* Totals row */}
+                  <tr className="border-t-2 bg-muted/50 font-medium">
+                    <td className="p-2 sticky left-0 bg-muted/50 z-10 w-[220px] min-w-[220px] max-w-[220px] text-sm">
+                      Total por Mês
+                    </td>
+                    {monthColumns.map((col) => {
+                      const key = `${col.year}-${col.month}`;
+                      const totals = monthTotals.get(key);
+                      const monthTotal = (totals?.concluidas || 0) + (totals?.atrasadas || 0) + (totals?.planejadas || 0);
+                      const yearTotal = col.month === 11 ? yearTotals.get(col.year) : null;
+                      
+                      return (
+                        <td 
+                          key={key} 
+                          className={cn(
+                            "p-1 text-center text-xs",
+                            col.month === 0 && "border-l-2 border-primary/30",
+                            col.month === 11 && "border-r-2 border-primary/30"
+                          )}
+                        >
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <div className="cursor-default">
+                                {monthTotal > 0 ? monthTotal : '-'}
+                              </div>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="text-xs">
+                              <div className="space-y-1">
+                                <div className="font-medium">{MONTHS_SHORT[col.month]} {col.year}</div>
+                                <div className="flex items-center gap-1">
+                                  <div className="w-2 h-2 rounded-full bg-green-500" />
+                                  {totals?.concluidas || 0} concluídas
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <div className="w-2 h-2 rounded-full bg-yellow-500" />
+                                  {totals?.planejadas || 0} planejadas
+                                </div>
+                                <div className="flex items-center gap-1">
+                                  <div className="w-2 h-2 rounded-full bg-red-500" />
+                                  {totals?.atrasadas || 0} atrasadas
+                                </div>
+                                {yearTotal && (
+                                  <div className="border-t pt-1 mt-1 font-medium">
+                                    Total {col.year}: {(yearTotal.concluidas || 0) + (yearTotal.atrasadas || 0) + (yearTotal.planejadas || 0)}
+                                  </div>
+                                )}
+                              </div>
+                            </TooltipContent>
+                          </Tooltip>
+                        </td>
+                      );
+                    })}
+                  </tr>
                 </tbody>
               </table>
             </div>
