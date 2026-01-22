@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import { Plus, Search, Edit, History, Clock, Check, ChevronsUpDown } from 'lucide-react';
+import { Plus, Search, Edit, History, Clock, Check, ChevronsUpDown, Wrench } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Textarea } from '@/components/ui/textarea';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -40,6 +41,15 @@ interface MeterReading {
   id: string;
   reading_value: number;
   measured_at: string;
+  work_order_id: string | null;
+  notes: string | null;
+}
+
+interface MotorReplacement {
+  id: string;
+  replaced_at_meter_hours: number;
+  motor_hours_used: number;
+  replaced_at: string;
   work_order_id: string | null;
   notes: string | null;
 }
@@ -112,6 +122,23 @@ export default function ItensOficina() {
         .order('measured_at', { ascending: false });
       if (error) throw error;
       return data as MeterReading[];
+    },
+    enabled: !!selectedItemForHistory?.id,
+  });
+
+  // Fetch motor replacement history for selected item
+  const { data: motorReplacements = [] } = useQuery({
+    queryKey: ['motor-replacements', selectedItemForHistory?.id],
+    queryFn: async () => {
+      if (!selectedItemForHistory?.id) return [];
+      // Using 'as any' because types haven't regenerated yet
+      const { data, error } = await (supabase as any)
+        .from('motor_replacement_history')
+        .select('*')
+        .eq('workshop_item_id', selectedItemForHistory.id)
+        .order('replaced_at', { ascending: false });
+      if (error) throw error;
+      return data as MotorReplacement[];
     },
     enabled: !!selectedItemForHistory?.id,
   });
@@ -415,41 +442,96 @@ export default function ItensOficina() {
         </CardContent>
       </Card>
 
-      {/* Meter Reading History Dialog */}
+      {/* History Dialog with Tabs */}
       <Dialog open={historyDialogOpen} onOpenChange={setHistoryDialogOpen}>
-        <DialogContent>
+        <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>
-              Histórico de Horímetro: {selectedItemForHistory?.unique_code}
+              Histórico: {selectedItemForHistory?.unique_code}
             </DialogTitle>
           </DialogHeader>
-          {meterReadings.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              Nenhuma leitura registrada
-            </div>
-          ) : (
-            <div className="space-y-2 max-h-[400px] overflow-auto">
-              {meterReadings.map((reading) => (
-                <div
-                  key={reading.id}
-                  className="flex items-center justify-between p-3 border rounded-lg"
-                >
-                  <div>
-                    <p className="font-medium">{reading.reading_value} horas</p>
-                    <p className="text-xs text-muted-foreground">
-                      {format(new Date(reading.measured_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}
-                    </p>
-                    {reading.notes && (
-                      <p className="text-xs text-muted-foreground mt-1">{reading.notes}</p>
-                    )}
-                  </div>
-                  {reading.work_order_id && (
-                    <Badge variant="outline">OS</Badge>
-                  )}
+          
+          <Tabs defaultValue="horimetro" className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="horimetro" className="flex items-center gap-1">
+                <Clock className="h-3 w-3" />
+                Horímetro
+              </TabsTrigger>
+              <TabsTrigger value="motor" className="flex items-center gap-1">
+                <Wrench className="h-3 w-3" />
+                Trocas Motor
+              </TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="horimetro" className="mt-4">
+              {meterReadings.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  Nenhuma leitura registrada
                 </div>
-              ))}
-            </div>
-          )}
+              ) : (
+                <div className="space-y-2 max-h-[350px] overflow-auto">
+                  {meterReadings.map((reading) => (
+                    <div
+                      key={reading.id}
+                      className="flex items-center justify-between p-3 border rounded-lg"
+                    >
+                      <div>
+                        <p className="font-medium">{reading.reading_value} horas</p>
+                        <p className="text-xs text-muted-foreground">
+                          {format(new Date(reading.measured_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                        </p>
+                        {reading.notes && (
+                          <p className="text-xs text-muted-foreground mt-1">{reading.notes}</p>
+                        )}
+                      </div>
+                      {reading.work_order_id && (
+                        <Badge variant="outline">OS</Badge>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+            
+            <TabsContent value="motor" className="mt-4">
+              {motorReplacements.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  Nenhuma troca de motor registrada
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-[350px] overflow-auto">
+                  {motorReplacements.map((replacement) => (
+                    <div
+                      key={replacement.id}
+                      className="p-3 border rounded-lg bg-amber-50 dark:bg-amber-950/20"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Wrench className="h-4 w-4 text-amber-600" />
+                          <span className="font-medium text-amber-800 dark:text-amber-200">
+                            Motor durou {replacement.motor_hours_used}h
+                          </span>
+                        </div>
+                        {replacement.work_order_id && (
+                          <Badge variant="outline">OS</Badge>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Trocado com horímetro em {replacement.replaced_at_meter_hours}h
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {format(new Date(replacement.replaced_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+                      </p>
+                      {replacement.notes && (
+                        <p className="text-xs text-muted-foreground mt-1">{replacement.notes}</p>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
+          
           <DialogFooter>
             <Button variant="outline" onClick={() => setHistoryDialogOpen(false)}>
               Fechar
