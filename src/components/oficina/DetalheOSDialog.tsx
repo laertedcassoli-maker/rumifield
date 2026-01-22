@@ -997,10 +997,10 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
                 {workOrder.status !== 'concluido' && (
                   <Button 
                     size="sm" 
-                    variant="outline" 
                     onClick={() => setAddPartDialogOpen(true)}
                     disabled={!activeTimeEntry}
                     title={!activeTimeEntry ? 'Inicie o cronômetro para adicionar peças' : undefined}
+                    className="bg-green-600 hover:bg-green-700 text-white"
                   >
                     <Plus className="h-4 w-4 mr-1" />
                     Adicionar
@@ -1355,6 +1355,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
             <Button 
               onClick={() => addPartMutation.mutate()} 
               disabled={!selectedPecaId || addPartMutation.isPending}
+              className="bg-green-600 hover:bg-green-700 text-white"
             >
               {addPartMutation.isPending ? 'Adicionando...' : 'Adicionar'}
             </Button>
