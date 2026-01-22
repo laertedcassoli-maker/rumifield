@@ -694,6 +694,12 @@ export default function NovaRota() {
                           Dias Restantes {getSortIcon('days_until_due')}
                         </Button>
                       </TableHead>
+                      <TableHead className="text-center text-xs">
+                        <span className="flex items-center justify-center gap-1">
+                          <CalendarIcon className="h-3 w-3" />
+                          Dias na Rota
+                        </span>
+                      </TableHead>
                       <TableHead>
                         <Button variant="ghost" onClick={() => handleSort('preventive_status')} className="h-auto p-0 font-medium hover:bg-transparent text-xs">
                           Status {getSortIcon('preventive_status')}
@@ -749,6 +755,30 @@ export default function NovaRota() {
                               {client.days_until_due < 0 ? client.days_until_due : `+${client.days_until_due}`}
                             </span>
                           ) : '-'}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          {(() => {
+                            if (client.days_until_due === null || !form.start_date) return '-';
+                            const today = new Date();
+                            today.setHours(0, 0, 0, 0);
+                            const routeStart = new Date(form.start_date + 'T00:00:00');
+                            const daysToRoute = Math.ceil((routeStart.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+                            const daysAtRoute = client.days_until_due - daysToRoute;
+                            
+                            // Determine projected status color
+                            let colorClass = 'text-green-600';
+                            if (daysAtRoute < 0) {
+                              colorClass = 'text-destructive';
+                            } else if (daysAtRoute <= 30) {
+                              colorClass = 'text-warning';
+                            }
+                            
+                            return (
+                              <span className={cn("text-sm font-medium", colorClass)}>
+                                {daysAtRoute < 0 ? daysAtRoute : `+${daysAtRoute}`}
+                              </span>
+                            );
+                          })()}
                         </TableCell>
                         <TableCell>
                           {renderStatusBadge(client.preventive_status)}
