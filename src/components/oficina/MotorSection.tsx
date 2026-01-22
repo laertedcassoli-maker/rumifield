@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Wrench, ChevronDown, ChevronRight, Pencil, History } from 'lucide-react';
+import { Wrench, ChevronDown, ChevronRight, Pencil, History, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -68,6 +68,20 @@ export function MotorSection({ workshopItemId, isAdmin }: MotorSectionProps) {
     enabled: !!workshopItemId,
   });
 
+  // Fetch warranty hours config
+  const { data: warrantyHoursConfig } = useQuery({
+    queryKey: ['warranty-hours-config'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('configuracoes')
+        .select('valor')
+        .eq('chave', 'garantia_motor_horas')
+        .maybeSingle();
+      if (error) throw error;
+      return data?.valor ? parseInt(data.valor) : 400;
+    },
+  });
+
   // Update motor code mutation (admin only)
   const updateMotorCodeMutation = useMutation({
     mutationFn: async (code: string) => {
@@ -96,7 +110,9 @@ export function MotorSection({ workshopItemId, isAdmin }: MotorSectionProps) {
   const currentMotorCode = (workshopItem as { current_motor_code?: string | null } | undefined)?.current_motor_code;
   const meterHoursLast = workshopItem?.meter_hours_last ?? 0;
   const motorReplacedAt = workshopItem?.motor_replaced_at_meter_hours ?? 0;
-  const motorHours = meterHoursLast - motorReplacedAt;
+  const motorHours = Math.max(0, meterHoursLast - motorReplacedAt);
+  const warrantyLimit = warrantyHoursConfig ?? 400;
+  const isWithinWarranty = motorHours < warrantyLimit;
 
   return (
     <div className="p-3 border rounded-lg bg-muted/30 space-y-3">
@@ -105,19 +121,31 @@ export function MotorSection({ workshopItemId, isAdmin }: MotorSectionProps) {
           <Wrench className="h-4 w-4" />
           Motor
         </p>
-        {isAdmin && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-7 px-2"
-            onClick={() => {
-              setNewMotorCode(currentMotorCode || '');
-              setEditDialogOpen(true);
-            }}
+        <div className="flex items-center gap-2">
+          <Badge 
+            variant={isWithinWarranty ? "default" : "secondary"}
+            className={isWithinWarranty 
+              ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 hover:bg-green-100" 
+              : "bg-muted text-muted-foreground"
+            }
           >
-            <Pencil className="h-3 w-3" />
-          </Button>
-        )}
+            <Shield className="h-3 w-3 mr-1" />
+            {isWithinWarranty ? 'Em Garantia' : 'Fora da Garantia'}
+          </Badge>
+          {isAdmin && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2"
+              onClick={() => {
+                setNewMotorCode(currentMotorCode || '');
+                setEditDialogOpen(true);
+              }}
+            >
+              <Pencil className="h-3 w-3" />
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Current motor info */}
