@@ -308,13 +308,28 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
           added_by_user_id: user.id,
         });
       if (error) throw error;
+
+      // Check if added part contains "motor" in name - auto-mark replacement
+      const addedPart = pecas.find(p => p.id === selectedPecaId);
+      if (addedPart?.nome?.toLowerCase().includes('motor')) {
+        return { isMotorPart: true, partName: addedPart.nome };
+      }
+      return { isMotorPart: false };
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['parts-used', workOrder.id] });
       setAddPartDialogOpen(false);
       setSelectedPecaId('');
       setPartQuantity(1);
-      toast.success('Peça adicionada!');
+      
+      if (result?.isMotorPart) {
+        setIsMotorReplacement(true);
+        toast.success(`Peça "${result.partName}" adicionada! Troca de motor marcada automaticamente.`, {
+          duration: 5000,
+        });
+      } else {
+        toast.success('Peça adicionada!');
+      }
     },
     onError: (error) => {
       toast.error('Erro ao adicionar peça: ' + error.message);
@@ -420,6 +435,18 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
       toast.error('Erro ao concluir OS: ' + error.message);
     },
   });
+
+  // Check if any part contains "motor" in name - for visual indicator
+  const hasMotorPart = partsUsed.some(part => 
+    part.pecas?.nome?.toLowerCase().includes('motor')
+  );
+
+  // Auto-detect motor parts when parts list changes
+  useEffect(() => {
+    if (hasMotorPart && !isMotorReplacement) {
+      setIsMotorReplacement(true);
+    }
+  }, [hasMotorPart]);
 
   const formatTime = (seconds: number) => {
     const hours = Math.floor(seconds / 3600);
@@ -553,28 +580,40 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {partsUsed.map((part) => (
-                    <div
-                      key={part.id}
-                      className="flex items-center justify-between p-2 border rounded-lg"
-                    >
-                      <div>
-                        <p className="font-medium text-sm">{part.pecas?.nome}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {part.pecas?.codigo} • Qtd: {part.quantity}
-                        </p>
+                  {partsUsed.map((part) => {
+                    const isMotor = part.pecas?.nome?.toLowerCase().includes('motor');
+                    return (
+                      <div
+                        key={part.id}
+                        className={`flex items-center justify-between p-2 border rounded-lg ${
+                          isMotor ? 'bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800' : ''
+                        }`}
+                      >
+                        <div className="flex items-center gap-2">
+                          {isMotor && (
+                            <Wrench className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                          )}
+                          <div>
+                            <p className={`font-medium text-sm ${isMotor ? 'text-amber-800 dark:text-amber-200' : ''}`}>
+                              {part.pecas?.nome}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {part.pecas?.codigo} • Qtd: {part.quantity}
+                            </p>
+                          </div>
+                        </div>
+                        {workOrder.status !== 'concluido' && (
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => removePartMutation.mutate(part.id)}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
-                      {workOrder.status !== 'concluido' && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          onClick={() => removePartMutation.mutate(part.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      )}
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
