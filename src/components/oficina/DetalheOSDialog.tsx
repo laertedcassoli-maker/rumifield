@@ -530,31 +530,53 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
             {univocaItem && (
               <div>
                 <p className="text-sm text-muted-foreground mb-2">Item</p>
-                <div className="p-3 border rounded-lg space-y-2">
-                  <Badge variant="secondary" className="font-mono text-sm">
-                    {univocaItem.workshop_items?.unique_code}
-                  </Badge>
-                  {univocaItem.product_name && (
-                    <p className="text-sm text-muted-foreground break-words whitespace-normal">
-                      {univocaItem.product_name}
-                    </p>
+                <div className="p-3 border rounded-lg space-y-3">
+                  <div>
+                    <Badge variant="secondary" className="font-mono text-sm">
+                      {univocaItem.workshop_items?.unique_code}
+                    </Badge>
+                    {univocaItem.product_name && (
+                      <p className="text-sm text-muted-foreground break-words whitespace-normal mt-1">
+                        {univocaItem.product_name}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Meter readings section */}
+                  {univocaItem.workshop_items?.meter_hours_last != null && (
+                    <div className="grid grid-cols-2 gap-2">
+                      {/* Total hours */}
+                      <div className="p-2 bg-muted/50 rounded-lg text-center">
+                        <p className="text-xs text-muted-foreground">Horímetro Total</p>
+                        <p className="text-lg font-bold font-mono">
+                          {univocaItem.workshop_items.meter_hours_last.toFixed(0)}h
+                        </p>
+                      </div>
+                      {/* Motor hours */}
+                      <div className="p-2 bg-amber-50 dark:bg-amber-950/30 rounded-lg text-center border border-amber-200 dark:border-amber-800">
+                        <p className="text-xs text-amber-700 dark:text-amber-300 flex items-center justify-center gap-1">
+                          <Wrench className="h-3 w-3" />
+                          Motor
+                        </p>
+                        <p className="text-lg font-bold font-mono text-amber-800 dark:text-amber-200">
+                          {univocaItem.workshop_items.motor_replaced_at_meter_hours != null
+                            ? (univocaItem.workshop_items.meter_hours_last - univocaItem.workshop_items.motor_replaced_at_meter_hours).toFixed(0)
+                            : univocaItem.workshop_items.meter_hours_last.toFixed(0)
+                          }h
+                        </p>
+                        {univocaItem.workshop_items.motor_replaced_at_meter_hours != null && (
+                          <p className="text-[10px] text-amber-600 dark:text-amber-400">
+                            troca em {univocaItem.workshop_items.motor_replaced_at_meter_hours}h
+                          </p>
+                        )}
+                      </div>
+                    </div>
                   )}
+
                   {univocaItem.meter_hours_entry && (
                     <p className="text-xs text-muted-foreground">
-                      Horímetro entrada: {univocaItem.meter_hours_entry}h
+                      Horímetro entrada nesta OS: {univocaItem.meter_hours_entry}h
                     </p>
-                  )}
-                  {/* Motor hours since last replacement */}
-                  {univocaItem.workshop_items?.motor_replaced_at_meter_hours !== null && 
-                   univocaItem.workshop_items?.motor_replaced_at_meter_hours !== undefined && (
-                    <div className="mt-2 p-2 bg-amber-50 dark:bg-amber-950/30 rounded border border-amber-200 dark:border-amber-800">
-                      <p className="text-xs font-medium text-amber-800 dark:text-amber-200">
-                        🔧 Motor: {((univocaItem.workshop_items?.meter_hours_last || 0) - univocaItem.workshop_items.motor_replaced_at_meter_hours).toFixed(1)}h desde última troca
-                      </p>
-                      <p className="text-xs text-amber-600 dark:text-amber-400">
-                        Trocado em: {univocaItem.workshop_items.motor_replaced_at_meter_hours}h
-                      </p>
-                    </div>
                   )}
                 </div>
               </div>
