@@ -176,7 +176,7 @@ export default function FarmMap({ clients, highlightedClientId, onClientClick }:
         ? `<button type=\"button\" data-open-maps=\"1\" style=\"margin-top:8px;width:100%;padding:6px 8px;border-radius:8px;border:1px solid rgba(0,0,0,.15);background:white;font-size:12px;cursor:pointer;\">Abrir no Google Maps</button>`
         : '';
 
-      const html = `
+      const popupHtml = `
         <div style=\"min-width:200px;\">
           <div style=\"font-weight:600;font-size:13px;\">${title}</div>
           ${farm}
@@ -189,7 +189,26 @@ export default function FarmMap({ clients, highlightedClientId, onClientClick }:
         </div>
       `;
 
-      marker.bindPopup(html);
+      // Tooltip on hover
+      const tooltipHtml = `
+        <div style="min-width:160px;">
+          <div style="font-weight:600;font-size:12px;">${title}</div>
+          ${farm}
+          <div style="margin-top:4px;font-size:11px;">
+            <span style="padding:2px 6px;border-radius:999px;border:1px solid rgba(0,0,0,.15);background:rgba(255,255,255,0.9);">${escapeHtml(status)}</span>
+            ${client.days_until_due !== null ? `<span style="margin-left:6px;opacity:.8;">${client.days_until_due}d</span>` : ''}
+          </div>
+        </div>
+      `;
+
+      marker.bindTooltip(tooltipHtml, {
+        direction: 'top',
+        offset: [0, -20],
+        opacity: 0.95,
+        className: 'farm-tooltip',
+      });
+
+      marker.bindPopup(popupHtml);
 
       marker.on('click', () => onClientClick?.(client.client_id));
       marker.on('popupopen', (e) => {
