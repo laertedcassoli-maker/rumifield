@@ -12,7 +12,22 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 
-const MONTHS = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+const MONTHS_SHORT = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+
+// Generate 24 months starting from selected year
+const generateMonthColumns = (startYear: number) => {
+  const columns: Array<{ year: number; month: number; label: string }> = [];
+  for (let y = startYear; y <= startYear + 1; y++) {
+    for (let m = 0; m < 12; m++) {
+      columns.push({
+        year: y,
+        month: m,
+        label: `${MONTHS_SHORT[m]}/${String(y).slice(-2)}`,
+      });
+    }
+  }
+  return columns;
+};
 
 type MonthStatus = 'concluida' | 'planejada' | 'sem_preventiva';
 
@@ -67,12 +82,15 @@ export default function CalendarioPreventivas() {
     },
   });
 
-  // Fetch preventive maintenance records for the year
+  // Generate month columns (24 months)
+  const monthColumns = useMemo(() => generateMonthColumns(selectedYear), [selectedYear]);
+
+  // Fetch preventive maintenance records for both years
   const { data: preventives, isLoading: preventivesLoading } = useQuery({
     queryKey: ['calendar-preventives', selectedYear],
     queryFn: async () => {
       const startDate = `${selectedYear}-01-01`;
-      const endDate = `${selectedYear}-12-31`;
+      const endDate = `${selectedYear + 1}-12-31`;
       
       const { data, error } = await supabase
         .from('preventive_maintenance')
@@ -166,11 +184,11 @@ export default function CalendarioPreventivas() {
     });
   }, [clients, clientSearch, estadoFilter, consultorFilter]);
 
-  // Build calendar data: client -> month -> status
+  // Build calendar data: client -> "year-month" key -> status
   const calendarData = useMemo(() => {
-    if (!filteredClients || !preventives) return new Map<string, Map<number, MonthData>>();
+    if (!filteredClients || !preventives) return new Map<string, Map<string, MonthData>>();
     
-    const data = new Map<string, Map<number, MonthData>>();
+    const data = new Map<string, Map<string, MonthData>>();
     
     // Filter preventives by technician if filter is set
     const filteredPreventives = tecnicoFilter === 'all' 
@@ -178,21 +196,26 @@ export default function CalendarioPreventivas() {
       : preventives.filter(p => p.technician_user_id === tecnicoFilter);
     
     filteredClients.forEach(client => {
-      const monthsMap = new Map<number, MonthData>();
+      const monthsMap = new Map<string, MonthData>();
       
-      // Initialize all months as sem_preventiva
-      for (let month = 0; month < 12; month++) {
-        monthsMap.set(month, { status: 'sem_preventiva', preventives: [] });
-      }
+      // Initialize all months in the range as sem_preventiva
+      monthColumns.forEach(col => {
+        const key = `${col.year}-${col.month}`;
+        monthsMap.set(key, { status: 'sem_preventiva', preventives: [] });
+      });
       
       // Process preventives for this client
       const clientPreventives = filteredPreventives.filter(p => p.client_id === client.id);
       
       clientPreventives.forEach(prev => {
         const scheduledDate = new Date(prev.scheduled_date);
+        const year = scheduledDate.getFullYear();
         const month = scheduledDate.getMonth();
+        const key = `${year}-${month}`;
         
-        const monthData = monthsMap.get(month)!;
+        const monthData = monthsMap.get(key);
+        if (!monthData) return; // Outside our range
+        
         monthData.preventives.push({
           id: prev.id,
           scheduled_date: prev.scheduled_date,
@@ -213,7 +236,7 @@ export default function CalendarioPreventivas() {
     });
     
     return data;
-  }, [filteredClients, preventives, tecnicoFilter, technicianMap]);
+  }, [filteredClients, preventives, tecnicoFilter, technicianMap, monthColumns]);
 
   // Get status color
   const getStatusColor = (status: MonthStatus) => {
@@ -287,8 +310,8 @@ export default function CalendarioPreventivas() {
               >
                 <ChevronLeft className="h-4 w-4" />
               </Button>
-              <div className="flex-1 text-center font-semibold text-lg">
-                {selectedYear}
+              <div className="flex-1 text-center font-semibold text-sm whitespace-nowrap">
+                {selectedYear}/{selectedYear + 1}
               </div>
               <Button 
                 variant="outline" 
@@ -395,15 +418,21 @@ export default function CalendarioPreventivas() {
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <table className="w-full border-collapse">
+              <table className="border-collapse">
                 <thead>
                   <tr className="border-b">
-                    <th className="text-left p-3 font-medium text-sm sticky left-0 bg-background z-10 min-w-[200px]">
+                    <th className="text-left p-2 font-medium text-sm sticky left-0 bg-background z-10 w-[140px] min-w-[140px] max-w-[140px]">
                       Fazenda
                     </th>
-                    {MONTHS.map((month, idx) => (
-                      <th key={month} className="text-center p-2 font-medium text-xs w-12">
-                        {month}
+                    {monthColumns.map((col, idx) => (
+                      <th 
+                        key={`${col.year}-${col.month}`} 
+                        className={cn(
+                          "text-center p-1 font-medium text-xs w-10 min-w-[40px]",
+                          col.month === 0 && "border-l-2 border-primary/30"
+                        )}
+                      >
+                        {col.label}
                       </th>
                     ))}
                   </tr>
@@ -414,26 +443,33 @@ export default function CalendarioPreventivas() {
                     
                     return (
                       <tr key={client.id} className="border-b hover:bg-muted/30">
-                        <td className="p-3 sticky left-0 bg-background z-10">
-                          <div className="min-w-[180px]">
-                            <div className="font-medium text-sm truncate">{client.nome}</div>
+                        <td className="p-2 sticky left-0 bg-background z-10 w-[140px] min-w-[140px] max-w-[140px]">
+                          <div className="truncate" title={`${client.nome}${client.fazenda ? ` - ${client.fazenda}` : ''}`}>
+                            <div className="font-medium text-xs truncate">{client.nome}</div>
                             {client.fazenda && (
-                              <div className="text-xs text-muted-foreground truncate">{client.fazenda}</div>
+                              <div className="text-[10px] text-muted-foreground truncate">{client.fazenda}</div>
                             )}
                           </div>
                         </td>
-                        {MONTHS.map((_, monthIdx) => {
-                          const monthData = clientMonths?.get(monthIdx);
+                        {monthColumns.map((col) => {
+                          const key = `${col.year}-${col.month}`;
+                          const monthData = clientMonths?.get(key);
                           const status = monthData?.status || 'sem_preventiva';
                           const preventivesList = monthData?.preventives || [];
                           
                           return (
-                            <td key={monthIdx} className="p-2 text-center">
+                            <td 
+                              key={key} 
+                              className={cn(
+                                "p-1 text-center",
+                                col.month === 0 && "border-l-2 border-primary/30"
+                              )}
+                            >
                               <Tooltip>
                                 <TooltipTrigger asChild>
                                   <button 
                                     className={cn(
-                                      "w-4 h-4 rounded-full mx-auto transition-transform hover:scale-125",
+                                      "w-3 h-3 rounded-full mx-auto transition-transform hover:scale-150",
                                       getStatusColor(status)
                                     )}
                                   />
@@ -441,6 +477,7 @@ export default function CalendarioPreventivas() {
                                 <TooltipContent side="top" className="max-w-[250px]">
                                   <div className="space-y-1">
                                     <div className="font-medium">{getStatusLabel(status)}</div>
+                                    <div className="text-xs text-muted-foreground">{MONTHS_SHORT[col.month]} {col.year}</div>
                                     {preventivesList.length > 0 ? (
                                       <div className="text-xs space-y-1">
                                         {preventivesList.map((p, i) => (
