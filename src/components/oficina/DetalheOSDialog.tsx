@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import { Play, Square, Plus, Trash2, Clock, Package, CheckCircle, Wrench, ChevronDown, ChevronRight, History, Search } from 'lucide-react';
+import { Play, Square, Plus, Trash2, Clock, Package, CheckCircle, Wrench, ChevronDown, ChevronRight, History, Search, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -14,6 +14,7 @@ import { Separator } from '@/components/ui/separator';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { MotorSection } from './MotorSection';
 
 interface TimeEntryWithUser {
   id: string;
@@ -96,7 +97,8 @@ interface DetalheOSDialogProps {
 }
 
 export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: DetalheOSDialogProps) {
-  const { user } = useAuth();
+  const { user, role } = useAuth();
+  const isAdmin = role === 'admin';
   const queryClient = useQueryClient();
   const [elapsedTime, setElapsedTime] = useState(workOrder.total_time_seconds);
   // Local snapshot of total time to avoid UI “reset” while server props/refetch catch up
@@ -837,6 +839,14 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
 
                 </div>
               </div>
+            )}
+
+            {/* Motor Section - between Item and Parts */}
+            {univocaItem?.workshop_item_id && (
+              <MotorSection 
+                workshopItemId={univocaItem.workshop_item_id} 
+                isAdmin={isAdmin} 
+              />
             )}
 
             {/* Parts Used Section */}
