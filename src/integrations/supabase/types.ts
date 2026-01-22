@@ -143,6 +143,45 @@ export type Database = {
           },
         ]
       }
+      checklist_action_parts: {
+        Row: {
+          action_id: string
+          created_at: string
+          default_quantity: number
+          id: string
+          part_id: string
+        }
+        Insert: {
+          action_id: string
+          created_at?: string
+          default_quantity?: number
+          id?: string
+          part_id: string
+        }
+        Update: {
+          action_id?: string
+          created_at?: string
+          default_quantity?: number
+          id?: string
+          part_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checklist_action_parts_action_id_fkey"
+            columns: ["action_id"]
+            isOneToOne: false
+            referencedRelation: "checklist_item_corrective_actions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "checklist_action_parts_part_id_fkey"
+            columns: ["part_id"]
+            isOneToOne: false
+            referencedRelation: "pecas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       checklist_item_corrective_actions: {
         Row: {
           action_label: string
@@ -991,6 +1030,77 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      preventive_part_consumption: {
+        Row: {
+          consumed_at: string
+          created_at: string
+          exec_action_id: string
+          exec_item_id: string
+          id: string
+          part_code_snapshot: string
+          part_id: string
+          part_name_snapshot: string
+          preventive_id: string
+          quantity: number
+          unit_cost_snapshot: number | null
+        }
+        Insert: {
+          consumed_at?: string
+          created_at?: string
+          exec_action_id: string
+          exec_item_id: string
+          id?: string
+          part_code_snapshot: string
+          part_id: string
+          part_name_snapshot: string
+          preventive_id: string
+          quantity?: number
+          unit_cost_snapshot?: number | null
+        }
+        Update: {
+          consumed_at?: string
+          created_at?: string
+          exec_action_id?: string
+          exec_item_id?: string
+          id?: string
+          part_code_snapshot?: string
+          part_id?: string
+          part_name_snapshot?: string
+          preventive_id?: string
+          quantity?: number
+          unit_cost_snapshot?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "preventive_part_consumption_exec_action_id_fkey"
+            columns: ["exec_action_id"]
+            isOneToOne: false
+            referencedRelation: "preventive_checklist_item_actions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "preventive_part_consumption_exec_item_id_fkey"
+            columns: ["exec_item_id"]
+            isOneToOne: false
+            referencedRelation: "preventive_checklist_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "preventive_part_consumption_part_id_fkey"
+            columns: ["part_id"]
+            isOneToOne: false
+            referencedRelation: "pecas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "preventive_part_consumption_preventive_id_fkey"
+            columns: ["preventive_id"]
+            isOneToOne: false
+            referencedRelation: "preventive_maintenance"
             referencedColumns: ["id"]
           },
         ]
