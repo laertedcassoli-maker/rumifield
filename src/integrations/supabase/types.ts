@@ -162,6 +162,7 @@ export type Database = {
           observacoes: string | null
           omie_codigo: string | null
           ordenhas_dia: number | null
+          preventive_frequency_days: number | null
           quantidade_pistolas: number | null
           status: string
           telefone: string | null
@@ -187,6 +188,7 @@ export type Database = {
           observacoes?: string | null
           omie_codigo?: string | null
           ordenhas_dia?: number | null
+          preventive_frequency_days?: number | null
           quantidade_pistolas?: number | null
           status?: string
           telefone?: string | null
@@ -212,6 +214,7 @@ export type Database = {
           observacoes?: string | null
           omie_codigo?: string | null
           ordenhas_dia?: number | null
+          preventive_frequency_days?: number | null
           quantidade_pistolas?: number | null
           status?: string
           telefone?: string | null
@@ -340,6 +343,13 @@ export type Database = {
             foreignKeyName: "envios_produtos_cliente_id_fkey"
             columns: ["cliente_id"]
             isOneToOne: false
+            referencedRelation: "client_preventive_overview"
+            referencedColumns: ["client_id"]
+          },
+          {
+            foreignKeyName: "envios_produtos_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
             referencedRelation: "clientes"
             referencedColumns: ["id"]
           },
@@ -396,6 +406,13 @@ export type Database = {
           vacas_lactacao?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "estoque_cliente_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "client_preventive_overview"
+            referencedColumns: ["client_id"]
+          },
           {
             foreignKeyName: "estoque_cliente_cliente_id_fkey"
             columns: ["cliente_id"]
@@ -606,10 +623,162 @@ export type Database = {
             foreignKeyName: "pedidos_cliente_id_fkey"
             columns: ["cliente_id"]
             isOneToOne: false
+            referencedRelation: "client_preventive_overview"
+            referencedColumns: ["client_id"]
+          },
+          {
+            foreignKeyName: "pedidos_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
             referencedRelation: "clientes"
             referencedColumns: ["id"]
           },
         ]
+      }
+      preventive_maintenance: {
+        Row: {
+          client_id: string
+          completed_date: string | null
+          created_at: string
+          id: string
+          notes: string | null
+          scheduled_date: string
+          status: Database["public"]["Enums"]["preventive_maintenance_status"]
+          technician_user_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          client_id: string
+          completed_date?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          scheduled_date: string
+          status?: Database["public"]["Enums"]["preventive_maintenance_status"]
+          technician_user_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          client_id?: string
+          completed_date?: string | null
+          created_at?: string
+          id?: string
+          notes?: string | null
+          scheduled_date?: string
+          status?: Database["public"]["Enums"]["preventive_maintenance_status"]
+          technician_user_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "preventive_maintenance_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "client_preventive_overview"
+            referencedColumns: ["client_id"]
+          },
+          {
+            foreignKeyName: "preventive_maintenance_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      preventive_route_items: {
+        Row: {
+          client_id: string
+          created_at: string
+          id: string
+          planned_date: string | null
+          route_id: string
+          status: Database["public"]["Enums"]["preventive_route_item_status"]
+          suggested_reason: string | null
+          updated_at: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          id?: string
+          planned_date?: string | null
+          route_id: string
+          status?: Database["public"]["Enums"]["preventive_route_item_status"]
+          suggested_reason?: string | null
+          updated_at?: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          id?: string
+          planned_date?: string | null
+          route_id?: string
+          status?: Database["public"]["Enums"]["preventive_route_item_status"]
+          suggested_reason?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "preventive_route_items_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "client_preventive_overview"
+            referencedColumns: ["client_id"]
+          },
+          {
+            foreignKeyName: "preventive_route_items_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "preventive_route_items_route_id_fkey"
+            columns: ["route_id"]
+            isOneToOne: false
+            referencedRelation: "preventive_routes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      preventive_routes: {
+        Row: {
+          created_at: string
+          created_by_user_id: string
+          end_date: string
+          field_technician_user_id: string
+          id: string
+          notes: string | null
+          route_code: string
+          start_date: string
+          status: Database["public"]["Enums"]["preventive_route_status"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          created_by_user_id: string
+          end_date: string
+          field_technician_user_id: string
+          id?: string
+          notes?: string | null
+          route_code: string
+          start_date: string
+          status?: Database["public"]["Enums"]["preventive_route_status"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          created_by_user_id?: string
+          end_date?: string
+          field_technician_user_id?: string
+          id?: string
+          notes?: string | null
+          route_code?: string
+          start_date?: string
+          status?: Database["public"]["Enums"]["preventive_route_status"]
+          updated_at?: string
+        }
+        Relationships: []
       }
       produtos_quimicos: {
         Row: {
@@ -734,6 +903,13 @@ export type Database = {
             foreignKeyName: "tecnico_clientes_cliente_id_fkey"
             columns: ["cliente_id"]
             isOneToOne: false
+            referencedRelation: "client_preventive_overview"
+            referencedColumns: ["client_id"]
+          },
+          {
+            foreignKeyName: "tecnico_clientes_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
             referencedRelation: "clientes"
             referencedColumns: ["id"]
           },
@@ -833,6 +1009,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "visitas_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "client_preventive_overview"
+            referencedColumns: ["client_id"]
+          },
           {
             foreignKeyName: "visitas_cliente_id_fkey"
             columns: ["cliente_id"]
@@ -1156,6 +1339,13 @@ export type Database = {
             foreignKeyName: "work_orders_cliente_id_fkey"
             columns: ["cliente_id"]
             isOneToOne: false
+            referencedRelation: "client_preventive_overview"
+            referencedColumns: ["client_id"]
+          },
+          {
+            foreignKeyName: "work_orders_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
             referencedRelation: "clientes"
             referencedColumns: ["id"]
           },
@@ -1213,12 +1403,64 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      client_preventive_overview: {
+        Row: {
+          client_id: string | null
+          client_name: string | null
+          consultor_rplus_id: string | null
+          days_since_last: number | null
+          days_until_due: number | null
+          fazenda: string | null
+          last_preventive_date: string | null
+          preventive_frequency_days: number | null
+          preventive_status: string | null
+        }
+        Insert: {
+          client_id?: string | null
+          client_name?: string | null
+          consultor_rplus_id?: string | null
+          days_since_last?: never
+          days_until_due?: never
+          fazenda?: string | null
+          last_preventive_date?: never
+          preventive_frequency_days?: number | null
+          preventive_status?: never
+        }
+        Update: {
+          client_id?: string | null
+          client_name?: string | null
+          consultor_rplus_id?: string | null
+          days_since_last?: never
+          days_until_due?: never
+          fazenda?: string | null
+          last_preventive_date?: never
+          preventive_frequency_days?: number | null
+          preventive_status?: never
+        }
+        Relationships: [
+          {
+            foreignKeyName: "clientes_consultor_rplus_id_fkey"
+            columns: ["consultor_rplus_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       can_delete_peca: { Args: { _peca_id: string }; Returns: boolean }
       generate_warranty_batch_number: { Args: never; Returns: string }
       generate_work_order_code: { Args: never; Returns: string }
+      get_client_preventive_status: {
+        Args: { p_client_id: string; p_frequency_days: number }
+        Returns: {
+          days_since_last: number
+          days_until_due: number
+          last_preventive_date: string
+          preventive_status: string
+        }[]
+      }
       is_admin_or_coordinator: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
@@ -1238,6 +1480,13 @@ export type Database = {
         | "faturado"
         | "enviado"
         | "entregue"
+      preventive_maintenance_status: "planejada" | "concluida" | "cancelada"
+      preventive_route_item_status:
+        | "planejado"
+        | "executado"
+        | "reagendado"
+        | "cancelado"
+      preventive_route_status: "planejada" | "em_execucao" | "finalizada"
       time_entry_status: "running" | "paused" | "finished"
       work_order_status: "aguardando" | "em_manutencao" | "concluido"
     }
@@ -1385,6 +1634,14 @@ export const Constants = {
         "enviado",
         "entregue",
       ],
+      preventive_maintenance_status: ["planejada", "concluida", "cancelada"],
+      preventive_route_item_status: [
+        "planejado",
+        "executado",
+        "reagendado",
+        "cancelado",
+      ],
+      preventive_route_status: ["planejada", "em_execucao", "finalizada"],
       time_entry_status: ["running", "paused", "finished"],
       work_order_status: ["aguardando", "em_manutencao", "concluido"],
     },
