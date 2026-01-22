@@ -243,7 +243,7 @@ export function NovaOSDialog({ open, onOpenChange, onSuccess }: NovaOSDialogProp
     
     if (selectedActivity?.execution_type === 'UNIVOCA') {
       if (!selectedItemId) return false;
-      // Horímetro não é mais exigido na criação
+      if (!selectedClienteId) return false; // Cliente obrigatório para UNIVOCA
     } else {
       if (quantity < 1) return false;
     }
@@ -486,7 +486,12 @@ export function NovaOSDialog({ open, onOpenChange, onSuccess }: NovaOSDialogProp
 
         {/* Campo de Cliente */}
         <div>
-          <Label>Cliente (origem das peças)</Label>
+          <Label>
+            Cliente (origem das peças)
+            {selectedActivity?.execution_type === 'UNIVOCA' && (
+              <span className="text-destructive ml-1">*</span>
+            )}
+          </Label>
           <div className="space-y-2">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
