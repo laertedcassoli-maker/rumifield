@@ -78,6 +78,7 @@ interface WorkOrderItem {
     unique_code: string;
     meter_hours_last: number | null;
     motor_replaced_at_meter_hours: number | null;
+    current_motor_code: string | null;
     omie_product_id?: string;
   } | null;
   product_name?: string;
@@ -192,7 +193,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
         .from('work_order_items')
         .select(`
           *,
-          workshop_items:workshop_item_id (unique_code, meter_hours_last, motor_replaced_at_meter_hours, omie_product_id)
+          workshop_items:workshop_item_id (unique_code, meter_hours_last, motor_replaced_at_meter_hours, current_motor_code, omie_product_id)
         `)
         .eq('work_order_id', workOrder.id);
       if (error) throw error;
@@ -298,6 +299,21 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
         });
       })()
     : [];
+
+  // Get current motor code from the univoca item's workshop item
+  const univocaItemForMotor = workOrderItems.find(item => item.workshop_item_id);
+  const currentMotorCode = univocaItemForMotor?.workshop_items?.current_motor_code || '';
+
+  // Helper function to select a part and pre-fill motor code if applicable
+  const handleSelectPart = (peca: Peca) => {
+    setSelectedPecaId(peca.id);
+    setPartSearchQuery('');
+    
+    // If this is a motor part, pre-fill the "Motor Retirado" with current motor code
+    if (peca.nome?.toLowerCase().includes('motor') && currentMotorCode) {
+      setMotorCodeRemoved(currentMotorCode);
+    }
+  };
 
   // Timer effect - count elapsed time (simplified: only running or stopped)
   useEffect(() => {
@@ -1193,7 +1209,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
                       key={peca.id}
                       variant="outline"
                       className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors py-1.5 px-3"
-                      onClick={() => setSelectedPecaId(peca.id)}
+                      onClick={() => handleSelectPart(peca)}
                     >
                       {peca.codigo}
                     </Badge>
@@ -1226,10 +1242,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
                     <div
                       key={peca.id}
                       className="p-3 border-b last:border-b-0 cursor-pointer hover:bg-muted/50"
-                      onClick={() => {
-                        setSelectedPecaId(peca.id);
-                        setPartSearchQuery('');
-                      }}
+                      onClick={() => handleSelectPart(peca)}
                     >
                       <p className="font-medium text-sm">{peca.nome}</p>
                       <p className="text-xs text-muted-foreground font-mono">{peca.codigo}</p>
