@@ -529,9 +529,8 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
       setMotorCodeInstalled('');
       
       if (result?.isMotorPart) {
-        setIsMotorReplacement(true);
         const codeInfo = result.motorCodeInstalled ? ` (Novo: ${result.motorCodeInstalled})` : '';
-        toast.success(`Peça "${result.partName}" adicionada!${codeInfo} Troca de motor marcada.`, {
+        toast.success(`Peça "${result.partName}" adicionada!${codeInfo}`, {
           duration: 5000,
         });
       } else {
@@ -776,13 +775,6 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
   const hasMotorPart = partsUsed.some(part => 
     part.pecas?.nome?.toLowerCase().includes('motor')
   );
-
-  // Auto-detect motor parts when parts list changes
-  useEffect(() => {
-    if (hasMotorPart && !isMotorReplacement) {
-      setIsMotorReplacement(true);
-    }
-  }, [hasMotorPart]);
 
   const formatTime = (seconds: number) => {
     const hours = Math.floor(seconds / 3600);
