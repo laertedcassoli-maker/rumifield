@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -8,7 +8,6 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
@@ -106,6 +105,8 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
   const [selectedPecaId, setSelectedPecaId] = useState('');
   const [partQuantity, setPartQuantity] = useState(1);
   const [partSearchQuery, setPartSearchQuery] = useState('');
+  const [motorCodeRemoved, setMotorCodeRemoved] = useState('');
+  const [motorCodeInstalled, setMotorCodeInstalled] = useState('');
   const [meterHoursCurrent, setMeterHoursCurrent] = useState('');
   const [isMotorReplacement, setIsMotorReplacement] = useState(false);
   const [timeHistoryOpen, setTimeHistoryOpen] = useState(false);
@@ -447,32 +448,56 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
     mutationFn: async () => {
       if (!user?.id || !selectedPecaId) throw new Error('Dados obrigatórios não preenchidos');
 
+      // Check if part is a motor
+      const addedPart = pecas.find(p => p.id === selectedPecaId) || 
+                        recentPartsUsed.find(p => p.id === selectedPecaId);
+      const isMotorPart = addedPart?.nome?.toLowerCase().includes('motor');
+
+      // Validate motor codes if it's a motor part
+      if (isMotorPart) {
+        const codePattern = /^DD-\d{5}$/;
+        if (motorCodeRemoved && !codePattern.test(motorCodeRemoved)) {
+          throw new Error('Código do motor retirado deve seguir o formato DD-XXXXX (5 dígitos)');
+        }
+        if (motorCodeInstalled && !codePattern.test(motorCodeInstalled)) {
+          throw new Error('Código do motor novo deve seguir o formato DD-XXXXX (5 dígitos)');
+        }
+      }
+
+      // Insert with motor codes if applicable
+      const insertData: Record<string, unknown> = {
+        work_order_id: workOrder.id,
+        omie_product_id: selectedPecaId,
+        quantity: partQuantity,
+        added_by_user_id: user.id,
+      };
+
+      if (isMotorPart && motorCodeRemoved) {
+        insertData.motor_code_removed = motorCodeRemoved;
+      }
+      if (isMotorPart && motorCodeInstalled) {
+        insertData.motor_code_installed = motorCodeInstalled;
+      }
+
       const { error } = await supabase
         .from('work_order_parts_used')
-        .insert({
-          work_order_id: workOrder.id,
-          omie_product_id: selectedPecaId,
-          quantity: partQuantity,
-          added_by_user_id: user.id,
-        });
+        .insert(insertData as never);
       if (error) throw error;
 
-      // Check if added part contains "motor" in name - auto-mark replacement
-      const addedPart = pecas.find(p => p.id === selectedPecaId);
-      if (addedPart?.nome?.toLowerCase().includes('motor')) {
-        return { isMotorPart: true, partName: addedPart.nome };
-      }
-      return { isMotorPart: false };
+      return { isMotorPart, partName: addedPart?.nome, motorCodeInstalled };
     },
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['parts-used', workOrder.id] });
       setAddPartDialogOpen(false);
       setSelectedPecaId('');
       setPartQuantity(1);
+      setMotorCodeRemoved('');
+      setMotorCodeInstalled('');
       
       if (result?.isMotorPart) {
         setIsMotorReplacement(true);
-        toast.success(`Peça "${result.partName}" adicionada! Troca de motor marcada automaticamente.`, {
+        const codeInfo = result.motorCodeInstalled ? ` (Novo: ${result.motorCodeInstalled})` : '';
+        toast.success(`Peça "${result.partName}" adicionada!${codeInfo} Troca de motor marcada.`, {
           duration: 5000,
         });
       } else {
@@ -525,6 +550,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
           // If motor was replaced, record history BEFORE updating the milestone
           if (isMotorReplacement) {
             // Get current workshop item data to calculate motor hours used
+            // Note: using raw query since types haven't regenerated yet for new columns
             const { data: currentWorkshopItem } = await supabase
               .from('workshop_items')
               .select('motor_replaced_at_meter_hours, meter_hours_last')
@@ -537,40 +563,88 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
                                       0;
             const motorHoursUsed = meterValue - previousMilestone;
 
-            // Record motor replacement history
-            // Using 'as any' because types haven't regenerated yet
-            const { error: historyError } = await (supabase as any)
+            // Get motor codes from parts used in this OS (raw query for new columns)
+            const { data: motorParts } = await supabase
+              .from('work_order_parts_used')
+              .select('omie_product_id, notes')
+              .eq('work_order_id', workOrder.id);
+            
+            // Fetch the raw data with new columns using rpc or raw approach
+            let oldMotorCode: string | null = null;
+            let newMotorCode: string | null = null;
+            
+            if (motorParts && motorParts.length > 0) {
+              // Check each part to see if it's a motor and get codes
+              for (const part of motorParts) {
+                const { data: partInfo } = await supabase
+                  .from('pecas')
+                  .select('nome')
+                  .eq('id', part.omie_product_id)
+                  .single();
+                
+                if (partInfo?.nome?.toLowerCase().includes('motor')) {
+                  // Get codes via raw query for new columns
+                  const { data: partWithCodes } = await supabase
+                    .from('work_order_parts_used')
+                    .select('*')
+                    .eq('work_order_id', workOrder.id)
+                    .eq('omie_product_id', part.omie_product_id)
+                    .single();
+                  
+                  const rawPart = partWithCodes as unknown as { 
+                    motor_code_removed?: string; 
+                    motor_code_installed?: string 
+                  };
+                  oldMotorCode = rawPart?.motor_code_removed || null;
+                  newMotorCode = rawPart?.motor_code_installed || null;
+                  break;
+                }
+              }
+            }
+
+            // Record motor replacement history with codes
+            const historyInsert: Record<string, unknown> = {
+              workshop_item_id: univocaItem.workshop_item_id,
+              work_order_id: workOrder.id,
+              replaced_at_meter_hours: meterValue,
+              motor_hours_used: motorHoursUsed,
+              user_id: user?.id,
+              notes: `Motor substituído com ${motorHoursUsed}h de uso`,
+            };
+            if (oldMotorCode) historyInsert.old_motor_code = oldMotorCode;
+            if (newMotorCode) historyInsert.new_motor_code = newMotorCode;
+
+            const { error: historyError } = await supabase
               .from('motor_replacement_history')
-              .insert({
-                workshop_item_id: univocaItem.workshop_item_id,
-                work_order_id: workOrder.id,
-                replaced_at_meter_hours: meterValue,
-                motor_hours_used: motorHoursUsed,
-                user_id: user?.id,
-                notes: `Motor substituído com ${motorHoursUsed}h de uso`,
-              });
+              .insert(historyInsert as never);
             if (historyError) throw historyError;
+
+            // Update workshop item with new motor code if provided
+            const workshopUpdate: Record<string, unknown> = {
+              meter_hours_last: meterValue,
+              status: 'disponivel',
+              motor_replaced_at_meter_hours: meterValue,
+            };
+            if (newMotorCode) {
+              workshopUpdate.current_motor_code = newMotorCode;
+            }
+
+            const { error: workshopError } = await supabase
+              .from('workshop_items')
+              .update(workshopUpdate as never)
+              .eq('id', univocaItem.workshop_item_id);
+            if (workshopError) throw workshopError;
+          } else {
+            // No motor replacement - just update meter hours
+            const { error: workshopError } = await supabase
+              .from('workshop_items')
+              .update({
+                meter_hours_last: meterValue,
+                status: 'disponivel',
+              })
+              .eq('id', univocaItem.workshop_item_id);
+            if (workshopError) throw workshopError;
           }
-
-          const workshopUpdate: { 
-            meter_hours_last: number; 
-            status: string; 
-            motor_replaced_at_meter_hours?: number; 
-          } = {
-            meter_hours_last: meterValue,
-            status: 'disponivel',
-          };
-
-          // If motor was replaced, set the motor replacement marker
-          if (isMotorReplacement) {
-            workshopUpdate.motor_replaced_at_meter_hours = meterValue;
-          }
-
-          const { error: workshopError } = await supabase
-            .from('workshop_items')
-            .update(workshopUpdate)
-            .eq('id', univocaItem.workshop_item_id);
-          if (workshopError) throw workshopError;
 
           // Create meter reading record
           const { error: readingError } = await supabase
@@ -1041,6 +1115,8 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
           setPartSearchQuery('');
           setSelectedPecaId('');
           setPartQuantity(1);
+          setMotorCodeRemoved('');
+          setMotorCodeInstalled('');
         }
       }}>
         <DialogContent className="max-h-[90vh] flex flex-col">
@@ -1105,42 +1181,84 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
             )}
 
             {/* Selected part display */}
-            {selectedPecaId && (
-              <Card className="bg-muted/30">
-                <CardContent className="py-3 flex items-center justify-between">
-                  <div>
-                    <p className="font-medium text-sm">
-                      {pecas.find(p => p.id === selectedPecaId)?.nome || 
-                       recentPartsUsed.find(p => p.id === selectedPecaId)?.nome}
-                    </p>
-                    <p className="text-xs text-muted-foreground font-mono">
-                      {pecas.find(p => p.id === selectedPecaId)?.codigo ||
-                       recentPartsUsed.find(p => p.id === selectedPecaId)?.codigo}
-                    </p>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setSelectedPecaId('')}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </CardContent>
-              </Card>
-            )}
+            {selectedPecaId && (() => {
+              const selectedPart = pecas.find(p => p.id === selectedPecaId) || 
+                                   recentPartsUsed.find(p => p.id === selectedPecaId);
+              const isMotorPart = selectedPart?.nome?.toLowerCase().includes('motor');
+              
+              return (
+                <>
+                  <Card className={isMotorPart ? "bg-amber-50 border-amber-200 dark:bg-amber-950/30 dark:border-amber-800" : "bg-muted/30"}>
+                    <CardContent className="py-3 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        {isMotorPart && <Wrench className="h-4 w-4 text-amber-600" />}
+                        <div>
+                          <p className="font-medium text-sm">{selectedPart?.nome}</p>
+                          <p className="text-xs text-muted-foreground font-mono">{selectedPart?.codigo}</p>
+                        </div>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setSelectedPecaId('');
+                          setMotorCodeRemoved('');
+                          setMotorCodeInstalled('');
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </CardContent>
+                  </Card>
 
-            {/* Quantity */}
-            {selectedPecaId && (
-              <div>
-                <Label>Quantidade</Label>
-                <Input
-                  type="number"
-                  min={1}
-                  value={partQuantity}
-                  onChange={(e) => setPartQuantity(parseInt(e.target.value) || 1)}
-                />
-              </div>
-            )}
+                  {/* Motor codes - only show for motor parts */}
+                  {isMotorPart && (
+                    <div className="p-3 border rounded-lg bg-amber-50/50 dark:bg-amber-950/20 space-y-3">
+                      <p className="text-sm font-medium flex items-center gap-2">
+                        <Wrench className="h-4 w-4 text-amber-600" />
+                        Códigos do Motor
+                      </p>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <Label className="text-xs">Motor Retirado</Label>
+                          <Input
+                            placeholder="DD-00000"
+                            value={motorCodeRemoved}
+                            onChange={(e) => setMotorCodeRemoved(e.target.value.toUpperCase())}
+                            maxLength={8}
+                            className="font-mono"
+                          />
+                        </div>
+                        <div>
+                          <Label className="text-xs">Motor Novo</Label>
+                          <Input
+                            placeholder="DD-00000"
+                            value={motorCodeInstalled}
+                            onChange={(e) => setMotorCodeInstalled(e.target.value.toUpperCase())}
+                            maxLength={8}
+                            className="font-mono"
+                          />
+                        </div>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        Formato: DD-XXXXX (5 dígitos). Opcional, pode preencher depois.
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Quantity */}
+                  <div>
+                    <Label>Quantidade</Label>
+                    <Input
+                      type="number"
+                      min={1}
+                      value={partQuantity}
+                      onChange={(e) => setPartQuantity(parseInt(e.target.value) || 1)}
+                    />
+                  </div>
+                </>
+              );
+            })()}
           </div>
           <DialogFooter className="mt-4">
             <Button variant="outline" onClick={() => setAddPartDialogOpen(false)}>
