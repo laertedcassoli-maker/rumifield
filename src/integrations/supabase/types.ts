@@ -147,6 +147,7 @@ export type Database = {
         Row: {
           cidade: string | null
           cod_imilk: string | null
+          consultor_rplus_id: string | null
           created_at: string
           data_ativacao_rumiflow: string | null
           email: string | null
@@ -154,17 +155,24 @@ export type Database = {
           estado: string | null
           fazenda: string | null
           id: string
+          latitude: number | null
+          link_maps: string | null
+          longitude: number | null
           nome: string
           observacoes: string | null
           omie_codigo: string | null
           ordenhas_dia: number | null
+          quantidade_pistolas: number | null
           status: string
           telefone: string | null
+          tipo_painel: string | null
+          tipo_pistola_id: string | null
           updated_at: string
         }
         Insert: {
           cidade?: string | null
           cod_imilk?: string | null
+          consultor_rplus_id?: string | null
           created_at?: string
           data_ativacao_rumiflow?: string | null
           email?: string | null
@@ -172,17 +180,24 @@ export type Database = {
           estado?: string | null
           fazenda?: string | null
           id?: string
+          latitude?: number | null
+          link_maps?: string | null
+          longitude?: number | null
           nome: string
           observacoes?: string | null
           omie_codigo?: string | null
           ordenhas_dia?: number | null
+          quantidade_pistolas?: number | null
           status?: string
           telefone?: string | null
+          tipo_painel?: string | null
+          tipo_pistola_id?: string | null
           updated_at?: string
         }
         Update: {
           cidade?: string | null
           cod_imilk?: string | null
+          consultor_rplus_id?: string | null
           created_at?: string
           data_ativacao_rumiflow?: string | null
           email?: string | null
@@ -190,15 +205,36 @@ export type Database = {
           estado?: string | null
           fazenda?: string | null
           id?: string
+          latitude?: number | null
+          link_maps?: string | null
+          longitude?: number | null
           nome?: string
           observacoes?: string | null
           omie_codigo?: string | null
           ordenhas_dia?: number | null
+          quantidade_pistolas?: number | null
           status?: string
           telefone?: string | null
+          tipo_painel?: string | null
+          tipo_pistola_id?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "clientes_consultor_rplus_id_fkey"
+            columns: ["consultor_rplus_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "clientes_tipo_pistola_id_fkey"
+            columns: ["tipo_pistola_id"]
+            isOneToOne: false
+            referencedRelation: "pecas"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       configuracoes: {
         Row: {
