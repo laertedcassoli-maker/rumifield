@@ -255,8 +255,25 @@ export default function ChecklistExecution({ preventiveId, onComplete }: Checkli
 
       if (error) throw error;
 
-      // If status changed from N to something else, remove selected actions
+      // If status changed from N to something else, remove selected actions and their consumption records
       if (status && status !== 'N') {
+        // Get all exec_action_ids for this item
+        const { data: execActions } = await supabase
+          .from('preventive_checklist_item_actions')
+          .select('id')
+          .eq('exec_item_id', itemId);
+        
+        if (execActions && execActions.length > 0) {
+          const actionIds = execActions.map(a => a.id);
+          
+          // Remove associated part consumption records
+          await supabase
+            .from('preventive_part_consumption')
+            .delete()
+            .in('exec_action_id', actionIds);
+        }
+        
+        // Remove the actions themselves
         const { error: deleteError } = await supabase
           .from('preventive_checklist_item_actions')
           .delete()
@@ -287,6 +304,22 @@ export default function ChecklistExecution({ preventiveId, onComplete }: Checkli
       isSelected: boolean;
     }) => {
       if (isSelected) {
+        // Remove action - first get the exec_action_id
+        const { data: execAction } = await supabase
+          .from('preventive_checklist_item_actions')
+          .select('id')
+          .eq('exec_item_id', itemId)
+          .eq('template_action_id', actionId)
+          .single();
+        
+        if (execAction) {
+          // Remove associated part consumption records
+          await supabase
+            .from('preventive_part_consumption')
+            .delete()
+            .eq('exec_action_id', execAction.id);
+        }
+        
         // Remove action
         const { error } = await supabase
           .from('preventive_checklist_item_actions')
@@ -297,15 +330,50 @@ export default function ChecklistExecution({ preventiveId, onComplete }: Checkli
         if (error) throw error;
       } else {
         // Add action
-        const { error } = await supabase
+        const { data: newAction, error } = await supabase
           .from('preventive_checklist_item_actions')
           .insert({
             exec_item_id: itemId,
             template_action_id: actionId,
             action_label_snapshot: actionLabel
-          });
+          })
+          .select()
+          .single();
 
         if (error) throw error;
+        
+        // Get associated parts for this action
+        const { data: actionParts } = await supabase
+          .from('checklist_action_parts')
+          .select(`
+            id,
+            part_id,
+            default_quantity,
+            part:pecas(codigo, nome)
+          `)
+          .eq('action_id', actionId);
+        
+        // Create part consumption records
+        if (actionParts && actionParts.length > 0 && newAction) {
+          const consumptionRecords = actionParts.map(ap => ({
+            preventive_id: preventiveId,
+            exec_item_id: itemId,
+            exec_action_id: newAction.id,
+            part_id: ap.part_id,
+            part_code_snapshot: (ap.part as any)?.codigo || '',
+            part_name_snapshot: (ap.part as any)?.nome || '',
+            quantity: ap.default_quantity
+          }));
+          
+          const { error: consumptionError } = await supabase
+            .from('preventive_part_consumption')
+            .insert(consumptionRecords);
+          
+          if (consumptionError) {
+            console.error('Erro ao registrar consumo de peças:', consumptionError);
+            // Don't fail the whole operation, just log
+          }
+        }
       }
     },
     onSuccess: () => {
