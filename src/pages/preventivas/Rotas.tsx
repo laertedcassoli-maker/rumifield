@@ -37,6 +37,19 @@ const statusConfig = {
   finalizada: { label: 'Finalizada', color: 'bg-green-500/10 text-green-600 border-green-500/20' },
 };
 
+interface RouteWithDetails {
+  id: string;
+  route_code: string;
+  start_date: string;
+  end_date: string;
+  status: string;
+  notes: string | null;
+  field_technician_user_id: string;
+  created_at: string;
+  technician_name: string;
+  items_count: number;
+}
+
 const ITEMS_PER_PAGE = 10;
 
 export default function PreventiveRoutes() {
@@ -48,34 +61,54 @@ export default function PreventiveRoutes() {
   const isAdminOrCoordinator = role === 'admin' || role === 'coordenador_servicos';
 
   // Fetch routes
-  const { data: routes, isLoading } = useQuery({
+  const { data: routes, isLoading } = useQuery<RouteWithDetails[]>({
     queryKey: ['preventive-routes'],
     queryFn: async () => {
+      // Fetch routes with item count
       const { data, error } = await supabase
         .from('preventive_routes')
         .select(`
-          *,
-          technician:field_technician_user_id (id),
-          items:preventive_route_items (id)
+          id,
+          route_code,
+          start_date,
+          end_date,
+          status,
+          notes,
+          field_technician_user_id,
+          created_at
         `)
         .order('created_at', { ascending: false });
       
       if (error) throw error;
+      if (!data?.length) return [];
 
-      // Fetch technician profiles separately
-      const technicianIds = [...new Set(data?.map(r => r.field_technician_user_id) || [])];
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('id, nome')
-        .in('id', technicianIds);
+      // Get unique technician IDs and route IDs
+      const technicianIds = [...new Set(data.map(r => r.field_technician_user_id).filter(Boolean))];
+      const routeIds = data.map(r => r.id);
 
-      const profilesMap = new Map(profiles?.map(p => [p.id, p]) || []);
+      // Fetch profiles and item counts in parallel
+      const [profilesResult, itemsResult] = await Promise.all([
+        technicianIds.length > 0 
+          ? supabase.from('profiles').select('id, nome').in('id', technicianIds)
+          : Promise.resolve({ data: [] }),
+        supabase.from('preventive_route_items').select('route_id').in('route_id', routeIds)
+      ]);
 
-      return data?.map(route => ({
+      const profilesMap = new Map<string, string>(
+        profilesResult.data?.map(p => [p.id, p.nome] as [string, string]) || []
+      );
+      
+      // Count items per route
+      const itemCountMap = new Map<string, number>();
+      itemsResult.data?.forEach(item => {
+        itemCountMap.set(item.route_id, (itemCountMap.get(item.route_id) || 0) + 1);
+      });
+
+      return data.map(route => ({
         ...route,
-        technician_name: profilesMap.get(route.field_technician_user_id)?.nome || 'Não encontrado',
-        items_count: route.items?.length || 0,
-      })) || [];
+        technician_name: profilesMap.get(route.field_technician_user_id) || 'Não atribuído',
+        items_count: itemCountMap.get(route.id) || 0,
+      })) as RouteWithDetails[];
     },
   });
 
