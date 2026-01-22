@@ -231,20 +231,24 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
     enabled: addPartDialogOpen,
   });
 
-  // Timer effect - only count when running
+  // Timer effect - count elapsed time
   useEffect(() => {
     const currentEntry = activeTimeEntry;
-    if (!currentEntry || currentEntry.status !== 'running') {
+    
+    if (currentEntry?.status === 'running') {
+      // Timer is running - count live
+      const interval = setInterval(() => {
+        const runningTime = Math.floor((Date.now() - new Date(currentEntry.started_at).getTime()) / 1000);
+        setElapsedTime(workOrder.total_time_seconds + runningTime);
+      }, 1000);
+      return () => clearInterval(interval);
+    } else if (currentEntry?.status === 'paused' && currentEntry.duration_seconds) {
+      // Timer is paused - show total including paused session
+      setElapsedTime(workOrder.total_time_seconds + currentEntry.duration_seconds);
+    } else {
+      // No active entry - show saved total
       setElapsedTime(workOrder.total_time_seconds);
-      return;
     }
-
-    const interval = setInterval(() => {
-      const runningTime = Math.floor((Date.now() - new Date(currentEntry.started_at).getTime()) / 1000);
-      setElapsedTime(workOrder.total_time_seconds + runningTime);
-    }, 1000);
-
-    return () => clearInterval(interval);
   }, [activeTimeEntry, workOrder.total_time_seconds]);
 
   // Start timer mutation
