@@ -1,0 +1,796 @@
+import { useState } from "react";
+import { useParams, useNavigate } from "react-router-dom";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import { Badge } from "@/components/ui/badge";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { toast } from "sonner";
+import { ArrowLeft, Plus, Trash2, GripVertical, ChevronDown, ChevronRight, Save, Wrench } from "lucide-react";
+
+interface CorrectiveAction {
+  id: string;
+  action_label: string;
+  order_index: number;
+  active: boolean;
+}
+
+interface ChecklistItem {
+  id: string;
+  item_name: string;
+  order_index: number;
+  active: boolean;
+  actions: CorrectiveAction[];
+}
+
+interface ChecklistBlock {
+  id: string;
+  block_name: string;
+  order_index: number;
+  items: ChecklistItem[];
+}
+
+export default function ChecklistEditor() {
+  const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
+  const { role } = useAuth();
+  const queryClient = useQueryClient();
+
+  const [expandedBlocks, setExpandedBlocks] = useState<Set<string>>(new Set());
+  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
+  const [editingTemplate, setEditingTemplate] = useState(false);
+  const [templateName, setTemplateName] = useState("");
+  const [templateDescription, setTemplateDescription] = useState("");
+
+  // New block dialog
+  const [isAddBlockOpen, setIsAddBlockOpen] = useState(false);
+  const [newBlockName, setNewBlockName] = useState("");
+
+  // New item dialog
+  const [isAddItemOpen, setIsAddItemOpen] = useState(false);
+  const [addItemBlockId, setAddItemBlockId] = useState<string | null>(null);
+  const [newItemName, setNewItemName] = useState("");
+
+  // New action dialog
+  const [isAddActionOpen, setIsAddActionOpen] = useState(false);
+  const [addActionItemId, setAddActionItemId] = useState<string | null>(null);
+  const [newActionLabel, setNewActionLabel] = useState("");
+
+  const canManage = role === 'admin' || role === 'coordenador_servicos';
+
+  const { data: template, isLoading } = useQuery({
+    queryKey: ['checklist-template', id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('checklist_templates')
+        .select(`
+          *,
+          blocks:checklist_template_blocks(
+            id,
+            block_name,
+            order_index,
+            items:checklist_template_items(
+              id,
+              item_name,
+              order_index,
+              active,
+              actions:checklist_item_corrective_actions(
+                id,
+                action_label,
+                order_index,
+                active
+              )
+            )
+          )
+        `)
+        .eq('id', id)
+        .single();
+      
+      if (error) throw error;
+      
+      // Sort blocks and items by order_index
+      if (data.blocks) {
+        data.blocks.sort((a: ChecklistBlock, b: ChecklistBlock) => a.order_index - b.order_index);
+        data.blocks.forEach((block: ChecklistBlock) => {
+          if (block.items) {
+            block.items.sort((a: ChecklistItem, b: ChecklistItem) => a.order_index - b.order_index);
+            block.items.forEach((item: ChecklistItem) => {
+              if (item.actions) {
+                item.actions.sort((a: CorrectiveAction, b: CorrectiveAction) => a.order_index - b.order_index);
+              }
+            });
+          }
+        });
+      }
+      
+      return data;
+    },
+    enabled: !!id
+  });
+
+  // Update template mutation
+  const updateTemplateMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase
+        .from('checklist_templates')
+        .update({ 
+          name: templateName, 
+          description: templateDescription || null 
+        })
+        .eq('id', id);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['checklist-template', id] });
+      queryClient.invalidateQueries({ queryKey: ['checklist-templates'] });
+      toast.success('Template atualizado!');
+      setEditingTemplate(false);
+    },
+    onError: (error) => {
+      toast.error('Erro ao atualizar: ' + error.message);
+    }
+  });
+
+  // Add block mutation
+  const addBlockMutation = useMutation({
+    mutationFn: async () => {
+      const maxOrder = template?.blocks?.length || 0;
+      const { error } = await supabase
+        .from('checklist_template_blocks')
+        .insert({
+          template_id: id,
+          block_name: newBlockName,
+          order_index: maxOrder
+        });
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['checklist-template', id] });
+      toast.success('Bloco adicionado!');
+      setIsAddBlockOpen(false);
+      setNewBlockName("");
+    },
+    onError: (error) => {
+      toast.error('Erro ao adicionar bloco: ' + error.message);
+    }
+  });
+
+  // Delete block mutation
+  const deleteBlockMutation = useMutation({
+    mutationFn: async (blockId: string) => {
+      const { error } = await supabase
+        .from('checklist_template_blocks')
+        .delete()
+        .eq('id', blockId);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['checklist-template', id] });
+      toast.success('Bloco excluído!');
+    },
+    onError: (error) => {
+      toast.error('Erro ao excluir bloco: ' + error.message);
+    }
+  });
+
+  // Update block name mutation
+  const updateBlockMutation = useMutation({
+    mutationFn: async ({ blockId, blockName }: { blockId: string; blockName: string }) => {
+      const { error } = await supabase
+        .from('checklist_template_blocks')
+        .update({ block_name: blockName })
+        .eq('id', blockId);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['checklist-template', id] });
+    }
+  });
+
+  // Add item mutation
+  const addItemMutation = useMutation({
+    mutationFn: async () => {
+      const block = template?.blocks?.find((b: ChecklistBlock) => b.id === addItemBlockId);
+      const maxOrder = block?.items?.length || 0;
+      
+      const { error } = await supabase
+        .from('checklist_template_items')
+        .insert({
+          block_id: addItemBlockId,
+          item_name: newItemName,
+          order_index: maxOrder
+        });
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['checklist-template', id] });
+      toast.success('Item adicionado!');
+      setIsAddItemOpen(false);
+      setNewItemName("");
+      setAddItemBlockId(null);
+    },
+    onError: (error) => {
+      toast.error('Erro ao adicionar item: ' + error.message);
+    }
+  });
+
+  // Delete item mutation
+  const deleteItemMutation = useMutation({
+    mutationFn: async (itemId: string) => {
+      const { error } = await supabase
+        .from('checklist_template_items')
+        .delete()
+        .eq('id', itemId);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['checklist-template', id] });
+      toast.success('Item excluído!');
+    },
+    onError: (error) => {
+      toast.error('Erro ao excluir item: ' + error.message);
+    }
+  });
+
+  // Update item mutation
+  const updateItemMutation = useMutation({
+    mutationFn: async ({ itemId, itemName, active }: { itemId: string; itemName?: string; active?: boolean }) => {
+      const updates: any = {};
+      if (itemName !== undefined) updates.item_name = itemName;
+      if (active !== undefined) updates.active = active;
+      
+      const { error } = await supabase
+        .from('checklist_template_items')
+        .update(updates)
+        .eq('id', itemId);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['checklist-template', id] });
+    }
+  });
+
+  // Add action mutation
+  const addActionMutation = useMutation({
+    mutationFn: async () => {
+      let maxOrder = 0;
+      template?.blocks?.forEach((block: ChecklistBlock) => {
+        const item = block.items?.find((i: ChecklistItem) => i.id === addActionItemId);
+        if (item) {
+          maxOrder = item.actions?.length || 0;
+        }
+      });
+      
+      const { error } = await supabase
+        .from('checklist_item_corrective_actions')
+        .insert({
+          item_id: addActionItemId,
+          action_label: newActionLabel,
+          order_index: maxOrder
+        });
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['checklist-template', id] });
+      toast.success('Ação corretiva adicionada!');
+      setIsAddActionOpen(false);
+      setNewActionLabel("");
+      setAddActionItemId(null);
+    },
+    onError: (error) => {
+      toast.error('Erro ao adicionar ação: ' + error.message);
+    }
+  });
+
+  // Delete action mutation
+  const deleteActionMutation = useMutation({
+    mutationFn: async (actionId: string) => {
+      const { error } = await supabase
+        .from('checklist_item_corrective_actions')
+        .delete()
+        .eq('id', actionId);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['checklist-template', id] });
+      toast.success('Ação excluída!');
+    },
+    onError: (error) => {
+      toast.error('Erro ao excluir ação: ' + error.message);
+    }
+  });
+
+  // Update action mutation
+  const updateActionMutation = useMutation({
+    mutationFn: async ({ actionId, actionLabel, active }: { actionId: string; actionLabel?: string; active?: boolean }) => {
+      const updates: any = {};
+      if (actionLabel !== undefined) updates.action_label = actionLabel;
+      if (active !== undefined) updates.active = active;
+      
+      const { error } = await supabase
+        .from('checklist_item_corrective_actions')
+        .update(updates)
+        .eq('id', actionId);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['checklist-template', id] });
+    }
+  });
+
+  const toggleBlock = (blockId: string) => {
+    setExpandedBlocks(prev => {
+      const next = new Set(prev);
+      if (next.has(blockId)) {
+        next.delete(blockId);
+      } else {
+        next.add(blockId);
+      }
+      return next;
+    });
+  };
+
+  const toggleItem = (itemId: string) => {
+    setExpandedItems(prev => {
+      const next = new Set(prev);
+      if (next.has(itemId)) {
+        next.delete(itemId);
+      } else {
+        next.add(itemId);
+      }
+      return next;
+    });
+  };
+
+  const openAddItem = (blockId: string) => {
+    setAddItemBlockId(blockId);
+    setIsAddItemOpen(true);
+  };
+
+  const openAddAction = (itemId: string) => {
+    setAddActionItemId(itemId);
+    setIsAddActionOpen(true);
+  };
+
+  if (!canManage) {
+    return (
+      <div className="p-6">
+        <Card>
+          <CardContent className="p-6">
+            <p className="text-muted-foreground">
+              Você não tem permissão para acessar esta página.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (isLoading) {
+    return (
+      <div className="p-6">
+        <div className="animate-pulse space-y-4">
+          <div className="h-8 bg-muted rounded w-1/4" />
+          <div className="h-32 bg-muted rounded" />
+        </div>
+      </div>
+    );
+  }
+
+  if (!template) {
+    return (
+      <div className="p-6">
+        <Card>
+          <CardContent className="p-6">
+            <p className="text-muted-foreground">Template não encontrado.</p>
+            <Button onClick={() => navigate('/preventivas/checklists')} className="mt-4">
+              Voltar
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-6 space-y-6">
+      {/* Header */}
+      <div className="flex items-center gap-4">
+        <Button variant="ghost" size="icon" onClick={() => navigate('/preventivas/checklists')}>
+          <ArrowLeft className="h-5 w-5" />
+        </Button>
+        <div className="flex-1">
+          {editingTemplate ? (
+            <div className="flex items-end gap-4">
+              <div className="space-y-1">
+                <Label>Nome</Label>
+                <Input 
+                  value={templateName} 
+                  onChange={(e) => setTemplateName(e.target.value)}
+                  className="w-64"
+                />
+              </div>
+              <div className="space-y-1 flex-1">
+                <Label>Descrição</Label>
+                <Input 
+                  value={templateDescription} 
+                  onChange={(e) => setTemplateDescription(e.target.value)}
+                />
+              </div>
+              <Button 
+                onClick={() => updateTemplateMutation.mutate()}
+                disabled={!templateName.trim()}
+              >
+                <Save className="h-4 w-4 mr-2" />
+                Salvar
+              </Button>
+              <Button variant="ghost" onClick={() => setEditingTemplate(false)}>
+                Cancelar
+              </Button>
+            </div>
+          ) : (
+            <div 
+              className="cursor-pointer hover:bg-muted/50 p-2 rounded -m-2"
+              onClick={() => {
+                setTemplateName(template.name);
+                setTemplateDescription(template.description || "");
+                setEditingTemplate(true);
+              }}
+            >
+              <h1 className="text-2xl font-bold">{template.name}</h1>
+              {template.description && (
+                <p className="text-muted-foreground">{template.description}</p>
+              )}
+            </div>
+          )}
+        </div>
+        <Badge variant={template.active ? "default" : "secondary"}>
+          {template.active ? "Ativo" : "Inativo"}
+        </Badge>
+      </div>
+
+      {/* Add Block Button */}
+      <Dialog open={isAddBlockOpen} onOpenChange={setIsAddBlockOpen}>
+        <DialogTrigger asChild>
+          <Button variant="outline">
+            <Plus className="h-4 w-4 mr-2" />
+            Adicionar Bloco
+          </Button>
+        </DialogTrigger>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Adicionar Bloco</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Nome do Bloco *</Label>
+              <Input
+                value={newBlockName}
+                onChange={(e) => setNewBlockName(e.target.value)}
+                placeholder="Ex: Painel de controle"
+              />
+            </div>
+            <Button 
+              onClick={() => addBlockMutation.mutate()}
+              disabled={!newBlockName.trim() || addBlockMutation.isPending}
+              className="w-full"
+            >
+              Adicionar
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Item Dialog */}
+      <Dialog open={isAddItemOpen} onOpenChange={setIsAddItemOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Adicionar Item</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Nome do Item *</Label>
+              <Input
+                value={newItemName}
+                onChange={(e) => setNewItemName(e.target.value)}
+                placeholder="Ex: Placa 1"
+              />
+            </div>
+            <Button 
+              onClick={() => addItemMutation.mutate()}
+              disabled={!newItemName.trim() || addItemMutation.isPending}
+              className="w-full"
+            >
+              Adicionar
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Add Action Dialog */}
+      <Dialog open={isAddActionOpen} onOpenChange={setIsAddActionOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Adicionar Ação Corretiva</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Descrição da Ação *</Label>
+              <Input
+                value={newActionLabel}
+                onChange={(e) => setNewActionLabel(e.target.value)}
+                placeholder="Ex: Ajuste de overload"
+              />
+            </div>
+            <Button 
+              onClick={() => addActionMutation.mutate()}
+              disabled={!newActionLabel.trim() || addActionMutation.isPending}
+              className="w-full"
+            >
+              Adicionar
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Blocks */}
+      <div className="space-y-4">
+        {template.blocks?.length === 0 ? (
+          <Card>
+            <CardContent className="p-8 text-center">
+              <p className="text-muted-foreground mb-4">
+                Nenhum bloco criado ainda. Adicione blocos para organizar os itens do checklist.
+              </p>
+            </CardContent>
+          </Card>
+        ) : (
+          template.blocks?.map((block: ChecklistBlock, blockIndex: number) => (
+            <Card key={block.id}>
+              <Collapsible 
+                open={expandedBlocks.has(block.id)} 
+                onOpenChange={() => toggleBlock(block.id)}
+              >
+                <CardHeader className="pb-3">
+                  <div className="flex items-center gap-3">
+                    <CollapsibleTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-8 w-8">
+                        {expandedBlocks.has(block.id) ? (
+                          <ChevronDown className="h-4 w-4" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </CollapsibleTrigger>
+                    <GripVertical className="h-5 w-5 text-muted-foreground" />
+                    <EditableText
+                      value={block.block_name}
+                      onSave={(value) => updateBlockMutation.mutate({ blockId: block.id, blockName: value })}
+                      className="text-lg font-semibold flex-1"
+                    />
+                    <Badge variant="secondary">{block.items?.length || 0} itens</Badge>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="ghost" size="icon" className="text-destructive">
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Excluir Bloco</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Tem certeza que deseja excluir "{block.block_name}"? 
+                            Todos os itens e ações corretivas serão excluídos.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={() => deleteBlockMutation.mutate(block.id)}
+                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                          >
+                            Excluir
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
+                </CardHeader>
+                <CollapsibleContent>
+                  <CardContent className="pt-0">
+                    {/* Items */}
+                    <div className="space-y-2 mb-4">
+                      {block.items?.map((item: ChecklistItem) => (
+                        <div key={item.id} className="border rounded-lg">
+                          <Collapsible
+                            open={expandedItems.has(item.id)}
+                            onOpenChange={() => toggleItem(item.id)}
+                          >
+                            <div className="flex items-center gap-3 p-3">
+                              <CollapsibleTrigger asChild>
+                                <Button variant="ghost" size="icon" className="h-6 w-6">
+                                  {expandedItems.has(item.id) ? (
+                                    <ChevronDown className="h-3 w-3" />
+                                  ) : (
+                                    <ChevronRight className="h-3 w-3" />
+                                  )}
+                                </Button>
+                              </CollapsibleTrigger>
+                              <GripVertical className="h-4 w-4 text-muted-foreground" />
+                              <EditableText
+                                value={item.item_name}
+                                onSave={(value) => updateItemMutation.mutate({ itemId: item.id, itemName: value })}
+                                className="flex-1"
+                              />
+                              <Badge variant="outline" className="text-xs">
+                                {item.actions?.length || 0} ações
+                              </Badge>
+                              <div className="flex items-center gap-2">
+                                <span className="text-xs text-muted-foreground">Ativo</span>
+                                <Switch
+                                  checked={item.active}
+                                  onCheckedChange={(checked) => 
+                                    updateItemMutation.mutate({ itemId: item.id, active: checked })
+                                  }
+                                />
+                              </div>
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive">
+                                    <Trash2 className="h-3 w-3" />
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>Excluir Item</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      Tem certeza que deseja excluir "{item.item_name}"?
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                    <AlertDialogAction
+                                      onClick={() => deleteItemMutation.mutate(item.id)}
+                                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                                    >
+                                      Excluir
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </div>
+                            <CollapsibleContent>
+                              <div className="px-3 pb-3 pl-12 space-y-2">
+                                <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+                                  <Wrench className="h-4 w-4" />
+                                  Ações Corretivas (exibidas quando status = Falha)
+                                </div>
+                                {item.actions?.map((action: CorrectiveAction) => (
+                                  <div key={action.id} className="flex items-center gap-2 bg-muted/50 rounded p-2">
+                                    <EditableText
+                                      value={action.action_label}
+                                      onSave={(value) => updateActionMutation.mutate({ actionId: action.id, actionLabel: value })}
+                                      className="flex-1 text-sm"
+                                    />
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-xs text-muted-foreground">Ativo</span>
+                                      <Switch
+                                        checked={action.active}
+                                        onCheckedChange={(checked) => 
+                                          updateActionMutation.mutate({ actionId: action.id, active: checked })
+                                        }
+                                      />
+                                    </div>
+                                    <Button 
+                                      variant="ghost" 
+                                      size="icon" 
+                                      className="h-6 w-6 text-destructive"
+                                      onClick={() => deleteActionMutation.mutate(action.id)}
+                                    >
+                                      <Trash2 className="h-3 w-3" />
+                                    </Button>
+                                  </div>
+                                ))}
+                                <Button 
+                                  variant="ghost" 
+                                  size="sm" 
+                                  className="w-full justify-start text-muted-foreground"
+                                  onClick={() => openAddAction(item.id)}
+                                >
+                                  <Plus className="h-3 w-3 mr-2" />
+                                  Adicionar ação corretiva
+                                </Button>
+                              </div>
+                            </CollapsibleContent>
+                          </Collapsible>
+                        </div>
+                      ))}
+                    </div>
+                    <Button 
+                      variant="ghost" 
+                      size="sm" 
+                      className="w-full justify-start text-muted-foreground"
+                      onClick={() => openAddItem(block.id)}
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Adicionar item de verificação
+                    </Button>
+                  </CardContent>
+                </CollapsibleContent>
+              </Collapsible>
+            </Card>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Editable text component
+function EditableText({ 
+  value, 
+  onSave, 
+  className 
+}: { 
+  value: string; 
+  onSave: (value: string) => void; 
+  className?: string;
+}) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editValue, setEditValue] = useState(value);
+
+  const handleSave = () => {
+    if (editValue.trim() && editValue !== value) {
+      onSave(editValue.trim());
+    }
+    setIsEditing(false);
+  };
+
+  if (isEditing) {
+    return (
+      <Input
+        value={editValue}
+        onChange={(e) => setEditValue(e.target.value)}
+        onBlur={handleSave}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') handleSave();
+          if (e.key === 'Escape') {
+            setEditValue(value);
+            setIsEditing(false);
+          }
+        }}
+        autoFocus
+        className={className}
+      />
+    );
+  }
+
+  return (
+    <span 
+      className={`cursor-pointer hover:bg-muted/50 px-2 py-1 rounded ${className}`}
+      onClick={() => {
+        setEditValue(value);
+        setIsEditing(true);
+      }}
+    >
+      {value}
+    </span>
+  );
+}
