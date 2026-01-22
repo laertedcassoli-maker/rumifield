@@ -938,6 +938,7 @@ export type Database = {
           id: string
           meter_hours_last: number | null
           meter_hours_updated_at: string | null
+          motor_replaced_at_meter_hours: number | null
           notes: string | null
           omie_product_id: string
           status: string | null
@@ -949,6 +950,7 @@ export type Database = {
           id?: string
           meter_hours_last?: number | null
           meter_hours_updated_at?: string | null
+          motor_replaced_at_meter_hours?: number | null
           notes?: string | null
           omie_product_id: string
           status?: string | null
@@ -960,6 +962,7 @@ export type Database = {
           id?: string
           meter_hours_last?: number | null
           meter_hours_updated_at?: string | null
+          motor_replaced_at_meter_hours?: number | null
           notes?: string | null
           omie_product_id?: string
           status?: string | null

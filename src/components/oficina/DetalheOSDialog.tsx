@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import { Play, Pause, Square, Plus, Trash2, Clock, Package, CheckCircle } from 'lucide-react';
+import { Play, Pause, Square, Plus, Trash2, Clock, Package, CheckCircle, Wrench } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -65,6 +65,7 @@ interface WorkOrderItem {
   workshop_items?: {
     unique_code: string;
     meter_hours_last: number | null;
+    motor_replaced_at_meter_hours: number | null;
     omie_product_id?: string;
   } | null;
   product_name?: string;
@@ -91,6 +92,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
   const [selectedPecaId, setSelectedPecaId] = useState('');
   const [partQuantity, setPartQuantity] = useState(1);
   const [meterHoursExit, setMeterHoursExit] = useState('');
+  const [isMotorReplacement, setIsMotorReplacement] = useState(false);
 
   // Fetch active time entry for this user on this OS
   const { data: activeTimeEntry } = useQuery({
@@ -137,7 +139,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
         .from('work_order_items')
         .select(`
           *,
-          workshop_items:workshop_item_id (unique_code, meter_hours_last, omie_product_id)
+          workshop_items:workshop_item_id (unique_code, meter_hours_last, motor_replaced_at_meter_hours, omie_product_id)
         `)
         .eq('work_order_id', workOrder.id);
       if (error) throw error;
@@ -356,12 +358,23 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
 
         // Update workshop item meter hours
         if (univocaItem.workshop_item_id) {
+          const workshopUpdate: { 
+            meter_hours_last: number; 
+            status: string; 
+            motor_replaced_at_meter_hours?: number; 
+          } = {
+            meter_hours_last: exitValue,
+            status: 'disponivel',
+          };
+
+          // If motor was replaced, set the motor replacement marker
+          if (isMotorReplacement) {
+            workshopUpdate.motor_replaced_at_meter_hours = exitValue;
+          }
+
           const { error: workshopError } = await supabase
             .from('workshop_items')
-            .update({ 
-              meter_hours_last: exitValue,
-              status: 'disponivel',
-            })
+            .update(workshopUpdate)
             .eq('id', univocaItem.workshop_item_id);
           if (workshopError) throw workshopError;
 
@@ -373,6 +386,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
               work_order_id: workOrder.id,
               reading_value: exitValue,
               user_id: user?.id,
+              notes: isMotorReplacement ? 'Troca de motor realizada' : null,
             });
           if (readingError) throw readingError;
         }
@@ -503,6 +517,18 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
                       Horímetro entrada: {univocaItem.meter_hours_entry}h
                     </p>
                   )}
+                  {/* Motor hours since last replacement */}
+                  {univocaItem.workshop_items?.motor_replaced_at_meter_hours !== null && 
+                   univocaItem.workshop_items?.motor_replaced_at_meter_hours !== undefined && (
+                    <div className="mt-2 p-2 bg-amber-50 dark:bg-amber-950/30 rounded border border-amber-200 dark:border-amber-800">
+                      <p className="text-xs font-medium text-amber-800 dark:text-amber-200">
+                        🔧 Motor: {((univocaItem.workshop_items?.meter_hours_last || 0) - univocaItem.workshop_items.motor_replaced_at_meter_hours).toFixed(1)}h desde última troca
+                      </p>
+                      <p className="text-xs text-amber-600 dark:text-amber-400">
+                        Trocado em: {univocaItem.workshop_items.motor_replaced_at_meter_hours}h
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
             )}
@@ -559,19 +585,51 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
             {workOrder.status !== 'concluido' && (
               <div className="space-y-4">
                 {requiresMeterHoursExit && (
-                  <div>
-                    <Label>Horímetro na Saída (horas)</Label>
-                    <Input
-                      type="number"
-                      min={0}
-                      step="0.1"
-                      value={meterHoursExit}
-                      onChange={(e) => setMeterHoursExit(e.target.value)}
-                      placeholder={univocaItem?.workshop_items?.meter_hours_last 
-                        ? `Último: ${univocaItem.workshop_items.meter_hours_last}h` 
-                        : '0'}
-                    />
-                  </div>
+                  <>
+                    <div>
+                      <Label>Horímetro na Saída (horas)</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        step="0.1"
+                        value={meterHoursExit}
+                        onChange={(e) => setMeterHoursExit(e.target.value)}
+                        placeholder={univocaItem?.workshop_items?.meter_hours_last 
+                          ? `Último: ${univocaItem.workshop_items.meter_hours_last}h` 
+                          : '0'}
+                      />
+                    </div>
+                    {/* Motor replacement checkbox */}
+                    <div 
+                      className={`p-3 border rounded-lg cursor-pointer transition-colors ${
+                        isMotorReplacement 
+                          ? 'bg-amber-50 dark:bg-amber-950/30 border-amber-300 dark:border-amber-700' 
+                          : 'hover:bg-muted/50'
+                      }`}
+                      onClick={() => setIsMotorReplacement(!isMotorReplacement)}
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className={`p-2 rounded-full ${isMotorReplacement ? 'bg-amber-200 dark:bg-amber-800' : 'bg-muted'}`}>
+                          <Wrench className={`h-4 w-4 ${isMotorReplacement ? 'text-amber-700 dark:text-amber-300' : 'text-muted-foreground'}`} />
+                        </div>
+                        <div className="flex-1">
+                          <p className={`text-sm font-medium ${isMotorReplacement ? 'text-amber-800 dark:text-amber-200' : ''}`}>
+                            Troca de Motor
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            Marque se o motor foi substituído nesta manutenção
+                          </p>
+                        </div>
+                        <div className={`w-5 h-5 rounded border-2 flex items-center justify-center ${
+                          isMotorReplacement 
+                            ? 'bg-amber-500 border-amber-500' 
+                            : 'border-muted-foreground'
+                        }`}>
+                          {isMotorReplacement && <CheckCircle className="h-4 w-4 text-white" />}
+                        </div>
+                      </div>
+                    </div>
+                  </>
                 )}
                 <Button
                   className="w-full"
