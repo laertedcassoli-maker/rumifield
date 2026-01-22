@@ -25,9 +25,10 @@ interface MotorReplacementHistory {
 interface MotorSectionProps {
   workshopItemId: string;
   isAdmin: boolean;
+  currentMeterValue?: number;
 }
 
-export function MotorSection({ workshopItemId, isAdmin }: MotorSectionProps) {
+export function MotorSection({ workshopItemId, isAdmin, currentMeterValue }: MotorSectionProps) {
   const queryClient = useQueryClient();
   const [historyOpen, setHistoryOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -110,7 +111,9 @@ export function MotorSection({ workshopItemId, isAdmin }: MotorSectionProps) {
   const currentMotorCode = (workshopItem as { current_motor_code?: string | null } | undefined)?.current_motor_code;
   const meterHoursLast = workshopItem?.meter_hours_last ?? 0;
   const motorReplacedAt = workshopItem?.motor_replaced_at_meter_hours ?? 0;
-  const motorHours = Math.max(0, meterHoursLast - motorReplacedAt);
+  // Use currentMeterValue if provided (live input), otherwise use last saved value
+  const effectiveMeter = currentMeterValue ?? meterHoursLast;
+  const motorHours = Math.max(0, effectiveMeter - motorReplacedAt);
   const warrantyLimit = warrantyHoursConfig ?? 400;
   const isWithinWarranty = motorHours < warrantyLimit;
 

@@ -898,35 +898,35 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
               </div>
             )}
 
-            {/* Horímetro Card - after Item section */}
+            {/* Horímetro Card - compact version */}
             {requiresMeterHours && univocaItem && (
               <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm flex items-center gap-2">
-                    <Clock className="h-4 w-4" />
-                    Horímetro
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
+                <CardContent className="p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Clock className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm font-semibold">Horímetro</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
                     {/* Previous reading - left side */}
-                    <div className="p-3 bg-muted/50 rounded-lg">
-                      <p className="text-xs text-muted-foreground mb-1">Última Leitura</p>
-                      {univocaItem.workshop_items?.meter_hours_updated_at && (
-                        <p className="text-xs text-muted-foreground">
-                          {format(new Date(univocaItem.workshop_items.meter_hours_updated_at), "dd/MM/yyyy", { locale: ptBR })}
-                        </p>
-                      )}
-                      <p className="font-mono font-semibold text-lg">
+                    <div className="p-2 bg-muted/50 rounded-lg">
+                      <p className="text-xs text-muted-foreground">Última Leitura</p>
+                      <p className="font-mono font-semibold">
                         {univocaItem.workshop_items?.meter_hours_last != null 
                           ? `${univocaItem.workshop_items.meter_hours_last}h` 
                           : '-'}
                       </p>
+                      {univocaItem.workshop_items?.meter_hours_updated_at && (
+                        <p className="text-xs text-muted-foreground">
+                          {format(new Date(univocaItem.workshop_items.meter_hours_updated_at), "dd/MM/yy", { locale: ptBR })}
+                        </p>
+                      )}
                     </div>
                     
-                    {/* Current reading - right side */}
-                    <div className="p-3 border rounded-lg">
-                      <Label className="text-xs">Horímetro Atual</Label>
+                    {/* Current reading - right side with highlight */}
+                    <div className="p-2 border-2 border-primary/50 bg-primary/5 rounded-lg">
+                      <Label className="text-xs font-medium">
+                        Horímetro Atual <span className="text-destructive">*</span>
+                      </Label>
                       {workOrder.status !== 'concluido' ? (
                         <Input
                           type="number"
@@ -934,11 +934,12 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
                           step="0.1"
                           value={meterHoursCurrent}
                           onChange={(e) => setMeterHoursCurrent(e.target.value)}
-                          placeholder={`${univocaItem.workshop_items?.meter_hours_last ?? 0}h`}
-                          className="font-mono mt-1"
+                          placeholder={`${univocaItem.workshop_items?.meter_hours_last ?? 0}`}
+                          className="font-mono mt-1 h-9 border-primary/30 focus:border-primary"
+                          required
                         />
                       ) : (
-                        <p className="font-mono font-semibold text-lg mt-1">
+                        <p className="font-mono font-semibold mt-1">
                           {univocaItem.meter_hours_exit != null 
                             ? `${univocaItem.meter_hours_exit}h` 
                             : '-'}
@@ -987,7 +988,8 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
             {univocaItem?.workshop_item_id && (
               <MotorSection 
                 workshopItemId={univocaItem.workshop_item_id} 
-                isAdmin={isAdmin} 
+                isAdmin={isAdmin}
+                currentMeterValue={meterHoursCurrent ? parseFloat(meterHoursCurrent) : undefined}
               />
             )}
 
