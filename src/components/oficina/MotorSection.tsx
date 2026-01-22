@@ -167,16 +167,6 @@ export function MotorSection({
           )}
         </p>
         <div className="flex items-center gap-2">
-          <Badge 
-            variant={isWithinWarranty ? "default" : "secondary"}
-            className={isWithinWarranty 
-              ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 hover:bg-green-100" 
-              : "bg-muted text-muted-foreground"
-            }
-          >
-            <Shield className="h-3 w-3 mr-1" />
-            {isWithinWarranty ? 'Em Garantia' : 'Fora da Garantia'}
-          </Badge>
           {isAdmin && !isCompleted && (
             <Button
               variant="ghost"
@@ -193,7 +183,7 @@ export function MotorSection({
         </div>
       </div>
 
-      {/* Motor info */}
+      {/* Motor info with warranty badge inline */}
       <div className="grid grid-cols-2 gap-3 text-sm">
         <div>
           <span className="text-muted-foreground">{displayLabel}:</span>
@@ -201,9 +191,21 @@ export function MotorSection({
             {displayMotorCode || <span className="text-muted-foreground italic">Não informado</span>}
           </p>
         </div>
-        <div>
-          <span className="text-muted-foreground">Horas Motor:</span>
-          <p className="font-mono font-medium">{displayMotorHours.toFixed(0)}h</p>
+        <div className="flex items-center gap-2">
+          <div>
+            <span className="text-muted-foreground">Horas Motor:</span>
+            <p className="font-mono font-medium">{displayMotorHours.toFixed(0)}h</p>
+          </div>
+          <Badge 
+            variant={isWithinWarranty ? "default" : "secondary"}
+            className={`text-xs ${isWithinWarranty 
+              ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 hover:bg-green-100" 
+              : "bg-muted text-muted-foreground"
+            }`}
+          >
+            <Shield className="h-3 w-3 mr-1" />
+            {isWithinWarranty ? 'Garantia' : 'S/ Garantia'}
+          </Badge>
         </div>
       </div>
 
@@ -240,20 +242,27 @@ export function MotorSection({
                     key={entry.id}
                     className="p-2 border rounded bg-background flex items-center justify-between"
                   >
+                    <span className="font-mono text-sm">
+                      {entry.old_motor_code || '(sem cód)'}
+                    </span>
                     <div className="flex items-center gap-2">
-                      <span className="font-mono text-sm">
-                        {entry.old_motor_code || '(sem cód)'}
-                      </span>
-                      {entryWithinWarranty && (
-                        <Shield className="h-3 w-3 text-green-600" />
-                      )}
+                      <Badge 
+                        variant="secondary" 
+                        className="font-mono text-xs"
+                      >
+                        {entry.motor_hours_used.toFixed(0)}h
+                      </Badge>
+                      <Badge 
+                        variant={entryWithinWarranty ? "default" : "secondary"}
+                        className={`text-xs ${entryWithinWarranty 
+                          ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300" 
+                          : "bg-muted text-muted-foreground"
+                        }`}
+                      >
+                        <Shield className="h-3 w-3 mr-1" />
+                        {entryWithinWarranty ? 'Garantia' : 'S/ Garantia'}
+                      </Badge>
                     </div>
-                    <Badge 
-                      variant="secondary" 
-                      className={`font-mono text-xs ${entryWithinWarranty ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' : ''}`}
-                    >
-                      {entry.motor_hours_used.toFixed(0)}h
-                    </Badge>
                   </div>
                 );
               })}
