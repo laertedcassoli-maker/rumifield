@@ -469,10 +469,13 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
+            <DialogTitle className="flex items-center gap-2 flex-wrap">
               <span className="font-mono">{workOrder.code}</span>
               <Badge variant={workOrder.status === 'concluido' ? 'default' : 'secondary'}>
                 {statusLabels[workOrder.status]}
+              </Badge>
+              <Badge variant="outline">
+                {workOrder.activities?.execution_type}
               </Badge>
             </DialogTitle>
           </DialogHeader>
@@ -482,9 +485,6 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
             <div>
               <p className="text-sm text-muted-foreground">Atividade</p>
               <p className="font-medium">{workOrder.activities?.name}</p>
-              <Badge variant="outline" className="mt-1">
-                {workOrder.activities?.execution_type}
-              </Badge>
             </div>
 
             {/* Timer Section */}
