@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, lazy, Suspense } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -43,6 +43,9 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 
+// Lazy load map component to avoid SSR issues with Leaflet
+const FarmMap = lazy(() => import('@/components/preventivas/FarmMap'));
+
 const statusConfig = {
   sem_historico: { label: 'Sem Histórico', color: 'bg-muted text-muted-foreground', icon: HelpCircle, priority: 0 },
   atrasada: { label: 'Atrasada', color: 'bg-destructive/10 text-destructive border-destructive/20', icon: AlertTriangle, priority: 1 },
@@ -62,6 +65,9 @@ interface ClientPreventive {
   days_until_due: number | null;
   preventive_status: string;
   suggested_reason?: string;
+  latitude: number | null;
+  longitude: number | null;
+  link_maps: string | null;
 }
 
 type SortField = 'client_name' | 'estado' | 'consultor_name' | 'preventive_status' | 'days_until_due';
@@ -91,6 +97,7 @@ export default function NovaRota() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [sortField, setSortField] = useState<SortField>('preventive_status');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
+  const [highlightedClientId, setHighlightedClientId] = useState<string | null>(null);
 
   const isAdminOrCoordinator = role === 'admin' || role === 'coordenador_servicos';
 
@@ -156,13 +163,24 @@ export default function NovaRota() {
       const [clientsResult, preventivesResult, consultorsResult] = await Promise.all([
         supabase
           .from('clientes')
-          .select('id, nome, fazenda, estado, consultor_rplus_id, preventive_frequency_days, status')
+          .select('id, nome, fazenda, estado, consultor_rplus_id, preventive_frequency_days, status, latitude, longitude, link_maps')
           .eq('status', 'ativo')
-          .order('nome'),
+          .order('nome') as unknown as Promise<{ data: Array<{
+            id: string;
+            nome: string;
+            fazenda: string | null;
+            estado: string | null;
+            consultor_rplus_id: string | null;
+            preventive_frequency_days: number | null;
+            status: string;
+            latitude: number | null;
+            longitude: number | null;
+            link_maps: string | null;
+          }> | null; error: any }>,
         supabase
-          .from('preventive_maintenance')
+          .from('preventive_maintenance' as any)
           .select('client_id, completed_date')
-          .eq('status', 'concluida'),
+          .eq('status', 'concluida') as unknown as Promise<{ data: Array<{ client_id: string; completed_date: string | null }> | null; error: any }>,
         supabase
           .from('profiles')
           .select('id, nome')
@@ -224,6 +242,9 @@ export default function NovaRota() {
           days_until_due: daysUntilDue,
           preventive_status: status,
           suggested_reason: suggestedReason,
+          latitude: client.latitude ? Number(client.latitude) : null,
+          longitude: client.longitude ? Number(client.longitude) : null,
+          link_maps: client.link_maps,
         } as ClientPreventive;
       });
     },
@@ -684,9 +705,15 @@ export default function NovaRota() {
                     {filteredAndSortedClients.map((client) => (
                       <TableRow 
                         key={client.client_id}
-                        className={selectedClients.has(client.client_id) ? 'bg-primary/5' : ''}
+                        data-client-id={client.client_id}
+                        className={cn(
+                          selectedClients.has(client.client_id) && 'bg-primary/5',
+                          highlightedClientId === client.client_id && 'ring-2 ring-primary',
+                          'cursor-pointer hover:bg-muted/50'
+                        )}
+                        onClick={() => setHighlightedClientId(client.client_id)}
                       >
-                        <TableCell>
+                        <TableCell onClick={(e) => e.stopPropagation()}>
                           <Checkbox
                             checked={selectedClients.has(client.client_id)}
                             onCheckedChange={() => handleToggleClient(client.client_id)}
@@ -734,6 +761,28 @@ export default function NovaRota() {
             )}
           </CardContent>
         </Card>
+
+        {/* Farm Map */}
+        {!isLoading && filteredAndSortedClients.length > 0 && (
+          <Suspense fallback={
+            <Card>
+              <CardContent className="h-[400px] flex items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              </CardContent>
+            </Card>
+          }>
+            <FarmMap 
+              clients={filteredAndSortedClients}
+              highlightedClientId={highlightedClientId}
+              onClientClick={(clientId) => {
+                setHighlightedClientId(clientId);
+                // Scroll to the table row
+                const row = document.querySelector(`[data-client-id="${clientId}"]`);
+                row?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              }}
+            />
+          </Suspense>
+        )}
 
         {/* Submit */}
         <div className="flex justify-end gap-4">
