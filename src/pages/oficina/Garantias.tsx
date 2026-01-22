@@ -55,7 +55,7 @@ export default function Garantias() {
   const { user, role } = useAuth();
   const isAdmin = role === 'admin' || role === 'coordenador_servicos';
   const queryClient = useQueryClient();
-  const [activeTab, setActiveTab] = useState<string>('pending');
+  const [activeTab, setActiveTab] = useState<string>('warranty');
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [selectedBatch, setSelectedBatch] = useState<WarrantyBatch | null>(null);
@@ -76,9 +76,9 @@ export default function Garantias() {
     },
   });
 
-  // Fetch motors pending warranty (not in any batch)
-  const { data: pendingMotors = [], isLoading: loadingPending } = useQuery({
-    queryKey: ['pending-warranty-motors'],
+  // Fetch ALL motors within warranty (with or without batch)
+  const { data: warrantyMotors = [], isLoading: loadingWarranty } = useQuery({
+    queryKey: ['warranty-motors'],
     queryFn: async () => {
       const warrantyLimit = warrantyHoursConfig || 400;
       const { data, error } = await supabase
@@ -87,16 +87,19 @@ export default function Garantias() {
           *,
           workshop_items:workshop_item_id (unique_code),
           work_orders:work_order_id (code),
-          profiles:user_id (nome)
+          profiles:user_id (nome),
+          warranty_batches:warranty_batch_id (batch_number, status)
         `)
-        .is('warranty_batch_id', null)
         .lte('motor_hours_used', warrantyLimit)
         .order('replaced_at', { ascending: false });
       if (error) throw error;
-      return data as unknown as MotorReplacement[];
+      return data as unknown as (MotorReplacement & { warranty_batches?: { batch_number: string; status: string } | null })[];
     },
     enabled: warrantyHoursConfig !== undefined,
   });
+
+  // Separate pending motors for the "Nova Requisição" logic
+  const pendingMotors = warrantyMotors.filter(m => !m.warranty_batch_id);
 
   // Fetch warranty batches
   const { data: batches = [], isLoading: loadingBatches } = useQuery({
@@ -169,7 +172,7 @@ export default function Garantias() {
     },
     onSuccess: (newBatch) => {
       queryClient.invalidateQueries({ queryKey: ['warranty-batches'] });
-      queryClient.invalidateQueries({ queryKey: ['pending-warranty-motors'] });
+      queryClient.invalidateQueries({ queryKey: ['warranty-motors'] });
       // Invalidate motor-history to update MotorSection in OS details
       queryClient.invalidateQueries({ queryKey: ['motor-history'] });
       setCreateDialogOpen(false);
@@ -373,9 +376,9 @@ export default function Garantias() {
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid w-full grid-cols-3 mb-4">
-          <TabsTrigger value="pending" className="gap-2">
-            <Wrench className="h-4 w-4" />
-            Pendentes ({pendingMotors.length})
+          <TabsTrigger value="warranty" className="gap-2">
+            <Shield className="h-4 w-4" />
+            Ativos em Garantia ({warrantyMotors.length})
           </TabsTrigger>
           <TabsTrigger value="open" className="gap-2">
             <Clock className="h-4 w-4" />
@@ -387,63 +390,90 @@ export default function Garantias() {
           </TabsTrigger>
         </TabsList>
 
-        {/* Pending Motors Tab */}
-        <TabsContent value="pending">
-          {loadingPending ? (
+        {/* Warranty Motors Tab - Table View */}
+        <TabsContent value="warranty">
+          {loadingWarranty ? (
             <p className="text-center py-8 text-muted-foreground">Carregando...</p>
-          ) : pendingMotors.length === 0 ? (
+          ) : warrantyMotors.length === 0 ? (
             <Card>
               <CardContent className="py-8 text-center text-muted-foreground">
-                Nenhum motor pendente de requisição de garantia
+                Nenhum motor em garantia
               </CardContent>
             </Card>
           ) : (
             <div className="space-y-4">
-              <Card className="bg-muted/30">
-                <CardContent className="py-4">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="font-medium">{pendingMotors.length} motores pendentes</p>
-                      <p className="text-sm text-muted-foreground">
-                        Crie uma requisição para incluir todos
-                      </p>
-                    </div>
-                    <Button onClick={() => setCreateDialogOpen(true)} disabled={pendingMotors.length === 0}>
-                      <Plus className="h-4 w-4 mr-2" />
-                      Nova Requisição
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-
-              <div className="space-y-2">
-                {pendingMotors.map(motor => (
-                  <Card key={motor.id}>
-                    <CardContent className="p-3">
-                      <div className="flex items-center justify-between">
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-2">
-                            <span className="font-mono font-medium">{motor.old_motor_code || '(sem código)'}</span>
-                            <Badge variant="secondary" className="text-xs">
-                              {motor.motor_hours_used.toFixed(0)}h
-                            </Badge>
-                          </div>
-                          <p className="text-xs text-muted-foreground">
-                            Troca: {format(new Date(motor.replaced_at), "dd/MM/yyyy", { locale: ptBR })}
-                            {motor.workshop_items?.unique_code && ` • Ativo: ${motor.workshop_items.unique_code}`}
-                          </p>
-                          {motor.profiles?.nome && (
-                            <p className="text-xs text-muted-foreground flex items-center gap-1">
-                              <User className="h-3 w-3" />
-                              {motor.profiles.nome}
-                            </p>
-                          )}
-                        </div>
+              {/* Action bar for pending motors */}
+              {pendingMotors.length > 0 && (
+                <Card className="bg-muted/30">
+                  <CardContent className="py-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-medium text-sm">{pendingMotors.length} motores sem requisição</p>
+                        <p className="text-xs text-muted-foreground">
+                          Crie uma requisição para incluir todos os pendentes
+                        </p>
                       </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
+                      <Button size="sm" onClick={() => setCreateDialogOpen(true)}>
+                        <Plus className="h-4 w-4 mr-2" />
+                        Nova Requisição
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+
+              {/* Motors table */}
+              <Card>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Código Motor</TableHead>
+                      <TableHead>Ativo</TableHead>
+                      <TableHead>Data Troca</TableHead>
+                      <TableHead className="text-right">Horas Uso</TableHead>
+                      <TableHead>Técnico</TableHead>
+                      <TableHead>Requisição</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {warrantyMotors.map(motor => (
+                      <TableRow key={motor.id}>
+                        <TableCell className="font-mono font-medium">
+                          {motor.old_motor_code || '(sem cód)'}
+                        </TableCell>
+                        <TableCell className="font-mono text-muted-foreground">
+                          {motor.workshop_items?.unique_code || '-'}
+                        </TableCell>
+                        <TableCell>
+                          {format(new Date(motor.replaced_at), "dd/MM/yyyy", { locale: ptBR })}
+                        </TableCell>
+                        <TableCell className="text-right font-mono">
+                          {motor.motor_hours_used.toFixed(0)}h
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {motor.profiles?.nome || '-'}
+                        </TableCell>
+                        <TableCell>
+                          {motor.warranty_batches ? (
+                            <Badge 
+                              variant="outline" 
+                              className={`font-mono text-xs ${
+                                motor.warranty_batches.status === 'finalizada' 
+                                  ? 'border-green-300 text-green-700 dark:border-green-700 dark:text-green-400' 
+                                  : ''
+                              }`}
+                            >
+                              {motor.warranty_batches.batch_number}
+                            </Badge>
+                          ) : (
+                            <span className="text-xs text-amber-600 dark:text-amber-400">Pendente</span>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </Card>
             </div>
           )}
         </TabsContent>
