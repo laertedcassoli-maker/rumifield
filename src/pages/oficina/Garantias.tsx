@@ -170,6 +170,8 @@ export default function Garantias() {
     onSuccess: (newBatch) => {
       queryClient.invalidateQueries({ queryKey: ['warranty-batches'] });
       queryClient.invalidateQueries({ queryKey: ['pending-warranty-motors'] });
+      // Invalidate motor-history to update MotorSection in OS details
+      queryClient.invalidateQueries({ queryKey: ['motor-history'] });
       setCreateDialogOpen(false);
       setBatchNotes('');
       toast.success(`Requisição ${newBatch.batch_number} criada com ${pendingMotors.length} motores!`);
