@@ -105,6 +105,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
   const [addPartDialogOpen, setAddPartDialogOpen] = useState(false);
   const [selectedPecaId, setSelectedPecaId] = useState('');
   const [partQuantity, setPartQuantity] = useState(1);
+  const [meterHoursEntry, setMeterHoursEntry] = useState('');
   const [meterHoursExit, setMeterHoursExit] = useState('');
   const [isMotorReplacement, setIsMotorReplacement] = useState(false);
   const [timeHistoryOpen, setTimeHistoryOpen] = useState(false);
@@ -223,6 +224,20 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
     enabled: open,
   });
 
+  // Fetch activity_products to check if requires_meter_hours
+  const { data: activityProducts = [] } = useQuery({
+    queryKey: ['activity-products', workOrder.activity_id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('activity_products')
+        .select('requires_meter_hours, omie_product_id')
+        .eq('activity_id', workOrder.activity_id);
+      if (error) throw error;
+      return data;
+    },
+    enabled: open,
+  });
+
   // Fetch pecas for adding parts
   const { data: pecas = [] } = useQuery({
     queryKey: ['pecas-for-parts'],
@@ -260,7 +275,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
 
   // Start timer mutation
   const startTimerMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (entryMeterHours?: number) => {
       if (!user?.id) throw new Error('Usuário não autenticado');
 
       // Check for existing running timer for this user
@@ -287,6 +302,31 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
         if (updateError) throw updateError;
       }
 
+      // If meter hours entry provided, save it to work_order_items
+      if (entryMeterHours != null) {
+        const univocaItem = workOrderItems.find(item => item.workshop_item_id);
+        if (univocaItem) {
+          // Update work_order_item with entry meter hours
+          const { error: itemError } = await supabase
+            .from('work_order_items')
+            .update({ meter_hours_entry: entryMeterHours })
+            .eq('id', univocaItem.id);
+          if (itemError) throw itemError;
+
+          // Also save to asset_meter_readings for audit
+          const { error: readingError } = await supabase
+            .from('asset_meter_readings')
+            .insert({
+              workshop_item_id: univocaItem.workshop_item_id!,
+              work_order_id: workOrder.id,
+              reading_value: entryMeterHours,
+              user_id: user.id,
+              notes: 'Horímetro de entrada',
+            });
+          if (readingError) throw readingError;
+        }
+      }
+
       // Create time entry
       const { error } = await supabase
         .from('work_order_time_entries')
@@ -300,6 +340,8 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['active-time-entry', workOrder.id, user?.id] });
       queryClient.invalidateQueries({ queryKey: ['work-orders'] });
+      queryClient.invalidateQueries({ queryKey: ['work-order-items', workOrder.id] });
+      setMeterHoursEntry('');
       onUpdate();
       toast.success('Cronômetro iniciado!');
     },
@@ -630,6 +672,18 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
 
   const univocaItem = workOrderItems.find(item => item.workshop_item_id);
   const requiresMeterHoursExit = workOrder.activities?.execution_type === 'UNIVOCA' && univocaItem;
+  
+  // Check if this activity requires meter hours entry
+  const requiresMeterHoursEntry = (() => {
+    if (workOrder.activities?.execution_type !== 'UNIVOCA' || !univocaItem) return false;
+    // Check if any activity_product requires meter hours
+    const workshopProductId = univocaItem.workshop_items?.omie_product_id;
+    if (!workshopProductId) return activityProducts.some(ap => ap.requires_meter_hours);
+    return activityProducts.some(ap => ap.omie_product_id === workshopProductId && ap.requires_meter_hours);
+  })();
+  
+  // Check if entry meter hours already registered
+  const entryMeterHoursRegistered = univocaItem?.meter_hours_entry != null;
 
   return (
     <>
@@ -662,20 +716,52 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
                   Tempo Total
                 </CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="font-mono text-3xl">{formatTime(elapsedTime)}</span>
                   {workOrder.status !== 'concluido' && (
                     <div className="flex gap-2">
                       {!activeTimeEntry ? (
-                        <Button
-                          size="sm"
-                          onClick={() => startTimerMutation.mutate()}
-                          disabled={startTimerMutation.isPending}
-                        >
-                          <Play className="h-4 w-4 mr-1" />
-                          Iniciar
-                        </Button>
+                        <>
+                          {/* Show meter hours input if required and not yet registered */}
+                          {requiresMeterHoursEntry && !entryMeterHoursRegistered ? (
+                            <div className="flex items-center gap-2">
+                              <Input
+                                type="number"
+                                min={0}
+                                step="0.1"
+                                value={meterHoursEntry}
+                                onChange={(e) => setMeterHoursEntry(e.target.value)}
+                                placeholder="Horímetro"
+                                className="w-24 h-8 text-sm"
+                              />
+                              <Button
+                                size="sm"
+                                onClick={() => {
+                                  const value = parseFloat(meterHoursEntry);
+                                  if (isNaN(value) || value < 0) {
+                                    toast.error('Informe o horímetro de entrada');
+                                    return;
+                                  }
+                                  startTimerMutation.mutate(value);
+                                }}
+                                disabled={startTimerMutation.isPending || !meterHoursEntry}
+                              >
+                                <Play className="h-4 w-4 mr-1" />
+                                Iniciar
+                              </Button>
+                            </div>
+                          ) : (
+                            <Button
+                              size="sm"
+                              onClick={() => startTimerMutation.mutate(undefined)}
+                              disabled={startTimerMutation.isPending}
+                            >
+                              <Play className="h-4 w-4 mr-1" />
+                              Iniciar
+                            </Button>
+                          )}
+                        </>
                       ) : activeTimeEntry.status === 'running' ? (
                         <>
                           <Button
@@ -721,6 +807,12 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
                     </div>
                   )}
                 </div>
+                {/* Show hint when meter hours required */}
+                {requiresMeterHoursEntry && !entryMeterHoursRegistered && !activeTimeEntry && workOrder.status !== 'concluido' && (
+                  <p className="text-xs text-muted-foreground">
+                    Informe o horímetro de entrada para iniciar
+                  </p>
+                )}
               </CardContent>
             </Card>
             {univocaItem && (
