@@ -23,6 +23,10 @@ import OficinaAtividades from "./pages/oficina/Atividades";
 import OficinaItens from "./pages/oficina/ItensOficina";
 import OficinaOS from "./pages/oficina/OrdensServico";
 import OficinaGarantias from "./pages/oficina/Garantias";
+import PreventivasIndex from "./pages/preventivas/Index";
+import PreventivasRotas from "./pages/preventivas/Rotas";
+import PreventivasNovaRota from "./pages/preventivas/NovaRota";
+import PreventivasDetalheRota from "./pages/preventivas/DetalheRota";
 import Teste from "./pages/Teste";
 import Instalar from "./pages/Instalar";
 import Nfc from "./pages/Nfc";
@@ -182,6 +186,38 @@ const App = () => (
               element={
                 <AppLayout>
                   <Nfc />
+                </AppLayout>
+              }
+            />
+            <Route
+              path="/preventivas"
+              element={
+                <AppLayout>
+                  <PreventivasIndex />
+                </AppLayout>
+              }
+            />
+            <Route
+              path="/preventivas/rotas"
+              element={
+                <AppLayout>
+                  <PreventivasRotas />
+                </AppLayout>
+              }
+            />
+            <Route
+              path="/preventivas/rotas/nova"
+              element={
+                <AppLayout>
+                  <PreventivasNovaRota />
+                </AppLayout>
+              }
+            />
+            <Route
+              path="/preventivas/rotas/:id"
+              element={
+                <AppLayout>
+                  <PreventivasDetalheRota />
                 </AppLayout>
               }
             />
