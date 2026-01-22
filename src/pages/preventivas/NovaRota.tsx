@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -11,6 +11,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   Table,
   TableBody,
@@ -27,10 +29,14 @@ import {
   Clock,
   HelpCircle,
   CheckCircle,
-  Sparkles
+  Sparkles,
+  CalendarIcon
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Link } from 'react-router-dom';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
 
 const statusConfig = {
   sem_historico: { label: 'Sem Histórico', color: 'bg-muted text-muted-foreground', icon: HelpCircle, priority: 0 },
@@ -65,8 +71,43 @@ export default function NovaRota() {
   });
   const [selectedClients, setSelectedClients] = useState<Set<string>>(new Set());
   const [isSaving, setIsSaving] = useState(false);
+  const [endDateOpen, setEndDateOpen] = useState(false);
 
   const isAdminOrCoordinator = role === 'admin' || role === 'coordenador_servicos';
+
+  // Generate next route code
+  const { data: nextRouteCode } = useQuery({
+    queryKey: ['next-route-code'],
+    queryFn: async () => {
+      const year = new Date().getFullYear();
+      const prefix = `PREV-${year}-`;
+      
+      const { data } = await supabase
+        .from('preventive_routes')
+        .select('route_code')
+        .like('route_code', `${prefix}%`)
+        .order('route_code', { ascending: false })
+        .limit(1);
+      
+      let nextNum = 1;
+      if (data && data.length > 0) {
+        const lastCode = data[0].route_code;
+        const match = lastCode.match(/PREV-\d{4}-(\d+)/);
+        if (match) {
+          nextNum = parseInt(match[1]) + 1;
+        }
+      }
+      
+      return `${prefix}${String(nextNum).padStart(5, '0')}`;
+    },
+  });
+
+  // Set route code when loaded
+  useEffect(() => {
+    if (nextRouteCode && !form.route_code) {
+      setForm(f => ({ ...f, route_code: nextRouteCode }));
+    }
+  }, [nextRouteCode]);
 
   // Fetch field technicians
   const { data: technicians } = useQuery({
@@ -345,18 +386,44 @@ export default function NovaRota() {
               <Input
                 type="date"
                 value={form.start_date}
-                onChange={(e) => setForm({ ...form, start_date: e.target.value })}
+                onChange={(e) => setForm({ ...form, start_date: e.target.value, end_date: '' })}
                 required
               />
             </div>
             <div className="space-y-2">
               <Label>Data Fim *</Label>
-              <Input
-                type="date"
-                value={form.end_date}
-                onChange={(e) => setForm({ ...form, end_date: e.target.value })}
-                required
-              />
+              <Popover open={endDateOpen} onOpenChange={setEndDateOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !form.end_date && "text-muted-foreground"
+                    )}
+                    disabled={!form.start_date}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {form.end_date ? format(new Date(form.end_date + 'T12:00:00'), 'dd/MM/yyyy', { locale: ptBR }) : <span>Selecione</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={form.end_date ? new Date(form.end_date + 'T12:00:00') : undefined}
+                    onSelect={(date) => {
+                      if (date) {
+                        setForm({ ...form, end_date: format(date, 'yyyy-MM-dd') });
+                        setEndDateOpen(false);
+                      }
+                    }}
+                    defaultMonth={form.start_date ? new Date(form.start_date + 'T12:00:00') : undefined}
+                    disabled={(date) => form.start_date ? date < new Date(form.start_date + 'T00:00:00') : false}
+                    initialFocus
+                    className={cn("p-3 pointer-events-auto")}
+                    locale={ptBR}
+                  />
+                </PopoverContent>
+              </Popover>
             </div>
             <div className="space-y-2">
               <Label>Técnico de Campo *</Label>
