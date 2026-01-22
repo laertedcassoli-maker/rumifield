@@ -62,6 +62,7 @@ interface Cliente {
   longitude: number | null;
   link_maps: string | null;
   consultor_rplus_id: string | null;
+  preventive_frequency_days: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -91,6 +92,7 @@ interface ClienteForm {
   longitude: string;
   link_maps: string;
   consultor_rplus_id: string;
+  preventive_frequency_days: number | null;
 }
 
 type SortField = 'nome' | 'fazenda' | 'cod_imilk' | 'status';
@@ -125,6 +127,7 @@ export default function AdminClientes() {
     longitude: '',
     link_maps: '',
     consultor_rplus_id: '',
+    preventive_frequency_days: null,
   });
   const [search, setSearch] = useState('');
   const [sortField, setSortField] = useState<SortField>('nome');
@@ -141,7 +144,7 @@ export default function AdminClientes() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('clientes')
-        .select('id, nome, fazenda, cod_imilk, cidade, estado, endereco, telefone, email, observacoes, status, data_ativacao_rumiflow, ordenhas_dia, tipo_painel, tipo_pistola_id, quantidade_pistolas, latitude, longitude, link_maps, consultor_rplus_id, created_at, updated_at')
+        .select('id, nome, fazenda, cod_imilk, cidade, estado, endereco, telefone, email, observacoes, status, data_ativacao_rumiflow, ordenhas_dia, tipo_painel, tipo_pistola_id, quantidade_pistolas, latitude, longitude, link_maps, consultor_rplus_id, preventive_frequency_days, created_at, updated_at')
         .order('nome');
       if (error) throw error;
       return data as unknown as Cliente[];
@@ -306,6 +309,7 @@ export default function AdminClientes() {
           longitude: data.longitude ? parseFloat(data.longitude) : null,
           link_maps: mapsLink || null,
           consultor_rplus_id: data.consultor_rplus_id || null,
+          preventive_frequency_days: data.preventive_frequency_days,
         })
         .eq('id', id);
       if (error) throw error;
@@ -383,6 +387,7 @@ export default function AdminClientes() {
       longitude: '',
       link_maps: '',
       consultor_rplus_id: '',
+      preventive_frequency_days: null,
     });
   };
 
@@ -402,6 +407,7 @@ export default function AdminClientes() {
       longitude: cliente.longitude?.toString() || '',
       link_maps: cliente.link_maps || '',
       consultor_rplus_id: cliente.consultor_rplus_id || '',
+      preventive_frequency_days: cliente.preventive_frequency_days,
     });
     setOpen(true);
   };
@@ -690,6 +696,24 @@ export default function AdminClientes() {
                           </div>
                         )}
                       </div>
+                    </div>
+
+                    {/* Preventive Maintenance */}
+                    <div className="mt-4 space-y-2">
+                      <Label>Frequência Preventiva (dias)</Label>
+                      <Input
+                        type="number"
+                        placeholder="Ex: 90, 120, 160..."
+                        value={form.preventive_frequency_days?.toString() || ''}
+                        onChange={(e) => setForm({ 
+                          ...form, 
+                          preventive_frequency_days: e.target.value ? parseInt(e.target.value) : null 
+                        })}
+                        min="1"
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Intervalo em dias entre manutenções preventivas
+                      </p>
                     </div>
                   </div>
 
