@@ -244,9 +244,9 @@ export default function ItensOficina() {
                         variant="outline"
                         role="combobox"
                         aria-expanded={productPopoverOpen}
-                        className="w-full justify-between font-normal h-auto min-h-10"
+                        className="w-full justify-between font-normal h-auto min-h-10 py-2"
                       >
-                        <span className="truncate text-left flex-1 mr-2">
+                        <span className="text-left flex-1 mr-2 whitespace-normal break-words">
                           {formData.omie_product_id
                             ? (() => {
                                 const peca = pecas.find((p) => p.id === formData.omie_product_id);
