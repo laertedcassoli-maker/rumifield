@@ -1055,18 +1055,11 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
 
             {/* Motor Replacement Highlight - for completed OS */}
             {workOrder.status === 'concluido' && partsUsed.some(p => p.pecas?.nome?.toLowerCase().includes('motor')) && (
-              <div className="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg">
-                <div className="flex items-center gap-2">
-                  <Wrench className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-                  <div>
-                    <p className="font-medium text-amber-800 dark:text-amber-200">
-                      Motor substituído nesta OS
-                    </p>
-                    <p className="text-sm text-amber-600 dark:text-amber-400">
-                      Contagem de horas do motor foi reiniciada
-                    </p>
-                  </div>
-                </div>
+              <div className="px-2.5 py-1.5 bg-muted/50 border border-border rounded flex items-center gap-2">
+                <Wrench className="h-3.5 w-3.5 text-muted-foreground" />
+                <span className="text-xs text-muted-foreground">
+                  Motor substituído · Horímetro reiniciado
+                </span>
               </div>
             )}
 
