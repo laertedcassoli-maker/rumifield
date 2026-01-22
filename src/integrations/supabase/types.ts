@@ -387,6 +387,7 @@ export type Database = {
           replaced_at: string
           replaced_at_meter_hours: number
           user_id: string
+          warranty_batch_id: string | null
           work_order_id: string | null
           workshop_item_id: string
         }
@@ -400,6 +401,7 @@ export type Database = {
           replaced_at?: string
           replaced_at_meter_hours: number
           user_id: string
+          warranty_batch_id?: string | null
           work_order_id?: string | null
           workshop_item_id: string
         }
@@ -413,10 +415,18 @@ export type Database = {
           replaced_at?: string
           replaced_at_meter_hours?: number
           user_id?: string
+          warranty_batch_id?: string | null
           work_order_id?: string | null
           workshop_item_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "motor_replacement_history_warranty_batch_id_fkey"
+            columns: ["warranty_batch_id"]
+            isOneToOne: false
+            referencedRelation: "warranty_batches"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "motor_replacement_history_work_order_id_fkey"
             columns: ["work_order_id"]
@@ -789,6 +799,39 @@ export type Database = {
           },
         ]
       }
+      warranty_batches: {
+        Row: {
+          batch_number: string
+          created_at: string
+          created_by_user_id: string
+          finalized_at: string | null
+          id: string
+          notes: string | null
+          status: string
+          supplier_invoice: string | null
+        }
+        Insert: {
+          batch_number: string
+          created_at?: string
+          created_by_user_id: string
+          finalized_at?: string | null
+          id?: string
+          notes?: string | null
+          status?: string
+          supplier_invoice?: string | null
+        }
+        Update: {
+          batch_number?: string
+          created_at?: string
+          created_by_user_id?: string
+          finalized_at?: string | null
+          id?: string
+          notes?: string | null
+          status?: string
+          supplier_invoice?: string | null
+        }
+        Relationships: []
+      }
       warranty_requests: {
         Row: {
           created_at: string
@@ -1130,6 +1173,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      generate_warranty_batch_number: { Args: never; Returns: string }
       generate_work_order_code: { Args: never; Returns: string }
       is_admin_or_coordinator: { Args: { _user_id: string }; Returns: boolean }
     }
