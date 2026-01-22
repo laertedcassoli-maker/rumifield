@@ -473,6 +473,21 @@ export default function NovaRota() {
 
       if (itemsError) throw itemsError;
 
+      // Create preventive_maintenance records with status 'planejada' for calendar visibility
+      const preventiveRecords = Array.from(selectedClients).map(clientId => ({
+        client_id: clientId,
+        scheduled_date: form.start_date,
+        status: 'planejada' as const,
+        technician_user_id: form.field_technician_user_id,
+        notes: `Planejada na rota ${form.route_code}`,
+      }));
+
+      const { error: pmError } = await supabase
+        .from('preventive_maintenance')
+        .insert(preventiveRecords);
+
+      if (pmError) throw pmError;
+
       toast({ title: 'Rota criada com sucesso!' });
       queryClient.invalidateQueries({ queryKey: ['preventive-routes'] });
       navigate('/preventivas/rotas');
