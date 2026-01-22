@@ -135,21 +135,65 @@ export default function DetalheRota() {
   const updateItemStatus = useMutation({
     mutationFn: async ({ itemId, newStatus }: { itemId: string; newStatus: string }) => {
       const updateData: any = { status: newStatus };
+      const item = route?.items.find(i => i.id === itemId);
       
-      // If marking as executed, create a preventive maintenance record
-      if (newStatus === 'executado') {
-        const item = route?.items.find(i => i.id === itemId);
-        if (item) {
+      if (item) {
+        // Find existing preventive_maintenance record for this client in this route's date range
+        const { data: existingPm } = await supabase
+          .from('preventive_maintenance')
+          .select('id')
+          .eq('client_id', item.client_id)
+          .eq('scheduled_date', route?.start_date)
+          .in('status', ['planejada', 'concluida'])
+          .limit(1)
+          .single();
+
+        if (newStatus === 'executado') {
+          if (existingPm) {
+            // Update existing record to concluida
+            const { error: pmError } = await supabase
+              .from('preventive_maintenance')
+              .update({
+                completed_date: new Date().toISOString().split('T')[0],
+                status: 'concluida',
+                notes: `Executada na rota ${route?.route_code}`,
+              })
+              .eq('id', existingPm.id);
+            if (pmError) throw pmError;
+          } else {
+            // Create new record if none exists (legacy routes without auto-creation)
+            const { error: pmError } = await supabase
+              .from('preventive_maintenance')
+              .insert({
+                client_id: item.client_id,
+                scheduled_date: route?.start_date,
+                completed_date: new Date().toISOString().split('T')[0],
+                status: 'concluida',
+                technician_user_id: route?.field_technician_user_id,
+                notes: `Executada na rota ${route?.route_code}`,
+              });
+            if (pmError) throw pmError;
+          }
+        } else if (newStatus === 'planejado' && existingPm) {
+          // Revert to planejada if changing back from executado
           const { error: pmError } = await supabase
             .from('preventive_maintenance')
-            .insert({
-              client_id: item.client_id,
-              scheduled_date: route?.start_date,
-              completed_date: new Date().toISOString().split('T')[0],
-              status: 'concluida',
-              technician_user_id: route?.field_technician_user_id,
-              notes: `Executada na rota ${route?.route_code}`,
-            });
+            .update({
+              completed_date: null,
+              status: 'planejada',
+              notes: `Planejada na rota ${route?.route_code}`,
+            })
+            .eq('id', existingPm.id);
+          if (pmError) throw pmError;
+        } else if (newStatus === 'cancelado' && existingPm) {
+          // Mark as canceled
+          const { error: pmError } = await supabase
+            .from('preventive_maintenance')
+            .update({
+              status: 'cancelada',
+              notes: `Cancelada na rota ${route?.route_code}`,
+            })
+            .eq('id', existingPm.id);
           if (pmError) throw pmError;
         }
       }
@@ -163,6 +207,7 @@ export default function DetalheRota() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['preventive-route', id] });
       queryClient.invalidateQueries({ queryKey: ['preventive-overview'] });
+      queryClient.invalidateQueries({ queryKey: ['calendar-preventives'] });
       toast({ title: 'Status do item atualizado!' });
     },
     onError: (error: Error) => {
