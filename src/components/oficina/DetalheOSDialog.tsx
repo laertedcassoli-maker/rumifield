@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import { Play, Pause, Square, Plus, Trash2, Clock, Package, CheckCircle, Wrench, ChevronDown, ChevronRight, History } from 'lucide-react';
+import { Play, Square, Plus, Trash2, Clock, Package, CheckCircle, Wrench, ChevronDown, ChevronRight, History } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -23,7 +23,7 @@ interface TimeEntryWithUser {
   started_at: string;
   ended_at: string | null;
   duration_seconds: number | null;
-  status: 'running' | 'paused' | 'finished';
+  status: 'running' | 'finished';
   user_name?: string;
 }
 
@@ -53,7 +53,7 @@ interface TimeEntry {
   started_at: string;
   ended_at: string | null;
   duration_seconds: number | null;
-  status: 'running' | 'paused' | 'finished';
+  status: 'running' | 'finished';
 }
 
 interface PartUsed {
@@ -114,7 +114,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
     setLocalTotalSeconds(workOrder.total_time_seconds);
   }, [workOrder.total_time_seconds]);
 
-  // Fetch active time entry for this user on this OS
+  // Fetch active time entry for this user on this OS (only running status now)
   const { data: activeTimeEntry } = useQuery({
     queryKey: ['active-time-entry', workOrder.id, user?.id],
     queryFn: async () => {
@@ -124,7 +124,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
         .select('*')
         .eq('work_order_id', workOrder.id)
         .eq('user_id', user.id)
-        .in('status', ['running', 'paused'])
+        .eq('status', 'running')
         .maybeSingle();
       if (error) throw error;
       return data as TimeEntry | null;
@@ -252,7 +252,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
     enabled: addPartDialogOpen,
   });
 
-  // Timer effect - count elapsed time
+  // Timer effect - count elapsed time (simplified: only running or stopped)
   useEffect(() => {
     const currentEntry = activeTimeEntry;
     
@@ -263,9 +263,6 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
         setElapsedTime(localTotalSeconds + runningTime);
       }, 1000);
       return () => clearInterval(interval);
-    } else if (currentEntry?.status === 'paused' && currentEntry.duration_seconds) {
-      // Timer is paused - show total including paused session
-      setElapsedTime(localTotalSeconds + currentEntry.duration_seconds);
     } else {
       // No active entry - show saved total
       setElapsedTime(localTotalSeconds);
@@ -349,20 +346,21 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
     },
   });
 
-  // Pause timer mutation
-  const pauseTimerMutation = useMutation({
+  // Stop timer mutation (simplified - always stops a running entry)
+  const stopTimerMutation = useMutation({
     mutationFn: async () => {
-      if (!activeTimeEntry || activeTimeEntry.status !== 'running') throw new Error('Nenhum cronômetro rodando');
+      if (!activeTimeEntry || activeTimeEntry.status !== 'running') throw new Error('Nenhum cronômetro ativo');
 
-      const pausedAt = new Date();
-      const durationSoFar = Math.floor((pausedAt.getTime() - new Date(activeTimeEntry.started_at).getTime()) / 1000);
+      const endedAt = new Date();
+      const durationSeconds = Math.floor((endedAt.getTime() - new Date(activeTimeEntry.started_at).getTime()) / 1000);
 
-      // Update time entry to paused and save accumulated time
+      // Update time entry to finished
       const { error: entryError } = await supabase
         .from('work_order_time_entries')
         .update({
-          status: 'paused',
-          duration_seconds: durationSoFar,
+          ended_at: endedAt.toISOString(),
+          duration_seconds: durationSeconds,
+          status: 'finished',
         })
         .eq('id', activeTimeEntry.id);
       if (entryError) throw entryError;
@@ -380,122 +378,20 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
       const { error: osError } = await supabase
         .from('work_orders')
         .update({
-          total_time_seconds: currentTotal + durationSoFar,
+          total_time_seconds: currentTotal + durationSeconds,
         })
         .eq('id', workOrder.id);
       if (osError) throw osError;
 
-      // Update local total immediately to prevent UI reset until queries/props refresh
-      setLocalTotalSeconds(currentTotal + durationSoFar);
+      // Update local total immediately to prevent UI reset
+      setLocalTotalSeconds(currentTotal + durationSeconds);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['active-time-entry', workOrder.id, user?.id] });
       queryClient.invalidateQueries({ queryKey: ['work-orders'] });
+      queryClient.invalidateQueries({ queryKey: ['time-entries-history', workOrder.id] });
       onUpdate();
-      toast.success('Cronômetro pausado!');
-    },
-    onError: (error) => {
-      toast.error(error.message);
-    },
-  });
-
-  // Resume timer mutation
-  const resumeTimerMutation = useMutation({
-    mutationFn: async () => {
-      if (!activeTimeEntry || activeTimeEntry.status !== 'paused') throw new Error('Cronômetro não está pausado');
-
-      // Check for existing running timer for this user
-      const { data: existingTimer } = await supabase
-        .from('work_order_time_entries')
-        .select('*')
-        .eq('user_id', user?.id)
-        .eq('status', 'running')
-        .maybeSingle();
-
-      if (existingTimer) {
-        throw new Error('Você já tem um cronômetro ativo em outra OS');
-      }
-
-      // Create a new running entry (the previous paused one keeps the record)
-      const { error: finishError } = await supabase
-        .from('work_order_time_entries')
-        .update({ status: 'finished' })
-        .eq('id', activeTimeEntry.id);
-      if (finishError) throw finishError;
-
-      const { error: createError } = await supabase
-        .from('work_order_time_entries')
-        .insert({
-          work_order_id: workOrder.id,
-          user_id: user?.id,
-          status: 'running',
-        });
-      if (createError) throw createError;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['active-time-entry', workOrder.id, user?.id] });
-      queryClient.invalidateQueries({ queryKey: ['work-orders'] });
-      onUpdate();
-      toast.success('Cronômetro retomado!');
-    },
-    onError: (error) => {
-      toast.error(error.message);
-    },
-  });
-
-  // Stop timer mutation
-  const stopTimerMutation = useMutation({
-    mutationFn: async () => {
-      if (!activeTimeEntry) throw new Error('Nenhum cronômetro ativo');
-
-      const endedAt = new Date();
-      
-      // Calculate duration based on current status
-      let durationSeconds = 0;
-      if (activeTimeEntry.status === 'running') {
-        durationSeconds = Math.floor((endedAt.getTime() - new Date(activeTimeEntry.started_at).getTime()) / 1000);
-      }
-      // If paused, duration was already saved, just mark as finished
-
-      // Update time entry
-      const { error: entryError } = await supabase
-        .from('work_order_time_entries')
-        .update({
-          ended_at: endedAt.toISOString(),
-          duration_seconds: activeTimeEntry.status === 'paused' ? activeTimeEntry.duration_seconds : durationSeconds,
-          status: 'finished',
-        })
-        .eq('id', activeTimeEntry.id);
-      if (entryError) throw entryError;
-
-      // Update work order total time only if was running
-      if (activeTimeEntry.status === 'running') {
-        // Fetch current total from DB to avoid stale prop issues
-        const { data: currentOS } = await supabase
-          .from('work_orders')
-          .select('total_time_seconds')
-          .eq('id', workOrder.id)
-          .single();
-        
-        const currentTotal = currentOS?.total_time_seconds ?? 0;
-
-        const { error: osError } = await supabase
-          .from('work_orders')
-          .update({
-            total_time_seconds: currentTotal + durationSeconds,
-          })
-          .eq('id', workOrder.id);
-        if (osError) throw osError;
-
-        // Update local total immediately to prevent UI reset until queries/props refresh
-        setLocalTotalSeconds(currentTotal + durationSeconds);
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['active-time-entry', workOrder.id, user?.id] });
-      queryClient.invalidateQueries({ queryKey: ['work-orders'] });
-      onUpdate();
-      toast.success('Cronômetro finalizado!');
+      toast.success('Sessão finalizada!');
     },
     onError: (error) => {
       toast.error(error.message);
@@ -726,47 +622,16 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
                           <Play className="h-4 w-4 mr-1" />
                           Iniciar
                         </Button>
-                      ) : activeTimeEntry.status === 'running' ? (
-                        <>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => pauseTimerMutation.mutate()}
-                            disabled={pauseTimerMutation.isPending}
-                          >
-                            <Pause className="h-4 w-4 mr-1" />
-                            Pausar
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            onClick={() => stopTimerMutation.mutate()}
-                            disabled={stopTimerMutation.isPending}
-                          >
-                            <Square className="h-4 w-4 mr-1" />
-                            Parar
-                          </Button>
-                        </>
                       ) : (
-                        <>
-                          <Button
-                            size="sm"
-                            onClick={() => resumeTimerMutation.mutate()}
-                            disabled={resumeTimerMutation.isPending}
-                          >
-                            <Play className="h-4 w-4 mr-1" />
-                            Retomar
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            onClick={() => stopTimerMutation.mutate()}
-                            disabled={stopTimerMutation.isPending}
-                          >
-                            <Square className="h-4 w-4 mr-1" />
-                            Parar
-                          </Button>
-                        </>
+                        <Button
+                          size="sm"
+                          variant="destructive"
+                          onClick={() => stopTimerMutation.mutate()}
+                          disabled={stopTimerMutation.isPending}
+                        >
+                          <Square className="h-4 w-4 mr-1" />
+                          Parar
+                        </Button>
                       )}
                     </div>
                   )}
@@ -1056,8 +921,6 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
                           <span className="text-muted-foreground">→</span>
                           {entry.status === 'running' ? (
                             <span className="text-green-600 font-medium">▶ rodando</span>
-                          ) : entry.status === 'paused' ? (
-                            <span className="text-amber-600 font-medium">⏸ pausado</span>
                           ) : endDate ? (
                             <span className="font-mono text-xs">
                               {format(endDate, 'HH:mm', { locale: ptBR })}
