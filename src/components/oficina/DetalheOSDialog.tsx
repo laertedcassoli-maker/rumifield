@@ -542,9 +542,8 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
                     )}
                   </div>
 
-                  {/* Meter readings section - simplified */}
+                  {/* Meter readings section - subtle */}
                   {(() => {
-                    // Use meter_hours_last from asset, or fall back to meter_hours_entry from OS
                     const totalHours = univocaItem.workshop_items?.meter_hours_last ?? univocaItem.meter_hours_entry;
                     const motorReplacedAt = univocaItem.workshop_items?.motor_replaced_at_meter_hours;
                     const motorHours = totalHours != null 
@@ -552,25 +551,25 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
                       : null;
                     
                     return (
-                      <div className="mt-2 p-3 bg-slate-100 dark:bg-slate-800 rounded-lg border-2 border-slate-300 dark:border-slate-600">
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Horas total:</span>
-                          <span className="text-xl font-bold font-mono text-slate-900 dark:text-slate-100">
+                      <div className="mt-2 space-y-1 text-sm">
+                        <div className="flex items-center justify-between">
+                          <span className="text-muted-foreground">Horas total:</span>
+                          <span className="font-medium font-mono">
                             {totalHours != null ? `${totalHours.toFixed(0)}h` : '-'}
                           </span>
                         </div>
                         <div className="flex items-center justify-between">
-                          <span className="text-sm font-medium text-amber-700 dark:text-amber-400 flex items-center gap-1">
-                            <Wrench className="h-4 w-4" />
+                          <span className="text-muted-foreground flex items-center gap-1">
+                            <Wrench className="h-3 w-3" />
                             Horas motor:
                           </span>
-                          <span className="text-xl font-bold font-mono text-amber-700 dark:text-amber-400">
+                          <span className="font-medium font-mono">
                             {motorHours != null ? `${motorHours.toFixed(0)}h` : '-'}
                           </span>
                         </div>
                         {motorReplacedAt != null && (
-                          <p className="text-xs text-muted-foreground mt-1 text-right">
-                            (troca registrada em {motorReplacedAt}h)
+                          <p className="text-xs text-muted-foreground text-right">
+                            (troca em {motorReplacedAt}h)
                           </p>
                         )}
                       </div>
