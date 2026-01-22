@@ -3,17 +3,19 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import { Plus, Search, Eye, Play, Pause, CheckCircle, Clock, Package } from 'lucide-react';
+import { Plus, Search, Eye, Play, Pause, CheckCircle, Clock, Package, LayoutGrid, List } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { NovaOSDialog } from '@/components/oficina/NovaOSDialog';
 import { DetalheOSDialog } from '@/components/oficina/DetalheOSDialog';
+import { OSKanban } from '@/components/oficina/OSKanban';
 
 interface WorkOrder {
   id: string;
@@ -46,7 +48,8 @@ export default function OrdensServico() {
   const { user, role } = useAuth();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
-  const [activeTab, setActiveTab] = useState('abertas');
+  const [activeTab, setActiveTab] = useState('kanban');
+  const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban');
   const [novaOSDialogOpen, setNovaOSDialogOpen] = useState(false);
   const [selectedOS, setSelectedOS] = useState<WorkOrder | null>(null);
   const [detalheDialogOpen, setDetalheDialogOpen] = useState(false);
@@ -163,9 +166,13 @@ export default function OrdensServico() {
 
   const filteredOrders = workOrders.filter(wo => {
     const matchesSearch = wo.code.toLowerCase().includes(search.toLowerCase()) ||
-      wo.activities?.name?.toLowerCase().includes(search.toLowerCase());
+      wo.activities?.name?.toLowerCase().includes(search.toLowerCase()) ||
+      wo.item_info?.unique_code?.toLowerCase().includes(search.toLowerCase()) ||
+      wo.item_info?.product_name?.toLowerCase().includes(search.toLowerCase());
     
-    if (activeTab === 'abertas') {
+    if (activeTab === 'kanban') {
+      return matchesSearch;
+    } else if (activeTab === 'abertas') {
       return matchesSearch && wo.status !== 'concluido';
     } else if (activeTab === 'concluidas') {
       return matchesSearch && wo.status === 'concluido';
@@ -210,165 +217,168 @@ export default function OrdensServico() {
         </Button>
       </div>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
-          <TabsTrigger value="abertas">
-            Abertas ({workOrders.filter(wo => wo.status !== 'concluido').length})
-          </TabsTrigger>
-          <TabsTrigger value="concluidas">
-            Concluídas ({workOrders.filter(wo => wo.status === 'concluido').length})
-          </TabsTrigger>
-        </TabsList>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList>
+            <TabsTrigger value="kanban">
+              <LayoutGrid className="h-4 w-4 mr-1" />
+              Kanban
+            </TabsTrigger>
+            <TabsTrigger value="abertas">
+              Abertas ({workOrders.filter(wo => wo.status !== 'concluido').length})
+            </TabsTrigger>
+            <TabsTrigger value="concluidas">
+              Concluídas ({workOrders.filter(wo => wo.status === 'concluido').length})
+            </TabsTrigger>
+          </TabsList>
+        </Tabs>
 
-        <TabsContent value={activeTab}>
-          <Card>
-            <CardHeader className="pb-3">
-              <div className="flex items-center gap-2">
-                <Search className="h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Buscar OS..."
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                  className="max-w-sm"
-                />
-              </div>
-            </CardHeader>
-            <CardContent>
-              {isLoading ? (
-                <div className="text-center py-8 text-muted-foreground">Carregando...</div>
-              ) : filteredOrders.length === 0 ? (
-                <div className="text-center py-8 text-muted-foreground">
-                  Nenhuma OS encontrada
-                </div>
-              ) : (
-                <>
-                  {/* Desktop Table */}
-                  <div className="hidden md:block">
-                    <Table>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead>Código</TableHead>
-                          <TableHead>Atividade</TableHead>
-                          <TableHead>Status</TableHead>
-                          <TableHead>Responsável</TableHead>
-                          <TableHead>Tempo</TableHead>
-                          <TableHead>Data</TableHead>
-                          <TableHead className="text-right">Ações</TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {filteredOrders.map((os) => (
-                          <TableRow key={os.id}>
-                            <TableCell className="font-mono font-medium">{os.code}</TableCell>
-                            <TableCell>
-                              <div>
-                                <p className="font-medium">{os.activities?.name}</p>
-                                {os.item_info?.unique_code && (
-                                  <Badge variant="secondary" className="font-mono text-xs mt-1">
-                                    {os.item_info.unique_code}
-                                  </Badge>
-                                )}
-                                {os.item_info?.product_name && (
-                                  <p className="text-xs text-muted-foreground break-words whitespace-normal mt-2">
-                                    {os.item_info.product_name}
-                                  </p>
-                                )}
-                                <Badge variant="outline" className="text-xs mt-1">
-                                  {os.activities?.execution_type}
-                                </Badge>
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              <Badge className={statusColors[os.status] || ''}>
-                                {statusLabels[os.status] || os.status}
-                              </Badge>
-                            </TableCell>
-                            <TableCell>{os.profiles?.nome || '-'}</TableCell>
-                            <TableCell>
-                              <div className="flex items-center gap-3">
-                                <div className="flex items-center gap-1">
-                                  <Clock className="h-3 w-3 text-muted-foreground" />
-                                  <span className="font-mono text-sm">
-                                    {formatTime(os.total_time_seconds)}
-                                  </span>
-                                </div>
-                                {(os.parts_count ?? 0) > 0 && (
-                                  <div className="flex items-center gap-1 text-muted-foreground">
-                                    <Package className="h-3 w-3" />
-                                    <span className="text-sm font-medium">{os.parts_count}</span>
-                                  </div>
-                                )}
-                              </div>
-                            </TableCell>
-                            <TableCell>
-                              {format(new Date(os.created_at), "dd/MM/yy HH:mm", { locale: ptBR })}
-                            </TableCell>
-                            <TableCell className="text-right">
-                              <Button variant="ghost" size="sm" onClick={() => handleViewOS(os)}>
-                                <Eye className="h-4 w-4" />
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                        ))}
-                      </TableBody>
-                    </Table>
-                  </div>
+        <div className="flex items-center gap-2">
+          <Search className="h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Buscar OS..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="max-w-[200px]"
+          />
+        </div>
+      </div>
 
-                  {/* Mobile Cards */}
-                  <div className="md:hidden space-y-3">
-                    {filteredOrders.map((os) => (
-                      <Card 
-                        key={os.id} 
-                        className="cursor-pointer hover:shadow-md transition-shadow"
-                        onClick={() => handleViewOS(os)}
-                      >
-                        <CardContent className="p-4">
-                          <div className="flex items-start justify-between">
-                            <div className="flex-1 min-w-0 pr-2">
-                              <p className="font-mono font-bold">{os.code}</p>
-                              <p className="text-sm text-muted-foreground">{os.activities?.name}</p>
-                              {os.item_info?.unique_code && (
-                                <Badge variant="secondary" className="font-mono text-xs mt-1">
-                                  {os.item_info.unique_code}
-                                </Badge>
-                              )}
-                              {os.item_info?.product_name && (
-                                <p className="text-xs text-muted-foreground break-words whitespace-normal mt-2">
-                                  {os.item_info.product_name}
-                                </p>
-                              )}
-                            </div>
-                            <Badge className={statusColors[os.status] || ''}>
-                              {statusLabels[os.status] || os.status}
+      {isLoading ? (
+        <div className="text-center py-8 text-muted-foreground">Carregando...</div>
+      ) : activeTab === 'kanban' ? (
+        <OSKanban workOrders={filteredOrders} onViewOS={handleViewOS} />
+      ) : filteredOrders.length === 0 ? (
+        <div className="text-center py-8 text-muted-foreground">
+          Nenhuma OS encontrada
+        </div>
+      ) : (
+        <Card>
+          <CardContent className="pt-6">
+            {/* Desktop Table */}
+            <div className="hidden md:block">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Código</TableHead>
+                    <TableHead>Atividade</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Responsável</TableHead>
+                    <TableHead>Tempo</TableHead>
+                    <TableHead>Data</TableHead>
+                    <TableHead className="text-right">Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {filteredOrders.map((os) => (
+                    <TableRow key={os.id}>
+                      <TableCell className="font-mono font-medium">{os.code}</TableCell>
+                      <TableCell>
+                        <div>
+                          <p className="font-medium">{os.activities?.name}</p>
+                          {os.item_info?.unique_code && (
+                            <Badge variant="secondary" className="font-mono text-xs mt-1">
+                              {os.item_info.unique_code}
                             </Badge>
-                          </div>
-                          <div className="mt-3 flex items-center justify-between text-sm">
-                            <div className="flex items-center gap-3">
-                              <div className="flex items-center gap-1">
-                                <Clock className="h-3 w-3 text-muted-foreground" />
-                                <span className="font-mono">{formatTime(os.total_time_seconds)}</span>
-                              </div>
-                              {(os.parts_count ?? 0) > 0 && (
-                                <div className="flex items-center gap-1 text-muted-foreground">
-                                  <Package className="h-3 w-3" />
-                                  <span className="font-medium">{os.parts_count}</span>
-                                </div>
-                              )}
-                            </div>
-                            <span className="text-muted-foreground">
-                              {format(new Date(os.created_at), "dd/MM/yy", { locale: ptBR })}
+                          )}
+                          {os.item_info?.product_name && (
+                            <p className="text-xs text-muted-foreground break-words whitespace-normal mt-2">
+                              {os.item_info.product_name}
+                            </p>
+                          )}
+                          <Badge variant="outline" className="text-xs mt-1">
+                            {os.activities?.execution_type}
+                          </Badge>
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        <Badge className={statusColors[os.status] || ''}>
+                          {statusLabels[os.status] || os.status}
+                        </Badge>
+                      </TableCell>
+                      <TableCell>{os.profiles?.nome || '-'}</TableCell>
+                      <TableCell>
+                        <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-1">
+                            <Clock className="h-3 w-3 text-muted-foreground" />
+                            <span className="font-mono text-sm">
+                              {formatTime(os.total_time_seconds)}
                             </span>
                           </div>
-                        </CardContent>
-                      </Card>
-                    ))}
-                  </div>
-                </>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+                          {(os.parts_count ?? 0) > 0 && (
+                            <div className="flex items-center gap-1 text-muted-foreground">
+                              <Package className="h-3 w-3" />
+                              <span className="text-sm font-medium">{os.parts_count}</span>
+                            </div>
+                          )}
+                        </div>
+                      </TableCell>
+                      <TableCell>
+                        {format(new Date(os.created_at), "dd/MM/yy HH:mm", { locale: ptBR })}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button variant="ghost" size="sm" onClick={() => handleViewOS(os)}>
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+
+            {/* Mobile Cards */}
+            <div className="md:hidden space-y-3">
+              {filteredOrders.map((os) => (
+                <Card 
+                  key={os.id} 
+                  className="cursor-pointer hover:shadow-md transition-shadow"
+                  onClick={() => handleViewOS(os)}
+                >
+                  <CardContent className="p-4">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1 min-w-0 pr-2">
+                        <p className="font-mono font-bold">{os.code}</p>
+                        <p className="text-sm text-muted-foreground">{os.activities?.name}</p>
+                        {os.item_info?.unique_code && (
+                          <Badge variant="secondary" className="font-mono text-xs mt-1">
+                            {os.item_info.unique_code}
+                          </Badge>
+                        )}
+                        {os.item_info?.product_name && (
+                          <p className="text-xs text-muted-foreground break-words whitespace-normal mt-2">
+                            {os.item_info.product_name}
+                          </p>
+                        )}
+                      </div>
+                      <Badge className={statusColors[os.status] || ''}>
+                        {statusLabels[os.status] || os.status}
+                      </Badge>
+                    </div>
+                    <div className="mt-3 flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-3">
+                        <div className="flex items-center gap-1">
+                          <Clock className="h-3 w-3 text-muted-foreground" />
+                          <span className="font-mono">{formatTime(os.total_time_seconds)}</span>
+                        </div>
+                        {(os.parts_count ?? 0) > 0 && (
+                          <div className="flex items-center gap-1 text-muted-foreground">
+                            <Package className="h-3 w-3" />
+                            <span className="font-medium">{os.parts_count}</span>
+                          </div>
+                        )}
+                      </div>
+                      <span className="text-muted-foreground">
+                        {format(new Date(os.created_at), "dd/MM/yy", { locale: ptBR })}
+                      </span>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Nova OS Dialog */}
       <NovaOSDialog
