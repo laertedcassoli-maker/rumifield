@@ -254,7 +254,7 @@ export default function OrdensServico() {
                                   </Badge>
                                 )}
                                 {os.item_info?.product_name && (
-                                  <p className="text-xs text-muted-foreground break-words whitespace-normal">
+                                  <p className="text-xs text-muted-foreground break-words whitespace-normal mt-2">
                                     {os.item_info.product_name}
                                   </p>
                                 )}
@@ -310,7 +310,7 @@ export default function OrdensServico() {
                                 </Badge>
                               )}
                               {os.item_info?.product_name && (
-                                <p className="text-xs text-muted-foreground break-words whitespace-normal">
+                                <p className="text-xs text-muted-foreground break-words whitespace-normal mt-2">
                                   {os.item_info.product_name}
                                 </p>
                               )}
