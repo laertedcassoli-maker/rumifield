@@ -39,6 +39,7 @@ interface WorkOrder {
     unique_code?: string;
     product_name?: string;
   };
+  parts_count?: number;
 }
 
 export default function OrdensServico() {
@@ -80,6 +81,7 @@ export default function OrdensServico() {
       // Fetch work order items with workshop items and products
       const workOrderIds = data?.map(wo => wo.id) || [];
       let itemsMap: Record<string, { unique_code?: string; product_name?: string }> = {};
+      let partsCountMap: Record<string, number> = {};
 
       if (workOrderIds.length > 0) {
         const { data: items } = await supabase
@@ -90,6 +92,18 @@ export default function OrdensServico() {
             omie_product_id
           `)
           .in('work_order_id', workOrderIds);
+
+        // Fetch parts used count
+        const { data: partsUsed } = await supabase
+          .from('work_order_parts_used')
+          .select('work_order_id, quantity')
+          .in('work_order_id', workOrderIds);
+
+        if (partsUsed) {
+          partsUsed.forEach(part => {
+            partsCountMap[part.work_order_id] = (partsCountMap[part.work_order_id] || 0) + part.quantity;
+          });
+        }
 
         if (items && items.length > 0) {
           // Get workshop items for unique codes
@@ -142,6 +156,7 @@ export default function OrdensServico() {
         ...wo,
         profiles: wo.assigned_to_user_id ? { nome: profilesMap[wo.assigned_to_user_id] || '-' } : undefined,
         item_info: itemsMap[wo.id],
+        parts_count: partsCountMap[wo.id] || 0,
       })) as WorkOrder[];
     },
   });
@@ -270,11 +285,19 @@ export default function OrdensServico() {
                             </TableCell>
                             <TableCell>{os.profiles?.nome || '-'}</TableCell>
                             <TableCell>
-                              <div className="flex items-center gap-1">
-                                <Clock className="h-3 w-3 text-muted-foreground" />
-                                <span className="font-mono text-sm">
-                                  {formatTime(os.total_time_seconds)}
-                                </span>
+                              <div className="flex items-center gap-3">
+                                <div className="flex items-center gap-1">
+                                  <Clock className="h-3 w-3 text-muted-foreground" />
+                                  <span className="font-mono text-sm">
+                                    {formatTime(os.total_time_seconds)}
+                                  </span>
+                                </div>
+                                {(os.parts_count ?? 0) > 0 && (
+                                  <div className="flex items-center gap-1 text-muted-foreground">
+                                    <Package className="h-3 w-3" />
+                                    <span className="text-sm font-medium">{os.parts_count}</span>
+                                  </div>
+                                )}
                               </div>
                             </TableCell>
                             <TableCell>
@@ -320,9 +343,17 @@ export default function OrdensServico() {
                             </Badge>
                           </div>
                           <div className="mt-3 flex items-center justify-between text-sm">
-                            <div className="flex items-center gap-1">
-                              <Clock className="h-3 w-3 text-muted-foreground" />
-                              <span className="font-mono">{formatTime(os.total_time_seconds)}</span>
+                            <div className="flex items-center gap-3">
+                              <div className="flex items-center gap-1">
+                                <Clock className="h-3 w-3 text-muted-foreground" />
+                                <span className="font-mono">{formatTime(os.total_time_seconds)}</span>
+                              </div>
+                              {(os.parts_count ?? 0) > 0 && (
+                                <div className="flex items-center gap-1 text-muted-foreground">
+                                  <Package className="h-3 w-3" />
+                                  <span className="font-medium">{os.parts_count}</span>
+                                </div>
+                              )}
                             </div>
                             <span className="text-muted-foreground">
                               {format(new Date(os.created_at), "dd/MM/yy", { locale: ptBR })}
