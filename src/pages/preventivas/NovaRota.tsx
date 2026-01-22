@@ -742,17 +742,18 @@ export default function NovaRota() {
                           Dias Restantes {getSortIcon('days_until_due')}
                         </Button>
                       </TableHead>
+                      <TableHead>
+                        <Button variant="ghost" onClick={() => handleSort('preventive_status')} className="h-auto p-0 font-medium hover:bg-transparent text-xs">
+                          Status {getSortIcon('preventive_status')}
+                        </Button>
+                      </TableHead>
                       <TableHead className="text-center text-xs">
                         <span className="flex items-center justify-center gap-1">
                           <CalendarIcon className="h-3 w-3" />
                           Dias na Rota
                         </span>
                       </TableHead>
-                      <TableHead>
-                        <Button variant="ghost" onClick={() => handleSort('preventive_status')} className="h-auto p-0 font-medium hover:bg-transparent text-xs">
-                          Status {getSortIcon('preventive_status')}
-                        </Button>
-                      </TableHead>
+                      <TableHead className="text-center text-xs">Status na Rota</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -804,6 +805,9 @@ export default function NovaRota() {
                             </span>
                           ) : '-'}
                         </TableCell>
+                        <TableCell>
+                          {renderStatusBadge(client.preventive_status)}
+                        </TableCell>
                         <TableCell className="text-center">
                           {(() => {
                             if (client.days_until_due === null || !form.start_date) return '-';
@@ -813,7 +817,6 @@ export default function NovaRota() {
                             const daysToRoute = Math.ceil((routeStart.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
                             const daysAtRoute = client.days_until_due - daysToRoute;
                             
-                            // Determine projected status color
                             let colorClass = 'text-green-600';
                             if (daysAtRoute < 0) {
                               colorClass = 'text-destructive';
@@ -828,8 +831,27 @@ export default function NovaRota() {
                             );
                           })()}
                         </TableCell>
-                        <TableCell>
-                          {renderStatusBadge(client.preventive_status)}
+                        <TableCell className="text-center">
+                          {(() => {
+                            if (client.preventive_status === 'sem_historico') {
+                              return <Badge variant="outline" className="bg-muted text-muted-foreground text-xs">Sem Histórico</Badge>;
+                            }
+                            if (client.days_until_due === null || !form.start_date) return '-';
+                            
+                            const today = new Date();
+                            today.setHours(0, 0, 0, 0);
+                            const routeStart = new Date(form.start_date + 'T00:00:00');
+                            const daysToRoute = Math.ceil((routeStart.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+                            const daysAtRoute = client.days_until_due - daysToRoute;
+                            
+                            if (daysAtRoute < 0) {
+                              return <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/20 text-xs">Atrasada</Badge>;
+                            } else if (daysAtRoute <= 30) {
+                              return <Badge variant="outline" className="bg-warning/10 text-warning border-warning/20 text-xs">Elegível</Badge>;
+                            } else {
+                              return <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/20 text-xs">Em Dia</Badge>;
+                            }
+                          })()}
                         </TableCell>
                       </TableRow>
                     ))}
