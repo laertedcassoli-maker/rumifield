@@ -14,11 +14,25 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { CheckCircle2, XCircle, MinusCircle, AlertTriangle, ClipboardCheck, Loader2 } from "lucide-react";
+import { CheckCircle2, XCircle, MinusCircle, AlertTriangle, ClipboardCheck, Loader2, Wrench } from "lucide-react";
 
 interface ChecklistExecutionProps {
   preventiveId: string;
   onComplete?: () => void;
+}
+
+interface AvailableAction {
+  id: string;
+  action_label: string;
+  order_index: number;
+  active: boolean;
+}
+
+interface AvailableNonconformity {
+  id: string;
+  nonconformity_label: string;
+  order_index: number;
+  active: boolean;
 }
 
 interface ExecItem {
@@ -30,12 +44,9 @@ interface ExecItem {
   answered_at: string | null;
   template_item_id: string | null;
   selectedActions: string[];
-  availableActions: Array<{
-    id: string;
-    action_label: string;
-    order_index: number;
-    active: boolean;
-  }>;
+  selectedNonconformities: string[];
+  availableActions: AvailableAction[];
+  availableNonconformities: AvailableNonconformity[];
 }
 
 interface ExecBlock {
@@ -79,6 +90,11 @@ export default function ChecklistExecution({ preventiveId, onComplete }: Checkli
                 id,
                 template_action_id,
                 action_label_snapshot
+              ),
+              selected_nonconformities:preventive_checklist_item_nonconformities(
+                id,
+                template_nonconformity_id,
+                nonconformity_label_snapshot
               )
             )
           )
@@ -141,6 +157,46 @@ export default function ChecklistExecution({ preventiveId, onComplete }: Checkli
           grouped[action.item_id] = [];
         }
         grouped[action.item_id].push(action);
+      });
+
+      return grouped;
+    },
+    enabled: !!existingChecklist
+  });
+
+  // Get nonconformities for template items
+  const { data: templateNonconformities } = useQuery({
+    queryKey: ['template-nonconformities', existingChecklist?.id],
+    queryFn: async () => {
+      if (!existingChecklist) return {};
+      
+      const templateItemIds: string[] = [];
+      existingChecklist.blocks?.forEach((block: any) => {
+        block.items?.forEach((item: any) => {
+          if (item.template_item_id) {
+            templateItemIds.push(item.template_item_id);
+          }
+        });
+      });
+
+      if (templateItemIds.length === 0) return {};
+
+      const { data, error } = await supabase
+        .from('checklist_item_nonconformities')
+        .select('*')
+        .in('item_id', templateItemIds)
+        .eq('active', true)
+        .order('order_index');
+
+      if (error) throw error;
+
+      // Group by item_id
+      const grouped: Record<string, typeof data> = {};
+      data?.forEach(nc => {
+        if (!grouped[nc.item_id]) {
+          grouped[nc.item_id] = [];
+        }
+        grouped[nc.item_id].push(nc);
       });
 
       return grouped;
@@ -255,7 +311,7 @@ export default function ChecklistExecution({ preventiveId, onComplete }: Checkli
 
       if (error) throw error;
 
-      // If status changed from N to something else, remove selected actions and their consumption records
+      // If status changed from N to something else, remove selected actions, nonconformities and their consumption records
       if (status && status !== 'N') {
         // Get all exec_action_ids for this item
         const { data: execActions } = await supabase
@@ -274,12 +330,16 @@ export default function ChecklistExecution({ preventiveId, onComplete }: Checkli
         }
         
         // Remove the actions themselves
-        const { error: deleteError } = await supabase
+        await supabase
           .from('preventive_checklist_item_actions')
           .delete()
           .eq('exec_item_id', itemId);
 
-        if (deleteError) throw deleteError;
+        // Remove the nonconformities
+        await supabase
+          .from('preventive_checklist_item_nonconformities')
+          .delete()
+          .eq('exec_item_id', itemId);
       }
     },
     onSuccess: () => {
@@ -371,7 +431,6 @@ export default function ChecklistExecution({ preventiveId, onComplete }: Checkli
           
           if (consumptionError) {
             console.error('Erro ao registrar consumo de peças:', consumptionError);
-            // Don't fail the whole operation, just log
           }
         }
       }
@@ -381,6 +440,49 @@ export default function ChecklistExecution({ preventiveId, onComplete }: Checkli
     },
     onError: (error) => {
       toast.error('Erro ao atualizar ação: ' + error.message);
+    }
+  });
+
+  // Toggle nonconformity
+  const toggleNonconformityMutation = useMutation({
+    mutationFn: async ({ 
+      itemId, 
+      nonconformityId, 
+      nonconformityLabel,
+      isSelected 
+    }: { 
+      itemId: string;
+      nonconformityId: string; 
+      nonconformityLabel: string;
+      isSelected: boolean;
+    }) => {
+      if (isSelected) {
+        // Remove nonconformity
+        const { error } = await supabase
+          .from('preventive_checklist_item_nonconformities')
+          .delete()
+          .eq('exec_item_id', itemId)
+          .eq('template_nonconformity_id', nonconformityId);
+
+        if (error) throw error;
+      } else {
+        // Add nonconformity
+        const { error } = await supabase
+          .from('preventive_checklist_item_nonconformities')
+          .insert({
+            exec_item_id: itemId,
+            template_nonconformity_id: nonconformityId,
+            nonconformity_label_snapshot: nonconformityLabel
+          });
+
+        if (error) throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['preventive-checklist', preventiveId] });
+    },
+    onError: (error) => {
+      toast.error('Erro ao atualizar não conformidade: ' + error.message);
     }
   });
 
@@ -494,7 +596,9 @@ export default function ChecklistExecution({ preventiveId, onComplete }: Checkli
     items: block.items?.map((item: any) => ({
       ...item,
       selectedActions: item.selected_actions?.map((a: any) => a.template_action_id) || [],
-      availableActions: templateActions?.[item.template_item_id] || []
+      selectedNonconformities: item.selected_nonconformities?.map((nc: any) => nc.template_nonconformity_id) || [],
+      availableActions: templateActions?.[item.template_item_id] || [],
+      availableNonconformities: templateNonconformities?.[item.template_item_id] || []
     })).sort((a: ExecItem, b: ExecItem) => a.order_index - b.order_index) || []
   })).sort((a: ExecBlock, b: ExecBlock) => a.order_index - b.order_index) || [];
 
@@ -507,7 +611,7 @@ export default function ChecklistExecution({ preventiveId, onComplete }: Checkli
   const isCompleted = existingChecklist.status === 'concluido';
   const allAnswered = answeredItems === totalItems;
 
-  // Check if any item with status N has no corrective actions selected
+  // Check if any item with status N has no corrective actions selected (only if actions are available)
   const hasIncompleteFailures = blocks.some(block => 
     block.items.some(item => 
       item.status === 'N' && item.selectedActions.length === 0 && item.availableActions.length > 0
@@ -597,12 +701,50 @@ export default function ChecklistExecution({ preventiveId, onComplete }: Checkli
                       )}
                     </div>
 
+                    {/* Nonconformities - only show when status is N */}
+                    {item.status === 'N' && item.availableNonconformities.length > 0 && (
+                      <div className="pl-4 border-l-2 border-amber-400 space-y-2">
+                        <p className="text-sm font-medium text-amber-600 flex items-center gap-1">
+                          <AlertTriangle className="h-4 w-4" />
+                          O que deu errado? (Não Conformidades)
+                        </p>
+                        <div className="space-y-2">
+                          {item.availableNonconformities.map((nc) => {
+                            const isSelected = item.selectedNonconformities.includes(nc.id);
+                            return (
+                              <div key={nc.id} className="flex items-center space-x-2">
+                                <Checkbox
+                                  id={`nc-${nc.id}`}
+                                  checked={isSelected}
+                                  disabled={isCompleted}
+                                  onCheckedChange={() => 
+                                    toggleNonconformityMutation.mutate({
+                                      itemId: item.id,
+                                      nonconformityId: nc.id,
+                                      nonconformityLabel: nc.nonconformity_label,
+                                      isSelected
+                                    })
+                                  }
+                                />
+                                <Label 
+                                  htmlFor={`nc-${nc.id}`}
+                                  className="text-sm cursor-pointer"
+                                >
+                                  {nc.nonconformity_label}
+                                </Label>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
                     {/* Corrective actions - only show when status is N */}
                     {item.status === 'N' && item.availableActions.length > 0 && (
                       <div className="pl-4 border-l-2 border-destructive/30 space-y-2">
                         <p className="text-sm font-medium text-destructive flex items-center gap-1">
-                          <AlertTriangle className="h-4 w-4" />
-                          Selecione as ações corretivas realizadas:
+                          <Wrench className="h-4 w-4" />
+                          O que foi feito para corrigir? (Ações Corretivas)
                         </p>
                         <div className="space-y-2">
                           {item.availableActions.map((action) => {
@@ -632,6 +774,23 @@ export default function ChecklistExecution({ preventiveId, onComplete }: Checkli
                             );
                           })}
                         </div>
+                      </div>
+                    )}
+
+                    {/* Show selected nonconformities when completed */}
+                    {isCompleted && item.status === 'N' && item.selectedNonconformities.length > 0 && (
+                      <div className="pl-4 border-l-2 border-amber-400">
+                        <p className="text-sm font-medium text-muted-foreground mb-1">
+                          Não conformidades identificadas:
+                        </p>
+                        <ul className="text-sm list-disc list-inside">
+                          {existingChecklist.blocks
+                            ?.find((b: any) => b.id === block.id)
+                            ?.items?.find((i: any) => i.id === item.id)
+                            ?.selected_nonconformities?.map((nc: any) => (
+                              <li key={nc.id}>{nc.nonconformity_label_snapshot}</li>
+                            ))}
+                        </ul>
                       </div>
                     )}
 

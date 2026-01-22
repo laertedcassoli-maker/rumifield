@@ -217,6 +217,41 @@ export type Database = {
           },
         ]
       }
+      checklist_item_nonconformities: {
+        Row: {
+          active: boolean
+          created_at: string
+          id: string
+          item_id: string
+          nonconformity_label: string
+          order_index: number
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          item_id: string
+          nonconformity_label: string
+          order_index?: number
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          id?: string
+          item_id?: string
+          nonconformity_label?: string
+          order_index?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checklist_item_nonconformities_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "checklist_template_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       checklist_template_blocks: {
         Row: {
           block_name: string
@@ -883,6 +918,48 @@ export type Database = {
             columns: ["template_action_id"]
             isOneToOne: false
             referencedRelation: "checklist_item_corrective_actions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      preventive_checklist_item_nonconformities: {
+        Row: {
+          created_at: string
+          exec_item_id: string
+          id: string
+          nonconformity_label_snapshot: string
+          selected_at: string
+          template_nonconformity_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          exec_item_id: string
+          id?: string
+          nonconformity_label_snapshot: string
+          selected_at?: string
+          template_nonconformity_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          exec_item_id?: string
+          id?: string
+          nonconformity_label_snapshot?: string
+          selected_at?: string
+          template_nonconformity_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "preventive_checklist_item_noncon_template_nonconformity_id_fkey"
+            columns: ["template_nonconformity_id"]
+            isOneToOne: false
+            referencedRelation: "checklist_item_nonconformities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "preventive_checklist_item_nonconformities_exec_item_id_fkey"
+            columns: ["exec_item_id"]
+            isOneToOne: false
+            referencedRelation: "preventive_checklist_items"
             referencedColumns: ["id"]
           },
         ]
