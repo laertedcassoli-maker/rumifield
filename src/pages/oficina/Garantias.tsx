@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import { Shield, FileText, Check, Clock, Package, Plus, Printer, Wrench, ChevronRight } from 'lucide-react';
+import { Shield, FileText, Check, Clock, Package, Plus, Download, Wrench, ChevronRight, User } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -34,11 +34,15 @@ interface MotorReplacement {
   motor_hours_used: number;
   replaced_at: string;
   warranty_batch_id: string | null;
+  user_id: string;
   workshop_items?: {
     unique_code: string;
   } | null;
   work_orders?: {
     code: string;
+  } | null;
+  profiles?: {
+    nome: string;
   } | null;
 }
 
@@ -82,7 +86,8 @@ export default function Garantias() {
         .select(`
           *,
           workshop_items:workshop_item_id (unique_code),
-          work_orders:work_order_id (code)
+          work_orders:work_order_id (code),
+          profiles:user_id (nome)
         `)
         .is('warranty_batch_id', null)
         .lte('motor_hours_used', warrantyLimit)
@@ -116,7 +121,8 @@ export default function Garantias() {
         .select(`
           *,
           workshop_items:workshop_item_id (unique_code),
-          work_orders:work_order_id (code)
+          work_orders:work_order_id (code),
+          profiles:user_id (nome)
         `)
         .eq('warranty_batch_id' as never, selectedBatch.id)
         .order('replaced_at', { ascending: false });
@@ -216,56 +222,123 @@ export default function Garantias() {
     finalizeBatchMutation.mutate({ id: selectedBatch.id, invoice: invoiceNumber });
   };
 
-  const printReport = () => {
+  const generatePDF = () => {
     if (!selectedBatch) return;
     
     const reportContent = `
+      <!DOCTYPE html>
       <html>
         <head>
+          <meta charset="UTF-8">
           <title>Requisição de Garantia ${selectedBatch.batch_number}</title>
           <style>
-            body { font-family: Arial, sans-serif; padding: 20px; }
-            h1 { font-size: 18px; margin-bottom: 10px; }
-            .info { margin-bottom: 15px; font-size: 14px; }
+            @page { margin: 15mm; size: A4; }
+            * { box-sizing: border-box; }
+            body { font-family: 'Segoe UI', Arial, sans-serif; padding: 0; margin: 0; color: #333; font-size: 11px; }
+            .header { border-bottom: 2px solid #1e3a5f; padding-bottom: 15px; margin-bottom: 20px; }
+            .header h1 { font-size: 20px; color: #1e3a5f; margin: 0 0 5px 0; }
+            .header .subtitle { color: #666; font-size: 12px; }
+            .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
+            .info-item { background: #f8f9fa; padding: 10px; border-radius: 4px; }
+            .info-item label { font-size: 10px; color: #666; text-transform: uppercase; display: block; margin-bottom: 3px; }
+            .info-item span { font-weight: 600; font-size: 13px; }
+            .status-badge { display: inline-block; padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: 600; }
+            .status-aberta { background: #fef3cd; color: #856404; }
+            .status-finalizada { background: #d4edda; color: #155724; }
             table { width: 100%; border-collapse: collapse; margin-top: 15px; }
-            th, td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 12px; }
-            th { background: #f5f5f5; }
-            .footer { margin-top: 20px; font-size: 12px; color: #666; }
+            th { background: #1e3a5f; color: white; padding: 10px 8px; text-align: left; font-size: 10px; text-transform: uppercase; }
+            td { border-bottom: 1px solid #e0e0e0; padding: 10px 8px; font-size: 11px; }
+            tr:nth-child(even) { background: #f8f9fa; }
+            .mono { font-family: 'Consolas', monospace; }
+            .text-right { text-align: right; }
+            .footer { margin-top: 30px; padding-top: 15px; border-top: 1px solid #e0e0e0; font-size: 10px; color: #666; display: flex; justify-content: space-between; }
+            .summary { background: #1e3a5f; color: white; padding: 12px; border-radius: 4px; margin-top: 20px; display: flex; justify-content: space-between; }
+            .summary-item { text-align: center; }
+            .summary-item .value { font-size: 18px; font-weight: bold; }
+            .summary-item .label { font-size: 10px; opacity: 0.8; }
           </style>
         </head>
         <body>
-          <h1>Requisição de Garantia: ${selectedBatch.batch_number}</h1>
-          <div class="info">
-            <p><strong>Data:</strong> ${format(new Date(selectedBatch.created_at), "dd/MM/yyyy", { locale: ptBR })}</p>
-            <p><strong>Status:</strong> ${statusConfig[selectedBatch.status].label}</p>
-            ${selectedBatch.supplier_invoice ? `<p><strong>Invoice:</strong> ${selectedBatch.supplier_invoice}</p>` : ''}
-            ${selectedBatch.notes ? `<p><strong>Observações:</strong> ${selectedBatch.notes}</p>` : ''}
+          <div class="header">
+            <h1>Requisição de Garantia</h1>
+            <div class="subtitle">${selectedBatch.batch_number}</div>
           </div>
+          
+          <div class="info-grid">
+            <div class="info-item">
+              <label>Data da Requisição</label>
+              <span>${format(new Date(selectedBatch.created_at), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}</span>
+            </div>
+            <div class="info-item">
+              <label>Status</label>
+              <span class="status-badge status-${selectedBatch.status}">${statusConfig[selectedBatch.status].label}</span>
+            </div>
+            ${selectedBatch.supplier_invoice ? `
+            <div class="info-item">
+              <label>Invoice Fornecedor</label>
+              <span class="mono">${selectedBatch.supplier_invoice}</span>
+            </div>
+            ` : ''}
+            ${selectedBatch.finalized_at ? `
+            <div class="info-item">
+              <label>Data Finalização</label>
+              <span>${format(new Date(selectedBatch.finalized_at), "dd/MM/yyyy", { locale: ptBR })}</span>
+            </div>
+            ` : ''}
+          </div>
+          
+          ${selectedBatch.notes ? `
+          <div class="info-item" style="margin-bottom: 20px;">
+            <label>Observações</label>
+            <span>${selectedBatch.notes}</span>
+          </div>
+          ` : ''}
+          
+          <h3 style="font-size: 14px; color: #1e3a5f; margin-bottom: 10px;">Motores Incluídos</h3>
+          
           <table>
             <thead>
               <tr>
-                <th>#</th>
+                <th style="width: 30px;">#</th>
                 <th>Código Motor</th>
                 <th>Ativo</th>
                 <th>Data Troca</th>
-                <th>Horas Uso</th>
+                <th class="text-right">Horas Uso</th>
+                <th>Técnico</th>
               </tr>
             </thead>
             <tbody>
               ${batchMotors.map((motor, idx) => `
                 <tr>
                   <td>${idx + 1}</td>
-                  <td>${motor.old_motor_code || '-'}</td>
-                  <td>${motor.workshop_items?.unique_code || '-'}</td>
+                  <td class="mono">${motor.old_motor_code || '-'}</td>
+                  <td class="mono">${motor.workshop_items?.unique_code || '-'}</td>
                   <td>${format(new Date(motor.replaced_at), "dd/MM/yyyy", { locale: ptBR })}</td>
-                  <td>${motor.motor_hours_used.toFixed(0)}h</td>
+                  <td class="text-right mono">${motor.motor_hours_used.toFixed(0)}h</td>
+                  <td>${motor.profiles?.nome || '-'}</td>
                 </tr>
               `).join('')}
             </tbody>
           </table>
+          
+          <div class="summary">
+            <div class="summary-item">
+              <div class="value">${batchMotors.length}</div>
+              <div class="label">Total de Motores</div>
+            </div>
+            <div class="summary-item">
+              <div class="value">${batchMotors.reduce((sum, m) => sum + m.motor_hours_used, 0).toFixed(0)}h</div>
+              <div class="label">Horas Totais</div>
+            </div>
+            <div class="summary-item">
+              <div class="value">${(batchMotors.reduce((sum, m) => sum + m.motor_hours_used, 0) / Math.max(batchMotors.length, 1)).toFixed(0)}h</div>
+              <div class="label">Média por Motor</div>
+            </div>
+          </div>
+          
           <div class="footer">
-            <p>Total de motores: ${batchMotors.length}</p>
-            <p>Impresso em: ${format(new Date(), "dd/MM/yyyy HH:mm", { locale: ptBR })}</p>
+            <span>Documento gerado em ${format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</span>
+            <span>RumiField - Sistema de Gestão</span>
           </div>
         </body>
       </html>
@@ -275,7 +348,10 @@ export default function Garantias() {
     if (printWindow) {
       printWindow.document.write(reportContent);
       printWindow.document.close();
-      printWindow.print();
+      // Give time for styles to load, then trigger print (user can save as PDF)
+      setTimeout(() => {
+        printWindow.print();
+      }, 250);
     }
   };
 
@@ -354,6 +430,12 @@ export default function Garantias() {
                             Troca: {format(new Date(motor.replaced_at), "dd/MM/yyyy", { locale: ptBR })}
                             {motor.workshop_items?.unique_code && ` • Ativo: ${motor.workshop_items.unique_code}`}
                           </p>
+                          {motor.profiles?.nome && (
+                            <p className="text-xs text-muted-foreground flex items-center gap-1">
+                              <User className="h-3 w-3" />
+                              {motor.profiles.nome}
+                            </p>
+                          )}
                         </div>
                       </div>
                     </CardContent>
@@ -572,6 +654,7 @@ export default function Garantias() {
                         <TableHead>Ativo</TableHead>
                         <TableHead>Data Troca</TableHead>
                         <TableHead className="text-right">Horas</TableHead>
+                        <TableHead>Técnico</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -581,6 +664,7 @@ export default function Garantias() {
                           <TableCell className="font-mono text-xs">{motor.workshop_items?.unique_code || '-'}</TableCell>
                           <TableCell>{format(new Date(motor.replaced_at), "dd/MM/yyyy", { locale: ptBR })}</TableCell>
                           <TableCell className="text-right font-mono">{motor.motor_hours_used.toFixed(0)}h</TableCell>
+                          <TableCell className="text-xs">{motor.profiles?.nome || '-'}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -603,9 +687,9 @@ export default function Garantias() {
           )}
 
           <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={printReport}>
-              <Printer className="h-4 w-4 mr-2" />
-              Imprimir
+            <Button variant="outline" onClick={generatePDF}>
+              <Download className="h-4 w-4 mr-2" />
+              Gerar PDF
             </Button>
             <Button variant="outline" onClick={() => setDetailDialogOpen(false)}>
               Fechar
