@@ -14,7 +14,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { toast } from "sonner";
-import { ArrowLeft, Plus, Trash2, GripVertical, ChevronDown, ChevronRight, Save, Wrench } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, GripVertical, ChevronDown, ChevronRight, Save, Wrench, Copy } from "lucide-react";
 
 interface CorrectiveAction {
   id: string;
@@ -262,6 +262,56 @@ export default function ChecklistEditor() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['checklist-template', id] });
+    }
+  });
+
+  // Duplicate item mutation
+  const duplicateItemMutation = useMutation({
+    mutationFn: async (item: ChecklistItem) => {
+      // Find the block containing this item
+      const block = template?.blocks?.find((b: ChecklistBlock) => 
+        b.items?.some((i: ChecklistItem) => i.id === item.id)
+      );
+      const maxOrder = block?.items?.length || 0;
+      
+      // Create the duplicated item
+      const { data: newItem, error: itemError } = await supabase
+        .from('checklist_template_items')
+        .insert({
+          block_id: block?.id,
+          item_name: `${item.item_name} (cópia)`,
+          order_index: maxOrder,
+          active: item.active
+        })
+        .select()
+        .single();
+      
+      if (itemError) throw itemError;
+      
+      // Duplicate corrective actions if any exist
+      if (item.actions && item.actions.length > 0) {
+        const actionsToInsert = item.actions.map((action, index) => ({
+          item_id: newItem.id,
+          action_label: action.action_label,
+          order_index: index,
+          active: action.active
+        }));
+        
+        const { error: actionsError } = await supabase
+          .from('checklist_item_corrective_actions')
+          .insert(actionsToInsert);
+        
+        if (actionsError) throw actionsError;
+      }
+      
+      return newItem;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['checklist-template', id] });
+      toast.success('Item duplicado com sucesso!');
+    },
+    onError: (error) => {
+      toast.error('Erro ao duplicar item: ' + error.message);
     }
   });
 
@@ -651,6 +701,16 @@ export default function ChecklistEditor() {
                                   }
                                 />
                               </div>
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                className="h-8 w-8"
+                                onClick={() => duplicateItemMutation.mutate(item)}
+                                disabled={duplicateItemMutation.isPending}
+                                title="Duplicar item"
+                              >
+                                <Copy className="h-3 w-3" />
+                              </Button>
                               <AlertDialog>
                                 <AlertDialogTrigger asChild>
                                   <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive">
