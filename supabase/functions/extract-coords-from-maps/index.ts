@@ -57,18 +57,29 @@ Deno.serve(async (req) => {
       // keep original
     }
 
-    // Pattern 1: @lat,lng in URL (most common after redirect)
-    const atPattern = /@(-?\d+\.?\d*),(-?\d+\.?\d*)/;
-    const atMatch = decodedUrl.match(atPattern);
-    if (atMatch) {
-      latitude = parseFloat(atMatch[1]);
-      longitude = parseFloat(atMatch[2]);
-      console.log('Found coordinates via @ pattern:', latitude, longitude);
+    // PRIORITY 1: !8m2!3d...!4d... - This is the EXACT pin location in Google Maps place URLs
+    // Example: ...!8m2!3d-19.1593999!4d-46.5117...
+    const exactPinPattern = /!8m2!3d(-?\d+\.?\d*)!4d(-?\d+\.?\d*)/;
+    const exactPinMatch = decodedUrl.match(exactPinPattern);
+    if (exactPinMatch) {
+      latitude = parseFloat(exactPinMatch[1]);
+      longitude = parseFloat(exactPinMatch[2]);
+      console.log('Found coordinates via !8m2!3d!4d pattern (exact pin):', latitude, longitude);
     }
 
-    // Pattern 2: /maps/search/lat,lng format (common for pin drops)
+    // PRIORITY 2: !3d and !4d parameters (embedded maps, but not the 8m2 variant)
     if (!latitude || !longitude) {
-      // Accept both ",lng" and ",+lng" (Google sometimes returns ",+-47.123")
+      const dataPattern = /!3d(-?\d+\.?\d*)!4d(-?\d+\.?\d*)/;
+      const dataMatch = decodedUrl.match(dataPattern);
+      if (dataMatch) {
+        latitude = parseFloat(dataMatch[1]);
+        longitude = parseFloat(dataMatch[2]);
+        console.log('Found coordinates via !3d!4d pattern:', latitude, longitude);
+      }
+    }
+
+    // PRIORITY 3: /maps/search/lat,lng format (common for pin drops)
+    if (!latitude || !longitude) {
       const searchPattern = /\/maps\/search\/(-?\d+(?:\.\d+)?),\s*\+?(-?\d+(?:\.\d+)?)/;
       const searchMatch = decodedUrl.match(searchPattern);
       if (searchMatch) {
@@ -78,7 +89,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Pattern 3: ?q=lat,lng or &q=lat,lng
+    // PRIORITY 4: ?q=lat,lng or &q=lat,lng
     if (!latitude || !longitude) {
       const qPattern = /[?&]q=(-?\d+(?:\.\d+)?),\s*\+?(-?\d+(?:\.\d+)?)/;
       const qMatch = decodedUrl.match(qPattern);
@@ -89,7 +100,7 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Pattern 3: /place/.../@lat,lng
+    // PRIORITY 5: /place/.../@lat,lng (note: @ is viewport center, not always the pin)
     if (!latitude || !longitude) {
       const placePattern = /\/place\/[^/]+\/@(-?\d+\.?\d*),(-?\d+\.?\d*)/;
       const placeMatch = decodedUrl.match(placePattern);
@@ -100,14 +111,15 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Pattern 4: !3d and !4d parameters (embedded maps)
+    // PRIORITY 6 (fallback): @lat,lng in URL - this is the MAP CENTER, not the pin
+    // Only use if no other pattern matched
     if (!latitude || !longitude) {
-      const dataPattern = /!3d(-?\d+\.?\d*)!4d(-?\d+\.?\d*)/;
-      const dataMatch = decodedUrl.match(dataPattern);
-      if (dataMatch) {
-        latitude = parseFloat(dataMatch[1]);
-        longitude = parseFloat(dataMatch[2]);
-        console.log('Found coordinates via !3d!4d pattern:', latitude, longitude);
+      const atPattern = /@(-?\d+\.?\d*),(-?\d+\.?\d*)/;
+      const atMatch = decodedUrl.match(atPattern);
+      if (atMatch) {
+        latitude = parseFloat(atMatch[1]);
+        longitude = parseFloat(atMatch[2]);
+        console.log('Found coordinates via @ pattern (map center, fallback):', latitude, longitude);
       }
     }
 
