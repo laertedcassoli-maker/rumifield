@@ -244,15 +244,20 @@ export default function ItensOficina() {
                         variant="outline"
                         role="combobox"
                         aria-expanded={productPopoverOpen}
-                        className="w-full justify-between font-normal"
+                        className="w-full justify-between font-normal h-auto min-h-10"
                       >
-                        {formData.omie_product_id
-                          ? pecas.find((p) => p.id === formData.omie_product_id)?.nome || 'Produto selecionado'
-                          : 'Selecione o produto...'}
-                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        <span className="truncate text-left flex-1 mr-2">
+                          {formData.omie_product_id
+                            ? (() => {
+                                const peca = pecas.find((p) => p.id === formData.omie_product_id);
+                                return peca ? `[${peca.codigo}] ${peca.nome}` : 'Produto selecionado';
+                              })()
+                            : 'Selecione o produto...'}
+                        </span>
+                        <ChevronsUpDown className="h-4 w-4 shrink-0 opacity-50" />
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-[400px] p-0" align="start">
+                    <PopoverContent className="w-[400px] p-0 z-50" align="start">
                       <Command>
                         <CommandInput placeholder="Buscar produto..." />
                         <CommandList>
@@ -269,15 +274,17 @@ export default function ItensOficina() {
                               >
                                 <Check
                                   className={cn(
-                                    "mr-2 h-4 w-4",
+                                    "mr-2 h-4 w-4 shrink-0",
                                     formData.omie_product_id === peca.id ? "opacity-100" : "opacity-0"
                                   )}
                                 />
-                                <div className="flex flex-col">
-                                  <span>{peca.nome}</span>
-                                  <span className="text-xs text-muted-foreground">
-                                    {peca.codigo} {peca.familia && `• ${peca.familia}`}
-                                  </span>
+                                <div className="flex flex-col min-w-0">
+                                  <span className="truncate">[{peca.codigo}] {peca.nome}</span>
+                                  {peca.familia && (
+                                    <span className="text-xs text-muted-foreground truncate">
+                                      {peca.familia}
+                                    </span>
+                                  )}
                                 </div>
                               </CommandItem>
                             ))}
