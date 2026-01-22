@@ -100,12 +100,19 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [elapsedTime, setElapsedTime] = useState(workOrder.total_time_seconds);
+  // Local snapshot of total time to avoid UI “reset” while server props/refetch catch up
+  const [localTotalSeconds, setLocalTotalSeconds] = useState(workOrder.total_time_seconds);
   const [addPartDialogOpen, setAddPartDialogOpen] = useState(false);
   const [selectedPecaId, setSelectedPecaId] = useState('');
   const [partQuantity, setPartQuantity] = useState(1);
   const [meterHoursExit, setMeterHoursExit] = useState('');
   const [isMotorReplacement, setIsMotorReplacement] = useState(false);
   const [timeHistoryOpen, setTimeHistoryOpen] = useState(false);
+
+  // Keep local total in sync when the workOrder prop updates
+  useEffect(() => {
+    setLocalTotalSeconds(workOrder.total_time_seconds);
+  }, [workOrder.total_time_seconds]);
 
   // Fetch active time entry for this user on this OS
   const { data: activeTimeEntry } = useQuery({
@@ -239,17 +246,17 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
       // Timer is running - count live
       const interval = setInterval(() => {
         const runningTime = Math.floor((Date.now() - new Date(currentEntry.started_at).getTime()) / 1000);
-        setElapsedTime(workOrder.total_time_seconds + runningTime);
+        setElapsedTime(localTotalSeconds + runningTime);
       }, 1000);
       return () => clearInterval(interval);
     } else if (currentEntry?.status === 'paused' && currentEntry.duration_seconds) {
       // Timer is paused - show total including paused session
-      setElapsedTime(workOrder.total_time_seconds + currentEntry.duration_seconds);
+      setElapsedTime(localTotalSeconds + currentEntry.duration_seconds);
     } else {
       // No active entry - show saved total
-      setElapsedTime(workOrder.total_time_seconds);
+      setElapsedTime(localTotalSeconds);
     }
-  }, [activeTimeEntry, workOrder.total_time_seconds]);
+  }, [activeTimeEntry, localTotalSeconds]);
 
   // Start timer mutation
   const startTimerMutation = useMutation({
@@ -327,6 +334,9 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
         })
         .eq('id', workOrder.id);
       if (osError) throw osError;
+
+      // Update local total immediately to prevent UI reset until queries/props refresh
+      setLocalTotalSeconds((prev) => prev + durationSoFar);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['active-time-entry', workOrder.id, user?.id] });
@@ -417,6 +427,9 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
           })
           .eq('id', workOrder.id);
         if (osError) throw osError;
+
+        // Update local total immediately to prevent UI reset until queries/props refresh
+        setLocalTotalSeconds((prev) => prev + durationSeconds);
       }
     },
     onSuccess: () => {
