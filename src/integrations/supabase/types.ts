@@ -381,7 +381,9 @@ export type Database = {
           created_at: string
           id: string
           motor_hours_used: number
+          new_motor_code: string | null
           notes: string | null
+          old_motor_code: string | null
           replaced_at: string
           replaced_at_meter_hours: number
           user_id: string
@@ -392,7 +394,9 @@ export type Database = {
           created_at?: string
           id?: string
           motor_hours_used: number
+          new_motor_code?: string | null
           notes?: string | null
+          old_motor_code?: string | null
           replaced_at?: string
           replaced_at_meter_hours: number
           user_id: string
@@ -403,7 +407,9 @@ export type Database = {
           created_at?: string
           id?: string
           motor_hours_used?: number
+          new_motor_code?: string | null
           notes?: string | null
+          old_motor_code?: string | null
           replaced_at?: string
           replaced_at_meter_hours?: number
           user_id?: string
@@ -849,6 +855,8 @@ export type Database = {
           added_by_user_id: string
           created_at: string
           id: string
+          motor_code_installed: string | null
+          motor_code_removed: string | null
           notes: string | null
           omie_product_id: string
           quantity: number
@@ -858,6 +866,8 @@ export type Database = {
           added_by_user_id: string
           created_at?: string
           id?: string
+          motor_code_installed?: string | null
+          motor_code_removed?: string | null
           notes?: string | null
           omie_product_id: string
           quantity?: number
@@ -867,6 +877,8 @@ export type Database = {
           added_by_user_id?: string
           created_at?: string
           id?: string
+          motor_code_installed?: string | null
+          motor_code_removed?: string | null
           notes?: string | null
           omie_product_id?: string
           quantity?: number
@@ -996,6 +1008,7 @@ export type Database = {
       workshop_items: {
         Row: {
           created_at: string
+          current_motor_code: string | null
           id: string
           meter_hours_last: number | null
           meter_hours_updated_at: string | null
@@ -1008,6 +1021,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          current_motor_code?: string | null
           id?: string
           meter_hours_last?: number | null
           meter_hours_updated_at?: string | null
@@ -1020,6 +1034,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          current_motor_code?: string | null
           id?: string
           meter_hours_last?: number | null
           meter_hours_updated_at?: string | null
