@@ -249,9 +249,9 @@ export default function OrdensServico() {
                               <div>
                                 <p className="font-medium">{os.activities?.name}</p>
                                 {os.item_info?.unique_code && (
-                                  <p className="text-xs text-muted-foreground font-mono break-words whitespace-normal">
+                                  <Badge variant="secondary" className="font-mono text-xs mt-1">
                                     {os.item_info.unique_code}
-                                  </p>
+                                  </Badge>
                                 )}
                                 {os.item_info?.product_name && (
                                   <p className="text-xs text-muted-foreground break-words whitespace-normal">
@@ -305,9 +305,9 @@ export default function OrdensServico() {
                               <p className="font-mono font-bold">{os.code}</p>
                               <p className="text-sm text-muted-foreground">{os.activities?.name}</p>
                               {os.item_info?.unique_code && (
-                                <p className="text-xs text-muted-foreground font-mono break-words whitespace-normal">
+                                <Badge variant="secondary" className="font-mono text-xs mt-1">
                                   {os.item_info.unique_code}
-                                </p>
+                                </Badge>
                               )}
                               {os.item_info?.product_name && (
                                 <p className="text-xs text-muted-foreground break-words whitespace-normal">
