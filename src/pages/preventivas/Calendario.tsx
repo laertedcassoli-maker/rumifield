@@ -29,7 +29,7 @@ const generateMonthColumns = (startYear: number) => {
   return columns;
 };
 
-type MonthStatus = 'concluida' | 'planejada' | 'sem_preventiva';
+type MonthStatus = 'concluida' | 'planejada' | 'atrasada' | 'sem_preventiva';
 
 interface PreventiveRecord {
   id: string;
@@ -224,11 +224,21 @@ export default function CalendarioPreventivas() {
           technician_name: prev.technician_user_id ? technicianMap.get(prev.technician_user_id) || null : null,
         });
         
-        // Update status: concluida > planejada > sem_preventiva
+        // Update status: concluida > atrasada > planejada > sem_preventiva
         if (prev.status === 'concluida') {
           monthData.status = 'concluida';
         } else if (prev.status === 'planejada' && monthData.status !== 'concluida') {
-          monthData.status = 'planejada';
+          // Check if it's overdue (scheduled_date is in the past)
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          const scheduledDate = new Date(prev.scheduled_date);
+          scheduledDate.setHours(0, 0, 0, 0);
+          
+          if (scheduledDate < today) {
+            monthData.status = 'atrasada';
+          } else {
+            monthData.status = 'planejada';
+          }
         }
       });
       
@@ -243,8 +253,10 @@ export default function CalendarioPreventivas() {
     switch (status) {
       case 'concluida':
         return 'bg-green-500';
+      case 'atrasada':
+        return 'bg-red-500';
       case 'planejada':
-        return 'bg-destructive';
+        return 'bg-yellow-500';
       case 'sem_preventiva':
         return 'bg-muted-foreground/30';
     }
@@ -255,8 +267,10 @@ export default function CalendarioPreventivas() {
     switch (status) {
       case 'concluida':
         return 'Concluída';
+      case 'atrasada':
+        return 'Atrasada';
       case 'planejada':
-        return 'Planejada (não concluída)';
+        return 'Planejada';
       case 'sem_preventiva':
         return 'Sem preventiva';
     }
@@ -267,18 +281,20 @@ export default function CalendarioPreventivas() {
   // Calculate summary stats
   const summaryStats = useMemo(() => {
     let concluidas = 0;
+    let atrasadas = 0;
     let planejadas = 0;
     let semPreventiva = 0;
     
     calendarData.forEach(months => {
       months.forEach(monthData => {
         if (monthData.status === 'concluida') concluidas++;
+        else if (monthData.status === 'atrasada') atrasadas++;
         else if (monthData.status === 'planejada') planejadas++;
         else semPreventiva++;
       });
     });
     
-    return { concluidas, planejadas, semPreventiva };
+    return { concluidas, atrasadas, planejadas, semPreventiva };
   }, [calendarData]);
 
   return (
@@ -384,8 +400,12 @@ export default function CalendarioPreventivas() {
             <span className="text-sm">Concluída</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-3 h-3 rounded-full bg-destructive" />
+            <div className="w-3 h-3 rounded-full bg-yellow-500" />
             <span className="text-sm">Planejada</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="w-3 h-3 rounded-full bg-red-500" />
+            <span className="text-sm">Atrasada</span>
           </div>
           <div className="flex items-center gap-2">
             <div className="w-3 h-3 rounded-full bg-muted-foreground/30" />
@@ -396,8 +416,11 @@ export default function CalendarioPreventivas() {
           <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/20">
             {summaryStats.concluidas} concluídas
           </Badge>
-          <Badge variant="outline" className="bg-destructive/10 text-destructive border-destructive/20">
+          <Badge variant="outline" className="bg-yellow-500/10 text-yellow-600 border-yellow-500/20">
             {summaryStats.planejadas} planejadas
+          </Badge>
+          <Badge variant="outline" className="bg-red-500/10 text-red-600 border-red-500/20">
+            {summaryStats.atrasadas} atrasadas
           </Badge>
           <Badge variant="outline" className="bg-muted">
             {summaryStats.semPreventiva} sem preventiva
@@ -421,7 +444,7 @@ export default function CalendarioPreventivas() {
               <table className="border-collapse">
                 <thead>
                   <tr className="border-b">
-                    <th className="text-left p-2 font-medium text-sm sticky left-0 bg-background z-10 w-[140px] min-w-[140px] max-w-[140px]">
+                    <th className="text-left p-2 font-medium text-sm sticky left-0 bg-background z-10 w-[220px] min-w-[220px] max-w-[220px]">
                       Fazenda
                     </th>
                     {monthColumns.map((col, idx) => (
@@ -443,11 +466,11 @@ export default function CalendarioPreventivas() {
                     
                     return (
                       <tr key={client.id} className="border-b hover:bg-muted/30">
-                        <td className="p-2 sticky left-0 bg-background z-10 w-[140px] min-w-[140px] max-w-[140px]">
+                        <td className="p-2 sticky left-0 bg-background z-10 w-[220px] min-w-[220px] max-w-[220px]">
                           <div className="truncate" title={`${client.nome}${client.fazenda ? ` - ${client.fazenda}` : ''}`}>
-                            <div className="font-medium text-xs truncate">{client.nome}</div>
+                            <div className="font-medium text-sm truncate">{client.nome}</div>
                             {client.fazenda && (
-                              <div className="text-[10px] text-muted-foreground truncate">{client.fazenda}</div>
+                              <div className="text-xs text-muted-foreground truncate">{client.fazenda}</div>
                             )}
                           </div>
                         </td>
