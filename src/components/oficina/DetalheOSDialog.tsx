@@ -619,18 +619,18 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
               <p className="font-medium">{workOrder.activities?.name}</p>
             </div>
 
-            {/* Timer Section */}
-            {workOrder.status !== 'concluido' && (
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm flex items-center gap-2">
-                    <Clock className="h-4 w-4" />
-                    Cronômetro
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="flex items-center justify-between">
-                    <span className="font-mono text-3xl">{formatTime(elapsedTime)}</span>
+            {/* Timer Section - always show total time */}
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Clock className="h-4 w-4" />
+                  Tempo Total
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center justify-between">
+                  <span className="font-mono text-3xl">{formatTime(elapsedTime)}</span>
+                  {workOrder.status !== 'concluido' && (
                     <div className="flex gap-2">
                       {!activeTimeEntry ? (
                         <Button
@@ -684,10 +684,10 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
                         </>
                       )}
                     </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
+                  )}
+                </div>
+              </CardContent>
+            </Card>
             {univocaItem && (
               <div>
                 <p className="text-sm font-semibold mb-2">Item</p>
