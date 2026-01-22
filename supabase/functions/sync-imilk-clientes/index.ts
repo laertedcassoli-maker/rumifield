@@ -49,24 +49,31 @@ serve(async (req) => {
     // Initialize Supabase client
     const supabase = createClient(supabaseUrl!, supabaseServiceKey!);
 
-    // Get existing clients by cod_imilk
+    // Get existing clients by cod_imilk (including inactive ones)
     const { data: existingClients, error: fetchError } = await supabase
       .from('clientes')
-      .select('id, cod_imilk');
+      .select('id, cod_imilk, status');
 
     if (fetchError) {
       console.error('Error fetching existing clients:', fetchError);
       throw fetchError;
     }
 
+    // Map of cod_imilk -> { id, status }
     const existingCodIlmilkMap = new Map(
-      existingClients?.filter(c => c.cod_imilk).map(c => [c.cod_imilk, c.id]) || []
+      existingClients?.filter(c => c.cod_imilk).map(c => [c.cod_imilk, { id: c.id, status: c.status }]) || []
     );
+
+    // Set of cod_imilk from iMilk API (active contracts)
+    const imilkCodSet = new Set<string>();
 
     let created = 0;
     let updated = 0;
+    let reactivated = 0;
+    let deactivated = 0;
     let errors: string[] = [];
 
+    // Process clients from iMilk
     for (const imilkCliente of imilkClientes) {
       try {
         // Map iMilk fields to local fields based on actual API response
@@ -80,17 +87,27 @@ serve(async (req) => {
           continue;
         }
 
-        const existingId = existingCodIlmilkMap.get(clienteData.cod_imilk);
+        imilkCodSet.add(clienteData.cod_imilk);
 
-        if (existingId) {
-          // Update existing client
+        const existing = existingCodIlmilkMap.get(clienteData.cod_imilk);
+
+        if (existing) {
+          // Update existing client - also reactivate if was inactive
+          const updateData: Record<string, unknown> = {
+            ...clienteData,
+            updated_at: new Date().toISOString(),
+          };
+
+          // Reactivate if the client was inactive (they're back in iMilk)
+          if (existing.status === 'inativo') {
+            updateData.status = 'ativo';
+            reactivated++;
+          }
+
           const { error: updateError } = await supabase
             .from('clientes')
-            .update({
-              ...clienteData,
-              updated_at: new Date().toISOString(),
-            })
-            .eq('id', existingId);
+            .update(updateData)
+            .eq('id', existing.id);
 
           if (updateError) {
             console.error('Error updating client:', updateError);
@@ -105,6 +122,7 @@ serve(async (req) => {
             .insert({
               ...clienteData,
               status: 'ativo',
+              data_ativacao_rumiflow: new Date().toISOString().split('T')[0], // Today's date
             });
 
           if (insertError) {
@@ -120,7 +138,28 @@ serve(async (req) => {
       }
     }
 
-    console.log(`Sync completed: ${created} created, ${updated} updated, ${errors.length} errors`);
+    // IMPORTANT: Mark clients as inactive if they're no longer in iMilk (NEVER DELETE)
+    for (const [codIlmilk, existing] of existingCodIlmilkMap) {
+      if (!imilkCodSet.has(codIlmilk) && existing.status !== 'inativo') {
+        const { error: deactivateError } = await supabase
+          .from('clientes')
+          .update({
+            status: 'inativo',
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', existing.id);
+
+        if (deactivateError) {
+          console.error('Error deactivating client:', deactivateError);
+          errors.push(`Deactivate error for ${codIlmilk}: ${deactivateError.message}`);
+        } else {
+          deactivated++;
+          console.log(`Deactivated client ${codIlmilk} (not in iMilk anymore)`);
+        }
+      }
+    }
+
+    console.log(`Sync completed: ${created} created, ${updated} updated, ${reactivated} reactivated, ${deactivated} deactivated, ${errors.length} errors`);
 
     return new Response(
       JSON.stringify({
@@ -128,6 +167,8 @@ serve(async (req) => {
         total: imilkClientes.length,
         created,
         updated,
+        reactivated,
+        deactivated,
         errors: errors.length > 0 ? errors.slice(0, 10) : undefined,
       }),
       {

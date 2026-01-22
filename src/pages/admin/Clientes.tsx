@@ -6,7 +6,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Plus, Building2, Loader2, Pencil, Trash2, Search, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Calendar, RefreshCw } from 'lucide-react';
+import { Plus, Building2, Loader2, Pencil, Trash2, Search, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Calendar, RefreshCw, MapPin, ExternalLink } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import {
   AlertDialog,
@@ -39,6 +39,7 @@ import { ptBR } from 'date-fns/locale';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { cn } from '@/lib/utils';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface Cliente {
   id: string;
@@ -54,8 +55,26 @@ interface Cliente {
   status: string;
   data_ativacao_rumiflow: string | null;
   ordenhas_dia: number | null;
+  tipo_painel: string | null;
+  tipo_pistola_id: string | null;
+  quantidade_pistolas: number | null;
+  latitude: number | null;
+  longitude: number | null;
+  link_maps: string | null;
+  consultor_rplus_id: string | null;
   created_at: string;
   updated_at: string;
+}
+
+interface Profile {
+  id: string;
+  nome: string;
+}
+
+interface Peca {
+  id: string;
+  codigo: string;
+  nome: string;
 }
 
 interface ClienteForm {
@@ -65,6 +84,13 @@ interface ClienteForm {
   status: string;
   data_ativacao_rumiflow: Date | undefined;
   ordenhas_dia: number;
+  tipo_painel: string;
+  tipo_pistola_id: string;
+  quantidade_pistolas: number | null;
+  latitude: string;
+  longitude: string;
+  link_maps: string;
+  consultor_rplus_id: string;
 }
 
 type SortField = 'nome' | 'fazenda' | 'cod_imilk' | 'status';
@@ -92,6 +118,13 @@ export default function AdminClientes() {
     status: 'ativo',
     data_ativacao_rumiflow: undefined,
     ordenhas_dia: 3,
+    tipo_painel: '',
+    tipo_pistola_id: '',
+    quantidade_pistolas: null,
+    latitude: '',
+    longitude: '',
+    link_maps: '',
+    consultor_rplus_id: '',
   });
   const [search, setSearch] = useState('');
   const [sortField, setSortField] = useState<SortField>('nome');
@@ -100,18 +133,78 @@ export default function AdminClientes() {
   const [lastSyncTime, setLastSyncTime] = useState<string | null>(() => 
     localStorage.getItem('lastIlmilkSyncTime')
   );
+  const [pistolaSearch, setPistolaSearch] = useState('');
 
+  // Fetch clientes
   const { data: clientes, isLoading } = useQuery({
     queryKey: ['clientes-admin'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('clientes')
-        .select('*')
+        .select('id, nome, fazenda, cod_imilk, cidade, estado, endereco, telefone, email, observacoes, status, data_ativacao_rumiflow, ordenhas_dia, tipo_painel, tipo_pistola_id, quantidade_pistolas, latitude, longitude, link_maps, consultor_rplus_id, created_at, updated_at')
         .order('nome');
       if (error) throw error;
-      return data as Cliente[];
+      return data as unknown as Cliente[];
     },
   });
+
+  // Fetch consultores R+ (users with consultor_rplus role)
+  const { data: consultores = [] } = useQuery({
+    queryKey: ['consultores-rplus'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('user_roles')
+        .select('user_id, profiles!inner(id, nome)')
+        .in('role', ['consultor_rplus', 'coordenador_rplus', 'admin']);
+      if (error) throw error;
+      return data?.map(ur => ({
+        id: (ur.profiles as unknown as Profile).id,
+        nome: (ur.profiles as unknown as Profile).nome,
+      })) || [];
+    },
+  });
+
+  // Fetch pistolas (products linked to "Reparo de Pistolas" activity)
+  const { data: pistolas = [] } = useQuery({
+    queryKey: ['pistolas-options'],
+    queryFn: async () => {
+      // First get the activity "Reparo de Pistolas"
+      const { data: activity, error: activityError } = await supabase
+        .from('activities')
+        .select('id')
+        .ilike('name', '%pistola%')
+        .single();
+      
+      if (activityError || !activity) {
+        console.log('Activity "Reparo de Pistolas" not found');
+        return [];
+      }
+
+      // Get products linked to this activity
+      const { data: activityProducts, error: productsError } = await supabase
+        .from('activity_products')
+        .select('omie_product_id, pecas!inner(id, codigo, nome)')
+        .eq('activity_id', activity.id);
+
+      if (productsError) throw productsError;
+
+      return activityProducts?.map(ap => ({
+        id: (ap.pecas as unknown as Peca).id,
+        codigo: (ap.pecas as unknown as Peca).codigo,
+        nome: (ap.pecas as unknown as Peca).nome,
+      })) || [];
+    },
+  });
+
+  // Filter pistolas for search
+  const filteredPistolas = useMemo(() => {
+    if (!pistolaSearch || pistolaSearch.length < 2) return pistolas;
+    const searchLower = pistolaSearch.toLowerCase();
+    return pistolas.filter(p => 
+      p.nome.toLowerCase().includes(searchLower) || 
+      p.codigo.toLowerCase().includes(searchLower)
+    );
+  }, [pistolas, pistolaSearch]);
 
   const filteredAndSortedClientes = useMemo(() => {
     if (!clientes) return [];
@@ -155,8 +248,17 @@ export default function AdminClientes() {
       : <ArrowDown className="ml-2 h-4 w-4" />;
   };
 
+  // Generate Google Maps link from lat/long
+  const generateMapsLink = (lat: string, lng: string) => {
+    if (lat && lng) {
+      return `https://www.google.com/maps?q=${lat},${lng}`;
+    }
+    return '';
+  };
+
   const createCliente = useMutation({
     mutationFn: async (data: ClienteForm) => {
+      const mapsLink = data.link_maps || generateMapsLink(data.latitude, data.longitude);
       const { error } = await supabase.from('clientes').insert({
         nome: data.nome,
         fazenda: data.fazenda || null,
@@ -164,6 +266,13 @@ export default function AdminClientes() {
         status: data.status,
         data_ativacao_rumiflow: data.data_ativacao_rumiflow ? format(data.data_ativacao_rumiflow, 'yyyy-MM-dd') : null,
         ordenhas_dia: data.ordenhas_dia,
+        tipo_painel: data.tipo_painel || null,
+        tipo_pistola_id: data.tipo_pistola_id || null,
+        quantidade_pistolas: data.quantidade_pistolas,
+        latitude: data.latitude ? parseFloat(data.latitude) : null,
+        longitude: data.longitude ? parseFloat(data.longitude) : null,
+        link_maps: mapsLink || null,
+        consultor_rplus_id: data.consultor_rplus_id || null,
       });
       if (error) throw error;
     },
@@ -180,6 +289,7 @@ export default function AdminClientes() {
 
   const updateCliente = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: ClienteForm }) => {
+      const mapsLink = data.link_maps || generateMapsLink(data.latitude, data.longitude);
       const { error } = await supabase
         .from('clientes')
         .update({
@@ -189,6 +299,13 @@ export default function AdminClientes() {
           status: data.status,
           data_ativacao_rumiflow: data.data_ativacao_rumiflow ? format(data.data_ativacao_rumiflow, 'yyyy-MM-dd') : null,
           ordenhas_dia: data.ordenhas_dia,
+          tipo_painel: data.tipo_painel || null,
+          tipo_pistola_id: data.tipo_pistola_id || null,
+          quantidade_pistolas: data.quantidade_pistolas,
+          latitude: data.latitude ? parseFloat(data.latitude) : null,
+          longitude: data.longitude ? parseFloat(data.longitude) : null,
+          link_maps: mapsLink || null,
+          consultor_rplus_id: data.consultor_rplus_id || null,
         })
         .eq('id', id);
       if (error) throw error;
@@ -233,9 +350,14 @@ export default function AdminClientes() {
       const now = new Date().toISOString();
       localStorage.setItem('lastIlmilkSyncTime', now);
       setLastSyncTime(now);
+      
+      const parts = [`${data.created} novos`, `${data.updated} atualizados`];
+      if (data.reactivated) parts.push(`${data.reactivated} reativados`);
+      if (data.deactivated) parts.push(`${data.deactivated} desativados`);
+      
       toast({ 
         title: 'Sincronização concluída!',
-        description: `${data.created} novos, ${data.updated} atualizados de ${data.total} clientes`,
+        description: `${parts.join(', ')} de ${data.total} clientes`,
       });
     },
     onError: (error: Error) => {
@@ -246,7 +368,22 @@ export default function AdminClientes() {
   const closeDialog = () => {
     setOpen(false);
     setEditingCliente(null);
-    setForm({ nome: '', fazenda: '', cod_imilk: '', status: 'ativo', data_ativacao_rumiflow: undefined, ordenhas_dia: 3 });
+    setPistolaSearch('');
+    setForm({
+      nome: '',
+      fazenda: '',
+      cod_imilk: '',
+      status: 'ativo',
+      data_ativacao_rumiflow: undefined,
+      ordenhas_dia: 3,
+      tipo_painel: '',
+      tipo_pistola_id: '',
+      quantidade_pistolas: null,
+      latitude: '',
+      longitude: '',
+      link_maps: '',
+      consultor_rplus_id: '',
+    });
   };
 
   const openEditDialog = (cliente: Cliente) => {
@@ -258,6 +395,13 @@ export default function AdminClientes() {
       status: cliente.status || 'ativo',
       data_ativacao_rumiflow: cliente.data_ativacao_rumiflow ? new Date(cliente.data_ativacao_rumiflow) : undefined,
       ordenhas_dia: cliente.ordenhas_dia || 3,
+      tipo_painel: cliente.tipo_painel || '',
+      tipo_pistola_id: cliente.tipo_pistola_id || '',
+      quantidade_pistolas: cliente.quantidade_pistolas,
+      latitude: cliente.latitude?.toString() || '',
+      longitude: cliente.longitude?.toString() || '',
+      link_maps: cliente.link_maps || '',
+      consultor_rplus_id: cliente.consultor_rplus_id || '',
     });
     setOpen(true);
   };
@@ -279,6 +423,20 @@ export default function AdminClientes() {
     } else {
       createCliente.mutate(form);
     }
+  };
+
+  // Get pistola name by ID
+  const getPistolaName = (id: string | null) => {
+    if (!id) return null;
+    const pistola = pistolas.find(p => p.id === id);
+    return pistola ? pistola.nome : null;
+  };
+
+  // Get consultor name by ID
+  const getConsultorName = (id: string | null) => {
+    if (!id) return null;
+    const consultor = consultores.find(c => c.id === id);
+    return consultor ? consultor.nome : null;
   };
 
   const isPending = createCliente.isPending || updateCliente.isPending;
@@ -320,114 +478,297 @@ export default function AdminClientes() {
                 Novo Cliente
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-w-2xl max-h-[90vh]">
               <DialogHeader>
-              <DialogTitle>{editingCliente ? 'Editar Cliente' : 'Cadastrar Novo Cliente'}</DialogTitle>
-            </DialogHeader>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="nome">Nome Produtor *</Label>
-                <Input
-                  id="nome"
-                  value={form.nome}
-                  onChange={(e) => setForm({ ...form, nome: e.target.value })}
-                  placeholder="Nome do produtor"
-                  required
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="fazenda">Nome da Fazenda</Label>
-                <Input
-                  id="fazenda"
-                  value={form.fazenda}
-                  onChange={(e) => setForm({ ...form, fazenda: e.target.value })}
-                  placeholder="Nome da fazenda"
-                />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="cod_imilk">Cod Imilk</Label>
-                <Input
-                  id="cod_imilk"
-                  value={form.cod_imilk}
-                  onChange={(e) => setForm({ ...form, cod_imilk: e.target.value })}
-                  placeholder="Código Imilk"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Status</Label>
-                  <Select
-                    value={form.status}
-                    onValueChange={(value) => setForm({ ...form, status: value })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {statusOptions.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="space-y-2">
-                  <Label>Ordenhas/Dia</Label>
-                  <Select
-                    value={form.ordenhas_dia.toString()}
-                    onValueChange={(value) => setForm({ ...form, ordenhas_dia: parseInt(value) })}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="2">2 ordenhas</SelectItem>
-                      <SelectItem value="3">3 ordenhas</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label>Data Ativação RumiFlow</Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      className={cn(
-                        "w-full justify-start text-left font-normal",
-                        !form.data_ativacao_rumiflow && "text-muted-foreground"
-                      )}
-                    >
-                      <Calendar className="mr-2 h-4 w-4" />
-                      {form.data_ativacao_rumiflow ? (
-                        format(form.data_ativacao_rumiflow, "dd/MM/yyyy", { locale: ptBR })
-                      ) : (
-                        "Selecione"
-                      )}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <CalendarComponent
-                      mode="single"
-                      selected={form.data_ativacao_rumiflow}
-                      onSelect={(date) => setForm({ ...form, data_ativacao_rumiflow: date })}
-                      locale={ptBR}
-                      initialFocus
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
-              <Button type="submit" className="w-full" disabled={isPending}>
-                {isPending ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : editingCliente ? (
-                  'Salvar Alterações'
-                ) : (
-                  'Cadastrar Cliente'
-                )}
-              </Button>
-            </form>
+                <DialogTitle>{editingCliente ? 'Editar Cliente' : 'Cadastrar Novo Cliente'}</DialogTitle>
+              </DialogHeader>
+              <ScrollArea className="max-h-[70vh] pr-4">
+                <form onSubmit={handleSubmit} className="space-y-4">
+                  {/* Basic Info */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="nome">Nome Produtor *</Label>
+                      <Input
+                        id="nome"
+                        value={form.nome}
+                        onChange={(e) => setForm({ ...form, nome: e.target.value })}
+                        placeholder="Nome do produtor"
+                        required
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="fazenda">Nome da Fazenda</Label>
+                      <Input
+                        id="fazenda"
+                        value={form.fazenda}
+                        onChange={(e) => setForm({ ...form, fazenda: e.target.value })}
+                        placeholder="Nome da fazenda"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="cod_imilk">Cod Imilk</Label>
+                      <Input
+                        id="cod_imilk"
+                        value={form.cod_imilk}
+                        onChange={(e) => setForm({ ...form, cod_imilk: e.target.value })}
+                        placeholder="Código Imilk"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Status</Label>
+                      <Select
+                        value={form.status}
+                        onValueChange={(value) => setForm({ ...form, status: value })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {statusOptions.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Data Ativação RumiFlow</Label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className={cn(
+                              "w-full justify-start text-left font-normal",
+                              !form.data_ativacao_rumiflow && "text-muted-foreground"
+                            )}
+                          >
+                            <Calendar className="mr-2 h-4 w-4" />
+                            {form.data_ativacao_rumiflow ? (
+                              format(form.data_ativacao_rumiflow, "dd/MM/yyyy", { locale: ptBR })
+                            ) : (
+                              "Selecione"
+                            )}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <CalendarComponent
+                            mode="single"
+                            selected={form.data_ativacao_rumiflow}
+                            onSelect={(date) => setForm({ ...form, data_ativacao_rumiflow: date })}
+                            locale={ptBR}
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                    <div className="space-y-2">
+                      <Label>Consultor R+</Label>
+                      <Select
+                        value={form.consultor_rplus_id}
+                        onValueChange={(value) => setForm({ ...form, consultor_rplus_id: value })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="">Nenhum</SelectItem>
+                          {consultores.map((consultor) => (
+                            <SelectItem key={consultor.id} value={consultor.id}>
+                              {consultor.nome}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  {/* Equipment Info */}
+                  <div className="border-t pt-4 mt-4">
+                    <h3 className="font-medium mb-3">Equipamentos</h3>
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="space-y-2">
+                        <Label>Tipo Painel</Label>
+                        <Select
+                          value={form.tipo_painel}
+                          onValueChange={(value) => setForm({ ...form, tipo_painel: value })}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="">Não definido</SelectItem>
+                            <SelectItem value="2x">2x</SelectItem>
+                            <SelectItem value="3x">3x</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Ordenhas/Dia</Label>
+                        <Select
+                          value={form.ordenhas_dia.toString()}
+                          onValueChange={(value) => setForm({ ...form, ordenhas_dia: parseInt(value) })}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="2">2 ordenhas</SelectItem>
+                            <SelectItem value="3">3 ordenhas</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Qtd Pistolas</Label>
+                        <Select
+                          value={form.quantidade_pistolas?.toString() || ''}
+                          onValueChange={(value) => setForm({ ...form, quantidade_pistolas: value ? parseInt(value) : null })}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Selecione" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="">Não definido</SelectItem>
+                            <SelectItem value="1">1</SelectItem>
+                            <SelectItem value="2">2</SelectItem>
+                            <SelectItem value="3">3</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                    
+                    <div className="mt-4 space-y-2">
+                      <Label>Tipo de Pistola</Label>
+                      <div className="space-y-2">
+                        <Input
+                          placeholder="Buscar pistola por nome ou código..."
+                          value={pistolaSearch}
+                          onChange={(e) => setPistolaSearch(e.target.value)}
+                        />
+                        {pistolaSearch.length >= 2 && (
+                          <div className="border rounded-md max-h-40 overflow-y-auto">
+                            {filteredPistolas.length === 0 ? (
+                              <p className="p-2 text-sm text-muted-foreground">Nenhuma pistola encontrada</p>
+                            ) : (
+                              filteredPistolas.map((pistola) => (
+                                <button
+                                  key={pistola.id}
+                                  type="button"
+                                  className={cn(
+                                    "w-full text-left px-3 py-2 text-sm hover:bg-muted",
+                                    form.tipo_pistola_id === pistola.id && "bg-primary/10"
+                                  )}
+                                  onClick={() => {
+                                    setForm({ ...form, tipo_pistola_id: pistola.id });
+                                    setPistolaSearch('');
+                                  }}
+                                >
+                                  <span className="font-mono text-xs text-muted-foreground">{pistola.codigo}</span>
+                                  <span className="ml-2">{pistola.nome}</span>
+                                </button>
+                              ))
+                            )}
+                          </div>
+                        )}
+                        {form.tipo_pistola_id && (
+                          <div className="flex items-center gap-2 p-2 bg-muted rounded-md">
+                            <span className="text-sm flex-1">{getPistolaName(form.tipo_pistola_id)}</span>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setForm({ ...form, tipo_pistola_id: '' })}
+                            >
+                              Remover
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Location Info */}
+                  <div className="border-t pt-4 mt-4">
+                    <h3 className="font-medium mb-3">Localização</h3>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="latitude">Latitude</Label>
+                        <Input
+                          id="latitude"
+                          type="text"
+                          value={form.latitude}
+                          onChange={(e) => {
+                            const newLat = e.target.value;
+                            setForm({ 
+                              ...form, 
+                              latitude: newLat,
+                              link_maps: form.link_maps || generateMapsLink(newLat, form.longitude)
+                            });
+                          }}
+                          placeholder="-23.5505"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="longitude">Longitude</Label>
+                        <Input
+                          id="longitude"
+                          type="text"
+                          value={form.longitude}
+                          onChange={(e) => {
+                            const newLng = e.target.value;
+                            setForm({ 
+                              ...form, 
+                              longitude: newLng,
+                              link_maps: form.link_maps || generateMapsLink(form.latitude, newLng)
+                            });
+                          }}
+                          placeholder="-46.6333"
+                        />
+                      </div>
+                    </div>
+                    <div className="mt-4 space-y-2">
+                      <Label htmlFor="link_maps">Link Google Maps</Label>
+                      <div className="flex gap-2">
+                        <Input
+                          id="link_maps"
+                          value={form.link_maps}
+                          onChange={(e) => setForm({ ...form, link_maps: e.target.value })}
+                          placeholder="https://www.google.com/maps?q=..."
+                          className="flex-1"
+                        />
+                        {form.link_maps && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            asChild
+                          >
+                            <a href={form.link_maps} target="_blank" rel="noopener noreferrer">
+                              <ExternalLink className="h-4 w-4" />
+                            </a>
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <Button type="submit" className="w-full" disabled={isPending}>
+                    {isPending ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : editingCliente ? (
+                      'Salvar Alterações'
+                    ) : (
+                      'Cadastrar Cliente'
+                    )}
+                  </Button>
+                </form>
+              </ScrollArea>
             </DialogContent>
           </Dialog>
         </div>
@@ -473,12 +814,13 @@ export default function AdminClientes() {
                       Cod Imilk {getSortIcon('cod_imilk')}
                     </Button>
                   </TableHead>
+                  <TableHead>Consultor R+</TableHead>
                   <TableHead>
                     <Button variant="ghost" onClick={() => handleSort('status')} className="h-auto p-0 font-medium hover:bg-transparent">
                       Status {getSortIcon('status')}
                     </Button>
                   </TableHead>
-                  <TableHead className="w-[100px]">Ações</TableHead>
+                  <TableHead className="w-[120px]">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -493,6 +835,9 @@ export default function AdminClientes() {
                     <TableCell className="text-muted-foreground">
                       {cliente.cod_imilk || '-'}
                     </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {getConsultorName(cliente.consultor_rplus_id) || '-'}
+                    </TableCell>
                     <TableCell>
                       <Badge className={cn("text-xs", statusOption.color)}>
                         {statusOption.label}
@@ -500,6 +845,18 @@ export default function AdminClientes() {
                     </TableCell>
                     <TableCell>
                       <div className="flex gap-1">
+                        {cliente.link_maps && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            asChild
+                            className="h-8 w-8"
+                          >
+                            <a href={cliente.link_maps} target="_blank" rel="noopener noreferrer">
+                              <MapPin className="h-4 w-4 text-primary" />
+                            </a>
+                          </Button>
+                        )}
                         <Button
                           variant="ghost"
                           size="icon"
