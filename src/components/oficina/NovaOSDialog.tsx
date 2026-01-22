@@ -51,7 +51,6 @@ export function NovaOSDialog({ open, onOpenChange, onSuccess }: NovaOSDialogProp
   const [selectedItemId, setSelectedItemId] = useState('');
   const [itemSearch, setItemSearch] = useState('');
   const [quantity, setQuantity] = useState(1);
-  const [meterHoursEntry, setMeterHoursEntry] = useState('');
   const [notes, setNotes] = useState('');
 
   // Fetch activities
@@ -158,9 +157,7 @@ export function NovaOSDialog({ open, onOpenChange, onSuccess }: NovaOSDialogProp
 
       if (selectedActivity?.execution_type === 'UNIVOCA' && selectedItem) {
         itemData.workshop_item_id = selectedItem.id;
-        if (itemRequiresMeterHours && meterHoursEntry) {
-          itemData.meter_hours_entry = parseFloat(meterHoursEntry);
-        }
+        // Horímetro NÃO é pedido na criação - será informado pelo técnico durante a manutenção
       } else {
         // For LOTE, we need a product ID
         const firstProduct = activityProducts.find(ap => ap.activity_id === selectedActivityId);
@@ -203,7 +200,6 @@ export function NovaOSDialog({ open, onOpenChange, onSuccess }: NovaOSDialogProp
     setSelectedItemId('');
     setItemSearch('');
     setQuantity(1);
-    setMeterHoursEntry('');
     setNotes('');
   };
 
@@ -212,7 +208,7 @@ export function NovaOSDialog({ open, onOpenChange, onSuccess }: NovaOSDialogProp
     
     if (selectedActivity?.execution_type === 'UNIVOCA') {
       if (!selectedItemId) return false;
-      if (itemRequiresMeterHours && !meterHoursEntry) return false;
+      // Horímetro não é mais exigido na criação
     } else {
       if (quantity < 1) return false;
     }
@@ -378,20 +374,14 @@ export function NovaOSDialog({ open, onOpenChange, onSuccess }: NovaOSDialogProp
           </TabsContent>
         </Tabs>
 
-        {/* Meter hours input */}
+        {/* Indicador de que horímetro será solicitado durante manutenção */}
         {itemRequiresMeterHours && selectedItem && (
-          <div>
-            <Label>Horímetro na Entrada (horas) *</Label>
-            <Input
-              type="number"
-              min={0}
-              step="0.1"
-              value={meterHoursEntry}
-              onChange={(e) => setMeterHoursEntry(e.target.value)}
-              placeholder={selectedItem.meter_hours_last ? `Último: ${selectedItem.meter_hours_last}h` : '0'}
-            />
+          <div className="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg">
+            <p className="text-sm text-amber-800 dark:text-amber-200">
+              ⏱️ Este equipamento requer leitura de horímetro. O técnico deverá informar na abertura e fechamento da manutenção.
+            </p>
             {selectedItem.meter_hours_last !== null && (
-              <p className="text-xs text-muted-foreground mt-1">
+              <p className="text-xs text-amber-600 dark:text-amber-400 mt-1">
                 Último registro: {selectedItem.meter_hours_last} horas
               </p>
             )}
