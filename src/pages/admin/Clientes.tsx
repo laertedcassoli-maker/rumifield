@@ -796,90 +796,128 @@ export default function AdminClientes() {
             </span>
           </div>
           <Card>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>
-                    <Button variant="ghost" onClick={() => handleSort('nome')} className="h-auto p-0 font-medium hover:bg-transparent">
-                      Nome Produtor {getSortIcon('nome')}
-                    </Button>
-                  </TableHead>
-                  <TableHead>
-                    <Button variant="ghost" onClick={() => handleSort('fazenda')} className="h-auto p-0 font-medium hover:bg-transparent">
-                      Nome da Fazenda {getSortIcon('fazenda')}
-                    </Button>
-                  </TableHead>
-                  <TableHead>
-                    <Button variant="ghost" onClick={() => handleSort('cod_imilk')} className="h-auto p-0 font-medium hover:bg-transparent">
-                      Cod Imilk {getSortIcon('cod_imilk')}
-                    </Button>
-                  </TableHead>
-                  <TableHead>Consultor R+</TableHead>
-                  <TableHead>
-                    <Button variant="ghost" onClick={() => handleSort('status')} className="h-auto p-0 font-medium hover:bg-transparent">
-                      Status {getSortIcon('status')}
-                    </Button>
-                  </TableHead>
-                  <TableHead className="w-[120px]">Ações</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {paginatedClientes.map((cliente) => {
-                  const statusOption = statusOptions.find(s => s.value === cliente.status) || statusOptions[0];
-                  return (
-                  <TableRow key={cliente.id}>
-                    <TableCell className="font-medium">{cliente.nome}</TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {cliente.fazenda || '-'}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {cliente.cod_imilk || '-'}
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {getConsultorName(cliente.consultor_rplus_id) || '-'}
-                    </TableCell>
-                    <TableCell>
-                      <Badge className={cn("text-xs", statusOption.color)}>
-                        {statusOption.label}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex gap-1">
-                        {cliente.link_maps && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            asChild
-                            className="h-8 w-8"
-                          >
-                            <a href={cliente.link_maps} target="_blank" rel="noopener noreferrer">
-                              <MapPin className="h-4 w-4 text-primary" />
-                            </a>
-                          </Button>
-                        )}
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => openEditDialog(cliente)}
-                          className="h-8 w-8"
-                        >
-                          <Pencil className="h-4 w-4" />
+            <ScrollArea className="w-full">
+              <div className="min-w-[1400px]">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="sticky left-0 bg-background z-10">
+                        <Button variant="ghost" onClick={() => handleSort('nome')} className="h-auto p-0 font-medium hover:bg-transparent">
+                          Nome Produtor {getSortIcon('nome')}
                         </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => openDeleteDialog(cliente)}
-                          className="h-8 w-8 text-destructive hover:text-destructive"
-                        >
-                          <Trash2 className="h-4 w-4" />
+                      </TableHead>
+                      <TableHead>
+                        <Button variant="ghost" onClick={() => handleSort('fazenda')} className="h-auto p-0 font-medium hover:bg-transparent">
+                          Fazenda {getSortIcon('fazenda')}
                         </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                  );
-                })}
-              </TableBody>
-            </Table>
+                      </TableHead>
+                      <TableHead>
+                        <Button variant="ghost" onClick={() => handleSort('cod_imilk')} className="h-auto p-0 font-medium hover:bg-transparent">
+                          Cod iMilk {getSortIcon('cod_imilk')}
+                        </Button>
+                      </TableHead>
+                      <TableHead>
+                        <Button variant="ghost" onClick={() => handleSort('status')} className="h-auto p-0 font-medium hover:bg-transparent">
+                          Status {getSortIcon('status')}
+                        </Button>
+                      </TableHead>
+                      <TableHead>Consultor R+</TableHead>
+                      <TableHead>Ativação</TableHead>
+                      <TableHead>Painel</TableHead>
+                      <TableHead>Ord/Dia</TableHead>
+                      <TableHead>Tipo Pistola</TableHead>
+                      <TableHead>Qtd Pistolas</TableHead>
+                      <TableHead>Localização</TableHead>
+                      <TableHead className="sticky right-0 bg-background z-10 w-[80px]">Ações</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {paginatedClientes.map((cliente) => {
+                      const statusOption = statusOptions.find(s => s.value === cliente.status) || statusOptions[0];
+                      return (
+                      <TableRow key={cliente.id}>
+                        <TableCell className="font-medium sticky left-0 bg-background z-10">
+                          {cliente.nome}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {cliente.fazenda || '-'}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground font-mono text-xs">
+                          {cliente.cod_imilk || '-'}
+                        </TableCell>
+                        <TableCell>
+                          <Badge className={cn("text-xs", statusOption.color)}>
+                            {statusOption.label}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground">
+                          {getConsultorName(cliente.consultor_rplus_id) || '-'}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground text-xs">
+                          {cliente.data_ativacao_rumiflow 
+                            ? format(new Date(cliente.data_ativacao_rumiflow), "dd/MM/yyyy", { locale: ptBR })
+                            : '-'}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          {cliente.tipo_painel || '-'}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          {cliente.ordenhas_dia || '-'}
+                        </TableCell>
+                        <TableCell className="text-muted-foreground text-xs max-w-[150px] truncate" title={getPistolaName(cliente.tipo_pistola_id) || undefined}>
+                          {getPistolaName(cliente.tipo_pistola_id) || '-'}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          {cliente.quantidade_pistolas || '-'}
+                        </TableCell>
+                        <TableCell>
+                          {cliente.link_maps ? (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              asChild
+                              className="h-7 px-2"
+                            >
+                              <a href={cliente.link_maps} target="_blank" rel="noopener noreferrer">
+                                <MapPin className="h-3 w-3 mr-1" />
+                                Ver mapa
+                              </a>
+                            </Button>
+                          ) : cliente.latitude && cliente.longitude ? (
+                            <span className="text-xs text-muted-foreground">
+                              {Number(cliente.latitude).toFixed(4)}, {Number(cliente.longitude).toFixed(4)}
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground">-</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="sticky right-0 bg-background z-10">
+                          <div className="flex gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => openEditDialog(cliente)}
+                              className="h-8 w-8"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => openDeleteDialog(cliente)}
+                              className="h-8 w-8 text-destructive hover:text-destructive"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+            </ScrollArea>
           </Card>
 
           {totalPages > 1 && (
