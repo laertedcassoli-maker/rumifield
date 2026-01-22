@@ -82,6 +82,8 @@ interface ClienteForm {
   nome: string;
   fazenda: string;
   cod_imilk: string;
+  cidade: string;
+  estado: string;
   status: string;
   data_ativacao_rumiflow: Date | undefined;
   ordenhas_dia: number;
@@ -117,6 +119,8 @@ export default function AdminClientes() {
     nome: '',
     fazenda: '',
     cod_imilk: '',
+    cidade: '',
+    estado: '',
     status: 'ativo',
     data_ativacao_rumiflow: undefined,
     ordenhas_dia: 3,
@@ -266,6 +270,8 @@ export default function AdminClientes() {
         nome: data.nome,
         fazenda: data.fazenda || null,
         cod_imilk: data.cod_imilk || null,
+        cidade: data.cidade || null,
+        estado: data.estado || null,
         status: data.status,
         data_ativacao_rumiflow: data.data_ativacao_rumiflow ? format(data.data_ativacao_rumiflow, 'yyyy-MM-dd') : null,
         ordenhas_dia: data.ordenhas_dia,
@@ -299,6 +305,8 @@ export default function AdminClientes() {
           nome: data.nome,
           fazenda: data.fazenda || null,
           cod_imilk: data.cod_imilk || null,
+          cidade: data.cidade || null,
+          estado: data.estado || null,
           status: data.status,
           data_ativacao_rumiflow: data.data_ativacao_rumiflow ? format(data.data_ativacao_rumiflow, 'yyyy-MM-dd') : null,
           ordenhas_dia: data.ordenhas_dia,
@@ -377,6 +385,8 @@ export default function AdminClientes() {
       nome: '',
       fazenda: '',
       cod_imilk: '',
+      cidade: '',
+      estado: '',
       status: 'ativo',
       data_ativacao_rumiflow: undefined,
       ordenhas_dia: 3,
@@ -397,6 +407,8 @@ export default function AdminClientes() {
       nome: cliente.nome,
       fazenda: cliente.fazenda || '',
       cod_imilk: cliente.cod_imilk || '',
+      cidade: cliente.cidade || '',
+      estado: cliente.estado || '',
       status: cliente.status || 'ativo',
       data_ativacao_rumiflow: cliente.data_ativacao_rumiflow ? new Date(cliente.data_ativacao_rumiflow) : undefined,
       ordenhas_dia: cliente.ordenhas_dia || 3,
@@ -513,7 +525,7 @@ export default function AdminClientes() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-4 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="cod_imilk">Cod Imilk</Label>
                       <Input
@@ -521,6 +533,25 @@ export default function AdminClientes() {
                         value={form.cod_imilk}
                         onChange={(e) => setForm({ ...form, cod_imilk: e.target.value })}
                         placeholder="Código Imilk"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="cidade">Cidade</Label>
+                      <Input
+                        id="cidade"
+                        value={form.cidade}
+                        onChange={(e) => setForm({ ...form, cidade: e.target.value })}
+                        placeholder="Cidade"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="estado">Estado (UF)</Label>
+                      <Input
+                        id="estado"
+                        value={form.estado}
+                        onChange={(e) => setForm({ ...form, estado: e.target.value.toUpperCase().slice(0, 2) })}
+                        placeholder="Ex: SP"
+                        maxLength={2}
                       />
                     </div>
                     <div className="space-y-2">
@@ -845,6 +876,7 @@ export default function AdminClientes() {
                           Status {getSortIcon('status')}
                         </Button>
                       </TableHead>
+                      <TableHead>Cidade/UF</TableHead>
                       <TableHead>Consultor R+</TableHead>
                       <TableHead>Ativação</TableHead>
                       <TableHead>Painel</TableHead>
@@ -873,6 +905,11 @@ export default function AdminClientes() {
                           <Badge className={cn("text-xs", statusOption.color)}>
                             {statusOption.label}
                           </Badge>
+                        </TableCell>
+                        <TableCell className="text-muted-foreground text-sm">
+                          {cliente.cidade || cliente.estado 
+                            ? `${cliente.cidade || ''}${cliente.cidade && cliente.estado ? '/' : ''}${cliente.estado || ''}`
+                            : '-'}
                         </TableCell>
                         <TableCell className="text-muted-foreground">
                           {getConsultorName(cliente.consultor_rplus_id) || '-'}
