@@ -2,13 +2,18 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Wrench, ChevronDown, ChevronRight, Pencil, History, Shield } from 'lucide-react';
+import { Wrench, ChevronDown, ChevronRight, Pencil, History, Shield, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+
+interface WarrantyBatch {
+  batch_number: string;
+  status: string;
+}
 
 interface MotorReplacementHistory {
   id: string;
@@ -19,6 +24,8 @@ interface MotorReplacementHistory {
   replaced_at: string;
   notes: string | null;
   work_order_id: string | null;
+  warranty_batch_id: string | null;
+  warranty_batches?: WarrantyBatch | null;
 }
 
 interface MotorSectionProps {
@@ -61,17 +68,20 @@ export function MotorSection({
     enabled: !!workshopItemId,
   });
 
-  // Fetch motor replacement history
+  // Fetch motor replacement history with warranty batch info
   const { data: motorHistory = [] } = useQuery({
     queryKey: ['motor-history', workshopItemId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('motor_replacement_history')
-        .select('*')
+        .select(`
+          *,
+          warranty_batches:warranty_batch_id (batch_number, status)
+        `)
         .eq('workshop_item_id', workshopItemId)
         .order('replaced_at', { ascending: false });
       if (error) throw error;
-      return data as MotorReplacementHistory[];
+      return data as unknown as MotorReplacementHistory[];
     },
     enabled: !!workshopItemId,
   });
@@ -237,32 +247,59 @@ export function MotorSection({
             <div className="mt-2 space-y-2 text-xs">
               {historyToShow.map((entry) => {
                 const entryWithinWarranty = entry.motor_hours_used < warrantyLimit;
+                const batchInfo = entry.warranty_batches;
                 return (
                   <div
                     key={entry.id}
-                    className="p-2 border rounded bg-background flex items-center justify-between"
+                    className="p-2 border rounded bg-background space-y-1"
                   >
-                    <span className="font-mono text-sm">
-                      {entry.old_motor_code || '(sem cód)'}
-                    </span>
-                    <div className="flex items-center gap-2">
-                      <Badge 
-                        variant="secondary" 
-                        className="font-mono text-xs"
-                      >
-                        {entry.motor_hours_used.toFixed(0)}h
-                      </Badge>
-                      <Badge 
-                        variant={entryWithinWarranty ? "default" : "secondary"}
-                        className={`text-xs ${entryWithinWarranty 
-                          ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300" 
-                          : "bg-muted text-muted-foreground"
-                        }`}
-                      >
-                        <Shield className="h-3 w-3 mr-1" />
-                        {entryWithinWarranty ? 'Garantia' : 'S/ Garantia'}
-                      </Badge>
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono text-sm">
+                        {entry.old_motor_code || '(sem cód)'}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <Badge 
+                          variant="secondary" 
+                          className="font-mono text-xs"
+                        >
+                          {entry.motor_hours_used.toFixed(0)}h
+                        </Badge>
+                        <Badge 
+                          variant={entryWithinWarranty ? "default" : "secondary"}
+                          className={`text-xs ${entryWithinWarranty 
+                            ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300" 
+                            : "bg-muted text-muted-foreground"
+                          }`}
+                        >
+                          <Shield className="h-3 w-3 mr-1" />
+                          {entryWithinWarranty ? 'Garantia' : 'S/ Garantia'}
+                        </Badge>
+                      </div>
                     </div>
+                    {/* Show warranty batch info if exists */}
+                    {batchInfo && (
+                      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                        <FileText className="h-3 w-3" />
+                        <span className="font-mono">{batchInfo.batch_number}</span>
+                        <Badge 
+                          variant="outline" 
+                          className={`text-[10px] px-1 py-0 ${
+                            batchInfo.status === 'finalizada' 
+                              ? 'border-green-300 text-green-700 dark:border-green-700 dark:text-green-400' 
+                              : ''
+                          }`}
+                        >
+                          {batchInfo.status === 'finalizada' ? 'Finalizada' : 'Aberta'}
+                        </Badge>
+                      </div>
+                    )}
+                    {/* Show pending warranty indicator */}
+                    {!batchInfo && entryWithinWarranty && (
+                      <div className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400">
+                        <FileText className="h-3 w-3" />
+                        <span>Pendente de requisição</span>
+                      </div>
+                    )}
                   </div>
                 );
               })}
