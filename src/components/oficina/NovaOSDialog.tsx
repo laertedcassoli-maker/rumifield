@@ -261,41 +261,69 @@ export function NovaOSDialog({ open, onOpenChange, onSuccess }: NovaOSDialogProp
 
             {selectedActivity?.execution_type === 'UNIVOCA' && (
               <div>
-                <Label>Item Único</Label>
+                <Label>Ativo</Label>
                 <div className="space-y-2">
-                  <div className="flex items-center gap-2">
-                    <Search className="h-4 w-4 text-muted-foreground" />
+                  <div className="relative">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                     <Input
-                      placeholder="Buscar por código..."
+                      placeholder="Digite o código do ativo..."
                       value={itemSearch}
-                      onChange={(e) => setItemSearch(e.target.value)}
+                      onChange={(e) => { setItemSearch(e.target.value); setSelectedItemId(''); }}
+                      className="pl-9"
                     />
                   </div>
-                  <div className="max-h-[200px] overflow-auto border rounded-lg">
-                    {filteredItems.length === 0 ? (
-                      <div className="p-4 text-center text-muted-foreground">
-                        Nenhum item disponível
-                      </div>
-                    ) : (
-                      filteredItems.map((item) => (
-                        <div
-                          key={item.id}
-                          className={`p-3 border-b last:border-b-0 cursor-pointer hover:bg-muted/50 ${
-                            selectedItemId === item.id ? 'bg-primary/10' : ''
-                          }`}
-                          onClick={() => setSelectedItemId(item.id)}
-                        >
-                          <p className="font-mono font-medium">{item.unique_code}</p>
-                          <p className="text-xs text-muted-foreground">{item.pecas?.nome}</p>
-                          {item.meter_hours_last !== null && (
-                            <p className="text-xs text-muted-foreground">
-                              Último horímetro: {item.meter_hours_last}h
-                            </p>
-                          )}
+                  
+                  {/* Mostrar resultado selecionado */}
+                  {selectedItem && (
+                    <Card className="bg-primary/5 border-primary/20">
+                      <CardContent className="p-3">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <p className="font-mono font-medium">{selectedItem.unique_code}</p>
+                            <p className="text-sm text-muted-foreground">{selectedItem.pecas?.nome}</p>
+                            {selectedItem.meter_hours_last !== null && (
+                              <p className="text-xs text-muted-foreground">
+                                Último horímetro: {selectedItem.meter_hours_last}h
+                              </p>
+                            )}
+                          </div>
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => { setSelectedItemId(''); setItemSearch(''); }}
+                          >
+                            ✕
+                          </Button>
                         </div>
-                      ))
-                    )}
-                  </div>
+                      </CardContent>
+                    </Card>
+                  )}
+                  
+                  {/* Lista de resultados da busca (só aparece se buscar e não tiver selecionado) */}
+                  {itemSearch.length >= 2 && !selectedItem && (
+                    <div className="max-h-[200px] overflow-auto border rounded-lg">
+                      {filteredItems.length === 0 ? (
+                        <div className="p-4 text-center text-muted-foreground">
+                          Nenhum ativo encontrado
+                        </div>
+                      ) : (
+                        filteredItems.map((item) => (
+                          <div
+                            key={item.id}
+                            className="p-3 border-b last:border-b-0 cursor-pointer hover:bg-muted/50"
+                            onClick={() => { setSelectedItemId(item.id); setItemSearch(item.unique_code); }}
+                          >
+                            <p className="font-mono font-medium">{item.unique_code}</p>
+                            <p className="text-xs text-muted-foreground">{item.pecas?.nome}</p>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  )}
+                  
+                  {itemSearch.length > 0 && itemSearch.length < 2 && !selectedItem && (
+                    <p className="text-xs text-muted-foreground">Digite pelo menos 2 caracteres...</p>
+                  )}
                 </div>
               </div>
             )}
@@ -315,36 +343,69 @@ export function NovaOSDialog({ open, onOpenChange, onSuccess }: NovaOSDialogProp
 
           <TabsContent value="item" className="space-y-4">
             <div>
-              <Label>Código do Item</Label>
+              <Label>Código do Ativo</Label>
               <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <Search className="h-4 w-4 text-muted-foreground" />
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                   <Input
-                    placeholder="Buscar por código..."
+                    placeholder="Digite o código do ativo..."
                     value={itemSearch}
-                    onChange={(e) => setItemSearch(e.target.value)}
+                    onChange={(e) => { setItemSearch(e.target.value); setSelectedItemId(''); }}
+                    className="pl-9"
                   />
                 </div>
-                <div className="max-h-[150px] overflow-auto border rounded-lg">
-                  {filteredItems.length === 0 ? (
-                    <div className="p-4 text-center text-muted-foreground">
-                      Nenhum item disponível
-                    </div>
-                  ) : (
-                    filteredItems.map((item) => (
-                      <div
-                        key={item.id}
-                        className={`p-3 border-b last:border-b-0 cursor-pointer hover:bg-muted/50 ${
-                          selectedItemId === item.id ? 'bg-primary/10' : ''
-                        }`}
-                        onClick={() => setSelectedItemId(item.id)}
-                      >
-                        <p className="font-mono font-medium">{item.unique_code}</p>
-                        <p className="text-xs text-muted-foreground">{item.pecas?.nome}</p>
+                
+                {/* Mostrar resultado selecionado */}
+                {selectedItem && (
+                  <Card className="bg-primary/5 border-primary/20">
+                    <CardContent className="p-3">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-mono font-medium">{selectedItem.unique_code}</p>
+                          <p className="text-sm text-muted-foreground">{selectedItem.pecas?.nome}</p>
+                          {selectedItem.meter_hours_last !== null && (
+                            <p className="text-xs text-muted-foreground">
+                              Último horímetro: {selectedItem.meter_hours_last}h
+                            </p>
+                          )}
+                        </div>
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={() => { setSelectedItemId(''); setItemSearch(''); }}
+                        >
+                          ✕
+                        </Button>
                       </div>
-                    ))
-                  )}
-                </div>
+                    </CardContent>
+                  </Card>
+                )}
+                
+                {/* Lista de resultados da busca */}
+                {itemSearch.length >= 2 && !selectedItem && (
+                  <div className="max-h-[150px] overflow-auto border rounded-lg">
+                    {filteredItems.length === 0 ? (
+                      <div className="p-4 text-center text-muted-foreground">
+                        Nenhum ativo encontrado
+                      </div>
+                    ) : (
+                      filteredItems.map((item) => (
+                        <div
+                          key={item.id}
+                          className="p-3 border-b last:border-b-0 cursor-pointer hover:bg-muted/50"
+                          onClick={() => { setSelectedItemId(item.id); setItemSearch(item.unique_code); }}
+                        >
+                          <p className="font-mono font-medium">{item.unique_code}</p>
+                          <p className="text-xs text-muted-foreground">{item.pecas?.nome}</p>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
+                
+                {itemSearch.length > 0 && itemSearch.length < 2 && !selectedItem && (
+                  <p className="text-xs text-muted-foreground">Digite pelo menos 2 caracteres...</p>
+                )}
               </div>
             </div>
 
