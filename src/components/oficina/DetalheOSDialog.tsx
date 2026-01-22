@@ -528,7 +528,9 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
 
   // Complete OS mutation
   const completeOSMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (): Promise<{ warrantyCreated: boolean }> => {
+      let warrantyCreated = false;
+      
       // Stop any active timer first
       if (activeTimeEntry) {
         await stopTimerMutation.mutateAsync();
@@ -616,10 +618,47 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
             if (oldMotorCode) historyInsert.old_motor_code = oldMotorCode;
             if (newMotorCode) historyInsert.new_motor_code = newMotorCode;
 
-            const { error: historyError } = await supabase
+            const { data: historyData, error: historyError } = await supabase
               .from('motor_replacement_history')
-              .insert(historyInsert as never);
+              .insert(historyInsert as never)
+              .select('id')
+              .single();
             if (historyError) throw historyError;
+
+            // Check warranty: if motor hours < warranty threshold, create warranty request
+            const { data: warrantyConfig } = await supabase
+              .from('configuracoes')
+              .select('valor')
+              .eq('chave', 'garantia_motor_horas')
+              .maybeSingle();
+            
+            const warrantyHours = warrantyConfig?.valor ? parseInt(warrantyConfig.valor) : 400;
+            
+            if (motorHoursUsed < warrantyHours && oldMotorCode) {
+              // Create warranty request automatically
+              const warrantyInsert = {
+                motor_code: oldMotorCode,
+                description: `Motor retirado com ${motorHoursUsed.toFixed(0)}h de uso (garantia: ${warrantyHours}h)`,
+                replacement_date: new Date().toISOString(),
+                hours_used: motorHoursUsed,
+                status: 'pendente',
+                workshop_item_id: univocaItem.workshop_item_id,
+                work_order_id: workOrder.id,
+                motor_replacement_history_id: historyData?.id,
+                created_by_user_id: user?.id,
+              };
+
+              const { error: warrantyError } = await supabase
+                .from('warranty_requests' as never)
+                .insert(warrantyInsert as never);
+              
+              if (warrantyError) {
+                console.error('Error creating warranty request:', warrantyError);
+                // Don't throw - warranty creation failure shouldn't block OS completion
+              } else {
+                warrantyCreated = true;
+              }
+            }
 
             // Update workshop item with new motor code if provided
             const workshopUpdate: Record<string, unknown> = {
@@ -678,13 +717,23 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
         })
         .eq('id', workOrder.id);
       if (error) throw error;
+      
+      return { warrantyCreated };
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['work-orders'] });
       queryClient.invalidateQueries({ queryKey: ['workshop-items'] });
+      queryClient.invalidateQueries({ queryKey: ['warranty-requests'] });
       onUpdate();
       onOpenChange(false);
-      toast.success('OS concluída com sucesso!');
+      
+      if (result?.warrantyCreated) {
+        toast.success('OS concluída! Solicitação de garantia criada automaticamente.', {
+          duration: 5000,
+        });
+      } else {
+        toast.success('OS concluída com sucesso!');
+      }
     },
     onError: (error) => {
       toast.error('Erro ao concluir OS: ' + error.message);

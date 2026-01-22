@@ -789,6 +789,76 @@ export type Database = {
           },
         ]
       }
+      warranty_requests: {
+        Row: {
+          created_at: string
+          created_by_user_id: string
+          description: string | null
+          hours_used: number
+          id: string
+          invoice_number: string | null
+          motor_code: string
+          motor_replacement_history_id: string | null
+          replacement_date: string
+          status: string
+          updated_at: string
+          work_order_id: string | null
+          workshop_item_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by_user_id: string
+          description?: string | null
+          hours_used: number
+          id?: string
+          invoice_number?: string | null
+          motor_code: string
+          motor_replacement_history_id?: string | null
+          replacement_date: string
+          status?: string
+          updated_at?: string
+          work_order_id?: string | null
+          workshop_item_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by_user_id?: string
+          description?: string | null
+          hours_used?: number
+          id?: string
+          invoice_number?: string | null
+          motor_code?: string
+          motor_replacement_history_id?: string | null
+          replacement_date?: string
+          status?: string
+          updated_at?: string
+          work_order_id?: string | null
+          workshop_item_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "warranty_requests_motor_replacement_history_id_fkey"
+            columns: ["motor_replacement_history_id"]
+            isOneToOne: false
+            referencedRelation: "motor_replacement_history"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "warranty_requests_work_order_id_fkey"
+            columns: ["work_order_id"]
+            isOneToOne: false
+            referencedRelation: "work_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "warranty_requests_workshop_item_id_fkey"
+            columns: ["workshop_item_id"]
+            isOneToOne: false
+            referencedRelation: "workshop_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       work_order_items: {
         Row: {
           created_at: string

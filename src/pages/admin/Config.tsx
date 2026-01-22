@@ -82,6 +82,10 @@ export default function AdminConfig() {
   const [inicioMenuEnabled, setInicioMenuEnabled] = useState(true);
   const [visitasMenuEnabled, setVisitasMenuEnabled] = useState(false);
   const [nfcMenuEnabled, setNfcMenuEnabled] = useState(true);
+  
+  // Workshop config states
+  const [garantiaMotorHoras, setGarantiaMotorHoras] = useState('400');
+  const [isSavingGarantia, setIsSavingGarantia] = useState(false);
 
   // Set form values when config loads
   useEffect(() => {
@@ -92,12 +96,14 @@ export default function AdminConfig() {
       const inicioEnabled = allConfigs.find(c => c.chave === 'inicio_menu_enabled')?.valor !== 'false';
       const visitasEnabled = allConfigs.find(c => c.chave === 'visitas_menu_enabled')?.valor === 'true';
       const nfcEnabled = allConfigs.find(c => c.chave === 'nfc_menu_enabled')?.valor !== 'false';
+      const garantiaHoras = allConfigs.find(c => c.chave === 'garantia_motor_horas')?.valor || '400';
       setOmieAppKey(appKey);
       setOmieAppSecret(appSecret);
       setEstoqueMenuEnabled(estoqueEnabled);
       setInicioMenuEnabled(inicioEnabled);
       setVisitasMenuEnabled(visitasEnabled);
       setNfcMenuEnabled(nfcEnabled);
+      setGarantiaMotorHoras(garantiaHoras);
     }
   }, [allConfigs]);
 
@@ -581,6 +587,36 @@ export default function AdminConfig() {
     }
   };
 
+  const handleSaveGarantiaMotorHoras = async () => {
+    setIsSavingGarantia(true);
+    try {
+      const { data: existing } = await supabase
+        .from('configuracoes')
+        .select('id')
+        .eq('chave', 'garantia_motor_horas')
+        .maybeSingle();
+
+      if (existing) {
+        await supabase
+          .from('configuracoes')
+          .update({ valor: garantiaMotorHoras })
+          .eq('chave', 'garantia_motor_horas');
+      } else {
+        await supabase
+          .from('configuracoes')
+          .insert({ chave: 'garantia_motor_horas', valor: garantiaMotorHoras, descricao: 'Horas de garantia do motor para criação automática de SG' });
+      }
+
+      queryClient.invalidateQueries({ queryKey: ['app-config'] });
+      queryClient.invalidateQueries({ queryKey: ['warranty-hours-config'] });
+      toast({ title: 'Configuração salva!', description: `Garantia de motor definida para ${garantiaMotorHoras}h` });
+    } catch (error: any) {
+      toast({ variant: 'destructive', title: 'Erro ao salvar', description: error.message });
+    } finally {
+      setIsSavingGarantia(false);
+    }
+  };
+
   const handleTestImilkConnection = async () => {
     setIsTestingImilk(true);
     setImilkStatus('idle');
@@ -683,6 +719,46 @@ export default function AdminConfig() {
                   checked={nfcMenuEnabled}
                   onCheckedChange={handleToggleNfcMenu}
                 />
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Oficina Config Card */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Settings className="h-5 w-5" />
+                Configurações Oficina
+              </CardTitle>
+              <CardDescription>
+                Parâmetros de garantia e manutenção
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center gap-4">
+                <div className="flex-1">
+                  <Label>Horas de Garantia Motor</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Motores com menos horas criam SG automaticamente
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Input
+                    type="number"
+                    value={garantiaMotorHoras}
+                    onChange={(e) => setGarantiaMotorHoras(e.target.value)}
+                    className="w-24"
+                    min="0"
+                  />
+                  <span className="text-sm text-muted-foreground">h</span>
+                  <Button 
+                    size="sm" 
+                    onClick={handleSaveGarantiaMotorHoras}
+                    disabled={isSavingGarantia}
+                  >
+                    {isSavingGarantia ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Salvar'}
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>
