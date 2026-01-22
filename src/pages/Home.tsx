@@ -105,6 +105,14 @@ export default function Home() {
       bgColor: 'bg-lime-100 dark:bg-lime-900/30',
       permKey: 'oficina_itens',
     },
+    {
+      title: 'Garantias Motor',
+      icon: Shield,
+      url: '/oficina/garantias',
+      color: 'text-yellow-600',
+      bgColor: 'bg-yellow-100 dark:bg-yellow-900/30',
+      permKey: 'oficina_garantias',
+    },
   ];
 
   const allAdminMenuItems: MenuItem[] = [
