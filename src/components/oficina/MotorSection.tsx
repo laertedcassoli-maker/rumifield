@@ -9,8 +9,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
 
 interface MotorReplacementHistory {
   id: string;
@@ -20,15 +18,24 @@ interface MotorReplacementHistory {
   new_motor_code: string | null;
   replaced_at: string;
   notes: string | null;
+  work_order_id: string | null;
 }
 
 interface MotorSectionProps {
   workshopItemId: string;
   isAdmin: boolean;
   currentMeterValue?: number;
+  workOrderId?: string;
+  workOrderStatus?: 'aguardando' | 'em_manutencao' | 'concluido';
 }
 
-export function MotorSection({ workshopItemId, isAdmin, currentMeterValue }: MotorSectionProps) {
+export function MotorSection({ 
+  workshopItemId, 
+  isAdmin, 
+  currentMeterValue,
+  workOrderId,
+  workOrderStatus 
+}: MotorSectionProps) {
   const queryClient = useQueryClient();
   const [historyOpen, setHistoryOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
@@ -108,14 +115,44 @@ export function MotorSection({ workshopItemId, isAdmin, currentMeterValue }: Mot
     },
   });
 
-  const currentMotorCode = (workshopItem as { current_motor_code?: string | null } | undefined)?.current_motor_code;
-  const meterHoursLast = workshopItem?.meter_hours_last ?? 0;
-  const motorReplacedAt = workshopItem?.motor_replaced_at_meter_hours ?? 0;
-  // Use currentMeterValue if provided (live input), otherwise use last saved value
-  const effectiveMeter = currentMeterValue ?? meterHoursLast;
-  const motorHours = Math.max(0, effectiveMeter - motorReplacedAt);
   const warrantyLimit = warrantyHoursConfig ?? 400;
-  const isWithinWarranty = motorHours < warrantyLimit;
+  const isCompleted = workOrderStatus === 'concluido';
+  
+  // Check if there was a motor replacement in THIS work order
+  const replacementInThisOS = workOrderId 
+    ? motorHistory.find(h => h.work_order_id === workOrderId)
+    : null;
+
+  // Determine what to display based on OS status and motor replacement
+  let displayMotorCode: string | null = null;
+  let displayMotorHours: number = 0;
+  let displayLabel: string = 'Motor Atual';
+  let showReplacedMotor = false;
+
+  if (isCompleted && replacementInThisOS) {
+    // OS concluída COM troca de motor - mostrar motor RETIRADO
+    displayMotorCode = replacementInThisOS.old_motor_code;
+    displayMotorHours = replacementInThisOS.motor_hours_used;
+    displayLabel = 'Motor Retirado';
+    showReplacedMotor = true;
+  } else {
+    // OS em andamento ou sem troca - mostrar motor ATUAL
+    const currentMotorCode = (workshopItem as { current_motor_code?: string | null } | undefined)?.current_motor_code;
+    const meterHoursLast = workshopItem?.meter_hours_last ?? 0;
+    const motorReplacedAt = workshopItem?.motor_replaced_at_meter_hours ?? 0;
+    const effectiveMeter = currentMeterValue ?? meterHoursLast;
+    
+    displayMotorCode = currentMotorCode ?? null;
+    displayMotorHours = Math.max(0, effectiveMeter - motorReplacedAt);
+    displayLabel = 'Motor Atual';
+  }
+
+  const isWithinWarranty = displayMotorHours < warrantyLimit;
+
+  // Filter history to exclude the motor shown in main display (if showing replaced motor)
+  const historyToShow = showReplacedMotor
+    ? motorHistory.filter(h => h.id !== replacementInThisOS?.id)
+    : motorHistory;
 
   return (
     <div className="p-3 border rounded-lg bg-muted/30 space-y-3">
@@ -123,6 +160,11 @@ export function MotorSection({ workshopItemId, isAdmin, currentMeterValue }: Mot
         <p className="text-sm font-semibold flex items-center gap-2">
           <Wrench className="h-4 w-4" />
           Motor
+          {showReplacedMotor && (
+            <Badge variant="outline" className="text-xs font-normal">
+              Troca nesta OS
+            </Badge>
+          )}
         </p>
         <div className="flex items-center gap-2">
           <Badge 
@@ -135,13 +177,13 @@ export function MotorSection({ workshopItemId, isAdmin, currentMeterValue }: Mot
             <Shield className="h-3 w-3 mr-1" />
             {isWithinWarranty ? 'Em Garantia' : 'Fora da Garantia'}
           </Badge>
-          {isAdmin && (
+          {isAdmin && !isCompleted && (
             <Button
               variant="ghost"
               size="sm"
               className="h-7 px-2"
               onClick={() => {
-                setNewMotorCode(currentMotorCode || '');
+                setNewMotorCode(displayMotorCode || '');
                 setEditDialogOpen(true);
               }}
             >
@@ -151,28 +193,36 @@ export function MotorSection({ workshopItemId, isAdmin, currentMeterValue }: Mot
         </div>
       </div>
 
-      {/* Current motor info */}
+      {/* Motor info */}
       <div className="grid grid-cols-2 gap-3 text-sm">
         <div>
-          <span className="text-muted-foreground">Motor Atual:</span>
+          <span className="text-muted-foreground">{displayLabel}:</span>
           <p className="font-mono font-medium">
-            {currentMotorCode || <span className="text-muted-foreground italic">Não informado</span>}
+            {displayMotorCode || <span className="text-muted-foreground italic">Não informado</span>}
           </p>
         </div>
         <div>
           <span className="text-muted-foreground">Horas Motor:</span>
-          <p className="font-mono font-medium">{motorHours.toFixed(0)}h</p>
+          <p className="font-mono font-medium">{displayMotorHours.toFixed(0)}h</p>
         </div>
       </div>
 
+      {/* Show new motor installed if this OS had a replacement */}
+      {showReplacedMotor && replacementInThisOS?.new_motor_code && (
+        <div className="text-sm pt-2 border-t">
+          <span className="text-muted-foreground">Motor Instalado:</span>
+          <p className="font-mono font-medium">{replacementInThisOS.new_motor_code}</p>
+        </div>
+      )}
+
       {/* History collapsible */}
-      {motorHistory.length > 0 && (
+      {historyToShow.length > 0 && (
         <Collapsible open={historyOpen} onOpenChange={setHistoryOpen}>
           <CollapsibleTrigger asChild>
             <Button variant="ghost" size="sm" className="w-full justify-between p-2 h-auto">
               <span className="flex items-center gap-2 text-xs text-muted-foreground">
                 <History className="h-3 w-3" />
-                Histórico de Trocas ({motorHistory.length})
+                Histórico de Trocas ({historyToShow.length})
               </span>
               {historyOpen ? (
                 <ChevronDown className="h-4 w-4 text-muted-foreground" />
@@ -183,25 +233,36 @@ export function MotorSection({ workshopItemId, isAdmin, currentMeterValue }: Mot
           </CollapsibleTrigger>
           <CollapsibleContent>
             <div className="mt-2 space-y-2 text-xs">
-              {motorHistory.map((entry) => (
-                <div
-                  key={entry.id}
-                  className="p-2 border rounded bg-background flex items-center justify-between"
-                >
-                  <span className="font-mono text-sm">
-                    {entry.old_motor_code || '(sem cód)'}
-                  </span>
-                  <Badge variant="secondary" className="font-mono text-xs">
-                    {entry.motor_hours_used.toFixed(0)}h
-                  </Badge>
-                </div>
-              ))}
+              {historyToShow.map((entry) => {
+                const entryWithinWarranty = entry.motor_hours_used < warrantyLimit;
+                return (
+                  <div
+                    key={entry.id}
+                    className="p-2 border rounded bg-background flex items-center justify-between"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-sm">
+                        {entry.old_motor_code || '(sem cód)'}
+                      </span>
+                      {entryWithinWarranty && (
+                        <Shield className="h-3 w-3 text-green-600" />
+                      )}
+                    </div>
+                    <Badge 
+                      variant="secondary" 
+                      className={`font-mono text-xs ${entryWithinWarranty ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' : ''}`}
+                    >
+                      {entry.motor_hours_used.toFixed(0)}h
+                    </Badge>
+                  </div>
+                );
+              })}
             </div>
           </CollapsibleContent>
         </Collapsible>
       )}
 
-      {motorHistory.length === 0 && (
+      {historyToShow.length === 0 && !showReplacedMotor && (
         <p className="text-xs text-muted-foreground text-center py-2">
           Nenhuma troca de motor registrada
         </p>
