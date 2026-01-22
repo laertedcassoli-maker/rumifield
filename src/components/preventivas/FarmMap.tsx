@@ -1,5 +1,4 @@
-import { useEffect, useRef, useMemo } from 'react';
-import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
+import { useEffect, useMemo, useRef } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -18,14 +17,14 @@ L.Icon.Default.mergeOptions({
 // Custom marker icons by status
 const createCustomIcon = (status: string) => {
   const colors: Record<string, string> = {
-    sem_historico: '#6b7280', // gray
-    atrasada: '#ef4444', // red
-    elegivel: '#f59e0b', // yellow/warning
-    em_dia: '#22c55e', // green
+    sem_historico: '#6b7280',
+    atrasada: '#ef4444',
+    elegivel: '#f59e0b',
+    em_dia: '#22c55e',
   };
-  
+
   const color = colors[status] || '#6b7280';
-  
+
   return L.divIcon({
     className: 'custom-marker',
     html: `
@@ -70,29 +69,19 @@ interface FarmMapProps {
   onClientClick?: (clientId: string) => void;
 }
 
-// Component to handle map view updates
-function MapUpdater({ highlightedClientId, clients }: { 
-  highlightedClientId?: string | null;
-  clients: FarmMapClient[];
-}) {
-  const map = useMap();
-  const prevHighlightedRef = useRef<string | null>(null);
-
-  useEffect(() => {
-    if (highlightedClientId && highlightedClientId !== prevHighlightedRef.current) {
-      const client = clients.find(c => c.client_id === highlightedClientId);
-      if (client?.latitude && client?.longitude) {
-        map.flyTo([client.latitude, client.longitude], 12, { duration: 0.5 });
-      }
-      prevHighlightedRef.current = highlightedClientId;
-    }
-  }, [highlightedClientId, clients, map]);
-
-  return null;
+function escapeHtml(input: string) {
+  return input
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/\"/g, '&quot;')
+    .replace(/'/g, '&#039;');
 }
 
 export default function FarmMap({ clients, highlightedClientId, onClientClick }: FarmMapProps) {
-  const markerRefs = useRef<Map<string, L.Marker>>(new Map());
+  const mapElRef = useRef<HTMLDivElement | null>(null);
+  const mapRef = useRef<L.Map | null>(null);
+  const markersRef = useRef<Map<string, L.Marker>>(new Map());
 
   // Filter clients with valid coordinates
   const clientsWithCoords = useMemo(() => {
@@ -145,14 +134,95 @@ export default function FarmMap({ clients, highlightedClientId, onClientClick }:
     return null;
   };
 
-  // Open popup for highlighted client
+  // Mount Leaflet map + markers
   useEffect(() => {
-    if (highlightedClientId) {
-      const marker = markerRefs.current.get(highlightedClientId);
-      if (marker) {
-        marker.openPopup();
-      }
+    if (!mapElRef.current) return;
+
+    // (Re)create map instance
+    if (mapRef.current) {
+      mapRef.current.remove();
+      mapRef.current = null;
     }
+    markersRef.current.clear();
+
+    const map = L.map(mapElRef.current, {
+      center: mapCenter,
+      zoom: mapZoom,
+      zoomControl: true,
+    });
+    mapRef.current = map;
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+    }).addTo(map);
+
+    clientsWithCoords.forEach((client) => {
+      const marker = L.marker([client.latitude!, client.longitude!], {
+        icon: createCustomIcon(client.preventive_status),
+      });
+
+      const title = escapeHtml(client.client_name);
+      const farm = client.fazenda ? `<div style=\"opacity:.8;font-size:12px;margin-top:2px;\">${escapeHtml(client.fazenda)}</div>` : '';
+
+      const status = statusConfig[client.preventive_status]?.label || client.preventive_status;
+      const freq = client.preventive_frequency_days ? `<span style=\"opacity:.8;font-size:12px;margin-left:8px;\">${client.preventive_frequency_days}d</span>` : '';
+      const days =
+        client.days_until_due !== null
+          ? `<div style=\"font-size:12px;margin-top:6px;\"><span style=\"opacity:.8\">Dias restantes: </span><b>${client.days_until_due}</b></div>`
+          : '';
+
+      const mapsUrl = getGoogleMapsUrl(client);
+      const mapsBtn = mapsUrl
+        ? `<button type=\"button\" data-open-maps=\"1\" style=\"margin-top:8px;width:100%;padding:6px 8px;border-radius:8px;border:1px solid rgba(0,0,0,.15);background:white;font-size:12px;cursor:pointer;\">Abrir no Google Maps</button>`
+        : '';
+
+      const html = `
+        <div style=\"min-width:200px;\">
+          <div style=\"font-weight:600;font-size:13px;\">${title}</div>
+          ${farm}
+          <div style=\"margin-top:6px;font-size:12px;\">
+            <span style=\"padding:2px 6px;border-radius:999px;border:1px solid rgba(0,0,0,.15);\">${escapeHtml(status)}</span>
+            ${freq}
+          </div>
+          ${days}
+          ${mapsBtn}
+        </div>
+      `;
+
+      marker.bindPopup(html);
+
+      marker.on('click', () => onClientClick?.(client.client_id));
+      marker.on('popupopen', (e) => {
+        const popupEl = (e as any)?.popup?.getElement?.() as HTMLElement | undefined;
+        if (!popupEl || !mapsUrl) return;
+        const btn = popupEl.querySelector('button[data-open-maps="1"]') as HTMLButtonElement | null;
+        if (btn) {
+          btn.onclick = () => window.open(mapsUrl, '_blank');
+        }
+      });
+
+      marker.addTo(map);
+      markersRef.current.set(client.client_id, marker);
+    });
+
+    return () => {
+      map.remove();
+      mapRef.current = null;
+      markersRef.current.clear();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clientsWithCoords, mapCenter[0], mapCenter[1], mapZoom]);
+
+  // Focus/open popup when a client is highlighted
+  useEffect(() => {
+    if (!highlightedClientId) return;
+    const marker = markersRef.current.get(highlightedClientId);
+    const map = mapRef.current;
+    if (!marker || !map) return;
+
+    const latlng = marker.getLatLng();
+    map.flyTo([latlng.lat, latlng.lng], Math.max(map.getZoom(), 12), { duration: 0.5 });
+    marker.openPopup();
   }, [highlightedClientId]);
 
   return (
@@ -187,77 +257,7 @@ export default function FarmMap({ clients, highlightedClientId, onClientClick }:
           </div>
         ) : (
           <div className="h-[400px] rounded-b-lg overflow-hidden">
-            <MapContainer
-              center={mapCenter}
-              zoom={mapZoom}
-              style={{ height: '100%', width: '100%' }}
-              scrollWheelZoom={true}
-            >
-              <TileLayer
-                attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-                url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-              />
-              <MapUpdater 
-                highlightedClientId={highlightedClientId}
-                clients={clientsWithCoords}
-              />
-              {clientsWithCoords.map((client) => (
-                <Marker
-                  key={client.client_id}
-                  position={[client.latitude!, client.longitude!]}
-                  icon={createCustomIcon(client.preventive_status)}
-                  ref={(ref) => {
-                    if (ref) {
-                      markerRefs.current.set(client.client_id, ref);
-                    }
-                  }}
-                  eventHandlers={{
-                    click: () => onClientClick?.(client.client_id)
-                  }}
-                >
-                  <Popup>
-                    <div className="min-w-[200px] p-1">
-                      <h3 className="font-semibold text-sm mb-1">{client.client_name}</h3>
-                      {client.fazenda && (
-                        <p className="text-xs text-muted-foreground mb-2">{client.fazenda}</p>
-                      )}
-                      <div className="flex items-center gap-2 mb-2">
-                        <Badge 
-                          variant="outline" 
-                          className={`text-xs ${statusConfig[client.preventive_status]?.color || ''}`}
-                        >
-                          {statusConfig[client.preventive_status]?.label || client.preventive_status}
-                        </Badge>
-                        {client.preventive_frequency_days && (
-                          <span className="text-xs text-muted-foreground">
-                            {client.preventive_frequency_days}d
-                          </span>
-                        )}
-                      </div>
-                      {client.days_until_due !== null && (
-                        <p className="text-xs mb-2">
-                          <span className="text-muted-foreground">Dias restantes: </span>
-                          <span className={client.days_until_due < 0 ? 'text-destructive font-medium' : ''}>
-                            {client.days_until_due}
-                          </span>
-                        </p>
-                      )}
-                      {getGoogleMapsUrl(client) && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="w-full h-7 text-xs"
-                          onClick={() => window.open(getGoogleMapsUrl(client)!, '_blank')}
-                        >
-                          <ExternalLink className="h-3 w-3 mr-1" />
-                          Abrir no Google Maps
-                        </Button>
-                      )}
-                    </div>
-                  </Popup>
-                </Marker>
-              ))}
-            </MapContainer>
+            <div ref={mapElRef} style={{ height: '100%', width: '100%' }} />
           </div>
         )}
       </CardContent>
