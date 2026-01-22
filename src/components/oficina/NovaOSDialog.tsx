@@ -53,7 +53,7 @@ interface NovaOSDialogProps {
 
 export function NovaOSDialog({ open, onOpenChange, onSuccess }: NovaOSDialogProps) {
   const { user } = useAuth();
-  const [creationPath, setCreationPath] = useState<'activity' | 'item'>('activity');
+  const [creationPath, setCreationPath] = useState<'activity' | 'item'>('item');
   const [selectedActivityId, setSelectedActivityId] = useState('');
   const [selectedItemId, setSelectedItemId] = useState('');
   const [itemSearch, setItemSearch] = useState('');
@@ -228,7 +228,7 @@ export function NovaOSDialog({ open, onOpenChange, onSuccess }: NovaOSDialogProp
   });
 
   const resetForm = () => {
-    setCreationPath('activity');
+    setCreationPath('item');
     setSelectedActivityId('');
     setSelectedItemId('');
     setItemSearch('');
@@ -236,6 +236,27 @@ export function NovaOSDialog({ open, onOpenChange, onSuccess }: NovaOSDialogProp
     setNotes('');
     setSelectedClienteId('');
     setClienteSearch('');
+  };
+
+  // Auto-select activity when item is selected and there's only one matching activity
+  const handleSelectItem = (item: WorkshopItem) => {
+    setSelectedItemId(item.id);
+    setItemSearch(item.unique_code);
+    
+    // Find activities linked to this item's product
+    const linkedActivities = activities.filter(activity =>
+      activityProducts.some(
+        ap => ap.activity_id === activity.id && ap.omie_product_id === item.omie_product_id
+      )
+    );
+    
+    // If there's exactly one activity, auto-select it
+    if (linkedActivities.length === 1) {
+      setSelectedActivityId(linkedActivities[0].id);
+    } else {
+      // Reset activity selection if multiple or none
+      setSelectedActivityId('');
+    }
   };
 
   const canSubmit = () => {
@@ -346,7 +367,7 @@ export function NovaOSDialog({ open, onOpenChange, onSuccess }: NovaOSDialogProp
                           <div
                             key={item.id}
                             className="p-3 border-b last:border-b-0 cursor-pointer hover:bg-muted/50"
-                            onClick={() => { setSelectedItemId(item.id); setItemSearch(item.unique_code); }}
+                            onClick={() => handleSelectItem(item)}
                           >
                             <p className="font-mono font-medium">{item.unique_code}</p>
                             <p className="text-xs text-muted-foreground">{item.pecas?.nome}</p>
@@ -428,7 +449,7 @@ export function NovaOSDialog({ open, onOpenChange, onSuccess }: NovaOSDialogProp
                         <div
                           key={item.id}
                           className="p-3 border-b last:border-b-0 cursor-pointer hover:bg-muted/50"
-                          onClick={() => { setSelectedItemId(item.id); setItemSearch(item.unique_code); }}
+                          onClick={() => handleSelectItem(item)}
                         >
                           <p className="font-mono font-medium">{item.unique_code}</p>
                           <p className="text-xs text-muted-foreground">{item.pecas?.nome}</p>
