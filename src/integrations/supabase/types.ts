@@ -1216,6 +1216,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      can_delete_peca: { Args: { _peca_id: string }; Returns: boolean }
       generate_warranty_batch_number: { Args: never; Returns: string }
       generate_work_order_code: { Args: never; Returns: string }
       is_admin_or_coordinator: { Args: { _user_id: string }; Returns: boolean }

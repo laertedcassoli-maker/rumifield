@@ -205,10 +205,10 @@ serve(async (req) => {
     
     console.log(`Stock info fetched for ${estoqueMap.size} products`);
 
-    // Get existing parts by omie_codigo
+    // Get existing parts by omie_codigo (include inactive ones)
     const { data: existingPecas, error: fetchError } = await supabase
       .from('pecas')
-      .select('id, omie_codigo');
+      .select('id, omie_codigo, ativo');
 
     if (fetchError) {
       console.error('Error fetching existing parts:', fetchError);
@@ -216,11 +216,16 @@ serve(async (req) => {
     }
 
     const existingOmieCodigoMap = new Map(
-      existingPecas?.filter(p => p.omie_codigo).map(p => [p.omie_codigo, p.id]) || []
+      existingPecas?.filter(p => p.omie_codigo).map(p => [p.omie_codigo, { id: p.id, ativo: p.ativo }]) || []
     );
+
+    // Set of omie_codigo from Omie API (active products)
+    const omieCodigoSet = new Set<string>();
 
     let created = 0;
     let updated = 0;
+    let reactivated = 0;
+    let deactivated = 0;
     let errors: string[] = [];
 
     for (const omiePeca of allPecas) {
@@ -249,10 +254,14 @@ serve(async (req) => {
           continue;
         }
 
-        const existingId = existingOmieCodigoMap.get(pecaData.omie_codigo);
+        omieCodigoSet.add(pecaData.omie_codigo);
 
-        if (existingId) {
-          // Update existing part
+        const existing = existingOmieCodigoMap.get(pecaData.omie_codigo);
+
+        if (existing) {
+          // Update existing part (also reactivate if was inactive)
+          const wasInactive = existing.ativo === false;
+          
           const { error: updateError } = await supabase
             .from('pecas')
             .update({
@@ -260,17 +269,21 @@ serve(async (req) => {
               nome: pecaData.nome,
               descricao: pecaData.descricao,
               familia: pecaData.familia,
-              ativo: pecaData.ativo,
+              ativo: true, // Always reactivate if in Omie
               imagem_url: pecaData.imagem_url,
               quantidade_estoque: pecaData.quantidade_estoque,
             })
-            .eq('id', existingId);
+            .eq('id', existing.id);
 
           if (updateError) {
             console.error('Error updating part:', updateError);
             errors.push(`Update error for ${pecaData.omie_codigo}: ${updateError.message}`);
           } else {
             updated++;
+            if (wasInactive) {
+              reactivated++;
+              console.log(`Reactivated part ${pecaData.omie_codigo}`);
+            }
           }
         } else {
           // Insert new part
@@ -291,7 +304,25 @@ serve(async (req) => {
       }
     }
 
-    console.log(`Sync completed: ${created} created, ${updated} updated, ${errors.length} errors`);
+    // IMPORTANT: Mark parts as inactive if they're no longer in Omie (NEVER DELETE)
+    for (const [omie_codigo, existing] of existingOmieCodigoMap) {
+      if (!omieCodigoSet.has(omie_codigo) && existing.ativo !== false) {
+        const { error: deactivateError } = await supabase
+          .from('pecas')
+          .update({ ativo: false })
+          .eq('id', existing.id);
+
+        if (deactivateError) {
+          console.error('Error deactivating part:', deactivateError);
+          errors.push(`Deactivate error for ${omie_codigo}: ${deactivateError.message}`);
+        } else {
+          deactivated++;
+          console.log(`Deactivated part ${omie_codigo} (not in Omie anymore)`);
+        }
+      }
+    }
+
+    console.log(`Sync completed: ${created} created, ${updated} updated, ${reactivated} reactivated, ${deactivated} deactivated, ${errors.length} errors`);
 
     return new Response(
       JSON.stringify({
@@ -299,6 +330,8 @@ serve(async (req) => {
         total: allPecas.length,
         created,
         updated,
+        reactivated,
+        deactivated,
         errors: errors.length > 0 ? errors.slice(0, 10) : undefined,
       }),
       {
