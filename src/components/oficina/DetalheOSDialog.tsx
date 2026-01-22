@@ -543,33 +543,36 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
                   </div>
 
                   {/* Meter readings section - simplified */}
-                  {univocaItem.workshop_items?.meter_hours_last != null && (
-                    <div className="mt-2 p-3 bg-slate-100 dark:bg-slate-800 rounded-lg border-2 border-slate-300 dark:border-slate-600">
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Horas total:</span>
-                        <span className="text-xl font-bold font-mono text-slate-900 dark:text-slate-100">
-                          {univocaItem.workshop_items.meter_hours_last.toFixed(0)}h
-                        </span>
-                      </div>
-                      <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium text-amber-700 dark:text-amber-400 flex items-center gap-1">
-                          <Wrench className="h-4 w-4" />
-                          Horas motor:
-                        </span>
-                        <span className="text-xl font-bold font-mono text-amber-700 dark:text-amber-400">
-                          {univocaItem.workshop_items.motor_replaced_at_meter_hours != null
-                            ? (univocaItem.workshop_items.meter_hours_last - univocaItem.workshop_items.motor_replaced_at_meter_hours).toFixed(0)
-                            : univocaItem.workshop_items.meter_hours_last.toFixed(0)
-                          }h
-                        </span>
-                      </div>
-                      {univocaItem.workshop_items.motor_replaced_at_meter_hours != null && (
-                        <p className="text-xs text-muted-foreground mt-1 text-right">
-                          (troca registrada em {univocaItem.workshop_items.motor_replaced_at_meter_hours}h)
-                        </p>
-                      )}
+                  <div className="mt-2 p-3 bg-slate-100 dark:bg-slate-800 rounded-lg border-2 border-slate-300 dark:border-slate-600">
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="text-sm font-medium text-slate-700 dark:text-slate-300">Horas total:</span>
+                      <span className="text-xl font-bold font-mono text-slate-900 dark:text-slate-100">
+                        {univocaItem.workshop_items?.meter_hours_last != null 
+                          ? `${univocaItem.workshop_items.meter_hours_last.toFixed(0)}h`
+                          : '-'
+                        }
+                      </span>
                     </div>
-                  )}
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm font-medium text-amber-700 dark:text-amber-400 flex items-center gap-1">
+                        <Wrench className="h-4 w-4" />
+                        Horas motor:
+                      </span>
+                      <span className="text-xl font-bold font-mono text-amber-700 dark:text-amber-400">
+                        {univocaItem.workshop_items?.meter_hours_last != null
+                          ? univocaItem.workshop_items.motor_replaced_at_meter_hours != null
+                            ? `${(univocaItem.workshop_items.meter_hours_last - univocaItem.workshop_items.motor_replaced_at_meter_hours).toFixed(0)}h`
+                            : `${univocaItem.workshop_items.meter_hours_last.toFixed(0)}h`
+                          : '-'
+                        }
+                      </span>
+                    </div>
+                    {univocaItem.workshop_items?.motor_replaced_at_meter_hours != null && (
+                      <p className="text-xs text-muted-foreground mt-1 text-right">
+                        (troca registrada em {univocaItem.workshop_items.motor_replaced_at_meter_hours}h)
+                      </p>
+                    )}
+                  </div>
 
                   {univocaItem.meter_hours_entry && (
                     <p className="text-xs text-muted-foreground mt-2">
