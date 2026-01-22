@@ -155,28 +155,14 @@ export function MotorSection({ workshopItemId, isAdmin }: MotorSectionProps) {
               {motorHistory.map((entry) => (
                 <div
                   key={entry.id}
-                  className="p-2 border rounded bg-background flex flex-col gap-1"
+                  className="p-2 border rounded bg-background flex items-center justify-between"
                 >
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">
-                      {format(new Date(entry.replaced_at), "dd/MM/yyyy", { locale: ptBR })}
-                    </span>
-                    <Badge variant="secondary" className="font-mono text-xs">
-                      {entry.motor_hours_used.toFixed(0)}h usadas
-                    </Badge>
-                  </div>
-                  <div className="flex items-center gap-2 font-mono">
-                    <span className="text-muted-foreground">
-                      {entry.old_motor_code || '(sem cód)'}
-                    </span>
-                    <span>→</span>
-                    <span className="font-medium">
-                      {entry.new_motor_code || '(sem cód)'}
-                    </span>
-                  </div>
-                  <p className="text-muted-foreground">
-                    Horímetro: {entry.replaced_at_meter_hours.toFixed(0)}h
-                  </p>
+                  <span className="font-mono text-sm">
+                    {entry.old_motor_code || '(sem cód)'}
+                  </span>
+                  <Badge variant="secondary" className="font-mono text-xs">
+                    {entry.motor_hours_used.toFixed(0)}h
+                  </Badge>
                 </div>
               ))}
             </div>
