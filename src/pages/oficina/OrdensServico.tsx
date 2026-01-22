@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import { Plus, Search, Eye, Play, Pause, CheckCircle, Clock, Package, LayoutGrid, List } from 'lucide-react';
+import { Plus, Search, Eye, Play, Pause, CheckCircle, Clock, Package, LayoutGrid, List, Wrench } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -40,6 +40,8 @@ interface WorkOrder {
   item_info?: {
     unique_code?: string;
     product_name?: string;
+    meter_hours_last?: number;
+    motor_replaced_at_meter_hours?: number;
   };
   parts_count?: number;
 }
@@ -83,7 +85,7 @@ export default function OrdensServico() {
 
       // Fetch work order items with workshop items and products
       const workOrderIds = data?.map(wo => wo.id) || [];
-      let itemsMap: Record<string, { unique_code?: string; product_name?: string }> = {};
+      let itemsMap: Record<string, { unique_code?: string; product_name?: string; meter_hours_last?: number; motor_replaced_at_meter_hours?: number }> = {};
       let partsCountMap: Record<string, number> = {};
 
       if (workOrderIds.length > 0) {
@@ -113,17 +115,22 @@ export default function OrdensServico() {
           const workshopItemIds = items.map(i => i.workshop_item_id).filter(Boolean);
           const productIds = items.map(i => i.omie_product_id).filter(Boolean);
 
-          let workshopItemsMap: Record<string, { unique_code: string; omie_product_id: string }> = {};
+          let workshopItemsMap: Record<string, { unique_code: string; omie_product_id: string; meter_hours_last: number | null; motor_replaced_at_meter_hours: number | null }> = {};
           let productsMap: Record<string, string> = {};
 
           if (workshopItemIds.length > 0) {
             const { data: workshopItems } = await supabase
               .from('workshop_items')
-              .select('id, unique_code, omie_product_id')
+              .select('id, unique_code, omie_product_id, meter_hours_last, motor_replaced_at_meter_hours')
               .in('id', workshopItemIds);
             workshopItemsMap = (workshopItems || []).reduce((acc, wi) => ({
               ...acc,
-              [wi.id]: { unique_code: wi.unique_code, omie_product_id: wi.omie_product_id }
+              [wi.id]: { 
+                unique_code: wi.unique_code, 
+                omie_product_id: wi.omie_product_id,
+                meter_hours_last: wi.meter_hours_last,
+                motor_replaced_at_meter_hours: wi.motor_replaced_at_meter_hours
+              }
             }), {});
 
             // Add product IDs from workshop items
@@ -149,7 +156,9 @@ export default function OrdensServico() {
             
             itemsMap[item.work_order_id] = {
               unique_code: workshopItem?.unique_code,
-              product_name: productId ? productsMap[productId] : undefined
+              product_name: productId ? productsMap[productId] : undefined,
+              meter_hours_last: workshopItem?.meter_hours_last ?? undefined,
+              motor_replaced_at_meter_hours: workshopItem?.motor_replaced_at_meter_hours ?? undefined
             };
           });
         }
@@ -286,6 +295,13 @@ export default function OrdensServico() {
                               {os.item_info.product_name}
                             </p>
                           )}
+                          {/* Motor hours since last replacement */}
+                          {os.item_info?.motor_replaced_at_meter_hours != null && os.item_info?.meter_hours_last != null && (
+                            <div className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400 mt-1">
+                              <Wrench className="h-3 w-3" />
+                              <span>Motor: {(os.item_info.meter_hours_last - os.item_info.motor_replaced_at_meter_hours).toFixed(0)}h</span>
+                            </div>
+                          )}
                           <Badge variant="outline" className="text-xs mt-1">
                             {os.activities?.execution_type}
                           </Badge>
@@ -349,6 +365,13 @@ export default function OrdensServico() {
                           <p className="text-xs text-muted-foreground break-words whitespace-normal mt-2">
                             {os.item_info.product_name}
                           </p>
+                        )}
+                        {/* Motor hours since last replacement */}
+                        {os.item_info?.motor_replaced_at_meter_hours != null && os.item_info?.meter_hours_last != null && (
+                          <div className="flex items-center gap-1 text-xs text-amber-600 dark:text-amber-400 mt-1">
+                            <Wrench className="h-3 w-3" />
+                            <span>Motor: {(os.item_info.meter_hours_last - os.item_info.motor_replaced_at_meter_hours).toFixed(0)}h</span>
+                          </div>
                         )}
                       </div>
                       <Badge className={statusColors[os.status] || ''}>
