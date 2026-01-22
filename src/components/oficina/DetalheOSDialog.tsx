@@ -568,8 +568,35 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
         await stopTimerMutation.mutateAsync();
       }
 
-      // Update meter hours exit if provided
       const univocaItem = workOrderItems.find(item => item.workshop_item_id);
+      
+      // Save entry meter hours if provided and not yet registered
+      if (univocaItem && meterHoursEntry && !univocaItem.meter_hours_entry) {
+        const entryValue = parseFloat(meterHoursEntry);
+        
+        // Update work order item with entry meter hours
+        const { error: entryItemError } = await supabase
+          .from('work_order_items')
+          .update({ meter_hours_entry: entryValue })
+          .eq('id', univocaItem.id);
+        if (entryItemError) throw entryItemError;
+
+        // Create meter reading record for entry
+        if (univocaItem.workshop_item_id) {
+          const { error: entryReadingError } = await supabase
+            .from('asset_meter_readings')
+            .insert({
+              workshop_item_id: univocaItem.workshop_item_id,
+              work_order_id: workOrder.id,
+              reading_value: entryValue,
+              user_id: user?.id,
+              notes: 'Horímetro de entrada',
+            });
+          if (entryReadingError) throw entryReadingError;
+        }
+      }
+
+      // Update meter hours exit if provided
       if (univocaItem && meterHoursExit) {
         const exitValue = parseFloat(meterHoursExit);
         
@@ -602,7 +629,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
             .eq('id', univocaItem.workshop_item_id);
           if (workshopError) throw workshopError;
 
-          // Create meter reading record
+          // Create meter reading record for exit
           const { error: readingError } = await supabase
             .from('asset_meter_readings')
             .insert({
@@ -610,7 +637,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
               work_order_id: workOrder.id,
               reading_value: exitValue,
               user_id: user?.id,
-              notes: isMotorReplacement ? 'Troca de motor realizada' : null,
+              notes: isMotorReplacement ? 'Horímetro de saída - Troca de motor realizada' : 'Horímetro de saída',
             });
           if (readingError) throw readingError;
         }
@@ -722,46 +749,14 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
                   {workOrder.status !== 'concluido' && (
                     <div className="flex gap-2">
                       {!activeTimeEntry ? (
-                        <>
-                          {/* Show meter hours input if required and not yet registered */}
-                          {requiresMeterHoursEntry && !entryMeterHoursRegistered ? (
-                            <div className="flex items-center gap-2">
-                              <Input
-                                type="number"
-                                min={0}
-                                step="0.1"
-                                value={meterHoursEntry}
-                                onChange={(e) => setMeterHoursEntry(e.target.value)}
-                                placeholder="Horímetro"
-                                className="w-24 h-8 text-sm"
-                              />
-                              <Button
-                                size="sm"
-                                onClick={() => {
-                                  const value = parseFloat(meterHoursEntry);
-                                  if (isNaN(value) || value < 0) {
-                                    toast.error('Informe o horímetro de entrada');
-                                    return;
-                                  }
-                                  startTimerMutation.mutate(value);
-                                }}
-                                disabled={startTimerMutation.isPending || !meterHoursEntry}
-                              >
-                                <Play className="h-4 w-4 mr-1" />
-                                Iniciar
-                              </Button>
-                            </div>
-                          ) : (
-                            <Button
-                              size="sm"
-                              onClick={() => startTimerMutation.mutate(undefined)}
-                              disabled={startTimerMutation.isPending}
-                            >
-                              <Play className="h-4 w-4 mr-1" />
-                              Iniciar
-                            </Button>
-                          )}
-                        </>
+                        <Button
+                          size="sm"
+                          onClick={() => startTimerMutation.mutate(undefined)}
+                          disabled={startTimerMutation.isPending}
+                        >
+                          <Play className="h-4 w-4 mr-1" />
+                          Iniciar
+                        </Button>
                       ) : activeTimeEntry.status === 'running' ? (
                         <>
                           <Button
@@ -807,12 +802,6 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
                     </div>
                   )}
                 </div>
-                {/* Show hint when meter hours required */}
-                {requiresMeterHoursEntry && !entryMeterHoursRegistered && !activeTimeEntry && workOrder.status !== 'concluido' && (
-                  <p className="text-xs text-muted-foreground">
-                    Informe o horímetro de entrada para iniciar
-                  </p>
-                )}
               </CardContent>
             </Card>
             {univocaItem && (
@@ -937,19 +926,38 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
             {/* Complete Section */}
             {workOrder.status !== 'concluido' && (
               <div className="space-y-4">
-                {requiresMeterHoursExit && (
+                {requiresMeterHoursEntry && (
                   <>
+                    {/* Horímetro de Entrada */}
                     <div>
-                      <Label>Horímetro na Saída (horas)</Label>
+                      <Label>Horímetro na Entrada (horas) *</Label>
+                      <Input
+                        type="number"
+                        min={0}
+                        step="0.1"
+                        value={meterHoursEntry}
+                        onChange={(e) => setMeterHoursEntry(e.target.value)}
+                        placeholder={univocaItem?.workshop_items?.meter_hours_last 
+                          ? `Último: ${univocaItem.workshop_items.meter_hours_last}h` 
+                          : '0'}
+                        disabled={entryMeterHoursRegistered}
+                      />
+                      {entryMeterHoursRegistered && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Registrado: {univocaItem?.meter_hours_entry}h
+                        </p>
+                      )}
+                    </div>
+                    {/* Horímetro de Saída */}
+                    <div>
+                      <Label>Horímetro na Saída (horas) *</Label>
                       <Input
                         type="number"
                         min={0}
                         step="0.1"
                         value={meterHoursExit}
                         onChange={(e) => setMeterHoursExit(e.target.value)}
-                        placeholder={univocaItem?.workshop_items?.meter_hours_last 
-                          ? `Último: ${univocaItem.workshop_items.meter_hours_last}h` 
-                          : '0'}
+                        placeholder="Horímetro atual"
                       />
                     </div>
                     {/* Motor replacement checkbox */}
@@ -986,7 +994,29 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
                 )}
                 <Button
                   className="w-full"
-                  onClick={() => completeOSMutation.mutate()}
+                  onClick={() => {
+                    // Validate meter hours if required
+                    if (requiresMeterHoursEntry) {
+                      const entryValue = entryMeterHoursRegistered 
+                        ? univocaItem?.meter_hours_entry 
+                        : parseFloat(meterHoursEntry);
+                      const exitValue = parseFloat(meterHoursExit);
+                      
+                      if (!entryMeterHoursRegistered && (!meterHoursEntry || isNaN(entryValue as number))) {
+                        toast.error('Informe o horímetro de entrada');
+                        return;
+                      }
+                      if (!meterHoursExit || isNaN(exitValue)) {
+                        toast.error('Informe o horímetro de saída');
+                        return;
+                      }
+                      if (exitValue < (entryValue as number)) {
+                        toast.error('Horímetro de saída não pode ser menor que o de entrada');
+                        return;
+                      }
+                    }
+                    completeOSMutation.mutate();
+                  }}
                   disabled={completeOSMutation.isPending}
                 >
                   <CheckCircle className="h-4 w-4 mr-2" />
