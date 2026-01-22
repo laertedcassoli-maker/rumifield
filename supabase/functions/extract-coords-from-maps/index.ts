@@ -58,9 +58,20 @@ Deno.serve(async (req) => {
       console.log('Found coordinates via @ pattern:', latitude, longitude);
     }
 
-    // Pattern 2: ?q=lat,lng or &q=lat,lng
+    // Pattern 2: /maps/search/lat,lng format (common for pin drops)
     if (!latitude || !longitude) {
-      const qPattern = /[?&]q=(-?\d+\.?\d*),(-?\d+\.?\d*)/;
+      const searchPattern = /\/maps\/search\/(-?\d+\.?\d*),\+?(-?\d+\.?\d*)/;
+      const searchMatch = finalUrl.match(searchPattern);
+      if (searchMatch) {
+        latitude = parseFloat(searchMatch[1]);
+        longitude = parseFloat(searchMatch[2]);
+        console.log('Found coordinates via /maps/search/ pattern:', latitude, longitude);
+      }
+    }
+
+    // Pattern 3: ?q=lat,lng or &q=lat,lng
+    if (!latitude || !longitude) {
+      const qPattern = /[?&]q=(-?\d+\.?\d*),\+?(-?\d+\.?\d*)/;
       const qMatch = finalUrl.match(qPattern);
       if (qMatch) {
         latitude = parseFloat(qMatch[1]);
