@@ -900,17 +900,17 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
 
             {/* Horímetro Card - compact version */}
             {requiresMeterHours && univocaItem && (
-              <Card>
-                <CardContent className="p-4">
-                  <div className="flex items-center gap-2 mb-3">
+              <Card className="overflow-hidden">
+                <CardContent className="p-0">
+                  <div className="flex items-center gap-2 px-4 py-3 border-b bg-muted/30">
                     <Clock className="h-4 w-4 text-muted-foreground" />
                     <span className="text-sm font-semibold">Horímetro</span>
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-2 divide-x">
                     {/* Previous reading - left side */}
-                    <div className="p-2 bg-muted/50 rounded-lg">
+                    <div className="p-3 space-y-1">
                       <p className="text-xs text-muted-foreground">Última Leitura</p>
-                      <p className="font-mono font-semibold">
+                      <p className="font-mono font-semibold text-lg">
                         {univocaItem.workshop_items?.meter_hours_last != null 
                           ? `${univocaItem.workshop_items.meter_hours_last}h` 
                           : '-'}
@@ -922,8 +922,8 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
                       )}
                     </div>
                     
-                    {/* Current reading - right side with highlight */}
-                    <div className="p-2 border-2 border-primary/50 bg-primary/5 rounded-lg">
+                    {/* Current reading - right side */}
+                    <div className="p-3 bg-primary/5">
                       <Label className="text-xs font-medium">
                         Horímetro Atual <span className="text-destructive">*</span>
                       </Label>
@@ -935,11 +935,11 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
                           value={meterHoursCurrent}
                           onChange={(e) => setMeterHoursCurrent(e.target.value)}
                           placeholder={`${univocaItem.workshop_items?.meter_hours_last ?? 0}`}
-                          className="font-mono mt-1 h-9 border-primary/30 focus:border-primary"
+                          className="font-mono mt-1 h-9 bg-background border-primary/30 focus:border-primary"
                           required
                         />
                       ) : (
-                        <p className="font-mono font-semibold mt-1">
+                        <p className="font-mono font-semibold text-lg mt-1">
                           {univocaItem.meter_hours_exit != null 
                             ? `${univocaItem.meter_hours_exit}h` 
                             : '-'}
