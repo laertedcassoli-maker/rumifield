@@ -1,4 +1,4 @@
-import { Home, MapPin, ShoppingCart, Users, Settings, LogOut, Beaker, Truck, ChevronDown, ClipboardCheck, TrendingDown, Play, Building2, History, Package, FlaskConical, Shield, Wrench, ListChecks, Box, FileText, Calendar } from 'lucide-react';
+import { Home, MapPin, ShoppingCart, Users, Settings, LogOut, Beaker, Truck, ChevronDown, ClipboardCheck, TrendingDown, Play, Building2, History, Package, FlaskConical, Shield, Wrench, ListChecks, Box, FileText, Calendar, Route } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarMenuSub, SidebarMenuSubItem, SidebarMenuSubButton } from '@/components/ui/sidebar';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -34,8 +34,16 @@ export function AppSidebar() {
     { title: 'Início', icon: Home, url: '/', permKey: 'inicio' },
     { title: 'Visitas', icon: MapPin, url: '/visitas', permKey: 'visitas' },
     { title: 'Solicitação Peças', icon: ShoppingCart, url: '/pedidos', permKey: 'pedidos' },
-    { title: 'Preventivas', icon: Calendar, url: '/preventivas', permKey: 'preventivas' },
   ].filter(item => canAccess(item.permKey));
+
+  // Preventivas submenu
+  const preventivasItems = [
+    { title: 'Clientes Preventiva', icon: Building2, url: '/preventivas', permKey: 'preventivas' },
+    { title: 'Rotas', icon: Route, url: '/preventivas/rotas', permKey: 'preventivas' },
+  ].filter(item => canAccess(item.permKey));
+
+  const showPreventivasMenu = canAccess('preventivas') && preventivasItems.length > 0;
+  const isPreventivasActive = location.pathname === '/preventivas' || location.pathname.startsWith('/preventivas/');
 
   // Estoque submenu
   const estoqueItems = [
@@ -122,6 +130,35 @@ export function AppSidebar() {
                     <CollapsibleContent>
                       <SidebarMenuSub>
                         {estoqueItems.map(item => (
+                          <SidebarMenuSubItem key={item.title}>
+                            <SidebarMenuSubButton asChild isActive={location.pathname === item.url}>
+                              <Link to={item.url} onClick={handleMenuClick}>
+                                <item.icon className="h-4 w-4" />
+                                <span>{item.title}</span>
+                              </Link>
+                            </SidebarMenuSubButton>
+                          </SidebarMenuSubItem>
+                        ))}
+                      </SidebarMenuSub>
+                    </CollapsibleContent>
+                  </SidebarMenuItem>
+                </Collapsible>
+              )}
+
+              {/* Preventivas com submenu */}
+              {showPreventivasMenu && (
+                <Collapsible defaultOpen={isPreventivasActive} className="group/collapsible">
+                  <SidebarMenuItem>
+                    <CollapsibleTrigger asChild>
+                      <SidebarMenuButton isActive={isPreventivasActive}>
+                        <Calendar className="h-4 w-4" />
+                        <span>Preventivas</span>
+                        <ChevronDown className="ml-auto h-4 w-4 transition-transform group-data-[state=open]/collapsible:rotate-180" />
+                      </SidebarMenuButton>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <SidebarMenuSub>
+                        {preventivasItems.map(item => (
                           <SidebarMenuSubItem key={item.title}>
                             <SidebarMenuSubButton asChild isActive={location.pathname === item.url}>
                               <Link to={item.url} onClick={handleMenuClick}>
