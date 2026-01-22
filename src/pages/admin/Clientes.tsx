@@ -571,14 +571,14 @@ export default function AdminClientes() {
                     <div className="space-y-2">
                       <Label>Consultor R+</Label>
                       <Select
-                        value={form.consultor_rplus_id}
-                        onValueChange={(value) => setForm({ ...form, consultor_rplus_id: value })}
+                        value={form.consultor_rplus_id || '_none'}
+                        onValueChange={(value) => setForm({ ...form, consultor_rplus_id: value === '_none' ? '' : value })}
                       >
                         <SelectTrigger>
                           <SelectValue placeholder="Selecione" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="">Nenhum</SelectItem>
+                          <SelectItem value="_none">Nenhum</SelectItem>
                           {consultores.map((consultor) => (
                             <SelectItem key={consultor.id} value={consultor.id}>
                               {consultor.nome}
@@ -596,14 +596,14 @@ export default function AdminClientes() {
                       <div className="space-y-2">
                         <Label>Tipo Painel</Label>
                         <Select
-                          value={form.tipo_painel}
-                          onValueChange={(value) => setForm({ ...form, tipo_painel: value })}
+                          value={form.tipo_painel || '_none'}
+                          onValueChange={(value) => setForm({ ...form, tipo_painel: value === '_none' ? '' : value })}
                         >
                           <SelectTrigger>
                             <SelectValue placeholder="Selecione" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="">Não definido</SelectItem>
+                            <SelectItem value="_none">Não definido</SelectItem>
                             <SelectItem value="2x">2x</SelectItem>
                             <SelectItem value="3x">3x</SelectItem>
                           </SelectContent>
@@ -627,14 +627,14 @@ export default function AdminClientes() {
                       <div className="space-y-2">
                         <Label>Qtd Pistolas</Label>
                         <Select
-                          value={form.quantidade_pistolas?.toString() || ''}
-                          onValueChange={(value) => setForm({ ...form, quantidade_pistolas: value ? parseInt(value) : null })}
+                          value={form.quantidade_pistolas?.toString() || '_none'}
+                          onValueChange={(value) => setForm({ ...form, quantidade_pistolas: value === '_none' ? null : parseInt(value) })}
                         >
                           <SelectTrigger>
                             <SelectValue placeholder="Selecione" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="">Não definido</SelectItem>
+                            <SelectItem value="_none">Não definido</SelectItem>
                             <SelectItem value="1">1</SelectItem>
                             <SelectItem value="2">2</SelectItem>
                             <SelectItem value="3">3</SelectItem>
