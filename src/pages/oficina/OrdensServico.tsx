@@ -249,9 +249,13 @@ export default function OrdensServico() {
                               <div>
                                 <p className="font-medium">{os.activities?.name}</p>
                                 {os.item_info?.unique_code && (
-                                  <p className="text-xs text-muted-foreground font-mono">
+                                  <p className="text-xs text-muted-foreground font-mono break-words whitespace-normal">
                                     {os.item_info.unique_code}
-                                    {os.item_info.product_name && ` • ${os.item_info.product_name}`}
+                                  </p>
+                                )}
+                                {os.item_info?.product_name && (
+                                  <p className="text-xs text-muted-foreground break-words whitespace-normal">
+                                    {os.item_info.product_name}
                                   </p>
                                 )}
                                 <Badge variant="outline" className="text-xs mt-1">
@@ -301,9 +305,13 @@ export default function OrdensServico() {
                               <p className="font-mono font-bold">{os.code}</p>
                               <p className="text-sm text-muted-foreground">{os.activities?.name}</p>
                               {os.item_info?.unique_code && (
-                                <p className="text-xs text-muted-foreground font-mono truncate">
+                                <p className="text-xs text-muted-foreground font-mono break-words whitespace-normal">
                                   {os.item_info.unique_code}
-                                  {os.item_info.product_name && ` • ${os.item_info.product_name}`}
+                                </p>
+                              )}
+                              {os.item_info?.product_name && (
+                                <p className="text-xs text-muted-foreground break-words whitespace-normal">
+                                  {os.item_info.product_name}
                                 </p>
                               )}
                             </div>
