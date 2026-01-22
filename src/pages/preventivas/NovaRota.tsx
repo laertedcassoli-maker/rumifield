@@ -30,7 +30,12 @@ import {
   HelpCircle,
   CheckCircle,
   Sparkles,
-  CalendarIcon
+  CalendarIcon,
+  ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
+  Search,
+  Filter
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Link } from 'react-router-dom';
@@ -49,12 +54,18 @@ interface ClientPreventive {
   client_id: string;
   client_name: string;
   fazenda: string | null;
+  estado: string | null;
+  consultor_rplus_id: string | null;
+  consultor_name: string | null;
   preventive_frequency_days: number | null;
   last_preventive_date: string | null;
   days_until_due: number | null;
   preventive_status: string;
   suggested_reason?: string;
 }
+
+type SortField = 'client_name' | 'estado' | 'consultor_name' | 'preventive_status' | 'days_until_due';
+type SortDirection = 'asc' | 'desc';
 
 export default function NovaRota() {
   const { user, role } = useAuth();
@@ -72,6 +83,14 @@ export default function NovaRota() {
   const [selectedClients, setSelectedClients] = useState<Set<string>>(new Set());
   const [isSaving, setIsSaving] = useState(false);
   const [endDateOpen, setEndDateOpen] = useState(false);
+  
+  // Filters and sorting
+  const [clientSearch, setClientSearch] = useState('');
+  const [estadoFilter, setEstadoFilter] = useState<string>('all');
+  const [consultorFilter, setConsultorFilter] = useState<string>('all');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [sortField, setSortField] = useState<SortField>('preventive_status');
+  const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
 
   const isAdminOrCoordinator = role === 'admin' || role === 'coordenador_servicos';
 
@@ -133,26 +152,34 @@ export default function NovaRota() {
   const { data: clientsData, isLoading } = useQuery({
     queryKey: ['clients-for-route'],
     queryFn: async () => {
-      const { data: clients, error: clientsError } = await supabase
-        .from('clientes')
-        .select('id, nome, fazenda, preventive_frequency_days, status')
-        .eq('status', 'ativo')
-        .order('nome');
+      // Fetch clients and consultors in parallel
+      const [clientsResult, preventivesResult, consultorsResult] = await Promise.all([
+        supabase
+          .from('clientes')
+          .select('id, nome, fazenda, estado, consultor_rplus_id, preventive_frequency_days, status')
+          .eq('status', 'ativo')
+          .order('nome'),
+        supabase
+          .from('preventive_maintenance')
+          .select('client_id, completed_date')
+          .eq('status', 'concluida'),
+        supabase
+          .from('profiles')
+          .select('id, nome')
+      ]);
       
-      if (clientsError) throw clientsError;
+      if (clientsResult.error) throw clientsResult.error;
+      if (preventivesResult.error) throw preventivesResult.error;
 
-      const { data: preventives, error: preventivesError } = await supabase
-        .from('preventive_maintenance')
-        .select('client_id, completed_date')
-        .eq('status', 'concluida');
-      
-      if (preventivesError) throw preventivesError;
+      const clients = clientsResult.data || [];
+      const preventives = preventivesResult.data || [];
+      const consultorsMap = new Map(consultorsResult.data?.map(p => [p.id, p.nome]) || []);
 
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
-      return clients?.map(client => {
-        const clientPreventives = preventives?.filter(p => p.client_id === client.id) || [];
+      return clients.map(client => {
+        const clientPreventives = preventives.filter(p => p.client_id === client.id);
         const lastPreventive = clientPreventives.length > 0 
           ? clientPreventives.reduce((max, p) => 
               new Date(p.completed_date!) > new Date(max.completed_date!) ? p : max
@@ -189,42 +216,123 @@ export default function NovaRota() {
           client_id: client.id,
           client_name: client.nome,
           fazenda: client.fazenda,
+          estado: client.estado,
+          consultor_rplus_id: client.consultor_rplus_id,
+          consultor_name: client.consultor_rplus_id ? consultorsMap.get(client.consultor_rplus_id) || null : null,
           preventive_frequency_days: client.preventive_frequency_days,
           last_preventive_date: lastPreventive?.completed_date || null,
           days_until_due: daysUntilDue,
           preventive_status: status,
           suggested_reason: suggestedReason,
         } as ClientPreventive;
-      }) || [];
+      });
     },
   });
 
-  // Sort clients by priority (suggested first)
-  const sortedClients = useMemo(() => {
+  // Get unique estados and consultors for filters
+  const uniqueEstados = useMemo(() => {
     if (!clientsData) return [];
-    
-    return [...clientsData].sort((a, b) => {
-      const aConfig = statusConfig[a.preventive_status as keyof typeof statusConfig];
-      const bConfig = statusConfig[b.preventive_status as keyof typeof statusConfig];
-      const priorityDiff = (aConfig?.priority ?? 99) - (bConfig?.priority ?? 99);
-      
-      if (priorityDiff !== 0) return priorityDiff;
-      
-      // Within same priority, sort by days_until_due
-      const aDays = a.days_until_due ?? -9999;
-      const bDays = b.days_until_due ?? -9999;
-      return aDays - bDays;
-    });
+    const estados = [...new Set(clientsData.map(c => c.estado).filter(Boolean))] as string[];
+    return estados.sort();
   }, [clientsData]);
 
-  // Suggested clients (sem_historico, atrasada, elegivel)
+  const uniqueConsultors = useMemo(() => {
+    if (!clientsData) return [];
+    const consultors = [...new Set(clientsData
+      .filter(c => c.consultor_name)
+      .map(c => JSON.stringify({ id: c.consultor_rplus_id, name: c.consultor_name }))
+    )].map(s => JSON.parse(s));
+    return consultors.sort((a: {name: string}, b: {name: string}) => a.name.localeCompare(b.name));
+  }, [clientsData]);
+
+  // Filter and sort clients
+  const filteredAndSortedClients = useMemo(() => {
+    if (!clientsData) return [];
+    
+    // Apply filters
+    let result = clientsData.filter(client => {
+      // Search filter (multi-word)
+      if (clientSearch) {
+        const searchWords = clientSearch.toLowerCase().split(' ').filter(Boolean);
+        const searchText = `${client.client_name} ${client.fazenda || ''} ${client.estado || ''}`.toLowerCase();
+        if (!searchWords.every(word => searchText.includes(word))) {
+          return false;
+        }
+      }
+      
+      // Estado filter
+      if (estadoFilter !== 'all' && client.estado !== estadoFilter) {
+        return false;
+      }
+      
+      // Consultor filter
+      if (consultorFilter !== 'all' && client.consultor_rplus_id !== consultorFilter) {
+        return false;
+      }
+      
+      // Status filter
+      if (statusFilter !== 'all' && client.preventive_status !== statusFilter) {
+        return false;
+      }
+      
+      return true;
+    });
+    
+    // Apply sorting
+    result.sort((a, b) => {
+      let comparison = 0;
+      
+      switch (sortField) {
+        case 'client_name':
+          comparison = (a.client_name || '').localeCompare(b.client_name || '', 'pt-BR');
+          break;
+        case 'estado':
+          comparison = (a.estado || 'ZZZ').localeCompare(b.estado || 'ZZZ', 'pt-BR');
+          break;
+        case 'consultor_name':
+          comparison = (a.consultor_name || 'ZZZ').localeCompare(b.consultor_name || 'ZZZ', 'pt-BR');
+          break;
+        case 'preventive_status': {
+          const aConfig = statusConfig[a.preventive_status as keyof typeof statusConfig];
+          const bConfig = statusConfig[b.preventive_status as keyof typeof statusConfig];
+          comparison = (aConfig?.priority ?? 99) - (bConfig?.priority ?? 99);
+          break;
+        }
+        case 'days_until_due':
+          comparison = (a.days_until_due ?? 9999) - (b.days_until_due ?? 9999);
+          break;
+      }
+      
+      return sortDirection === 'asc' ? comparison : -comparison;
+    });
+    
+    return result;
+  }, [clientsData, clientSearch, estadoFilter, consultorFilter, statusFilter, sortField, sortDirection]);
+
+  // Suggested clients (sem_historico, atrasada, elegivel) - from filtered list
   const suggestedClients = useMemo(() => {
-    return sortedClients.filter(c => 
+    return filteredAndSortedClients.filter(c => 
       c.preventive_status === 'sem_historico' || 
       c.preventive_status === 'atrasada' || 
       c.preventive_status === 'elegivel'
     );
-  }, [sortedClients]);
+  }, [filteredAndSortedClients]);
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDirection('asc');
+    }
+  };
+
+  const getSortIcon = (field: SortField) => {
+    if (sortField !== field) return <ArrowUpDown className="ml-1 h-3 w-3" />;
+    return sortDirection === 'asc' 
+      ? <ArrowUp className="ml-1 h-3 w-3" />
+      : <ArrowDown className="ml-1 h-3 w-3" />;
+  };
 
   const handleSelectSuggested = () => {
     const newSelected = new Set(selectedClients);
@@ -243,10 +351,10 @@ export default function NovaRota() {
   };
 
   const handleSelectAll = () => {
-    if (selectedClients.size === sortedClients.length) {
+    if (selectedClients.size === filteredAndSortedClients.length) {
       setSelectedClients(new Set());
     } else {
-      setSelectedClients(new Set(sortedClients.map(c => c.client_id)));
+      setSelectedClients(new Set(filteredAndSortedClients.map(c => c.client_id)));
     }
   };
 
@@ -455,28 +563,77 @@ export default function NovaRota() {
         {/* Client Selection */}
         <Card>
           <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle>Seleção de Fazendas</CardTitle>
-                <CardDescription>
-                  {selectedClients.size} fazenda(s) selecionada(s)
+            <div className="flex flex-col gap-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>Seleção de Fazendas</CardTitle>
+                  <CardDescription>
+                    {selectedClients.size} fazenda(s) selecionada(s) de {filteredAndSortedClients.length}
+                    {suggestedClients.length > 0 && (
+                      <span className="text-warning ml-2">
+                        ({suggestedClients.length} sugerida(s))
+                      </span>
+                    )}
+                  </CardDescription>
+                </div>
+                <div className="flex gap-2">
                   {suggestedClients.length > 0 && (
-                    <span className="text-warning ml-2">
-                      ({suggestedClients.length} sugerida(s))
-                    </span>
+                    <Button type="button" variant="outline" size="sm" onClick={handleSelectSuggested}>
+                      <Sparkles className="mr-2 h-4 w-4" />
+                      Sugeridas
+                    </Button>
                   )}
-                </CardDescription>
-              </div>
-              <div className="flex gap-2">
-                {suggestedClients.length > 0 && (
-                  <Button type="button" variant="outline" onClick={handleSelectSuggested}>
-                    <Sparkles className="mr-2 h-4 w-4" />
-                    Selecionar Sugeridas
+                  <Button type="button" variant="outline" size="sm" onClick={handleSelectAll}>
+                    {selectedClients.size === filteredAndSortedClients.length && filteredAndSortedClients.length > 0 ? 'Desmarcar' : 'Selecionar'} Todas
                   </Button>
-                )}
-                <Button type="button" variant="outline" onClick={handleSelectAll}>
-                  {selectedClients.size === sortedClients.length ? 'Desmarcar Todas' : 'Selecionar Todas'}
-                </Button>
+                </div>
+              </div>
+              
+              {/* Filters */}
+              <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+                <div className="relative md:col-span-2">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    placeholder="Buscar fazenda..."
+                    value={clientSearch}
+                    onChange={(e) => setClientSearch(e.target.value)}
+                    className="pl-10 h-9"
+                  />
+                </div>
+                <Select value={estadoFilter} onValueChange={setEstadoFilter}>
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder="Estado" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos UF</SelectItem>
+                    {uniqueEstados.map(estado => (
+                      <SelectItem key={estado} value={estado}>{estado}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={consultorFilter} onValueChange={setConsultorFilter}>
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder="Consultor" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos Consultores</SelectItem>
+                    {uniqueConsultors.map((c: {id: string, name: string}) => (
+                      <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <Select value={statusFilter} onValueChange={setStatusFilter}>
+                  <SelectTrigger className="h-9">
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos Status</SelectItem>
+                    <SelectItem value="sem_historico">Sem Histórico</SelectItem>
+                    <SelectItem value="atrasada">Atrasada</SelectItem>
+                    <SelectItem value="elegivel">Elegível</SelectItem>
+                    <SelectItem value="em_dia">Em Dia</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
             </div>
           </CardHeader>
@@ -485,20 +642,41 @@ export default function NovaRota() {
               <div className="flex justify-center py-8">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
               </div>
+            ) : filteredAndSortedClients.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                Nenhuma fazenda encontrada com os filtros aplicados
+              </div>
             ) : (
               <div className="max-h-[400px] overflow-auto border rounded-md">
                 <Table>
                   <TableHeader>
                     <TableRow>
                       <TableHead className="w-12"></TableHead>
-                      <TableHead>Fazenda</TableHead>
-                      <TableHead>Frequência</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Motivo</TableHead>
+                      <TableHead>
+                        <Button variant="ghost" onClick={() => handleSort('client_name')} className="h-auto p-0 font-medium hover:bg-transparent text-xs">
+                          Fazenda {getSortIcon('client_name')}
+                        </Button>
+                      </TableHead>
+                      <TableHead>
+                        <Button variant="ghost" onClick={() => handleSort('estado')} className="h-auto p-0 font-medium hover:bg-transparent text-xs">
+                          UF {getSortIcon('estado')}
+                        </Button>
+                      </TableHead>
+                      <TableHead>
+                        <Button variant="ghost" onClick={() => handleSort('consultor_name')} className="h-auto p-0 font-medium hover:bg-transparent text-xs">
+                          Consultor R+ {getSortIcon('consultor_name')}
+                        </Button>
+                      </TableHead>
+                      <TableHead>
+                        <Button variant="ghost" onClick={() => handleSort('preventive_status')} className="h-auto p-0 font-medium hover:bg-transparent text-xs">
+                          Status {getSortIcon('preventive_status')}
+                        </Button>
+                      </TableHead>
+                      <TableHead className="text-xs">Motivo</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {sortedClients.map((client) => (
+                    {filteredAndSortedClients.map((client) => (
                       <TableRow 
                         key={client.client_id}
                         className={selectedClients.has(client.client_id) ? 'bg-primary/5' : ''}
@@ -511,19 +689,22 @@ export default function NovaRota() {
                         </TableCell>
                         <TableCell>
                           <div>
-                            <div className="font-medium">{client.client_name}</div>
+                            <div className="font-medium text-sm">{client.client_name}</div>
                             {client.fazenda && (
-                              <div className="text-sm text-muted-foreground">{client.fazenda}</div>
+                              <div className="text-xs text-muted-foreground">{client.fazenda}</div>
                             )}
                           </div>
                         </TableCell>
-                        <TableCell>
-                          {client.preventive_frequency_days ? `${client.preventive_frequency_days} dias` : '-'}
+                        <TableCell className="text-center text-sm">
+                          {client.estado || '-'}
+                        </TableCell>
+                        <TableCell className="text-sm text-muted-foreground">
+                          {client.consultor_name || '-'}
                         </TableCell>
                         <TableCell>
                           {renderStatusBadge(client.preventive_status)}
                         </TableCell>
-                        <TableCell className="text-sm text-muted-foreground">
+                        <TableCell className="text-xs text-muted-foreground">
                           {client.suggested_reason || '-'}
                         </TableCell>
                       </TableRow>
