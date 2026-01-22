@@ -38,6 +38,13 @@ interface ActivityProduct {
   requires_meter_hours: boolean;
 }
 
+interface Cliente {
+  id: string;
+  nome: string;
+  fazenda: string | null;
+  cod_imilk: string | null;
+}
+
 interface NovaOSDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -52,6 +59,8 @@ export function NovaOSDialog({ open, onOpenChange, onSuccess }: NovaOSDialogProp
   const [itemSearch, setItemSearch] = useState('');
   const [quantity, setQuantity] = useState(1);
   const [notes, setNotes] = useState('');
+  const [selectedClienteId, setSelectedClienteId] = useState('');
+  const [clienteSearch, setClienteSearch] = useState('');
 
   // Fetch activities
   const { data: activities = [] } = useQuery({
@@ -99,8 +108,31 @@ export function NovaOSDialog({ open, onOpenChange, onSuccess }: NovaOSDialogProp
     enabled: open,
   });
 
+  // Fetch clientes (from iMilk)
+  const { data: clientes = [] } = useQuery({
+    queryKey: ['clientes-for-os'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('clientes')
+        .select('id, nome, fazenda, cod_imilk')
+        .eq('status', 'ativo')
+        .order('nome');
+      if (error) throw error;
+      return data as Cliente[];
+    },
+    enabled: open,
+  });
+
   const selectedActivity = activities.find(a => a.id === selectedActivityId);
   const selectedItem = workshopItems.find(i => i.id === selectedItemId);
+  const selectedCliente = clientes.find(c => c.id === selectedClienteId);
+
+  // Filter clientes based on search
+  const filteredClientes = clientes.filter(cliente =>
+    cliente.nome.toLowerCase().includes(clienteSearch.toLowerCase()) ||
+    cliente.fazenda?.toLowerCase().includes(clienteSearch.toLowerCase()) ||
+    cliente.cod_imilk?.toLowerCase().includes(clienteSearch.toLowerCase())
+  );
   
   // Check if selected item requires meter hours
   const itemRequiresMeterHours = selectedItem && activityProducts.some(
@@ -143,6 +175,7 @@ export function NovaOSDialog({ open, onOpenChange, onSuccess }: NovaOSDialogProp
           created_by_user_id: user.id,
           assigned_to_user_id: user.id,
           notes: notes || null,
+          cliente_id: selectedClienteId || null,
         })
         .select()
         .single();
@@ -201,6 +234,8 @@ export function NovaOSDialog({ open, onOpenChange, onSuccess }: NovaOSDialogProp
     setItemSearch('');
     setQuantity(1);
     setNotes('');
+    setSelectedClienteId('');
+    setClienteSearch('');
   };
 
   const canSubmit = () => {
@@ -448,6 +483,76 @@ export function NovaOSDialog({ open, onOpenChange, onSuccess }: NovaOSDialogProp
             )}
           </div>
         )}
+
+        {/* Campo de Cliente */}
+        <div>
+          <Label>Cliente (origem das peças)</Label>
+          <div className="space-y-2">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar cliente por nome, fazenda ou código iMilk..."
+                value={clienteSearch}
+                onChange={(e) => { setClienteSearch(e.target.value); setSelectedClienteId(''); }}
+                className="pl-9"
+              />
+            </div>
+            
+            {/* Mostrar cliente selecionado */}
+            {selectedCliente && (
+              <Card className="bg-primary/5 border-primary/20">
+                <CardContent className="p-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="font-medium">{selectedCliente.nome}</p>
+                      {selectedCliente.fazenda && (
+                        <p className="text-sm text-muted-foreground">{selectedCliente.fazenda}</p>
+                      )}
+                      {selectedCliente.cod_imilk && (
+                        <p className="text-xs text-muted-foreground">iMilk: {selectedCliente.cod_imilk}</p>
+                      )}
+                    </div>
+                    <Button 
+                      variant="ghost" 
+                      size="sm"
+                      onClick={() => { setSelectedClienteId(''); setClienteSearch(''); }}
+                    >
+                      ✕
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+            
+            {/* Lista de resultados da busca */}
+            {clienteSearch.length >= 2 && !selectedCliente && (
+              <div className="max-h-[150px] overflow-auto border rounded-lg">
+                {filteredClientes.length === 0 ? (
+                  <div className="p-4 text-center text-muted-foreground">
+                    Nenhum cliente encontrado
+                  </div>
+                ) : (
+                  filteredClientes.slice(0, 10).map((cliente) => (
+                    <div
+                      key={cliente.id}
+                      className="p-3 border-b last:border-b-0 cursor-pointer hover:bg-muted/50"
+                      onClick={() => { setSelectedClienteId(cliente.id); setClienteSearch(cliente.nome); }}
+                    >
+                      <p className="font-medium">{cliente.nome}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {cliente.fazenda}{cliente.cod_imilk ? ` • iMilk: ${cliente.cod_imilk}` : ''}
+                      </p>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+            
+            {clienteSearch.length > 0 && clienteSearch.length < 2 && !selectedCliente && (
+              <p className="text-xs text-muted-foreground">Digite pelo menos 2 caracteres...</p>
+            )}
+          </div>
+        </div>
 
         <div>
           <Label>Observações</Label>

@@ -883,6 +883,7 @@ export type Database = {
         Row: {
           activity_id: string
           assigned_to_user_id: string | null
+          cliente_id: string | null
           code: string
           created_at: string
           created_by_user_id: string
@@ -897,6 +898,7 @@ export type Database = {
         Insert: {
           activity_id: string
           assigned_to_user_id?: string | null
+          cliente_id?: string | null
           code: string
           created_at?: string
           created_by_user_id: string
@@ -911,6 +913,7 @@ export type Database = {
         Update: {
           activity_id?: string
           assigned_to_user_id?: string | null
+          cliente_id?: string | null
           code?: string
           created_at?: string
           created_by_user_id?: string
@@ -928,6 +931,13 @@ export type Database = {
             columns: ["activity_id"]
             isOneToOne: false
             referencedRelation: "activities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_orders_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
             referencedColumns: ["id"]
           },
         ]
