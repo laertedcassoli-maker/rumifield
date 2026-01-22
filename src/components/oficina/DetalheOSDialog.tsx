@@ -576,11 +576,6 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
                     );
                   })()}
 
-                  {univocaItem.meter_hours_entry && (
-                    <p className="text-xs text-muted-foreground mt-2">
-                      Horímetro entrada nesta OS: {univocaItem.meter_hours_entry}h
-                    </p>
-                  )}
                 </div>
               </div>
             )}
