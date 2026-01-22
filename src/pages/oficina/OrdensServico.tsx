@@ -35,6 +35,10 @@ interface WorkOrder {
   profiles?: {
     nome: string;
   };
+  item_info?: {
+    unique_code?: string;
+    product_name?: string;
+  };
 }
 
 export default function OrdensServico() {
@@ -72,10 +76,72 @@ export default function OrdensServico() {
           .in('id', userIds);
         profilesMap = (profiles || []).reduce((acc, p) => ({ ...acc, [p.id]: p.nome }), {});
       }
+
+      // Fetch work order items with workshop items and products
+      const workOrderIds = data?.map(wo => wo.id) || [];
+      let itemsMap: Record<string, { unique_code?: string; product_name?: string }> = {};
+
+      if (workOrderIds.length > 0) {
+        const { data: items } = await supabase
+          .from('work_order_items')
+          .select(`
+            work_order_id,
+            workshop_item_id,
+            omie_product_id
+          `)
+          .in('work_order_id', workOrderIds);
+
+        if (items && items.length > 0) {
+          // Get workshop items for unique codes
+          const workshopItemIds = items.map(i => i.workshop_item_id).filter(Boolean);
+          const productIds = items.map(i => i.omie_product_id).filter(Boolean);
+
+          let workshopItemsMap: Record<string, { unique_code: string; omie_product_id: string }> = {};
+          let productsMap: Record<string, string> = {};
+
+          if (workshopItemIds.length > 0) {
+            const { data: workshopItems } = await supabase
+              .from('workshop_items')
+              .select('id, unique_code, omie_product_id')
+              .in('id', workshopItemIds);
+            workshopItemsMap = (workshopItems || []).reduce((acc, wi) => ({
+              ...acc,
+              [wi.id]: { unique_code: wi.unique_code, omie_product_id: wi.omie_product_id }
+            }), {});
+
+            // Add product IDs from workshop items
+            workshopItems?.forEach(wi => {
+              if (wi.omie_product_id && !productIds.includes(wi.omie_product_id)) {
+                productIds.push(wi.omie_product_id);
+              }
+            });
+          }
+
+          if (productIds.length > 0) {
+            const { data: products } = await supabase
+              .from('pecas')
+              .select('id, nome')
+              .in('id', productIds);
+            productsMap = (products || []).reduce((acc, p) => ({ ...acc, [p.id]: p.nome }), {});
+          }
+
+          // Map items to work orders
+          items.forEach(item => {
+            const workshopItem = item.workshop_item_id ? workshopItemsMap[item.workshop_item_id] : null;
+            const productId = workshopItem?.omie_product_id || item.omie_product_id;
+            
+            itemsMap[item.work_order_id] = {
+              unique_code: workshopItem?.unique_code,
+              product_name: productId ? productsMap[productId] : undefined
+            };
+          });
+        }
+      }
       
       return (data || []).map(wo => ({
         ...wo,
         profiles: wo.assigned_to_user_id ? { nome: profilesMap[wo.assigned_to_user_id] || '-' } : undefined,
+        item_info: itemsMap[wo.id],
       })) as WorkOrder[];
     },
   });
@@ -182,7 +248,13 @@ export default function OrdensServico() {
                             <TableCell>
                               <div>
                                 <p className="font-medium">{os.activities?.name}</p>
-                                <Badge variant="outline" className="text-xs">
+                                {os.item_info?.unique_code && (
+                                  <p className="text-xs text-muted-foreground font-mono">
+                                    {os.item_info.unique_code}
+                                    {os.item_info.product_name && ` • ${os.item_info.product_name}`}
+                                  </p>
+                                )}
+                                <Badge variant="outline" className="text-xs mt-1">
                                   {os.activities?.execution_type}
                                 </Badge>
                               </div>
@@ -225,9 +297,15 @@ export default function OrdensServico() {
                       >
                         <CardContent className="p-4">
                           <div className="flex items-start justify-between">
-                            <div>
+                            <div className="flex-1 min-w-0 pr-2">
                               <p className="font-mono font-bold">{os.code}</p>
                               <p className="text-sm text-muted-foreground">{os.activities?.name}</p>
+                              {os.item_info?.unique_code && (
+                                <p className="text-xs text-muted-foreground font-mono truncate">
+                                  {os.item_info.unique_code}
+                                  {os.item_info.product_name && ` • ${os.item_info.product_name}`}
+                                </p>
+                              )}
                             </div>
                             <Badge className={statusColors[os.status] || ''}>
                               {statusLabels[os.status] || os.status}
