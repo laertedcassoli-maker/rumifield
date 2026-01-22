@@ -27,6 +27,7 @@ import PreventivasIndex from "./pages/preventivas/Index";
 import PreventivasRotas from "./pages/preventivas/Rotas";
 import PreventivasNovaRota from "./pages/preventivas/NovaRota";
 import PreventivasDetalheRota from "./pages/preventivas/DetalheRota";
+import PreventivasCalendario from "./pages/preventivas/Calendario";
 import Teste from "./pages/Teste";
 import Instalar from "./pages/Instalar";
 import Nfc from "./pages/Nfc";
@@ -218,6 +219,14 @@ const App = () => (
               element={
                 <AppLayout>
                   <PreventivasDetalheRota />
+                </AppLayout>
+              }
+            />
+            <Route
+              path="/preventivas/calendario"
+              element={
+                <AppLayout>
+                  <PreventivasCalendario />
                 </AppLayout>
               }
             />
