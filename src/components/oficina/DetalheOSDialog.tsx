@@ -59,12 +59,15 @@ interface PartUsed {
 interface WorkOrderItem {
   id: string;
   workshop_item_id: string | null;
+  omie_product_id: string | null;
   meter_hours_entry: number | null;
   meter_hours_exit: number | null;
   workshop_items?: {
     unique_code: string;
     meter_hours_last: number | null;
-  };
+    omie_product_id?: string;
+  } | null;
+  product_name?: string;
 }
 
 interface Peca {
@@ -134,11 +137,37 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
         .from('work_order_items')
         .select(`
           *,
-          workshop_items:workshop_item_id (unique_code, meter_hours_last)
+          workshop_items:workshop_item_id (unique_code, meter_hours_last, omie_product_id)
         `)
         .eq('work_order_id', workOrder.id);
       if (error) throw error;
-      return data as WorkOrderItem[];
+
+      // Fetch product names for workshop items
+      const productIds: string[] = [];
+      data?.forEach(item => {
+        if (item.workshop_items?.omie_product_id) {
+          productIds.push(item.workshop_items.omie_product_id);
+        } else if (item.omie_product_id) {
+          productIds.push(item.omie_product_id);
+        }
+      });
+
+      let productsMap: Record<string, string> = {};
+      if (productIds.length > 0) {
+        const { data: products } = await supabase
+          .from('pecas')
+          .select('id, nome')
+          .in('id', productIds);
+        productsMap = (products || []).reduce((acc, p) => ({ ...acc, [p.id]: p.nome }), {});
+      }
+
+      return (data || []).map(item => {
+        const productId = item.workshop_items?.omie_product_id || item.omie_product_id;
+        return {
+          ...item,
+          product_name: productId ? productsMap[productId] : undefined,
+        };
+      }) as WorkOrderItem[];
     },
     enabled: open,
   });
@@ -464,6 +493,11 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
                   <Badge variant="secondary" className="font-mono text-sm">
                     {univocaItem.workshop_items?.unique_code}
                   </Badge>
+                  {univocaItem.product_name && (
+                    <p className="text-sm text-muted-foreground break-words whitespace-normal">
+                      {univocaItem.product_name}
+                    </p>
+                  )}
                   {univocaItem.meter_hours_entry && (
                     <p className="text-xs text-muted-foreground">
                       Horímetro entrada: {univocaItem.meter_hours_entry}h
