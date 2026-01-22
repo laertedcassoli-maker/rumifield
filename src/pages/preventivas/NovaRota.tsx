@@ -667,12 +667,17 @@ export default function NovaRota() {
                           Consultor R+ {getSortIcon('consultor_name')}
                         </Button>
                       </TableHead>
+                      <TableHead className="text-center text-xs">Última Prev.</TableHead>
+                      <TableHead>
+                        <Button variant="ghost" onClick={() => handleSort('days_until_due')} className="h-auto p-0 font-medium hover:bg-transparent text-xs">
+                          Dias Restantes {getSortIcon('days_until_due')}
+                        </Button>
+                      </TableHead>
                       <TableHead>
                         <Button variant="ghost" onClick={() => handleSort('preventive_status')} className="h-auto p-0 font-medium hover:bg-transparent text-xs">
                           Status {getSortIcon('preventive_status')}
                         </Button>
                       </TableHead>
-                      <TableHead className="text-xs">Motivo</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -701,11 +706,25 @@ export default function NovaRota() {
                         <TableCell className="text-sm text-muted-foreground">
                           {client.consultor_name || '-'}
                         </TableCell>
+                        <TableCell className="text-center text-xs text-muted-foreground">
+                          {client.last_preventive_date 
+                            ? format(new Date(client.last_preventive_date + 'T12:00:00'), 'dd/MM/yy', { locale: ptBR })
+                            : '-'}
+                        </TableCell>
+                        <TableCell className="text-center">
+                          {client.days_until_due !== null ? (
+                            <span className={cn(
+                              "text-sm font-medium",
+                              client.days_until_due < 0 && "text-destructive",
+                              client.days_until_due >= 0 && client.days_until_due <= 30 && "text-warning",
+                              client.days_until_due > 30 && "text-green-600"
+                            )}>
+                              {client.days_until_due < 0 ? client.days_until_due : `+${client.days_until_due}`}
+                            </span>
+                          ) : '-'}
+                        </TableCell>
                         <TableCell>
                           {renderStatusBadge(client.preventive_status)}
-                        </TableCell>
-                        <TableCell className="text-xs text-muted-foreground">
-                          {client.suggested_reason || '-'}
                         </TableCell>
                       </TableRow>
                     ))}
