@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import { Play, Square, Plus, Trash2, Clock, Package, CheckCircle, Wrench, ChevronDown, ChevronRight, History, Search, Pencil } from 'lucide-react';
+import { Play, Square, Plus, Trash2, Clock, Package, CheckCircle, Wrench, ChevronDown, ChevronRight, History, Search, Pencil, Shield } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -239,6 +239,21 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
         .eq('activity_id', workOrder.activity_id);
       if (error) throw error;
       return data;
+    },
+    enabled: open,
+  });
+
+  // Fetch warranty hours config
+  const { data: warrantyHoursConfig } = useQuery({
+    queryKey: ['warranty-hours-config'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('configuracoes')
+        .select('valor')
+        .eq('chave', 'garantia_motor_horas')
+        .maybeSingle();
+      if (error) throw error;
+      return data?.valor ? parseInt(data.valor) : 400;
     },
     enabled: open,
   });
@@ -917,6 +932,39 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                  {/* Motor hours and warranty badge */}
+                  {(() => {
+                    const currentMeter = meterHoursCurrent 
+                      ? parseFloat(meterHoursCurrent) 
+                      : (univocaItem.meter_hours_exit ?? univocaItem.workshop_items?.meter_hours_last ?? 0);
+                    const motorMilestone = univocaItem.workshop_items?.motor_replaced_at_meter_hours ?? 0;
+                    const motorHours = Math.max(0, currentMeter - motorMilestone);
+                    const warrantyLimit = warrantyHoursConfig ?? 400;
+                    const isWithinWarranty = motorHours < warrantyLimit;
+                    
+                    return (
+                      <div className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                        <div className="flex items-center gap-2">
+                          <Wrench className="h-4 w-4 text-muted-foreground" />
+                          <div>
+                            <p className="text-xs text-muted-foreground">Horas Motor</p>
+                            <p className="font-mono font-semibold">{motorHours.toFixed(0)}h</p>
+                          </div>
+                        </div>
+                        <Badge 
+                          variant={isWithinWarranty ? "default" : "secondary"}
+                          className={isWithinWarranty 
+                            ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 hover:bg-green-100" 
+                            : "bg-muted text-muted-foreground"
+                          }
+                        >
+                          <Shield className="h-3 w-3 mr-1" />
+                          {isWithinWarranty ? 'Em Garantia' : 'Fora da Garantia'}
+                        </Badge>
+                      </div>
+                    );
+                  })()}
+
                   <div className="grid grid-cols-2 gap-4">
                     {/* Previous reading - left side */}
                     <div className="p-3 bg-muted/50 rounded-lg">
