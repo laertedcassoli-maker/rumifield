@@ -331,7 +331,7 @@ export default function CalendarioPreventivas() {
     return totals;
   }, [calendarData, monthColumns]);
 
-  // Calculate totals per year (shown in December column)
+  // Calculate totals per year
   const yearTotals = useMemo(() => {
     const totals = new Map<number, { concluidas: number; atrasadas: number; planejadas: number }>();
     
@@ -350,6 +350,33 @@ export default function CalendarioPreventivas() {
           else if (monthData.status === 'planejada') total.planejadas++;
         }
       });
+    });
+    
+    return totals;
+  }, [calendarData, selectedYear]);
+
+  // Calculate per-client year totals
+  const clientYearTotals = useMemo(() => {
+    const totals = new Map<string, Map<number, { concluidas: number; atrasadas: number; planejadas: number }>>();
+    
+    calendarData.forEach((months, clientId) => {
+      const clientTotals = new Map<number, { concluidas: number; atrasadas: number; planejadas: number }>();
+      [selectedYear, selectedYear + 1].forEach(year => {
+        clientTotals.set(year, { concluidas: 0, atrasadas: 0, planejadas: 0 });
+      });
+      
+      months.forEach((monthData, key) => {
+        const [yearStr] = key.split('-');
+        const year = parseInt(yearStr);
+        const total = clientTotals.get(year);
+        if (total) {
+          if (monthData.status === 'concluida') total.concluidas++;
+          else if (monthData.status === 'atrasada') total.atrasadas++;
+          else if (monthData.status === 'planejada') total.planejadas++;
+        }
+      });
+      
+      totals.set(clientId, clientTotals);
     });
     
     return totals;
@@ -505,16 +532,26 @@ export default function CalendarioPreventivas() {
                     <th className="text-left p-2 font-medium text-sm sticky left-0 bg-background z-10 w-[220px] min-w-[220px] max-w-[220px]">
                       Fazenda
                     </th>
-                    {monthColumns.map((col, idx) => (
-                      <th 
-                        key={`${col.year}-${col.month}`} 
-                        className={cn(
-                          "text-center p-1 font-medium text-xs w-10 min-w-[40px]",
-                          col.month === 0 && "border-l-2 border-primary/30"
+                    {monthColumns.map((col) => (
+                      <>
+                        <th 
+                          key={`${col.year}-${col.month}`} 
+                          className={cn(
+                            "text-center p-1 font-medium text-xs w-10 min-w-[40px]",
+                            col.month === 0 && "border-l-2 border-primary/30"
+                          )}
+                        >
+                          {col.label}
+                        </th>
+                        {col.month === 11 && (
+                          <th 
+                            key={`total-${col.year}`}
+                            className="text-center p-1 font-medium text-xs w-12 min-w-[48px] bg-primary/10 border-l border-primary/30"
+                          >
+                            {col.year}
+                          </th>
                         )}
-                      >
-                        {col.label}
-                      </th>
+                      </>
                     ))}
                   </tr>
                 </thead>
@@ -537,57 +574,91 @@ export default function CalendarioPreventivas() {
                           const monthData = clientMonths?.get(key);
                           const status = monthData?.status || 'sem_preventiva';
                           const preventivesList = monthData?.preventives || [];
+                          const clientYearTotal = clientYearTotals.get(client.id)?.get(col.year);
                           
                           return (
-                            <td 
-                              key={key} 
-                              className={cn(
-                                "p-1 text-center",
-                                col.month === 0 && "border-l-2 border-primary/30"
-                              )}
-                            >
-                              <Tooltip>
-                                <TooltipTrigger asChild>
-                                  <button 
-                                    className={cn(
-                                      "w-3 h-3 rounded-full mx-auto transition-transform hover:scale-150",
-                                      getStatusColor(status)
-                                    )}
-                                  />
-                                </TooltipTrigger>
-                                <TooltipContent side="top" className="max-w-[250px]">
-                                  <div className="space-y-1">
-                                    <div className="font-medium">{getStatusLabel(status)}</div>
-                                    <div className="text-xs text-muted-foreground">{MONTHS_SHORT[col.month]} {col.year}</div>
-                                    {preventivesList.length > 0 ? (
-                                      <div className="text-xs space-y-1">
-                                        {preventivesList.map((p, i) => (
-                                          <div key={i} className="border-t pt-1 mt-1 first:border-t-0 first:pt-0 first:mt-0">
-                                            <div>
-                                              Planejada: {format(new Date(p.scheduled_date + 'T12:00:00'), 'dd/MM/yyyy', { locale: ptBR })}
+                            <>
+                              <td 
+                                key={key} 
+                                className={cn(
+                                  "p-1 text-center",
+                                  col.month === 0 && "border-l-2 border-primary/30"
+                                )}
+                              >
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <button 
+                                      className={cn(
+                                        "w-3 h-3 rounded-full mx-auto transition-transform hover:scale-150",
+                                        getStatusColor(status)
+                                      )}
+                                    />
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top" className="max-w-[250px]">
+                                    <div className="space-y-1">
+                                      <div className="font-medium">{getStatusLabel(status)}</div>
+                                      <div className="text-xs text-muted-foreground">{MONTHS_SHORT[col.month]} {col.year}</div>
+                                      {preventivesList.length > 0 ? (
+                                        <div className="text-xs space-y-1">
+                                          {preventivesList.map((p, i) => (
+                                            <div key={i} className="border-t pt-1 mt-1 first:border-t-0 first:pt-0 first:mt-0">
+                                              <div>
+                                                Planejada: {format(new Date(p.scheduled_date + 'T12:00:00'), 'dd/MM/yyyy', { locale: ptBR })}
+                                              </div>
+                                              {p.completed_date && (
+                                                <div className="text-green-600">
+                                                  Concluída: {format(new Date(p.completed_date + 'T12:00:00'), 'dd/MM/yyyy', { locale: ptBR })}
+                                                </div>
+                                              )}
+                                              {p.technician_name && (
+                                                <div className="text-muted-foreground">
+                                                  Técnico: {p.technician_name}
+                                                </div>
+                                              )}
                                             </div>
-                                            {p.completed_date && (
-                                              <div className="text-green-600">
-                                                Concluída: {format(new Date(p.completed_date + 'T12:00:00'), 'dd/MM/yyyy', { locale: ptBR })}
-                                              </div>
-                                            )}
-                                            {p.technician_name && (
-                                              <div className="text-muted-foreground">
-                                                Técnico: {p.technician_name}
-                                              </div>
-                                            )}
-                                          </div>
-                                        ))}
+                                          ))}
+                                        </div>
+                                      ) : (
+                                        <div className="text-xs text-muted-foreground">
+                                          Nenhuma preventiva agendada
+                                        </div>
+                                      )}
+                                    </div>
+                                  </TooltipContent>
+                                </Tooltip>
+                              </td>
+                              {col.month === 11 && (
+                                <td 
+                                  key={`total-${col.year}-${client.id}`}
+                                  className="p-1 text-center text-xs font-medium bg-primary/5 border-l border-primary/30"
+                                >
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <div className="cursor-default">
+                                        {(clientYearTotal?.concluidas || 0) + (clientYearTotal?.atrasadas || 0) + (clientYearTotal?.planejadas || 0) || '-'}
                                       </div>
-                                    ) : (
-                                      <div className="text-xs text-muted-foreground">
-                                        Nenhuma preventiva agendada
+                                    </TooltipTrigger>
+                                    <TooltipContent side="top" className="text-xs">
+                                      <div className="space-y-1">
+                                        <div className="font-medium">Total {col.year}</div>
+                                        <div className="flex items-center gap-1">
+                                          <div className="w-2 h-2 rounded-full bg-green-500" />
+                                          {clientYearTotal?.concluidas || 0} concluídas
+                                        </div>
+                                        <div className="flex items-center gap-1">
+                                          <div className="w-2 h-2 rounded-full bg-yellow-500" />
+                                          {clientYearTotal?.planejadas || 0} planejadas
+                                        </div>
+                                        <div className="flex items-center gap-1">
+                                          <div className="w-2 h-2 rounded-full bg-red-500" />
+                                          {clientYearTotal?.atrasadas || 0} atrasadas
+                                        </div>
                                       </div>
-                                    )}
-                                  </div>
-                                </TooltipContent>
-                              </Tooltip>
-                            </td>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </td>
+                              )}
+                            </>
                           );
                         })}
                       </tr>
@@ -602,47 +673,74 @@ export default function CalendarioPreventivas() {
                       const key = `${col.year}-${col.month}`;
                       const totals = monthTotals.get(key);
                       const monthTotal = (totals?.concluidas || 0) + (totals?.atrasadas || 0) + (totals?.planejadas || 0);
-                      const yearTotal = col.month === 11 ? yearTotals.get(col.year) : null;
+                      const yearTotal = yearTotals.get(col.year);
                       
                       return (
-                        <td 
-                          key={key} 
-                          className={cn(
-                            "p-1 text-center text-xs",
-                            col.month === 0 && "border-l-2 border-primary/30",
-                            col.month === 11 && "border-r-2 border-primary/30"
-                          )}
-                        >
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <div className="cursor-default">
-                                {monthTotal > 0 ? monthTotal : '-'}
-                              </div>
-                            </TooltipTrigger>
-                            <TooltipContent side="top" className="text-xs">
-                              <div className="space-y-1">
-                                <div className="font-medium">{MONTHS_SHORT[col.month]} {col.year}</div>
-                                <div className="flex items-center gap-1">
-                                  <div className="w-2 h-2 rounded-full bg-green-500" />
-                                  {totals?.concluidas || 0} concluídas
+                        <>
+                          <td 
+                            key={key} 
+                            className={cn(
+                              "p-1 text-center text-xs",
+                              col.month === 0 && "border-l-2 border-primary/30"
+                            )}
+                          >
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div className="cursor-default">
+                                  {monthTotal > 0 ? monthTotal : '-'}
                                 </div>
-                                <div className="flex items-center gap-1">
-                                  <div className="w-2 h-2 rounded-full bg-yellow-500" />
-                                  {totals?.planejadas || 0} planejadas
-                                </div>
-                                <div className="flex items-center gap-1">
-                                  <div className="w-2 h-2 rounded-full bg-red-500" />
-                                  {totals?.atrasadas || 0} atrasadas
-                                </div>
-                                {yearTotal && (
-                                  <div className="border-t pt-1 mt-1 font-medium">
-                                    Total {col.year}: {(yearTotal.concluidas || 0) + (yearTotal.atrasadas || 0) + (yearTotal.planejadas || 0)}
+                              </TooltipTrigger>
+                              <TooltipContent side="top" className="text-xs">
+                                <div className="space-y-1">
+                                  <div className="font-medium">{MONTHS_SHORT[col.month]} {col.year}</div>
+                                  <div className="flex items-center gap-1">
+                                    <div className="w-2 h-2 rounded-full bg-green-500" />
+                                    {totals?.concluidas || 0} concluídas
                                   </div>
-                                )}
-                              </div>
-                            </TooltipContent>
-                          </Tooltip>
-                        </td>
+                                  <div className="flex items-center gap-1">
+                                    <div className="w-2 h-2 rounded-full bg-yellow-500" />
+                                    {totals?.planejadas || 0} planejadas
+                                  </div>
+                                  <div className="flex items-center gap-1">
+                                    <div className="w-2 h-2 rounded-full bg-red-500" />
+                                    {totals?.atrasadas || 0} atrasadas
+                                  </div>
+                                </div>
+                              </TooltipContent>
+                            </Tooltip>
+                          </td>
+                          {col.month === 11 && (
+                            <td 
+                              key={`total-year-${col.year}`}
+                              className="p-1 text-center text-xs font-bold bg-primary/10 border-l border-primary/30"
+                            >
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <div className="cursor-default">
+                                    {(yearTotal?.concluidas || 0) + (yearTotal?.atrasadas || 0) + (yearTotal?.planejadas || 0) || '-'}
+                                  </div>
+                                </TooltipTrigger>
+                                <TooltipContent side="top" className="text-xs">
+                                  <div className="space-y-1">
+                                    <div className="font-medium">Total Geral {col.year}</div>
+                                    <div className="flex items-center gap-1">
+                                      <div className="w-2 h-2 rounded-full bg-green-500" />
+                                      {yearTotal?.concluidas || 0} concluídas
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                      <div className="w-2 h-2 rounded-full bg-yellow-500" />
+                                      {yearTotal?.planejadas || 0} planejadas
+                                    </div>
+                                    <div className="flex items-center gap-1">
+                                      <div className="w-2 h-2 rounded-full bg-red-500" />
+                                      {yearTotal?.atrasadas || 0} atrasadas
+                                    </div>
+                                  </div>
+                                </TooltipContent>
+                              </Tooltip>
+                            </td>
+                          )}
+                        </>
                       );
                     })}
                   </tr>
