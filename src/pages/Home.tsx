@@ -15,7 +15,8 @@ import {
   Wrench,
   FileText,
   ListChecks,
-  Box
+  Box,
+  Calendar
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useMenuPermissions } from '@/hooks/useMenuPermissions';
@@ -50,6 +51,14 @@ export default function Home() {
       color: 'text-blue-600',
       bgColor: 'bg-blue-100 dark:bg-blue-900/30',
       permKey: 'pedidos',
+    },
+    {
+      title: 'Preventivas',
+      icon: Calendar,
+      url: '/preventivas',
+      color: 'text-green-600',
+      bgColor: 'bg-green-100 dark:bg-green-900/30',
+      permKey: 'preventivas',
     },
   ];
 
