@@ -313,13 +313,12 @@ export default function NovaRota() {
       
       // Status at Route filter (projected)
       if (statusAtRouteFilter !== 'all') {
-        const projectedStatus = getProjectedStatusAtRoute(client);
-        // sem_historico clients: include if filtering for atrasada/elegivel (they're always needed)
+        // sem_historico clients don't have a projected status - exclude them
         if (client.preventive_status === 'sem_historico') {
-          if (statusAtRouteFilter !== 'atrasada' && statusAtRouteFilter !== 'elegivel') {
-            return false;
-          }
-        } else if (projectedStatus !== statusAtRouteFilter) {
+          return false;
+        }
+        const projectedStatus = getProjectedStatusAtRoute(client);
+        if (projectedStatus !== statusAtRouteFilter) {
           return false;
         }
       }
