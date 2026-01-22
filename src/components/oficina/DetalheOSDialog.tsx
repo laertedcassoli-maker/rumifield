@@ -529,7 +529,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
             {/* Item Info (if UNIVOCA) */}
             {univocaItem && (
               <div>
-                <p className="text-sm text-muted-foreground mb-2">Item</p>
+                <p className="text-sm font-semibold mb-2">Item</p>
                 <div className="p-3 border rounded-lg space-y-3">
                   <div>
                     <Badge variant="secondary" className="font-mono text-sm">
@@ -583,7 +583,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
             {/* Parts Used Section */}
             <div>
               <div className="flex items-center justify-between mb-2">
-                <p className="text-sm text-muted-foreground flex items-center gap-1">
+                <p className="text-sm font-semibold flex items-center gap-1">
                   <Package className="h-4 w-4" />
                   Peças Utilizadas
                 </p>
