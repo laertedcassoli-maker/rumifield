@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import { Play, Square, Plus, Trash2, Clock, Package, CheckCircle, Wrench, ChevronDown, ChevronRight, History } from 'lucide-react';
+import { Play, Square, Plus, Trash2, Clock, Package, CheckCircle, Wrench, ChevronDown, ChevronRight, History, Search } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -105,6 +105,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
   const [addPartDialogOpen, setAddPartDialogOpen] = useState(false);
   const [selectedPecaId, setSelectedPecaId] = useState('');
   const [partQuantity, setPartQuantity] = useState(1);
+  const [partSearchQuery, setPartSearchQuery] = useState('');
   const [meterHoursCurrent, setMeterHoursCurrent] = useState('');
   const [isMotorReplacement, setIsMotorReplacement] = useState(false);
   const [timeHistoryOpen, setTimeHistoryOpen] = useState(false);
@@ -251,6 +252,49 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
     },
     enabled: addPartDialogOpen,
   });
+
+  // Fetch last 5 parts used by current user
+  const { data: recentPartsUsed = [] } = useQuery({
+    queryKey: ['recent-parts-used', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return [];
+      const { data, error } = await supabase
+        .from('work_order_parts_used')
+        .select(`
+          omie_product_id,
+          created_at,
+          pecas:omie_product_id (id, nome, codigo)
+        `)
+        .eq('added_by_user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(20);
+      if (error) throw error;
+      
+      // Dedupe by product id and take first 5 unique
+      const seen = new Set<string>();
+      const unique: Peca[] = [];
+      for (const item of data || []) {
+        if (item.pecas && !seen.has(item.omie_product_id)) {
+          seen.add(item.omie_product_id);
+          unique.push(item.pecas as unknown as Peca);
+          if (unique.length >= 5) break;
+        }
+      }
+      return unique;
+    },
+    enabled: addPartDialogOpen && !!user?.id,
+  });
+
+  // Filter pecas by search query
+  const filteredPecas = partSearchQuery.trim().length >= 2
+    ? (() => {
+        const words = partSearchQuery.toLowerCase().trim().split(/\s+/);
+        return pecas.filter(p => {
+          const searchable = `${p.nome} ${p.codigo}`.toLowerCase();
+          return words.every(w => searchable.includes(w));
+        });
+      })()
+    : [];
 
   // Timer effect - count elapsed time (simplified: only running or stopped)
   useEffect(() => {
@@ -991,38 +1035,114 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
       </Dialog>
 
       {/* Add Part Dialog */}
-      <Dialog open={addPartDialogOpen} onOpenChange={setAddPartDialogOpen}>
-        <DialogContent>
+      <Dialog open={addPartDialogOpen} onOpenChange={(isOpen) => {
+        setAddPartDialogOpen(isOpen);
+        if (!isOpen) {
+          setPartSearchQuery('');
+          setSelectedPecaId('');
+          setPartQuantity(1);
+        }
+      }}>
+        <DialogContent className="max-h-[90vh] flex flex-col">
           <DialogHeader>
             <DialogTitle>Adicionar Peça</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label>Peça</Label>
-              <Select value={selectedPecaId} onValueChange={setSelectedPecaId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione a peça" />
-                </SelectTrigger>
-                <SelectContent>
-                  {pecas.map((peca) => (
-                    <SelectItem key={peca.id} value={peca.id}>
-                      {peca.nome} ({peca.codigo})
-                    </SelectItem>
+          <div className="space-y-4 flex-1 overflow-hidden flex flex-col">
+            {/* Recent parts section */}
+            {recentPartsUsed.length > 0 && !selectedPecaId && (
+              <div>
+                <Label className="text-xs text-muted-foreground mb-2 block">Últimas usadas</Label>
+                <div className="flex flex-wrap gap-2">
+                  {recentPartsUsed.map((peca) => (
+                    <Badge
+                      key={peca.id}
+                      variant="outline"
+                      className="cursor-pointer hover:bg-primary hover:text-primary-foreground transition-colors py-1.5 px-3"
+                      onClick={() => setSelectedPecaId(peca.id)}
+                    >
+                      {peca.codigo}
+                    </Badge>
                   ))}
-                </SelectContent>
-              </Select>
-            </div>
+                </div>
+              </div>
+            )}
+
+            {/* Search input */}
             <div>
-              <Label>Quantidade</Label>
-              <Input
-                type="number"
-                min={1}
-                value={partQuantity}
-                onChange={(e) => setPartQuantity(parseInt(e.target.value) || 1)}
-              />
+              <Label>Buscar peça</Label>
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Digite código ou nome (mín. 2 letras)"
+                  value={partSearchQuery}
+                  onChange={(e) => setPartSearchQuery(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
             </div>
+
+            {/* Search results */}
+            {partSearchQuery.trim().length >= 2 && !selectedPecaId && (
+              <div className="border rounded-lg max-h-48 overflow-y-auto">
+                {filteredPecas.length === 0 ? (
+                  <p className="p-3 text-sm text-muted-foreground text-center">Nenhuma peça encontrada</p>
+                ) : (
+                  filteredPecas.slice(0, 20).map((peca) => (
+                    <div
+                      key={peca.id}
+                      className="p-3 border-b last:border-b-0 cursor-pointer hover:bg-muted/50"
+                      onClick={() => {
+                        setSelectedPecaId(peca.id);
+                        setPartSearchQuery('');
+                      }}
+                    >
+                      <p className="font-medium text-sm">{peca.nome}</p>
+                      <p className="text-xs text-muted-foreground font-mono">{peca.codigo}</p>
+                    </div>
+                  ))
+                )}
+              </div>
+            )}
+
+            {/* Selected part display */}
+            {selectedPecaId && (
+              <Card className="bg-muted/30">
+                <CardContent className="py-3 flex items-center justify-between">
+                  <div>
+                    <p className="font-medium text-sm">
+                      {pecas.find(p => p.id === selectedPecaId)?.nome || 
+                       recentPartsUsed.find(p => p.id === selectedPecaId)?.nome}
+                    </p>
+                    <p className="text-xs text-muted-foreground font-mono">
+                      {pecas.find(p => p.id === selectedPecaId)?.codigo ||
+                       recentPartsUsed.find(p => p.id === selectedPecaId)?.codigo}
+                    </p>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setSelectedPecaId('')}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Quantity */}
+            {selectedPecaId && (
+              <div>
+                <Label>Quantidade</Label>
+                <Input
+                  type="number"
+                  min={1}
+                  value={partQuantity}
+                  onChange={(e) => setPartQuantity(parseInt(e.target.value) || 1)}
+                />
+              </div>
+            )}
           </div>
-          <DialogFooter>
+          <DialogFooter className="mt-4">
             <Button variant="outline" onClick={() => setAddPartDialogOpen(false)}>
               Cancelar
             </Button>
