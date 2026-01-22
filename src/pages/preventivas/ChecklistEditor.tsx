@@ -14,12 +14,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { toast } from "sonner";
-import { ArrowLeft, Plus, Trash2, GripVertical, ChevronDown, ChevronRight, Save, Wrench, Copy } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, GripVertical, ChevronDown, ChevronRight, Save, Wrench, Copy, AlertTriangle } from "lucide-react";
 import ActionPartsManager from "@/components/preventivas/ActionPartsManager";
 
 interface CorrectiveAction {
   id: string;
   action_label: string;
+  order_index: number;
+  active: boolean;
+}
+
+interface Nonconformity {
+  id: string;
+  nonconformity_label: string;
   order_index: number;
   active: boolean;
 }
@@ -30,6 +37,7 @@ interface ChecklistItem {
   order_index: number;
   active: boolean;
   actions: CorrectiveAction[];
+  nonconformities: Nonconformity[];
 }
 
 interface ChecklistBlock {
@@ -65,6 +73,11 @@ export default function ChecklistEditor() {
   const [addActionItemId, setAddActionItemId] = useState<string | null>(null);
   const [newActionLabel, setNewActionLabel] = useState("");
 
+  // New nonconformity dialog
+  const [isAddNonconformityOpen, setIsAddNonconformityOpen] = useState(false);
+  const [addNonconformityItemId, setAddNonconformityItemId] = useState<string | null>(null);
+  const [newNonconformityLabel, setNewNonconformityLabel] = useState("");
+
   const canManage = role === 'admin' || role === 'coordenador_servicos';
 
   const { data: template, isLoading } = useQuery({
@@ -88,6 +101,12 @@ export default function ChecklistEditor() {
                 action_label,
                 order_index,
                 active
+              ),
+              nonconformities:checklist_item_nonconformities(
+                id,
+                nonconformity_label,
+                order_index,
+                active
               )
             )
           )
@@ -106,6 +125,9 @@ export default function ChecklistEditor() {
             block.items.forEach((item: ChecklistItem) => {
               if (item.actions) {
                 item.actions.sort((a: CorrectiveAction, b: CorrectiveAction) => a.order_index - b.order_index);
+              }
+              if (item.nonconformities) {
+                item.nonconformities.sort((a: Nonconformity, b: Nonconformity) => a.order_index - b.order_index);
               }
             });
           }
@@ -304,6 +326,22 @@ export default function ChecklistEditor() {
         
         if (actionsError) throw actionsError;
       }
+
+      // Duplicate nonconformities if any exist
+      if (item.nonconformities && item.nonconformities.length > 0) {
+        const ncsToInsert = item.nonconformities.map((nc, index) => ({
+          item_id: newItem.id,
+          nonconformity_label: nc.nonconformity_label,
+          order_index: index,
+          active: nc.active
+        }));
+        
+        const { error: ncsError } = await supabase
+          .from('checklist_item_nonconformities')
+          .insert(ncsToInsert);
+        
+        if (ncsError) throw ncsError;
+      }
       
       return newItem;
     },
@@ -387,6 +425,77 @@ export default function ChecklistEditor() {
     }
   });
 
+  // Add nonconformity mutation
+  const addNonconformityMutation = useMutation({
+    mutationFn: async () => {
+      let maxOrder = 0;
+      template?.blocks?.forEach((block: ChecklistBlock) => {
+        const item = block.items?.find((i: ChecklistItem) => i.id === addNonconformityItemId);
+        if (item) {
+          maxOrder = item.nonconformities?.length || 0;
+        }
+      });
+      
+      const { error } = await supabase
+        .from('checklist_item_nonconformities')
+        .insert({
+          item_id: addNonconformityItemId,
+          nonconformity_label: newNonconformityLabel,
+          order_index: maxOrder
+        });
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['checklist-template', id] });
+      toast.success('Não conformidade adicionada!');
+      setIsAddNonconformityOpen(false);
+      setNewNonconformityLabel("");
+      setAddNonconformityItemId(null);
+    },
+    onError: (error) => {
+      toast.error('Erro ao adicionar não conformidade: ' + error.message);
+    }
+  });
+
+  // Delete nonconformity mutation
+  const deleteNonconformityMutation = useMutation({
+    mutationFn: async (ncId: string) => {
+      const { error } = await supabase
+        .from('checklist_item_nonconformities')
+        .delete()
+        .eq('id', ncId);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['checklist-template', id] });
+      toast.success('Não conformidade excluída!');
+    },
+    onError: (error) => {
+      toast.error('Erro ao excluir não conformidade: ' + error.message);
+    }
+  });
+
+  // Update nonconformity mutation
+  const updateNonconformityMutation = useMutation({
+    mutationFn: async ({ ncId, ncLabel, active }: { ncId: string; ncLabel?: string; active?: boolean }) => {
+      const updates: any = {};
+      if (ncLabel !== undefined) updates.nonconformity_label = ncLabel;
+      if (active !== undefined) updates.active = active;
+      
+      const { error } = await supabase
+        .from('checklist_item_nonconformities')
+        .update(updates)
+        .eq('id', ncId);
+      
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['checklist-template', id] });
+    }
+  });
+
   const toggleBlock = (blockId: string) => {
     setExpandedBlocks(prev => {
       const next = new Set(prev);
@@ -419,6 +528,11 @@ export default function ChecklistEditor() {
   const openAddAction = (itemId: string) => {
     setAddActionItemId(itemId);
     setIsAddActionOpen(true);
+  };
+
+  const openAddNonconformity = (itemId: string) => {
+    setAddNonconformityItemId(itemId);
+    setIsAddNonconformityOpen(true);
   };
 
   if (!canManage) {
@@ -602,6 +716,32 @@ export default function ChecklistEditor() {
         </DialogContent>
       </Dialog>
 
+      {/* Add Nonconformity Dialog */}
+      <Dialog open={isAddNonconformityOpen} onOpenChange={setIsAddNonconformityOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Adicionar Não Conformidade</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Descrição da Não Conformidade *</Label>
+              <Input
+                value={newNonconformityLabel}
+                onChange={(e) => setNewNonconformityLabel(e.target.value)}
+                placeholder="Ex: Vazamento no êmbolo"
+              />
+            </div>
+            <Button 
+              onClick={() => addNonconformityMutation.mutate()}
+              disabled={!newNonconformityLabel.trim() || addNonconformityMutation.isPending}
+              className="w-full"
+            >
+              Adicionar
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Blocks */}
       <div className="space-y-4">
         {template.blocks?.length === 0 ? (
@@ -648,7 +788,7 @@ export default function ChecklistEditor() {
                           <AlertDialogTitle>Excluir Bloco</AlertDialogTitle>
                           <AlertDialogDescription>
                             Tem certeza que deseja excluir "{block.block_name}"? 
-                            Todos os itens e ações corretivas serão excluídos.
+                            Todos os itens, ações corretivas e não conformidades serão excluídos.
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
@@ -691,7 +831,7 @@ export default function ChecklistEditor() {
                                 className="flex-1"
                               />
                               <Badge variant="outline" className="text-xs">
-                                {item.actions?.length || 0} ações
+                                {item.nonconformities?.length || 0} NC | {item.actions?.length || 0} ações
                               </Badge>
                               <div className="flex items-center gap-2">
                                 <span className="text-xs text-muted-foreground">Ativo</span>
@@ -738,50 +878,96 @@ export default function ChecklistEditor() {
                               </AlertDialog>
                             </div>
                             <CollapsibleContent>
-                              <div className="px-3 pb-3 pl-12 space-y-2">
-                                <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
-                                  <Wrench className="h-4 w-4" />
-                                  Ações Corretivas (exibidas quando status = Falha)
-                                </div>
-                                {item.actions?.map((action: CorrectiveAction) => (
-                                  <div key={action.id} className="flex items-center gap-2 bg-muted/50 rounded p-2">
-                                    <EditableText
-                                      value={action.action_label}
-                                      onSave={(value) => updateActionMutation.mutate({ actionId: action.id, actionLabel: value })}
-                                      className="flex-1 text-sm"
-                                    />
-                                    <ActionPartsManager 
-                                      actionId={action.id} 
-                                      actionLabel={action.action_label} 
-                                    />
-                                    <div className="flex items-center gap-2">
-                                      <span className="text-xs text-muted-foreground">Ativo</span>
-                                      <Switch
-                                        checked={action.active}
-                                        onCheckedChange={(checked) => 
-                                          updateActionMutation.mutate({ actionId: action.id, active: checked })
-                                        }
-                                      />
-                                    </div>
-                                    <Button 
-                                      variant="ghost" 
-                                      size="icon" 
-                                      className="h-6 w-6 text-destructive"
-                                      onClick={() => deleteActionMutation.mutate(action.id)}
-                                    >
-                                      <Trash2 className="h-3 w-3" />
-                                    </Button>
+                              <div className="px-3 pb-3 pl-12 space-y-4">
+                                {/* Nonconformities Section */}
+                                <div className="space-y-2">
+                                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                    <AlertTriangle className="h-4 w-4 text-amber-500" />
+                                    Não Conformidades (o que deu errado)
                                   </div>
-                                ))}
-                                <Button 
-                                  variant="ghost" 
-                                  size="sm" 
-                                  className="w-full justify-start text-muted-foreground"
-                                  onClick={() => openAddAction(item.id)}
-                                >
-                                  <Plus className="h-3 w-3 mr-2" />
-                                  Adicionar ação corretiva
-                                </Button>
+                                  {item.nonconformities?.map((nc: Nonconformity) => (
+                                    <div key={nc.id} className="flex items-center gap-2 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded p-2">
+                                      <EditableText
+                                        value={nc.nonconformity_label}
+                                        onSave={(value) => updateNonconformityMutation.mutate({ ncId: nc.id, ncLabel: value })}
+                                        className="flex-1 text-sm"
+                                      />
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-xs text-muted-foreground">Ativo</span>
+                                        <Switch
+                                          checked={nc.active}
+                                          onCheckedChange={(checked) => 
+                                            updateNonconformityMutation.mutate({ ncId: nc.id, active: checked })
+                                          }
+                                        />
+                                      </div>
+                                      <Button 
+                                        variant="ghost" 
+                                        size="icon" 
+                                        className="h-6 w-6 text-destructive"
+                                        onClick={() => deleteNonconformityMutation.mutate(nc.id)}
+                                      >
+                                        <Trash2 className="h-3 w-3" />
+                                      </Button>
+                                    </div>
+                                  ))}
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm" 
+                                    className="w-full justify-start text-muted-foreground"
+                                    onClick={() => openAddNonconformity(item.id)}
+                                  >
+                                    <Plus className="h-3 w-3 mr-2" />
+                                    Adicionar não conformidade
+                                  </Button>
+                                </div>
+
+                                {/* Corrective Actions Section */}
+                                <div className="space-y-2">
+                                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                                    <Wrench className="h-4 w-4" />
+                                    Ações Corretivas (o que foi feito para corrigir)
+                                  </div>
+                                  {item.actions?.map((action: CorrectiveAction) => (
+                                    <div key={action.id} className="flex items-center gap-2 bg-muted/50 rounded p-2">
+                                      <EditableText
+                                        value={action.action_label}
+                                        onSave={(value) => updateActionMutation.mutate({ actionId: action.id, actionLabel: value })}
+                                        className="flex-1 text-sm"
+                                      />
+                                      <ActionPartsManager 
+                                        actionId={action.id} 
+                                        actionLabel={action.action_label} 
+                                      />
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-xs text-muted-foreground">Ativo</span>
+                                        <Switch
+                                          checked={action.active}
+                                          onCheckedChange={(checked) => 
+                                            updateActionMutation.mutate({ actionId: action.id, active: checked })
+                                          }
+                                        />
+                                      </div>
+                                      <Button 
+                                        variant="ghost" 
+                                        size="icon" 
+                                        className="h-6 w-6 text-destructive"
+                                        onClick={() => deleteActionMutation.mutate(action.id)}
+                                      >
+                                        <Trash2 className="h-3 w-3" />
+                                      </Button>
+                                    </div>
+                                  ))}
+                                  <Button 
+                                    variant="ghost" 
+                                    size="sm" 
+                                    className="w-full justify-start text-muted-foreground"
+                                    onClick={() => openAddAction(item.id)}
+                                  >
+                                    <Plus className="h-3 w-3 mr-2" />
+                                    Adicionar ação corretiva
+                                  </Button>
+                                </div>
                               </div>
                             </CollapsibleContent>
                           </Collapsible>
