@@ -22,6 +22,7 @@ import AdminPermissoes from "./pages/admin/Permissoes";
 import OficinaAtividades from "./pages/oficina/Atividades";
 import OficinaItens from "./pages/oficina/ItensOficina";
 import OficinaOS from "./pages/oficina/OrdensServico";
+import OficinaGarantias from "./pages/oficina/Garantias";
 import Teste from "./pages/Teste";
 import Instalar from "./pages/Instalar";
 import Nfc from "./pages/Nfc";
@@ -156,6 +157,14 @@ const App = () => (
               element={
                 <AppLayout>
                   <OficinaOS />
+                </AppLayout>
+              }
+            />
+            <Route
+              path="/oficina/garantias"
+              element={
+                <AppLayout>
+                  <OficinaGarantias />
                 </AppLayout>
               }
             />
