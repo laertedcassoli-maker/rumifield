@@ -376,6 +376,57 @@ export type Database = {
           },
         ]
       }
+      motor_replacement_history: {
+        Row: {
+          created_at: string
+          id: string
+          motor_hours_used: number
+          notes: string | null
+          replaced_at: string
+          replaced_at_meter_hours: number
+          user_id: string
+          work_order_id: string | null
+          workshop_item_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          motor_hours_used: number
+          notes?: string | null
+          replaced_at?: string
+          replaced_at_meter_hours: number
+          user_id: string
+          work_order_id?: string | null
+          workshop_item_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          motor_hours_used?: number
+          notes?: string | null
+          replaced_at?: string
+          replaced_at_meter_hours?: number
+          user_id?: string
+          work_order_id?: string | null
+          workshop_item_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "motor_replacement_history_work_order_id_fkey"
+            columns: ["work_order_id"]
+            isOneToOne: false
+            referencedRelation: "work_orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "motor_replacement_history_workshop_item_id_fkey"
+            columns: ["workshop_item_id"]
+            isOneToOne: false
+            referencedRelation: "workshop_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pecas: {
         Row: {
           ativo: boolean | null

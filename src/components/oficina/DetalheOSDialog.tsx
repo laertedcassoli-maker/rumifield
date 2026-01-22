@@ -478,6 +478,36 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
 
         // Update workshop item meter hours
         if (univocaItem.workshop_item_id) {
+          // If motor was replaced, record history BEFORE updating the milestone
+          if (isMotorReplacement) {
+            // Get current workshop item data to calculate motor hours used
+            const { data: currentWorkshopItem } = await supabase
+              .from('workshop_items')
+              .select('motor_replaced_at_meter_hours, meter_hours_last')
+              .eq('id', univocaItem.workshop_item_id)
+              .single();
+
+            // Calculate how many hours the old motor was used
+            const previousMilestone = currentWorkshopItem?.motor_replaced_at_meter_hours ?? 
+                                      univocaItem.workshop_items?.meter_hours_last ?? 
+                                      0;
+            const motorHoursUsed = meterValue - previousMilestone;
+
+            // Record motor replacement history
+            // Using 'as any' because types haven't regenerated yet
+            const { error: historyError } = await (supabase as any)
+              .from('motor_replacement_history')
+              .insert({
+                workshop_item_id: univocaItem.workshop_item_id,
+                work_order_id: workOrder.id,
+                replaced_at_meter_hours: meterValue,
+                motor_hours_used: motorHoursUsed,
+                user_id: user?.id,
+                notes: `Motor substituído com ${motorHoursUsed}h de uso`,
+              });
+            if (historyError) throw historyError;
+          }
+
           const workshopUpdate: { 
             meter_hours_last: number; 
             status: string; 
