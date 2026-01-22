@@ -41,7 +41,6 @@ export function AppSidebar() {
     { title: 'Clientes Preventiva', icon: Building2, url: '/preventivas', permKey: 'preventivas' },
     { title: 'Rotas', icon: Route, url: '/preventivas/rotas', permKey: 'preventivas' },
     { title: 'Calendário Anual', icon: CalendarDays, url: '/preventivas/calendario', permKey: 'preventivas' },
-    { title: 'Templates Checklist', icon: ClipboardList, url: '/preventivas/checklists', permKey: 'preventivas' },
   ].filter(item => canAccess(item.permKey));
 
   const showPreventivasMenu = canAccess('preventivas') && preventivasItems.length > 0;
@@ -76,6 +75,14 @@ export function AppSidebar() {
   const showAdminOficinaMenu = adminOficinaItems.length > 0;
   const isAdminOficinaActive = location.pathname === '/oficina/atividades';
 
+  // Admin Manutenção submenu (preventive maintenance configuration)
+  const adminManutencaoItems = [
+    { title: 'Templates Checklist', icon: ClipboardList, url: '/preventivas/checklists', permKey: 'admin_cadastros' },
+  ].filter(item => canAccess(item.permKey));
+
+  const showAdminManutencaoMenu = adminManutencaoItems.length > 0;
+  const isAdminManutencaoActive = location.pathname.startsWith('/preventivas/checklists');
+
   // Admin menu items
   const adminMenuItems = [
     { title: 'Clientes', icon: Building2, url: '/admin/clientes', permKey: 'admin_clientes' },
@@ -86,7 +93,7 @@ export function AppSidebar() {
     { title: 'Teste Transcrição', icon: FlaskConical, url: '/teste', permKey: 'admin_cadastros' },
   ].filter(item => canAccess(item.permKey));
 
-  const showAdminMenu = adminMenuItems.length > 0 || showAdminOficinaMenu;
+  const showAdminMenu = adminMenuItems.length > 0 || showAdminOficinaMenu || showAdminManutencaoMenu;
 
   return (
     <Sidebar>
@@ -223,6 +230,35 @@ export function AppSidebar() {
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 ))}
+
+                {/* Manutenção submenu dentro de Administração */}
+                {showAdminManutencaoMenu && (
+                  <Collapsible defaultOpen={isAdminManutencaoActive} className="group/collapsible">
+                    <SidebarMenuItem>
+                      <CollapsibleTrigger asChild>
+                        <SidebarMenuButton isActive={isAdminManutencaoActive}>
+                          <Calendar className="h-4 w-4" />
+                          <span>Manutenção</span>
+                          <ChevronDown className="ml-auto h-4 w-4 transition-transform group-data-[state=open]/collapsible:rotate-180" />
+                        </SidebarMenuButton>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent>
+                        <SidebarMenuSub>
+                          {adminManutencaoItems.map(item => (
+                            <SidebarMenuSubItem key={item.title}>
+                              <SidebarMenuSubButton asChild isActive={location.pathname === item.url || location.pathname.startsWith(item.url + '/')}>
+                                <Link to={item.url} onClick={handleMenuClick}>
+                                  <item.icon className="h-4 w-4" />
+                                  <span>{item.title}</span>
+                                </Link>
+                              </SidebarMenuSubButton>
+                            </SidebarMenuSubItem>
+                          ))}
+                        </SidebarMenuSub>
+                      </CollapsibleContent>
+                    </SidebarMenuItem>
+                  </Collapsible>
+                )}
 
                 {/* Oficina submenu dentro de Administração */}
                 {showAdminOficinaMenu && (
