@@ -141,6 +141,53 @@ export default function AdminClientes() {
     localStorage.getItem('lastIlmilkSyncTime')
   );
   const [pistolaSearch, setPistolaSearch] = useState('');
+  const [isExtractingCoords, setIsExtractingCoords] = useState(false);
+
+  // Function to extract coordinates from Google Maps URL
+  const extractCoordsFromMapsUrl = async (url: string) => {
+    if (!url || (!url.includes('google.com/maps') && !url.includes('maps.app.goo.gl') && !url.includes('goo.gl/maps'))) {
+      return;
+    }
+    
+    setIsExtractingCoords(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('extract-coords-from-maps', {
+        body: { url }
+      });
+      
+      if (error) {
+        console.error('Error extracting coordinates:', error);
+        toast({
+          title: 'Erro',
+          description: 'Não foi possível extrair coordenadas do link',
+          variant: 'destructive'
+        });
+        return;
+      }
+      
+      if (data?.success && data.latitude !== undefined && data.longitude !== undefined) {
+        setForm(prev => ({
+          ...prev,
+          latitude: data.latitude.toString(),
+          longitude: data.longitude.toString()
+        }));
+        toast({
+          title: 'Coordenadas extraídas!',
+          description: `Lat: ${data.latitude}, Lng: ${data.longitude}`,
+        });
+      } else {
+        toast({
+          title: 'Aviso',
+          description: data?.error || 'Não foi possível extrair coordenadas deste link',
+          variant: 'destructive'
+        });
+      }
+    } catch (err) {
+      console.error('Failed to extract coords:', err);
+    } finally {
+      setIsExtractingCoords(false);
+    }
+  };
 
   // Fetch clientes
   const { data: clientes, isLoading } = useQuery({
@@ -794,9 +841,41 @@ export default function AdminClientes() {
                           id="link_maps"
                           value={form.link_maps}
                           onChange={(e) => setForm({ ...form, link_maps: e.target.value })}
-                          placeholder="https://www.google.com/maps?q=..."
+                          onBlur={(e) => {
+                            // Auto-extract coordinates when user finishes typing/pasting
+                            const url = e.target.value;
+                            if (url && !form.latitude && !form.longitude) {
+                              extractCoordsFromMapsUrl(url);
+                            }
+                          }}
+                          onPaste={(e) => {
+                            // Also trigger on paste for immediate feedback
+                            setTimeout(() => {
+                              const url = (e.target as HTMLInputElement).value;
+                              if (url) {
+                                extractCoordsFromMapsUrl(url);
+                              }
+                            }, 100);
+                          }}
+                          placeholder="Cole o link do Google Maps aqui..."
                           className="flex-1"
                         />
+                        {isExtractingCoords && (
+                          <Button type="button" variant="outline" size="icon" disabled>
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          </Button>
+                        )}
+                        {!isExtractingCoords && form.link_maps && !form.latitude && !form.longitude && (
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="icon"
+                            onClick={() => extractCoordsFromMapsUrl(form.link_maps)}
+                            title="Extrair coordenadas"
+                          >
+                            <MapPin className="h-4 w-4" />
+                          </Button>
+                        )}
                         {form.link_maps && (
                           <Button
                             type="button"
@@ -810,6 +889,9 @@ export default function AdminClientes() {
                           </Button>
                         )}
                       </div>
+                      <p className="text-xs text-muted-foreground">
+                        Cole um link do Google Maps para extrair automaticamente latitude e longitude
+                      </p>
                     </div>
                   </div>
 
