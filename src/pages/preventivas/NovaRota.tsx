@@ -95,6 +95,7 @@ export default function NovaRota() {
   const [estadoFilter, setEstadoFilter] = useState<string>('all');
   const [consultorFilter, setConsultorFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [statusAtRouteFilter, setStatusAtRouteFilter] = useState<string>('all');
   const [sortField, setSortField] = useState<SortField>('preventive_status');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const [highlightedClientId, setHighlightedClientId] = useState<string | null>(null);
@@ -266,6 +267,20 @@ export default function NovaRota() {
     return consultors.sort((a: {name: string}, b: {name: string}) => a.name.localeCompare(b.name));
   }, [clientsData]);
 
+  // Helper function to calculate projected status at route
+  const getProjectedStatusAtRoute = (client: ClientPreventive) => {
+    if (client.days_until_due === null || !form.start_date) return null;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const routeStart = new Date(form.start_date + 'T00:00:00');
+    const daysToRoute = Math.ceil((routeStart.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+    const daysAtRoute = client.days_until_due - daysToRoute;
+    
+    if (daysAtRoute < 0) return 'atrasada';
+    if (daysAtRoute <= 30) return 'elegivel';
+    return 'em_dia';
+  };
+
   // Filter and sort clients
   const filteredAndSortedClients = useMemo(() => {
     if (!clientsData) return [];
@@ -291,9 +306,22 @@ export default function NovaRota() {
         return false;
       }
       
-      // Status filter
+      // Status filter (current)
       if (statusFilter !== 'all' && client.preventive_status !== statusFilter) {
         return false;
+      }
+      
+      // Status at Route filter (projected)
+      if (statusAtRouteFilter !== 'all') {
+        const projectedStatus = getProjectedStatusAtRoute(client);
+        // sem_historico clients: include if filtering for atrasada/elegivel (they're always needed)
+        if (client.preventive_status === 'sem_historico') {
+          if (statusAtRouteFilter !== 'atrasada' && statusAtRouteFilter !== 'elegivel') {
+            return false;
+          }
+        } else if (projectedStatus !== statusAtRouteFilter) {
+          return false;
+        }
       }
       
       return true;
@@ -328,7 +356,7 @@ export default function NovaRota() {
     });
     
     return result;
-  }, [clientsData, clientSearch, estadoFilter, consultorFilter, statusFilter, sortField, sortDirection]);
+  }, [clientsData, clientSearch, estadoFilter, consultorFilter, statusFilter, statusAtRouteFilter, sortField, sortDirection, form.start_date]);
 
   // Suggested clients (sem_historico, atrasada, elegivel) - from filtered list
   const suggestedClients = useMemo(() => {
@@ -611,7 +639,7 @@ export default function NovaRota() {
               </div>
               
               {/* Filters */}
-              <div className="grid grid-cols-2 md:grid-cols-5 gap-2">
+              <div className="grid grid-cols-2 md:grid-cols-6 gap-2">
                 <div className="relative md:col-span-2">
                   <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
@@ -645,17 +673,37 @@ export default function NovaRota() {
                 </Select>
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
                   <SelectTrigger className="h-9">
-                    <SelectValue placeholder="Status" />
+                    <SelectValue placeholder="Status Atual" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">Todos Status</SelectItem>
+                    <SelectItem value="all">Status Atual</SelectItem>
                     <SelectItem value="sem_historico">Sem Histórico</SelectItem>
                     <SelectItem value="atrasada">Atrasada</SelectItem>
                     <SelectItem value="elegivel">Elegível</SelectItem>
                     <SelectItem value="em_dia">Em Dia</SelectItem>
                   </SelectContent>
                 </Select>
+                <Select 
+                  value={statusAtRouteFilter} 
+                  onValueChange={setStatusAtRouteFilter}
+                  disabled={!form.start_date}
+                >
+                  <SelectTrigger className={cn("h-9", !form.start_date && "opacity-50")}>
+                    <SelectValue placeholder="Status na Rota" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Status na Rota</SelectItem>
+                    <SelectItem value="atrasada">Atrasada na Rota</SelectItem>
+                    <SelectItem value="elegivel">Elegível na Rota</SelectItem>
+                    <SelectItem value="em_dia">Em Dia na Rota</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
+              {!form.start_date && statusAtRouteFilter === 'all' && (
+                <p className="text-xs text-muted-foreground">
+                  💡 Defina a data inicial para habilitar o filtro "Status na Rota"
+                </p>
+              )}
             </div>
           </CardHeader>
           <CardContent>
