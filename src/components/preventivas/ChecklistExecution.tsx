@@ -794,7 +794,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onCo
           
           {/* Block Navigation Chips */}
           {!isCompleted && blocks.length > 1 && (
-            <div className="-mx-4 px-4 overflow-x-auto overscroll-x-contain">
+            <div className="w-full overflow-x-auto overscroll-x-contain">
               <ChecklistBlockNav 
                 blocks={navBlocks}
                 activeBlockId={activeBlockId}
