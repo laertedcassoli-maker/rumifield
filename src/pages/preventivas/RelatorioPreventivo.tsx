@@ -438,12 +438,7 @@ export default function RelatorioPreventivo() {
         {checklist && (
           <Card>
             <CardHeader className="pb-2">
-              <CardTitle className="text-base flex items-center justify-between">
-                <span>Resumo do Check-list</span>
-                <Badge variant={failItems > 0 ? 'destructive' : 'default'} className="font-normal">
-                  {failItems > 0 ? `${failItems} pendência(s)` : 'Tudo OK'}
-                </Badge>
-              </CardTitle>
+              <CardTitle className="text-base">Resumo do Check-list</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="flex justify-between text-sm">
