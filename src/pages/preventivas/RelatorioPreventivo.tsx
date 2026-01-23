@@ -337,8 +337,8 @@ export default function RelatorioPreventivo() {
       <header className="bg-white border-b py-4 px-4">
         <div className="max-w-2xl mx-auto">
           {/* Logos */}
-          <div className="flex items-center justify-center gap-4 mb-3">
-            <img src={logoRumiFlow} alt="RumiFlow" className="h-5 object-contain" />
+          <div className="flex items-center justify-between mb-3">
+            <img src={logoRumiFlow} alt="RumiFlow" className="h-3.5 object-contain" />
             <img src={logoRumina} alt="Rumina" className="h-5 object-contain" />
           </div>
           
