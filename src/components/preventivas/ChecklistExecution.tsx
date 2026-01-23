@@ -304,6 +304,15 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onCo
     createChecklistMutation.mutate(routeTemplateId);
   };
 
+  // Scroll to block function - must be before any conditional returns
+  const scrollToBlock = useCallback((blockId: string) => {
+    setActiveBlockId(blockId);
+    const element = blockRefs.current[blockId];
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, []);
+
   // Auto-start checklist if routeTemplateId is provided and no checklist exists
   useEffect(() => {
     if (!existingChecklist && routeTemplateId && !loadingChecklist && !autoStartAttempted.current && !createChecklistMutation.isPending) {
@@ -314,6 +323,13 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onCo
       createChecklistMutation.mutate(routeTemplateId);
     }
   }, [existingChecklist, routeTemplateId, loadingChecklist, createChecklistMutation.isPending]);
+
+  // Set initial active block when blocks data is available
+  useEffect(() => {
+    if (existingChecklist?.blocks && existingChecklist.blocks.length > 0 && !activeBlockId) {
+      setActiveBlockId(existingChecklist.blocks[0].id);
+    }
+  }, [existingChecklist?.blocks, activeBlockId]);
 
   // Update item status
   const updateItemMutation = useMutation({
@@ -689,21 +705,6 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onCo
     answeredCount: block.items.filter(item => item.status !== null).length,
     totalCount: block.items.length
   }));
-
-  // Set initial active block
-  useEffect(() => {
-    if (blocks.length > 0 && !activeBlockId) {
-      setActiveBlockId(blocks[0].id);
-    }
-  }, [blocks, activeBlockId]);
-
-  const scrollToBlock = useCallback((blockId: string) => {
-    setActiveBlockId(blockId);
-    const element = blockRefs.current[blockId];
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-  }, []);
 
   return (
     <>
