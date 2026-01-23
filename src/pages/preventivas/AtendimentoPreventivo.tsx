@@ -1,4 +1,4 @@
-import { useState } from 'react'; // v2
+import { useEffect, useState } from 'react'; // v2
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -38,6 +38,57 @@ export default function AtendimentoPreventivo() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [showCompleteDialog, setShowCompleteDialog] = useState(false);
+
+  // Temporary: detect horizontal overflow sources on mobile
+  useEffect(() => {
+    if (!import.meta.env.DEV) return;
+
+    const markOverflow = () => {
+      try {
+        const vw = document.documentElement.clientWidth;
+        const offenders: Array<{ el: Element; delta: number }> = [];
+
+        // Clear previous marks
+        document.querySelectorAll('[data-overflow-debug="1"]').forEach((el) => {
+          (el as HTMLElement).style.outline = "";
+          el.removeAttribute('data-overflow-debug');
+        });
+
+        // Find elements that overflow the viewport
+        document.querySelectorAll('body *').forEach((el) => {
+          const htmlEl = el as HTMLElement;
+          if (!htmlEl.getBoundingClientRect) return;
+          const rect = htmlEl.getBoundingClientRect();
+          const delta = rect.right - vw;
+          if (delta > 1) {
+            offenders.push({ el, delta });
+          }
+        });
+
+        offenders
+          .sort((a, b) => b.delta - a.delta)
+          .slice(0, 8)
+          .forEach(({ el, delta }) => {
+            (el as HTMLElement).style.outline = '2px solid hsl(var(--destructive))';
+            el.setAttribute('data-overflow-debug', '1');
+            // eslint-disable-next-line no-console
+            console.log('[OverflowX]', { delta: Math.round(delta), el });
+          });
+      } catch (e) {
+        // eslint-disable-next-line no-console
+        console.log('[OverflowX] detector failed', e);
+      }
+    };
+
+    const t = window.setTimeout(markOverflow, 300);
+    window.addEventListener('resize', markOverflow);
+    window.addEventListener('orientationchange', markOverflow);
+    return () => {
+      window.clearTimeout(t);
+      window.removeEventListener('resize', markOverflow);
+      window.removeEventListener('orientationchange', markOverflow);
+    };
+  }, []);
 
   const isAdminOrCoordinator = role === 'admin' || role === 'coordenador_servicos';
 
