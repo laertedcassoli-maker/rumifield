@@ -472,6 +472,19 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onCo
 
           if (error) throw error;
         } else {
+          // Check if action already exists (prevent duplicates)
+          const { data: existingAction } = await supabase
+            .from('preventive_checklist_item_actions')
+            .select('id')
+            .eq('exec_item_id', itemId)
+            .eq('template_action_id', actionId)
+            .maybeSingle();
+          
+          if (existingAction) {
+            // Already exists, skip insert
+            return;
+          }
+          
           // Add action
           const { error } = await supabase
             .from('preventive_checklist_item_actions')
