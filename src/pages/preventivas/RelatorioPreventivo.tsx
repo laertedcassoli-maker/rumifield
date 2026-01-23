@@ -99,6 +99,7 @@ export default function RelatorioPreventivo() {
   const { token, type } = useParams<{ token: string; type?: string }>();
   const { toast } = useToast();
   const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
+  const [imageLoadAttempted, setImageLoadAttempted] = useState(false);
   
   const isInternal = type === 'interno';
 
@@ -255,20 +256,27 @@ export default function RelatorioPreventivo() {
 
   // Generate signed URLs for media after data loads
   useEffect(() => {
-    if (report?.media?.length) {
+    if (report?.media?.length && !imageLoadAttempted) {
       const loadUrls = async () => {
         const urls: Record<string, string> = {};
         for (const m of report.media) {
-          const { data: signedUrl } = await supabase.storage
-            .from('preventive-media')
-            .createSignedUrl(m.file_path, 3600);
-          if (signedUrl) urls[m.id] = signedUrl.signedUrl;
+          try {
+            const { data: signedUrl, error } = await supabase.storage
+              .from('preventive-media')
+              .createSignedUrl(m.file_path, 3600);
+            if (signedUrl && !error) {
+              urls[m.id] = signedUrl.signedUrl;
+            }
+          } catch (e) {
+            console.error('Error loading media', m.id, e);
+          }
         }
         setImageUrls(urls);
+        setImageLoadAttempted(true);
       };
       loadUrls();
     }
-  }, [report?.media]);
+  }, [report?.media, imageLoadAttempted]);
 
   const handleShare = async () => {
     const url = window.location.href;
@@ -578,6 +586,11 @@ export default function RelatorioPreventivo() {
                         alt={m.caption || m.file_name}
                         className="w-full h-full object-cover"
                       />
+                    ) : imageLoadAttempted ? (
+                      <div className="w-full h-full flex flex-col items-center justify-center text-muted-foreground">
+                        <Camera className="h-6 w-6 mb-1" />
+                        <span className="text-xs">Indisponível</span>
+                      </div>
                     ) : (
                       <div className="w-full h-full flex items-center justify-center">
                         <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
