@@ -1167,9 +1167,11 @@ export type Database = {
         Row: {
           consumed_at: string
           created_at: string
-          exec_item_id: string
-          exec_nonconformity_id: string
+          exec_item_id: string | null
+          exec_nonconformity_id: string | null
           id: string
+          is_manual: boolean | null
+          notes: string | null
           part_code_snapshot: string
           part_id: string
           part_name_snapshot: string
@@ -1181,9 +1183,11 @@ export type Database = {
         Insert: {
           consumed_at?: string
           created_at?: string
-          exec_item_id: string
-          exec_nonconformity_id: string
+          exec_item_id?: string | null
+          exec_nonconformity_id?: string | null
           id?: string
+          is_manual?: boolean | null
+          notes?: string | null
           part_code_snapshot: string
           part_id: string
           part_name_snapshot: string
@@ -1195,9 +1199,11 @@ export type Database = {
         Update: {
           consumed_at?: string
           created_at?: string
-          exec_item_id?: string
-          exec_nonconformity_id?: string
+          exec_item_id?: string | null
+          exec_nonconformity_id?: string | null
           id?: string
+          is_manual?: boolean | null
+          notes?: string | null
           part_code_snapshot?: string
           part_id?: string
           part_name_snapshot?: string
