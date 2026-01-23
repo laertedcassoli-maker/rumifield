@@ -20,6 +20,7 @@ import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
 import ChecklistExecution from '@/components/preventivas/ChecklistExecution';
+import VisitMediaUpload from '@/components/preventivas/VisitMediaUpload';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -281,6 +282,14 @@ export default function AtendimentoPreventivo() {
             </p>
           </CardContent>
         </Card>
+      )}
+
+      {/* Media Upload Block */}
+      {routeItem.preventiveId && (
+        <VisitMediaUpload 
+          preventiveId={routeItem.preventiveId}
+          isCompleted={isVisitCompleted}
+        />
       )}
 
       {/* Fixed Footer - Encerrar Visita */}
