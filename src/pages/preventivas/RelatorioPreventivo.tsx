@@ -334,31 +334,31 @@ export default function RelatorioPreventivo() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-muted/30 to-background">
       {/* Header */}
-      <header className="bg-primary text-primary-foreground py-6 px-4">
+      <header className="bg-white border-b py-4 px-4">
         <div className="max-w-2xl mx-auto">
           {/* Logos */}
-          <div className="flex items-center justify-center gap-6 mb-4">
-            <img src={logoRumiFlow} alt="RumiFlow" className="h-8 object-contain" />
-            <img src={logoRumina} alt="Rumina" className="h-8 object-contain" />
+          <div className="flex items-center justify-center gap-4 mb-3">
+            <img src={logoRumiFlow} alt="RumiFlow" className="h-5 object-contain" />
+            <img src={logoRumina} alt="Rumina" className="h-5 object-contain" />
           </div>
           
-          <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-2">
-              <Wrench className="h-6 w-6" />
-              <span className="font-bold text-lg">Relatório de Visita</span>
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2 text-primary">
+              <Wrench className="h-5 w-5" />
+              <span className="font-bold">Relatório de Visita</span>
             </div>
-            <Button variant="secondary" size="sm" onClick={handleShare}>
+            <Button variant="outline" size="sm" onClick={handleShare}>
               <Share2 className="h-4 w-4 mr-1" />
               Compartilhar
             </Button>
           </div>
           
-          <h1 className="text-2xl font-bold">{preventive.client.nome}</h1>
+          <h1 className="text-xl font-bold text-foreground">{preventive.client.nome}</h1>
           {preventive.client.fazenda && (
-            <p className="text-primary-foreground/80">{preventive.client.fazenda}</p>
+            <p className="text-muted-foreground">{preventive.client.fazenda}</p>
           )}
           {(preventive.client.cidade || preventive.client.estado) && (
-            <p className="text-primary-foreground/60 text-sm flex items-center gap-1 mt-1">
+            <p className="text-muted-foreground/70 text-sm flex items-center gap-1 mt-1">
               <MapPin className="h-3 w-3" />
               {[preventive.client.cidade, preventive.client.estado].filter(Boolean).join(' - ')}
             </p>
