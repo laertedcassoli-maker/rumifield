@@ -1089,7 +1089,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
                                         label={nc.nonconformity_label}
                                         selected={isSelected}
                                         disabled={isCompleted}
-                                        variant="warning"
+                                        variant="danger"
                                         onClick={() => 
                                           toggleNonconformityMutation.mutate({
                                             itemId: item.id,
@@ -1121,7 +1121,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
                                         label={action.action_label}
                                         selected={isSelected}
                                         disabled={isCompleted}
-                                        variant="default"
+                                        variant="success"
                                         onClick={() => 
                                           toggleActionMutation.mutate({
                                             itemId: item.id,

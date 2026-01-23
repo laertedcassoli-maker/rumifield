@@ -8,7 +8,7 @@ interface SelectableOptionCardProps {
   disabled?: boolean;
   onClick: () => void;
   icon?: ReactNode;
-  variant?: "default" | "warning" | "danger";
+  variant?: "default" | "warning" | "danger" | "success";
 }
 
 export default function SelectableOptionCard({
@@ -29,8 +29,12 @@ export default function SelectableOptionCard({
       selected: "border-amber-400 bg-amber-50 ring-1 ring-amber-300",
     },
     danger: {
-      base: "border-destructive/20 hover:border-destructive/50 hover:bg-destructive/5",
-      selected: "border-destructive/50 bg-destructive/10 ring-1 ring-destructive/30",
+      base: "border-red-200 hover:border-red-400 hover:bg-red-50",
+      selected: "border-red-400 bg-red-50 ring-1 ring-red-300",
+    },
+    success: {
+      base: "border-green-200 hover:border-green-400 hover:bg-green-50",
+      selected: "border-green-400 bg-green-50 ring-1 ring-green-300",
     },
   };
 
@@ -55,8 +59,10 @@ export default function SelectableOptionCard({
             ? variant === "warning"
               ? "bg-amber-500 border-amber-500"
               : variant === "danger"
-                ? "bg-destructive border-destructive"
-                : "bg-primary border-primary"
+                ? "bg-red-500 border-red-500"
+                : variant === "success"
+                  ? "bg-green-500 border-green-500"
+                  : "bg-primary border-primary"
             : "border-muted-foreground/30"
         )}
       >
