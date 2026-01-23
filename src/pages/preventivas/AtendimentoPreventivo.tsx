@@ -192,7 +192,7 @@ export default function AtendimentoPreventivo() {
   const isCompleted = routeItem.status === 'executado';
 
   return (
-    <div className="space-y-4 animate-fade-in pb-24">
+    <div className="space-y-4 animate-fade-in pb-24 overflow-x-hidden">
       {/* Sticky Header */}
       <div className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 -mx-4 px-4 py-3 border-b">
         <div className="flex items-center gap-3">
@@ -206,9 +206,21 @@ export default function AtendimentoPreventivo() {
             {routeItem.client?.fazenda && (
               <p className="text-xs text-muted-foreground truncate">{routeItem.client.fazenda}</p>
             )}
+            {isCompleted && (
+              <Badge
+                variant="outline"
+                className="mt-1 inline-flex sm:hidden bg-green-500/10 text-green-600 border-green-500/20"
+              >
+                <CheckCircle2 className="h-3 w-3 mr-1" />
+                Concluído
+              </Badge>
+            )}
           </div>
           {isCompleted && (
-            <Badge variant="outline" className="bg-green-500/10 text-green-600 border-green-500/20 shrink-0">
+            <Badge
+              variant="outline"
+              className="hidden sm:inline-flex bg-green-500/10 text-green-600 border-green-500/20 shrink-0"
+            >
               <CheckCircle2 className="h-3 w-3 mr-1" />
               Concluído
             </Badge>
