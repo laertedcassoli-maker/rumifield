@@ -23,7 +23,7 @@ interface ConsumedPart {
   part_name_snapshot: string;
   quantity: number;
   unit_cost_snapshot: number | null;
-  stock_source: 'fazenda' | 'tecnico';
+  stock_source: 'fazenda' | 'tecnico' | null;
   notes: string | null;
   is_manual: boolean;
   consumed_at: string;
@@ -496,7 +496,7 @@ function PartItem({ part, isCompleted, onStockSourceChange, onNotesChange, onDel
         <span className="text-xs text-muted-foreground shrink-0">Origem:</span>
         <ToggleGroup
           type="single"
-          value={part.stock_source || 'tecnico'}
+          value={part.stock_source || ''}
           onValueChange={(value) => onStockSourceChange(part.id, value)}
           disabled={isCompleted}
           className="gap-1"
@@ -505,7 +505,11 @@ function PartItem({ part, isCompleted, onStockSourceChange, onNotesChange, onDel
             value="tecnico"
             aria-label="Estoque do técnico"
             size="sm"
-            className="h-7 px-2 text-xs gap-1 data-[state=on]:bg-blue-500/10 data-[state=on]:text-blue-600 data-[state=on]:border-blue-500/30"
+            className={cn(
+              "h-7 px-2 text-xs gap-1",
+              !part.stock_source && "border-amber-400 animate-pulse",
+              "data-[state=on]:bg-blue-500/10 data-[state=on]:text-blue-600 data-[state=on]:border-blue-500/30"
+            )}
           >
             <Truck className="h-3 w-3" />
             Técnico
@@ -514,12 +518,21 @@ function PartItem({ part, isCompleted, onStockSourceChange, onNotesChange, onDel
             value="fazenda"
             aria-label="Estoque da fazenda"
             size="sm"
-            className="h-7 px-2 text-xs gap-1 data-[state=on]:bg-green-500/10 data-[state=on]:text-green-600 data-[state=on]:border-green-500/30"
+            className={cn(
+              "h-7 px-2 text-xs gap-1",
+              !part.stock_source && "border-amber-400 animate-pulse",
+              "data-[state=on]:bg-green-500/10 data-[state=on]:text-green-600 data-[state=on]:border-green-500/30"
+            )}
           >
             <Warehouse className="h-3 w-3" />
             Fazenda
           </ToggleGroupItem>
         </ToggleGroup>
+        {!part.stock_source && !isCompleted && (
+          <Badge variant="outline" className="text-xs border-amber-400 text-amber-600 bg-amber-500/10">
+            Pendente
+          </Badge>
+        )}
       </div>
 
       {/* Notes Section */}
