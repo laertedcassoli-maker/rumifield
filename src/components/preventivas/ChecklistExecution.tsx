@@ -872,7 +872,8 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onCo
           <div className="flex flex-wrap items-center justify-between gap-2 min-w-0 w-full">
             <CardTitle className="flex items-center gap-2 text-base leading-tight min-w-0 flex-1 overflow-hidden">
               <ClipboardCheck className="h-5 w-5 shrink-0" />
-              <span className="truncate">{existingChecklist.template?.name}</span>
+              <span className="font-semibold">Check-list</span>
+              <span className="truncate text-muted-foreground font-normal text-sm">{existingChecklist.template?.name}</span>
             </CardTitle>
             {isCompleted && (
               <Badge variant="default" className="shrink-0 text-xs whitespace-nowrap px-2 py-1">
