@@ -1040,8 +1040,8 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onCo
                                 <AlertTriangle className="h-4 w-4 text-destructive" />
                                 Detalhes da falha
                                 {selectedCount > 0 && (
-                                  <Badge variant="secondary" className="text-xs">
-                                    {selectedCount} selecionado{selectedCount > 1 ? 's' : ''}
+                                  <Badge variant="secondary" className="text-xs min-w-[1.5rem] justify-center">
+                                    {selectedCount}
                                   </Badge>
                                 )}
                               </span>
