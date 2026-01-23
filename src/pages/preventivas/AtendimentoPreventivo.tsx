@@ -71,12 +71,16 @@ export default function AtendimentoPreventivo() {
       // Fetch or find preventive_maintenance record
       let preventiveId: string | null = null;
       
-      const { data: existingPm } = await supabase
+      // Use order + limit to handle multiple records for same client/date
+      const { data: existingPmList } = await supabase
         .from('preventive_maintenance')
         .select('id')
         .eq('client_id', item.client_id)
         .eq('scheduled_date', route?.start_date)
-        .maybeSingle();
+        .order('created_at', { ascending: false })
+        .limit(1);
+      
+      const existingPm = existingPmList?.[0];
 
       if (existingPm) {
         preventiveId = existingPm.id;
