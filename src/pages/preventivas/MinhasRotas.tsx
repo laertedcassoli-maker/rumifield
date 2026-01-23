@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -14,7 +14,6 @@ import {
   CheckCircle2,
   Clock,
   ArrowRight,
-  CalendarDays,
   User
 } from 'lucide-react';
 import { format, isToday, isThisWeek, parseISO } from 'date-fns';
@@ -57,7 +56,6 @@ export default function MinhasRotas() {
   const { data: technicians } = useQuery<Technician[]>({
     queryKey: ['field-technicians'],
     queryFn: async () => {
-      // Get users with tecnico_campo role
       const { data: roleData, error: roleError } = await supabase
         .from('user_roles')
         .select('user_id')
@@ -86,14 +84,12 @@ export default function MinhasRotas() {
     queryFn: async () => {
       if (!user?.id) return [];
 
-      // Build query based on role
       let query = supabase
         .from('preventive_routes')
         .select('id, route_code, start_date, end_date, status, field_technician_user_id')
         .in('status', ['planejada', 'em_execucao'])
         .order('start_date', { ascending: true });
 
-      // If not admin/coordinator, filter by current user
       if (!isAdminOrCoordinator) {
         query = query.eq('field_technician_user_id', user.id);
       }
@@ -106,7 +102,6 @@ export default function MinhasRotas() {
       const routeIds = routesData.map(r => r.id);
       const technicianIds = [...new Set(routesData.map(r => r.field_technician_user_id).filter(Boolean))];
 
-      // Fetch route items and technician names in parallel
       const [itemsResult, profilesResult] = await Promise.all([
         supabase
           .from('preventive_route_items')
@@ -119,7 +114,6 @@ export default function MinhasRotas() {
 
       if (itemsResult.error) throw itemsResult.error;
 
-      // Build maps
       const profilesMap = new Map<string, string>(
         profilesResult.data?.map(p => [p.id, p.nome] as [string, string]) || []
       );
@@ -155,7 +149,6 @@ export default function MinhasRotas() {
       const endDate = parseISO(route.end_date);
       const today = new Date();
 
-      // Date filter
       let matchesDateFilter = true;
       switch (filter) {
         case 'hoje':
@@ -169,7 +162,6 @@ export default function MinhasRotas() {
           matchesDateFilter = true;
       }
 
-      // Technician filter (only for admin/coordinator)
       const matchesTechnicianFilter = technicianFilter === 'all' || route.field_technician_user_id === technicianFilter;
 
       return matchesDateFilter && matchesTechnicianFilter;
@@ -194,44 +186,45 @@ export default function MinhasRotas() {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div className="space-y-4 animate-fade-in">
+      {/* Header - Compact on mobile */}
       <div>
-        <h1 className="text-2xl font-bold">
+        <h1 className="text-xl font-bold">
           {isAdminOrCoordinator ? 'Rotas em Execução' : 'Minhas Rotas'}
         </h1>
-        <p className="text-muted-foreground">
+        <p className="text-sm text-muted-foreground">
           {isAdminOrCoordinator 
-            ? 'Acompanhe as rotas de manutenção preventiva dos técnicos' 
-            : 'Rotas de manutenção preventiva atribuídas a você'}
+            ? 'Acompanhe as rotas dos técnicos' 
+            : 'Rotas atribuídas a você'}
         </p>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-4">
-        {/* Quick Date Filters */}
-        <div className="flex gap-2">
+      {/* Filters - Stacked on mobile */}
+      <div className="space-y-3">
+        {/* Quick Date Filters - Scrollable on mobile */}
+        <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
           <Button
             variant={filter === 'hoje' ? 'default' : 'outline'}
             size="sm"
             onClick={() => setFilter('hoje')}
+            className="shrink-0"
           >
-            <CalendarDays className="mr-2 h-4 w-4" />
             Hoje
           </Button>
           <Button
             variant={filter === 'semana' ? 'default' : 'outline'}
             size="sm"
             onClick={() => setFilter('semana')}
+            className="shrink-0"
           >
-            <Calendar className="mr-2 h-4 w-4" />
-            Esta Semana
+            Semana
           </Button>
           <Button
             variant={filter === 'todas' ? 'default' : 'outline'}
             size="sm"
             onClick={() => setFilter('todas')}
+            className="shrink-0"
           >
-            <Route className="mr-2 h-4 w-4" />
             Todas
           </Button>
         </div>
@@ -239,8 +232,8 @@ export default function MinhasRotas() {
         {/* Technician Filter (Admin/Coordinator only) */}
         {isAdminOrCoordinator && (
           <Select value={technicianFilter} onValueChange={setTechnicianFilter}>
-            <SelectTrigger className="w-[220px]">
-              <User className="mr-2 h-4 w-4" />
+            <SelectTrigger className="w-full">
+              <User className="mr-2 h-4 w-4 shrink-0" />
               <SelectValue placeholder="Filtrar por técnico" />
             </SelectTrigger>
             <SelectContent>
@@ -261,89 +254,79 @@ export default function MinhasRotas() {
           <Loader2 className="h-8 w-8 animate-spin text-primary" />
         </div>
       ) : filteredRoutes.length > 0 ? (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+        <div className="space-y-3">
           {filteredRoutes.map((route) => {
             const progress = getProgressPercentage(route.executed_farms, route.total_farms);
             return (
-              <Card key={route.id} className="hover:shadow-md transition-shadow">
-                <CardHeader className="pb-3">
-                  <div className="flex items-start justify-between">
-                    <CardTitle className="text-lg font-semibold">{route.route_code}</CardTitle>
-                    {renderStatusBadge(route.status)}
-                  </div>
-                  {/* Show technician name for admin/coordinator */}
-                  {isAdminOrCoordinator && (
-                    <p className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
-                      <User className="h-3 w-3" />
-                      {route.technician_name}
-                    </p>
-                  )}
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {/* Period */}
-                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                    <Calendar className="h-4 w-4" />
-                    <span>
-                      {format(parseISO(route.start_date), 'dd/MM', { locale: ptBR })} - {format(parseISO(route.end_date), 'dd/MM/yyyy', { locale: ptBR })}
-                    </span>
-                  </div>
+              <Card key={route.id} className="overflow-hidden active:scale-[0.98] transition-transform">
+                <Link to={`/preventivas/execucao/${route.id}`} className="block">
+                  <CardContent className="p-4">
+                    {/* Header row */}
+                    <div className="flex items-start justify-between gap-2 mb-3">
+                      <div className="min-w-0 flex-1">
+                        <p className="font-semibold text-base">{route.route_code}</p>
+                        {isAdminOrCoordinator && (
+                          <p className="text-sm text-muted-foreground flex items-center gap-1 mt-0.5">
+                            <User className="h-3 w-3" />
+                            {route.technician_name}
+                          </p>
+                        )}
+                      </div>
+                      {renderStatusBadge(route.status)}
+                    </div>
 
-                  {/* Progress */}
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="flex items-center gap-2">
-                        <MapPin className="h-4 w-4 text-muted-foreground" />
-                        Fazendas
+                    {/* Info row */}
+                    <div className="flex items-center justify-between text-sm text-muted-foreground mb-3">
+                      <span className="flex items-center gap-1">
+                        <Calendar className="h-4 w-4" />
+                        {format(parseISO(route.start_date), 'dd/MM', { locale: ptBR })} - {format(parseISO(route.end_date), 'dd/MM', { locale: ptBR })}
                       </span>
-                      <span className="font-medium">
-                        {route.executed_farms} / {route.total_farms}
+                      <span className="flex items-center gap-1">
+                        <MapPin className="h-4 w-4" />
+                        {route.executed_farms}/{route.total_farms}
                       </span>
                     </div>
-                    <div className="h-2 bg-muted rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-primary transition-all duration-300"
-                        style={{ width: `${progress}%` }}
-                      />
-                    </div>
-                    <p className="text-xs text-muted-foreground text-right">
-                      {progress}% concluído
-                    </p>
-                  </div>
 
-                  {/* Action Button */}
-                  <Button asChild className="w-full">
-                    <Link to={`/preventivas/execucao/${route.id}`}>
-                      Abrir Rota
-                      <ArrowRight className="ml-2 h-4 w-4" />
-                    </Link>
-                  </Button>
-                </CardContent>
+                    {/* Progress bar */}
+                    <div className="space-y-1.5">
+                      <div className="h-2 bg-muted rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-primary transition-all duration-300"
+                          style={{ width: `${progress}%` }}
+                        />
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs text-muted-foreground">{progress}% concluído</span>
+                        <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                    </div>
+                  </CardContent>
+                </Link>
               </Card>
             );
           })}
         </div>
       ) : (
         <Card>
-          <CardContent className="py-12 text-center">
-            <Route className="mx-auto h-12 w-12 text-muted-foreground/50" />
-            <h3 className="mt-4 font-semibold">
+          <CardContent className="py-10 text-center">
+            <Route className="mx-auto h-10 w-10 text-muted-foreground/50" />
+            <h3 className="mt-3 font-semibold text-sm">
               {filter !== 'todas' || technicianFilter !== 'all' 
-                ? 'Nenhuma rota encontrada com os filtros selecionados' 
+                ? 'Nenhuma rota encontrada' 
                 : isAdminOrCoordinator 
                   ? 'Nenhuma rota em execução'
                   : 'Nenhuma rota atribuída'}
             </h3>
-            <p className="text-muted-foreground mt-1">
+            <p className="text-xs text-muted-foreground mt-1">
               {filter !== 'todas' || technicianFilter !== 'all'
-                ? 'Tente outros filtros para ver as rotas' 
-                : isAdminOrCoordinator
-                  ? 'Não há rotas planejadas ou em execução no momento'
-                  : 'Aguarde a atribuição de novas rotas pelo coordenador'}
+                ? 'Tente outros filtros' 
+                : 'Aguarde novas atribuições'}
             </p>
             {(filter !== 'todas' || technicianFilter !== 'all') && (
               <Button 
                 variant="outline" 
-                className="mt-4" 
+                size="sm"
+                className="mt-3" 
                 onClick={() => { setFilter('todas'); setTechnicianFilter('all'); }}
               >
                 Limpar filtros

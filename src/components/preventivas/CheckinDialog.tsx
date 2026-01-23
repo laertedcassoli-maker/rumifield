@@ -1,14 +1,13 @@
 import { useState, useEffect } from 'react';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog';
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+} from '@/components/ui/drawer';
 import { Button } from '@/components/ui/button';
-import { Alert, AlertDescription } from '@/components/ui/alert';
 import { 
   Loader2, 
   MapPin, 
@@ -40,14 +39,12 @@ export function CheckinDialog({
   const [currentTime, setCurrentTime] = useState(new Date());
   const { latitude, longitude, accuracy, loading: geoLoading, error: geoError, getLocation, hasLocation } = useGeolocation();
 
-  // Update time every second while dialog is open
   useEffect(() => {
     if (!open) return;
     const interval = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(interval);
   }, [open]);
 
-  // Request location when dialog opens
   useEffect(() => {
     if (open) {
       getLocation();
@@ -63,121 +60,141 @@ export function CheckinDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <MapPin className="h-5 w-5 text-primary" />
-            Check-in
-          </DialogTitle>
-          <DialogDescription>
-            Registrar entrada na fazenda
-          </DialogDescription>
-        </DialogHeader>
+    <Drawer open={open} onOpenChange={onOpenChange}>
+      <DrawerContent>
+        <div className="mx-auto w-full max-w-md">
+          <DrawerHeader className="text-left">
+            <DrawerTitle className="flex items-center gap-2 text-lg">
+              <MapPin className="h-5 w-5 text-primary" />
+              Check-in
+            </DrawerTitle>
+            <DrawerDescription>
+              Registrar entrada na fazenda
+            </DrawerDescription>
+          </DrawerHeader>
 
-        <div className="space-y-4 py-4">
-          {/* Farm Info */}
-          <div className="rounded-lg bg-muted p-4">
-            <p className="font-medium">{farmName}</p>
-            {farmFazenda && (
-              <p className="text-sm text-muted-foreground">{farmFazenda}</p>
+          <div className="px-4 space-y-3">
+            {/* Farm Info */}
+            <div className="rounded-xl bg-muted p-4">
+              <p className="font-semibold">{farmName}</p>
+              {farmFazenda && (
+                <p className="text-sm text-muted-foreground mt-0.5">{farmFazenda}</p>
+              )}
+            </div>
+
+            {/* Current Time */}
+            <div className="flex items-center gap-4 p-4 border rounded-xl">
+              <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                <Clock className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <p className="text-xs text-muted-foreground uppercase tracking-wide">Data e Hora</p>
+                <p className="font-semibold text-lg">
+                  {format(currentTime, "HH:mm:ss", { locale: ptBR })}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {format(currentTime, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
+                </p>
+              </div>
+            </div>
+
+            {/* Location Status */}
+            <div className="flex items-center gap-4 p-4 border rounded-xl">
+              <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${
+                hasLocation 
+                  ? 'bg-green-500/10' 
+                  : geoError 
+                  ? 'bg-destructive/10' 
+                  : 'bg-muted'
+              }`}>
+                <MapPin className={`h-5 w-5 ${
+                  hasLocation 
+                    ? 'text-green-600' 
+                    : geoError 
+                    ? 'text-destructive' 
+                    : 'text-muted-foreground'
+                }`} />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-xs text-muted-foreground uppercase tracking-wide">Localização</p>
+                {geoLoading ? (
+                  <div className="flex items-center gap-2 mt-1">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span className="text-sm">Obtendo localização...</span>
+                  </div>
+                ) : hasLocation ? (
+                  <div>
+                    <p className="font-medium text-green-600 flex items-center gap-1">
+                      <CheckCircle2 className="h-4 w-4" />
+                      Localização capturada
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {latitude?.toFixed(6)}, {longitude?.toFixed(6)}
+                      {accuracy && ` (±${Math.round(accuracy)}m)`}
+                    </p>
+                  </div>
+                ) : geoError ? (
+                  <p className="text-sm text-destructive">{geoError}</p>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Aguardando...</p>
+                )}
+              </div>
+              {!geoLoading && !hasLocation && (
+                <Button variant="outline" size="sm" onClick={() => getLocation()} className="shrink-0">
+                  Tentar
+                </Button>
+              )}
+            </div>
+
+            {/* Warning if no location */}
+            {!geoLoading && !hasLocation && geoError && (
+              <div className="flex items-start gap-3 p-3 rounded-xl bg-destructive/10 text-destructive">
+                <AlertTriangle className="h-5 w-5 shrink-0 mt-0.5" />
+                <p className="text-sm">
+                  Sem localização. O registro ficará incompleto.
+                </p>
+              </div>
             )}
           </div>
 
-          {/* Current Time */}
-          <div className="flex items-center gap-3 p-3 border rounded-lg">
-            <Clock className="h-5 w-5 text-muted-foreground" />
-            <div>
-              <p className="text-sm text-muted-foreground">Data e Hora</p>
-              <p className="font-medium">
-                {format(currentTime, "dd/MM/yyyy 'às' HH:mm:ss", { locale: ptBR })}
-              </p>
-            </div>
-          </div>
-
-          {/* Location Status */}
-          <div className="flex items-center gap-3 p-3 border rounded-lg">
-            <MapPin className={`h-5 w-5 ${hasLocation ? 'text-green-600' : geoError ? 'text-destructive' : 'text-muted-foreground'}`} />
-            <div className="flex-1">
-              <p className="text-sm text-muted-foreground">Localização</p>
-              {geoLoading ? (
-                <div className="flex items-center gap-2">
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                  <span className="text-sm">Obtendo localização...</span>
-                </div>
-              ) : hasLocation ? (
-                <div>
-                  <p className="font-medium text-green-600 flex items-center gap-1">
-                    <CheckCircle2 className="h-4 w-4" />
-                    Localização capturada
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {latitude?.toFixed(6)}, {longitude?.toFixed(6)}
-                    {accuracy && ` (±${Math.round(accuracy)}m)`}
-                  </p>
-                </div>
-              ) : geoError ? (
-                <p className="text-sm text-destructive">{geoError}</p>
-              ) : (
-                <p className="text-sm text-muted-foreground">Aguardando...</p>
-              )}
-            </div>
-            {!geoLoading && !hasLocation && (
-              <Button variant="outline" size="sm" onClick={() => getLocation()}>
-                Tentar novamente
+          <DrawerFooter className="pt-4">
+            {hasLocation ? (
+              <Button onClick={handleConfirm} disabled={isLoading} size="lg" className="w-full">
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                    Salvando...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="mr-2 h-5 w-5" />
+                    Confirmar Check-in
+                  </>
+                )}
+              </Button>
+            ) : !geoLoading && geoError ? (
+              <Button onClick={handleConfirmWithoutLocation} disabled={isLoading} size="lg" variant="secondary" className="w-full">
+                {isLoading ? (
+                  <>
+                    <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                    Salvando...
+                  </>
+                ) : (
+                  'Continuar sem localização'
+                )}
+              </Button>
+            ) : (
+              <Button disabled size="lg" className="w-full">
+                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                Aguardando localização...
               </Button>
             )}
-          </div>
-
-          {/* Warning if no location */}
-          {!geoLoading && !hasLocation && geoError && (
-            <Alert variant="destructive">
-              <AlertTriangle className="h-4 w-4" />
-              <AlertDescription>
-                Não foi possível obter a localização. Você pode continuar sem ela, mas o registro ficará incompleto.
-              </AlertDescription>
-            </Alert>
-          )}
+            <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isLoading} size="lg" className="w-full">
+              Cancelar
+            </Button>
+          </DrawerFooter>
         </div>
-
-        <DialogFooter className="flex-col sm:flex-row gap-2">
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isLoading}>
-            Cancelar
-          </Button>
-          
-          {hasLocation ? (
-            <Button onClick={handleConfirm} disabled={isLoading}>
-              {isLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Salvando...
-                </>
-              ) : (
-                <>
-                  <CheckCircle2 className="mr-2 h-4 w-4" />
-                  Confirmar Check-in
-                </>
-              )}
-            </Button>
-          ) : !geoLoading && geoError ? (
-            <Button onClick={handleConfirmWithoutLocation} disabled={isLoading} variant="secondary">
-              {isLoading ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Salvando...
-                </>
-              ) : (
-                'Continuar sem localização'
-              )}
-            </Button>
-          ) : (
-            <Button disabled>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Aguardando localização...
-            </Button>
-          )}
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      </DrawerContent>
+    </Drawer>
   );
 }
