@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -65,7 +65,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onCo
   const [isSelectTemplateOpen, setIsSelectTemplateOpen] = useState(false);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
   const [isConfirmCompleteOpen, setIsConfirmCompleteOpen] = useState(false);
-  const [autoStarted, setAutoStarted] = useState(false);
+  const autoStartAttempted = useRef(false);
 
   // Get existing checklist for this preventive
   const { data: existingChecklist, isLoading: loadingChecklist } = useQuery({
@@ -286,26 +286,18 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onCo
     },
     onError: (error) => {
       toast.error('Erro ao iniciar checklist: ' + error.message);
-      setAutoStarted(false); // Allow retry
+      // Don't reset - keep autoStartAttempted true to prevent infinite loops
     }
   });
 
   // Auto-start checklist if routeTemplateId is provided and no checklist exists
   useEffect(() => {
-    console.log('[ChecklistExecution] Auto-start check:', { 
-      existingChecklist: !!existingChecklist, 
-      routeTemplateId, 
-      loadingChecklist, 
-      autoStarted,
-      isPending: createChecklistMutation.isPending 
-    });
-    
-    if (!existingChecklist && routeTemplateId && !loadingChecklist && !autoStarted && !createChecklistMutation.isPending) {
+    if (!existingChecklist && routeTemplateId && !loadingChecklist && !autoStartAttempted.current && !createChecklistMutation.isPending) {
       console.log('[ChecklistExecution] Auto-starting with template:', routeTemplateId);
-      setAutoStarted(true);
+      autoStartAttempted.current = true;
       createChecklistMutation.mutate(routeTemplateId);
     }
-  }, [existingChecklist, routeTemplateId, loadingChecklist, autoStarted, createChecklistMutation.isPending]);
+  }, [existingChecklist, routeTemplateId, loadingChecklist, createChecklistMutation.isPending]);
 
   // Update item status
   const updateItemMutation = useMutation({
@@ -537,7 +529,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onCo
   });
 
   // Show loading while fetching or auto-creating checklist
-  if (loadingChecklist || (routeTemplateId && !existingChecklist && (autoStarted || createChecklistMutation.isPending))) {
+  if (loadingChecklist || (routeTemplateId && !existingChecklist && (autoStartAttempted.current || createChecklistMutation.isPending))) {
     return (
       <Card>
         <CardContent className="p-6">
