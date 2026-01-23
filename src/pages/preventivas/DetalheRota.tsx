@@ -7,7 +7,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -43,18 +42,28 @@ import {
   Flag,
   FileCheck,
   ClipboardList,
-  MapPin,
-  ExternalLink,
-  ChevronUp,
-  ChevronDown,
   Plus,
-  X,
   Search
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
-import { cn } from '@/lib/utils';
+import {
+  DndContext,
+  closestCenter,
+  KeyboardSensor,
+  PointerSensor,
+  useSensor,
+  useSensors,
+  DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { SortableRouteItem } from '@/components/preventivas/SortableRouteItem';
 
 const routeStatusConfig = {
   em_elaboracao: { label: 'Em Elaboração', color: 'bg-slate-500/10 text-slate-600 border-slate-500/20' },
@@ -331,40 +340,50 @@ export default function DetalheRota() {
     },
   });
 
-  // Reorder item (move up or down)
-  const reorderItem = useMutation({
-    mutationFn: async ({ itemId, direction }: { itemId: string; direction: 'up' | 'down' }) => {
-      const currentIndex = route?.items.findIndex((i: any) => i.id === itemId);
-      if (currentIndex === undefined || currentIndex === -1) return;
+  // DnD sensors for reordering
+  const sensors = useSensors(
+    useSensor(PointerSensor),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
-      const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
-      if (targetIndex < 0 || targetIndex >= (route?.items.length || 0)) return;
+  // Handle drag end for reordering
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    
+    if (!over || active.id === over.id || !route?.items) return;
 
-      const currentItem = route?.items[currentIndex];
-      const targetItem = route?.items[targetIndex];
+    const oldIndex = route.items.findIndex((i: any) => i.id === active.id);
+    const newIndex = route.items.findIndex((i: any) => i.id === over.id);
 
-      // Swap created_at timestamps to change order
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    // Get the items to swap timestamps
+    const movedItem = route.items[oldIndex];
+    const targetItem = route.items[newIndex];
+
+    // Swap created_at timestamps to persist the new order
+    try {
       const { error: error1 } = await supabase
         .from('preventive_route_items')
         .update({ created_at: targetItem.created_at })
-        .eq('id', currentItem.id);
+        .eq('id', movedItem.id);
       
       if (error1) throw error1;
 
       const { error: error2 } = await supabase
         .from('preventive_route_items')
-        .update({ created_at: currentItem.created_at })
+        .update({ created_at: movedItem.created_at })
         .eq('id', targetItem.id);
       
       if (error2) throw error2;
-    },
-    onSuccess: () => {
+
       queryClient.invalidateQueries({ queryKey: ['preventive-route', id] });
-    },
-    onError: (error: Error) => {
-      toast({ variant: 'destructive', title: 'Erro ao reordenar', description: error.message });
-    },
-  });
+    } catch (error) {
+      toast({ variant: 'destructive', title: 'Erro ao reordenar', description: (error as Error).message });
+    }
+  };
 
   // Update item status
   const updateItemStatus = useMutation({
@@ -839,132 +858,43 @@ export default function DetalheRota() {
           </div>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                {isEditable && <TableHead className="w-20">Ordem</TableHead>}
-                <TableHead>Fazenda</TableHead>
-                <TableHead>Localização</TableHead>
-                <TableHead>Motivo da Inclusão</TableHead>
-                <TableHead>Data Planejada</TableHead>
-                <TableHead>Status</TableHead>
-                {isAdminOrCoordinator && <TableHead className="text-right">Ações</TableHead>}
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {route.items.map((item: any, index: number) => (
-                <TableRow key={item.id}>
-                  {isEditable && (
-                    <TableCell>
-                      <div className="flex flex-col gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6"
-                          onClick={() => reorderItem.mutate({ itemId: item.id, direction: 'up' })}
-                          disabled={index === 0 || reorderItem.isPending}
-                        >
-                          <ChevronUp className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-6 w-6"
-                          onClick={() => reorderItem.mutate({ itemId: item.id, direction: 'down' })}
-                          disabled={index === route.items.length - 1 || reorderItem.isPending}
-                        >
-                          <ChevronDown className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  )}
-                  <TableCell>
-                    <div>
-                      <div className="font-medium">{item.client_name}</div>
-                      {item.client_fazenda && (
-                        <div className="text-sm text-muted-foreground">{item.client_fazenda}</div>
-                      )}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    {item.client_link_maps ? (
-                      <a 
-                        href={item.client_link_maps} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 text-primary hover:underline text-sm"
-                      >
-                        <MapPin className="h-3 w-3" />
-                        Ver no Maps
-                        <ExternalLink className="h-3 w-3" />
-                      </a>
-                    ) : (
-                      <span className="text-muted-foreground text-sm">-</span>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
-                    {item.suggested_reason || '-'}
-                  </TableCell>
-                  <TableCell>
-                    {item.planned_date 
-                      ? format(new Date(item.planned_date), 'dd/MM/yyyy', { locale: ptBR })
-                      : '-'
-                    }
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant="outline" className={itemStatusConfig[item.status as keyof typeof itemStatusConfig]?.color}>
-                      {itemStatusConfig[item.status as keyof typeof itemStatusConfig]?.label}
-                    </Badge>
-                  </TableCell>
-                  {isAdminOrCoordinator && (
-                    <TableCell className="text-right">
-                      <div className="flex items-center justify-end gap-2">
-                        {isEditable ? (
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive">
-                                <X className="h-4 w-4" />
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>Remover fazenda?</AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  A fazenda "{item.client_name}" será removida da rota.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                <AlertDialogAction onClick={() => removeRouteItem.mutate(item.id)}>
-                                  Remover
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        ) : (
-                          <Select
-                            value={item.status}
-                            onValueChange={(v) => updateItemStatus.mutate({ itemId: item.id, newStatus: v })}
-                            disabled={updateItemStatus.isPending}
-                          >
-                            <SelectTrigger className="w-[140px]">
-                              <SelectValue />
-                            </SelectTrigger>
-                            <SelectContent>
-                              <SelectItem value="planejado">Planejado</SelectItem>
-                              <SelectItem value="executado">Executado</SelectItem>
-                              <SelectItem value="reagendado">Reagendado</SelectItem>
-                              <SelectItem value="cancelado">Cancelado</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        )}
-                      </div>
-                    </TableCell>
-                  )}
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            onDragEnd={handleDragEnd}
+          >
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-16">Ordem</TableHead>
+                  <TableHead>Fazenda</TableHead>
+                  <TableHead>Localização</TableHead>
+                  <TableHead>Data Realizada</TableHead>
+                  <TableHead>Status</TableHead>
+                  {isAdminOrCoordinator && <TableHead className="text-right">Ações</TableHead>}
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                <SortableContext
+                  items={route.items.map((i: any) => i.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  {route.items.map((item: any, index: number) => (
+                    <SortableRouteItem
+                      key={item.id}
+                      item={item}
+                      index={index}
+                      isEditable={isEditable}
+                      isAdminOrCoordinator={isAdminOrCoordinator}
+                      onRemove={(itemId) => removeRouteItem.mutate(itemId)}
+                      onStatusChange={(itemId, newStatus) => updateItemStatus.mutate({ itemId, newStatus })}
+                      isUpdating={updateItemStatus.isPending}
+                    />
+                  ))}
+                </SortableContext>
+              </TableBody>
+            </Table>
+          </DndContext>
           {route.items.length === 0 && (
             <div className="text-center py-8 text-muted-foreground">
               Nenhuma fazenda na rota.
