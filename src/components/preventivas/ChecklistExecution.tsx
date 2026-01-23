@@ -562,10 +562,10 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onCo
   if (routeTemplateId && !existingChecklist && autoStartAttempted.current && autoStartState !== 'pending') {
     return (
       <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <AlertTriangle className="h-5 w-5 text-primary" />
-            Não foi possível iniciar o checklist
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-start gap-2 text-base">
+            <AlertTriangle className="h-5 w-5 text-primary shrink-0 mt-0.5" />
+            <span className="break-words">Não foi possível iniciar o checklist</span>
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
