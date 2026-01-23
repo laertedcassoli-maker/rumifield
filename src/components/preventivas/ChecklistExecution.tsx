@@ -21,7 +21,7 @@ import ChecklistItemNotes from "./ChecklistItemNotes";
 interface ChecklistExecutionProps {
   preventiveId: string;
   routeTemplateId?: string; // Template ID from route - auto-start if provided
-  onComplete?: () => void;
+  onStatusChange?: (status: 'not_started' | 'in_progress' | 'completed') => void;
 }
 
 interface AvailableAction {
@@ -61,7 +61,7 @@ interface ExecBlock {
 
 type ChecklistStatus = 'em_andamento' | 'concluido';
 
-export default function ChecklistExecution({ preventiveId, routeTemplateId, onComplete }: ChecklistExecutionProps) {
+export default function ChecklistExecution({ preventiveId, routeTemplateId, onStatusChange }: ChecklistExecutionProps) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [isSelectTemplateOpen, setIsSelectTemplateOpen] = useState(false);
@@ -647,7 +647,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onCo
       queryClient.invalidateQueries({ queryKey: ['preventive-checklist', preventiveId] });
       toast.success('Checklist concluído!');
       setIsConfirmCompleteOpen(false);
-      onComplete?.();
+      onStatusChange?.('completed');
     },
     onError: (error) => {
       toast.error('Erro ao concluir: ' + error.message);
