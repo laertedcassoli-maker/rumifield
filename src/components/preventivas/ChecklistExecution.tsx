@@ -778,7 +778,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onCo
     <>
       {/* Extra bottom margin ensures content can scroll above the fixed progress bar on mobile */}
       <Card className="mb-36">
-        <CardHeader className="pb-3 space-y-3 pr-4">
+        <CardHeader className="pb-3 space-y-3 px-4 sm:px-6">
           <div className="flex items-center justify-between gap-2 min-w-0 w-full">
             <CardTitle className="flex items-center gap-2 text-base leading-tight min-w-0 flex-1 overflow-hidden">
               <ClipboardCheck className="h-5 w-5 shrink-0" />
