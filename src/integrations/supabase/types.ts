@@ -1281,6 +1281,7 @@ export type Database = {
       }
       preventive_routes: {
         Row: {
+          checklist_template_id: string | null
           created_at: string
           created_by_user_id: string
           end_date: string
@@ -1293,6 +1294,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          checklist_template_id?: string | null
           created_at?: string
           created_by_user_id: string
           end_date: string
@@ -1305,6 +1307,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          checklist_template_id?: string | null
           created_at?: string
           created_by_user_id?: string
           end_date?: string
@@ -1316,7 +1319,15 @@ export type Database = {
           status?: Database["public"]["Enums"]["preventive_route_status"]
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "preventive_routes_checklist_template_id_fkey"
+            columns: ["checklist_template_id"]
+            isOneToOne: false
+            referencedRelation: "checklist_templates"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       produtos_quimicos: {
         Row: {
