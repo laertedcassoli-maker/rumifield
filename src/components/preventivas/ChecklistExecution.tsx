@@ -433,6 +433,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['preventive-checklist', preventiveId] });
+      queryClient.invalidateQueries({ queryKey: ['preventive-consumed-parts', preventiveId] });
       setLastSavedAt(new Date());
     },
     onError: (error) => {
@@ -618,6 +619,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['preventive-checklist', preventiveId] });
+      queryClient.invalidateQueries({ queryKey: ['preventive-consumed-parts', preventiveId] });
       setLastSavedAt(new Date());
     },
     onError: (error) => {
