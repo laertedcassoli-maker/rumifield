@@ -672,7 +672,11 @@ export default function AdminClientes() {
                         onValueChange={(value) => setForm({ ...form, consultor_rplus_id: value === '_none' ? '' : value })}
                       >
                         <SelectTrigger>
-                          <SelectValue placeholder="Selecione" />
+                          <SelectValue placeholder="Selecione">
+                            {form.consultor_rplus_id && form.consultor_rplus_id !== '_none'
+                              ? (consultores.find(c => c.id === form.consultor_rplus_id)?.nome || 'Carregando...')
+                              : 'Nenhum'}
+                          </SelectValue>
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="_none">Nenhum</SelectItem>
