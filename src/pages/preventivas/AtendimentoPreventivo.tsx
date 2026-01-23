@@ -201,25 +201,11 @@ export default function AtendimentoPreventivo() {
               <ArrowLeft className="h-5 w-5" />
             </Link>
           </Button>
-          <div className="flex-1 min-w-0">
-            <h1 className="text-lg font-bold truncate">{routeItem.client?.nome}</h1>
-            {routeItem.client?.fazenda && (
-              <p className="text-xs text-muted-foreground truncate">{routeItem.client.fazenda}</p>
-            )}
-            {isCompleted && (
-              <Badge
-                variant="outline"
-                className="mt-1 inline-flex sm:hidden bg-green-500/10 text-green-600 border-green-500/20"
-              >
-                <CheckCircle2 className="h-3 w-3 mr-1" />
-                Concluído
-              </Badge>
-            )}
-          </div>
+          <h1 className="flex-1 text-lg font-bold truncate">{routeItem.client?.nome}</h1>
           {isCompleted && (
             <Badge
               variant="outline"
-              className="hidden sm:inline-flex bg-green-500/10 text-green-600 border-green-500/20 shrink-0"
+              className="bg-green-500/10 text-green-600 border-green-500/20 shrink-0"
             >
               <CheckCircle2 className="h-3 w-3 mr-1" />
               Concluído
@@ -231,6 +217,9 @@ export default function AtendimentoPreventivo() {
       {/* Info Card */}
       <Card>
         <CardContent className="p-4 space-y-2">
+          {routeItem.client?.fazenda && (
+            <p className="font-medium text-foreground">{routeItem.client.fazenda}</p>
+          )}
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <MapPin className="h-4 w-4 shrink-0" />
             <span className="truncate">
