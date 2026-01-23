@@ -18,9 +18,7 @@ import {
   AlertTriangle,
   Share2,
   User,
-  FileText,
-  PartyPopper,
-  ExternalLink
+  FileText
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -420,135 +418,96 @@ export default function AtendimentoPreventivo() {
 
       {/* Share Section - When Visit is Completed */}
       {isVisitCompleted && routeItem.publicToken && (
-        <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-green-500 to-emerald-600 text-white shadow-lg">
-          {/* Decorative elements */}
-          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
-          <div className="absolute bottom-0 left-0 w-24 h-24 bg-white/10 rounded-full translate-y-1/2 -translate-x-1/2" />
-          
-          <div className="relative p-6 space-y-4">
-            {/* Header */}
+        <Card>
+          <CardContent className="p-4 space-y-4">
             <div className="flex items-center gap-3">
-              <div className="p-2 bg-white/20 rounded-full">
-                <PartyPopper className="h-6 w-6" />
-              </div>
-              <div>
-                <h3 className="text-xl font-bold">Visita Concluída!</h3>
-                <p className="text-white/80 text-sm">Parabéns pelo atendimento</p>
-              </div>
+              <CheckCircle2 className="h-5 w-5 text-green-600" />
+              <span className="font-semibold text-foreground">Visita Encerrada</span>
             </div>
             
-            {/* Divider */}
-            <div className="h-px bg-white/20" />
+            <p className="text-sm text-muted-foreground">
+              Compartilhe o relatório com o produtor ou sua equipe:
+            </p>
             
-            {/* Share buttons */}
-            <div className="space-y-3">
-              <p className="text-sm text-white/90 font-medium">Compartilhar relatório:</p>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={async () => {
+                  const baseUrl = window.location.hostname.includes('lovableproject.com') 
+                    ? 'https://rumifield.lovable.app' 
+                    : window.location.origin;
+                  const url = `${baseUrl}/relatorio/${routeItem.publicToken}`;
+                  const shareData = {
+                    title: `Relatório - ${routeItem.client?.nome}`,
+                    text: `Confira o relatório da visita preventiva: ${url}`,
+                    url
+                  };
+                  
+                  const canNativeShare = typeof navigator.share === 'function' && 
+                    (!navigator.canShare || navigator.canShare(shareData));
+                  
+                  if (canNativeShare) {
+                    try {
+                      await navigator.share(shareData);
+                      return;
+                    } catch (err) {
+                      if ((err as Error).name === 'AbortError') return;
+                    }
+                  }
+                  
+                  try {
+                    await navigator.clipboard.writeText(url);
+                    toast({ title: 'Link copiado!', description: 'Cole no WhatsApp para enviar' });
+                  } catch {
+                    toast({ title: 'Link do relatório', description: url });
+                  }
+                }}
+              >
+                <User className="h-4 w-4 mr-2" />
+                Produtor
+              </Button>
               
-              <div className="grid grid-cols-1 gap-2">
-                {/* Producer share button */}
-                <button 
-                  className="flex items-center justify-between p-3 bg-white/15 hover:bg-white/25 rounded-lg transition-colors group"
-                  onClick={async () => {
-                    const baseUrl = window.location.hostname.includes('lovableproject.com') 
-                      ? 'https://rumifield.lovable.app' 
-                      : window.location.origin;
-                    const url = `${baseUrl}/relatorio/${routeItem.publicToken}`;
-                    const shareData = {
-                      title: `Relatório - ${routeItem.client?.nome}`,
-                      text: `Confira o relatório da visita preventiva: ${url}`,
-                      url
-                    };
-                    
-                    const canNativeShare = typeof navigator.share === 'function' && 
-                      (!navigator.canShare || navigator.canShare(shareData));
-                    
-                    if (canNativeShare) {
-                      try {
-                        await navigator.share(shareData);
-                        return;
-                      } catch (err) {
-                        if ((err as Error).name === 'AbortError') return;
-                      }
-                    }
-                    
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={async () => {
+                  const baseUrl = window.location.hostname.includes('lovableproject.com') 
+                    ? 'https://rumifield.lovable.app' 
+                    : window.location.origin;
+                  const url = `${baseUrl}/relatorio/${routeItem.publicToken}/interno`;
+                  const shareData = {
+                    title: `Relatório Interno - ${routeItem.client?.nome}`,
+                    text: `Relatório interno da visita preventiva: ${url}`,
+                    url
+                  };
+                  
+                  const canNativeShare = typeof navigator.share === 'function' && 
+                    (!navigator.canShare || navigator.canShare(shareData));
+                  
+                  if (canNativeShare) {
                     try {
-                      await navigator.clipboard.writeText(url);
-                      toast({ title: 'Link copiado!', description: 'Cole no WhatsApp para enviar' });
-                    } catch {
-                      toast({ title: 'Link do relatório', description: url });
+                      await navigator.share(shareData);
+                      return;
+                    } catch (err) {
+                      if ((err as Error).name === 'AbortError') return;
                     }
-                  }}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-white/20 rounded-lg">
-                      <User className="h-5 w-5" />
-                    </div>
-                    <div className="text-left">
-                      <p className="font-semibold">Enviar ao Produtor</p>
-                      <p className="text-xs text-white/70">Relatório simplificado</p>
-                    </div>
-                  </div>
-                  <Share2 className="h-5 w-5 text-white/60 group-hover:text-white transition-colors" />
-                </button>
-                
-                {/* Internal share button */}
-                <button 
-                  className="flex items-center justify-between p-3 bg-white/15 hover:bg-white/25 rounded-lg transition-colors group"
-                  onClick={async () => {
-                    const baseUrl = window.location.hostname.includes('lovableproject.com') 
-                      ? 'https://rumifield.lovable.app' 
-                      : window.location.origin;
-                    const url = `${baseUrl}/relatorio/${routeItem.publicToken}/interno`;
-                    const shareData = {
-                      title: `Relatório Interno - ${routeItem.client?.nome}`,
-                      text: `Relatório interno da visita preventiva: ${url}`,
-                      url
-                    };
-                    
-                    const canNativeShare = typeof navigator.share === 'function' && 
-                      (!navigator.canShare || navigator.canShare(shareData));
-                    
-                    if (canNativeShare) {
-                      try {
-                        await navigator.share(shareData);
-                        return;
-                      } catch (err) {
-                        if ((err as Error).name === 'AbortError') return;
-                      }
-                    }
-                    
-                    try {
-                      await navigator.clipboard.writeText(url);
-                      toast({ title: 'Link copiado!', description: 'Cole no WhatsApp para enviar' });
-                    } catch {
-                      toast({ title: 'Link do relatório interno', description: url });
-                    }
-                  }}
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 bg-white/20 rounded-lg">
-                      <FileText className="h-5 w-5" />
-                    </div>
-                    <div className="text-left">
-                      <p className="font-semibold">Time Interno</p>
-                      <p className="text-xs text-white/70">Relatório completo com custos</p>
-                    </div>
-                  </div>
-                  <Share2 className="h-5 w-5 text-white/60 group-hover:text-white transition-colors" />
-                </button>
-              </div>
+                  }
+                  
+                  try {
+                    await navigator.clipboard.writeText(url);
+                    toast({ title: 'Link copiado!', description: 'Cole para compartilhar com a equipe' });
+                  } catch {
+                    toast({ title: 'Link do relatório', description: url });
+                  }
+                }}
+              >
+                <FileText className="h-4 w-4 mr-2" />
+                Time Interno
+              </Button>
             </div>
-            
-            {/* Preview link */}
-            <Link 
-              to={`/relatorio/${routeItem.publicToken}`}
-              className="flex items-center justify-center gap-2 text-sm text-white/80 hover:text-white transition-colors pt-2"
-            >
-              <ExternalLink className="h-4 w-4" />
-              Visualizar relatório
-            </Link>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       )}
 
       {/* Fixed Footer - Encerrar Visita */}
