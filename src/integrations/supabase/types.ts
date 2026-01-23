@@ -1229,6 +1229,7 @@ export type Database = {
           client_id: string
           created_at: string
           id: string
+          order_index: number | null
           planned_date: string | null
           route_id: string
           status: Database["public"]["Enums"]["preventive_route_item_status"]
@@ -1239,6 +1240,7 @@ export type Database = {
           client_id: string
           created_at?: string
           id?: string
+          order_index?: number | null
           planned_date?: string | null
           route_id: string
           status?: Database["public"]["Enums"]["preventive_route_item_status"]
@@ -1249,6 +1251,7 @@ export type Database = {
           client_id?: string
           created_at?: string
           id?: string
+          order_index?: number | null
           planned_date?: string | null
           route_id?: string
           status?: Database["public"]["Enums"]["preventive_route_item_status"]

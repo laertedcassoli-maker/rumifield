@@ -118,12 +118,12 @@ export default function DetalheRota() {
           : Promise.resolve({ data: null })
       ]);
 
-      // Fetch route items with client info
+      // Fetch route items with client info (ordered by order_index)
       const { data: items, error: itemsError } = await supabase
         .from('preventive_route_items')
         .select('*')
         .eq('route_id', id)
-        .order('created_at');
+        .order('order_index');
       
       if (itemsError) throw itemsError;
 
@@ -337,27 +337,26 @@ export default function DetalheRota() {
 
     if (oldIndex === -1 || newIndex === -1) return;
 
-    // Get the items to swap timestamps
-    const movedItem = route.items[oldIndex];
-    const targetItem = route.items[newIndex];
+    // Build new order
+    const reorderedItems = [...route.items];
+    const [movedItem] = reorderedItems.splice(oldIndex, 1);
+    reorderedItems.splice(newIndex, 0, movedItem);
 
-    // Swap created_at timestamps to persist the new order
+    // Update order_index for all items in the new order
     try {
-      const { error: error1 } = await supabase
-        .from('preventive_route_items')
-        .update({ created_at: targetItem.created_at })
-        .eq('id', movedItem.id);
+      const updates = reorderedItems.map((item: any, idx: number) =>
+        supabase
+          .from('preventive_route_items')
+          .update({ order_index: idx + 1 } as any)
+          .eq('id', item.id)
+      );
       
-      if (error1) throw error1;
-
-      const { error: error2 } = await supabase
-        .from('preventive_route_items')
-        .update({ created_at: movedItem.created_at })
-        .eq('id', targetItem.id);
-      
-      if (error2) throw error2;
+      const results = await Promise.all(updates);
+      const anyError = results.find((r) => r.error);
+      if (anyError?.error) throw anyError.error;
 
       queryClient.invalidateQueries({ queryKey: ['preventive-route', id] });
+      toast({ title: 'Ordem atualizada!' });
     } catch (error) {
       toast({ variant: 'destructive', title: 'Erro ao reordenar', description: (error as Error).message });
     }
