@@ -63,7 +63,7 @@ export default function VisitMediaUpload({
   const [uploading, setUploading] = useState(false);
   const [selectedImage, setSelectedImage] = useState<MediaItem | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<MediaItem | null>(null);
-  const [isExpanded, setIsExpanded] = useState(true);
+  const [isExpanded, setIsExpanded] = useState(false);
 
   // Fetch existing media
   const { data: mediaItems = [], isLoading } = useQuery({

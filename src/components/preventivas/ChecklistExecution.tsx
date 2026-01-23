@@ -75,7 +75,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
   const [isSaving, setIsSaving] = useState(false);
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
-  const [isBlockExpanded, setIsBlockExpanded] = useState(true);
+  const [isBlockExpanded, setIsBlockExpanded] = useState(false);
   
   // Offline support hook
   const offlineChecklist = useOfflineChecklist();
