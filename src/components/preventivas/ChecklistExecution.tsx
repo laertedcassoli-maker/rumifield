@@ -779,12 +779,15 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onCo
       {/* Extra bottom margin ensures content can scroll above the fixed progress bar on mobile */}
       <Card className="mb-36 max-w-full overflow-x-hidden">
         <CardHeader className="pb-3 space-y-3 px-4 sm:px-6">
-          <div className="flex items-center justify-between gap-2 min-w-0 w-full">
+          <div className="flex flex-wrap items-center justify-between gap-2 min-w-0 w-full">
             <CardTitle className="flex items-center gap-2 text-base leading-tight min-w-0 flex-1 overflow-hidden">
               <ClipboardCheck className="h-5 w-5 shrink-0" />
               <span className="truncate">{existingChecklist.template?.name}</span>
             </CardTitle>
-            <Badge variant={isCompleted ? "default" : "secondary"} className="shrink-0 text-xs whitespace-nowrap ml-2">
+            <Badge
+              variant={isCompleted ? "default" : "secondary"}
+              className="shrink-0 text-xs whitespace-nowrap px-2 py-1"
+            >
               {isCompleted ? "Concluído" : "Em andamento"}
             </Badge>
           </div>
