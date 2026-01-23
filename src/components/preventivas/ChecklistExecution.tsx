@@ -4,10 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
@@ -17,6 +14,7 @@ import ChecklistItemStatusButtons from "./ChecklistItemStatusButtons";
 import SelectableOptionCard from "./SelectableOptionCard";
 import ChecklistBlockNav from "./ChecklistBlockNav";
 import ChecklistFloatingProgress from "./ChecklistFloatingProgress";
+import ChecklistItemNotes from "./ChecklistItemNotes";
 interface ChecklistExecutionProps {
   preventiveId: string;
   routeTemplateId?: string; // Template ID from route - auto-start if provided
@@ -71,6 +69,8 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onCo
   const [autoStartError, setAutoStartError] = useState<string | null>(null);
   const blockRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const [activeBlockId, setActiveBlockId] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
 
   // Get existing checklist for this preventive
   const { data: existingChecklist, isLoading: loadingChecklist } = useQuery({
@@ -390,6 +390,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onCo
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['preventive-checklist', preventiveId] });
+      setLastSavedAt(new Date());
     },
     onError: (error) => {
       toast.error('Erro ao atualizar: ' + error.message);
@@ -433,6 +434,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onCo
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['preventive-checklist', preventiveId] });
+      setLastSavedAt(new Date());
     },
     onError: (error) => {
       toast.error('Erro ao atualizar ação: ' + error.message);
@@ -529,6 +531,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onCo
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['preventive-checklist', preventiveId] });
+      setLastSavedAt(new Date());
     },
     onError: (error) => {
       toast.error('Erro ao atualizar não conformidade: ' + error.message);
@@ -872,14 +875,15 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onCo
 
                     {/* Notes */}
                     {!isCompleted ? (
-                      <Textarea
-                        placeholder="Observações (opcional)"
-                        value={item.notes || ''}
-                        onChange={(e) => 
-                          updateItemMutation.mutate({ itemId: item.id, notes: e.target.value })
-                        }
-                        className="text-sm"
-                        rows={2}
+                      <ChecklistItemNotes
+                        itemId={item.id}
+                        initialValue={item.notes}
+                        onSave={async (itemId, notes) => {
+                          setIsSaving(true);
+                          await updateItemMutation.mutateAsync({ itemId, notes });
+                          setIsSaving(false);
+                          setLastSavedAt(new Date());
+                        }}
                       />
                     ) : item.notes ? (
                       <p className="text-sm text-muted-foreground">
@@ -903,6 +907,8 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onCo
           onComplete={() => setIsConfirmCompleteOpen(true)}
           disabled={completeChecklistMutation.isPending}
           hasWarnings={hasIncompleteFailures}
+          isSaving={isSaving || updateItemMutation.isPending || toggleActionMutation.isPending || toggleNonconformityMutation.isPending}
+          lastSavedAt={lastSavedAt}
         />
       )}
 
