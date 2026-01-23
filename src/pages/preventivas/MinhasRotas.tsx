@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { 
   Loader2, 
   Route,
@@ -13,7 +14,8 @@ import {
   CheckCircle2,
   Clock,
   ArrowRight,
-  CalendarDays
+  CalendarDays,
+  User
 } from 'lucide-react';
 import { format, isToday, isThisWeek, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -35,43 +37,97 @@ interface RouteWithProgress {
   status: string;
   total_farms: number;
   executed_farms: number;
+  field_technician_user_id: string;
+  technician_name: string;
+}
+
+interface Technician {
+  id: string;
+  nome: string;
 }
 
 export default function MinhasRotas() {
-  const { user } = useAuth();
+  const { user, role } = useAuth();
   const [filter, setFilter] = useState<FilterType>('todas');
+  const [technicianFilter, setTechnicianFilter] = useState<string>('all');
 
+  const isAdminOrCoordinator = role === 'admin' || role === 'coordenador_servicos';
+
+  // Fetch field technicians (only for admin/coordinator)
+  const { data: technicians } = useQuery<Technician[]>({
+    queryKey: ['field-technicians'],
+    queryFn: async () => {
+      // Get users with tecnico_campo role
+      const { data: roleData, error: roleError } = await supabase
+        .from('user_roles')
+        .select('user_id')
+        .eq('role', 'tecnico_campo');
+
+      if (roleError) throw roleError;
+      if (!roleData?.length) return [];
+
+      const userIds = roleData.map(r => r.user_id);
+
+      const { data: profiles, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, nome')
+        .in('id', userIds)
+        .order('nome');
+
+      if (profilesError) throw profilesError;
+      return profiles || [];
+    },
+    enabled: isAdminOrCoordinator,
+  });
+
+  // Fetch routes
   const { data: routes, isLoading } = useQuery<RouteWithProgress[]>({
-    queryKey: ['my-preventive-routes', user?.id],
+    queryKey: ['my-preventive-routes', user?.id, isAdminOrCoordinator],
     queryFn: async () => {
       if (!user?.id) return [];
 
-      // Fetch routes assigned to the current user
-      const { data: routesData, error: routesError } = await supabase
+      // Build query based on role
+      let query = supabase
         .from('preventive_routes')
-        .select('id, route_code, start_date, end_date, status')
-        .eq('field_technician_user_id', user.id)
+        .select('id, route_code, start_date, end_date, status, field_technician_user_id')
         .in('status', ['planejada', 'em_execucao'])
         .order('start_date', { ascending: true });
+
+      // If not admin/coordinator, filter by current user
+      if (!isAdminOrCoordinator) {
+        query = query.eq('field_technician_user_id', user.id);
+      }
+
+      const { data: routesData, error: routesError } = await query;
 
       if (routesError) throw routesError;
       if (!routesData?.length) return [];
 
       const routeIds = routesData.map(r => r.id);
+      const technicianIds = [...new Set(routesData.map(r => r.field_technician_user_id).filter(Boolean))];
 
-      // Fetch route items to count progress
-      const { data: itemsData, error: itemsError } = await supabase
-        .from('preventive_route_items')
-        .select('route_id, status')
-        .in('route_id', routeIds);
+      // Fetch route items and technician names in parallel
+      const [itemsResult, profilesResult] = await Promise.all([
+        supabase
+          .from('preventive_route_items')
+          .select('route_id, status')
+          .in('route_id', routeIds),
+        technicianIds.length > 0
+          ? supabase.from('profiles').select('id, nome').in('id', technicianIds)
+          : Promise.resolve({ data: [] }),
+      ]);
 
-      if (itemsError) throw itemsError;
+      if (itemsResult.error) throw itemsResult.error;
 
-      // Aggregate counts per route
+      // Build maps
+      const profilesMap = new Map<string, string>(
+        profilesResult.data?.map(p => [p.id, p.nome] as [string, string]) || []
+      );
+
       const countMap = new Map<string, { total: number; executed: number }>();
       routeIds.forEach(id => countMap.set(id, { total: 0, executed: 0 }));
 
-      itemsData?.forEach(item => {
+      itemsResult.data?.forEach(item => {
         const counts = countMap.get(item.route_id);
         if (counts) {
           counts.total += 1;
@@ -85,6 +141,7 @@ export default function MinhasRotas() {
         ...route,
         total_farms: countMap.get(route.id)?.total || 0,
         executed_farms: countMap.get(route.id)?.executed || 0,
+        technician_name: profilesMap.get(route.field_technician_user_id) || 'Não atribuído',
       }));
     },
     enabled: !!user?.id,
@@ -98,17 +155,26 @@ export default function MinhasRotas() {
       const endDate = parseISO(route.end_date);
       const today = new Date();
 
+      // Date filter
+      let matchesDateFilter = true;
       switch (filter) {
         case 'hoje':
-          return isToday(startDate) || isToday(endDate) || (startDate <= today && endDate >= today);
+          matchesDateFilter = isToday(startDate) || isToday(endDate) || (startDate <= today && endDate >= today);
+          break;
         case 'semana':
-          return isThisWeek(startDate, { locale: ptBR }) || isThisWeek(endDate, { locale: ptBR });
+          matchesDateFilter = isThisWeek(startDate, { locale: ptBR }) || isThisWeek(endDate, { locale: ptBR });
+          break;
         case 'todas':
         default:
-          return true;
+          matchesDateFilter = true;
       }
+
+      // Technician filter (only for admin/coordinator)
+      const matchesTechnicianFilter = technicianFilter === 'all' || route.field_technician_user_id === technicianFilter;
+
+      return matchesDateFilter && matchesTechnicianFilter;
     });
-  }, [routes, filter]);
+  }, [routes, filter, technicianFilter]);
 
   const renderStatusBadge = (status: string) => {
     const config = statusConfig[status as keyof typeof statusConfig];
@@ -130,36 +196,63 @@ export default function MinhasRotas() {
   return (
     <div className="space-y-6 animate-fade-in">
       <div>
-        <h1 className="text-2xl font-bold">Minhas Rotas</h1>
-        <p className="text-muted-foreground">Rotas de manutenção preventiva atribuídas a você</p>
+        <h1 className="text-2xl font-bold">
+          {isAdminOrCoordinator ? 'Rotas em Execução' : 'Minhas Rotas'}
+        </h1>
+        <p className="text-muted-foreground">
+          {isAdminOrCoordinator 
+            ? 'Acompanhe as rotas de manutenção preventiva dos técnicos' 
+            : 'Rotas de manutenção preventiva atribuídas a você'}
+        </p>
       </div>
 
-      {/* Quick Filters */}
-      <div className="flex gap-2">
-        <Button
-          variant={filter === 'hoje' ? 'default' : 'outline'}
-          size="sm"
-          onClick={() => setFilter('hoje')}
-        >
-          <CalendarDays className="mr-2 h-4 w-4" />
-          Hoje
-        </Button>
-        <Button
-          variant={filter === 'semana' ? 'default' : 'outline'}
-          size="sm"
-          onClick={() => setFilter('semana')}
-        >
-          <Calendar className="mr-2 h-4 w-4" />
-          Esta Semana
-        </Button>
-        <Button
-          variant={filter === 'todas' ? 'default' : 'outline'}
-          size="sm"
-          onClick={() => setFilter('todas')}
-        >
-          <Route className="mr-2 h-4 w-4" />
-          Todas
-        </Button>
+      {/* Filters */}
+      <div className="flex flex-col sm:flex-row gap-4">
+        {/* Quick Date Filters */}
+        <div className="flex gap-2">
+          <Button
+            variant={filter === 'hoje' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setFilter('hoje')}
+          >
+            <CalendarDays className="mr-2 h-4 w-4" />
+            Hoje
+          </Button>
+          <Button
+            variant={filter === 'semana' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setFilter('semana')}
+          >
+            <Calendar className="mr-2 h-4 w-4" />
+            Esta Semana
+          </Button>
+          <Button
+            variant={filter === 'todas' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setFilter('todas')}
+          >
+            <Route className="mr-2 h-4 w-4" />
+            Todas
+          </Button>
+        </div>
+
+        {/* Technician Filter (Admin/Coordinator only) */}
+        {isAdminOrCoordinator && (
+          <Select value={technicianFilter} onValueChange={setTechnicianFilter}>
+            <SelectTrigger className="w-[220px]">
+              <User className="mr-2 h-4 w-4" />
+              <SelectValue placeholder="Filtrar por técnico" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os técnicos</SelectItem>
+              {technicians?.map(tech => (
+                <SelectItem key={tech.id} value={tech.id}>
+                  {tech.nome}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
       </div>
 
       {/* Routes List */}
@@ -178,6 +271,13 @@ export default function MinhasRotas() {
                     <CardTitle className="text-lg font-semibold">{route.route_code}</CardTitle>
                     {renderStatusBadge(route.status)}
                   </div>
+                  {/* Show technician name for admin/coordinator */}
+                  {isAdminOrCoordinator && (
+                    <p className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
+                      <User className="h-3 w-3" />
+                      {route.technician_name}
+                    </p>
+                  )}
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {/* Period */}
@@ -227,16 +327,26 @@ export default function MinhasRotas() {
           <CardContent className="py-12 text-center">
             <Route className="mx-auto h-12 w-12 text-muted-foreground/50" />
             <h3 className="mt-4 font-semibold">
-              {filter !== 'todas' ? 'Nenhuma rota encontrada para este período' : 'Nenhuma rota atribuída'}
+              {filter !== 'todas' || technicianFilter !== 'all' 
+                ? 'Nenhuma rota encontrada com os filtros selecionados' 
+                : isAdminOrCoordinator 
+                  ? 'Nenhuma rota em execução'
+                  : 'Nenhuma rota atribuída'}
             </h3>
             <p className="text-muted-foreground mt-1">
-              {filter !== 'todas' 
-                ? 'Tente outro filtro para ver suas rotas' 
-                : 'Aguarde a atribuição de novas rotas pelo coordenador'}
+              {filter !== 'todas' || technicianFilter !== 'all'
+                ? 'Tente outros filtros para ver as rotas' 
+                : isAdminOrCoordinator
+                  ? 'Não há rotas planejadas ou em execução no momento'
+                  : 'Aguarde a atribuição de novas rotas pelo coordenador'}
             </p>
-            {filter !== 'todas' && (
-              <Button variant="outline" className="mt-4" onClick={() => setFilter('todas')}>
-                Ver todas as rotas
+            {(filter !== 'todas' || technicianFilter !== 'all') && (
+              <Button 
+                variant="outline" 
+                className="mt-4" 
+                onClick={() => { setFilter('todas'); setTechnicianFilter('all'); }}
+              >
+                Limpar filtros
               </Button>
             )}
           </CardContent>
