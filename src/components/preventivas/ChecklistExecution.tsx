@@ -955,8 +955,8 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
               )}
             </div>
             
-            {/* Block Navigation Chips */}
-            {blocks.length > 1 && (
+            {/* Block Navigation Chips - Hidden for now */}
+            {/* {blocks.length > 1 && (
               <div className="w-full overflow-x-auto overscroll-x-contain">
                 <ChecklistBlockNav 
                   blocks={navBlocks}
@@ -964,7 +964,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
                   onBlockClick={scrollToBlock}
                 />
               </div>
-            )}
+            )} */}
           </div>
         )}
         <CardContent className="space-y-6 pt-3">
