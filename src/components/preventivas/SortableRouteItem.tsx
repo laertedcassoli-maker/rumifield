@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { TableCell, TableRow } from '@/components/ui/table';
@@ -55,6 +56,9 @@ export function SortableRouteItem({
   onStatusChange,
   isUpdating,
 }: SortableRouteItemProps) {
+  const [pendingStatus, setPendingStatus] = useState<string | null>(null);
+  const [isStatusDialogOpen, setIsStatusDialogOpen] = useState(false);
+
   const {
     attributes,
     listeners,
@@ -72,6 +76,26 @@ export function SortableRouteItem({
 
   // Get completed date from status (when executado, show current date as placeholder)
   const completedDate = item.status === 'executado' ? item.planned_date : null;
+
+  const handleStatusSelect = (newStatus: string) => {
+    if (newStatus !== item.status) {
+      setPendingStatus(newStatus);
+      setIsStatusDialogOpen(true);
+    }
+  };
+
+  const confirmStatusChange = () => {
+    if (pendingStatus) {
+      onStatusChange(item.id, pendingStatus);
+      setPendingStatus(null);
+    }
+    setIsStatusDialogOpen(false);
+  };
+
+  const cancelStatusChange = () => {
+    setPendingStatus(null);
+    setIsStatusDialogOpen(false);
+  };
 
   return (
     <TableRow ref={setNodeRef} style={style} className={isDragging ? 'bg-muted' : ''}>
@@ -156,21 +180,42 @@ export function SortableRouteItem({
                 </AlertDialogContent>
               </AlertDialog>
             ) : (
-              <Select
-                value={item.status}
-                onValueChange={(v) => onStatusChange(item.id, v)}
-                disabled={isUpdating}
-              >
-                <SelectTrigger className="w-[140px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="planejado">Planejado</SelectItem>
-                  <SelectItem value="executado">Executado</SelectItem>
-                  <SelectItem value="reagendado">Reagendado</SelectItem>
-                  <SelectItem value="cancelado">Cancelado</SelectItem>
-                </SelectContent>
-              </Select>
+              <>
+                <Select
+                  value={item.status}
+                  onValueChange={handleStatusSelect}
+                  disabled={isUpdating}
+                >
+                  <SelectTrigger className="w-[140px]">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="planejado">Planejado</SelectItem>
+                    <SelectItem value="executado">Executado</SelectItem>
+                    <SelectItem value="reagendado">Reagendado</SelectItem>
+                    <SelectItem value="cancelado">Cancelado</SelectItem>
+                  </SelectContent>
+                </Select>
+
+                <AlertDialog open={isStatusDialogOpen} onOpenChange={setIsStatusDialogOpen}>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Confirmar alteração de status?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        O status da fazenda "{item.client_name}" será alterado de{' '}
+                        <strong>{itemStatusConfig[item.status as keyof typeof itemStatusConfig]?.label}</strong> para{' '}
+                        <strong>{pendingStatus ? itemStatusConfig[pendingStatus as keyof typeof itemStatusConfig]?.label : ''}</strong>.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel onClick={cancelStatusChange}>Cancelar</AlertDialogCancel>
+                      <AlertDialogAction onClick={confirmStatusChange}>
+                        Confirmar
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              </>
             )}
           </div>
         </TableCell>
