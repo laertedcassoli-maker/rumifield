@@ -1226,6 +1226,9 @@ export type Database = {
       }
       preventive_route_items: {
         Row: {
+          checkin_at: string | null
+          checkin_lat: number | null
+          checkin_lon: number | null
           client_id: string
           created_at: string
           id: string
@@ -1237,6 +1240,9 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          checkin_at?: string | null
+          checkin_lat?: number | null
+          checkin_lon?: number | null
           client_id: string
           created_at?: string
           id?: string
@@ -1248,6 +1254,9 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          checkin_at?: string | null
+          checkin_lat?: number | null
+          checkin_lon?: number | null
           client_id?: string
           created_at?: string
           id?: string

@@ -27,6 +27,8 @@ import PreventivasIndex from "./pages/preventivas/Index";
 import PreventivasRotas from "./pages/preventivas/Rotas";
 import PreventivasNovaRota from "./pages/preventivas/NovaRota";
 import PreventivasDetalheRota from "./pages/preventivas/DetalheRota";
+import PreventivasMinhasRotas from "./pages/preventivas/MinhasRotas";
+import PreventivasExecucaoRota from "./pages/preventivas/ExecucaoRota";
 import PreventivasCalendario from "./pages/preventivas/Calendario";
 import PreventivasChecklists from "./pages/preventivas/Checklists";
 import PreventivasChecklistEditor from "./pages/preventivas/ChecklistEditor";
@@ -229,6 +231,22 @@ const App = () => (
               element={
                 <AppLayout>
                   <PreventivasCalendario />
+                </AppLayout>
+              }
+            />
+            <Route
+              path="/preventivas/minhas-rotas"
+              element={
+                <AppLayout>
+                  <PreventivasMinhasRotas />
+                </AppLayout>
+              }
+            />
+            <Route
+              path="/preventivas/execucao/:id"
+              element={
+                <AppLayout>
+                  <PreventivasExecucaoRota />
                 </AppLayout>
               }
             />
