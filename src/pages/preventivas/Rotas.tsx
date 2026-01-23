@@ -50,6 +50,8 @@ interface RouteWithDetails {
   created_at: string;
   technician_name: string;
   items_count: number;
+  farm_names: string[];
+  consultant_names: string[];
 }
 
 const ITEMS_PER_PAGE = 10;
@@ -88,39 +90,100 @@ export default function PreventiveRoutes() {
       const technicianIds = [...new Set(data.map(r => r.field_technician_user_id).filter(Boolean))];
       const routeIds = data.map(r => r.id);
 
-      // Fetch profiles and item counts in parallel
+      // Fetch profiles, item counts, and route items with client info in parallel
       const [profilesResult, itemsResult] = await Promise.all([
         technicianIds.length > 0 
           ? supabase.from('profiles').select('id, nome').in('id', technicianIds)
           : Promise.resolve({ data: [] }),
-        supabase.from('preventive_route_items').select('route_id').in('route_id', routeIds)
+        supabase.from('preventive_route_items').select('route_id, client_id').in('route_id', routeIds)
       ]);
 
       const profilesMap = new Map<string, string>(
         profilesResult.data?.map(p => [p.id, p.nome] as [string, string]) || []
       );
       
-      // Count items per route
+      // Count items per route and collect client IDs
       const itemCountMap = new Map<string, number>();
+      const routeClientIdsMap = new Map<string, string[]>();
       itemsResult.data?.forEach(item => {
         itemCountMap.set(item.route_id, (itemCountMap.get(item.route_id) || 0) + 1);
+        const existing = routeClientIdsMap.get(item.route_id) || [];
+        existing.push(item.client_id);
+        routeClientIdsMap.set(item.route_id, existing);
       });
 
-      return data.map(route => ({
-        ...route,
-        technician_name: profilesMap.get(route.field_technician_user_id) || 'Não atribuído',
-        items_count: itemCountMap.get(route.id) || 0,
-      })) as RouteWithDetails[];
+      // Fetch client details (fazenda, consultor_rplus_id)
+      const allClientIds = [...new Set(itemsResult.data?.map(i => i.client_id) || [])];
+      let clientsMap = new Map<string, { fazenda: string | null; consultor_rplus_id: string | null }>();
+      let consultantNamesMap = new Map<string, string>();
+
+      if (allClientIds.length > 0) {
+        const { data: clientsData } = await supabase
+          .from('clientes')
+          .select('id, fazenda, consultor_rplus_id')
+          .in('id', allClientIds);
+        
+        clientsData?.forEach(c => {
+          clientsMap.set(c.id, { fazenda: c.fazenda, consultor_rplus_id: c.consultor_rplus_id });
+        });
+
+        // Fetch consultant names
+        const consultantIds = [...new Set(clientsData?.map(c => c.consultor_rplus_id).filter(Boolean) as string[])];
+        if (consultantIds.length > 0) {
+          const { data: consultantProfiles } = await supabase
+            .from('profiles')
+            .select('id, nome')
+            .in('id', consultantIds);
+          
+          consultantProfiles?.forEach(p => {
+            consultantNamesMap.set(p.id, p.nome);
+          });
+        }
+      }
+
+      return data.map(route => {
+        const clientIds = routeClientIdsMap.get(route.id) || [];
+        const farmNames = clientIds
+          .map(cid => clientsMap.get(cid)?.fazenda)
+          .filter(Boolean) as string[];
+        const consultantNames = [...new Set(
+          clientIds
+            .map(cid => {
+              const consultorId = clientsMap.get(cid)?.consultor_rplus_id;
+              return consultorId ? consultantNamesMap.get(consultorId) : null;
+            })
+            .filter(Boolean) as string[]
+        )];
+
+        return {
+          ...route,
+          technician_name: profilesMap.get(route.field_technician_user_id) || 'Não atribuído',
+          items_count: itemCountMap.get(route.id) || 0,
+          farm_names: farmNames,
+          consultant_names: consultantNames,
+        };
+      }) as RouteWithDetails[];
     },
   });
 
   const filteredRoutes = useMemo(() => {
     if (!routes) return [];
 
+    const searchLower = search.toLowerCase();
+    const searchWords = searchLower.split(/\s+/).filter(Boolean);
+
     return routes.filter(route => {
-      const matchesSearch = 
-        route.route_code?.toLowerCase().includes(search.toLowerCase()) ||
-        route.technician_name?.toLowerCase().includes(search.toLowerCase());
+      // Build searchable text from multiple fields
+      const searchableText = [
+        route.route_code,
+        route.technician_name,
+        ...route.farm_names,
+        ...route.consultant_names,
+      ].filter(Boolean).join(' ').toLowerCase();
+
+      // Multi-word search: all words must match
+      const matchesSearch = searchWords.length === 0 || 
+        searchWords.every(word => searchableText.includes(word));
       
       const matchesStatus = statusFilter === 'all' || route.status === statusFilter;
 
@@ -173,7 +236,7 @@ export default function PreventiveRoutes() {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder="Buscar por código ou técnico..."
+            placeholder="Buscar por código, técnico, fazenda ou consultor..."
             value={search}
             onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
             className="pl-10"
