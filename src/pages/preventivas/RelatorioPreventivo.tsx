@@ -24,6 +24,8 @@ import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
+import logoRumiFlow from '@/assets/logo-rumiflow.png';
+import logoRumina from '@/assets/logo-rumina.png';
 
 interface ReportData {
   preventive: {
@@ -334,6 +336,12 @@ export default function RelatorioPreventivo() {
       {/* Header */}
       <header className="bg-primary text-primary-foreground py-6 px-4">
         <div className="max-w-2xl mx-auto">
+          {/* Logos */}
+          <div className="flex items-center justify-center gap-6 mb-4">
+            <img src={logoRumiFlow} alt="RumiFlow" className="h-8 object-contain" />
+            <img src={logoRumina} alt="Rumina" className="h-8 object-contain" />
+          </div>
+          
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <Wrench className="h-6 w-6" />
