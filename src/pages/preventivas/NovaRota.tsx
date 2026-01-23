@@ -84,6 +84,7 @@ export default function NovaRota() {
     start_date: '',
     end_date: '',
     field_technician_user_id: '',
+    checklist_template_id: '',
     notes: '',
   });
   const [selectedClients, setSelectedClients] = useState<Set<string>>(new Set());
@@ -153,6 +154,21 @@ export default function NovaRota() {
         .in('id', roles.map(r => r.user_id));
       
       return profiles || [];
+    },
+  });
+
+  // Fetch active checklist templates
+  const { data: checklistTemplates } = useQuery({
+    queryKey: ['active-checklist-templates'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('checklist_templates')
+        .select('id, name, description')
+        .eq('active', true)
+        .order('name');
+      
+      if (error) throw error;
+      return data || [];
     },
   });
 
@@ -409,11 +425,11 @@ export default function NovaRota() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!form.route_code || !form.start_date || !form.end_date || !form.field_technician_user_id) {
+    if (!form.route_code || !form.start_date || !form.end_date || !form.field_technician_user_id || !form.checklist_template_id) {
       toast({
         variant: 'destructive',
         title: 'Campos obrigatórios',
-        description: 'Preencha todos os campos obrigatórios.',
+        description: 'Preencha todos os campos obrigatórios, incluindo o template de checklist.',
       });
       return;
     }
@@ -439,7 +455,7 @@ export default function NovaRota() {
     setIsSaving(true);
 
     try {
-      // Create route
+      // Create route with status 'em_elaboracao'
       const { data: route, error: routeError } = await supabase
         .from('preventive_routes')
         .insert({
@@ -447,10 +463,11 @@ export default function NovaRota() {
           start_date: form.start_date,
           end_date: form.end_date,
           field_technician_user_id: form.field_technician_user_id,
+          checklist_template_id: form.checklist_template_id,
           notes: form.notes || null,
           created_by_user_id: user!.id,
-          status: 'planejada',
-        })
+          status: 'em_elaboracao',
+        } as any)
         .select()
         .single();
 
@@ -473,24 +490,9 @@ export default function NovaRota() {
 
       if (itemsError) throw itemsError;
 
-      // Create preventive_maintenance records with status 'planejada' for calendar visibility
-      const preventiveRecords = Array.from(selectedClients).map(clientId => ({
-        client_id: clientId,
-        scheduled_date: form.start_date,
-        status: 'planejada' as const,
-        technician_user_id: form.field_technician_user_id,
-        notes: `Planejada na rota ${form.route_code}`,
-      }));
-
-      const { error: pmError } = await supabase
-        .from('preventive_maintenance')
-        .insert(preventiveRecords);
-
-      if (pmError) throw pmError;
-
-      toast({ title: 'Rota criada com sucesso!' });
+      toast({ title: 'Rota criada com sucesso! A rota está em elaboração.' });
       queryClient.invalidateQueries({ queryKey: ['preventive-routes'] });
-      navigate('/preventivas/rotas');
+      navigate(`/preventivas/rotas/${route.id}`);
     } catch (error: any) {
       toast({
         variant: 'destructive',
@@ -611,6 +613,34 @@ export default function NovaRota() {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+            <div className="space-y-2 md:col-span-2">
+              <Label>Template de Checklist *</Label>
+              <Select
+                value={form.checklist_template_id}
+                onValueChange={(v) => setForm({ ...form, checklist_template_id: v })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione um checklist" />
+                </SelectTrigger>
+                <SelectContent>
+                  {checklistTemplates?.map(t => (
+                    <SelectItem key={t.id} value={t.id}>
+                      <div className="flex flex-col">
+                        <span>{t.name}</span>
+                        {t.description && (
+                          <span className="text-xs text-muted-foreground">{t.description}</span>
+                        )}
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {checklistTemplates?.length === 0 && (
+                <p className="text-xs text-muted-foreground">
+                  Nenhum template ativo. <Link to="/preventivas/checklists" className="text-primary underline">Criar template</Link>
+                </p>
+              )}
             </div>
             <div className="space-y-2 md:col-span-2 lg:col-span-4">
               <Label>Observações</Label>

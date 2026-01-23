@@ -2037,7 +2037,11 @@ export type Database = {
         | "executado"
         | "reagendado"
         | "cancelado"
-      preventive_route_status: "planejada" | "em_execucao" | "finalizada"
+      preventive_route_status:
+        | "em_elaboracao"
+        | "planejada"
+        | "em_execucao"
+        | "finalizada"
       time_entry_status: "running" | "paused" | "finished"
       work_order_status: "aguardando" | "em_manutencao" | "concluido"
     }
@@ -2194,7 +2198,12 @@ export const Constants = {
         "reagendado",
         "cancelado",
       ],
-      preventive_route_status: ["planejada", "em_execucao", "finalizada"],
+      preventive_route_status: [
+        "em_elaboracao",
+        "planejada",
+        "em_execucao",
+        "finalizada",
+      ],
       time_entry_status: ["running", "paused", "finished"],
       work_order_status: ["aguardando", "em_manutencao", "concluido"],
     },

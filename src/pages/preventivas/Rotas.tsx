@@ -32,6 +32,7 @@ import { ptBR } from 'date-fns/locale';
 import { Link } from 'react-router-dom';
 
 const statusConfig = {
+  em_elaboracao: { label: 'Em Elaboração', color: 'bg-slate-500/10 text-slate-600 border-slate-500/20' },
   planejada: { label: 'Planejada', color: 'bg-blue-500/10 text-blue-600 border-blue-500/20' },
   em_execucao: { label: 'Em Execução', color: 'bg-warning/10 text-warning border-warning/20' },
   finalizada: { label: 'Finalizada', color: 'bg-green-500/10 text-green-600 border-green-500/20' },
@@ -183,6 +184,7 @@ export default function PreventiveRoutes() {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos os Status</SelectItem>
+            <SelectItem value="em_elaboracao">Em Elaboração</SelectItem>
             <SelectItem value="planejada">Planejada</SelectItem>
             <SelectItem value="em_execucao">Em Execução</SelectItem>
             <SelectItem value="finalizada">Finalizada</SelectItem>

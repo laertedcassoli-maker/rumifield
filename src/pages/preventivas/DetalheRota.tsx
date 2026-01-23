@@ -34,13 +34,16 @@ import {
   Trash2,
   CheckCircle,
   Play,
-  Flag
+  Flag,
+  FileCheck,
+  ClipboardList
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
 
 const routeStatusConfig = {
+  em_elaboracao: { label: 'Em Elaboração', color: 'bg-slate-500/10 text-slate-600 border-slate-500/20' },
   planejada: { label: 'Planejada', color: 'bg-blue-500/10 text-blue-600 border-blue-500/20' },
   em_execucao: { label: 'Em Execução', color: 'bg-warning/10 text-warning border-warning/20' },
   finalizada: { label: 'Finalizada', color: 'bg-green-500/10 text-green-600 border-green-500/20' },
@@ -74,12 +77,21 @@ export default function DetalheRota() {
       
       if (routeError) throw routeError;
 
-      // Fetch technician profile
-      const { data: techProfile } = await supabase
-        .from('profiles')
-        .select('nome')
-        .eq('id', routeData.field_technician_user_id)
-        .single();
+      // Fetch technician profile and checklist template in parallel
+      const [techProfileResult, templateResult] = await Promise.all([
+        supabase
+          .from('profiles')
+          .select('nome')
+          .eq('id', routeData.field_technician_user_id)
+          .single(),
+        routeData.checklist_template_id
+          ? supabase
+              .from('checklist_templates')
+              .select('id, name, description')
+              .eq('id', routeData.checklist_template_id)
+              .single()
+          : Promise.resolve({ data: null })
+      ]);
 
       // Fetch route items with client info
       const { data: items, error: itemsError } = await supabase
@@ -101,7 +113,8 @@ export default function DetalheRota() {
 
       return {
         ...routeData,
-        technician_name: techProfile?.nome || 'Não encontrado',
+        technician_name: techProfileResult.data?.nome || 'Não encontrado',
+        checklist_template: templateResult.data,
         items: items?.map(item => ({
           ...item,
           client_name: clientsMap.get(item.client_id)?.nome || 'Cliente não encontrado',
@@ -112,19 +125,80 @@ export default function DetalheRota() {
     enabled: !!id,
   });
 
+  // Fetch active checklist templates for editing
+  const { data: checklistTemplates } = useQuery({
+    queryKey: ['active-checklist-templates'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('checklist_templates')
+        .select('id, name, description')
+        .eq('active', true)
+        .order('name');
+      
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: route?.status === 'em_elaboracao',
+  });
+
   // Update route status
   const updateRouteStatus = useMutation({
-    mutationFn: async (newStatus: 'planejada' | 'em_execucao' | 'finalizada') => {
+    mutationFn: async (newStatus: 'em_elaboracao' | 'planejada' | 'em_execucao' | 'finalizada') => {
+      // If finalizing planning (em_elaboracao -> planejada), create preventive_maintenance records
+      if (newStatus === 'planejada' && route?.status === 'em_elaboracao') {
+        // Validate checklist is set
+        if (!route?.checklist_template_id) {
+          throw new Error('Selecione um template de checklist antes de finalizar o planejamento.');
+        }
+
+        // Create preventive_maintenance records for calendar visibility
+        const preventiveRecords = route.items.map((item: any) => ({
+          client_id: item.client_id,
+          scheduled_date: route.start_date,
+          status: 'planejada' as const,
+          technician_user_id: route.field_technician_user_id,
+          notes: `Planejada na rota ${route.route_code}`,
+        }));
+
+        const { error: pmError } = await supabase
+          .from('preventive_maintenance')
+          .insert(preventiveRecords);
+
+        if (pmError) throw pmError;
+      }
+
       const { error } = await supabase
         .from('preventive_routes')
-        .update({ status: newStatus })
+        .update({ status: newStatus } as any)
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: (_, newStatus) => {
+      queryClient.invalidateQueries({ queryKey: ['preventive-route', id] });
+      queryClient.invalidateQueries({ queryKey: ['preventive-routes'] });
+      queryClient.invalidateQueries({ queryKey: ['calendar-preventives'] });
+      const message = newStatus === 'planejada' 
+        ? 'Planejamento finalizado! A rota está pronta para execução.'
+        : 'Status atualizado!';
+      toast({ title: message });
+    },
+    onError: (error: Error) => {
+      toast({ variant: 'destructive', title: 'Erro', description: error.message });
+    },
+  });
+
+  // Update checklist template
+  const updateChecklistTemplate = useMutation({
+    mutationFn: async (templateId: string) => {
+      const { error } = await supabase
+        .from('preventive_routes')
+        .update({ checklist_template_id: templateId } as any)
         .eq('id', id);
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['preventive-route', id] });
-      queryClient.invalidateQueries({ queryKey: ['preventive-routes'] });
-      toast({ title: 'Status atualizado!' });
+      toast({ title: 'Template de checklist atualizado!' });
     },
     onError: (error: Error) => {
       toast({ variant: 'destructive', title: 'Erro', description: error.message });
@@ -272,6 +346,15 @@ export default function DetalheRota() {
         </div>
         {isAdminOrCoordinator && (
           <div className="flex gap-2">
+            {route.status === 'em_elaboracao' && (
+              <Button 
+                onClick={() => updateRouteStatus.mutate('planejada' as const)}
+                disabled={updateRouteStatus.isPending || !route.checklist_template_id}
+              >
+                <FileCheck className="mr-2 h-4 w-4" />
+                Finalizar Planejamento
+              </Button>
+            )}
             {route.status === 'planejada' && (
               <Button 
                 variant="outline"
@@ -368,6 +451,56 @@ export default function DetalheRota() {
           </CardContent>
         </Card>
       )}
+
+      {/* Checklist Template Card */}
+      <Card>
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <ClipboardList className="h-5 w-5 text-muted-foreground" />
+              <div>
+                <div className="text-sm text-muted-foreground">Template de Checklist</div>
+                {route.checklist_template ? (
+                  <div className="font-medium">{route.checklist_template.name}</div>
+                ) : (
+                  <div className="text-destructive text-sm">Nenhum template selecionado</div>
+                )}
+                {route.checklist_template?.description && (
+                  <div className="text-xs text-muted-foreground">{route.checklist_template.description}</div>
+                )}
+              </div>
+            </div>
+            {isAdminOrCoordinator && route.status === 'em_elaboracao' && (
+              <Select
+                value={route.checklist_template_id || ''}
+                onValueChange={(v) => updateChecklistTemplate.mutate(v)}
+                disabled={updateChecklistTemplate.isPending}
+              >
+                <SelectTrigger className="w-[250px]">
+                  <SelectValue placeholder="Selecione um checklist" />
+                </SelectTrigger>
+                <SelectContent>
+                  {checklistTemplates?.map(t => (
+                    <SelectItem key={t.id} value={t.id}>
+                      {t.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+            {route.status !== 'em_elaboracao' && route.checklist_template && (
+              <Badge variant="outline" className="bg-primary/10 text-primary">
+                Definido
+              </Badge>
+            )}
+          </div>
+          {route.status === 'em_elaboracao' && !route.checklist_template_id && (
+            <p className="text-xs text-destructive mt-2">
+              ⚠️ Selecione um template de checklist para poder finalizar o planejamento.
+            </p>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Items Table */}
       <Card>
