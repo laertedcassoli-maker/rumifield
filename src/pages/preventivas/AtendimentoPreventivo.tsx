@@ -433,7 +433,11 @@ export default function AtendimentoPreventivo() {
                 size="sm"
                 className="w-full"
                 onClick={async () => {
-                  const url = `${window.location.origin}/relatorio/${routeItem.publicToken}`;
+                  // Use published URL for sharing, not preview URL
+                  const baseUrl = window.location.hostname.includes('lovableproject.com') 
+                    ? 'https://rumifield.lovable.app' 
+                    : window.location.origin;
+                  const url = `${baseUrl}/relatorio/${routeItem.publicToken}`;
                   const shareData = {
                     title: `Relatório - ${routeItem.client?.nome}`,
                     text: `Confira o relatório da visita preventiva: ${url}`,
@@ -472,7 +476,11 @@ export default function AtendimentoPreventivo() {
                 size="sm"
                 className="w-full"
                 onClick={async () => {
-                  const url = `${window.location.origin}/relatorio/${routeItem.publicToken}/interno`;
+                  // Use published URL for sharing, not preview URL
+                  const baseUrl = window.location.hostname.includes('lovableproject.com') 
+                    ? 'https://rumifield.lovable.app' 
+                    : window.location.origin;
+                  const url = `${baseUrl}/relatorio/${routeItem.publicToken}/interno`;
                   const shareData = {
                     title: `Relatório Interno - ${routeItem.client?.nome}`,
                     text: `Relatório interno da visita preventiva: ${url}`,
