@@ -38,10 +38,18 @@ export function AppSidebar() {
 
   // Preventivas submenu - items vary by role
   const isTecnicoCampo = role === 'tecnico_campo';
+  const isAdminOrCoordServicos = role === 'admin' || role === 'coordenador_servicos';
   
   const preventivasItems = isTecnicoCampo
     ? [
         { title: 'Minhas Rotas', icon: Route, url: '/preventivas/minhas-rotas', permKey: 'preventivas' },
+      ]
+    : isAdminOrCoordServicos
+    ? [
+        { title: 'Clientes Preventiva', icon: Building2, url: '/preventivas', permKey: 'preventivas' },
+        { title: 'Rotas', icon: Route, url: '/preventivas/rotas', permKey: 'preventivas' },
+        { title: 'Minhas Rotas', icon: MapPin, url: '/preventivas/minhas-rotas', permKey: 'preventivas' },
+        { title: 'Calendário Anual', icon: CalendarDays, url: '/preventivas/calendario', permKey: 'preventivas' },
       ]
     : [
         { title: 'Clientes Preventiva', icon: Building2, url: '/preventivas', permKey: 'preventivas' },
