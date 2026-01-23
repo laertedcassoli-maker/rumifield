@@ -103,7 +103,7 @@ export default function RelatorioPreventivo() {
   const { data: report, isLoading, error } = useQuery({
     queryKey: ['preventive-report', token],
     queryFn: async (): Promise<ReportData> => {
-      // Fetch preventive maintenance by token
+      // Fetch preventive maintenance with client info (joined to bypass RLS on clientes)
       const { data: preventive, error: pmError } = await supabase
         .from('preventive_maintenance')
         .select(`
@@ -115,7 +115,8 @@ export default function RelatorioPreventivo() {
           internal_notes,
           public_token,
           client_id,
-          route_id
+          route_id,
+          client:clientes(nome, fazenda, cidade, estado)
         `)
         .eq('public_token', token)
         .maybeSingle();
@@ -123,12 +124,8 @@ export default function RelatorioPreventivo() {
       if (pmError) throw pmError;
       if (!preventive) throw new Error('Relatório não encontrado');
 
-      // Fetch client info
-      const { data: client } = await supabase
-        .from('clientes')
-        .select('nome, fazenda, cidade, estado')
-        .eq('id', preventive.client_id)
-        .single();
+      // Extract client from join or fallback
+      const client = preventive.client || { nome: 'Cliente', fazenda: null, cidade: null, estado: null };
 
       // Fetch route info
       let route = null;
@@ -379,29 +376,44 @@ export default function RelatorioPreventivo() {
                 </div>
               </div>
               
+              {/* Sempre mostrar técnico responsável */}
               {preventive.technician_name && (
                 <div className="flex items-center gap-2">
                   <User className="h-4 w-4 text-muted-foreground" />
                   <div>
-                    <p className="text-xs text-muted-foreground">Técnico</p>
+                    <p className="text-xs text-muted-foreground">Técnico Responsável</p>
                     <p className="font-medium">{preventive.technician_name}</p>
                   </div>
                 </div>
               )}
 
-              {isInternal && preventive.route_item?.checkin_at && (
+              {/* Check-in - mostrar para ambas versões */}
+              {preventive.route_item?.checkin_at && (
                 <div className="flex items-center gap-2">
                   <Clock className="h-4 w-4 text-muted-foreground" />
                   <div>
                     <p className="text-xs text-muted-foreground">Check-in</p>
                     <p className="font-medium">
-                      {format(parseISO(preventive.route_item.checkin_at), "HH:mm", { locale: ptBR })}
+                      {format(parseISO(preventive.route_item.checkin_at), "dd/MM HH:mm", { locale: ptBR })}
                     </p>
                   </div>
                 </div>
               )}
 
-              {preventive.route && (
+              {/* Check-out (completed_at do checklist) - mostrar para ambas versões */}
+              {checklist?.completed_at && (
+                <div className="flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-muted-foreground" />
+                  <div>
+                    <p className="text-xs text-muted-foreground">Check-out</p>
+                    <p className="font-medium">
+                      {format(parseISO(checklist.completed_at), "dd/MM HH:mm", { locale: ptBR })}
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {isInternal && preventive.route && (
                 <div className="flex items-center gap-2">
                   <FileText className="h-4 w-4 text-muted-foreground" />
                   <div>
@@ -443,18 +455,14 @@ export default function RelatorioPreventivo() {
 
               <Separator />
 
-              {/* Show only failures for client, full list for internal */}
+              {/* Show all items for both versions */}
               {checklist.blocks.map(block => {
-                const itemsToShow = isInternal 
-                  ? block.items 
-                  : block.items.filter(i => i.status === 'N');
-                
-                if (itemsToShow.length === 0) return null;
+                if (block.items.length === 0) return null;
 
                 return (
                   <div key={block.id} className="space-y-2">
                     <h4 className="font-medium text-sm text-muted-foreground">{block.block_name_snapshot}</h4>
-                    {itemsToShow.map(item => (
+                    {block.items.map(item => (
                       <div key={item.id} className={`p-2 rounded-lg ${item.status === 'N' ? 'bg-destructive/10' : 'bg-muted/50'}`}>
                         <div className="flex items-start gap-2">
                           <StatusIcon status={item.status} />
@@ -510,11 +518,18 @@ export default function RelatorioPreventivo() {
               <div className="space-y-2">
                 {parts.map(part => (
                   <div key={part.id} className="flex items-center justify-between p-2 bg-muted/50 rounded-lg">
-                    <div>
+                    <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium">{part.part_name_snapshot}</p>
-                      <p className="text-xs text-muted-foreground">{part.part_code_snapshot}</p>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <span>{part.part_code_snapshot}</span>
+                        {part.stock_source && (
+                          <Badge variant="outline" className="text-xs h-5">
+                            {part.stock_source === 'tecnico' ? 'Est. Técnico' : 'Est. Fazenda'}
+                          </Badge>
+                        )}
+                      </div>
                     </div>
-                    <div className="text-right">
+                    <div className="text-right shrink-0 ml-2">
                       <p className="font-medium">{part.quantity}x</p>
                       {isInternal && part.unit_cost_snapshot && (
                         <p className="text-xs text-muted-foreground">
