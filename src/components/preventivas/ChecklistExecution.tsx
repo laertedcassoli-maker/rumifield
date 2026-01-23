@@ -542,6 +542,19 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onCo
 
           if (error) throw error;
         } else {
+          // Check if nonconformity already exists (prevent duplicates)
+          const { data: existingNc } = await supabase
+            .from('preventive_checklist_item_nonconformities')
+            .select('id')
+            .eq('exec_item_id', itemId)
+            .eq('template_nonconformity_id', nonconformityId)
+            .maybeSingle();
+          
+          if (existingNc) {
+            // Already exists, skip insert
+            return;
+          }
+          
           // Add nonconformity
           const { data: newNc, error } = await supabase
             .from('preventive_checklist_item_nonconformities')
