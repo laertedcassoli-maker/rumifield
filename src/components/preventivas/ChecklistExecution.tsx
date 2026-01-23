@@ -777,7 +777,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onCo
   return (
     <>
       {/* Extra bottom margin ensures content can scroll above the fixed progress bar on mobile */}
-      <Card className="mb-36">
+      <Card className="mb-36 max-w-full overflow-x-hidden">
         <CardHeader className="pb-3 space-y-3 px-4 sm:px-6">
           <div className="flex items-center justify-between gap-2 min-w-0 w-full">
             <CardTitle className="flex items-center gap-2 text-base leading-tight min-w-0 flex-1 overflow-hidden">
@@ -791,7 +791,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onCo
           
           {/* Block Navigation Chips */}
           {!isCompleted && blocks.length > 1 && (
-            <div className="-mx-6 px-6 overflow-x-auto">
+            <div className="-mx-4 px-4 overflow-x-auto overscroll-x-contain">
               <ChecklistBlockNav 
                 blocks={navBlocks}
                 activeBlockId={activeBlockId}
