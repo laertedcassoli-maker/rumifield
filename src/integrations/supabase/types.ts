@@ -1351,6 +1351,50 @@ export type Database = {
           },
         ]
       }
+      preventive_visit_media: {
+        Row: {
+          caption: string | null
+          created_at: string
+          file_name: string
+          file_path: string
+          file_size: number | null
+          file_type: string
+          id: string
+          preventive_id: string
+          user_id: string
+        }
+        Insert: {
+          caption?: string | null
+          created_at?: string
+          file_name: string
+          file_path: string
+          file_size?: number | null
+          file_type: string
+          id?: string
+          preventive_id: string
+          user_id: string
+        }
+        Update: {
+          caption?: string | null
+          created_at?: string
+          file_name?: string
+          file_path?: string
+          file_size?: number | null
+          file_type?: string
+          id?: string
+          preventive_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "preventive_visit_media_preventive_id_fkey"
+            columns: ["preventive_id"]
+            isOneToOne: false
+            referencedRelation: "preventive_maintenance"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       produtos_quimicos: {
         Row: {
           ativo: boolean | null
