@@ -1,0 +1,59 @@
+import { cn } from "@/lib/utils";
+import { CheckCircle2 } from "lucide-react";
+
+interface Block {
+  id: string;
+  block_name_snapshot: string;
+  answeredCount: number;
+  totalCount: number;
+}
+
+interface ChecklistBlockNavProps {
+  blocks: Block[];
+  activeBlockId: string | null;
+  onBlockClick: (blockId: string) => void;
+}
+
+export default function ChecklistBlockNav({ 
+  blocks, 
+  activeBlockId, 
+  onBlockClick 
+}: ChecklistBlockNavProps) {
+  return (
+    <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1 scrollbar-hide">
+      {blocks.map((block, index) => {
+        const isComplete = block.answeredCount === block.totalCount && block.totalCount > 0;
+        const isActive = activeBlockId === block.id;
+        
+        return (
+          <button
+            key={block.id}
+            type="button"
+            onClick={() => onBlockClick(block.id)}
+            className={cn(
+              "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-all shrink-0",
+              isActive 
+                ? "bg-primary text-primary-foreground shadow-sm" 
+                : isComplete
+                  ? "bg-green-100 text-green-700 hover:bg-green-200"
+                  : "bg-muted text-muted-foreground hover:bg-muted/80"
+            )}
+          >
+            {isComplete ? (
+              <CheckCircle2 className="h-3.5 w-3.5" />
+            ) : (
+              <span className="text-xs opacity-70">{index + 1}</span>
+            )}
+            <span className="truncate max-w-[120px]">{block.block_name_snapshot}</span>
+            <span className={cn(
+              "text-xs px-1.5 py-0.5 rounded-full",
+              isActive ? "bg-primary-foreground/20" : "bg-background/50"
+            )}>
+              {block.answeredCount}/{block.totalCount}
+            </span>
+          </button>
+        );
+      })}
+    </div>
+  );
+}

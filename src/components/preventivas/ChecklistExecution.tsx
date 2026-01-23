@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -7,15 +7,15 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Progress } from "@/components/ui/progress";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { CheckCircle2, XCircle, MinusCircle, AlertTriangle, ClipboardCheck, Loader2, Wrench } from "lucide-react";
-
+import { AlertTriangle, ClipboardCheck, Loader2, Wrench } from "lucide-react";
+import ChecklistItemStatusButtons from "./ChecklistItemStatusButtons";
+import ChecklistBlockNav from "./ChecklistBlockNav";
+import ChecklistFloatingProgress from "./ChecklistFloatingProgress";
 interface ChecklistExecutionProps {
   preventiveId: string;
   routeTemplateId?: string; // Template ID from route - auto-start if provided
@@ -68,6 +68,8 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onCo
   const autoStartAttempted = useRef(false);
   const [autoStartState, setAutoStartState] = useState<'idle' | 'pending' | 'failed'>('idle');
   const [autoStartError, setAutoStartError] = useState<string | null>(null);
+  const blockRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const [activeBlockId, setActiveBlockId] = useState<string | null>(null);
 
   // Get existing checklist for this preventive
   const { data: existingChecklist, isLoading: loadingChecklist } = useQuery({
@@ -680,31 +682,64 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onCo
     )
   );
 
+  // Prepare blocks for navigation
+  const navBlocks = blocks.map(block => ({
+    id: block.id,
+    block_name_snapshot: block.block_name_snapshot,
+    answeredCount: block.items.filter(item => item.status !== null).length,
+    totalCount: block.items.length
+  }));
+
+  // Set initial active block
+  useEffect(() => {
+    if (blocks.length > 0 && !activeBlockId) {
+      setActiveBlockId(blocks[0].id);
+    }
+  }, [blocks, activeBlockId]);
+
+  const scrollToBlock = useCallback((blockId: string) => {
+    setActiveBlockId(blockId);
+    const element = blockRefs.current[blockId];
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, []);
+
   return (
     <>
-      <Card>
-        <CardHeader className="pb-3">
-          <div className="flex flex-col gap-2">
-            <div className="flex items-start justify-between gap-2">
-              <CardTitle className="flex items-start gap-2 text-base leading-tight">
-                <ClipboardCheck className="h-5 w-5 shrink-0 mt-0.5" />
-                <span className="break-words">Checklist: {existingChecklist.template?.name}</span>
-              </CardTitle>
-              <Badge variant={isCompleted ? "default" : "secondary"} className="shrink-0 whitespace-nowrap">
-                {isCompleted ? "Concluído" : "Em andamento"}
-              </Badge>
-            </div>
-            <p className="text-sm text-muted-foreground">
-              {answeredItems} de {totalItems} itens respondidos
-            </p>
+      <Card className="mb-24">
+        <CardHeader className="pb-3 space-y-3">
+          <div className="flex items-start justify-between gap-2">
+            <CardTitle className="flex items-start gap-2 text-base leading-tight">
+              <ClipboardCheck className="h-5 w-5 shrink-0 mt-0.5" />
+              <span className="break-words">{existingChecklist.template?.name}</span>
+            </CardTitle>
+            <Badge variant={isCompleted ? "default" : "secondary"} className="shrink-0 whitespace-nowrap">
+              {isCompleted ? "Concluído" : "Em andamento"}
+            </Badge>
           </div>
-          <Progress value={progress} className="mt-3" />
+          
+          {/* Block Navigation Chips */}
+          {!isCompleted && blocks.length > 1 && (
+            <ChecklistBlockNav 
+              blocks={navBlocks}
+              activeBlockId={activeBlockId}
+              onBlockClick={scrollToBlock}
+            />
+          )}
         </CardHeader>
         <CardContent className="space-y-6">
           {blocks.map((block) => (
-            <div key={block.id} className="space-y-3">
-              <h3 className="font-semibold text-lg border-b pb-2">
-                {block.block_name_snapshot}
+            <div 
+              key={block.id} 
+              ref={(el) => { blockRefs.current[block.id] = el; }}
+              className="space-y-3 scroll-mt-4"
+            >
+              <h3 className="font-semibold text-lg border-b pb-2 flex items-center justify-between">
+                <span>{block.block_name_snapshot}</span>
+                <span className="text-sm font-normal text-muted-foreground">
+                  {block.items.filter(i => i.status !== null).length}/{block.items.length}
+                </span>
               </h3>
               <div className="space-y-4">
                 {block.items.map((item) => (
@@ -714,53 +749,21 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onCo
                       item.status === 'N' ? 'border-destructive/50 bg-destructive/5' : ''
                     }`}
                   >
-                    <div className="flex flex-col gap-2">
+                    <div className="space-y-3">
                       <div className="flex items-start justify-between gap-2">
                         <span className="font-medium">{item.item_name_snapshot}</span>
                         {isCompleted && <StatusBadge status={item.status} />}
                       </div>
                       {!isCompleted && (
-                        <RadioGroup
-                          value={item.status || ''}
-                          onValueChange={(value) => 
+                        <ChecklistItemStatusButtons
+                          value={item.status}
+                          onChange={(status) => 
                             updateItemMutation.mutate({ 
                               itemId: item.id, 
-                              status: value as 'S' | 'N' | 'NA' 
+                              status 
                             })
                           }
-                          className="flex flex-wrap gap-x-4 gap-y-2"
-                        >
-                          <div className="flex items-center space-x-2">
-                            <RadioGroupItem value="S" id={`${item.id}-s`} />
-                            <Label 
-                              htmlFor={`${item.id}-s`} 
-                              className="flex items-center gap-1 cursor-pointer text-green-600"
-                            >
-                              <CheckCircle2 className="h-4 w-4" />
-                              OK
-                            </Label>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <RadioGroupItem value="N" id={`${item.id}-n`} />
-                            <Label 
-                              htmlFor={`${item.id}-n`} 
-                              className="flex items-center gap-1 cursor-pointer text-destructive"
-                            >
-                              <XCircle className="h-4 w-4" />
-                              Falha
-                            </Label>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <RadioGroupItem value="NA" id={`${item.id}-na`} />
-                            <Label 
-                              htmlFor={`${item.id}-na`} 
-                              className="flex items-center gap-1 cursor-pointer text-muted-foreground"
-                            >
-                              <MinusCircle className="h-4 w-4" />
-                              N/A
-                            </Label>
-                          </div>
-                        </RadioGroup>
+                        />
                       )}
                     </div>
 
@@ -896,31 +899,19 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onCo
             </div>
           ))}
 
-          {/* Complete button */}
-          {!isCompleted && (
-            <div className="pt-4 border-t">
-              {hasIncompleteFailures && (
-                <p className="text-sm text-amber-600 mb-3 flex items-center gap-1">
-                  <AlertTriangle className="h-4 w-4" />
-                  Existem itens com falha sem ações corretivas selecionadas.
-                </p>
-              )}
-              <Button 
-                onClick={() => setIsConfirmCompleteOpen(true)}
-                disabled={!allAnswered}
-                className="w-full"
-              >
-                Concluir Checklist
-              </Button>
-              {!allAnswered && (
-                <p className="text-xs text-muted-foreground text-center mt-2">
-                  Responda todos os itens para concluir
-                </p>
-              )}
-            </div>
-          )}
         </CardContent>
       </Card>
+
+      {/* Floating Progress Bar */}
+      {!isCompleted && (
+        <ChecklistFloatingProgress
+          answered={answeredItems}
+          total={totalItems}
+          onComplete={() => setIsConfirmCompleteOpen(true)}
+          disabled={completeChecklistMutation.isPending}
+          hasWarnings={hasIncompleteFailures}
+        />
+      )}
 
       <AlertDialog open={isConfirmCompleteOpen} onOpenChange={setIsConfirmCompleteOpen}>
         <AlertDialogContent>
