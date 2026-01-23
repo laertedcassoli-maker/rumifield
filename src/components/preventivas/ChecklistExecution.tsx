@@ -76,6 +76,11 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
   const [isBlockExpanded, setIsBlockExpanded] = useState(false);
+  const [pendingStatusChange, setPendingStatusChange] = useState<{
+    itemId: string;
+    newStatus: 'S' | 'N' | 'NA';
+    hasSelections: boolean;
+  } | null>(null);
   
   // Offline support hook
   const offlineChecklist = useOfflineChecklist();
@@ -1021,13 +1026,24 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
                           <ChecklistItemStatusButtons
                             value={item.status}
                             onChange={(status) => {
-                              updateItemMutation.mutate({ 
-                                itemId: item.id, 
-                                status 
-                              });
-                              // Auto-expand when marking as failure
-                              if (status === 'N') {
-                                setExpandedItems(prev => new Set([...prev, item.id]));
+                              // Check if changing from N to S/NA with selections
+                              const hasSelections = item.selectedNonconformities.length > 0 || item.selectedActions.length > 0;
+                              if (item.status === 'N' && (status === 'S' || status === 'NA') && hasSelections) {
+                                // Show confirmation dialog
+                                setPendingStatusChange({
+                                  itemId: item.id,
+                                  newStatus: status,
+                                  hasSelections: true
+                                });
+                              } else {
+                                updateItemMutation.mutate({ 
+                                  itemId: item.id, 
+                                  status 
+                                });
+                                // Auto-expand when marking as failure
+                                if (status === 'N') {
+                                  setExpandedItems(prev => new Set([...prev, item.id]));
+                                }
                               }
                             }}
                           />
@@ -1220,6 +1236,36 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
             >
               {completeChecklistMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               Concluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Confirmation dialog for changing status from N to S/NA */}
+      <AlertDialog open={!!pendingStatusChange} onOpenChange={(open) => !open && setPendingStatusChange(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Alterar status do item?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Este item possui não conformidades ou ações corretivas selecionadas. 
+              Ao alterar para {pendingStatusChange?.newStatus === 'S' ? '"OK"' : '"N/A"'}, 
+              essas seleções serão removidas e as peças consumidas associadas serão excluídas.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => {
+                if (pendingStatusChange) {
+                  updateItemMutation.mutate({ 
+                    itemId: pendingStatusChange.itemId, 
+                    status: pendingStatusChange.newStatus 
+                  });
+                  setPendingStatusChange(null);
+                }
+              }}
+            >
+              Confirmar
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
