@@ -1,11 +1,12 @@
 import { cn } from "@/lib/utils";
-import { Check } from "lucide-react";
+import { Check, Loader2 } from "lucide-react";
 import type { ReactNode } from "react";
 
 interface SelectableOptionCardProps {
   label: string;
   selected: boolean;
   disabled?: boolean;
+  loading?: boolean;
   onClick: () => void;
   icon?: ReactNode;
   variant?: "default" | "warning" | "danger" | "success";
@@ -15,6 +16,7 @@ export default function SelectableOptionCard({
   label,
   selected,
   disabled,
+  loading = false,
   onClick,
   icon,
   variant = "default",
@@ -39,15 +41,16 @@ export default function SelectableOptionCard({
   };
 
   const styles = variantStyles[variant];
+  const isDisabled = disabled || loading;
 
   return (
     <button
       type="button"
-      disabled={disabled}
+      disabled={isDisabled}
       onClick={onClick}
       className={cn(
         "w-full flex items-center gap-3 p-3 rounded-lg border text-left transition-all text-sm",
-        disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer active:scale-[0.98]",
+        isDisabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer active:scale-[0.98]",
         selected ? styles.selected : styles.base
       )}
     >
@@ -66,7 +69,11 @@ export default function SelectableOptionCard({
             : "border-muted-foreground/30"
         )}
       >
-        {selected && <Check className="h-3 w-3 text-white" />}
+        {loading ? (
+          <Loader2 className="h-3 w-3 text-white animate-spin" />
+        ) : (
+          selected && <Check className="h-3 w-3 text-white" />
+        )}
       </div>
 
       {/* Icon */}
