@@ -3,10 +3,16 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Table,
   TableBody,
@@ -29,7 +35,7 @@ import {
 import { 
   Loader2, 
   ArrowLeft,
-  Calendar,
+  Calendar as CalendarIcon,
   User,
   Trash2,
   CheckCircle,
@@ -38,11 +44,17 @@ import {
   FileCheck,
   ClipboardList,
   MapPin,
-  ExternalLink
+  ExternalLink,
+  ChevronUp,
+  ChevronDown,
+  Plus,
+  X,
+  Search
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
 
 const routeStatusConfig = {
   em_elaboracao: { label: 'Em Elaboração', color: 'bg-slate-500/10 text-slate-600 border-slate-500/20' },
@@ -64,6 +76,12 @@ export default function DetalheRota() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  const [startDateOpen, setStartDateOpen] = useState(false);
+  const [endDateOpen, setEndDateOpen] = useState(false);
+  const [addFarmDialogOpen, setAddFarmDialogOpen] = useState(false);
+  const [farmSearch, setFarmSearch] = useState('');
+  const [selectedNewFarms, setSelectedNewFarms] = useState<Set<string>>(new Set());
 
   const isAdminOrCoordinator = role === 'admin' || role === 'coordenador_servicos';
 
@@ -144,6 +162,48 @@ export default function DetalheRota() {
     enabled: route?.status === 'em_elaboracao',
   });
 
+  // Fetch field technicians for editing
+  const { data: technicians } = useQuery({
+    queryKey: ['field-technicians'],
+    queryFn: async () => {
+      const { data: roles } = await supabase
+        .from('user_roles')
+        .select('user_id')
+        .eq('role', 'tecnico_campo');
+      
+      if (!roles?.length) return [];
+
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, nome')
+        .in('id', roles.map(r => r.user_id));
+      
+      return profiles || [];
+    },
+    enabled: route?.status === 'em_elaboracao',
+  });
+
+  // Fetch available clients for adding to route
+  const { data: availableClients } = useQuery({
+    queryKey: ['available-clients-for-route', id],
+    queryFn: async () => {
+      // Get existing client IDs in the route
+      const existingClientIds = route?.items.map((i: any) => i.client_id) || [];
+      
+      const { data, error } = await supabase
+        .from('clientes')
+        .select('id, nome, fazenda, estado')
+        .eq('status', 'ativo')
+        .order('nome');
+      
+      if (error) throw error;
+      
+      // Filter out clients already in the route
+      return (data || []).filter(c => !existingClientIds.includes(c.id));
+    },
+    enabled: route?.status === 'em_elaboracao' && addFarmDialogOpen,
+  });
+
   // Update route status
   const updateRouteStatus = useMutation({
     mutationFn: async (newStatus: 'em_elaboracao' | 'planejada' | 'em_execucao' | 'finalizada') => {
@@ -208,11 +268,109 @@ export default function DetalheRota() {
     },
   });
 
+  // Update route details (dates, technician)
+  const updateRouteDetails = useMutation({
+    mutationFn: async (updates: { start_date?: string; end_date?: string; field_technician_user_id?: string }) => {
+      const { error } = await supabase
+        .from('preventive_routes')
+        .update(updates)
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['preventive-route', id] });
+      toast({ title: 'Rota atualizada!' });
+    },
+    onError: (error: Error) => {
+      toast({ variant: 'destructive', title: 'Erro', description: error.message });
+    },
+  });
+
+  // Remove item from route
+  const removeRouteItem = useMutation({
+    mutationFn: async (itemId: string) => {
+      const { error } = await supabase
+        .from('preventive_route_items')
+        .delete()
+        .eq('id', itemId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['preventive-route', id] });
+      queryClient.invalidateQueries({ queryKey: ['available-clients-for-route', id] });
+      toast({ title: 'Fazenda removida da rota!' });
+    },
+    onError: (error: Error) => {
+      toast({ variant: 'destructive', title: 'Erro', description: error.message });
+    },
+  });
+
+  // Add farms to route
+  const addFarmsToRoute = useMutation({
+    mutationFn: async (clientIds: string[]) => {
+      const items = clientIds.map(clientId => ({
+        route_id: id,
+        client_id: clientId,
+        status: 'planejado' as const,
+      }));
+
+      const { error } = await supabase
+        .from('preventive_route_items')
+        .insert(items);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['preventive-route', id] });
+      queryClient.invalidateQueries({ queryKey: ['available-clients-for-route', id] });
+      setSelectedNewFarms(new Set());
+      setAddFarmDialogOpen(false);
+      toast({ title: 'Fazendas adicionadas à rota!' });
+    },
+    onError: (error: Error) => {
+      toast({ variant: 'destructive', title: 'Erro', description: error.message });
+    },
+  });
+
+  // Reorder item (move up or down)
+  const reorderItem = useMutation({
+    mutationFn: async ({ itemId, direction }: { itemId: string; direction: 'up' | 'down' }) => {
+      const currentIndex = route?.items.findIndex((i: any) => i.id === itemId);
+      if (currentIndex === undefined || currentIndex === -1) return;
+
+      const targetIndex = direction === 'up' ? currentIndex - 1 : currentIndex + 1;
+      if (targetIndex < 0 || targetIndex >= (route?.items.length || 0)) return;
+
+      const currentItem = route?.items[currentIndex];
+      const targetItem = route?.items[targetIndex];
+
+      // Swap created_at timestamps to change order
+      const { error: error1 } = await supabase
+        .from('preventive_route_items')
+        .update({ created_at: targetItem.created_at })
+        .eq('id', currentItem.id);
+      
+      if (error1) throw error1;
+
+      const { error: error2 } = await supabase
+        .from('preventive_route_items')
+        .update({ created_at: currentItem.created_at })
+        .eq('id', targetItem.id);
+      
+      if (error2) throw error2;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['preventive-route', id] });
+    },
+    onError: (error: Error) => {
+      toast({ variant: 'destructive', title: 'Erro ao reordenar', description: error.message });
+    },
+  });
+
   // Update item status
   const updateItemStatus = useMutation({
     mutationFn: async ({ itemId, newStatus }: { itemId: string; newStatus: string }) => {
       const updateData: any = { status: newStatus };
-      const item = route?.items.find(i => i.id === itemId);
+      const item = route?.items.find((i: any) => i.id === itemId);
       
       if (item) {
         // Find existing preventive_maintenance record for this client in this route's date range
@@ -223,7 +381,7 @@ export default function DetalheRota() {
           .eq('scheduled_date', route?.start_date)
           .in('status', ['planejada', 'concluida'])
           .limit(1)
-          .single();
+          .maybeSingle();
 
         if (newStatus === 'executado') {
           if (existingPm) {
@@ -311,6 +469,14 @@ export default function DetalheRota() {
     },
   });
 
+  // Filter available clients for search
+  const filteredAvailableClients = availableClients?.filter(c => {
+    if (!farmSearch) return true;
+    const searchWords = farmSearch.toLowerCase().split(' ').filter(Boolean);
+    const searchText = `${c.nome} ${c.fazenda || ''} ${c.estado || ''}`.toLowerCase();
+    return searchWords.every(word => searchText.includes(word));
+  }) || [];
+
   if (isLoading) {
     return (
       <div className="flex justify-center py-12">
@@ -332,6 +498,7 @@ export default function DetalheRota() {
 
   const executedCount = route.items.filter((i: any) => i.status === 'executado').length;
   const totalCount = route.items.length;
+  const isEditable = route.status === 'em_elaboracao' && isAdminOrCoordinator;
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -408,21 +575,84 @@ export default function DetalheRota() {
         <Card>
           <CardContent className="p-4">
             <div className="text-sm text-muted-foreground">Período</div>
-            <div className="flex items-center gap-2 mt-1">
-              <Calendar className="h-4 w-4 text-muted-foreground" />
-              <span className="font-medium">
-                {format(new Date(route.start_date), 'dd/MM', { locale: ptBR })} - {format(new Date(route.end_date), 'dd/MM/yyyy', { locale: ptBR })}
-              </span>
-            </div>
+            {isEditable ? (
+              <div className="flex gap-2 mt-1">
+                <Popover open={startDateOpen} onOpenChange={setStartDateOpen}>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="sm" className="h-8 text-xs">
+                      {format(new Date(route.start_date), 'dd/MM', { locale: ptBR })}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={new Date(route.start_date)}
+                      onSelect={(date) => {
+                        if (date) {
+                          updateRouteDetails.mutate({ start_date: format(date, 'yyyy-MM-dd') });
+                          setStartDateOpen(false);
+                        }
+                      }}
+                      locale={ptBR}
+                    />
+                  </PopoverContent>
+                </Popover>
+                <span className="self-center">-</span>
+                <Popover open={endDateOpen} onOpenChange={setEndDateOpen}>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="sm" className="h-8 text-xs">
+                      {format(new Date(route.end_date), 'dd/MM/yy', { locale: ptBR })}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={new Date(route.end_date)}
+                      onSelect={(date) => {
+                        if (date) {
+                          updateRouteDetails.mutate({ end_date: format(date, 'yyyy-MM-dd') });
+                          setEndDateOpen(false);
+                        }
+                      }}
+                      disabled={(date) => date < new Date(route.start_date)}
+                      locale={ptBR}
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 mt-1">
+                <CalendarIcon className="h-4 w-4 text-muted-foreground" />
+                <span className="font-medium">
+                  {format(new Date(route.start_date), 'dd/MM', { locale: ptBR })} - {format(new Date(route.end_date), 'dd/MM/yyyy', { locale: ptBR })}
+                </span>
+              </div>
+            )}
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
             <div className="text-sm text-muted-foreground">Técnico de Campo</div>
-            <div className="flex items-center gap-2 mt-1">
-              <User className="h-4 w-4 text-muted-foreground" />
-              <span className="font-medium">{route.technician_name}</span>
-            </div>
+            {isEditable ? (
+              <Select
+                value={route.field_technician_user_id}
+                onValueChange={(v) => updateRouteDetails.mutate({ field_technician_user_id: v })}
+              >
+                <SelectTrigger className="h-8 mt-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {technicians?.map(t => (
+                    <SelectItem key={t.id} value={t.id}>{t.nome}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <div className="flex items-center gap-2 mt-1">
+                <User className="h-4 w-4 text-muted-foreground" />
+                <span className="font-medium">{route.technician_name}</span>
+              </div>
+            )}
           </CardContent>
         </Card>
         <Card>
@@ -473,7 +703,7 @@ export default function DetalheRota() {
                 )}
               </div>
             </div>
-            {isAdminOrCoordinator && route.status === 'em_elaboracao' && (
+            {isEditable && (
               <Select
                 value={route.checklist_template_id || ''}
                 onValueChange={(v) => updateChecklistTemplate.mutate(v)}
@@ -497,7 +727,7 @@ export default function DetalheRota() {
               </Badge>
             )}
           </div>
-          {route.status === 'em_elaboracao' && !route.checklist_template_id && (
+          {isEditable && !route.checklist_template_id && (
             <p className="text-xs text-destructive mt-2">
               ⚠️ Selecione um template de checklist para poder finalizar o planejamento.
             </p>
@@ -508,12 +738,111 @@ export default function DetalheRota() {
       {/* Items Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Fazendas da Rota</CardTitle>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Fazendas da Rota</CardTitle>
+              {isEditable && (
+                <CardDescription>
+                  Use as setas para reordenar ou remova fazendas da rota
+                </CardDescription>
+              )}
+            </div>
+            {isEditable && (
+              <Dialog open={addFarmDialogOpen} onOpenChange={setAddFarmDialogOpen}>
+                <DialogTrigger asChild>
+                  <Button size="sm">
+                    <Plus className="mr-2 h-4 w-4" />
+                    Adicionar Fazendas
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-2xl max-h-[80vh]">
+                  <DialogHeader>
+                    <DialogTitle>Adicionar Fazendas à Rota</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                      <Input
+                        placeholder="Buscar fazenda..."
+                        value={farmSearch}
+                        onChange={(e) => setFarmSearch(e.target.value)}
+                        className="pl-10"
+                      />
+                    </div>
+                    <div className="border rounded-lg max-h-[400px] overflow-auto">
+                      {filteredAvailableClients.length > 0 ? (
+                        <Table>
+                          <TableHeader>
+                            <TableRow>
+                              <TableHead className="w-10"></TableHead>
+                              <TableHead>Fazenda</TableHead>
+                              <TableHead>UF</TableHead>
+                            </TableRow>
+                          </TableHeader>
+                          <TableBody>
+                            {filteredAvailableClients.map(client => (
+                              <TableRow key={client.id}>
+                                <TableCell>
+                                  <Checkbox
+                                    checked={selectedNewFarms.has(client.id)}
+                                    onCheckedChange={(checked) => {
+                                      const newSet = new Set(selectedNewFarms);
+                                      if (checked) {
+                                        newSet.add(client.id);
+                                      } else {
+                                        newSet.delete(client.id);
+                                      }
+                                      setSelectedNewFarms(newSet);
+                                    }}
+                                  />
+                                </TableCell>
+                                <TableCell>
+                                  <div>
+                                    <div className="font-medium">{client.nome}</div>
+                                    {client.fazenda && (
+                                      <div className="text-sm text-muted-foreground">{client.fazenda}</div>
+                                    )}
+                                  </div>
+                                </TableCell>
+                                <TableCell>{client.estado || '-'}</TableCell>
+                              </TableRow>
+                            ))}
+                          </TableBody>
+                        </Table>
+                      ) : (
+                        <div className="p-8 text-center text-muted-foreground">
+                          {farmSearch ? 'Nenhuma fazenda encontrada' : 'Todas as fazendas já estão na rota'}
+                        </div>
+                      )}
+                    </div>
+                    {selectedNewFarms.size > 0 && (
+                      <p className="text-sm text-muted-foreground">
+                        {selectedNewFarms.size} fazenda(s) selecionada(s)
+                      </p>
+                    )}
+                  </div>
+                  <DialogFooter>
+                    <DialogClose asChild>
+                      <Button variant="outline">Cancelar</Button>
+                    </DialogClose>
+                    <Button
+                      onClick={() => addFarmsToRoute.mutate(Array.from(selectedNewFarms))}
+                      disabled={selectedNewFarms.size === 0 || addFarmsToRoute.isPending}
+                    >
+                      {addFarmsToRoute.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      Adicionar
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
           <Table>
             <TableHeader>
               <TableRow>
+                {isEditable && <TableHead className="w-20">Ordem</TableHead>}
                 <TableHead>Fazenda</TableHead>
                 <TableHead>Localização</TableHead>
                 <TableHead>Motivo da Inclusão</TableHead>
@@ -523,8 +852,32 @@ export default function DetalheRota() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {route.items.map((item: any) => (
+              {route.items.map((item: any, index: number) => (
                 <TableRow key={item.id}>
+                  {isEditable && (
+                    <TableCell>
+                      <div className="flex flex-col gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6"
+                          onClick={() => reorderItem.mutate({ itemId: item.id, direction: 'up' })}
+                          disabled={index === 0 || reorderItem.isPending}
+                        >
+                          <ChevronUp className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-6 w-6"
+                          onClick={() => reorderItem.mutate({ itemId: item.id, direction: 'down' })}
+                          disabled={index === route.items.length - 1 || reorderItem.isPending}
+                        >
+                          <ChevronDown className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  )}
                   <TableCell>
                     <div>
                       <div className="font-medium">{item.client_name}</div>
@@ -565,27 +918,59 @@ export default function DetalheRota() {
                   </TableCell>
                   {isAdminOrCoordinator && (
                     <TableCell className="text-right">
-                      <Select
-                        value={item.status}
-                        onValueChange={(v) => updateItemStatus.mutate({ itemId: item.id, newStatus: v })}
-                        disabled={updateItemStatus.isPending}
-                      >
-                        <SelectTrigger className="w-[140px]">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="planejado">Planejado</SelectItem>
-                          <SelectItem value="executado">Executado</SelectItem>
-                          <SelectItem value="reagendado">Reagendado</SelectItem>
-                          <SelectItem value="cancelado">Cancelado</SelectItem>
-                        </SelectContent>
-                      </Select>
+                      <div className="flex items-center justify-end gap-2">
+                        {isEditable ? (
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive">
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Remover fazenda?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  A fazenda "{item.client_name}" será removida da rota.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => removeRouteItem.mutate(item.id)}>
+                                  Remover
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        ) : (
+                          <Select
+                            value={item.status}
+                            onValueChange={(v) => updateItemStatus.mutate({ itemId: item.id, newStatus: v })}
+                            disabled={updateItemStatus.isPending}
+                          >
+                            <SelectTrigger className="w-[140px]">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="planejado">Planejado</SelectItem>
+                              <SelectItem value="executado">Executado</SelectItem>
+                              <SelectItem value="reagendado">Reagendado</SelectItem>
+                              <SelectItem value="cancelado">Cancelado</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        )}
+                      </div>
                     </TableCell>
                   )}
                 </TableRow>
               ))}
             </TableBody>
           </Table>
+          {route.items.length === 0 && (
+            <div className="text-center py-8 text-muted-foreground">
+              Nenhuma fazenda na rota.
+              {isEditable && ' Clique em "Adicionar Fazendas" para começar.'}
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>
