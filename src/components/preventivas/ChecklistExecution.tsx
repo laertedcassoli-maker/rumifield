@@ -66,6 +66,8 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onCo
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
   const [isConfirmCompleteOpen, setIsConfirmCompleteOpen] = useState(false);
   const autoStartAttempted = useRef(false);
+  const [autoStartState, setAutoStartState] = useState<'idle' | 'pending' | 'failed'>('idle');
+  const [autoStartError, setAutoStartError] = useState<string | null>(null);
 
   // Get existing checklist for this preventive
   const { data: existingChecklist, isLoading: loadingChecklist } = useQuery({
@@ -283,18 +285,30 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onCo
       queryClient.invalidateQueries({ queryKey: ['preventive-checklist', preventiveId] });
       toast.success('Checklist iniciado!');
       setIsSelectTemplateOpen(false);
+      setAutoStartState('idle');
+      setAutoStartError(null);
     },
     onError: (error) => {
       toast.error('Erro ao iniciar checklist: ' + error.message);
-      // Don't reset - keep autoStartAttempted true to prevent infinite loops
+      setAutoStartState('failed');
+      setAutoStartError(error.message);
     }
   });
+
+  const retryAutoStart = () => {
+    if (!routeTemplateId) return;
+    setAutoStartState('pending');
+    setAutoStartError(null);
+    createChecklistMutation.mutate(routeTemplateId);
+  };
 
   // Auto-start checklist if routeTemplateId is provided and no checklist exists
   useEffect(() => {
     if (!existingChecklist && routeTemplateId && !loadingChecklist && !autoStartAttempted.current && !createChecklistMutation.isPending) {
       console.log('[ChecklistExecution] Auto-starting with template:', routeTemplateId);
       autoStartAttempted.current = true;
+      setAutoStartState('pending');
+      setAutoStartError(null);
       createChecklistMutation.mutate(routeTemplateId);
     }
   }, [existingChecklist, routeTemplateId, loadingChecklist, createChecklistMutation.isPending]);
@@ -529,7 +543,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onCo
   });
 
   // Show loading while fetching or auto-creating checklist
-  if (loadingChecklist || (routeTemplateId && !existingChecklist && (autoStartAttempted.current || createChecklistMutation.isPending))) {
+  if (loadingChecklist || (routeTemplateId && !existingChecklist && (autoStartState === 'pending' || createChecklistMutation.isPending))) {
     return (
       <Card>
         <CardContent className="p-6">
@@ -538,6 +552,34 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onCo
             <p className="text-sm text-muted-foreground">
               {createChecklistMutation.isPending ? 'Iniciando checklist...' : 'Carregando...'}
             </p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Auto-start attempted but checklist didn't appear (avoid frozen screen)
+  if (routeTemplateId && !existingChecklist && autoStartAttempted.current && autoStartState !== 'pending') {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <AlertTriangle className="h-5 w-5 text-primary" />
+            Não foi possível iniciar o checklist
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-sm text-muted-foreground">
+            {autoStartError ? `Detalhe: ${autoStartError}` : 'A criação automática não retornou um checklist.'}
+          </p>
+          <div className="flex gap-2">
+            <Button onClick={retryAutoStart} disabled={createChecklistMutation.isPending}>
+              {createChecklistMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Tentar novamente
+            </Button>
+            <Button variant="outline" onClick={() => setIsSelectTemplateOpen(true)}>
+              Selecionar template
+            </Button>
           </div>
         </CardContent>
       </Card>
