@@ -18,6 +18,7 @@ import { CheckCircle2, XCircle, MinusCircle, AlertTriangle, ClipboardCheck, Load
 
 interface ChecklistExecutionProps {
   preventiveId: string;
+  routeTemplateId?: string; // Template ID from route - auto-start if provided
   onComplete?: () => void;
 }
 
@@ -58,12 +59,13 @@ interface ExecBlock {
 
 type ChecklistStatus = 'em_andamento' | 'concluido';
 
-export default function ChecklistExecution({ preventiveId, onComplete }: ChecklistExecutionProps) {
+export default function ChecklistExecution({ preventiveId, routeTemplateId, onComplete }: ChecklistExecutionProps) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [isSelectTemplateOpen, setIsSelectTemplateOpen] = useState(false);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
   const [isConfirmCompleteOpen, setIsConfirmCompleteOpen] = useState(false);
+  const [autoStarted, setAutoStarted] = useState(false);
 
   // Get existing checklist for this preventive
   const { data: existingChecklist, isLoading: loadingChecklist } = useQuery({
@@ -120,7 +122,7 @@ export default function ChecklistExecution({ preventiveId, onComplete }: Checkli
       if (error) throw error;
       return data;
     },
-    enabled: !existingChecklist
+    enabled: !existingChecklist && !routeTemplateId
   });
 
   // Get corrective actions for template items
@@ -284,8 +286,17 @@ export default function ChecklistExecution({ preventiveId, onComplete }: Checkli
     },
     onError: (error) => {
       toast.error('Erro ao iniciar checklist: ' + error.message);
+      setAutoStarted(false); // Allow retry
     }
   });
+
+  // Auto-start checklist if routeTemplateId is provided and no checklist exists
+  useEffect(() => {
+    if (!existingChecklist && routeTemplateId && !loadingChecklist && !autoStarted && !createChecklistMutation.isPending) {
+      setAutoStarted(true);
+      createChecklistMutation.mutate(routeTemplateId);
+    }
+  }, [existingChecklist, routeTemplateId, loadingChecklist, autoStarted, createChecklistMutation.isPending]);
 
   // Update item status
   const updateItemMutation = useMutation({
