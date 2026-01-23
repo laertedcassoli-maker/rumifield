@@ -68,28 +68,25 @@ export default function AtendimentoPreventivo() {
         .eq('id', item.client_id)
         .maybeSingle();
 
-      // Fetch or find preventive_maintenance record
+      // Fetch or find preventive_maintenance record by route_id (unique constraint)
       let preventiveId: string | null = null;
       
-      // Use order + limit to handle multiple records for same client/date
-      const { data: existingPmList } = await supabase
+      const { data: existingPm } = await supabase
         .from('preventive_maintenance')
         .select('id')
         .eq('client_id', item.client_id)
-        .eq('scheduled_date', route?.start_date)
-        .order('created_at', { ascending: false })
-        .limit(1);
-      
-      const existingPm = existingPmList?.[0];
+        .eq('route_id', item.route_id)
+        .maybeSingle();
 
       if (existingPm) {
         preventiveId = existingPm.id;
       } else if (route?.start_date) {
-        // Create preventive_maintenance record if not exists
+        // Create preventive_maintenance record with route_id (ensures uniqueness)
         const { data: newPm, error: pmError } = await supabase
           .from('preventive_maintenance')
           .insert([{
             client_id: item.client_id,
+            route_id: item.route_id,
             scheduled_date: route.start_date,
             status: 'planejada' as const,
             technician_user_id: route.field_technician_user_id,
