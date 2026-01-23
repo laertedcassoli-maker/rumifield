@@ -124,7 +124,7 @@ export default function ObservationsBlock({
               </p>
               {isCompleted ? (
                 internalNotes ? (
-                  <div className="bg-muted/50 rounded p-3 text-sm">
+                  <div className="bg-muted/50 rounded p-3 text-sm whitespace-pre-wrap">
                     {internalNotes}
                   </div>
                 ) : (
@@ -163,7 +163,7 @@ export default function ObservationsBlock({
               </p>
               {isCompleted ? (
                 publicNotes ? (
-                  <div className="bg-muted/50 rounded p-3 text-sm">
+                  <div className="bg-muted/50 rounded p-3 text-sm whitespace-pre-wrap">
                     {publicNotes}
                   </div>
                 ) : (
