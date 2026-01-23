@@ -215,15 +215,26 @@ export default function AdminClientes() {
   const { data: consultores = [] } = useQuery({
     queryKey: ['consultores-rplus'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      // First get user_ids with the appropriate roles
+      const { data: roleData, error: roleError } = await supabase
         .from('user_roles')
-        .select('user_id, profiles!inner(id, nome)')
+        .select('user_id')
         .in('role', ['consultor_rplus', 'coordenador_rplus', 'admin']);
-      if (error) throw error;
-      return data?.map(ur => ({
-        id: (ur.profiles as unknown as Profile).id,
-        nome: (ur.profiles as unknown as Profile).nome,
-      })) || [];
+      
+      if (roleError) throw roleError;
+      if (!roleData || roleData.length === 0) return [];
+      
+      const userIds = roleData.map(r => r.user_id);
+      
+      // Then get profiles for those users
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('id, nome')
+        .in('id', userIds)
+        .order('nome');
+      
+      if (profileError) throw profileError;
+      return profileData || [];
     },
   });
 
