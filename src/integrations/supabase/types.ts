@@ -1109,6 +1109,7 @@ export type Database = {
           created_at: string
           id: string
           notes: string | null
+          route_id: string | null
           scheduled_date: string
           status: Database["public"]["Enums"]["preventive_maintenance_status"]
           technician_user_id: string | null
@@ -1120,6 +1121,7 @@ export type Database = {
           created_at?: string
           id?: string
           notes?: string | null
+          route_id?: string | null
           scheduled_date: string
           status?: Database["public"]["Enums"]["preventive_maintenance_status"]
           technician_user_id?: string | null
@@ -1131,6 +1133,7 @@ export type Database = {
           created_at?: string
           id?: string
           notes?: string | null
+          route_id?: string | null
           scheduled_date?: string
           status?: Database["public"]["Enums"]["preventive_maintenance_status"]
           technician_user_id?: string | null
@@ -1149,6 +1152,13 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "preventive_maintenance_route_id_fkey"
+            columns: ["route_id"]
+            isOneToOne: false
+            referencedRelation: "preventive_routes"
             referencedColumns: ["id"]
           },
         ]
