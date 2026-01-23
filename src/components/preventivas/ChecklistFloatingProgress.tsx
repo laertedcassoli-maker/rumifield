@@ -123,10 +123,7 @@ export default function ChecklistFloatingProgress({
           {getSyncStatusDisplay()}
         </div>
 
-        <div className="flex items-center justify-between gap-3">
-          {/* Left spacer for floating home button */}
-          <div className="w-14 shrink-0 sm:hidden" />
-          
+        <div className="flex items-center justify-between gap-4">
           <div className="flex-1 space-y-1 min-w-0">
             <div className="flex items-center justify-between text-sm">
               <span className="font-medium">

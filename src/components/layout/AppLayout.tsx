@@ -32,7 +32,9 @@ export function AppLayout({ children }: AppLayoutProps) {
   
   const pageTitle = pageTitles[location.pathname] || 'RumiField';
   const isHomePage = location.pathname === '/';
+  const isChecklistExecution = location.pathname.includes('/preventivas/execucao') && location.pathname.includes('/atendimento');
   const showBanner = !isOnline || syncStatus === "syncing" || pendingCount > 0;
+  const showFloatingHomeButton = !isHomePage && !isChecklistExecution;
 
   const handleForceRefresh = async () => {
     setIsRefreshing(true);
@@ -95,8 +97,8 @@ export function AppLayout({ children }: AppLayoutProps) {
         </main>
       </SidebarInset>
       
-      {/* Floating Home Button - Mobile only, hidden on home page */}
-      {!isHomePage && (
+      {/* Floating Home Button - Mobile only, hidden on home page and checklist execution */}
+      {showFloatingHomeButton && (
         <Link
           to="/"
           className="fixed bottom-6 left-6 md:hidden z-[100] flex h-14 w-14 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg active:scale-95 transition-transform"
