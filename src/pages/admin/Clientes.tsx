@@ -63,6 +63,7 @@ interface Cliente {
   link_maps: string | null;
   consultor_rplus_id: string | null;
   preventive_frequency_days: number | null;
+  modelo_contrato: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -95,7 +96,14 @@ interface ClienteForm {
   link_maps: string;
   consultor_rplus_id: string;
   preventive_frequency_days: number | null;
+  modelo_contrato: string;
 }
+
+const modeloContratoOptions = [
+  { value: 'setup', label: 'Setup' },
+  { value: 'comodato', label: 'Comodato' },
+  { value: 'venda', label: 'Venda' },
+];
 
 type SortField = 'nome' | 'fazenda' | 'cod_imilk' | 'status';
 type SortDirection = 'asc' | 'desc';
@@ -132,6 +140,7 @@ export default function AdminClientes() {
     link_maps: '',
     consultor_rplus_id: '',
     preventive_frequency_days: null,
+    modelo_contrato: '',
   });
   const [search, setSearch] = useState('');
   const [sortField, setSortField] = useState<SortField>('nome');
@@ -195,7 +204,7 @@ export default function AdminClientes() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('clientes')
-        .select('id, nome, fazenda, cod_imilk, cidade, estado, endereco, telefone, email, observacoes, status, data_ativacao_rumiflow, ordenhas_dia, tipo_painel, tipo_pistola_id, quantidade_pistolas, latitude, longitude, link_maps, consultor_rplus_id, preventive_frequency_days, created_at, updated_at')
+        .select('id, nome, fazenda, cod_imilk, cidade, estado, endereco, telefone, email, observacoes, status, data_ativacao_rumiflow, ordenhas_dia, tipo_painel, tipo_pistola_id, quantidade_pistolas, latitude, longitude, link_maps, consultor_rplus_id, preventive_frequency_days, modelo_contrato, created_at, updated_at')
         .order('nome');
       if (error) throw error;
       return data as unknown as Cliente[];
@@ -329,6 +338,7 @@ export default function AdminClientes() {
         longitude: data.longitude ? parseFloat(data.longitude) : null,
         link_maps: mapsLink || null,
         consultor_rplus_id: data.consultor_rplus_id || null,
+        modelo_contrato: data.modelo_contrato || null,
       });
       if (error) throw error;
     },
@@ -365,6 +375,7 @@ export default function AdminClientes() {
           link_maps: mapsLink || null,
           consultor_rplus_id: data.consultor_rplus_id || null,
           preventive_frequency_days: data.preventive_frequency_days,
+          modelo_contrato: data.modelo_contrato || null,
         })
         .eq('id', id);
       if (error) throw error;
@@ -445,6 +456,7 @@ export default function AdminClientes() {
       link_maps: '',
       consultor_rplus_id: '',
       preventive_frequency_days: null,
+      modelo_contrato: '',
     });
   };
 
@@ -467,6 +479,7 @@ export default function AdminClientes() {
       link_maps: cliente.link_maps || '',
       consultor_rplus_id: cliente.consultor_rplus_id || '',
       preventive_frequency_days: cliente.preventive_frequency_days,
+      modelo_contrato: cliente.modelo_contrato || '',
     });
     setOpen(true);
   };
@@ -666,6 +679,28 @@ export default function AdminClientes() {
                           {consultores.map((consultor) => (
                             <SelectItem key={consultor.id} value={consultor.id}>
                               {consultor.nome}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-2">
+                      <Label>Modelo de Contrato</Label>
+                      <Select
+                        value={form.modelo_contrato || '_none'}
+                        onValueChange={(value) => setForm({ ...form, modelo_contrato: value === '_none' ? '' : value })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Selecione" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="_none">Não definido</SelectItem>
+                          {modeloContratoOptions.map((option) => (
+                            <SelectItem key={option.value} value={option.value}>
+                              {option.label}
                             </SelectItem>
                           ))}
                         </SelectContent>
