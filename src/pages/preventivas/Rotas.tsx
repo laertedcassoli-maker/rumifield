@@ -21,6 +21,7 @@ import {
   Route,
   Plus,
   Eye,
+  Pencil,
   Calendar,
   User,
   ChevronLeft,
@@ -238,7 +239,11 @@ export default function PreventiveRoutes() {
                     <TableCell className="text-right">
                       <Button variant="ghost" size="sm" asChild>
                         <Link to={`/preventivas/rotas/${route.id}`}>
-                          <Eye className="h-4 w-4" />
+                          {route.status === 'em_elaboracao' ? (
+                            <Pencil className="h-4 w-4" />
+                          ) : (
+                            <Eye className="h-4 w-4" />
+                          )}
                         </Link>
                       </Button>
                     </TableCell>
