@@ -361,6 +361,7 @@ export type Database = {
           latitude: number | null
           link_maps: string | null
           longitude: number | null
+          modelo_contrato: string | null
           nome: string
           observacoes: string | null
           omie_codigo: string | null
@@ -387,6 +388,7 @@ export type Database = {
           latitude?: number | null
           link_maps?: string | null
           longitude?: number | null
+          modelo_contrato?: string | null
           nome: string
           observacoes?: string | null
           omie_codigo?: string | null
@@ -413,6 +415,7 @@ export type Database = {
           latitude?: number | null
           link_maps?: string | null
           longitude?: number | null
+          modelo_contrato?: string | null
           nome?: string
           observacoes?: string | null
           omie_codigo?: string | null
