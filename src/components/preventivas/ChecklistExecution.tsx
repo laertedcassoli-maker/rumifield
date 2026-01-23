@@ -708,7 +708,8 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onCo
 
   return (
     <>
-      <Card className="mb-24">
+      {/* Extra bottom margin ensures content can scroll above the fixed progress bar on mobile */}
+      <Card className="mb-36">
         <CardHeader className="pb-3 space-y-3">
           <div className="flex items-start justify-between gap-2">
             <CardTitle className="flex items-start gap-2 text-base leading-tight">

@@ -21,7 +21,7 @@ export default function ChecklistFloatingProgress({
   const isAllAnswered = answered === total && total > 0;
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur border-t shadow-lg safe-area-inset-bottom z-50">
+    <div className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur border-t shadow-lg z-50 pb-[env(safe-area-inset-bottom)]">
       <div className="max-w-2xl mx-auto px-4 py-3 space-y-2">
         <div className="flex items-center justify-between gap-4">
           <div className="flex-1 space-y-1">
