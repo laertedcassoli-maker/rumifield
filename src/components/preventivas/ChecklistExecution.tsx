@@ -11,11 +11,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { toast } from "sonner";
-import { AlertTriangle, ClipboardCheck, Loader2, Wrench, WifiOff, Cloud, ChevronDown, ChevronUp } from "lucide-react";
+import { AlertTriangle, ClipboardCheck, Loader2, Wrench, WifiOff, Cloud, ChevronDown, ChevronUp, RefreshCw, CheckCircle2 } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
 import ChecklistItemStatusButtons from "./ChecklistItemStatusButtons";
 import SelectableOptionCard from "./SelectableOptionCard";
 import ChecklistBlockNav from "./ChecklistBlockNav";
-import ChecklistFloatingProgress from "./ChecklistFloatingProgress";
 import ChecklistItemNotes from "./ChecklistItemNotes";
 
 interface ChecklistExecutionProps {
@@ -781,23 +781,133 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onCo
     totalCount: block.items.length
   }));
 
+  const isSavingNow = isSaving || updateItemMutation.isPending || toggleActionMutation.isPending || toggleNonconformityMutation.isPending;
+  const isAllAnswered = answeredItems === totalItems && totalItems > 0;
+
+  const formatTime = (date: Date) => {
+    return date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+  };
+
+  const getSyncStatusDisplay = () => {
+    if (!offlineChecklist.isOnline && offlineChecklist.pendingCount > 0) {
+      return (
+        <div className="flex items-center gap-1.5 text-amber-600">
+          <WifiOff className="h-3 w-3" />
+          <span>{offlineChecklist.pendingCount} pendente{offlineChecklist.pendingCount > 1 ? 's' : ''}</span>
+        </div>
+      );
+    }
+    if (!offlineChecklist.isOnline) {
+      return (
+        <div className="flex items-center gap-1.5 text-amber-600">
+          <WifiOff className="h-3 w-3" />
+          <span>Offline</span>
+        </div>
+      );
+    }
+    if (isSavingNow || offlineChecklist.syncStatus === "syncing") {
+      return (
+        <div className="flex items-center gap-1.5 text-muted-foreground">
+          <Loader2 className="h-3 w-3 animate-spin" />
+          <span>Salvando...</span>
+        </div>
+      );
+    }
+    if (offlineChecklist.syncStatus === "pending" && offlineChecklist.pendingCount > 0) {
+      return (
+        <button 
+          onClick={offlineChecklist.triggerSync}
+          className="flex items-center gap-1.5 text-amber-600 hover:text-amber-700 transition-colors"
+        >
+          <RefreshCw className="h-3 w-3" />
+          <span>Sincronizar</span>
+        </button>
+      );
+    }
+    if (offlineChecklist.syncStatus === "error") {
+      return (
+        <button 
+          onClick={offlineChecklist.triggerSync}
+          className="flex items-center gap-1.5 text-destructive hover:text-destructive/80 transition-colors"
+        >
+          <RefreshCw className="h-3 w-3" />
+          <span>Erro</span>
+        </button>
+      );
+    }
+    if (lastSavedAt) {
+      return (
+        <div className="flex items-center gap-1.5 text-success">
+          <Cloud className="h-3 w-3" />
+          <span>Salvo {formatTime(lastSavedAt)}</span>
+        </div>
+      );
+    }
+    return (
+      <div className="flex items-center gap-1.5 text-muted-foreground">
+        <Cloud className="h-3 w-3" />
+        <span>Sincronizado</span>
+      </div>
+    );
+  };
+
   return (
     <>
-      {/* Extra bottom margin ensures content can scroll above the fixed progress bar on mobile */}
-      <Card className="mb-36 max-w-full overflow-x-hidden">
+      <Card className="max-w-full overflow-x-hidden">
         <CardHeader className="pb-3 space-y-3 px-4 sm:px-6">
+          {/* Title row */}
           <div className="flex flex-wrap items-center justify-between gap-2 min-w-0 w-full">
             <CardTitle className="flex items-center gap-2 text-base leading-tight min-w-0 flex-1 overflow-hidden">
               <ClipboardCheck className="h-5 w-5 shrink-0" />
               <span className="truncate">{existingChecklist.template?.name}</span>
             </CardTitle>
-            <Badge
-              variant={isCompleted ? "default" : "secondary"}
-              className="shrink-0 text-xs whitespace-nowrap px-2 py-1"
-            >
-              {isCompleted ? "Concluído" : "Em andamento"}
-            </Badge>
+            {isCompleted && (
+              <Badge variant="default" className="shrink-0 text-xs whitespace-nowrap px-2 py-1">
+                Concluído
+              </Badge>
+            )}
           </div>
+
+          {/* Progress controls - only when not completed */}
+          {!isCompleted && (
+            <div className="space-y-2 pt-1">
+              {/* Sync status */}
+              <div className="flex items-center justify-center text-xs">
+                {getSyncStatusDisplay()}
+              </div>
+
+              {/* Progress bar and complete button */}
+              <div className="flex items-center gap-3">
+                <div className="flex-1 space-y-1 min-w-0">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="font-medium">{answeredItems}/{totalItems} itens</span>
+                    <span className="text-muted-foreground">{Math.round(progress)}%</span>
+                  </div>
+                  <Progress value={progress} className="h-2" />
+                </div>
+                <Button
+                  onClick={() => setIsConfirmCompleteOpen(true)}
+                  disabled={completeChecklistMutation.isPending || !isAllAnswered || !offlineChecklist.isOnline}
+                  className="shrink-0"
+                  size="default"
+                >
+                  <CheckCircle2 className="h-4 w-4 mr-1.5" />
+                  Concluir
+                </Button>
+              </div>
+
+              {/* Warning messages */}
+              {!offlineChecklist.isOnline && isAllAnswered && (
+                <p className="text-xs text-amber-600 text-center">⚠️ Reconecte para concluir</p>
+              )}
+              {hasIncompleteFailures && isAllAnswered && offlineChecklist.isOnline && (
+                <p className="text-xs text-amber-600 text-center">⚠️ Existem falhas sem tratativas</p>
+              )}
+              {!isAllAnswered && (
+                <p className="text-xs text-muted-foreground text-center">Responda todos os itens para concluir</p>
+              )}
+            </div>
+          )}
           
           {/* Block Navigation Chips */}
           {!isCompleted && blocks.length > 1 && (
@@ -1044,22 +1154,6 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onCo
         </CardContent>
       </Card>
 
-      {/* Floating Progress Bar with offline sync status */}
-      {!isCompleted && (
-        <ChecklistFloatingProgress
-          answered={answeredItems}
-          total={totalItems}
-          onComplete={() => setIsConfirmCompleteOpen(true)}
-          disabled={completeChecklistMutation.isPending}
-          hasWarnings={hasIncompleteFailures}
-          isSaving={isSaving || updateItemMutation.isPending || toggleActionMutation.isPending || toggleNonconformityMutation.isPending}
-          lastSavedAt={lastSavedAt}
-          isOnline={offlineChecklist.isOnline}
-          syncStatus={offlineChecklist.syncStatus}
-          pendingCount={offlineChecklist.pendingCount}
-          onRetrySync={offlineChecklist.triggerSync}
-        />
-      )}
 
       <AlertDialog open={isConfirmCompleteOpen} onOpenChange={setIsConfirmCompleteOpen}>
         <AlertDialogContent>
