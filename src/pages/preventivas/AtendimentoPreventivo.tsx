@@ -434,25 +434,33 @@ export default function AtendimentoPreventivo() {
                 className="w-full"
                 onClick={async () => {
                   const url = `${window.location.origin}/relatorio/${routeItem.publicToken}`;
-                  try {
-                    if (navigator.share) {
-                      await navigator.share({
-                        title: `Relatório - ${routeItem.client?.nome}`,
-                        text: 'Confira o relatório da visita preventiva',
-                        url
-                      });
-                    } else {
-                      await navigator.clipboard.writeText(url);
-                      toast({ title: 'Link copiado!' });
-                    }
-                  } catch {
-                    // Fallback to clipboard if share fails
+                  const shareData = {
+                    title: `Relatório - ${routeItem.client?.nome}`,
+                    text: `Confira o relatório da visita preventiva: ${url}`,
+                    url
+                  };
+                  
+                  // Check if native share is available and can share this content
+                  const canNativeShare = typeof navigator.share === 'function' && 
+                    (!navigator.canShare || navigator.canShare(shareData));
+                  
+                  if (canNativeShare) {
                     try {
-                      await navigator.clipboard.writeText(url);
-                      toast({ title: 'Link copiado!' });
-                    } catch {
-                      toast({ title: 'Link do relatório', description: url });
+                      await navigator.share(shareData);
+                      return;
+                    } catch (err) {
+                      // User cancelled or share failed - fall through to clipboard
+                      if ((err as Error).name === 'AbortError') return;
                     }
+                  }
+                  
+                  // Fallback: copy to clipboard
+                  try {
+                    await navigator.clipboard.writeText(url);
+                    toast({ title: 'Link copiado!', description: 'Cole no WhatsApp para enviar' });
+                  } catch {
+                    // Last resort: show the URL
+                    toast({ title: 'Link do relatório', description: url });
                   }
                 }}
               >
@@ -465,25 +473,33 @@ export default function AtendimentoPreventivo() {
                 className="w-full"
                 onClick={async () => {
                   const url = `${window.location.origin}/relatorio/${routeItem.publicToken}/interno`;
-                  try {
-                    if (navigator.share) {
-                      await navigator.share({
-                        title: `Relatório Interno - ${routeItem.client?.nome}`,
-                        text: 'Relatório interno da visita preventiva',
-                        url
-                      });
-                    } else {
-                      await navigator.clipboard.writeText(url);
-                      toast({ title: 'Link copiado!' });
-                    }
-                  } catch {
-                    // Fallback to clipboard if share fails
+                  const shareData = {
+                    title: `Relatório Interno - ${routeItem.client?.nome}`,
+                    text: `Relatório interno da visita preventiva: ${url}`,
+                    url
+                  };
+                  
+                  // Check if native share is available and can share this content
+                  const canNativeShare = typeof navigator.share === 'function' && 
+                    (!navigator.canShare || navigator.canShare(shareData));
+                  
+                  if (canNativeShare) {
                     try {
-                      await navigator.clipboard.writeText(url);
-                      toast({ title: 'Link copiado!' });
-                    } catch {
-                      toast({ title: 'Link do relatório interno', description: url });
+                      await navigator.share(shareData);
+                      return;
+                    } catch (err) {
+                      // User cancelled or share failed - fall through to clipboard
+                      if ((err as Error).name === 'AbortError') return;
                     }
+                  }
+                  
+                  // Fallback: copy to clipboard
+                  try {
+                    await navigator.clipboard.writeText(url);
+                    toast({ title: 'Link copiado!', description: 'Cole no WhatsApp para enviar' });
+                  } catch {
+                    // Last resort: show the URL
+                    toast({ title: 'Link do relatório interno', description: url });
                   }
                 }}
               >
