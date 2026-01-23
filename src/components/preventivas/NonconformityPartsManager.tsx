@@ -37,7 +37,22 @@ export default function NonconformityPartsManager({ nonconformityId, nonconformi
   const [selectedPartId, setSelectedPartId] = useState<string | null>(null);
   const [quantity, setQuantity] = useState("1");
 
-  // Fetch parts associated with this nonconformity
+  // Fetch parts count always (for badge display)
+  const { data: partsCount } = useQuery({
+    queryKey: ['nonconformity-parts-count', nonconformityId],
+    queryFn: async () => {
+      const { count, error } = await (supabase as any)
+        .from('checklist_nonconformity_parts')
+        .select('id', { count: 'exact', head: true })
+        .eq('nonconformity_id', nonconformityId);
+      
+      if (error) throw error;
+      return count ?? 0;
+    },
+    staleTime: 30000 // 30s cache to avoid too many requests
+  });
+
+  // Fetch full parts data when dialog is open
   // Note: Using 'as any' because types may not be regenerated after migration
   const { data: ncParts, isLoading } = useQuery({
     queryKey: ['nonconformity-parts', nonconformityId],
@@ -94,6 +109,7 @@ export default function NonconformityPartsManager({ nonconformityId, nonconformi
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['nonconformity-parts', nonconformityId] });
+      queryClient.invalidateQueries({ queryKey: ['nonconformity-parts-count', nonconformityId] });
       toast.success('Peça associada!');
       setIsAddOpen(false);
       setSelectedPartId(null);
@@ -135,6 +151,7 @@ export default function NonconformityPartsManager({ nonconformityId, nonconformi
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['nonconformity-parts', nonconformityId] });
+      queryClient.invalidateQueries({ queryKey: ['nonconformity-parts-count', nonconformityId] });
       toast.success('Peça removida!');
     },
     onError: (error: Error) => {
@@ -164,9 +181,9 @@ export default function NonconformityPartsManager({ nonconformityId, nonconformi
         <Button variant="ghost" size="sm" className="h-6 px-2 gap-1">
           <Package className="h-3 w-3" />
           <span className="text-xs">Peças</span>
-          {ncParts && ncParts.length > 0 && (
+          {(partsCount ?? 0) > 0 && (
             <Badge variant="secondary" className="h-4 px-1 text-xs">
-              {ncParts.length}
+              {partsCount}
             </Badge>
           )}
         </Button>
