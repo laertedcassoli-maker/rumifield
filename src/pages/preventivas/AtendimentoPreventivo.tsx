@@ -192,7 +192,7 @@ export default function AtendimentoPreventivo() {
   const isCompleted = routeItem.status === 'executado';
 
   return (
-    <div className="space-y-4 animate-fade-in pb-24 overflow-x-hidden">
+    <div className="space-y-4 animate-fade-in pb-40 w-full max-w-full">
       {/* Sticky Header */}
       <div className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 -mx-4 px-4 py-3 border-b">
         <div className="flex items-center gap-3">

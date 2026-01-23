@@ -20,7 +20,7 @@ export default function ChecklistBlockNav({
   onBlockClick 
 }: ChecklistBlockNavProps) {
   return (
-    <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1 scrollbar-hide">
+    <div className="flex gap-2 overflow-x-auto pb-2 -mx-2 px-2 scrollbar-hide snap-x snap-mandatory">
       {blocks.map((block, index) => {
         const isComplete = block.answeredCount === block.totalCount && block.totalCount > 0;
         const isActive = activeBlockId === block.id;
