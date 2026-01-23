@@ -319,6 +319,19 @@ export default function RelatorioPreventivo() {
     return <MinusCircle className="h-4 w-4 text-muted-foreground" />;
   };
 
+  const uniqueByLabel = <T extends { [K in L]: string }, L extends keyof any>(
+    items: T[],
+    labelKey: L
+  ) => {
+    const map = new Map<string, T>();
+    for (const it of items) {
+      const label = String((it as any)[labelKey] ?? '').trim();
+      if (!label) continue;
+      if (!map.has(label)) map.set(label, it);
+    }
+    return Array.from(map.values());
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-muted/30 to-background">
       {/* Header */}
@@ -452,7 +465,7 @@ export default function RelatorioPreventivo() {
                               <div className="mt-1">
                                 <p className="text-xs text-muted-foreground">Não conformidades:</p>
                                 <ul className="text-xs list-disc list-inside text-destructive">
-                                  {item.nonconformities.map(nc => (
+                                  {uniqueByLabel(item.nonconformities, 'nonconformity_label_snapshot').map(nc => (
                                     <li key={nc.id}>{nc.nonconformity_label_snapshot}</li>
                                   ))}
                                 </ul>
@@ -463,7 +476,7 @@ export default function RelatorioPreventivo() {
                               <div className="mt-1">
                                 <p className="text-xs text-muted-foreground">Ações corretivas:</p>
                                 <ul className="text-xs list-disc list-inside text-green-700">
-                                  {item.actions.map(a => (
+                                  {uniqueByLabel(item.actions, 'action_label_snapshot').map(a => (
                                     <li key={a.id}>{a.action_label_snapshot}</li>
                                   ))}
                                 </ul>
