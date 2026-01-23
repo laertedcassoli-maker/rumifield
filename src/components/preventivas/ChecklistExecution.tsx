@@ -709,12 +709,12 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onCo
   return (
     <>
       {/* Extra bottom margin ensures content can scroll above the fixed progress bar on mobile */}
-      <Card className="mb-36">
+      <Card className="mb-36 overflow-hidden">
         <CardHeader className="pb-3 space-y-3">
           <div className="flex items-start justify-between gap-2">
-            <CardTitle className="flex items-start gap-2 text-base leading-tight">
+            <CardTitle className="flex items-start gap-2 text-base leading-tight min-w-0">
               <ClipboardCheck className="h-5 w-5 shrink-0 mt-0.5" />
-              <span className="break-words">{existingChecklist.template?.name}</span>
+              <span className="break-words truncate">{existingChecklist.template?.name}</span>
             </CardTitle>
             <Badge variant={isCompleted ? "default" : "secondary"} className="shrink-0 whitespace-nowrap">
               {isCompleted ? "Concluído" : "Em andamento"}
@@ -723,14 +723,16 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onCo
           
           {/* Block Navigation Chips */}
           {!isCompleted && blocks.length > 1 && (
-            <ChecklistBlockNav 
-              blocks={navBlocks}
-              activeBlockId={activeBlockId}
-              onBlockClick={scrollToBlock}
-            />
+            <div className="overflow-x-auto -mx-6 px-6">
+              <ChecklistBlockNav 
+                blocks={navBlocks}
+                activeBlockId={activeBlockId}
+                onBlockClick={scrollToBlock}
+              />
+            </div>
           )}
         </CardHeader>
-        <CardContent className="space-y-6">
+        <CardContent className="space-y-6 overflow-x-hidden">
           {blocks.map((block) => (
             <div 
               key={block.id} 
