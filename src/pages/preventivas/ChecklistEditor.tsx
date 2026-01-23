@@ -15,7 +15,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { toast } from "sonner";
 import { ArrowLeft, Plus, Trash2, GripVertical, ChevronDown, ChevronRight, Save, Wrench, Copy, AlertTriangle } from "lucide-react";
-import ActionPartsManager from "@/components/preventivas/ActionPartsManager";
+import NonconformityPartsManager from "@/components/preventivas/NonconformityPartsManager";
 
 interface CorrectiveAction {
   id: string;
@@ -892,6 +892,10 @@ export default function ChecklistEditor() {
                                         onSave={(value) => updateNonconformityMutation.mutate({ ncId: nc.id, ncLabel: value })}
                                         className="flex-1 text-sm"
                                       />
+                                      <NonconformityPartsManager 
+                                        nonconformityId={nc.id} 
+                                        nonconformityLabel={nc.nonconformity_label} 
+                                      />
                                       <div className="flex items-center gap-2">
                                         <span className="text-xs text-muted-foreground">Ativo</span>
                                         <Switch
@@ -934,10 +938,6 @@ export default function ChecklistEditor() {
                                         value={action.action_label}
                                         onSave={(value) => updateActionMutation.mutate({ actionId: action.id, actionLabel: value })}
                                         className="flex-1 text-sm"
-                                      />
-                                      <ActionPartsManager 
-                                        actionId={action.id} 
-                                        actionLabel={action.action_label} 
                                       />
                                       <div className="flex items-center gap-2">
                                         <span className="text-xs text-muted-foreground">Ativo</span>

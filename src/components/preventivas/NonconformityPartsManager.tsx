@@ -12,9 +12,9 @@ import { toast } from "sonner";
 import { Package, Plus, Trash2, Check, ChevronsUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-interface ActionPart {
+interface NonconformityPart {
   id: string;
-  action_id: string;
+  nonconformity_id: string;
   part_id: string;
   default_quantity: number;
   part?: {
@@ -25,35 +25,36 @@ interface ActionPart {
   };
 }
 
-interface ActionPartsManagerProps {
-  actionId: string;
-  actionLabel: string;
+interface NonconformityPartsManagerProps {
+  nonconformityId: string;
+  nonconformityLabel: string;
 }
 
-export default function ActionPartsManager({ actionId, actionLabel }: ActionPartsManagerProps) {
+export default function NonconformityPartsManager({ nonconformityId, nonconformityLabel }: NonconformityPartsManagerProps) {
   const queryClient = useQueryClient();
   const [isOpen, setIsOpen] = useState(false);
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [selectedPartId, setSelectedPartId] = useState<string | null>(null);
   const [quantity, setQuantity] = useState("1");
 
-  // Fetch parts associated with this action
-  const { data: actionParts, isLoading } = useQuery({
-    queryKey: ['action-parts', actionId],
+  // Fetch parts associated with this nonconformity
+  // Note: Using 'as any' because types may not be regenerated after migration
+  const { data: ncParts, isLoading } = useQuery({
+    queryKey: ['nonconformity-parts', nonconformityId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('checklist_action_parts')
+      const { data, error } = await (supabase as any)
+        .from('checklist_nonconformity_parts')
         .select(`
           id,
-          action_id,
+          nonconformity_id,
           part_id,
           default_quantity,
           part:pecas(id, codigo, nome, familia)
         `)
-        .eq('action_id', actionId);
+        .eq('nonconformity_id', nonconformityId);
       
       if (error) throw error;
-      return data as ActionPart[];
+      return data as NonconformityPart[];
     },
     enabled: isOpen
   });
@@ -81,10 +82,10 @@ export default function ActionPartsManager({ actionId, actionLabel }: ActionPart
     mutationFn: async () => {
       if (!selectedPartId) throw new Error('Selecione uma peça');
       
-      const { error } = await supabase
-        .from('checklist_action_parts')
+      const { error } = await (supabase as any)
+        .from('checklist_nonconformity_parts')
         .insert({
-          action_id: actionId,
+          nonconformity_id: nonconformityId,
           part_id: selectedPartId,
           default_quantity: parseFloat(quantity) || 1
         });
@@ -92,7 +93,7 @@ export default function ActionPartsManager({ actionId, actionLabel }: ActionPart
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['action-parts', actionId] });
+      queryClient.invalidateQueries({ queryKey: ['nonconformity-parts', nonconformityId] });
       toast.success('Peça associada!');
       setIsAddOpen(false);
       setSelectedPartId(null);
@@ -100,7 +101,7 @@ export default function ActionPartsManager({ actionId, actionLabel }: ActionPart
     },
     onError: (error: any) => {
       if (error.code === '23505') {
-        toast.error('Esta peça já está associada a esta ação');
+        toast.error('Esta peça já está associada a esta não conformidade');
       } else {
         toast.error('Erro ao associar peça: ' + error.message);
       }
@@ -110,33 +111,33 @@ export default function ActionPartsManager({ actionId, actionLabel }: ActionPart
   // Update quantity mutation
   const updateQuantityMutation = useMutation({
     mutationFn: async ({ id, newQuantity }: { id: string; newQuantity: number }) => {
-      const { error } = await supabase
-        .from('checklist_action_parts')
+      const { error } = await (supabase as any)
+        .from('checklist_nonconformity_parts')
         .update({ default_quantity: newQuantity })
         .eq('id', id);
       
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['action-parts', actionId] });
+      queryClient.invalidateQueries({ queryKey: ['nonconformity-parts', nonconformityId] });
     }
   });
 
   // Remove part mutation
   const removePartMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await supabase
-        .from('checklist_action_parts')
+      const { error } = await (supabase as any)
+        .from('checklist_nonconformity_parts')
         .delete()
         .eq('id', id);
       
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['action-parts', actionId] });
+      queryClient.invalidateQueries({ queryKey: ['nonconformity-parts', nonconformityId] });
       toast.success('Peça removida!');
     },
-    onError: (error) => {
+    onError: (error: Error) => {
       toast.error('Erro ao remover: ' + error.message);
     }
   });
@@ -145,7 +146,7 @@ export default function ActionPartsManager({ actionId, actionLabel }: ActionPart
 
   // Filter out already associated parts
   const filteredParts = availableParts?.filter(
-    (p: { id: string }) => !actionParts?.some(ap => ap.part_id === p.id)
+    (p: { id: string }) => !ncParts?.some(np => np.part_id === p.id)
   );
 
   // Group parts by family
@@ -163,9 +164,9 @@ export default function ActionPartsManager({ actionId, actionLabel }: ActionPart
         <Button variant="ghost" size="sm" className="h-6 px-2 gap-1">
           <Package className="h-3 w-3" />
           <span className="text-xs">Peças</span>
-          {actionParts && actionParts.length > 0 && (
+          {ncParts && ncParts.length > 0 && (
             <Badge variant="secondary" className="h-4 px-1 text-xs">
-              {actionParts.length}
+              {ncParts.length}
             </Badge>
           )}
         </Button>
@@ -177,7 +178,7 @@ export default function ActionPartsManager({ actionId, actionLabel }: ActionPart
             Peças Associadas
           </DialogTitle>
           <p className="text-sm text-muted-foreground">
-            Ação: {actionLabel}
+            Não Conformidade: {nonconformityLabel}
           </p>
         </DialogHeader>
 
@@ -187,20 +188,20 @@ export default function ActionPartsManager({ actionId, actionLabel }: ActionPart
             <div className="text-center text-sm text-muted-foreground py-4">
               Carregando...
             </div>
-          ) : actionParts?.length === 0 ? (
+          ) : ncParts?.length === 0 ? (
             <div className="text-center text-sm text-muted-foreground py-4 border rounded-lg">
-              Nenhuma peça associada a esta ação.
+              Nenhuma peça associada a esta não conformidade.
             </div>
           ) : (
             <div className="space-y-2 max-h-64 overflow-y-auto">
-              {actionParts?.map(ap => (
-                <div key={ap.id} className="flex items-center gap-2 p-2 border rounded-lg bg-muted/30">
+              {ncParts?.map(np => (
+                <div key={np.id} className="flex items-center gap-2 p-2 border rounded-lg bg-muted/30">
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium truncate">
-                      {ap.part?.codigo} - {ap.part?.nome}
+                      {np.part?.codigo} - {np.part?.nome}
                     </p>
-                    {ap.part?.familia && (
-                      <p className="text-xs text-muted-foreground">{ap.part.familia}</p>
+                    {np.part?.familia && (
+                      <p className="text-xs text-muted-foreground">{np.part.familia}</p>
                     )}
                   </div>
                   <div className="flex items-center gap-2">
@@ -209,11 +210,11 @@ export default function ActionPartsManager({ actionId, actionLabel }: ActionPart
                       type="number"
                       min="0.01"
                       step="0.01"
-                      value={ap.default_quantity}
+                      value={np.default_quantity}
                       onChange={(e) => {
                         const val = parseFloat(e.target.value);
                         if (val > 0) {
-                          updateQuantityMutation.mutate({ id: ap.id, newQuantity: val });
+                          updateQuantityMutation.mutate({ id: np.id, newQuantity: val });
                         }
                       }}
                       className="w-16 h-7 text-sm"
@@ -222,7 +223,7 @@ export default function ActionPartsManager({ actionId, actionLabel }: ActionPart
                       variant="ghost"
                       size="icon"
                       className="h-7 w-7 text-destructive"
-                      onClick={() => removePartMutation.mutate(ap.id)}
+                      onClick={() => removePartMutation.mutate(np.id)}
                     >
                       <Trash2 className="h-3 w-3" />
                     </Button>
@@ -309,7 +310,7 @@ export default function ActionPartsManager({ actionId, actionLabel }: ActionPart
                       placeholder="1"
                     />
                     <p className="text-xs text-muted-foreground">
-                      Quantidade consumida quando esta ação é aplicada.
+                      Quantidade consumida quando esta não conformidade é registrada.
                     </p>
                   </div>
 
