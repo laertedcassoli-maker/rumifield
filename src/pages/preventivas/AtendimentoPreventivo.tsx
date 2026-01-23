@@ -465,8 +465,16 @@ export default function AtendimentoPreventivo() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Encerrar visita?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Isso marcará a fazenda como executada na rota. Você poderá visualizar o resumo mas não poderá editar as respostas.
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                <p>Isso marcará a fazenda como executada na rota. Você poderá visualizar o resumo mas não poderá editar as respostas.</p>
+                <div className="bg-muted rounded-lg p-3 text-center">
+                  <p className="text-xs text-muted-foreground mb-1">Data e hora de encerramento</p>
+                  <p className="text-base font-semibold text-foreground">
+                    {format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                  </p>
+                </div>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -476,7 +484,7 @@ export default function AtendimentoPreventivo() {
               disabled={completeMutation.isPending}
             >
               {completeMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-              Confirmar
+              Confirmar Encerramento
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
