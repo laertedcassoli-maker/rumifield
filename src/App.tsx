@@ -37,6 +37,7 @@ import Teste from "./pages/Teste";
 import Instalar from "./pages/Instalar";
 import Nfc from "./pages/Nfc";
 import NotFound from "./pages/NotFound";
+import RelatorioPreventivo from "./pages/preventivas/RelatorioPreventivo";
 
 const queryClient = new QueryClient();
 
@@ -275,6 +276,9 @@ const App = () => (
                 </AppLayout>
               }
             />
+            {/* Public report routes - no auth required */}
+            <Route path="/relatorio/:token" element={<RelatorioPreventivo />} />
+            <Route path="/relatorio/:token/:type" element={<RelatorioPreventivo />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
           </TooltipProvider>

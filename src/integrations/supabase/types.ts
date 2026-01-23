@@ -1111,6 +1111,7 @@ export type Database = {
           internal_notes: string | null
           notes: string | null
           public_notes: string | null
+          public_token: string | null
           route_id: string | null
           scheduled_date: string
           status: Database["public"]["Enums"]["preventive_maintenance_status"]
@@ -1125,6 +1126,7 @@ export type Database = {
           internal_notes?: string | null
           notes?: string | null
           public_notes?: string | null
+          public_token?: string | null
           route_id?: string | null
           scheduled_date: string
           status?: Database["public"]["Enums"]["preventive_maintenance_status"]
@@ -1139,6 +1141,7 @@ export type Database = {
           internal_notes?: string | null
           notes?: string | null
           public_notes?: string | null
+          public_token?: string | null
           route_id?: string | null
           scheduled_date?: string
           status?: Database["public"]["Enums"]["preventive_maintenance_status"]
@@ -2080,6 +2083,7 @@ export type Database = {
     }
     Functions: {
       can_delete_peca: { Args: { _peca_id: string }; Returns: boolean }
+      generate_preventive_route_code: { Args: never; Returns: string }
       generate_warranty_batch_number: { Args: never; Returns: string }
       generate_work_order_code: { Args: never; Returns: string }
       get_client_preventive_status: {
