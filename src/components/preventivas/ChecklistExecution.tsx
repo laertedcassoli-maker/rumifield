@@ -608,7 +608,8 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
               part_id: np.part_id,
               part_code_snapshot: np.part?.codigo || '',
               part_name_snapshot: np.part?.nome || '',
-              quantity: np.default_quantity
+              quantity: np.default_quantity,
+              stock_source: null // Force user to select origin
             }));
             
             const { error: consumptionError } = await (supabase as any)
