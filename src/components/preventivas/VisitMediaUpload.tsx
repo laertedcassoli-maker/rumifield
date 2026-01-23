@@ -5,15 +5,17 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { 
   Camera, 
   Upload, 
   Image as ImageIcon, 
-  X, 
   Loader2, 
   CheckCircle2,
   Trash2,
-  ZoomIn
+  ZoomIn,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import { toast } from 'sonner';
 import {
@@ -61,6 +63,7 @@ export default function VisitMediaUpload({
   const [uploading, setUploading] = useState(false);
   const [selectedImage, setSelectedImage] = useState<MediaItem | null>(null);
   const [deleteConfirm, setDeleteConfirm] = useState<MediaItem | null>(null);
+  const [isExpanded, setIsExpanded] = useState(true);
 
   // Fetch existing media
   const { data: mediaItems = [], isLoading } = useQuery({
@@ -203,21 +206,35 @@ export default function VisitMediaUpload({
   const mediaCount = mediaItems.length;
 
   return (
-    <Card>
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <ImageIcon className="h-5 w-5 text-primary" />
-            <CardTitle className="text-base">Fotos da Visita</CardTitle>
-          </div>
-          {mediaCount > 0 && (
-            <Badge variant="secondary" className="text-xs">
-              {mediaCount} {mediaCount === 1 ? 'foto' : 'fotos'}
-            </Badge>
-          )}
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-4">
+    <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
+      <Card>
+        <CollapsibleTrigger asChild>
+          <CardHeader className="pb-3 cursor-pointer hover:bg-muted/50 transition-colors">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <ImageIcon className="h-5 w-5 text-primary" />
+                <CardTitle className="text-base">Fotos da Visita</CardTitle>
+                {mediaCount > 0 && (
+                  <Badge variant="secondary" className="text-xs">
+                    {mediaCount} {mediaCount === 1 ? 'foto' : 'fotos'}
+                  </Badge>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                {!isExpanded && mediaCount > 0 && (
+                  <CheckCircle2 className="h-4 w-4 text-green-500" />
+                )}
+                {isExpanded ? (
+                  <ChevronUp className="h-4 w-4 text-muted-foreground" />
+                ) : (
+                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
+                )}
+              </div>
+            </div>
+          </CardHeader>
+        </CollapsibleTrigger>
+        <CollapsibleContent>
+          <CardContent className="space-y-4 pt-0">
         {/* Upload Buttons */}
         {!isCompleted && (
           <div className="flex gap-2">
@@ -334,13 +351,14 @@ export default function VisitMediaUpload({
         )}
 
         {/* Completed indicator */}
-        {isCompleted && mediaCount > 0 && (
-          <div className="flex items-center gap-2 text-sm text-green-600">
-            <CheckCircle2 className="h-4 w-4" />
-            <span>{mediaCount} foto(s) registrada(s)</span>
-          </div>
-        )}
-      </CardContent>
+            {isCompleted && mediaCount > 0 && (
+              <div className="flex items-center gap-2 text-sm text-green-600">
+                <CheckCircle2 className="h-4 w-4" />
+                <span>{mediaCount} foto(s) registrada(s)</span>
+              </div>
+            )}
+          </CardContent>
+        </CollapsibleContent>
 
       {/* Image Preview Dialog */}
       <Dialog open={!!selectedImage} onOpenChange={() => setSelectedImage(null)}>
@@ -384,6 +402,7 @@ export default function VisitMediaUpload({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </Card>
+      </Card>
+    </Collapsible>
   );
 }

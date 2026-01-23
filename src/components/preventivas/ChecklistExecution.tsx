@@ -75,6 +75,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
   const [isSaving, setIsSaving] = useState(false);
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
+  const [isBlockExpanded, setIsBlockExpanded] = useState(true);
   
   // Offline support hook
   const offlineChecklist = useOfflineChecklist();
@@ -879,24 +880,41 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
 
   return (
     <>
-      <Card className="max-w-full overflow-x-hidden">
-        <CardHeader className="pb-3 space-y-3 px-4 sm:px-6">
-          {/* Title row */}
-          <div className="flex flex-wrap items-center justify-between gap-2 min-w-0 w-full">
-            <CardTitle className="flex items-center gap-2 text-base leading-tight min-w-0 flex-1 overflow-hidden">
-              <ClipboardCheck className="h-5 w-5 shrink-0" />
-              <span className="font-semibold">Check-list</span>
-              <span className="truncate text-muted-foreground font-normal text-sm">{existingChecklist.template?.name}</span>
-            </CardTitle>
-            {isCompleted && (
-              <Badge variant="default" className="shrink-0 text-xs whitespace-nowrap px-2 py-1">
-                Concluído
-              </Badge>
-            )}
-          </div>
-
-          {/* Progress controls - only when not completed */}
-          {!isCompleted && (
+      <Collapsible open={isBlockExpanded} onOpenChange={setIsBlockExpanded}>
+        <Card className="max-w-full overflow-x-hidden">
+          <CollapsibleTrigger asChild>
+            <CardHeader className="pb-3 space-y-0 px-4 sm:px-6 cursor-pointer hover:bg-muted/50 transition-colors">
+              {/* Title row */}
+              <div className="flex flex-wrap items-center justify-between gap-2 min-w-0 w-full">
+                <CardTitle className="flex items-center gap-2 text-base leading-tight min-w-0 flex-1 overflow-hidden">
+                  <ClipboardCheck className="h-5 w-5 shrink-0" />
+                  <span className="font-semibold">Check-list</span>
+                  <span className="truncate text-muted-foreground font-normal text-sm">{existingChecklist.template?.name}</span>
+                </CardTitle>
+                <div className="flex items-center gap-2">
+                  {isCompleted && (
+                    <Badge variant="default" className="shrink-0 text-xs whitespace-nowrap px-2 py-1">
+                      Concluído
+                    </Badge>
+                  )}
+                  {!isBlockExpanded && !isCompleted && (
+                    <Badge variant="secondary" className="shrink-0 text-xs">
+                      {answeredItems}/{totalItems}
+                    </Badge>
+                  )}
+                  {isBlockExpanded ? (
+                    <ChevronUp className="h-4 w-4 text-muted-foreground shrink-0" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />
+                  )}
+                </div>
+              </div>
+            </CardHeader>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            {/* Progress controls - only when not completed */}
+            {!isCompleted && (
+              <div className="px-4 sm:px-6 pb-3 space-y-3">
             <div className="space-y-2 pt-1">
               {/* Sync status */}
               <div className="flex items-center justify-center text-xs">
@@ -934,20 +952,20 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
                 <p className="text-xs text-muted-foreground text-center">Responda todos os itens para concluir</p>
               )}
             </div>
-          )}
-          
-          {/* Block Navigation Chips */}
-          {!isCompleted && blocks.length > 1 && (
-            <div className="w-full overflow-x-auto overscroll-x-contain">
-              <ChecklistBlockNav 
-                blocks={navBlocks}
-                activeBlockId={activeBlockId}
-                onBlockClick={scrollToBlock}
-              />
-            </div>
-          )}
-        </CardHeader>
-        <CardContent className="space-y-6">
+            
+            {/* Block Navigation Chips */}
+            {blocks.length > 1 && (
+              <div className="w-full overflow-x-auto overscroll-x-contain">
+                <ChecklistBlockNav 
+                  blocks={navBlocks}
+                  activeBlockId={activeBlockId}
+                  onBlockClick={scrollToBlock}
+                />
+              </div>
+            )}
+          </div>
+        )}
+        <CardContent className="space-y-6 pt-3">
           {blocks.map((block) => (
             <div 
               key={block.id} 
@@ -1179,8 +1197,9 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
           ))}
 
         </CardContent>
+        </CollapsibleContent>
       </Card>
-
+    </Collapsible>
 
       <AlertDialog open={isConfirmCompleteOpen} onOpenChange={setIsConfirmCompleteOpen}>
         <AlertDialogContent>
