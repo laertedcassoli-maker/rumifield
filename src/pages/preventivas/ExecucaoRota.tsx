@@ -3,7 +3,7 @@ import { useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { 
@@ -15,7 +15,7 @@ import {
   Clock,
   Play,
   Eye,
-  ExternalLink,
+  Navigation,
   AlertCircle
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
@@ -29,12 +29,11 @@ const routeStatusConfig = {
   finalizada: { label: 'Finalizada', color: 'bg-green-500/10 text-green-600 border-green-500/20' },
 };
 
-// Item attendance status based on checkin and execution
 type AttendanceStatus = 'nao_iniciada' | 'em_atendimento' | 'concluida';
 
 const attendanceStatusConfig: Record<AttendanceStatus, { label: string; color: string; icon: typeof Clock }> = {
-  nao_iniciada: { label: 'Não iniciada', color: 'bg-slate-500/10 text-slate-600 border-slate-500/20', icon: Clock },
-  em_atendimento: { label: 'Em atendimento', color: 'bg-warning/10 text-warning border-warning/20', icon: Play },
+  nao_iniciada: { label: 'Pendente', color: 'bg-slate-500/10 text-slate-600 border-slate-500/20', icon: Clock },
+  em_atendimento: { label: 'Em andamento', color: 'bg-warning/10 text-warning border-warning/20', icon: Play },
   concluida: { label: 'Concluída', color: 'bg-green-500/10 text-green-600 border-green-500/20', icon: CheckCircle2 },
 };
 
@@ -54,12 +53,8 @@ interface RouteItem {
 }
 
 function getAttendanceStatus(item: RouteItem): AttendanceStatus {
-  if (item.status === 'executado') {
-    return 'concluida';
-  }
-  if (item.checkin_at) {
-    return 'em_atendimento';
-  }
+  if (item.status === 'executado') return 'concluida';
+  if (item.checkin_at) return 'em_atendimento';
   return 'nao_iniciada';
 }
 
@@ -72,7 +67,6 @@ export default function ExecucaoRota() {
 
   const isAdminOrCoordinator = role === 'admin' || role === 'coordenador_servicos';
 
-  // Fetch route details
   const { data: route, isLoading: routeLoading } = useQuery({
     queryKey: ['route-execution', id],
     queryFn: async () => {
@@ -80,7 +74,7 @@ export default function ExecucaoRota() {
         .from('preventive_routes')
         .select('id, route_code, start_date, end_date, status, field_technician_user_id, notes')
         .eq('id', id)
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
       return data;
@@ -88,7 +82,6 @@ export default function ExecucaoRota() {
     enabled: !!id,
   });
 
-  // Fetch route items with client info
   const { data: items, isLoading: itemsLoading } = useQuery<RouteItem[]>({
     queryKey: ['route-execution-items', id],
     queryFn: async () => {
@@ -124,7 +117,6 @@ export default function ExecucaoRota() {
     enabled: !!id,
   });
 
-  // Check-in mutation
   const checkinMutation = useMutation({
     mutationFn: async ({ itemId, lat, lon }: { itemId: string; lat: number | null; lon: number | null }) => {
       const { error } = await supabase
@@ -138,7 +130,6 @@ export default function ExecucaoRota() {
 
       if (error) throw error;
 
-      // If route is still "planejada", update to "em_execucao"
       if (route?.status === 'planejada') {
         await supabase
           .from('preventive_routes')
@@ -151,7 +142,7 @@ export default function ExecucaoRota() {
       queryClient.invalidateQueries({ queryKey: ['route-execution-items', id] });
       toast({
         title: 'Check-in realizado!',
-        description: 'Data, hora e localização registrados com sucesso.',
+        description: 'Registro salvo com sucesso.',
       });
       setCheckinItem(null);
     },
@@ -169,7 +160,6 @@ export default function ExecucaoRota() {
     checkinMutation.mutate({ itemId: checkinItem.id, lat, lon });
   };
 
-  // Access control: only assigned technician, admin, or coordinator can view
   const canAccess = isAdminOrCoordinator || route?.field_technician_user_id === user?.id;
 
   if (routeLoading || itemsLoading) {
@@ -182,10 +172,10 @@ export default function ExecucaoRota() {
 
   if (!route) {
     return (
-      <div className="text-center py-12">
-        <AlertCircle className="mx-auto h-12 w-12 text-destructive" />
-        <h2 className="mt-4 text-lg font-semibold">Rota não encontrada</h2>
-        <Button asChild className="mt-4">
+      <div className="text-center py-12 px-4">
+        <AlertCircle className="mx-auto h-10 w-10 text-destructive" />
+        <h2 className="mt-3 font-semibold">Rota não encontrada</h2>
+        <Button asChild className="mt-4" size="sm">
           <Link to="/preventivas/minhas-rotas">Voltar</Link>
         </Button>
       </div>
@@ -194,11 +184,11 @@ export default function ExecucaoRota() {
 
   if (!canAccess) {
     return (
-      <div className="text-center py-12">
-        <AlertCircle className="mx-auto h-12 w-12 text-destructive" />
-        <h2 className="mt-4 text-lg font-semibold">Acesso negado</h2>
-        <p className="text-muted-foreground">Você não tem permissão para acessar esta rota.</p>
-        <Button asChild className="mt-4">
+      <div className="text-center py-12 px-4">
+        <AlertCircle className="mx-auto h-10 w-10 text-destructive" />
+        <h2 className="mt-3 font-semibold">Acesso negado</h2>
+        <p className="text-sm text-muted-foreground mt-1">Sem permissão para esta rota.</p>
+        <Button asChild className="mt-4" size="sm">
           <Link to="/preventivas/minhas-rotas">Voltar</Link>
         </Button>
       </div>
@@ -207,60 +197,71 @@ export default function ExecucaoRota() {
 
   const statusConfig = routeStatusConfig[route.status as keyof typeof routeStatusConfig];
   const executedCount = items?.filter(i => i.status === 'executado').length || 0;
+  const inProgressCount = items?.filter(i => i.checkin_at && i.status !== 'executado').length || 0;
   const totalCount = items?.length || 0;
+  const progress = totalCount > 0 ? Math.round((executedCount / totalCount) * 100) : 0;
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      {/* Header */}
-      <div className="flex items-center gap-4">
-        <Button variant="ghost" size="icon" asChild>
-          <Link to="/preventivas/minhas-rotas">
-            <ArrowLeft className="h-4 w-4" />
-          </Link>
-        </Button>
-        <div className="flex-1">
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-bold">{route.route_code}</h1>
-            {statusConfig && (
-              <Badge variant="outline" className={statusConfig.color}>
-                {statusConfig.label}
-              </Badge>
-            )}
-          </div>
-          <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1">
-            <span className="flex items-center gap-1">
-              <Calendar className="h-4 w-4" />
-              {format(parseISO(route.start_date), 'dd/MM', { locale: ptBR })} - {format(parseISO(route.end_date), 'dd/MM/yyyy', { locale: ptBR })}
-            </span>
-            <span className="flex items-center gap-1">
-              <MapPin className="h-4 w-4" />
-              {executedCount} / {totalCount} fazendas
-            </span>
+    <div className="space-y-4 animate-fade-in">
+      {/* Sticky Header */}
+      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 -mx-4 px-4 py-3 border-b">
+        <div className="flex items-center gap-3">
+          <Button variant="ghost" size="icon" asChild className="shrink-0 -ml-2">
+            <Link to="/preventivas/minhas-rotas">
+              <ArrowLeft className="h-5 w-5" />
+            </Link>
+          </Button>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <h1 className="text-lg font-bold truncate">{route.route_code}</h1>
+              {statusConfig && (
+                <Badge variant="outline" className={`${statusConfig.color} shrink-0 text-xs`}>
+                  {statusConfig.label}
+                </Badge>
+              )}
+            </div>
+            <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
+              <span className="flex items-center gap-1">
+                <Calendar className="h-3 w-3" />
+                {format(parseISO(route.start_date), 'dd/MM', { locale: ptBR })} - {format(parseISO(route.end_date), 'dd/MM', { locale: ptBR })}
+              </span>
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Progress Bar */}
+      {/* Progress Summary Card */}
       <Card>
-        <CardContent className="py-4">
-          <div className="space-y-2">
-            <div className="flex justify-between text-sm">
-              <span>Progresso da Rota</span>
-              <span className="font-medium">{totalCount > 0 ? Math.round((executedCount / totalCount) * 100) : 0}%</span>
-            </div>
-            <div className="h-3 bg-muted rounded-full overflow-hidden">
-              <div
-                className="h-full bg-primary transition-all duration-300"
-                style={{ width: `${totalCount > 0 ? (executedCount / totalCount) * 100 : 0}%` }}
-              />
-            </div>
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-sm font-medium">Progresso</span>
+            <span className="text-sm font-bold">{progress}%</span>
+          </div>
+          <div className="h-2.5 bg-muted rounded-full overflow-hidden mb-3">
+            <div
+              className="h-full bg-primary transition-all duration-300"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+          <div className="flex justify-between text-xs text-muted-foreground">
+            <span className="flex items-center gap-1">
+              <Clock className="h-3 w-3" />
+              {totalCount - executedCount - inProgressCount} pendentes
+            </span>
+            <span className="flex items-center gap-1">
+              <Play className="h-3 w-3" />
+              {inProgressCount} em andamento
+            </span>
+            <span className="flex items-center gap-1">
+              <CheckCircle2 className="h-3 w-3" />
+              {executedCount} concluídas
+            </span>
           </div>
         </CardContent>
       </Card>
 
       {/* Farms List */}
-      <div className="space-y-3">
-        <h2 className="text-lg font-semibold">Fazendas da Rota</h2>
+      <div className="space-y-2">
         {items?.map((item, index) => {
           const attendanceStatus = getAttendanceStatus(item);
           const config = attendanceStatusConfig[attendanceStatus];
@@ -268,71 +269,92 @@ export default function ExecucaoRota() {
 
           return (
             <Card key={item.id} className="overflow-hidden">
-              <CardContent className="p-4">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex items-start gap-3 flex-1 min-w-0">
-                    <div className="flex items-center justify-center w-8 h-8 rounded-full bg-muted text-muted-foreground font-medium text-sm shrink-0">
-                      {index + 1}
+              <CardContent className="p-0">
+                {/* Main content area */}
+                <div className="p-3">
+                  <div className="flex items-start gap-3">
+                    {/* Index badge */}
+                    <div className={`flex items-center justify-center w-7 h-7 rounded-full text-xs font-bold shrink-0 ${
+                      attendanceStatus === 'concluida' 
+                        ? 'bg-green-500 text-white' 
+                        : attendanceStatus === 'em_atendimento'
+                        ? 'bg-warning text-warning-foreground'
+                        : 'bg-muted text-muted-foreground'
+                    }`}>
+                      {attendanceStatus === 'concluida' ? <CheckCircle2 className="h-4 w-4" /> : index + 1}
                     </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="font-medium truncate">{item.client_name}</p>
-                      {item.client_fazenda && (
-                        <p className="text-sm text-muted-foreground truncate">{item.client_fazenda}</p>
-                      )}
-                      {(item.client_cidade || item.client_estado) && (
-                        <p className="text-xs text-muted-foreground">
-                          {[item.client_cidade, item.client_estado].filter(Boolean).join(' - ')}
-                        </p>
-                      )}
+
+                    {/* Farm info */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <p className="font-medium text-sm leading-tight truncate">{item.client_name}</p>
+                          {item.client_fazenda && (
+                            <p className="text-xs text-muted-foreground truncate mt-0.5">{item.client_fazenda}</p>
+                          )}
+                          {(item.client_cidade || item.client_estado) && (
+                            <p className="text-xs text-muted-foreground">
+                              {[item.client_cidade, item.client_estado].filter(Boolean).join(' - ')}
+                            </p>
+                          )}
+                        </div>
+                        <Badge variant="outline" className={`${config.color} text-xs shrink-0`}>
+                          {config.label}
+                        </Badge>
+                      </div>
+
                       {item.checkin_at && (
-                        <p className="text-xs text-muted-foreground mt-1">
-                          Check-in: {format(parseISO(item.checkin_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                        <p className="text-xs text-muted-foreground mt-1.5 flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
+                          Check-in: {format(parseISO(item.checkin_at), "dd/MM 'às' HH:mm", { locale: ptBR })}
                         </p>
                       )}
                     </div>
                   </div>
+                </div>
 
-                  <div className="flex flex-col items-end gap-2 shrink-0">
-                    <Badge variant="outline" className={`${config.color} gap-1`}>
-                      <IconComponent className="h-3 w-3" />
-                      {config.label}
-                    </Badge>
+                {/* Action buttons - Full width for touch */}
+                <div className="flex border-t divide-x">
+                  {item.client_link_maps && (
+                    <a
+                      href={item.client_link_maps}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-1 flex items-center justify-center gap-2 py-3 text-sm text-muted-foreground hover:bg-muted/50 active:bg-muted transition-colors"
+                    >
+                      <Navigation className="h-4 w-4" />
+                      Navegar
+                    </a>
+                  )}
 
-                    <div className="flex items-center gap-2">
-                      {item.client_link_maps && (
-                        <Button variant="outline" size="sm" asChild>
-                          <a href={item.client_link_maps} target="_blank" rel="noopener noreferrer">
-                            <ExternalLink className="h-4 w-4" />
-                          </a>
-                        </Button>
-                      )}
+                  {attendanceStatus === 'nao_iniciada' && (
+                    <button
+                      onClick={() => setCheckinItem(item)}
+                      disabled={checkinMutation.isPending}
+                      className="flex-1 flex items-center justify-center gap-2 py-3 text-sm font-medium text-primary hover:bg-primary/5 active:bg-primary/10 transition-colors disabled:opacity-50"
+                    >
+                      <Play className="h-4 w-4" />
+                      Check-in
+                    </button>
+                  )}
 
-                      {attendanceStatus === 'nao_iniciada' && (
-                        <Button
-                          size="sm"
-                          onClick={() => setCheckinItem(item)}
-                          disabled={checkinMutation.isPending}
-                        >
-                          <Play className="mr-1 h-4 w-4" />
-                          Check-in
-                        </Button>
-                      )}
+                  {attendanceStatus === 'em_atendimento' && (
+                    <button
+                      className="flex-1 flex items-center justify-center gap-2 py-3 text-sm font-medium text-warning hover:bg-warning/5 active:bg-warning/10 transition-colors"
+                    >
+                      <Play className="h-4 w-4" />
+                      Continuar
+                    </button>
+                  )}
 
-                      {attendanceStatus === 'em_atendimento' && (
-                        <Button size="sm" variant="secondary">
-                          <Play className="mr-1 h-4 w-4" />
-                          Continuar
-                        </Button>
-                      )}
-
-                      {attendanceStatus === 'concluida' && (
-                        <Button size="sm" variant="outline">
-                          <Eye className="mr-1 h-4 w-4" />
-                          Ver Resumo
-                        </Button>
-                      )}
-                    </div>
-                  </div>
+                  {attendanceStatus === 'concluida' && (
+                    <button
+                      className="flex-1 flex items-center justify-center gap-2 py-3 text-sm text-muted-foreground hover:bg-muted/50 active:bg-muted transition-colors"
+                    >
+                      <Eye className="h-4 w-4" />
+                      Ver resumo
+                    </button>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -343,7 +365,7 @@ export default function ExecucaoRota() {
           <Card>
             <CardContent className="py-8 text-center">
               <MapPin className="mx-auto h-8 w-8 text-muted-foreground/50" />
-              <p className="mt-2 text-muted-foreground">Nenhuma fazenda nesta rota</p>
+              <p className="mt-2 text-sm text-muted-foreground">Nenhuma fazenda nesta rota</p>
             </CardContent>
           </Card>
         )}
