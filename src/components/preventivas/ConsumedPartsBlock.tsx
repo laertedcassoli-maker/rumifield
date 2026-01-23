@@ -3,10 +3,18 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Package, ChevronUp, ChevronDown, Warehouse, Truck } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import { Loader2, Package, ChevronUp, ChevronDown, Warehouse, Truck, Plus, Trash2, Check, ChevronsUpDown, PenLine } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
 
 interface ConsumedPart {
   id: string;
@@ -16,6 +24,8 @@ interface ConsumedPart {
   quantity: number;
   unit_cost_snapshot: number | null;
   stock_source: 'fazenda' | 'tecnico';
+  notes: string | null;
+  is_manual: boolean;
   consumed_at: string;
 }
 
@@ -26,6 +36,12 @@ interface ConsumedPartsBlockProps {
 
 export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }: ConsumedPartsBlockProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [isPartSelectorOpen, setIsPartSelectorOpen] = useState(false);
+  const [selectedPartId, setSelectedPartId] = useState<string | null>(null);
+  const [quantity, setQuantity] = useState('1');
+  const [notes, setNotes] = useState('');
+  const [stockSource, setStockSource] = useState<'tecnico' | 'fazenda'>('tecnico');
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -35,7 +51,7 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
     queryFn: async () => {
       const { data, error } = await supabase
         .from('preventive_part_consumption')
-        .select('id, part_id, part_code_snapshot, part_name_snapshot, quantity, unit_cost_snapshot, stock_source, consumed_at')
+        .select('id, part_id, part_code_snapshot, part_name_snapshot, quantity, unit_cost_snapshot, stock_source, notes, is_manual, consumed_at')
         .eq('preventive_id', preventiveId)
         .order('consumed_at', { ascending: true });
 
@@ -44,6 +60,34 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
     },
     enabled: !!preventiveId,
   });
+
+  // Fetch available parts for manual addition
+  const { data: availableParts } = useQuery({
+    queryKey: ['parts-catalog-active'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('pecas')
+        .select('id, codigo, nome, familia')
+        .eq('ativo', true)
+        .order('familia')
+        .order('nome');
+
+      if (error) throw error;
+      return data;
+    },
+    enabled: isAddDialogOpen,
+  });
+
+  // Group parts by family for display
+  type PartType = { id: string; codigo: string; nome: string; familia: string | null };
+  const groupedParts = availableParts?.reduce<Record<string, PartType[]>>((acc, part) => {
+    const family = part.familia || 'Sem família';
+    if (!acc[family]) acc[family] = [];
+    acc[family].push(part);
+    return acc;
+  }, {});
+
+  const selectedPart = availableParts?.find(p => p.id === selectedPartId);
 
   // Update stock source mutation
   const updateStockSourceMutation = useMutation({
@@ -66,6 +110,95 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
       });
     },
   });
+
+  // Update notes mutation
+  const updateNotesMutation = useMutation({
+    mutationFn: async ({ partId, notes }: { partId: string; notes: string }) => {
+      const { error } = await supabase
+        .from('preventive_part_consumption')
+        .update({ notes: notes || null })
+        .eq('id', partId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['preventive-consumed-parts', preventiveId] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Erro ao salvar observação',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+
+  // Add manual part mutation
+  const addManualPartMutation = useMutation({
+    mutationFn: async () => {
+      if (!selectedPartId || !selectedPart) throw new Error('Selecione uma peça');
+
+      const { error } = await supabase
+        .from('preventive_part_consumption')
+        .insert({
+          preventive_id: preventiveId,
+          part_id: selectedPartId,
+          part_code_snapshot: selectedPart.codigo,
+          part_name_snapshot: selectedPart.nome,
+          quantity: parseFloat(quantity) || 1,
+          stock_source: stockSource,
+          notes: notes || null,
+          is_manual: true,
+        });
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['preventive-consumed-parts', preventiveId] });
+      toast({ title: 'Peça adicionada!' });
+      resetAddDialog();
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Erro ao adicionar peça',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+
+  // Delete manual part mutation
+  const deleteManualPartMutation = useMutation({
+    mutationFn: async (partId: string) => {
+      const { error } = await supabase
+        .from('preventive_part_consumption')
+        .delete()
+        .eq('id', partId)
+        .eq('is_manual', true);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['preventive-consumed-parts', preventiveId] });
+      toast({ title: 'Peça removida!' });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Erro ao remover peça',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+
+  const resetAddDialog = () => {
+    setIsAddDialogOpen(false);
+    setSelectedPartId(null);
+    setQuantity('1');
+    setNotes('');
+    setStockSource('tecnico');
+    setIsPartSelectorOpen(false);
+  };
 
   const handleStockSourceChange = (partId: string, value: string) => {
     if (value && (value === 'fazenda' || value === 'tecnico')) {
@@ -117,66 +250,22 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
             ) : !hasParts ? (
               <div className="text-center py-6 text-sm text-muted-foreground">
                 <Package className="mx-auto h-8 w-8 text-muted-foreground/40 mb-2" />
-                <p>Peças serão listadas automaticamente</p>
-                <p className="text-xs mt-1">quando houver falhas no checklist</p>
+                <p>Nenhuma peça registrada</p>
+                <p className="text-xs mt-1">Adicione manualmente ou selecione falhas no checklist</p>
               </div>
             ) : (
               <>
                 {/* Parts List */}
                 <div className="space-y-3">
                   {parts?.map((part) => (
-                    <div
+                    <PartItem
                       key={part.id}
-                      className="border rounded-lg p-3 space-y-2"
-                    >
-                      {/* Part Info */}
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <Badge variant="outline" className="font-mono text-xs shrink-0">
-                              {part.part_code_snapshot}
-                            </Badge>
-                            <Badge variant="secondary" className="shrink-0">
-                              Qtd: {part.quantity}
-                            </Badge>
-                          </div>
-                          <p className="text-sm mt-1.5 leading-tight">
-                            {part.part_name_snapshot}
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Stock Source Toggle */}
-                      <div className="flex items-center gap-2 pt-1">
-                        <span className="text-xs text-muted-foreground shrink-0">Origem:</span>
-                        <ToggleGroup
-                          type="single"
-                          value={part.stock_source || 'tecnico'}
-                          onValueChange={(value) => handleStockSourceChange(part.id, value)}
-                          disabled={isCompleted}
-                          className="gap-1"
-                        >
-                          <ToggleGroupItem
-                            value="tecnico"
-                            aria-label="Estoque do técnico"
-                            size="sm"
-                            className="h-7 px-2 text-xs gap-1 data-[state=on]:bg-blue-500/10 data-[state=on]:text-blue-600 data-[state=on]:border-blue-500/30"
-                          >
-                            <Truck className="h-3 w-3" />
-                            Técnico
-                          </ToggleGroupItem>
-                          <ToggleGroupItem
-                            value="fazenda"
-                            aria-label="Estoque da fazenda"
-                            size="sm"
-                            className="h-7 px-2 text-xs gap-1 data-[state=on]:bg-green-500/10 data-[state=on]:text-green-600 data-[state=on]:border-green-500/30"
-                          >
-                            <Warehouse className="h-3 w-3" />
-                            Fazenda
-                          </ToggleGroupItem>
-                        </ToggleGroup>
-                      </div>
-                    </div>
+                      part={part}
+                      isCompleted={isCompleted}
+                      onStockSourceChange={handleStockSourceChange}
+                      onNotesChange={(partId, notes) => updateNotesMutation.mutate({ partId, notes })}
+                      onDelete={(partId) => deleteManualPartMutation.mutate(partId)}
+                    />
                   ))}
                 </div>
 
@@ -197,9 +286,297 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
                 </div>
               </>
             )}
+
+            {/* Add Part Button */}
+            {!isCompleted && (
+              <Dialog open={isAddDialogOpen} onOpenChange={(open) => { if (!open) resetAddDialog(); else setIsAddDialogOpen(true); }}>
+                <DialogTrigger asChild>
+                  <Button variant="outline" size="sm" className="w-full">
+                    <Plus className="h-4 w-4 mr-2" />
+                    Adicionar Peça
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-lg">
+                  <DialogHeader>
+                    <DialogTitle>Adicionar Peça Manual</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    {/* Part Selector */}
+                    <div className="space-y-2">
+                      <Label>Peça *</Label>
+                      <Popover open={isPartSelectorOpen} onOpenChange={setIsPartSelectorOpen}>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            role="combobox"
+                            className="w-full justify-between h-auto min-h-10 whitespace-normal text-left"
+                          >
+                            {selectedPart ? (
+                              <span className="break-words">
+                                {selectedPart.codigo} - {selectedPart.nome}
+                              </span>
+                            ) : (
+                              <span className="text-muted-foreground">Selecione uma peça...</span>
+                            )}
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[350px] p-0" align="start">
+                          <Command
+                            filter={(value, search) => {
+                              if (!search) return 1;
+                              const searchWords = search.toLowerCase().split(/\s+/).filter(Boolean);
+                              const itemText = value.toLowerCase();
+                              return searchWords.every(word => itemText.includes(word)) ? 1 : 0;
+                            }}
+                          >
+                            <CommandInput placeholder="Buscar peça..." />
+                            <CommandList className="max-h-64">
+                              <CommandEmpty>Nenhuma peça encontrada.</CommandEmpty>
+                              {groupedParts && Object.entries(groupedParts).map(([family, familyParts]) => (
+                                <CommandGroup key={family} heading={family}>
+                                  {familyParts?.map(part => (
+                                    <CommandItem
+                                      key={part.id}
+                                      value={`${part.codigo} ${part.nome} ${part.familia || ''}`}
+                                      onSelect={() => {
+                                        setSelectedPartId(part.id);
+                                        setIsPartSelectorOpen(false);
+                                      }}
+                                      className="flex items-center gap-2"
+                                    >
+                                      <Check
+                                        className={cn(
+                                          "h-4 w-4",
+                                          selectedPartId === part.id ? "opacity-100" : "opacity-0"
+                                        )}
+                                      />
+                                      <span className="truncate">
+                                        {part.codigo} - {part.nome}
+                                      </span>
+                                    </CommandItem>
+                                  ))}
+                                </CommandGroup>
+                              ))}
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+
+                    {/* Quantity */}
+                    <div className="space-y-2">
+                      <Label>Quantidade</Label>
+                      <Input
+                        type="number"
+                        min="0.01"
+                        step="0.01"
+                        value={quantity}
+                        onChange={(e) => setQuantity(e.target.value)}
+                        placeholder="1"
+                      />
+                    </div>
+
+                    {/* Stock Source */}
+                    <div className="space-y-2">
+                      <Label>Origem do Estoque</Label>
+                      <ToggleGroup
+                        type="single"
+                        value={stockSource}
+                        onValueChange={(value) => value && setStockSource(value as 'tecnico' | 'fazenda')}
+                        className="justify-start"
+                      >
+                        <ToggleGroupItem
+                          value="tecnico"
+                          size="sm"
+                          className="gap-1 data-[state=on]:bg-blue-500/10 data-[state=on]:text-blue-600"
+                        >
+                          <Truck className="h-3 w-3" />
+                          Técnico
+                        </ToggleGroupItem>
+                        <ToggleGroupItem
+                          value="fazenda"
+                          size="sm"
+                          className="gap-1 data-[state=on]:bg-green-500/10 data-[state=on]:text-green-600"
+                        >
+                          <Warehouse className="h-3 w-3" />
+                          Fazenda
+                        </ToggleGroupItem>
+                      </ToggleGroup>
+                    </div>
+
+                    {/* Notes */}
+                    <div className="space-y-2">
+                      <Label>Observação</Label>
+                      <Textarea
+                        value={notes}
+                        onChange={(e) => setNotes(e.target.value)}
+                        placeholder="Motivo da adição, número de série, etc."
+                        rows={2}
+                      />
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button variant="outline" onClick={resetAddDialog}>
+                      Cancelar
+                    </Button>
+                    <Button
+                      onClick={() => addManualPartMutation.mutate()}
+                      disabled={!selectedPartId || addManualPartMutation.isPending}
+                    >
+                      {addManualPartMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                      Adicionar
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            )}
           </CardContent>
         </CollapsibleContent>
       </Collapsible>
     </Card>
+  );
+}
+
+// Part item component
+interface PartItemProps {
+  part: ConsumedPart;
+  isCompleted: boolean;
+  onStockSourceChange: (partId: string, value: string) => void;
+  onNotesChange: (partId: string, notes: string) => void;
+  onDelete: (partId: string) => void;
+}
+
+function PartItem({ part, isCompleted, onStockSourceChange, onNotesChange, onDelete }: PartItemProps) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [localNotes, setLocalNotes] = useState(part.notes || '');
+
+  const handleSaveNotes = () => {
+    onNotesChange(part.id, localNotes);
+    setIsEditing(false);
+  };
+
+  return (
+    <div className="border rounded-lg p-3 space-y-2">
+      {/* Part Info */}
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <Badge variant="outline" className="font-mono text-xs shrink-0">
+              {part.part_code_snapshot}
+            </Badge>
+            <Badge variant="secondary" className="shrink-0">
+              Qtd: {part.quantity}
+            </Badge>
+            {part.is_manual && (
+              <Badge variant="outline" className="text-xs shrink-0 bg-amber-500/10 text-amber-600 border-amber-500/30">
+                Manual
+              </Badge>
+            )}
+          </div>
+          <p className="text-sm mt-1.5 leading-tight">
+            {part.part_name_snapshot}
+          </p>
+        </div>
+        {/* Delete button for manual parts */}
+        {part.is_manual && !isCompleted && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 text-destructive shrink-0"
+            onClick={() => onDelete(part.id)}
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </Button>
+        )}
+      </div>
+
+      {/* Stock Source Toggle */}
+      <div className="flex items-center gap-2 pt-1">
+        <span className="text-xs text-muted-foreground shrink-0">Origem:</span>
+        <ToggleGroup
+          type="single"
+          value={part.stock_source || 'tecnico'}
+          onValueChange={(value) => onStockSourceChange(part.id, value)}
+          disabled={isCompleted}
+          className="gap-1"
+        >
+          <ToggleGroupItem
+            value="tecnico"
+            aria-label="Estoque do técnico"
+            size="sm"
+            className="h-7 px-2 text-xs gap-1 data-[state=on]:bg-blue-500/10 data-[state=on]:text-blue-600 data-[state=on]:border-blue-500/30"
+          >
+            <Truck className="h-3 w-3" />
+            Técnico
+          </ToggleGroupItem>
+          <ToggleGroupItem
+            value="fazenda"
+            aria-label="Estoque da fazenda"
+            size="sm"
+            className="h-7 px-2 text-xs gap-1 data-[state=on]:bg-green-500/10 data-[state=on]:text-green-600 data-[state=on]:border-green-500/30"
+          >
+            <Warehouse className="h-3 w-3" />
+            Fazenda
+          </ToggleGroupItem>
+        </ToggleGroup>
+      </div>
+
+      {/* Notes Section */}
+      {!isCompleted && !isEditing && !part.notes && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-6 px-2 text-xs text-muted-foreground"
+          onClick={() => setIsEditing(true)}
+        >
+          <PenLine className="h-3 w-3 mr-1" />
+          Adicionar observação
+        </Button>
+      )}
+
+      {(part.notes || isEditing) && (
+        <div className="pt-1">
+          {isEditing && !isCompleted ? (
+            <div className="space-y-2">
+              <Textarea
+                value={localNotes}
+                onChange={(e) => setLocalNotes(e.target.value)}
+                placeholder="Observação..."
+                rows={2}
+                className="text-sm"
+                autoFocus
+              />
+              <div className="flex gap-2 justify-end">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7"
+                  onClick={() => {
+                    setLocalNotes(part.notes || '');
+                    setIsEditing(false);
+                  }}
+                >
+                  Cancelar
+                </Button>
+                <Button size="sm" className="h-7" onClick={handleSaveNotes}>
+                  Salvar
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div
+              className={cn(
+                "text-xs text-muted-foreground bg-muted/50 rounded p-2",
+                !isCompleted && "cursor-pointer hover:bg-muted/70"
+              )}
+              onClick={() => !isCompleted && setIsEditing(true)}
+            >
+              <span className="font-medium">Obs:</span> {part.notes}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
