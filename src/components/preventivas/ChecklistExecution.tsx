@@ -901,7 +901,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
                 </CardTitle>
                 <div className="flex items-center gap-2">
                   {isCompleted && (
-                    <Badge variant="default" className="shrink-0 text-xs whitespace-nowrap px-2 py-1">
+                    <Badge variant="default" className="shrink-0 text-xs whitespace-nowrap px-2 py-1 bg-green-600 hover:bg-green-700 border-green-600">
                       Concluído
                     </Badge>
                   )}
