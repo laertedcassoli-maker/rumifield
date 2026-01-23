@@ -1175,6 +1175,7 @@ export type Database = {
           part_name_snapshot: string
           preventive_id: string
           quantity: number
+          stock_source: string | null
           unit_cost_snapshot: number | null
         }
         Insert: {
@@ -1188,6 +1189,7 @@ export type Database = {
           part_name_snapshot: string
           preventive_id: string
           quantity?: number
+          stock_source?: string | null
           unit_cost_snapshot?: number | null
         }
         Update: {
@@ -1201,6 +1203,7 @@ export type Database = {
           part_name_snapshot?: string
           preventive_id?: string
           quantity?: number
+          stock_source?: string | null
           unit_cost_snapshot?: number | null
         }
         Relationships: [
