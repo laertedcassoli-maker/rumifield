@@ -76,10 +76,10 @@ export default function ChecklistItemNotes({
         onBlur={handleBlur}
         disabled={disabled}
         className={cn(
-          "text-sm pr-8 transition-colors",
+          "text-sm pr-8 transition-colors min-h-[40px] resize-none",
           hasChanges && saveStatus === 'idle' && "border-amber-300"
         )}
-        rows={2}
+        rows={1}
       />
       {/* Save status indicator */}
       <div className="absolute right-2 top-2">
