@@ -14,7 +14,8 @@ import {
   CheckCircle2,
   AlertCircle,
   ClipboardCheck,
-  LogOut
+  LogOut,
+  AlertTriangle
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -34,6 +35,12 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 
+interface ValidationResult {
+  canProceed: boolean;
+  blockingErrors: string[];
+  warnings: string[];
+}
+
 export default function AtendimentoPreventivo() {
   const { routeId, itemId } = useParams<{ routeId: string; itemId: string }>();
   const navigate = useNavigate();
@@ -41,6 +48,8 @@ export default function AtendimentoPreventivo() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [showCompleteDialog, setShowCompleteDialog] = useState(false);
+  const [showWarningDialog, setShowWarningDialog] = useState(false);
+  const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
   const [checklistStatus, setChecklistStatus] = useState<'not_started' | 'in_progress' | 'completed'>('not_started');
 
   const isAdminOrCoordinator = role === 'admin' || role === 'coordenador_servicos';
@@ -184,6 +193,88 @@ export default function AtendimentoPreventivo() {
   // Can only finish visit when checklist is completed
   const canFinishVisit = checklistStatus === 'completed';
 
+  // Validation function for encerrar
+  const validateBeforeComplete = async (): Promise<ValidationResult> => {
+    const blockingErrors: string[] = [];
+    const warnings: string[] = [];
+
+    if (!routeItem?.preventiveId) {
+      return { canProceed: false, blockingErrors: ['Registro de manutenção não encontrado'], warnings: [] };
+    }
+
+    // Check for parts without stock source
+    const { data: partsWithoutSource } = await supabase
+      .from('preventive_part_consumption')
+      .select('id, part_name_snapshot')
+      .eq('preventive_id', routeItem.preventiveId)
+      .is('stock_source', null);
+
+    if (partsWithoutSource && partsWithoutSource.length > 0) {
+      blockingErrors.push(`${partsWithoutSource.length} peça(s) sem origem definida (Técnico/Fazenda)`);
+    }
+
+    // Check for at least one media
+    const { count: mediaCount } = await supabase
+      .from('preventive_visit_media')
+      .select('id', { count: 'exact', head: true })
+      .eq('preventive_id', routeItem.preventiveId);
+
+    if (!mediaCount || mediaCount === 0) {
+      blockingErrors.push('Nenhuma foto/vídeo anexado');
+    }
+
+    // Check for empty observations (warning only)
+    const { data: pmData } = await supabase
+      .from('preventive_maintenance')
+      .select('internal_notes, public_notes')
+      .eq('id', routeItem.preventiveId)
+      .maybeSingle();
+
+    const hasInternalNotes = pmData?.internal_notes && pmData.internal_notes.trim().length > 0;
+    const hasPublicNotes = pmData?.public_notes && pmData.public_notes.trim().length > 0;
+
+    if (!hasInternalNotes) {
+      warnings.push('Observação interna está vazia');
+    }
+    if (!hasPublicNotes) {
+      warnings.push('Observação para relatório está vazia');
+    }
+
+    return {
+      canProceed: blockingErrors.length === 0,
+      blockingErrors,
+      warnings,
+    };
+  };
+
+  const handleEncerrarClick = async () => {
+    const result = await validateBeforeComplete();
+    setValidationResult(result);
+
+    if (!result.canProceed) {
+      // Show blocking errors via toast
+      toast({
+        title: 'Não é possível encerrar',
+        description: result.blockingErrors.join('. '),
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (result.warnings.length > 0) {
+      // Show warning dialog
+      setShowWarningDialog(true);
+    } else {
+      // No warnings, go straight to confirmation
+      setShowCompleteDialog(true);
+    }
+  };
+
+  const handleProceedAfterWarning = () => {
+    setShowWarningDialog(false);
+    setShowCompleteDialog(true);
+  };
+
   if (isLoading) {
     return (
       <div className="flex justify-center py-12">
@@ -323,7 +414,7 @@ export default function AtendimentoPreventivo() {
         <div className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur border-t p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
           <div className="max-w-2xl mx-auto">
             <Button 
-              onClick={() => setShowCompleteDialog(true)}
+              onClick={handleEncerrarClick}
               disabled={!canFinishVisit || completeMutation.isPending}
               className="w-full"
               size="lg"
@@ -339,6 +430,35 @@ export default function AtendimentoPreventivo() {
           </div>
         </div>
       )}
+
+      {/* Warning Dialog (observations empty) */}
+      <AlertDialog open={showWarningDialog} onOpenChange={setShowWarningDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-500" />
+              Atenção
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2">
+                <p>Os seguintes campos estão vazios:</p>
+                <ul className="list-disc pl-5 space-y-1">
+                  {validationResult?.warnings.map((warning, i) => (
+                    <li key={i} className="text-amber-600">{warning}</li>
+                  ))}
+                </ul>
+                <p className="mt-3">Deseja continuar mesmo assim?</p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Voltar e preencher</AlertDialogCancel>
+            <AlertDialogAction onClick={handleProceedAfterWarning}>
+              Continuar assim mesmo
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Complete Confirmation Dialog */}
       <AlertDialog open={showCompleteDialog} onOpenChange={setShowCompleteDialog}>
