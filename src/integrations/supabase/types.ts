@@ -252,6 +252,45 @@ export type Database = {
           },
         ]
       }
+      checklist_nonconformity_parts: {
+        Row: {
+          created_at: string
+          default_quantity: number
+          id: string
+          nonconformity_id: string
+          part_id: string
+        }
+        Insert: {
+          created_at?: string
+          default_quantity?: number
+          id?: string
+          nonconformity_id: string
+          part_id: string
+        }
+        Update: {
+          created_at?: string
+          default_quantity?: number
+          id?: string
+          nonconformity_id?: string
+          part_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "checklist_nonconformity_parts_nonconformity_id_fkey"
+            columns: ["nonconformity_id"]
+            isOneToOne: false
+            referencedRelation: "checklist_item_nonconformities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "checklist_nonconformity_parts_part_id_fkey"
+            columns: ["part_id"]
+            isOneToOne: false
+            referencedRelation: "pecas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       checklist_template_blocks: {
         Row: {
           block_name: string
@@ -1118,8 +1157,8 @@ export type Database = {
         Row: {
           consumed_at: string
           created_at: string
-          exec_action_id: string
           exec_item_id: string
+          exec_nonconformity_id: string
           id: string
           part_code_snapshot: string
           part_id: string
@@ -1131,8 +1170,8 @@ export type Database = {
         Insert: {
           consumed_at?: string
           created_at?: string
-          exec_action_id: string
           exec_item_id: string
+          exec_nonconformity_id: string
           id?: string
           part_code_snapshot: string
           part_id: string
@@ -1144,8 +1183,8 @@ export type Database = {
         Update: {
           consumed_at?: string
           created_at?: string
-          exec_action_id?: string
           exec_item_id?: string
+          exec_nonconformity_id?: string
           id?: string
           part_code_snapshot?: string
           part_id?: string
@@ -1156,17 +1195,17 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "preventive_part_consumption_exec_action_id_fkey"
-            columns: ["exec_action_id"]
-            isOneToOne: false
-            referencedRelation: "preventive_checklist_item_actions"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "preventive_part_consumption_exec_item_id_fkey"
             columns: ["exec_item_id"]
             isOneToOne: false
             referencedRelation: "preventive_checklist_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "preventive_part_consumption_exec_nonconformity_id_fkey"
+            columns: ["exec_nonconformity_id"]
+            isOneToOne: false
+            referencedRelation: "preventive_checklist_item_nonconformities"
             referencedColumns: ["id"]
           },
           {
