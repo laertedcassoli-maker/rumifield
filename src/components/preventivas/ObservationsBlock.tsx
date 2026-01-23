@@ -2,10 +2,11 @@ import { useState, useEffect } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Textarea } from '@/components/ui/textarea';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, MessageSquare, ChevronUp, ChevronDown, Lock, FileText, Check } from 'lucide-react';
+import { Loader2, MessageSquare, ChevronUp, ChevronDown, Lock, FileText, Check, Plus, X } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
@@ -18,6 +19,17 @@ interface ObservationsBlockProps {
   isCompleted?: boolean;
 }
 
+// Parse stored notes (newline-separated) into array of lines
+const parseNotes = (notes: string | null | undefined): string[] => {
+  if (!notes) return [];
+  return notes.split('\n').filter(line => line.trim() !== '');
+};
+
+// Convert array of lines back to newline-separated string
+const serializeNotes = (lines: string[]): string => {
+  return lines.filter(line => line.trim() !== '').join('\n');
+};
+
 export default function ObservationsBlock({ 
   preventiveId, 
   initialInternalNotes,
@@ -25,18 +37,18 @@ export default function ObservationsBlock({
   isCompleted = false 
 }: ObservationsBlockProps) {
   const [isExpanded, setIsExpanded] = useState(false);
-  const [internalNotes, setInternalNotes] = useState(initialInternalNotes || '');
-  const [publicNotes, setPublicNotes] = useState(initialPublicNotes || '');
+  const [internalLines, setInternalLines] = useState<string[]>(() => parseNotes(initialInternalNotes));
+  const [publicLines, setPublicLines] = useState<string[]>(() => parseNotes(initialPublicNotes));
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
   const queryClient = useQueryClient();
 
   // Sync with external value changes
   useEffect(() => {
     if (initialInternalNotes !== undefined) {
-      setInternalNotes(initialInternalNotes || '');
+      setInternalLines(parseNotes(initialInternalNotes));
     }
     if (initialPublicNotes !== undefined) {
-      setPublicNotes(initialPublicNotes || '');
+      setPublicLines(parseNotes(initialPublicNotes));
     }
   }, [initialInternalNotes, initialPublicNotes]);
 
@@ -62,22 +74,54 @@ export default function ObservationsBlock({
     },
   });
 
-  const debouncedSave = useDebouncedCallback((internal: string, pub: string) => {
+  const debouncedSave = useDebouncedCallback((internal: string[], pub: string[]) => {
     setSaveStatus('saving');
-    updateNotesMutation.mutate({ internalNotes: internal, publicNotes: pub });
+    updateNotesMutation.mutate({ 
+      internalNotes: serializeNotes(internal), 
+      publicNotes: serializeNotes(pub) 
+    });
   }, 800);
 
-  const handleInternalChange = (value: string) => {
-    setInternalNotes(value);
-    debouncedSave(value, publicNotes);
+  // Internal notes handlers
+  const addInternalLine = () => {
+    const newLines = [...internalLines, ''];
+    setInternalLines(newLines);
   };
 
-  const handlePublicChange = (value: string) => {
-    setPublicNotes(value);
-    debouncedSave(internalNotes, value);
+  const updateInternalLine = (index: number, value: string) => {
+    const newLines = [...internalLines];
+    newLines[index] = value;
+    setInternalLines(newLines);
+    debouncedSave(newLines, publicLines);
   };
 
-  const hasContent = !!(internalNotes || publicNotes);
+  const removeInternalLine = (index: number) => {
+    const newLines = internalLines.filter((_, i) => i !== index);
+    setInternalLines(newLines);
+    debouncedSave(newLines, publicLines);
+  };
+
+  // Public notes handlers
+  const addPublicLine = () => {
+    const newLines = [...publicLines, ''];
+    setPublicLines(newLines);
+  };
+
+  const updatePublicLine = (index: number, value: string) => {
+    const newLines = [...publicLines];
+    newLines[index] = value;
+    setPublicLines(newLines);
+    debouncedSave(internalLines, newLines);
+  };
+
+  const removePublicLine = (index: number) => {
+    const newLines = publicLines.filter((_, i) => i !== index);
+    setPublicLines(newLines);
+    debouncedSave(internalLines, newLines);
+  };
+
+  const hasContent = internalLines.some(l => l.trim()) || publicLines.some(l => l.trim());
+  const totalLines = internalLines.filter(l => l.trim()).length + publicLines.filter(l => l.trim()).length;
 
   return (
     <Card className="overflow-hidden">
@@ -90,7 +134,7 @@ export default function ObservationsBlock({
                 <CardTitle className="text-base">Observações</CardTitle>
                 {hasContent && (
                   <Badge variant="secondary" className="ml-1">
-                    {[internalNotes, publicNotes].filter(Boolean).length}
+                    {totalLines}
                   </Badge>
                 )}
               </div>
@@ -113,7 +157,7 @@ export default function ObservationsBlock({
         <CollapsibleContent className="animate-accordion-down data-[state=closed]:animate-accordion-up">
           <CardContent className="pt-0 space-y-4">
             {/* Internal Notes Section */}
-            <div className="space-y-2">
+            <div className="space-y-3">
               <div className="flex items-center gap-2">
                 <Lock className="h-4 w-4 text-muted-foreground" />
                 <Label className="text-sm font-medium">Observação Interna</Label>
@@ -122,35 +166,60 @@ export default function ObservationsBlock({
               <p className="text-xs text-muted-foreground">
                 Visível apenas para a equipe Rúmina. Não aparece em relatórios.
               </p>
+              
               {isCompleted ? (
-                internalNotes ? (
-                  <div className="bg-muted/50 rounded p-3 text-sm whitespace-pre-wrap">
-                    {internalNotes}
-                  </div>
+                internalLines.length > 0 ? (
+                  <ul className="space-y-1">
+                    {internalLines.map((line, index) => (
+                      <li key={index} className="bg-muted/50 rounded px-3 py-2 text-sm flex items-start gap-2">
+                        <span className="text-muted-foreground">•</span>
+                        <span>{line}</span>
+                      </li>
+                    ))}
+                  </ul>
                 ) : (
                   <p className="text-sm text-muted-foreground italic">Nenhuma observação interna</p>
                 )
               ) : (
-                <Textarea
-                  value={internalNotes}
-                  onChange={(e) => handleInternalChange(e.target.value)}
-                  placeholder="Anotações internas sobre a visita..."
-                  className={cn("min-h-[80px] resize-none text-sm overflow-hidden")}
-                  rows={3}
-                  style={{ height: 'auto' }}
-                  onInput={(e) => {
-                    const target = e.target as HTMLTextAreaElement;
-                    target.style.height = 'auto';
-                    target.style.height = `${target.scrollHeight}px`;
-                  }}
-                />
+                <div className="space-y-2">
+                  {internalLines.map((line, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <span className="text-muted-foreground text-sm w-5 text-center">{index + 1}.</span>
+                      <Input
+                        value={line}
+                        onChange={(e) => updateInternalLine(index, e.target.value)}
+                        placeholder="Digite a observação..."
+                        className="flex-1 text-sm"
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive"
+                        onClick={() => removeInternalLine(index)}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="w-full mt-2"
+                    onClick={addInternalLine}
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    Adicionar linha
+                  </Button>
+                </div>
               )}
             </div>
 
             <Separator />
 
             {/* Public Notes Section */}
-            <div className="space-y-2">
+            <div className="space-y-3">
               <div className="flex items-center gap-2">
                 <FileText className="h-4 w-4 text-muted-foreground" />
                 <Label className="text-sm font-medium">Observação para Relatório</Label>
@@ -161,28 +230,53 @@ export default function ObservationsBlock({
               <p className="text-xs text-muted-foreground">
                 Será exibida no relatório enviado ao produtor.
               </p>
+              
               {isCompleted ? (
-                publicNotes ? (
-                  <div className="bg-muted/50 rounded p-3 text-sm whitespace-pre-wrap">
-                    {publicNotes}
-                  </div>
+                publicLines.length > 0 ? (
+                  <ul className="space-y-1">
+                    {publicLines.map((line, index) => (
+                      <li key={index} className="bg-muted/50 rounded px-3 py-2 text-sm flex items-start gap-2">
+                        <span className="text-muted-foreground">•</span>
+                        <span>{line}</span>
+                      </li>
+                    ))}
+                  </ul>
                 ) : (
                   <p className="text-sm text-muted-foreground italic">Nenhuma observação para relatório</p>
                 )
               ) : (
-                <Textarea
-                  value={publicNotes}
-                  onChange={(e) => handlePublicChange(e.target.value)}
-                  placeholder="Observações para o produtor ver no relatório..."
-                  className={cn("min-h-[80px] resize-none text-sm overflow-hidden")}
-                  rows={3}
-                  style={{ height: 'auto' }}
-                  onInput={(e) => {
-                    const target = e.target as HTMLTextAreaElement;
-                    target.style.height = 'auto';
-                    target.style.height = `${target.scrollHeight}px`;
-                  }}
-                />
+                <div className="space-y-2">
+                  {publicLines.map((line, index) => (
+                    <div key={index} className="flex items-center gap-2">
+                      <span className="text-muted-foreground text-sm w-5 text-center">{index + 1}.</span>
+                      <Input
+                        value={line}
+                        onChange={(e) => updatePublicLine(index, e.target.value)}
+                        placeholder="Digite a observação..."
+                        className="flex-1 text-sm"
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive"
+                        onClick={() => removePublicLine(index)}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="w-full mt-2"
+                    onClick={addPublicLine}
+                  >
+                    <Plus className="h-4 w-4 mr-1" />
+                    Adicionar linha
+                  </Button>
+                </div>
               )}
             </div>
           </CardContent>
