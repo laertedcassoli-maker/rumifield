@@ -288,17 +288,14 @@ export default function ExecucaoRota() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0 flex-1">
-                          <p className="font-medium text-sm leading-tight truncate">{item.client_name}</p>
-                          {item.client_fazenda && (
-                            <p className="text-xs text-muted-foreground truncate mt-0.5">{item.client_fazenda}</p>
-                          )}
+                          <p className="font-semibold text-sm leading-snug">{item.client_name}</p>
                           {(item.client_cidade || item.client_estado) && (
                             <p className="text-xs text-muted-foreground">
                               {[item.client_cidade, item.client_estado].filter(Boolean).join(' - ')}
                             </p>
                           )}
                         </div>
-                        <Badge variant="outline" className={`${config.color} text-xs shrink-0`}>
+                        <Badge variant="outline" className={`${config.color} text-xs shrink-0 whitespace-nowrap`}>
                           {config.label}
                         </Badge>
                       </div>
