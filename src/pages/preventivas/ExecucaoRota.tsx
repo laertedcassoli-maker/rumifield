@@ -346,12 +346,13 @@ export default function ExecucaoRota() {
                   )}
 
                   {attendanceStatus === 'concluida' && (
-                    <button
+                    <Link
+                      to={`/preventivas/execucao/${id}/atendimento/${item.id}`}
                       className="flex-1 flex items-center justify-center gap-2 py-3 text-sm text-muted-foreground hover:bg-muted/50 active:bg-muted transition-colors"
                     >
                       <Eye className="h-4 w-4" />
                       Ver resumo
-                    </button>
+                    </Link>
                   )}
                 </div>
               </CardContent>
