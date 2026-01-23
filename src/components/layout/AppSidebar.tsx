@@ -36,14 +36,22 @@ export function AppSidebar() {
     { title: 'Solicitação Peças', icon: ShoppingCart, url: '/pedidos', permKey: 'pedidos' },
   ].filter(item => canAccess(item.permKey));
 
-  // Preventivas submenu
-  const preventivasItems = [
-    { title: 'Clientes Preventiva', icon: Building2, url: '/preventivas', permKey: 'preventivas' },
-    { title: 'Rotas', icon: Route, url: '/preventivas/rotas', permKey: 'preventivas' },
-    { title: 'Calendário Anual', icon: CalendarDays, url: '/preventivas/calendario', permKey: 'preventivas' },
-  ].filter(item => canAccess(item.permKey));
+  // Preventivas submenu - items vary by role
+  const isTecnicoCampo = role === 'tecnico_campo';
+  
+  const preventivasItems = isTecnicoCampo
+    ? [
+        { title: 'Minhas Rotas', icon: Route, url: '/preventivas/minhas-rotas', permKey: 'preventivas' },
+      ]
+    : [
+        { title: 'Clientes Preventiva', icon: Building2, url: '/preventivas', permKey: 'preventivas' },
+        { title: 'Rotas', icon: Route, url: '/preventivas/rotas', permKey: 'preventivas' },
+        { title: 'Calendário Anual', icon: CalendarDays, url: '/preventivas/calendario', permKey: 'preventivas' },
+      ];
 
-  const showPreventivasMenu = canAccess('preventivas') && preventivasItems.length > 0;
+  const filteredPreventivasItems = preventivasItems.filter(item => canAccess(item.permKey));
+
+  const showPreventivasMenu = canAccess('preventivas') && filteredPreventivasItems.length > 0;
   const isPreventivasActive = location.pathname === '/preventivas' || location.pathname.startsWith('/preventivas/');
 
   // Estoque submenu
@@ -167,9 +175,9 @@ export function AppSidebar() {
                     </CollapsibleTrigger>
                     <CollapsibleContent>
                       <SidebarMenuSub>
-                        {preventivasItems.map(item => (
+                        {filteredPreventivasItems.map(item => (
                           <SidebarMenuSubItem key={item.title}>
-                            <SidebarMenuSubButton asChild isActive={location.pathname === item.url}>
+                            <SidebarMenuSubButton asChild isActive={location.pathname === item.url || location.pathname.startsWith(item.url + '/')}>
                               <Link to={item.url} onClick={handleMenuClick}>
                                 <item.icon className="h-4 w-4" />
                                 <span>{item.title}</span>
