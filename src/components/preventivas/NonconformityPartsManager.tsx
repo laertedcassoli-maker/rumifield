@@ -266,36 +266,44 @@ export default function NonconformityPartsManager({ nonconformityId, nonconformi
                           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                         </Button>
                       </PopoverTrigger>
-                      <PopoverContent className="w-[400px] p-0" align="start">
-                        <Command>
-                          <CommandInput placeholder="Buscar peça..." />
-                          <CommandList className="max-h-64">
-                            <CommandEmpty>Nenhuma peça encontrada.</CommandEmpty>
-                            {groupedParts && Object.entries(groupedParts).map(([family, parts]) => (
-                              <CommandGroup key={family} heading={family}>
-                                {parts?.map(part => (
-                                  <CommandItem
-                                    key={part.id}
-                                    value={`${part.codigo} ${part.nome}`}
-                                    onSelect={() => setSelectedPartId(part.id)}
-                                    className="flex items-center gap-2"
-                                  >
-                                    <Check
-                                      className={cn(
-                                        "h-4 w-4",
-                                        selectedPartId === part.id ? "opacity-100" : "opacity-0"
-                                      )}
-                                    />
-                                    <span className="truncate">
-                                      {part.codigo} - {part.nome}
-                                    </span>
-                                  </CommandItem>
-                                ))}
-                              </CommandGroup>
-                            ))}
-                          </CommandList>
-                        </Command>
-                      </PopoverContent>
+                        <PopoverContent className="w-[400px] p-0" align="start">
+                          <Command
+                            filter={(value, search) => {
+                              if (!search) return 1;
+                              const searchWords = search.toLowerCase().split(/\s+/).filter(Boolean);
+                              const itemText = value.toLowerCase();
+                              const allMatch = searchWords.every(word => itemText.includes(word));
+                              return allMatch ? 1 : 0;
+                            }}
+                          >
+                            <CommandInput placeholder="Buscar peça (ex: pistola 10)..." />
+                            <CommandList className="max-h-64">
+                              <CommandEmpty>Nenhuma peça encontrada.</CommandEmpty>
+                              {groupedParts && Object.entries(groupedParts).map(([family, parts]) => (
+                                <CommandGroup key={family} heading={family}>
+                                  {parts?.map(part => (
+                                    <CommandItem
+                                      key={part.id}
+                                      value={`${part.codigo} ${part.nome} ${part.familia || ''}`}
+                                      onSelect={() => setSelectedPartId(part.id)}
+                                      className="flex items-center gap-2"
+                                    >
+                                      <Check
+                                        className={cn(
+                                          "h-4 w-4",
+                                          selectedPartId === part.id ? "opacity-100" : "opacity-0"
+                                        )}
+                                      />
+                                      <span className="truncate">
+                                        {part.codigo} - {part.nome}
+                                      </span>
+                                    </CommandItem>
+                                  ))}
+                                </CommandGroup>
+                              ))}
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
                     </Popover>
                   </div>
 
