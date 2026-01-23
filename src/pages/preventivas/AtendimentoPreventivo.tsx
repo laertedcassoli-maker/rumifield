@@ -193,19 +193,19 @@ export default function AtendimentoPreventivo() {
 
   return (
     <div className="space-y-4 animate-fade-in w-full">
-      {/* Sticky Header */}
-      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 py-3 border-b -mx-4 px-4 sm:-mx-6 sm:px-6">
-        <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" asChild className="shrink-0 -ml-2">
+      {/* Minimal Header */}
+      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 py-2 -mx-4 px-4 sm:-mx-6 sm:px-6">
+        <div className="flex items-center justify-between">
+          <Button variant="ghost" size="sm" asChild className="-ml-2">
             <Link to={`/preventivas/execucao/${routeId}`}>
-              <ArrowLeft className="h-5 w-5" />
+              <ArrowLeft className="h-4 w-4 mr-1" />
+              Voltar
             </Link>
           </Button>
-          <span className="flex-1 text-lg font-bold truncate">Atendimento</span>
           {isCompleted && (
             <Badge
               variant="outline"
-              className="bg-green-500/10 text-green-600 border-green-500/20 shrink-0"
+              className="bg-green-500/10 text-green-600 border-green-500/20"
             >
               <CheckCircle2 className="h-3 w-3 mr-1" />
               Concluído
