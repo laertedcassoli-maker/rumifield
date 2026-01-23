@@ -15,7 +15,10 @@ import {
   AlertCircle,
   ClipboardCheck,
   LogOut,
-  AlertTriangle
+  AlertTriangle,
+  Share2,
+  User,
+  FileText
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -88,15 +91,18 @@ export default function AtendimentoPreventivo() {
       
       const { data: existingPm } = await supabase
         .from('preventive_maintenance')
-        .select('id, internal_notes, public_notes')
+        .select('id, internal_notes, public_notes, public_token')
         .eq('client_id', item.client_id)
         .eq('route_id', item.route_id)
         .maybeSingle();
+
+      let publicToken: string | null = null;
 
       if (existingPm) {
         preventiveId = existingPm.id;
         internalNotes = existingPm.internal_notes;
         publicNotes = existingPm.public_notes;
+        publicToken = existingPm.public_token;
       } else if (route?.start_date) {
         // Create preventive_maintenance record with route_id (ensures uniqueness)
         const { data: newPm, error: pmError } = await supabase
@@ -137,6 +143,7 @@ export default function AtendimentoPreventivo() {
         preventiveId,
         internalNotes,
         publicNotes,
+        publicToken,
       };
     },
     enabled: !!itemId,
@@ -407,6 +414,65 @@ export default function AtendimentoPreventivo() {
           preventiveId={routeItem.preventiveId}
           isCompleted={isVisitCompleted}
         />
+      )}
+
+      {/* Share Section - When Visit is Completed */}
+      {isVisitCompleted && routeItem.publicToken && (
+        <Card className="border-green-200 bg-green-50/50">
+          <CardContent className="p-4 space-y-3">
+            <div className="flex items-center gap-2 text-green-700">
+              <CheckCircle2 className="h-5 w-5" />
+              <h3 className="font-semibold">Visita Encerrada</h3>
+            </div>
+            <p className="text-sm text-muted-foreground">
+              Compartilhe o relatório com o produtor ou sua equipe:
+            </p>
+            <div className="grid grid-cols-2 gap-2">
+              <Button 
+                variant="outline" 
+                size="sm"
+                className="w-full"
+                onClick={() => {
+                  const url = `${window.location.origin}/relatorio/${routeItem.publicToken}`;
+                  if (navigator.share) {
+                    navigator.share({
+                      title: `Relatório - ${routeItem.client?.nome}`,
+                      text: 'Confira o relatório da visita preventiva',
+                      url
+                    });
+                  } else {
+                    navigator.clipboard.writeText(url);
+                    toast({ title: 'Link copiado!' });
+                  }
+                }}
+              >
+                <User className="h-4 w-4 mr-1" />
+                Produtor
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm"
+                className="w-full"
+                onClick={() => {
+                  const url = `${window.location.origin}/relatorio/${routeItem.publicToken}/interno`;
+                  if (navigator.share) {
+                    navigator.share({
+                      title: `Relatório Interno - ${routeItem.client?.nome}`,
+                      text: 'Relatório interno da visita preventiva',
+                      url
+                    });
+                  } else {
+                    navigator.clipboard.writeText(url);
+                    toast({ title: 'Link copiado!' });
+                  }
+                }}
+              >
+                <FileText className="h-4 w-4 mr-1" />
+                Time Interno
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
       )}
 
       {/* Fixed Footer - Encerrar Visita */}
