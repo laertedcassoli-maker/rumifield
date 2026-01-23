@@ -911,7 +911,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
               </div>
             </CardHeader>
           </CollapsibleTrigger>
-          <CollapsibleContent>
+          <CollapsibleContent className="animate-accordion-down data-[state=closed]:animate-accordion-up">
             {/* Progress controls - only when not completed */}
             {!isCompleted && (
               <div className="px-4 sm:px-6 pb-3 space-y-3">

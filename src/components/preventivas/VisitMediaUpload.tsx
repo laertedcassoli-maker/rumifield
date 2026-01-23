@@ -233,7 +233,7 @@ export default function VisitMediaUpload({
             </div>
           </CardHeader>
         </CollapsibleTrigger>
-        <CollapsibleContent>
+        <CollapsibleContent className="animate-accordion-down data-[state=closed]:animate-accordion-up">
           <CardContent className="space-y-4 pt-0">
         {/* Upload Buttons */}
         {!isCompleted && (
