@@ -21,6 +21,7 @@ import { ptBR } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
 import ChecklistExecution from '@/components/preventivas/ChecklistExecution';
 import VisitMediaUpload from '@/components/preventivas/VisitMediaUpload';
+import ConsumedPartsBlock from '@/components/preventivas/ConsumedPartsBlock';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -282,6 +283,14 @@ export default function AtendimentoPreventivo() {
             </p>
           </CardContent>
         </Card>
+      )}
+
+      {/* Consumed Parts Block */}
+      {routeItem.preventiveId && (
+        <ConsumedPartsBlock 
+          preventiveId={routeItem.preventiveId}
+          isCompleted={isVisitCompleted}
+        />
       )}
 
       {/* Media Upload Block */}
