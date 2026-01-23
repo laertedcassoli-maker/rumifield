@@ -1108,7 +1108,9 @@ export type Database = {
           completed_date: string | null
           created_at: string
           id: string
+          internal_notes: string | null
           notes: string | null
+          public_notes: string | null
           route_id: string | null
           scheduled_date: string
           status: Database["public"]["Enums"]["preventive_maintenance_status"]
@@ -1120,7 +1122,9 @@ export type Database = {
           completed_date?: string | null
           created_at?: string
           id?: string
+          internal_notes?: string | null
           notes?: string | null
+          public_notes?: string | null
           route_id?: string | null
           scheduled_date: string
           status?: Database["public"]["Enums"]["preventive_maintenance_status"]
@@ -1132,7 +1136,9 @@ export type Database = {
           completed_date?: string | null
           created_at?: string
           id?: string
+          internal_notes?: string | null
           notes?: string | null
+          public_notes?: string | null
           route_id?: string | null
           scheduled_date?: string
           status?: Database["public"]["Enums"]["preventive_maintenance_status"]
