@@ -22,6 +22,7 @@ import { useToast } from '@/hooks/use-toast';
 import ChecklistExecution from '@/components/preventivas/ChecklistExecution';
 import VisitMediaUpload from '@/components/preventivas/VisitMediaUpload';
 import ConsumedPartsBlock from '@/components/preventivas/ConsumedPartsBlock';
+import ObservationsBlock from '@/components/preventivas/ObservationsBlock';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -73,16 +74,20 @@ export default function AtendimentoPreventivo() {
 
       // Fetch or find preventive_maintenance record by route_id (unique constraint)
       let preventiveId: string | null = null;
+      let internalNotes: string | null = null;
+      let publicNotes: string | null = null;
       
       const { data: existingPm } = await supabase
         .from('preventive_maintenance')
-        .select('id')
+        .select('id, internal_notes, public_notes')
         .eq('client_id', item.client_id)
         .eq('route_id', item.route_id)
         .maybeSingle();
 
       if (existingPm) {
         preventiveId = existingPm.id;
+        internalNotes = existingPm.internal_notes;
+        publicNotes = existingPm.public_notes;
       } else if (route?.start_date) {
         // Create preventive_maintenance record with route_id (ensures uniqueness)
         const { data: newPm, error: pmError } = await supabase
@@ -121,6 +126,8 @@ export default function AtendimentoPreventivo() {
         route,
         client,
         preventiveId,
+        internalNotes,
+        publicNotes,
       };
     },
     enabled: !!itemId,
@@ -289,6 +296,16 @@ export default function AtendimentoPreventivo() {
       {routeItem.preventiveId && (
         <ConsumedPartsBlock 
           preventiveId={routeItem.preventiveId}
+          isCompleted={isVisitCompleted}
+        />
+      )}
+
+      {/* Observations Block */}
+      {routeItem.preventiveId && (
+        <ObservationsBlock 
+          preventiveId={routeItem.preventiveId}
+          initialInternalNotes={routeItem.internalNotes}
+          initialPublicNotes={routeItem.publicNotes}
           isCompleted={isVisitCompleted}
         />
       )}
