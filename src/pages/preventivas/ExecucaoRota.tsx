@@ -16,7 +16,8 @@ import {
   Play,
   Eye,
   Navigation,
-  AlertCircle
+  AlertCircle,
+  Share2
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -50,6 +51,7 @@ interface RouteItem {
   checkin_lat: number | null;
   checkin_lon: number | null;
   order_index: number;
+  public_token: string | null;
 }
 
 function getAttendanceStatus(item: RouteItem): AttendanceStatus {
@@ -100,7 +102,15 @@ export default function ExecucaoRota() {
         .select('id, nome, fazenda, cidade, estado, link_maps')
         .in('id', clientIds);
 
+      // Fetch public tokens for completed items
+      const { data: preventives } = await supabase
+        .from('preventive_maintenance')
+        .select('client_id, public_token')
+        .eq('route_id', id)
+        .not('public_token', 'is', null);
+
       const clientMap = new Map(clients?.map(c => [c.id, c]) || []);
+      const tokenMap = new Map(preventives?.map(p => [p.client_id, p.public_token]) || []);
 
       return data.map(item => {
         const client = clientMap.get(item.client_id);
@@ -111,6 +121,7 @@ export default function ExecucaoRota() {
           client_cidade: client?.cidade || null,
           client_estado: client?.estado || null,
           client_link_maps: client?.link_maps || null,
+          public_token: tokenMap.get(item.client_id) || null,
         };
       });
     },
@@ -346,13 +357,53 @@ export default function ExecucaoRota() {
                   )}
 
                   {attendanceStatus === 'concluida' && (
-                    <Link
-                      to={`/preventivas/execucao/${id}/atendimento/${item.id}`}
-                      className="flex-1 flex items-center justify-center gap-2 py-3 text-sm text-muted-foreground hover:bg-muted/50 active:bg-muted transition-colors"
-                    >
-                      <Eye className="h-4 w-4" />
-                      Ver resumo
-                    </Link>
+                    <>
+                      <Link
+                        to={`/preventivas/execucao/${id}/atendimento/${item.id}`}
+                        className="flex-1 flex items-center justify-center gap-2 py-3 text-sm text-muted-foreground hover:bg-muted/50 active:bg-muted transition-colors"
+                      >
+                        <Eye className="h-4 w-4" />
+                        Ver resumo
+                      </Link>
+                      {item.public_token && (
+                        <button
+                          onClick={async () => {
+                            const baseUrl = window.location.hostname.includes('lovableproject.com') 
+                              ? 'https://rumifield.lovable.app' 
+                              : window.location.origin;
+                            const url = `${baseUrl}/relatorio/${item.public_token}`;
+                            const shareData = {
+                              title: `Relatório - ${item.client_name}`,
+                              text: `Confira o relatório da visita preventiva: ${url}`,
+                              url
+                            };
+                            
+                            const canNativeShare = typeof navigator.share === 'function' && 
+                              (!navigator.canShare || navigator.canShare(shareData));
+                            
+                            if (canNativeShare) {
+                              try {
+                                await navigator.share(shareData);
+                                return;
+                              } catch (err) {
+                                if ((err as Error).name === 'AbortError') return;
+                              }
+                            }
+                            
+                            try {
+                              await navigator.clipboard.writeText(url);
+                              toast({ title: 'Link copiado!', description: 'Cole no WhatsApp para enviar' });
+                            } catch {
+                              toast({ title: 'Link do relatório', description: url });
+                            }
+                          }}
+                          className="flex-1 flex items-center justify-center gap-2 py-3 text-sm text-muted-foreground hover:bg-muted/50 active:bg-muted transition-colors"
+                        >
+                          <Share2 className="h-4 w-4" />
+                          Compartilhar
+                        </button>
+                      )}
+                    </>
                   )}
                 </div>
               </CardContent>
