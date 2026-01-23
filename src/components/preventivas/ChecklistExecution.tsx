@@ -9,8 +9,9 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { toast } from "sonner";
-import { AlertTriangle, ClipboardCheck, Loader2, Wrench, WifiOff, Cloud } from "lucide-react";
+import { AlertTriangle, ClipboardCheck, Loader2, Wrench, WifiOff, Cloud, ChevronDown, ChevronUp } from "lucide-react";
 import ChecklistItemStatusButtons from "./ChecklistItemStatusButtons";
 import SelectableOptionCard from "./SelectableOptionCard";
 import ChecklistBlockNav from "./ChecklistBlockNav";
@@ -73,6 +74,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onCo
   const [activeBlockId, setActiveBlockId] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
+  const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
   
   // Offline support hook
   const offlineChecklist = useOfflineChecklist();
@@ -785,148 +787,201 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onCo
                 </span>
               </h3>
               <div className="space-y-4">
-                {block.items.map((item) => (
-                  <div 
-                    key={item.id} 
-                    className={`border rounded-lg p-4 space-y-3 ${
-                      item.status === 'N' ? 'border-destructive/50 bg-destructive/5' : ''
-                    }`}
-                  >
-                    <div className="space-y-3">
-                      <div className="flex items-start justify-between gap-2">
-                        <span className="font-medium">{item.item_name_snapshot}</span>
-                        {isCompleted && <StatusBadge status={item.status} />}
+                {block.items.map((item) => {
+                  const hasFailureDetails = item.status === 'N' && 
+                    (item.availableNonconformities.length > 0 || item.availableActions.length > 0);
+                  const isExpanded = expandedItems.has(item.id);
+                  const selectedCount = item.selectedNonconformities.length + item.selectedActions.length;
+
+                  return (
+                    <div 
+                      key={item.id} 
+                      className={`border rounded-lg p-4 space-y-3 ${
+                        item.status === 'N' ? 'border-destructive/50 bg-destructive/5' : ''
+                      }`}
+                    >
+                      <div className="space-y-3">
+                        <div className="flex items-start justify-between gap-2">
+                          <span className="font-medium">{item.item_name_snapshot}</span>
+                          {isCompleted && <StatusBadge status={item.status} />}
+                        </div>
+                        {!isCompleted && (
+                          <ChecklistItemStatusButtons
+                            value={item.status}
+                            onChange={(status) => {
+                              updateItemMutation.mutate({ 
+                                itemId: item.id, 
+                                status 
+                              });
+                              // Auto-expand when marking as failure
+                              if (status === 'N') {
+                                setExpandedItems(prev => new Set([...prev, item.id]));
+                              }
+                            }}
+                          />
+                        )}
                       </div>
-                      {!isCompleted && (
-                        <ChecklistItemStatusButtons
-                          value={item.status}
-                          onChange={(status) => 
-                            updateItemMutation.mutate({ 
-                              itemId: item.id, 
-                              status 
-                            })
-                          }
-                        />
+
+                      {/* Collapsible section for failures */}
+                      {hasFailureDetails && !isCompleted && (
+                        <Collapsible 
+                          open={isExpanded} 
+                          onOpenChange={(open) => {
+                            setExpandedItems(prev => {
+                              const next = new Set(prev);
+                              if (open) {
+                                next.add(item.id);
+                              } else {
+                                next.delete(item.id);
+                              }
+                              return next;
+                            });
+                          }}
+                        >
+                          <CollapsibleTrigger asChild>
+                            <Button 
+                              variant="ghost" 
+                              size="sm" 
+                              className="w-full justify-between text-muted-foreground hover:text-foreground"
+                            >
+                              <span className="flex items-center gap-2">
+                                <AlertTriangle className="h-4 w-4 text-destructive" />
+                                Detalhes da falha
+                                {selectedCount > 0 && (
+                                  <Badge variant="secondary" className="text-xs">
+                                    {selectedCount} selecionado{selectedCount > 1 ? 's' : ''}
+                                  </Badge>
+                                )}
+                              </span>
+                              {isExpanded ? (
+                                <ChevronUp className="h-4 w-4" />
+                              ) : (
+                                <ChevronDown className="h-4 w-4" />
+                              )}
+                            </Button>
+                          </CollapsibleTrigger>
+                          <CollapsibleContent className="space-y-4 pt-3">
+                            {/* Nonconformities */}
+                            {item.availableNonconformities.length > 0 && (
+                              <div className="space-y-3">
+                                <div className="flex items-center gap-2 text-amber-600">
+                                  <AlertTriangle className="h-4 w-4 shrink-0" />
+                                  <p className="text-sm font-semibold">O que deu errado?</p>
+                                </div>
+                                <div className="space-y-2">
+                                  {item.availableNonconformities.map((nc) => {
+                                    const isSelected = item.selectedNonconformities.includes(nc.id);
+                                    return (
+                                      <SelectableOptionCard
+                                        key={nc.id}
+                                        label={nc.nonconformity_label}
+                                        selected={isSelected}
+                                        disabled={isCompleted}
+                                        variant="warning"
+                                        onClick={() => 
+                                          toggleNonconformityMutation.mutate({
+                                            itemId: item.id,
+                                            nonconformityId: nc.id,
+                                            nonconformityLabel: nc.nonconformity_label,
+                                            isSelected
+                                          })
+                                        }
+                                      />
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Corrective actions */}
+                            {item.availableActions.length > 0 && (
+                              <div className="space-y-3">
+                                <div className="flex items-center gap-2 text-primary">
+                                  <Wrench className="h-4 w-4 shrink-0" />
+                                  <p className="text-sm font-semibold">O que foi feito para corrigir?</p>
+                                </div>
+                                <div className="space-y-2">
+                                  {item.availableActions.map((action) => {
+                                    const isSelected = item.selectedActions.includes(action.id);
+                                    return (
+                                      <SelectableOptionCard
+                                        key={action.id}
+                                        label={action.action_label}
+                                        selected={isSelected}
+                                        disabled={isCompleted}
+                                        variant="default"
+                                        onClick={() => 
+                                          toggleActionMutation.mutate({
+                                            itemId: item.id,
+                                            actionId: action.id,
+                                            actionLabel: action.action_label,
+                                            isSelected
+                                          })
+                                        }
+                                      />
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
+                          </CollapsibleContent>
+                        </Collapsible>
                       )}
+
+                      {/* Show selected nonconformities when completed */}
+                      {isCompleted && item.status === 'N' && item.selectedNonconformities.length > 0 && (
+                        <div className="pl-4 border-l-2 border-amber-400">
+                          <p className="text-sm font-medium text-muted-foreground mb-1">
+                            Não conformidades identificadas:
+                          </p>
+                          <ul className="text-sm list-disc list-inside">
+                            {existingChecklist.blocks
+                              ?.find((b: any) => b.id === block.id)
+                              ?.items?.find((i: any) => i.id === item.id)
+                              ?.selected_nonconformities?.map((nc: any) => (
+                                <li key={nc.id}>{nc.nonconformity_label_snapshot}</li>
+                              ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {/* Show selected actions when completed */}
+                      {isCompleted && item.status === 'N' && item.selectedActions.length > 0 && (
+                        <div className="pl-4 border-l-2 border-destructive/30">
+                          <p className="text-sm font-medium text-muted-foreground mb-1">
+                            Ações corretivas realizadas:
+                          </p>
+                          <ul className="text-sm list-disc list-inside">
+                            {existingChecklist.blocks
+                              ?.find((b: any) => b.id === block.id)
+                              ?.items?.find((i: any) => i.id === item.id)
+                              ?.selected_actions?.map((action: any) => (
+                                <li key={action.id}>{action.action_label_snapshot}</li>
+                              ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {/* Notes */}
+                      {!isCompleted ? (
+                        <ChecklistItemNotes
+                          itemId={item.id}
+                          initialValue={item.notes}
+                          onSave={async (itemId, notes) => {
+                            setIsSaving(true);
+                            await updateItemMutation.mutateAsync({ itemId, notes });
+                            setIsSaving(false);
+                            setLastSavedAt(new Date());
+                          }}
+                        />
+                      ) : item.notes ? (
+                        <p className="text-sm text-muted-foreground">
+                          <strong>Obs:</strong> {item.notes}
+                        </p>
+                      ) : null}
                     </div>
-
-                    {/* Nonconformities - only show when status is N */}
-                    {item.status === 'N' && item.availableNonconformities.length > 0 && (
-                      <div className="mt-4 space-y-3">
-                        <div className="flex items-center gap-2 text-amber-600">
-                          <AlertTriangle className="h-4 w-4 shrink-0" />
-                          <p className="text-sm font-semibold">O que deu errado?</p>
-                        </div>
-                        <div className="space-y-2">
-                          {item.availableNonconformities.map((nc) => {
-                            const isSelected = item.selectedNonconformities.includes(nc.id);
-                            return (
-                              <SelectableOptionCard
-                                key={nc.id}
-                                label={nc.nonconformity_label}
-                                selected={isSelected}
-                                disabled={isCompleted}
-                                variant="warning"
-                                onClick={() => 
-                                  toggleNonconformityMutation.mutate({
-                                    itemId: item.id,
-                                    nonconformityId: nc.id,
-                                    nonconformityLabel: nc.nonconformity_label,
-                                    isSelected
-                                  })
-                                }
-                              />
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Corrective actions - only show when status is N */}
-                    {item.status === 'N' && item.availableActions.length > 0 && (
-                      <div className="mt-4 space-y-3">
-                        <div className="flex items-center gap-2 text-primary">
-                          <Wrench className="h-4 w-4 shrink-0" />
-                          <p className="text-sm font-semibold">O que foi feito para corrigir?</p>
-                        </div>
-                        <div className="space-y-2">
-                          {item.availableActions.map((action) => {
-                            const isSelected = item.selectedActions.includes(action.id);
-                            return (
-                              <SelectableOptionCard
-                                key={action.id}
-                                label={action.action_label}
-                                selected={isSelected}
-                                disabled={isCompleted}
-                                variant="default"
-                                onClick={() => 
-                                  toggleActionMutation.mutate({
-                                    itemId: item.id,
-                                    actionId: action.id,
-                                    actionLabel: action.action_label,
-                                    isSelected
-                                  })
-                                }
-                              />
-                            );
-                          })}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Show selected nonconformities when completed */}
-                    {isCompleted && item.status === 'N' && item.selectedNonconformities.length > 0 && (
-                      <div className="pl-4 border-l-2 border-amber-400">
-                        <p className="text-sm font-medium text-muted-foreground mb-1">
-                          Não conformidades identificadas:
-                        </p>
-                        <ul className="text-sm list-disc list-inside">
-                          {existingChecklist.blocks
-                            ?.find((b: any) => b.id === block.id)
-                            ?.items?.find((i: any) => i.id === item.id)
-                            ?.selected_nonconformities?.map((nc: any) => (
-                              <li key={nc.id}>{nc.nonconformity_label_snapshot}</li>
-                            ))}
-                        </ul>
-                      </div>
-                    )}
-
-                    {/* Show selected actions when completed */}
-                    {isCompleted && item.status === 'N' && item.selectedActions.length > 0 && (
-                      <div className="pl-4 border-l-2 border-destructive/30">
-                        <p className="text-sm font-medium text-muted-foreground mb-1">
-                          Ações corretivas realizadas:
-                        </p>
-                        <ul className="text-sm list-disc list-inside">
-                          {existingChecklist.blocks
-                            ?.find((b: any) => b.id === block.id)
-                            ?.items?.find((i: any) => i.id === item.id)
-                            ?.selected_actions?.map((action: any) => (
-                              <li key={action.id}>{action.action_label_snapshot}</li>
-                            ))}
-                        </ul>
-                      </div>
-                    )}
-
-                    {/* Notes */}
-                    {!isCompleted ? (
-                      <ChecklistItemNotes
-                        itemId={item.id}
-                        initialValue={item.notes}
-                        onSave={async (itemId, notes) => {
-                          setIsSaving(true);
-                          await updateItemMutation.mutateAsync({ itemId, notes });
-                          setIsSaving(false);
-                          setLastSavedAt(new Date());
-                        }}
-                      />
-                    ) : item.notes ? (
-                      <p className="text-sm text-muted-foreground">
-                        <strong>Obs:</strong> {item.notes}
-                      </p>
-                    ) : null}
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           ))}
