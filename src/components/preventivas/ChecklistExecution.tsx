@@ -897,7 +897,6 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
                 <CardTitle className="flex items-center gap-2 text-base leading-tight min-w-0 flex-1 overflow-hidden">
                   <ClipboardCheck className="h-5 w-5 shrink-0" />
                   <span className="font-semibold">Check-list</span>
-                  <span className="truncate text-muted-foreground font-normal text-sm">{existingChecklist.template?.name}</span>
                 </CardTitle>
                 <div className="flex items-center gap-2">
                   {isCompleted && (
