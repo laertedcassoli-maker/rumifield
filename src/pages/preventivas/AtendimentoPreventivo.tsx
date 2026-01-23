@@ -1,4 +1,4 @@
-import { useState } from 'react'; // refresh
+import { useState } from 'react'; // v2
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';

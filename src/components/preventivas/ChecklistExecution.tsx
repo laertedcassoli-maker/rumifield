@@ -292,7 +292,16 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onCo
 
   // Auto-start checklist if routeTemplateId is provided and no checklist exists
   useEffect(() => {
+    console.log('[ChecklistExecution] Auto-start check:', { 
+      existingChecklist: !!existingChecklist, 
+      routeTemplateId, 
+      loadingChecklist, 
+      autoStarted,
+      isPending: createChecklistMutation.isPending 
+    });
+    
     if (!existingChecklist && routeTemplateId && !loadingChecklist && !autoStarted && !createChecklistMutation.isPending) {
+      console.log('[ChecklistExecution] Auto-starting with template:', routeTemplateId);
       setAutoStarted(true);
       createChecklistMutation.mutate(routeTemplateId);
     }
@@ -527,34 +536,38 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onCo
     }
   });
 
-  if (loadingChecklist) {
+  // Show loading while fetching or auto-creating checklist
+  if (loadingChecklist || (routeTemplateId && !existingChecklist && (autoStarted || createChecklistMutation.isPending))) {
     return (
       <Card>
         <CardContent className="p-6">
-          <div className="flex items-center justify-center">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          <div className="flex flex-col items-center justify-center gap-3">
+            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+            <p className="text-sm text-muted-foreground">
+              {createChecklistMutation.isPending ? 'Iniciando checklist...' : 'Carregando...'}
+            </p>
           </div>
         </CardContent>
       </Card>
     );
   }
 
-  // No checklist started - show template selection
+  // No checklist started and no routeTemplateId - show template selection (fallback)
   if (!existingChecklist) {
     return (
       <>
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
+            <CardTitle className="flex items-center gap-2 text-base">
               <ClipboardCheck className="h-5 w-5" />
               Checklist de Preventiva
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-muted-foreground mb-4">
+            <p className="text-sm text-muted-foreground mb-4">
               Nenhum checklist foi iniciado para esta preventiva.
             </p>
-            <Button onClick={() => setIsSelectTemplateOpen(true)}>
+            <Button onClick={() => setIsSelectTemplateOpen(true)} className="w-full">
               Iniciar Checklist
             </Button>
           </CardContent>
