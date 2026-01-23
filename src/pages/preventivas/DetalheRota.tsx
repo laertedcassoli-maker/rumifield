@@ -36,7 +36,9 @@ import {
   Play,
   Flag,
   FileCheck,
-  ClipboardList
+  ClipboardList,
+  MapPin,
+  ExternalLink
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -106,7 +108,7 @@ export default function DetalheRota() {
       const clientIds = items?.map(i => i.client_id) || [];
       const { data: clients } = await supabase
         .from('clientes')
-        .select('id, nome, fazenda')
+        .select('id, nome, fazenda, link_maps')
         .in('id', clientIds);
 
       const clientsMap = new Map(clients?.map(c => [c.id, c]) || []);
@@ -119,6 +121,7 @@ export default function DetalheRota() {
           ...item,
           client_name: clientsMap.get(item.client_id)?.nome || 'Cliente não encontrado',
           client_fazenda: clientsMap.get(item.client_id)?.fazenda || null,
+          client_link_maps: clientsMap.get(item.client_id)?.link_maps || null,
         })) || [],
       };
     },
@@ -512,6 +515,7 @@ export default function DetalheRota() {
             <TableHeader>
               <TableRow>
                 <TableHead>Fazenda</TableHead>
+                <TableHead>Localização</TableHead>
                 <TableHead>Motivo da Inclusão</TableHead>
                 <TableHead>Data Planejada</TableHead>
                 <TableHead>Status</TableHead>
@@ -528,6 +532,22 @@ export default function DetalheRota() {
                         <div className="text-sm text-muted-foreground">{item.client_fazenda}</div>
                       )}
                     </div>
+                  </TableCell>
+                  <TableCell>
+                    {item.client_link_maps ? (
+                      <a 
+                        href={item.client_link_maps} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-primary hover:underline text-sm"
+                      >
+                        <MapPin className="h-3 w-3" />
+                        Ver no Maps
+                        <ExternalLink className="h-3 w-3" />
+                      </a>
+                    ) : (
+                      <span className="text-muted-foreground text-sm">-</span>
+                    )}
                   </TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {item.suggested_reason || '-'}
