@@ -683,20 +683,20 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onCo
   return (
     <>
       <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                <ClipboardCheck className="h-5 w-5" />
-                Checklist: {existingChecklist.template?.name}
+        <CardHeader className="pb-3">
+          <div className="flex flex-col gap-2">
+            <div className="flex items-start justify-between gap-2">
+              <CardTitle className="flex items-start gap-2 text-base leading-tight">
+                <ClipboardCheck className="h-5 w-5 shrink-0 mt-0.5" />
+                <span className="break-words">Checklist: {existingChecklist.template?.name}</span>
               </CardTitle>
-              <p className="text-sm text-muted-foreground mt-1">
-                {answeredItems} de {totalItems} itens respondidos
-              </p>
+              <Badge variant={isCompleted ? "default" : "secondary"} className="shrink-0 whitespace-nowrap">
+                {isCompleted ? "Concluído" : "Em andamento"}
+              </Badge>
             </div>
-            <Badge variant={isCompleted ? "default" : "secondary"}>
-              {isCompleted ? "Concluído" : "Em andamento"}
-            </Badge>
+            <p className="text-sm text-muted-foreground">
+              {answeredItems} de {totalItems} itens respondidos
+            </p>
           </div>
           <Progress value={progress} className="mt-3" />
         </CardHeader>
@@ -714,9 +714,12 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onCo
                       item.status === 'N' ? 'border-destructive/50 bg-destructive/5' : ''
                     }`}
                   >
-                    <div className="flex items-start justify-between gap-4">
-                      <span className="font-medium">{item.item_name_snapshot}</span>
-                      {!isCompleted ? (
+                    <div className="flex flex-col gap-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <span className="font-medium">{item.item_name_snapshot}</span>
+                        {isCompleted && <StatusBadge status={item.status} />}
+                      </div>
+                      {!isCompleted && (
                         <RadioGroup
                           value={item.status || ''}
                           onValueChange={(value) => 
@@ -725,7 +728,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onCo
                               status: value as 'S' | 'N' | 'NA' 
                             })
                           }
-                          className="flex gap-4"
+                          className="flex flex-wrap gap-x-4 gap-y-2"
                         >
                           <div className="flex items-center space-x-2">
                             <RadioGroupItem value="S" id={`${item.id}-s`} />
@@ -758,8 +761,6 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onCo
                             </Label>
                           </div>
                         </RadioGroup>
-                      ) : (
-                        <StatusBadge status={item.status} />
                       )}
                     </div>
 
