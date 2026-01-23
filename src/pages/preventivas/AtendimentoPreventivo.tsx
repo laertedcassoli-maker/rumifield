@@ -201,7 +201,7 @@ export default function AtendimentoPreventivo() {
               <ArrowLeft className="h-5 w-5" />
             </Link>
           </Button>
-          <h1 className="flex-1 text-lg font-bold truncate">{routeItem.client?.nome}</h1>
+          <span className="flex-1 text-lg font-bold truncate">Atendimento</span>
           {isCompleted && (
             <Badge
               variant="outline"
@@ -216,9 +216,10 @@ export default function AtendimentoPreventivo() {
 
       {/* Info Card */}
       <Card>
-        <CardContent className="p-4 space-y-2">
+        <CardContent className="p-4 space-y-3">
+          <h1 className="text-lg font-bold text-foreground">{routeItem.client?.nome}</h1>
           {routeItem.client?.fazenda && (
-            <p className="font-medium text-foreground">{routeItem.client.fazenda}</p>
+            <p className="text-sm text-muted-foreground -mt-1">{routeItem.client.fazenda}</p>
           )}
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <MapPin className="h-4 w-4 shrink-0" />
