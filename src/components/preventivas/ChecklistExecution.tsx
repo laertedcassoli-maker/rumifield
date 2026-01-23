@@ -759,11 +759,18 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onCo
   const isCompleted = existingChecklist.status === 'concluido';
   const allAnswered = answeredItems === totalItems;
 
-  // Check if any item with status N has no corrective actions selected (only if actions are available)
+  // Check if any item with status N is missing required selections:
+  // - Must have at least one non-conformity selected (if available)
+  // - Must have at least one corrective action selected (if available)
   const hasIncompleteFailures = blocks.some(block => 
-    block.items.some(item => 
-      item.status === 'N' && item.selectedActions.length === 0 && item.availableActions.length > 0
-    )
+    block.items.some(item => {
+      if (item.status !== 'N') return false;
+      
+      const missingNonconformity = item.availableNonconformities.length > 0 && item.selectedNonconformities.length === 0;
+      const missingAction = item.availableActions.length > 0 && item.selectedActions.length === 0;
+      
+      return missingNonconformity || missingAction;
+    })
   );
 
   // Prepare blocks for navigation
@@ -823,8 +830,12 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onCo
                   const isExpanded = expandedItems.has(item.id);
                   const selectedCount = item.selectedNonconformities.length + item.selectedActions.length;
                   
-                  // Check if this failure needs treatment (has options but nothing selected)
-                  const needsTreatment = item.status === 'N' && hasFailureDetails && selectedCount === 0;
+                  // Check if this failure needs treatment:
+                  // - Missing non-conformity selection (if options available)
+                  // - Missing corrective action selection (if options available)
+                  const missingNonconformity = item.availableNonconformities.length > 0 && item.selectedNonconformities.length === 0;
+                  const missingAction = item.availableActions.length > 0 && item.selectedActions.length === 0;
+                  const needsTreatment = item.status === 'N' && hasFailureDetails && (missingNonconformity || missingAction);
 
                   return (
                     <div 
