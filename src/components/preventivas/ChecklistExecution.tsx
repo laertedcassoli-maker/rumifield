@@ -341,6 +341,33 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onCo
     }
   }, [existingChecklist?.blocks, activeBlockId, offlineChecklist]);
 
+  // Auto-expand failure items that need treatment (no selections yet)
+  useEffect(() => {
+    if (!existingChecklist?.blocks || existingChecklist.status === 'concluido') return;
+    
+    const itemsToExpand: string[] = [];
+    existingChecklist.blocks.forEach((block: any) => {
+      block.items?.forEach((item: any) => {
+        if (item.status === 'N') {
+          const hasNonconformities = item.selected_nonconformities?.length > 0;
+          const hasActions = item.selected_actions?.length > 0;
+          // Expand if no selections at all
+          if (!hasNonconformities && !hasActions) {
+            itemsToExpand.push(item.id);
+          }
+        }
+      });
+    });
+    
+    if (itemsToExpand.length > 0) {
+      setExpandedItems(prev => {
+        const next = new Set(prev);
+        itemsToExpand.forEach(id => next.add(id));
+        return next;
+      });
+    }
+  }, [existingChecklist?.blocks, existingChecklist?.status]);
+
   // Update item status with offline support
   const updateItemMutation = useMutation({
     mutationFn: async ({ 
@@ -792,17 +819,31 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onCo
                     (item.availableNonconformities.length > 0 || item.availableActions.length > 0);
                   const isExpanded = expandedItems.has(item.id);
                   const selectedCount = item.selectedNonconformities.length + item.selectedActions.length;
+                  
+                  // Check if this failure needs treatment (has options but nothing selected)
+                  const needsTreatment = item.status === 'N' && hasFailureDetails && selectedCount === 0;
 
                   return (
                     <div 
                       key={item.id} 
-                      className={`border rounded-lg p-4 space-y-3 ${
-                        item.status === 'N' ? 'border-destructive/50 bg-destructive/5' : ''
+                      className={`border rounded-lg p-4 space-y-3 transition-all ${
+                        needsTreatment 
+                          ? 'border-destructive bg-destructive/10 ring-2 ring-destructive/30 ring-offset-1' 
+                          : item.status === 'N' 
+                            ? 'border-destructive/50 bg-destructive/5' 
+                            : ''
                       }`}
                     >
                       <div className="space-y-3">
                         <div className="flex items-start justify-between gap-2">
-                          <span className="font-medium">{item.item_name_snapshot}</span>
+                          <div className="flex items-start gap-2 min-w-0 flex-1">
+                            <span className="font-medium">{item.item_name_snapshot}</span>
+                            {needsTreatment && !isCompleted && (
+                              <Badge variant="destructive" className="shrink-0 text-xs animate-pulse">
+                                Pendente
+                              </Badge>
+                            )}
+                          </div>
                           {isCompleted && <StatusBadge status={item.status} />}
                         </div>
                         {!isCompleted && (
