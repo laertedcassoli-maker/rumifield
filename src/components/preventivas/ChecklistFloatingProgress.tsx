@@ -116,18 +116,21 @@ export default function ChecklistFloatingProgress({
   };
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur border-t shadow-lg z-50 pb-[env(safe-area-inset-bottom)]">
+    <div className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur border-t shadow-lg z-40 pb-[env(safe-area-inset-bottom)]">
       <div className="max-w-2xl mx-auto px-4 py-3 space-y-2">
         {/* Sync status indicator */}
         <div className="flex items-center justify-center text-xs">
           {getSyncStatusDisplay()}
         </div>
 
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex-1 space-y-1">
+        <div className="flex items-center justify-between gap-3">
+          {/* Left spacer for floating home button */}
+          <div className="w-14 shrink-0 sm:hidden" />
+          
+          <div className="flex-1 space-y-1 min-w-0">
             <div className="flex items-center justify-between text-sm">
               <span className="font-medium">
-                {answered} de {total} itens
+                {answered}/{total} itens
               </span>
               <span className="text-muted-foreground">
                 {Math.round(progress)}%
@@ -139,9 +142,9 @@ export default function ChecklistFloatingProgress({
             onClick={onComplete}
             disabled={disabled || !isAllAnswered || !isOnline}
             className="shrink-0"
-            size="lg"
+            size="default"
           >
-            <CheckCircle2 className="h-5 w-5 mr-2" />
+            <CheckCircle2 className="h-4 w-4 mr-1.5" />
             Concluir
           </Button>
         </div>
