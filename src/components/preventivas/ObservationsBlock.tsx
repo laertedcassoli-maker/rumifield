@@ -135,8 +135,14 @@ export default function ObservationsBlock({
                   value={internalNotes}
                   onChange={(e) => handleInternalChange(e.target.value)}
                   placeholder="Anotações internas sobre a visita..."
-                  className={cn("min-h-[60px] resize-none text-sm")}
-                  rows={2}
+                  className={cn("min-h-[80px] resize-none text-sm overflow-hidden")}
+                  rows={3}
+                  style={{ height: 'auto' }}
+                  onInput={(e) => {
+                    const target = e.target as HTMLTextAreaElement;
+                    target.style.height = 'auto';
+                    target.style.height = `${target.scrollHeight}px`;
+                  }}
                 />
               )}
             </div>
@@ -168,8 +174,14 @@ export default function ObservationsBlock({
                   value={publicNotes}
                   onChange={(e) => handlePublicChange(e.target.value)}
                   placeholder="Observações para o produtor ver no relatório..."
-                  className={cn("min-h-[60px] resize-none text-sm")}
-                  rows={2}
+                  className={cn("min-h-[80px] resize-none text-sm overflow-hidden")}
+                  rows={3}
+                  style={{ height: 'auto' }}
+                  onInput={(e) => {
+                    const target = e.target as HTMLTextAreaElement;
+                    target.style.height = 'auto';
+                    target.style.height = `${target.scrollHeight}px`;
+                  }}
                 />
               )}
             </div>
