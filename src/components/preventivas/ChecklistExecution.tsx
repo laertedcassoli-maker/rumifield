@@ -915,7 +915,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onCo
                               )}
                             </Button>
                           </CollapsibleTrigger>
-                          <CollapsibleContent className="space-y-4 pt-3">
+                          <CollapsibleContent className="space-y-4 pt-3 max-h-[60vh] overflow-y-auto">
                             {/* Nonconformities */}
                             {item.availableNonconformities.length > 0 && (
                               <div className="space-y-3">
