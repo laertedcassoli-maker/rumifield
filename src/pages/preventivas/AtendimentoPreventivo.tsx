@@ -243,7 +243,8 @@ export default function AtendimentoPreventivo() {
       {/* Checklist Execution */}
       {routeItem.preventiveId ? (
         <ChecklistExecution 
-          preventiveId={routeItem.preventiveId} 
+          preventiveId={routeItem.preventiveId}
+          routeTemplateId={routeItem.route?.checklist_template_id || undefined}
           onComplete={() => setShowCompleteDialog(true)}
         />
       ) : (
