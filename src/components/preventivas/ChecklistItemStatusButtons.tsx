@@ -14,7 +14,7 @@ export default function ChecklistItemStatusButtons({
   disabled 
 }: ChecklistItemStatusButtonsProps) {
   return (
-    <div className="grid grid-cols-3 gap-1.5 sm:gap-2 w-full">
+    <div className="grid grid-cols-3 gap-1.5 w-full">
       <Button
         type="button"
         variant={value === 'S' ? 'default' : 'outline'}
@@ -22,14 +22,14 @@ export default function ChecklistItemStatusButtons({
         disabled={disabled}
         onClick={() => onChange('S')}
         className={cn(
-          "h-11 px-2 sm:px-4 text-xs sm:text-sm font-medium transition-all",
+          "h-12 px-1 text-xs font-medium transition-all flex-col gap-0.5 sm:flex-row sm:gap-1.5 sm:h-11 sm:px-4 sm:text-sm",
           value === 'S' 
-            ? "bg-success text-success-foreground hover:bg-success/90 border-success"
-            : "hover:bg-success/10 hover:text-success hover:border-success/40"
+            ? "bg-success text-success-foreground hover:bg-success/90 border-success shadow-sm"
+            : "hover:bg-success/10 hover:text-success hover:border-success/50"
         )}
       >
-        <CheckCircle2 className="h-4 w-4 sm:mr-1.5 shrink-0" />
-        <span className="hidden sm:inline">OK</span>
+        <CheckCircle2 className="h-5 w-5 sm:h-4 sm:w-4 shrink-0" />
+        <span>OK</span>
       </Button>
       <Button
         type="button"
@@ -38,14 +38,14 @@ export default function ChecklistItemStatusButtons({
         disabled={disabled}
         onClick={() => onChange('N')}
         className={cn(
-          "h-11 px-2 sm:px-4 text-xs sm:text-sm font-medium transition-all",
+          "h-12 px-1 text-xs font-medium transition-all flex-col gap-0.5 sm:flex-row sm:gap-1.5 sm:h-11 sm:px-4 sm:text-sm",
           value === 'N' 
-            ? "bg-destructive hover:bg-destructive/90 text-destructive-foreground" 
-            : "hover:bg-destructive/10 hover:text-destructive hover:border-destructive/40"
+            ? "bg-destructive hover:bg-destructive/90 text-destructive-foreground shadow-sm" 
+            : "hover:bg-destructive/10 hover:text-destructive hover:border-destructive/50"
         )}
       >
-        <XCircle className="h-4 w-4 sm:mr-1.5 shrink-0" />
-        <span className="hidden sm:inline">Falha</span>
+        <XCircle className="h-5 w-5 sm:h-4 sm:w-4 shrink-0" />
+        <span>Falha</span>
       </Button>
       <Button
         type="button"
@@ -54,14 +54,14 @@ export default function ChecklistItemStatusButtons({
         disabled={disabled}
         onClick={() => onChange('NA')}
         className={cn(
-          "h-11 px-2 sm:px-4 text-xs sm:text-sm font-medium transition-all",
+          "h-12 px-1 text-xs font-medium transition-all flex-col gap-0.5 sm:flex-row sm:gap-1.5 sm:h-11 sm:px-4 sm:text-sm",
           value === 'NA' 
-            ? "bg-muted text-muted-foreground" 
-            : "hover:bg-muted/50"
+            ? "bg-muted text-muted-foreground shadow-sm" 
+            : "hover:bg-muted/60"
         )}
       >
-        <MinusCircle className="h-4 w-4 sm:mr-1.5 shrink-0" />
-        <span className="hidden sm:inline">N/A</span>
+        <MinusCircle className="h-5 w-5 sm:h-4 sm:w-4 shrink-0" />
+        <span>N/A</span>
       </Button>
     </div>
   );

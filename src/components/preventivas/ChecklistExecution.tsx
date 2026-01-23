@@ -14,6 +14,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { toast } from "sonner";
 import { AlertTriangle, ClipboardCheck, Loader2, Wrench } from "lucide-react";
 import ChecklistItemStatusButtons from "./ChecklistItemStatusButtons";
+import SelectableOptionCard from "./SelectableOptionCard";
 import ChecklistBlockNav from "./ChecklistBlockNav";
 import ChecklistFloatingProgress from "./ChecklistFloatingProgress";
 interface ChecklistExecutionProps {
@@ -773,36 +774,30 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onCo
 
                     {/* Nonconformities - only show when status is N */}
                     {item.status === 'N' && item.availableNonconformities.length > 0 && (
-                      <div className="pl-4 border-l-2 border-amber-400 space-y-2">
-                        <p className="text-sm font-medium text-amber-600 flex items-center gap-1">
-                          <AlertTriangle className="h-4 w-4" />
-                          O que deu errado? (Não Conformidades)
-                        </p>
+                      <div className="mt-4 space-y-3">
+                        <div className="flex items-center gap-2 text-amber-600">
+                          <AlertTriangle className="h-4 w-4 shrink-0" />
+                          <p className="text-sm font-semibold">O que deu errado?</p>
+                        </div>
                         <div className="space-y-2">
                           {item.availableNonconformities.map((nc) => {
                             const isSelected = item.selectedNonconformities.includes(nc.id);
                             return (
-                              <div key={nc.id} className="flex items-center space-x-2">
-                                <Checkbox
-                                  id={`nc-${nc.id}`}
-                                  checked={isSelected}
-                                  disabled={isCompleted}
-                                  onCheckedChange={() => 
-                                    toggleNonconformityMutation.mutate({
-                                      itemId: item.id,
-                                      nonconformityId: nc.id,
-                                      nonconformityLabel: nc.nonconformity_label,
-                                      isSelected
-                                    })
-                                  }
-                                />
-                                <Label 
-                                  htmlFor={`nc-${nc.id}`}
-                                  className="text-sm cursor-pointer"
-                                >
-                                  {nc.nonconformity_label}
-                                </Label>
-                              </div>
+                              <SelectableOptionCard
+                                key={nc.id}
+                                label={nc.nonconformity_label}
+                                selected={isSelected}
+                                disabled={isCompleted}
+                                variant="warning"
+                                onClick={() => 
+                                  toggleNonconformityMutation.mutate({
+                                    itemId: item.id,
+                                    nonconformityId: nc.id,
+                                    nonconformityLabel: nc.nonconformity_label,
+                                    isSelected
+                                  })
+                                }
+                              />
                             );
                           })}
                         </div>
@@ -811,36 +806,30 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onCo
 
                     {/* Corrective actions - only show when status is N */}
                     {item.status === 'N' && item.availableActions.length > 0 && (
-                      <div className="pl-4 border-l-2 border-destructive/30 space-y-2">
-                        <p className="text-sm font-medium text-destructive flex items-center gap-1">
-                          <Wrench className="h-4 w-4" />
-                          O que foi feito para corrigir? (Ações Corretivas)
-                        </p>
+                      <div className="mt-4 space-y-3">
+                        <div className="flex items-center gap-2 text-primary">
+                          <Wrench className="h-4 w-4 shrink-0" />
+                          <p className="text-sm font-semibold">O que foi feito para corrigir?</p>
+                        </div>
                         <div className="space-y-2">
                           {item.availableActions.map((action) => {
                             const isSelected = item.selectedActions.includes(action.id);
                             return (
-                              <div key={action.id} className="flex items-center space-x-2">
-                                <Checkbox
-                                  id={`action-${action.id}`}
-                                  checked={isSelected}
-                                  disabled={isCompleted}
-                                  onCheckedChange={() => 
-                                    toggleActionMutation.mutate({
-                                      itemId: item.id,
-                                      actionId: action.id,
-                                      actionLabel: action.action_label,
-                                      isSelected
-                                    })
-                                  }
-                                />
-                                <Label 
-                                  htmlFor={`action-${action.id}`}
-                                  className="text-sm cursor-pointer"
-                                >
-                                  {action.action_label}
-                                </Label>
-                              </div>
+                              <SelectableOptionCard
+                                key={action.id}
+                                label={action.action_label}
+                                selected={isSelected}
+                                disabled={isCompleted}
+                                variant="default"
+                                onClick={() => 
+                                  toggleActionMutation.mutate({
+                                    itemId: item.id,
+                                    actionId: action.id,
+                                    actionLabel: action.action_label,
+                                    isSelected
+                                  })
+                                }
+                              />
                             );
                           })}
                         </div>
