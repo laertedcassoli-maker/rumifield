@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -13,7 +13,8 @@ import {
   Clock,
   CheckCircle2,
   AlertCircle,
-  ClipboardCheck
+  ClipboardCheck,
+  LogOut
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -37,11 +38,12 @@ export default function AtendimentoPreventivo() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [showCompleteDialog, setShowCompleteDialog] = useState(false);
+  const [checklistStatus, setChecklistStatus] = useState<'not_started' | 'in_progress' | 'completed'>('not_started');
 
   const isAdminOrCoordinator = role === 'admin' || role === 'coordenador_servicos';
 
   // Fetch route item details
-  const { data: routeItem, isLoading } = useQuery({
+  const { data: routeItem, isLoading, refetch } = useQuery({
     queryKey: ['route-item-attendance', itemId],
     queryFn: async () => {
       const { data: item, error } = await supabase
@@ -99,6 +101,19 @@ export default function AtendimentoPreventivo() {
         }
       }
 
+      // Check checklist status
+      if (preventiveId) {
+        const { data: checklist } = await supabase
+          .from('preventive_checklists')
+          .select('status')
+          .eq('preventive_id', preventiveId)
+          .maybeSingle();
+        
+        if (checklist) {
+          setChecklistStatus(checklist.status === 'concluido' ? 'completed' : 'in_progress');
+        }
+      }
+
       return {
         ...item,
         route,
@@ -109,7 +124,7 @@ export default function AtendimentoPreventivo() {
     enabled: !!itemId,
   });
 
-  // Complete attendance mutation
+  // Complete attendance mutation (Encerrar Visita)
   const completeMutation = useMutation({
     mutationFn: async () => {
       if (!routeItem) throw new Error('Item não encontrado');
@@ -141,14 +156,14 @@ export default function AtendimentoPreventivo() {
       queryClient.invalidateQueries({ queryKey: ['route-execution', routeId] });
       queryClient.invalidateQueries({ queryKey: ['route-execution-items', routeId] });
       toast({
-        title: 'Atendimento concluído!',
+        title: 'Visita encerrada!',
         description: 'A fazenda foi marcada como executada.',
       });
       navigate(`/preventivas/execucao/${routeId}`);
     },
     onError: (error: Error) => {
       toast({
-        title: 'Erro ao concluir',
+        title: 'Erro ao encerrar',
         description: error.message,
         variant: 'destructive',
       });
@@ -156,6 +171,9 @@ export default function AtendimentoPreventivo() {
   });
 
   const canAccess = isAdminOrCoordinator || routeItem?.route?.field_technician_user_id === user?.id;
+  
+  // Can only finish visit when checklist is completed
+  const canFinishVisit = checklistStatus === 'completed';
 
   if (isLoading) {
     return (
@@ -189,10 +207,10 @@ export default function AtendimentoPreventivo() {
     );
   }
 
-  const isCompleted = routeItem.status === 'executado';
+  const isVisitCompleted = routeItem.status === 'executado';
 
   return (
-    <div className="space-y-4 animate-fade-in w-full">
+    <div className="space-y-4 animate-fade-in w-full pb-24">
       {/* Minimal Header */}
       <div className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 py-2 -mx-4 px-4 sm:-mx-6 sm:px-6">
         <div className="flex items-center justify-between">
@@ -202,13 +220,13 @@ export default function AtendimentoPreventivo() {
               Voltar
             </Link>
           </Button>
-          {isCompleted && (
+          {isVisitCompleted && (
             <Badge
               variant="outline"
               className="bg-green-500/10 text-green-600 border-green-500/20"
             >
               <CheckCircle2 className="h-3 w-3 mr-1" />
-              Concluído
+              Encerrada
             </Badge>
           )}
         </div>
@@ -242,12 +260,17 @@ export default function AtendimentoPreventivo() {
         </CardContent>
       </Card>
 
-      {/* Checklist Execution */}
+      {/* Checklist Execution Block */}
       {routeItem.preventiveId ? (
         <ChecklistExecution 
           preventiveId={routeItem.preventiveId}
           routeTemplateId={routeItem.route?.checklist_template_id || undefined}
-          onComplete={() => setShowCompleteDialog(true)}
+          onStatusChange={(status) => {
+            setChecklistStatus(status);
+            if (status === 'completed') {
+              refetch(); // Refresh data
+            }
+          }}
         />
       ) : (
         <Card>
@@ -260,11 +283,33 @@ export default function AtendimentoPreventivo() {
         </Card>
       )}
 
+      {/* Fixed Footer - Encerrar Visita */}
+      {!isVisitCompleted && (
+        <div className="fixed bottom-0 left-0 right-0 bg-background/95 backdrop-blur border-t p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
+          <div className="max-w-2xl mx-auto">
+            <Button 
+              onClick={() => setShowCompleteDialog(true)}
+              disabled={!canFinishVisit || completeMutation.isPending}
+              className="w-full"
+              size="lg"
+            >
+              <LogOut className="h-4 w-4 mr-2" />
+              Encerrar Visita
+            </Button>
+            {!canFinishVisit && (
+              <p className="text-xs text-muted-foreground text-center mt-2">
+                Conclua o checklist para encerrar a visita
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Complete Confirmation Dialog */}
       <AlertDialog open={showCompleteDialog} onOpenChange={setShowCompleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Concluir atendimento?</AlertDialogTitle>
+            <AlertDialogTitle>Encerrar visita?</AlertDialogTitle>
             <AlertDialogDescription>
               Isso marcará a fazenda como executada na rota. Você poderá visualizar o resumo mas não poderá editar as respostas.
             </AlertDialogDescription>
