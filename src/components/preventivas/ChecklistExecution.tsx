@@ -572,12 +572,12 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onCo
           <p className="text-sm text-muted-foreground">
             {autoStartError ? `Detalhe: ${autoStartError}` : 'A criação automática não retornou um checklist.'}
           </p>
-          <div className="flex gap-2">
-            <Button onClick={retryAutoStart} disabled={createChecklistMutation.isPending}>
+          <div className="flex flex-col sm:flex-row gap-2">
+            <Button className="w-full sm:w-auto" onClick={retryAutoStart} disabled={createChecklistMutation.isPending}>
               {createChecklistMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               Tentar novamente
             </Button>
-            <Button variant="outline" onClick={() => setIsSelectTemplateOpen(true)}>
+            <Button className="w-full sm:w-auto" variant="outline" onClick={() => setIsSelectTemplateOpen(true)}>
               Selecionar template
             </Button>
           </div>
