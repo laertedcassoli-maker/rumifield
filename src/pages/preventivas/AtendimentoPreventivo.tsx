@@ -195,7 +195,7 @@ export default function AtendimentoPreventivo() {
   return (
     <div className="space-y-4 animate-fade-in pb-40 w-full max-w-full">
       {/* Sticky Header */}
-      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 -mx-4 px-4 py-3 border-b">
+      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 py-3 border-b">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="icon" asChild className="shrink-0 -ml-2">
             <Link to={`/preventivas/execucao/${routeId}`}>
