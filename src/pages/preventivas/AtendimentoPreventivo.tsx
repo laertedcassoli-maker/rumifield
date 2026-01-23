@@ -432,17 +432,27 @@ export default function AtendimentoPreventivo() {
                 variant="outline" 
                 size="sm"
                 className="w-full"
-                onClick={() => {
+                onClick={async () => {
                   const url = `${window.location.origin}/relatorio/${routeItem.publicToken}`;
-                  if (navigator.share) {
-                    navigator.share({
-                      title: `Relatório - ${routeItem.client?.nome}`,
-                      text: 'Confira o relatório da visita preventiva',
-                      url
-                    });
-                  } else {
-                    navigator.clipboard.writeText(url);
-                    toast({ title: 'Link copiado!' });
+                  try {
+                    if (navigator.share) {
+                      await navigator.share({
+                        title: `Relatório - ${routeItem.client?.nome}`,
+                        text: 'Confira o relatório da visita preventiva',
+                        url
+                      });
+                    } else {
+                      await navigator.clipboard.writeText(url);
+                      toast({ title: 'Link copiado!' });
+                    }
+                  } catch {
+                    // Fallback to clipboard if share fails
+                    try {
+                      await navigator.clipboard.writeText(url);
+                      toast({ title: 'Link copiado!' });
+                    } catch {
+                      toast({ title: 'Link do relatório', description: url });
+                    }
                   }
                 }}
               >
@@ -453,17 +463,27 @@ export default function AtendimentoPreventivo() {
                 variant="outline" 
                 size="sm"
                 className="w-full"
-                onClick={() => {
+                onClick={async () => {
                   const url = `${window.location.origin}/relatorio/${routeItem.publicToken}/interno`;
-                  if (navigator.share) {
-                    navigator.share({
-                      title: `Relatório Interno - ${routeItem.client?.nome}`,
-                      text: 'Relatório interno da visita preventiva',
-                      url
-                    });
-                  } else {
-                    navigator.clipboard.writeText(url);
-                    toast({ title: 'Link copiado!' });
+                  try {
+                    if (navigator.share) {
+                      await navigator.share({
+                        title: `Relatório Interno - ${routeItem.client?.nome}`,
+                        text: 'Relatório interno da visita preventiva',
+                        url
+                      });
+                    } else {
+                      await navigator.clipboard.writeText(url);
+                      toast({ title: 'Link copiado!' });
+                    }
+                  } catch {
+                    // Fallback to clipboard if share fails
+                    try {
+                      await navigator.clipboard.writeText(url);
+                      toast({ title: 'Link copiado!' });
+                    } catch {
+                      toast({ title: 'Link do relatório interno', description: url });
+                    }
                   }
                 }}
               >
