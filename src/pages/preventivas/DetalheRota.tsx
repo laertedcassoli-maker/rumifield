@@ -6,16 +6,12 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogClose } from '@/components/ui/dialog';
-import { Checkbox } from '@/components/ui/checkbox';
 import {
   Table,
   TableBody,
-  TableCell,
   TableHead,
   TableHeader,
   TableRow,
@@ -43,7 +39,8 @@ import {
   FileCheck,
   ClipboardList,
   Plus,
-  Search
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -64,6 +61,7 @@ import {
 } from '@dnd-kit/sortable';
 import { restrictToVerticalAxis } from '@dnd-kit/modifiers';
 import { SortableRouteItem } from '@/components/preventivas/SortableRouteItem';
+import { FarmSelectionPanel } from '@/components/preventivas/FarmSelectionPanel';
 
 const routeStatusConfig = {
   em_elaboracao: { label: 'Em Elaboração', color: 'bg-slate-500/10 text-slate-600 border-slate-500/20' },
@@ -88,9 +86,7 @@ export default function DetalheRota() {
 
   const [startDateOpen, setStartDateOpen] = useState(false);
   const [endDateOpen, setEndDateOpen] = useState(false);
-  const [addFarmDialogOpen, setAddFarmDialogOpen] = useState(false);
-  const [farmSearch, setFarmSearch] = useState('');
-  const [selectedNewFarms, setSelectedNewFarms] = useState<Set<string>>(new Set());
+  const [showFarmSelection, setShowFarmSelection] = useState(false);
 
   const isAdminOrCoordinator = role === 'admin' || role === 'coordenador_servicos';
 
@@ -190,27 +186,6 @@ export default function DetalheRota() {
       return profiles || [];
     },
     enabled: route?.status === 'em_elaboracao',
-  });
-
-  // Fetch available clients for adding to route
-  const { data: availableClients } = useQuery({
-    queryKey: ['available-clients-for-route', id],
-    queryFn: async () => {
-      // Get existing client IDs in the route
-      const existingClientIds = route?.items.map((i: any) => i.client_id) || [];
-      
-      const { data, error } = await supabase
-        .from('clientes')
-        .select('id, nome, fazenda, estado')
-        .eq('status', 'ativo')
-        .order('nome');
-      
-      if (error) throw error;
-      
-      // Filter out clients already in the route
-      return (data || []).filter(c => !existingClientIds.includes(c.id));
-    },
-    enabled: route?.status === 'em_elaboracao' && addFarmDialogOpen,
   });
 
   // Update route status
@@ -330,9 +305,8 @@ export default function DetalheRota() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['preventive-route', id] });
-      queryClient.invalidateQueries({ queryKey: ['available-clients-for-route', id] });
-      setSelectedNewFarms(new Set());
-      setAddFarmDialogOpen(false);
+      queryClient.invalidateQueries({ queryKey: ['clients-for-farm-selection'] });
+      setShowFarmSelection(false);
       toast({ title: 'Fazendas adicionadas à rota!' });
     },
     onError: (error: Error) => {
@@ -491,14 +465,6 @@ export default function DetalheRota() {
       toast({ variant: 'destructive', title: 'Erro ao excluir', description: error.message });
     },
   });
-
-  // Filter available clients for search
-  const filteredAvailableClients = availableClients?.filter(c => {
-    if (!farmSearch) return true;
-    const searchWords = farmSearch.toLowerCase().split(' ').filter(Boolean);
-    const searchText = `${c.nome} ${c.fazenda || ''} ${c.estado || ''}`.toLowerCase();
-    return searchWords.every(word => searchText.includes(word));
-  }) || [];
 
   if (isLoading) {
     return (
@@ -770,94 +736,21 @@ export default function DetalheRota() {
                 </CardDescription>
               )}
             </div>
-            {isEditable && (
-              <Dialog open={addFarmDialogOpen} onOpenChange={setAddFarmDialogOpen}>
-                <DialogTrigger asChild>
-                  <Button size="sm">
-                    <Plus className="mr-2 h-4 w-4" />
-                    Adicionar Fazendas
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-2xl max-h-[80vh]">
-                  <DialogHeader>
-                    <DialogTitle>Adicionar Fazendas à Rota</DialogTitle>
-                  </DialogHeader>
-                  <div className="space-y-4">
-                    <div className="relative">
-                      <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                      <Input
-                        placeholder="Buscar fazenda..."
-                        value={farmSearch}
-                        onChange={(e) => setFarmSearch(e.target.value)}
-                        className="pl-10"
-                      />
-                    </div>
-                    <div className="border rounded-lg max-h-[400px] overflow-auto">
-                      {filteredAvailableClients.length > 0 ? (
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead className="w-10"></TableHead>
-                              <TableHead>Fazenda</TableHead>
-                              <TableHead>UF</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {filteredAvailableClients.map(client => (
-                              <TableRow key={client.id}>
-                                <TableCell>
-                                  <Checkbox
-                                    checked={selectedNewFarms.has(client.id)}
-                                    onCheckedChange={(checked) => {
-                                      const newSet = new Set(selectedNewFarms);
-                                      if (checked) {
-                                        newSet.add(client.id);
-                                      } else {
-                                        newSet.delete(client.id);
-                                      }
-                                      setSelectedNewFarms(newSet);
-                                    }}
-                                  />
-                                </TableCell>
-                                <TableCell>
-                                  <div>
-                                    <div className="font-medium">{client.nome}</div>
-                                    {client.fazenda && (
-                                      <div className="text-sm text-muted-foreground">{client.fazenda}</div>
-                                    )}
-                                  </div>
-                                </TableCell>
-                                <TableCell>{client.estado || '-'}</TableCell>
-                              </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
-                      ) : (
-                        <div className="p-8 text-center text-muted-foreground">
-                          {farmSearch ? 'Nenhuma fazenda encontrada' : 'Todas as fazendas já estão na rota'}
-                        </div>
-                      )}
-                    </div>
-                    {selectedNewFarms.size > 0 && (
-                      <p className="text-sm text-muted-foreground">
-                        {selectedNewFarms.size} fazenda(s) selecionada(s)
-                      </p>
-                    )}
-                  </div>
-                  <DialogFooter>
-                    <DialogClose asChild>
-                      <Button variant="outline">Cancelar</Button>
-                    </DialogClose>
-                    <Button
-                      onClick={() => addFarmsToRoute.mutate(Array.from(selectedNewFarms))}
-                      disabled={selectedNewFarms.size === 0 || addFarmsToRoute.isPending}
-                    >
-                      {addFarmsToRoute.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                      Adicionar
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
+            {isEditable && !showFarmSelection && (
+              <Button size="sm" onClick={() => setShowFarmSelection(true)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Adicionar Fazendas
+              </Button>
+            )}
+            {isEditable && showFarmSelection && (
+              <Button 
+                size="sm" 
+                variant="outline" 
+                onClick={() => setShowFarmSelection(false)}
+              >
+                <ChevronUp className="mr-2 h-4 w-4" />
+                Fechar Seleção
+              </Button>
             )}
           </div>
         </CardHeader>
@@ -900,11 +793,22 @@ export default function DetalheRota() {
               </TableBody>
             </Table>
           </DndContext>
-          {route.items.length === 0 && (
+          {route.items.length === 0 && !showFarmSelection && (
             <div className="text-center py-8 text-muted-foreground">
               Nenhuma fazenda na rota.
               {isEditable && ' Clique em "Adicionar Fazendas" para começar.'}
             </div>
+          )}
+
+          {/* Inline Farm Selection Panel */}
+          {showFarmSelection && (
+            <FarmSelectionPanel
+              excludedClientIds={route.items.map((i: any) => i.client_id)}
+              routeStartDate={route.start_date}
+              onConfirm={(clientIds) => addFarmsToRoute.mutate(clientIds)}
+              onCancel={() => setShowFarmSelection(false)}
+              isSubmitting={addFarmsToRoute.isPending}
+            />
           )}
         </CardContent>
       </Card>
