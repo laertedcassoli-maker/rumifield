@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'; // v2
+import { useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -13,8 +13,7 @@ import {
   Clock,
   CheckCircle2,
   AlertCircle,
-  ClipboardCheck,
-  Save
+  ClipboardCheck
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -38,57 +37,6 @@ export default function AtendimentoPreventivo() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [showCompleteDialog, setShowCompleteDialog] = useState(false);
-
-  // Temporary: detect horizontal overflow sources on mobile
-  useEffect(() => {
-    if (!import.meta.env.DEV) return;
-
-    const markOverflow = () => {
-      try {
-        const vw = document.documentElement.clientWidth;
-        const offenders: Array<{ el: Element; delta: number }> = [];
-
-        // Clear previous marks
-        document.querySelectorAll('[data-overflow-debug="1"]').forEach((el) => {
-          (el as HTMLElement).style.outline = "";
-          el.removeAttribute('data-overflow-debug');
-        });
-
-        // Find elements that overflow the viewport
-        document.querySelectorAll('body *').forEach((el) => {
-          const htmlEl = el as HTMLElement;
-          if (!htmlEl.getBoundingClientRect) return;
-          const rect = htmlEl.getBoundingClientRect();
-          const delta = rect.right - vw;
-          if (delta > 1) {
-            offenders.push({ el, delta });
-          }
-        });
-
-        offenders
-          .sort((a, b) => b.delta - a.delta)
-          .slice(0, 8)
-          .forEach(({ el, delta }) => {
-            (el as HTMLElement).style.outline = '2px solid hsl(var(--destructive))';
-            el.setAttribute('data-overflow-debug', '1');
-            // eslint-disable-next-line no-console
-            console.log('[OverflowX]', { delta: Math.round(delta), el });
-          });
-      } catch (e) {
-        // eslint-disable-next-line no-console
-        console.log('[OverflowX] detector failed', e);
-      }
-    };
-
-    const t = window.setTimeout(markOverflow, 300);
-    window.addEventListener('resize', markOverflow);
-    window.addEventListener('orientationchange', markOverflow);
-    return () => {
-      window.clearTimeout(t);
-      window.removeEventListener('resize', markOverflow);
-      window.removeEventListener('orientationchange', markOverflow);
-    };
-  }, []);
 
   const isAdminOrCoordinator = role === 'admin' || role === 'coordenador_servicos';
 
@@ -244,9 +192,9 @@ export default function AtendimentoPreventivo() {
   const isCompleted = routeItem.status === 'executado';
 
   return (
-    <div className="space-y-4 animate-fade-in pb-40 w-full max-w-full">
+    <div className="space-y-4 animate-fade-in w-full">
       {/* Sticky Header */}
-      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 py-3 border-b">
+      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 py-3 border-b -mx-4 px-4 sm:-mx-6 sm:px-6">
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="icon" asChild className="shrink-0 -ml-2">
             <Link to={`/preventivas/execucao/${routeId}`}>
@@ -320,31 +268,6 @@ export default function AtendimentoPreventivo() {
             </p>
           </CardContent>
         </Card>
-      )}
-
-      {/* Floating Action Bar */}
-      {!isCompleted && routeItem.preventiveId && (
-        <div className="fixed bottom-0 left-0 right-0 p-4 bg-background/95 backdrop-blur border-t safe-area-inset-bottom">
-          <div className="flex gap-3 max-w-lg mx-auto">
-            <Button 
-              variant="outline" 
-              className="flex-1"
-              asChild
-            >
-              <Link to={`/preventivas/execucao/${routeId}`}>
-                <Save className="h-4 w-4 mr-2" />
-                Salvar rascunho
-              </Link>
-            </Button>
-            <Button 
-              className="flex-1"
-              onClick={() => setShowCompleteDialog(true)}
-            >
-              <CheckCircle2 className="h-4 w-4 mr-2" />
-              Concluir
-            </Button>
-          </div>
-        </div>
       )}
 
       {/* Complete Confirmation Dialog */}
