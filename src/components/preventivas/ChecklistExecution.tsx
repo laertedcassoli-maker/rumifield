@@ -709,21 +709,21 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onCo
   return (
     <>
       {/* Extra bottom margin ensures content can scroll above the fixed progress bar on mobile */}
-      <Card className="mb-36 overflow-hidden">
-        <CardHeader className="pb-3 space-y-3">
-          <div className="flex items-start justify-between gap-2">
-            <CardTitle className="flex items-start gap-2 text-base leading-tight min-w-0">
-              <ClipboardCheck className="h-5 w-5 shrink-0 mt-0.5" />
-              <span className="break-words truncate">{existingChecklist.template?.name}</span>
+      <Card className="mb-36">
+        <CardHeader className="pb-3 space-y-3 overflow-visible">
+          <div className="flex items-center justify-between gap-2 min-w-0">
+            <CardTitle className="flex items-center gap-2 text-base leading-tight min-w-0 flex-1">
+              <ClipboardCheck className="h-5 w-5 shrink-0" />
+              <span className="truncate">{existingChecklist.template?.name}</span>
             </CardTitle>
-            <Badge variant={isCompleted ? "default" : "secondary"} className="shrink-0 whitespace-nowrap">
+            <Badge variant={isCompleted ? "default" : "secondary"} className="shrink-0 text-xs">
               {isCompleted ? "Concluído" : "Em andamento"}
             </Badge>
           </div>
           
           {/* Block Navigation Chips */}
           {!isCompleted && blocks.length > 1 && (
-            <div className="overflow-x-auto -mx-6 px-6">
+            <div className="-mx-6 px-6 overflow-visible">
               <ChecklistBlockNav 
                 blocks={navBlocks}
                 activeBlockId={activeBlockId}
@@ -732,7 +732,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onCo
             </div>
           )}
         </CardHeader>
-        <CardContent className="space-y-6 overflow-x-hidden">
+        <CardContent className="space-y-6">
           {blocks.map((block) => (
             <div 
               key={block.id} 

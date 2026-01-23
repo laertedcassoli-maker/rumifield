@@ -20,7 +20,7 @@ export default function ChecklistBlockNav({
   onBlockClick 
 }: ChecklistBlockNavProps) {
   return (
-    <div className="flex gap-2 overflow-x-auto pb-2 -mx-2 px-2 scrollbar-hide snap-x snap-mandatory">
+    <div className="flex gap-1.5 overflow-x-auto pb-2 scrollbar-hide">
       {blocks.map((block, index) => {
         const isComplete = block.answeredCount === block.totalCount && block.totalCount > 0;
         const isActive = activeBlockId === block.id;
@@ -31,7 +31,7 @@ export default function ChecklistBlockNav({
             type="button"
             onClick={() => onBlockClick(block.id)}
             className={cn(
-              "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-medium whitespace-nowrap transition-all shrink-0",
+              "flex items-center gap-1 px-2 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-all shrink-0",
               isActive 
                 ? "bg-primary text-primary-foreground shadow-sm" 
                 : isComplete
@@ -40,13 +40,13 @@ export default function ChecklistBlockNav({
             )}
           >
             {isComplete ? (
-              <CheckCircle2 className="h-3.5 w-3.5" />
+              <CheckCircle2 className="h-3 w-3" />
             ) : (
-              <span className="text-xs opacity-70">{index + 1}</span>
+              <span className="opacity-70">{index + 1}</span>
             )}
-            <span className="truncate max-w-[120px]">{block.block_name_snapshot}</span>
+            <span className="truncate max-w-[80px] sm:max-w-[120px]">{block.block_name_snapshot}</span>
             <span className={cn(
-              "text-xs px-1.5 py-0.5 rounded-full",
+              "text-[10px] px-1 py-0.5 rounded-full",
               isActive ? "bg-primary-foreground/20" : "bg-background/50"
             )}>
               {block.answeredCount}/{block.totalCount}
