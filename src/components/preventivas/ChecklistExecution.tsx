@@ -82,6 +82,10 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
     hasSelections: boolean;
   } | null>(null);
   
+  // Track items being processed to prevent double-clicks
+  const [processingNonconformities, setProcessingNonconformities] = useState<Set<string>>(new Set());
+  const [processingActions, setProcessingActions] = useState<Set<string>>(new Set());
+  
   // Offline support hook
   const offlineChecklist = useOfflineChecklist();
 
@@ -451,7 +455,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
     }
   });
 
-  // Toggle corrective action with offline support
+  // Toggle corrective action with offline support and double-click protection
   const toggleActionMutation = useMutation({
     mutationFn: async ({ 
       itemId, 
@@ -464,45 +468,56 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
       actionLabel: string;
       isSelected: boolean;
     }) => {
-      // Save locally first for offline support
-      await offlineChecklist.toggleAction(itemId, actionId, actionLabel, isSelected);
+      const lockKey = `${itemId}-${actionId}`;
+      
+      // Check if already processing this action
+      if (processingActions.has(lockKey)) {
+        console.log('[ChecklistExecution] Action already being processed, skipping:', lockKey);
+        return;
+      }
+      
+      // Add lock
+      setProcessingActions(prev => new Set(prev).add(lockKey));
+      
+      try {
+        // Save locally first for offline support
+        await offlineChecklist.toggleAction(itemId, actionId, actionLabel, isSelected);
 
-      // If online, sync to server immediately
-      if (navigator.onLine) {
-        if (isSelected) {
-          // Remove action
-          const { error } = await supabase
-            .from('preventive_checklist_item_actions')
-            .delete()
-            .eq('exec_item_id', itemId)
-            .eq('template_action_id', actionId);
+        // If online, sync to server immediately
+        if (navigator.onLine) {
+          if (isSelected) {
+            // Remove action
+            const { error } = await supabase
+              .from('preventive_checklist_item_actions')
+              .delete()
+              .eq('exec_item_id', itemId)
+              .eq('template_action_id', actionId);
 
-          if (error) throw error;
-        } else {
-          // Check if action already exists (prevent duplicates)
-          const { data: existingAction } = await supabase
-            .from('preventive_checklist_item_actions')
-            .select('id')
-            .eq('exec_item_id', itemId)
-            .eq('template_action_id', actionId)
-            .maybeSingle();
-          
-          if (existingAction) {
-            // Already exists, skip insert
-            return;
+            if (error) throw error;
+          } else {
+            // Use upsert with ON CONFLICT to prevent duplicates atomically
+            // The unique index idx_unique_item_action handles conflicts
+            const { error } = await supabase
+              .from('preventive_checklist_item_actions')
+              .upsert({
+                exec_item_id: itemId,
+                template_action_id: actionId,
+                action_label_snapshot: actionLabel
+              }, {
+                onConflict: 'exec_item_id,template_action_id',
+                ignoreDuplicates: true
+              });
+
+            if (error) throw error;
           }
-          
-          // Add action
-          const { error } = await supabase
-            .from('preventive_checklist_item_actions')
-            .insert({
-              exec_item_id: itemId,
-              template_action_id: actionId,
-              action_label_snapshot: actionLabel
-            });
-
-          if (error) throw error;
         }
+      } finally {
+        // Remove lock
+        setProcessingActions(prev => {
+          const next = new Set(prev);
+          next.delete(lockKey);
+          return next;
+        });
       }
     },
     onSuccess: () => {
@@ -518,7 +533,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
     }
   });
 
-  // Toggle nonconformity with offline support (handles part consumption)
+  // Toggle nonconformity with offline support, double-click protection, and part consumption
   const toggleNonconformityMutation = useMutation({
     mutationFn: async ({ 
       itemId, 
@@ -531,96 +546,112 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
       nonconformityLabel: string;
       isSelected: boolean;
     }) => {
-      // Save locally first for offline support
-      await offlineChecklist.toggleNonconformity(itemId, nonconformityId, nonconformityLabel, isSelected);
+      const lockKey = `${itemId}-${nonconformityId}`;
+      
+      // Check if already processing this nonconformity
+      if (processingNonconformities.has(lockKey)) {
+        console.log('[ChecklistExecution] Nonconformity already being processed, skipping:', lockKey);
+        return;
+      }
+      
+      // Add lock
+      setProcessingNonconformities(prev => new Set(prev).add(lockKey));
+      
+      try {
+        // Save locally first for offline support
+        await offlineChecklist.toggleNonconformity(itemId, nonconformityId, nonconformityLabel, isSelected);
 
-      // If online, sync to server immediately
-      if (navigator.onLine) {
-        if (isSelected) {
-          // Remove nonconformity - first get the exec_nonconformity_id
-          const { data: execNc } = await supabase
-            .from('preventive_checklist_item_nonconformities')
-            .select('id')
-            .eq('exec_item_id', itemId)
-            .eq('template_nonconformity_id', nonconformityId)
-            .maybeSingle();
-          
-          if (execNc) {
-            // Remove associated part consumption records
-            await (supabase as any)
-              .from('preventive_part_consumption')
+        // If online, sync to server immediately
+        if (navigator.onLine) {
+          if (isSelected) {
+            // Remove nonconformity - first get the exec_nonconformity_id
+            const { data: execNc } = await supabase
+              .from('preventive_checklist_item_nonconformities')
+              .select('id')
+              .eq('exec_item_id', itemId)
+              .eq('template_nonconformity_id', nonconformityId)
+              .maybeSingle();
+            
+            if (execNc) {
+              // Remove associated part consumption records
+              await (supabase as any)
+                .from('preventive_part_consumption')
+                .delete()
+                .eq('exec_nonconformity_id', execNc.id);
+            }
+            
+            // Remove nonconformity
+            const { error } = await supabase
+              .from('preventive_checklist_item_nonconformities')
               .delete()
-              .eq('exec_nonconformity_id', execNc.id);
-          }
-          
-          // Remove nonconformity
-          const { error } = await supabase
-            .from('preventive_checklist_item_nonconformities')
-            .delete()
-            .eq('exec_item_id', itemId)
-            .eq('template_nonconformity_id', nonconformityId);
+              .eq('exec_item_id', itemId)
+              .eq('template_nonconformity_id', nonconformityId);
 
-          if (error) throw error;
-        } else {
-          // Check if nonconformity already exists (prevent duplicates)
-          const { data: existingNc } = await supabase
-            .from('preventive_checklist_item_nonconformities')
-            .select('id')
-            .eq('exec_item_id', itemId)
-            .eq('template_nonconformity_id', nonconformityId)
-            .maybeSingle();
-          
-          if (existingNc) {
-            // Already exists, skip insert
-            return;
-          }
-          
-          // Add nonconformity
-          const { data: newNc, error } = await supabase
-            .from('preventive_checklist_item_nonconformities')
-            .insert({
-              exec_item_id: itemId,
-              template_nonconformity_id: nonconformityId,
-              nonconformity_label_snapshot: nonconformityLabel
-            })
-            .select()
-            .single();
+            if (error) throw error;
+          } else {
+            // Use upsert with ON CONFLICT to prevent duplicates atomically
+            // The unique index idx_unique_item_nonconformity handles conflicts
+            const { data: newNc, error } = await supabase
+              .from('preventive_checklist_item_nonconformities')
+              .upsert({
+                exec_item_id: itemId,
+                template_nonconformity_id: nonconformityId,
+                nonconformity_label_snapshot: nonconformityLabel
+              }, {
+                onConflict: 'exec_item_id,template_nonconformity_id'
+              })
+              .select()
+              .single();
 
-          if (error) throw error;
-          
-          // Get associated parts for this nonconformity
-          const { data: ncParts } = await (supabase as any)
-            .from('checklist_nonconformity_parts')
-            .select(`
-              id,
-              part_id,
-              default_quantity,
-              part:pecas(codigo, nome)
-            `)
-            .eq('nonconformity_id', nonconformityId);
-          
-          // Create part consumption records
-          if (ncParts && ncParts.length > 0 && newNc) {
-            const consumptionRecords = ncParts.map((np: any) => ({
-              preventive_id: preventiveId,
-              exec_item_id: itemId,
-              exec_nonconformity_id: newNc.id,
-              part_id: np.part_id,
-              part_code_snapshot: np.part?.codigo || '',
-              part_name_snapshot: np.part?.nome || '',
-              quantity: np.default_quantity,
-              stock_source: null // Force user to select origin
-            }));
+            if (error) throw error;
             
-            const { error: consumptionError } = await (supabase as any)
-              .from('preventive_part_consumption')
-              .insert(consumptionRecords);
+            // Get associated parts for this nonconformity
+            const { data: ncParts } = await (supabase as any)
+              .from('checklist_nonconformity_parts')
+              .select(`
+                id,
+                part_id,
+                default_quantity,
+                part:pecas(codigo, nome)
+              `)
+              .eq('nonconformity_id', nonconformityId);
             
-            if (consumptionError) {
-              console.error('Erro ao registrar consumo de peças:', consumptionError);
+            // Create part consumption records using upsert to prevent duplicates
+            if (ncParts && ncParts.length > 0 && newNc) {
+              for (const np of ncParts) {
+                const consumptionRecord = {
+                  preventive_id: preventiveId,
+                  exec_item_id: itemId,
+                  exec_nonconformity_id: newNc.id,
+                  part_id: np.part_id,
+                  part_code_snapshot: np.part?.codigo || '',
+                  part_name_snapshot: np.part?.nome || '',
+                  quantity: np.default_quantity,
+                  stock_source: null // Force user to select origin
+                };
+                
+                // Use upsert to prevent duplicates - the unique index handles conflicts
+                const { error: consumptionError } = await (supabase as any)
+                  .from('preventive_part_consumption')
+                  .upsert(consumptionRecord, {
+                    onConflict: 'exec_nonconformity_id,part_id',
+                    ignoreDuplicates: true
+                  });
+                
+                if (consumptionError) {
+                  console.error('Erro ao registrar consumo de peça:', consumptionError);
+                }
+              }
             }
           }
         }
+      } finally {
+        // Remove lock
+        setProcessingNonconformities(prev => {
+          const next = new Set(prev);
+          next.delete(lockKey);
+          return next;
+        });
       }
     },
     onSuccess: () => {
@@ -1099,12 +1130,15 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
                                 <div className="space-y-2">
                                   {item.availableNonconformities.map((nc) => {
                                     const isSelected = item.selectedNonconformities.includes(nc.id);
+                                    const lockKey = `${item.id}-${nc.id}`;
+                                    const isProcessing = processingNonconformities.has(lockKey);
                                     return (
                                       <SelectableOptionCard
                                         key={nc.id}
                                         label={nc.nonconformity_label}
                                         selected={isSelected}
                                         disabled={isCompleted}
+                                        loading={isProcessing}
                                         variant="danger"
                                         onClick={() => 
                                           toggleNonconformityMutation.mutate({
@@ -1131,12 +1165,15 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
                                 <div className="space-y-2">
                                   {item.availableActions.map((action) => {
                                     const isSelected = item.selectedActions.includes(action.id);
+                                    const lockKey = `${item.id}-${action.id}`;
+                                    const isProcessing = processingActions.has(lockKey);
                                     return (
                                       <SelectableOptionCard
                                         key={action.id}
                                         label={action.action_label}
                                         selected={isSelected}
                                         disabled={isCompleted}
+                                        loading={isProcessing}
                                         variant="success"
                                         onClick={() => 
                                           toggleActionMutation.mutate({
