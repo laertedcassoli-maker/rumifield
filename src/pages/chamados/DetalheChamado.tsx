@@ -28,8 +28,15 @@ import {
   Settings,
   Package
 } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+
+// Helper function to calculate duration in days
+const calculateDurationDays = (createdAt: string, resolvedAt?: string | null): number => {
+  const startDate = new Date(createdAt);
+  const endDate = resolvedAt ? new Date(resolvedAt) : new Date();
+  return differenceInDays(endDate, startDate);
+};
 import TicketPartsRequestPanel from '@/components/chamados/TicketPartsRequestPanel';
 import NovaVisitaDialog from '@/components/chamados/NovaVisitaDialog';
 import NovaInteracaoDialog from '@/components/chamados/NovaInteracaoDialog';
@@ -336,7 +343,23 @@ export default function DetalheChamado() {
               <ArrowLeft className="h-4 w-4" />
             </Link>
           </Button>
-          <h1 className="text-2xl font-bold">{ticket.ticket_code}</h1>
+          <div>
+            <h1 className="text-2xl font-bold">{ticket.ticket_code}</h1>
+            {/* Duration Badge */}
+            {(() => {
+              const days = calculateDurationDays(ticket.created_at, ticket.resolved_at);
+              const isResolved = ticket.status === 'resolvido' || ticket.status === 'cancelado';
+              return (
+                <div className={`flex items-center gap-1.5 mt-1 ${days > 7 && !isResolved ? 'text-warning' : days > 14 && !isResolved ? 'text-destructive' : 'text-muted-foreground'}`}>
+                  <Clock className="h-3.5 w-3.5" />
+                  <span className="text-sm">
+                    {isResolved ? 'Duração: ' : 'Aberto há '}
+                    {days === 0 ? 'hoje' : days === 1 ? '1 dia' : `${days} dias`}
+                  </span>
+                </div>
+              );
+            })()}
+          </div>
         </div>
         
         <div className="flex gap-2">

@@ -31,9 +31,16 @@ import {
   Building2,
   User
 } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Link } from 'react-router-dom';
+
+// Helper function to calculate duration in days
+const calculateDurationDays = (createdAt: string, resolvedAt?: string | null): number => {
+  const startDate = new Date(createdAt);
+  const endDate = resolvedAt ? new Date(resolvedAt) : new Date();
+  return differenceInDays(endDate, startDate);
+};
 
 const statusConfig = {
   aberto: { label: 'Aberto', color: 'bg-blue-500/10 text-blue-600 border-blue-500/20', icon: Clock },
@@ -63,6 +70,7 @@ interface TicketWithDetails {
   assigned_technician_id: string | null;
   technician_name: string | null;
   created_at: string;
+  resolved_at: string | null;
   visits_count: number;
 }
 
@@ -92,7 +100,8 @@ export default function ChamadosIndex() {
           status,
           client_id,
           assigned_technician_id,
-          created_at
+          created_at,
+          resolved_at
         `)
         .order('created_at', { ascending: false });
       
@@ -320,6 +329,7 @@ export default function ChamadosIndex() {
                   <TableHead>Código</TableHead>
                   <TableHead>Título</TableHead>
                   <TableHead>Cliente</TableHead>
+                  <TableHead>Duração</TableHead>
                   <TableHead>Prioridade</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Técnico</TableHead>
@@ -348,6 +358,20 @@ export default function ChamadosIndex() {
                           )}
                         </div>
                       </div>
+                    </TableCell>
+                    <TableCell>
+                      {(() => {
+                        const days = calculateDurationDays(ticket.created_at, ticket.resolved_at);
+                        const isResolved = ticket.status === 'resolvido' || ticket.status === 'cancelado';
+                        return (
+                          <div className={`flex items-center gap-1.5 ${days > 7 && !isResolved ? 'text-warning' : days > 14 && !isResolved ? 'text-destructive' : 'text-muted-foreground'}`}>
+                            <Clock className="h-3.5 w-3.5" />
+                            <span className="text-sm font-medium">
+                              {days === 0 ? 'Hoje' : days === 1 ? '1 dia' : `${days} dias`}
+                            </span>
+                          </div>
+                        );
+                      })()}
                     </TableCell>
                     <TableCell>{renderPriorityBadge(ticket.priority)}</TableCell>
                     <TableCell>{renderStatusBadge(ticket.status)}</TableCell>
