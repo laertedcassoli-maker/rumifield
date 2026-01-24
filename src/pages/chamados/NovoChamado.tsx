@@ -251,7 +251,12 @@ export default function NovoChamado() {
                     </Button>
                   </PopoverTrigger>
                   <PopoverContent className="w-[400px] p-0" align="start">
-                    <Command>
+                     {/*
+                      * cmdk filtra os itens pelo `value` do CommandItem.
+                      * Como nós já filtramos manualmente (nome/fazenda/cidade), desativamos o filtro interno
+                      * para evitar que a busca tente casar com o UUID.
+                      */}
+                     <Command shouldFilter={false}>
                       <CommandInput 
                         placeholder="Buscar cliente..." 
                         value={clientSearch}
@@ -265,7 +270,10 @@ export default function NovoChamado() {
                           {filteredClients.slice(0, 50).map((client) => (
                             <CommandItem
                               key={client.id}
-                              value={client.id}
+                               value={[client.nome, client.fazenda, client.cidade]
+                                 .filter(Boolean)
+                                 .join(' ')
+                                 .toLowerCase()}
                               onSelect={() => {
                                 setClientId(client.id);
                                 setClientPopoverOpen(false);
