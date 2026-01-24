@@ -17,7 +17,8 @@ import {
   ListChecks,
   Box,
   Calendar,
-  AlertTriangle
+  AlertTriangle,
+  Navigation
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useMenuPermissions } from '@/hooks/useMenuPermissions';
@@ -37,6 +38,14 @@ export default function Home() {
 
   // All possible menu items with permission keys
   const allMainMenuItems: MenuItem[] = [
+    {
+      title: 'Minhas Rotas',
+      icon: Navigation,
+      url: '/preventivas/minhas-rotas',
+      color: 'text-emerald-600',
+      bgColor: 'bg-emerald-100 dark:bg-emerald-900/30',
+      permKey: 'minhas_rotas',
+    },
     {
       title: 'Visitas',
       icon: MapPin,
