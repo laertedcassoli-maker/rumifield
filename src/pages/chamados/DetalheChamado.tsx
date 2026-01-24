@@ -18,6 +18,7 @@ import {
   MapPin,
   Plus,
   Eye,
+  Truck,
   CalendarPlus,
   MessageSquare,
   History,
@@ -41,7 +42,7 @@ const interactionTypeConfig = {
   message: { icon: MessageSquare, color: 'text-green-600', bgColor: 'bg-green-100 dark:bg-green-900/30' },
   waiting: { icon: Clock, color: 'text-orange-600', bgColor: 'bg-orange-100 dark:bg-orange-900/30' },
   note: { icon: FileText, color: 'text-purple-600', bgColor: 'bg-purple-100 dark:bg-purple-900/30' },
-  visit: { icon: CalendarPlus, color: 'text-indigo-600', bgColor: 'bg-indigo-100 dark:bg-indigo-900/30' },
+  visit: { icon: Truck, color: 'text-white', bgColor: 'bg-indigo-600 dark:bg-indigo-500' },
 };
 
 const statusConfig = {
@@ -407,8 +408,8 @@ export default function DetalheChamado() {
                     return (
                       <div key={entry.id} className="flex gap-3">
                         <div className="flex flex-col items-center">
-                          <div className={`h-8 w-8 rounded-full flex items-center justify-center ${typeConfig.bgColor}`}>
-                            <Icon className={`h-4 w-4 ${typeConfig.color}`} />
+                          <div className={`${isVisit ? 'h-10 w-10' : 'h-8 w-8'} rounded-full flex items-center justify-center ${typeConfig.bgColor} ${isVisit ? 'shadow-md ring-2 ring-indigo-200 dark:ring-indigo-800' : ''}`}>
+                            <Icon className={`${isVisit ? 'h-5 w-5' : 'h-4 w-4'} ${typeConfig.color}`} />
                           </div>
                           {index < timeline.length - 1 && (
                             <div className="w-px flex-1 bg-border min-h-[16px]" />
@@ -417,7 +418,7 @@ export default function DetalheChamado() {
                         <div className="flex-1 pb-4">
                           {isVisit && entry.visit_data ? (
                             /* Visit Card Expandido */
-                            <div className="border rounded-lg p-3 bg-indigo-50/50 dark:bg-indigo-900/10">
+                            <div className="border-2 border-indigo-200 dark:border-indigo-800 rounded-lg p-4 bg-gradient-to-br from-indigo-50 to-white dark:from-indigo-950/30 dark:to-background shadow-sm">
                               <div className="flex items-center justify-between mb-2">
                                 <div className="font-medium text-sm">
                                   Visita Técnica
