@@ -1607,12 +1607,14 @@ export type Database = {
       technical_tickets: {
         Row: {
           assigned_technician_id: string | null
+          category_id: string | null
           client_id: string
           created_at: string
           created_by_user_id: string
           description: string | null
           id: string
           priority: Database["public"]["Enums"]["ticket_priority"]
+          products: string[] | null
           resolution_summary: string | null
           resolved_at: string | null
           resolved_by_user_id: string | null
@@ -1624,12 +1626,14 @@ export type Database = {
         }
         Insert: {
           assigned_technician_id?: string | null
+          category_id?: string | null
           client_id: string
           created_at?: string
           created_by_user_id: string
           description?: string | null
           id?: string
           priority?: Database["public"]["Enums"]["ticket_priority"]
+          products?: string[] | null
           resolution_summary?: string | null
           resolved_at?: string | null
           resolved_by_user_id?: string | null
@@ -1641,12 +1645,14 @@ export type Database = {
         }
         Update: {
           assigned_technician_id?: string | null
+          category_id?: string | null
           client_id?: string
           created_at?: string
           created_by_user_id?: string
           description?: string | null
           id?: string
           priority?: Database["public"]["Enums"]["ticket_priority"]
+          products?: string[] | null
           resolution_summary?: string | null
           resolved_at?: string | null
           resolved_by_user_id?: string | null
@@ -1657,6 +1663,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "technical_tickets_category_id_fkey"
+            columns: ["category_id"]
+            isOneToOne: false
+            referencedRelation: "ticket_categories"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "technical_tickets_client_id_fkey"
             columns: ["client_id"]
@@ -1708,6 +1721,36 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      ticket_categories: {
+        Row: {
+          color: string
+          created_at: string
+          icon: string | null
+          id: string
+          is_active: boolean
+          name: string
+          order_index: number
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          icon?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          order_index?: number
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          icon?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          order_index?: number
+        }
+        Relationships: []
       }
       ticket_parts_requests: {
         Row: {

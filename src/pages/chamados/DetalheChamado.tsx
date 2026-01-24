@@ -107,6 +107,21 @@ export default function DetalheChamado() {
     enabled: !!ticket?.client_id,
   });
 
+  // Fetch category
+  const { data: category } = useQuery({
+    queryKey: ['ticket-category', (ticket as any)?.category_id],
+    queryFn: async () => {
+      if (!(ticket as any)?.category_id) return null;
+      const { data } = await supabase
+        .from('ticket_categories')
+        .select('id, name, color, icon')
+        .eq('id', (ticket as any).category_id)
+        .single();
+      return data;
+    },
+    enabled: !!(ticket as any)?.category_id,
+  });
+
   // Fetch assigned technician
   const { data: technician } = useQuery({
     queryKey: ['ticket-technician', ticket?.assigned_technician_id],
@@ -539,12 +554,42 @@ export default function DetalheChamado() {
             </CardContent>
           </Card>
 
-          {/* Status & Assignment */}
+          {/* Gerenciamento */}
           <Card>
             <CardHeader>
               <CardTitle>Gerenciamento</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              {/* Products */}
+              {(ticket as any).products?.length > 0 && (
+                <div>
+                  <div className="text-sm font-medium mb-2">Produtos</div>
+                  <div className="flex flex-wrap gap-1">
+                    {(ticket as any).products.map((product: string) => (
+                      <Badge key={product} variant="secondary" className="text-xs">
+                        {product === 'rumiflow' && 'RumiFlow'}
+                        {product === 'rumiprocare' && 'RumiProcare'}
+                        {product === 'rumiaction' && 'RumiAction'}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Category */}
+              {category && (
+                <div>
+                  <div className="text-sm font-medium mb-2">Categoria</div>
+                  <Badge 
+                    variant="outline" 
+                    className="text-xs"
+                    style={{ borderColor: category.color, color: category.color }}
+                  >
+                    {category.name}
+                  </Badge>
+                </div>
+              )}
+
               {/* Priority */}
               <div>
                 <div className="text-sm font-medium mb-2">Prioridade</div>

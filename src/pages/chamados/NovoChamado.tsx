@@ -12,13 +12,16 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Badge } from '@/components/ui/badge';
 import { 
   ArrowLeft, 
   Loader2, 
   Check, 
   ChevronsUpDown,
   Building2,
-  User
+  User,
+  Package,
+  Tag
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { cn } from '@/lib/utils';
@@ -35,6 +38,20 @@ interface Technician {
   nome: string;
 }
 
+interface TicketCategory {
+  id: string;
+  name: string;
+  color: string;
+  icon: string;
+}
+
+// Produtos fixos no código
+const PRODUCTS = [
+  { key: 'rumiflow', label: 'RumiFlow', color: 'bg-blue-500' },
+  { key: 'rumiprocare', label: 'RumiProcare', color: 'bg-green-500' },
+  { key: 'rumiaction', label: 'RumiAction', color: 'bg-orange-500' },
+];
+
 export default function NovoChamado() {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -48,6 +65,8 @@ export default function NovoChamado() {
   const [technicianId, setTechnicianId] = useState<string>('');
   const [clientSearch, setClientSearch] = useState('');
   const [clientPopoverOpen, setClientPopoverOpen] = useState(false);
+  const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
+  const [categoryId, setCategoryId] = useState<string>('');
 
   // Fetch active clients
   const { data: clients, isLoading: clientsLoading } = useQuery<Client[]>({
@@ -84,6 +103,20 @@ export default function NovoChamado() {
     },
   });
 
+  // Fetch ticket categories
+  const { data: categories } = useQuery<TicketCategory[]>({
+    queryKey: ['ticket-categories'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('ticket_categories')
+        .select('id, name, color, icon')
+        .eq('is_active', true)
+        .order('order_index');
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
   // Filter clients by search
   const filteredClients = clients?.filter(client => {
     if (!clientSearch) return true;
@@ -96,6 +129,14 @@ export default function NovoChamado() {
   }) || [];
 
   const selectedClient = clients?.find(c => c.id === clientId);
+
+  const toggleProduct = (productKey: string) => {
+    setSelectedProducts(prev => 
+      prev.includes(productKey) 
+        ? prev.filter(p => p !== productKey)
+        : [...prev, productKey]
+    );
+  };
 
   // Create ticket mutation
   const createTicket = useMutation({
@@ -116,6 +157,8 @@ export default function NovoChamado() {
           description: description || null,
           priority: priority as any,
           status: 'aberto',
+          products: selectedProducts,
+          category_id: categoryId || null,
         })
         .select('id')
         .single();
@@ -289,6 +332,77 @@ export default function NovoChamado() {
                     <SelectItem value="media">Média</SelectItem>
                     <SelectItem value="alta">Alta</SelectItem>
                     <SelectItem value="urgente">Urgente</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Produtos */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Package className="h-5 w-5" />
+                Produtos
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                <Label>Produtos relacionados</Label>
+                <div className="flex flex-wrap gap-2">
+                  {PRODUCTS.map(product => (
+                    <Button
+                      key={product.key}
+                      type="button"
+                      variant={selectedProducts.includes(product.key) ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => toggleProduct(product.key)}
+                      className={cn(
+                        "transition-all",
+                        selectedProducts.includes(product.key) && product.color
+                      )}
+                    >
+                      {selectedProducts.includes(product.key) && (
+                        <Check className="mr-1 h-3 w-3" />
+                      )}
+                      {product.label}
+                    </Button>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground mt-2">
+                  Selecione um ou mais produtos relacionados ao chamado
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Categoria */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Tag className="h-5 w-5" />
+                Categoria
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                <Label>Categoria do chamado</Label>
+                <Select value={categoryId} onValueChange={setCategoryId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione uma categoria (opcional)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories?.map(cat => (
+                      <SelectItem key={cat.id} value={cat.id}>
+                        <div className="flex items-center gap-2">
+                          <div 
+                            className="w-3 h-3 rounded-full" 
+                            style={{ backgroundColor: cat.color }}
+                          />
+                          {cat.name}
+                        </div>
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
