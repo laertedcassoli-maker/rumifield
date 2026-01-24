@@ -11,3 +11,6 @@ verify_jwt = false
 
 [functions.test-omie-connection]
 verify_jwt = false
+
+[functions.doc-chat]
+verify_jwt = false
