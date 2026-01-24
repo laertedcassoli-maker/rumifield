@@ -1,10 +1,11 @@
-import { Check, Clock, AlertTriangle, CheckCircle, XCircle } from 'lucide-react';
+import { Check, Clock, AlertTriangle, CheckCircle, XCircle, User, Package, CalendarClock, MapPin } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 interface TicketStatusStepperProps {
   currentStatus: string;
+  substatus?: string | null;
   createdAt?: string;
   updatedAt?: string;
   resolvedAt?: string | null;
@@ -16,8 +17,32 @@ const phases = [
   { key: 'resolvido', label: 'Resolvido', icon: CheckCircle },
 ];
 
+const substatusConfig = {
+  aguardando_cliente: {
+    label: 'Aguardando Cliente',
+    icon: User,
+    color: 'text-orange-600',
+  },
+  aguardando_peca: {
+    label: 'Aguardando Peça',
+    icon: Package,
+    color: 'text-purple-600',
+  },
+  aguardando_visita: {
+    label: 'Aguardando Visita',
+    icon: CalendarClock,
+    color: 'text-blue-600',
+  },
+  em_visita: {
+    label: 'Em Visita',
+    icon: MapPin,
+    color: 'text-green-600',
+  },
+};
+
 export default function TicketStatusStepper({ 
   currentStatus, 
+  substatus,
   createdAt, 
   updatedAt,
   resolvedAt 
@@ -51,6 +76,8 @@ export default function TicketStatusStepper({
     }
   };
 
+  const substatusInfo = substatus ? substatusConfig[substatus as keyof typeof substatusConfig] : null;
+
   if (isCancelled) {
     return (
       <div className="flex items-center justify-center gap-3 py-4 px-6 bg-muted/50 rounded-lg border border-dashed">
@@ -67,6 +94,8 @@ export default function TicketStatusStepper({
         const Icon = phase.icon;
         const isLast = index === phases.length - 1;
         const stepDate = getStepDate(phase.key, status);
+        const isEmAtendimento = phase.key === 'em_atendimento';
+        const showSubstatus = isEmAtendimento && status === 'current' && substatusInfo;
 
         return (
           <div key={phase.key} className="flex items-center flex-1">
@@ -101,13 +130,23 @@ export default function TicketStatusStepper({
                   {format(new Date(stepDate), "dd/MM HH:mm", { locale: ptBR })}
                 </span>
               )}
+              {/* Substatus tag below Em Atendimento */}
+              {showSubstatus && (
+                <div className="flex items-center gap-1 mt-1 px-2 py-0.5 rounded-full bg-muted/60">
+                  <substatusInfo.icon className={cn('h-3 w-3', substatusInfo.color)} />
+                  <span className={cn('text-[10px] font-medium', substatusInfo.color)}>
+                    {substatusInfo.label}
+                  </span>
+                </div>
+              )}
             </div>
 
             {/* Connector line */}
             {!isLast && (
               <div
                 className={cn(
-                  'flex-1 h-0.5 mx-3 mt-[-36px]',
+                  'flex-1 h-0.5 mx-3',
+                  showSubstatus ? 'mt-[-60px]' : 'mt-[-36px]',
                   status === 'completed' ? 'bg-primary' : 'bg-muted-foreground/20'
                 )}
               />
