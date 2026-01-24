@@ -394,55 +394,7 @@ export default function DetalheChamado() {
             </CardContent>
           </Card>
 
-          {/* Parts Requests */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Package className="h-5 w-5" />
-                Solicitações de Peças
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {partsRequests?.length ? (
-                <div className="space-y-3">
-                  {partsRequests.map(pr => (
-                    <div key={pr.id} className="p-3 border rounded-lg">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="text-sm text-muted-foreground">
-                          {format(new Date(pr.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
-                        </div>
-                        <Badge variant="outline">
-                          {(pr.pedidos as any)?.status || 'Pendente'}
-                        </Badge>
-                      </div>
-                      <div className="space-y-1">
-                        {(pr.pedidos as any)?.pedido_itens?.map((item: any) => (
-                          <div key={item.id} className="text-sm flex items-center gap-2">
-                            <span className="font-mono text-xs bg-muted px-1 rounded">
-                              {item.pecas?.codigo}
-                            </span>
-                            <span>{item.pecas?.nome}</span>
-                            <span className="text-muted-foreground">×{item.quantidade}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-6 text-muted-foreground">
-                  <Package className="mx-auto h-8 w-8 mb-2 opacity-50" />
-                  <p>Nenhuma solicitação de peças</p>
-                  <Button variant="outline" size="sm" className="mt-2" onClick={() => setShowPartsPanel(true)}>
-                    <Plus className="mr-2 h-4 w-4" />
-                    Solicitar Peças
-                  </Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Timeline / Interações */}
+          {/* Timeline / Interações - Movido para cima */}
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
               <div>
@@ -501,6 +453,54 @@ export default function DetalheChamado() {
                   <Button variant="outline" size="sm" className="mt-2" onClick={() => setShowNovaInteracao(true)}>
                     <Plus className="mr-2 h-4 w-4" />
                     Adicionar Interação
+                  </Button>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Parts Requests */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Package className="h-5 w-5" />
+                Solicitações de Peças
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {partsRequests?.length ? (
+                <div className="space-y-3">
+                  {partsRequests.map(pr => (
+                    <div key={pr.id} className="p-3 border rounded-lg">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="text-sm text-muted-foreground">
+                          {format(new Date(pr.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                        </div>
+                        <Badge variant="outline">
+                          {(pr.pedidos as any)?.status || 'Pendente'}
+                        </Badge>
+                      </div>
+                      <div className="space-y-1">
+                        {(pr.pedidos as any)?.pedido_itens?.map((item: any) => (
+                          <div key={item.id} className="text-sm flex items-center gap-2">
+                            <span className="font-mono text-xs bg-muted px-1 rounded">
+                              {item.pecas?.codigo}
+                            </span>
+                            <span>{item.pecas?.nome}</span>
+                            <span className="text-muted-foreground">×{item.quantidade}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-6 text-muted-foreground">
+                  <Package className="mx-auto h-8 w-8 mb-2 opacity-50" />
+                  <p>Nenhuma solicitação de peças</p>
+                  <Button variant="outline" size="sm" className="mt-2" onClick={() => setShowPartsPanel(true)}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Solicitar Peças
                   </Button>
                 </div>
               )}
