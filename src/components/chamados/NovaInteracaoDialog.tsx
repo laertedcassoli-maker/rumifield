@@ -64,16 +64,20 @@ export default function NovaInteracaoDialog({
 
       if (error) throw error;
 
-      // If interaction type is "waiting", update substatus to aguardando_cliente
+      // Any interaction moves ticket to "em_atendimento"
+      // If interaction type is "waiting", also set substatus to aguardando_cliente
+      const updatePayload: { status: 'em_atendimento'; substatus?: string } = {
+        status: 'em_atendimento' as const,
+      };
+      
       if (interactionType === 'waiting') {
-        await supabase
-          .from('technical_tickets')
-          .update({
-            status: 'em_atendimento',
-            substatus: 'aguardando_cliente',
-          })
-          .eq('id', ticketId);
+        updatePayload.substatus = 'aguardando_cliente';
       }
+
+      await supabase
+        .from('technical_tickets')
+        .update(updatePayload)
+        .eq('id', ticketId);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['ticket-timeline', ticketId] });
