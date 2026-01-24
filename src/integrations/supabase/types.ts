@@ -594,6 +594,33 @@ export type Database = {
           },
         ]
       }
+      doc_chat_history: {
+        Row: {
+          answer: string
+          created_at: string
+          id: string
+          question: string
+          source_doc_ids: string[] | null
+          user_id: string
+        }
+        Insert: {
+          answer: string
+          created_at?: string
+          id?: string
+          question: string
+          source_doc_ids?: string[] | null
+          user_id: string
+        }
+        Update: {
+          answer?: string
+          created_at?: string
+          id?: string
+          question?: string
+          source_doc_ids?: string[] | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       envios_log: {
         Row: {
           campo_alterado: string
@@ -1604,6 +1631,45 @@ export type Database = {
         }
         Relationships: []
       }
+      system_documentation: {
+        Row: {
+          category: Database["public"]["Enums"]["doc_category"]
+          content: string
+          created_at: string
+          id: string
+          related_modules: string[] | null
+          slug: string
+          summary: string | null
+          title: string
+          updated_at: string
+          updated_by: string | null
+        }
+        Insert: {
+          category: Database["public"]["Enums"]["doc_category"]
+          content?: string
+          created_at?: string
+          id?: string
+          related_modules?: string[] | null
+          slug: string
+          summary?: string | null
+          title: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Update: {
+          category?: Database["public"]["Enums"]["doc_category"]
+          content?: string
+          created_at?: string
+          id?: string
+          related_modules?: string[] | null
+          slug?: string
+          summary?: string | null
+          title?: string
+          updated_at?: string
+          updated_by?: string | null
+        }
+        Relationships: []
+      }
       technical_tickets: {
         Row: {
           assigned_technician_id: string | null
@@ -2543,6 +2609,7 @@ export type Database = {
         | "tecnico_oficina"
       checklist_execution_status: "em_andamento" | "concluido"
       checklist_item_status: "S" | "N" | "NA"
+      doc_category: "visao_geral" | "modulo" | "regra_transversal" | "permissao"
       execution_type: "UNIVOCA" | "LOTE"
       meter_type: "horimetro"
       pedido_status:
@@ -2716,6 +2783,7 @@ export const Constants = {
       ],
       checklist_execution_status: ["em_andamento", "concluido"],
       checklist_item_status: ["S", "N", "NA"],
+      doc_category: ["visao_geral", "modulo", "regra_transversal", "permissao"],
       execution_type: ["UNIVOCA", "LOTE"],
       meter_type: ["horimetro"],
       pedido_status: [
