@@ -1617,6 +1617,7 @@ export type Database = {
           resolved_at: string | null
           resolved_by_user_id: string | null
           status: Database["public"]["Enums"]["ticket_status"]
+          substatus: string | null
           ticket_code: string
           title: string
           updated_at: string
@@ -1633,6 +1634,7 @@ export type Database = {
           resolved_at?: string | null
           resolved_by_user_id?: string | null
           status?: Database["public"]["Enums"]["ticket_status"]
+          substatus?: string | null
           ticket_code: string
           title: string
           updated_at?: string
@@ -1649,6 +1651,7 @@ export type Database = {
           resolved_at?: string | null
           resolved_by_user_id?: string | null
           status?: Database["public"]["Enums"]["ticket_status"]
+          substatus?: string | null
           ticket_code?: string
           title?: string
           updated_at?: string

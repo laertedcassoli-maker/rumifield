@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useState } from 'react';
+import { useParams, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -7,30 +7,14 @@ import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
-import { 
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from '@/components/ui/alert-dialog';
 import { 
   ArrowLeft, 
   Loader2, 
   Building2,
   User,
   Clock,
-  AlertTriangle,
-  Package,
-  CheckCircle,
-  XCircle,
   MapPin,
   Plus,
   Eye,
@@ -40,14 +24,16 @@ import {
   ShoppingCart,
   Phone,
   FileText,
-  Settings
+  Settings,
+  Package
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import TicketPartsRequestPanel from '@/components/chamados/TicketPartsRequestPanel';
 import NovaVisitaDialog from '@/components/chamados/NovaVisitaDialog';
 import NovaInteracaoDialog from '@/components/chamados/NovaInteracaoDialog';
-import SelectableOptionCard from '@/components/preventivas/SelectableOptionCard';
+import TicketStatusStepper from '@/components/chamados/TicketStatusStepper';
+import TicketSubstatusCard from '@/components/chamados/TicketSubstatusCard';
 
 // Interaction type config
 const interactionTypeConfig = {
@@ -59,11 +45,10 @@ const interactionTypeConfig = {
 };
 
 const statusConfig = {
-  aberto: { label: 'Aberto', color: 'bg-blue-500/10 text-blue-600 border-blue-500/20', icon: Clock },
-  em_atendimento: { label: 'Em Atendimento', color: 'bg-warning/10 text-warning border-warning/20', icon: AlertTriangle },
-  aguardando_peca: { label: 'Aguardando Peça', color: 'bg-purple-500/10 text-purple-600 border-purple-500/20', icon: Package },
-  resolvido: { label: 'Resolvido', color: 'bg-green-500/10 text-green-600 border-green-500/20', icon: CheckCircle },
-  cancelado: { label: 'Cancelado', color: 'bg-muted text-muted-foreground', icon: XCircle },
+  aberto: { label: 'Aberto', color: 'bg-blue-500/10 text-blue-600 border-blue-500/20' },
+  em_atendimento: { label: 'Em Atendimento', color: 'bg-warning/10 text-warning border-warning/20' },
+  resolvido: { label: 'Resolvido', color: 'bg-green-500/10 text-green-600 border-green-500/20' },
+  cancelado: { label: 'Cancelado', color: 'bg-muted text-muted-foreground' },
 };
 
 const priorityConfig = {
@@ -83,7 +68,6 @@ const visitStatusConfig = {
 
 export default function DetalheChamado() {
   const { id } = useParams<{ id: string }>();
-  const navigate = useNavigate();
   const { user, role } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -91,8 +75,6 @@ export default function DetalheChamado() {
   const [showPartsPanel, setShowPartsPanel] = useState(false);
   const [showNovaVisita, setShowNovaVisita] = useState(false);
   const [showNovaInteracao, setShowNovaInteracao] = useState(false);
-  const [resolutionSummary, setResolutionSummary] = useState('');
-  const [showResolveDialog, setShowResolveDialog] = useState(false);
 
   const isAdminOrCoordinator = role === 'admin' || role === 'coordenador_servicos';
 
@@ -228,42 +210,6 @@ export default function DetalheChamado() {
     enabled: !!id,
   });
 
-  // Update status mutation
-  const updateStatus = useMutation({
-    mutationFn: async (newStatus: string) => {
-      const updates: any = { status: newStatus };
-      
-      if (newStatus === 'resolvido') {
-        updates.resolution_summary = resolutionSummary || null;
-        updates.resolved_at = new Date().toISOString();
-        updates.resolved_by_user_id = user!.id;
-      }
-
-      const { error } = await supabase
-        .from('technical_tickets')
-        .update(updates)
-        .eq('id', id);
-      
-      if (error) throw error;
-
-      // Add timeline entry
-      await supabase.from('ticket_timeline').insert({
-        ticket_id: id,
-        user_id: user!.id,
-        event_type: 'status_changed',
-        event_description: `Status alterado para: ${statusConfig[newStatus as keyof typeof statusConfig]?.label || newStatus}`,
-      });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['ticket-detail', id] });
-      queryClient.invalidateQueries({ queryKey: ['ticket-timeline', id] });
-      toast({ title: 'Status atualizado!' });
-    },
-    onError: (error: Error) => {
-      toast({ variant: 'destructive', title: 'Erro', description: error.message });
-    },
-  });
-
   // Update technician mutation
   const updateTechnician = useMutation({
     mutationFn: async (technicianId: string) => {
@@ -315,42 +261,12 @@ export default function DetalheChamado() {
   const renderStatusBadge = (status: string) => {
     const config = statusConfig[status as keyof typeof statusConfig];
     if (!config) return null;
-    const Icon = config.icon;
     return (
       <Badge variant="outline" className={`${config.color} text-base px-3 py-1`}>
-        <Icon className="mr-1 h-4 w-4" />
         {config.label}
       </Badge>
     );
   };
-
-  // Handle status button click
-  const handleStatusClick = (newStatus: string) => {
-    if (newStatus === 'resolvido') {
-      setShowResolveDialog(true);
-    } else {
-      updateStatus.mutate(newStatus);
-    }
-  };
-
-  // Available status transitions
-  const availableStatuses = useMemo(() => {
-    if (!ticket) return [];
-    const currentStatus = ticket.status;
-    
-    // Define allowed transitions
-    if (currentStatus === 'resolvido' || currentStatus === 'cancelado') {
-      return []; // No transitions from final states (could add "reopen" for admins later)
-    }
-    
-    return [
-      { key: 'aberto', ...statusConfig.aberto },
-      { key: 'em_atendimento', ...statusConfig.em_atendimento },
-      { key: 'aguardando_peca', ...statusConfig.aguardando_peca },
-      { key: 'resolvido', ...statusConfig.resolvido },
-      { key: 'cancelado', ...statusConfig.cancelado },
-    ];
-  }, [ticket]);
 
   if (isLoading) {
     return (
@@ -404,38 +320,12 @@ export default function DetalheChamado() {
         </div>
       </div>
 
-      {/* Status Bar - Quick Status Change */}
-      {availableStatuses.length > 0 && (
-        <Card className="border-dashed">
-          <CardContent className="py-3">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-sm font-medium text-muted-foreground">Status:</span>
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
-              {availableStatuses.map((status) => {
-                const Icon = status.icon;
-                const isSelected = ticket.status === status.key;
-                const variant = status.key === 'cancelado' ? 'danger' 
-                  : status.key === 'resolvido' ? 'success'
-                  : status.key === 'aguardando_peca' ? 'warning'
-                  : 'default';
-                
-                return (
-                  <SelectableOptionCard
-                    key={status.key}
-                    label={status.label}
-                    selected={isSelected}
-                    loading={updateStatus.isPending && updateStatus.variables === status.key}
-                    disabled={updateStatus.isPending}
-                    onClick={() => handleStatusClick(status.key)}
-                    icon={<Icon className="h-4 w-4" />}
-                    variant={variant}
-                  />
-                );
-              })}
-            </div>
-          </CardContent>
-        </Card>
+      {/* Status Stepper */}
+      <TicketStatusStepper currentStatus={ticket.status} />
+
+      {/* Substatus Card - only when em_atendimento */}
+      {ticket.status === 'em_atendimento' && (
+        <TicketSubstatusCard substatus={(ticket as any).substatus} />
       )}
 
       <div className="grid gap-6 lg:grid-cols-3">
@@ -762,33 +652,6 @@ export default function DetalheChamado() {
         onOpenChange={setShowNovaInteracao}
         ticketId={id!}
       />
-
-      {/* Resolve Dialog */}
-      <AlertDialog open={showResolveDialog} onOpenChange={setShowResolveDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Resolver Chamado</AlertDialogTitle>
-            <AlertDialogDescription>
-              Descreva a resolução do problema antes de fechar o chamado.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <Textarea
-            value={resolutionSummary}
-            onChange={(e) => setResolutionSummary(e.target.value)}
-            placeholder="Resumo da resolução..."
-            rows={4}
-          />
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={() => {
-              updateStatus.mutate('resolvido');
-              setShowResolveDialog(false);
-            }}>
-              Confirmar
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }
