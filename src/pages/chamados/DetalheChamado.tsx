@@ -33,7 +33,6 @@ import TicketPartsRequestPanel from '@/components/chamados/TicketPartsRequestPan
 import NovaVisitaDialog from '@/components/chamados/NovaVisitaDialog';
 import NovaInteracaoDialog from '@/components/chamados/NovaInteracaoDialog';
 import TicketStatusStepper from '@/components/chamados/TicketStatusStepper';
-import TicketSubstatusCard from '@/components/chamados/TicketSubstatusCard';
 
 // Interaction type config
 const interactionTypeConfig = {
@@ -314,21 +313,14 @@ export default function DetalheChamado() {
         </div>
       </div>
 
-      {/* Status Stepper */}
+      {/* Status Stepper with integrated substatus */}
       <TicketStatusStepper 
         currentStatus={ticket.status} 
+        substatus={ticket.status === 'em_atendimento' ? (ticket as any).substatus : null}
         createdAt={ticket.created_at}
         updatedAt={ticket.updated_at}
         resolvedAt={ticket.resolved_at}
       />
-
-      {/* Substatus Card - only when em_atendimento */}
-      {ticket.status === 'em_atendimento' && (
-        <TicketSubstatusCard 
-          substatus={(ticket as any).substatus} 
-          updatedAt={ticket.updated_at}
-        />
-      )}
 
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Main Content */}
