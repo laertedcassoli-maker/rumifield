@@ -297,13 +297,7 @@ export default function DetalheChamado() {
               <ArrowLeft className="h-4 w-4" />
             </Link>
           </Button>
-          <div>
-            <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold">{ticket.ticket_code}</h1>
-              {renderStatusBadge(ticket.status)}
-            </div>
-            <p className="text-muted-foreground">{ticket.title}</p>
-          </div>
+          <h1 className="text-2xl font-bold">{ticket.ticket_code}</h1>
         </div>
         
         <div className="flex gap-2">
