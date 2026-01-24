@@ -108,6 +108,15 @@ export default function NovaVisitaDialog({
 
       if (error) throw error;
 
+      // Update ticket status to em_atendimento and substatus to aguardando_visita
+      await supabase
+        .from('technical_tickets')
+        .update({
+          status: 'em_atendimento',
+          substatus: 'aguardando_visita',
+        })
+        .eq('id', ticketId);
+
       // Add timeline entry
       await supabase.from('ticket_timeline').insert({
         ticket_id: ticketId,
@@ -123,6 +132,7 @@ export default function NovaVisitaDialog({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['ticket-visits', ticketId] });
       queryClient.invalidateQueries({ queryKey: ['ticket-timeline', ticketId] });
+      queryClient.invalidateQueries({ queryKey: ['ticket', ticketId] });
       toast({ title: 'Visita agendada com sucesso!' });
       handleClose();
     },
