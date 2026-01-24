@@ -16,7 +16,8 @@ import {
   FileText,
   ListChecks,
   Box,
-  Calendar
+  Calendar,
+  AlertTriangle
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useMenuPermissions } from '@/hooks/useMenuPermissions';
@@ -43,6 +44,14 @@ export default function Home() {
       color: 'text-rose-600',
       bgColor: 'bg-rose-100 dark:bg-rose-900/30',
       permKey: 'visitas',
+    },
+    {
+      title: 'Chamados',
+      icon: AlertTriangle,
+      url: '/chamados',
+      color: 'text-orange-600',
+      bgColor: 'bg-orange-100 dark:bg-orange-900/30',
+      permKey: 'chamados',
     },
     {
       title: 'Solicitação Peças',

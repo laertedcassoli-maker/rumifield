@@ -1,4 +1,4 @@
-import { Home, MapPin, ShoppingCart, Users, Settings, LogOut, Beaker, Truck, ChevronDown, ClipboardCheck, TrendingDown, Play, Building2, History, Package, FlaskConical, Shield, Wrench, ListChecks, Box, FileText, Calendar, Route, CalendarDays, ClipboardList } from 'lucide-react';
+import { Home, MapPin, ShoppingCart, Users, Settings, LogOut, Beaker, Truck, ChevronDown, ClipboardCheck, TrendingDown, Play, Building2, History, Package, FlaskConical, Shield, Wrench, ListChecks, Box, FileText, Calendar, Route, CalendarDays, ClipboardList, AlertTriangle } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarMenuSub, SidebarMenuSubItem, SidebarMenuSubButton } from '@/components/ui/sidebar';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -33,6 +33,7 @@ export function AppSidebar() {
   const mainMenuItems = [
     { title: 'Início', icon: Home, url: '/', permKey: 'inicio' },
     { title: 'Visitas', icon: MapPin, url: '/visitas', permKey: 'visitas' },
+    { title: 'Chamados', icon: AlertTriangle, url: '/chamados', permKey: 'chamados' },
     { title: 'Solicitação Peças', icon: ShoppingCart, url: '/pedidos', permKey: 'pedidos' },
   ].filter(item => canAccess(item.permKey));
 
