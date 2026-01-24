@@ -1758,7 +1758,9 @@ export type Database = {
           event_description: string
           event_type: string
           id: string
+          interaction_type: string | null
           metadata: Json | null
+          notes: string | null
           ticket_id: string
           user_id: string
         }
@@ -1767,7 +1769,9 @@ export type Database = {
           event_description: string
           event_type: string
           id?: string
+          interaction_type?: string | null
           metadata?: Json | null
+          notes?: string | null
           ticket_id: string
           user_id: string
         }
@@ -1776,7 +1780,9 @@ export type Database = {
           event_description?: string
           event_type?: string
           id?: string
+          interaction_type?: string | null
           metadata?: Json | null
+          notes?: string | null
           ticket_id?: string
           user_id?: string
         }
