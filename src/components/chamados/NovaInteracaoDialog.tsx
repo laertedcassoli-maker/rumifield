@@ -63,9 +63,21 @@ export default function NovaInteracaoDialog({
         });
 
       if (error) throw error;
+
+      // If interaction type is "waiting", update substatus to aguardando_cliente
+      if (interactionType === 'waiting') {
+        await supabase
+          .from('technical_tickets')
+          .update({
+            status: 'em_atendimento',
+            substatus: 'aguardando_cliente',
+          })
+          .eq('id', ticketId);
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['ticket-timeline', ticketId] });
+      queryClient.invalidateQueries({ queryKey: ['ticket', ticketId] });
       toast({ title: 'Interação registrada!' });
       setNotes('');
       setInteractionType('note');

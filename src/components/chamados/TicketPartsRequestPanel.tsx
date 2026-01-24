@@ -171,6 +171,15 @@ export default function TicketPartsRequestPanel({
 
       if (linkError) throw linkError;
 
+      // Update ticket substatus to aguardando_peca (keeps em_atendimento status)
+      await supabase
+        .from('technical_tickets')
+        .update({
+          status: 'em_atendimento',
+          substatus: 'aguardando_peca',
+        })
+        .eq('id', ticketId);
+
       // Add timeline entry
       await supabase.from('ticket_timeline').insert({
         ticket_id: ticketId,
@@ -184,6 +193,7 @@ export default function TicketPartsRequestPanel({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['ticket-parts-requests', ticketId] });
       queryClient.invalidateQueries({ queryKey: ['ticket-timeline', ticketId] });
+      queryClient.invalidateQueries({ queryKey: ['ticket', ticketId] });
       toast({ title: 'Solicitação de peças criada!' });
       setItems([]);
       setObservacoes('');
