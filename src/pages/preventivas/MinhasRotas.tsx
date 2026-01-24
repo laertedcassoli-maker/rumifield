@@ -14,8 +14,10 @@ import {
   CheckCircle2,
   Clock,
   ArrowRight,
-  User
+  User,
+  Map as MapIcon
 } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { format, isToday, isThisWeek, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Link } from 'react-router-dom';
@@ -38,6 +40,7 @@ interface RouteWithProgress {
   executed_farms: number;
   field_technician_user_id: string;
   technician_name: string;
+  farm_coordinates: Array<{ lat: number; lon: number; name: string }>;
 }
 
 interface Technician {
@@ -105,8 +108,9 @@ export default function MinhasRotas() {
       const [itemsResult, profilesResult] = await Promise.all([
         supabase
           .from('preventive_route_items')
-          .select('route_id, status')
-          .in('route_id', routeIds),
+          .select('route_id, status, client_id, order_index')
+          .in('route_id', routeIds)
+          .order('order_index'),
         technicianIds.length > 0
           ? supabase.from('profiles').select('id, nome').in('id', technicianIds)
           : Promise.resolve({ data: [] }),
@@ -114,20 +118,47 @@ export default function MinhasRotas() {
 
       if (itemsResult.error) throw itemsResult.error;
 
+      // Fetch client coordinates
+      const clientIds = [...new Set(itemsResult.data?.map(i => i.client_id) || [])];
+      const { data: clientsData } = clientIds.length > 0
+        ? await supabase
+            .from('clientes')
+            .select('id, nome, latitude, longitude')
+            .in('id', clientIds)
+        : { data: [] };
+
+      const clientsMap = new Map<string, { nome: string; lat: number | null; lon: number | null }>(
+        clientsData?.map(c => [c.id, { nome: c.nome, lat: c.latitude, lon: c.longitude }] as [string, { nome: string; lat: number | null; lon: number | null }]) || []
+      );
+
       const profilesMap = new Map<string, string>(
         profilesResult.data?.map(p => [p.id, p.nome] as [string, string]) || []
       );
 
-      const countMap = new Map<string, { total: number; executed: number }>();
-      routeIds.forEach(id => countMap.set(id, { total: 0, executed: 0 }));
+      const countMap = new Map<string, { total: number; executed: number; coordinates: Array<{ lat: number; lon: number; name: string }> }>();
+      routeIds.forEach(id => countMap.set(id, { total: 0, executed: 0, coordinates: [] }));
 
+      // Group items by route and preserve order
+      const itemsByRoute = new Map<string, typeof itemsResult.data>();
+      routeIds.forEach(id => itemsByRoute.set(id, []));
       itemsResult.data?.forEach(item => {
-        const counts = countMap.get(item.route_id);
+        itemsByRoute.get(item.route_id)?.push(item);
+      });
+
+      itemsByRoute.forEach((items, routeId) => {
+        const counts = countMap.get(routeId);
         if (counts) {
-          counts.total += 1;
-          if (item.status === 'executado') {
-            counts.executed += 1;
-          }
+          items?.sort((a, b) => (a.order_index || 0) - (b.order_index || 0));
+          items?.forEach(item => {
+            counts.total += 1;
+            if (item.status === 'executado') {
+              counts.executed += 1;
+            }
+            const client = clientsMap.get(item.client_id);
+            if (client?.lat && client?.lon) {
+              counts.coordinates.push({ lat: client.lat, lon: client.lon, name: client.nome });
+            }
+          });
         }
       });
 
@@ -136,6 +167,7 @@ export default function MinhasRotas() {
         total_farms: countMap.get(route.id)?.total || 0,
         executed_farms: countMap.get(route.id)?.executed || 0,
         technician_name: profilesMap.get(route.field_technician_user_id) || 'Não atribuído',
+        farm_coordinates: countMap.get(route.id)?.coordinates || [],
       }));
     },
     enabled: !!user?.id,
@@ -185,19 +217,41 @@ export default function MinhasRotas() {
     return Math.round((executed / total) * 100);
   };
 
+  // Piracicaba/SP coordinates as default origin
+  const DEFAULT_ORIGIN = { lat: -22.7249, lon: -47.6476, name: 'Piracicaba/SP' };
+
+  const buildGoogleMapsRouteUrl = (coordinates: Array<{ lat: number; lon: number; name: string }>) => {
+    if (coordinates.length === 0) return null;
+    
+    // Google Maps Directions URL format:
+    // https://www.google.com/maps/dir/origin/waypoint1/waypoint2/.../destination
+    const origin = `${DEFAULT_ORIGIN.lat},${DEFAULT_ORIGIN.lon}`;
+    const waypoints = coordinates.map(c => `${c.lat},${c.lon}`);
+    
+    // If only one destination, use simple format
+    if (waypoints.length === 1) {
+      return `https://www.google.com/maps/dir/${origin}/${waypoints[0]}`;
+    }
+    
+    // Multiple stops: origin + waypoints (last one is destination)
+    const allPoints = [origin, ...waypoints];
+    return `https://www.google.com/maps/dir/${allPoints.join('/')}`;
+  };
+
   return (
-    <div className="space-y-4 animate-fade-in">
-      {/* Header - Compact on mobile */}
-      <div>
-        <h1 className="text-xl font-bold">
-          {isAdminOrCoordinator ? 'Rotas em Execução' : 'Minhas Rotas'}
-        </h1>
-        <p className="text-sm text-muted-foreground">
-          {isAdminOrCoordinator 
-            ? 'Acompanhe as rotas dos técnicos' 
-            : 'Rotas atribuídas a você'}
-        </p>
-      </div>
+    <TooltipProvider>
+      <div className="space-y-4 animate-fade-in">
+        {/* Header - Compact on mobile */}
+        <div>
+          <h1 className="text-xl font-bold">
+            {isAdminOrCoordinator ? 'Rotas em Execução' : 'Minhas Rotas'}
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            {isAdminOrCoordinator 
+              ? 'Acompanhe as rotas dos técnicos' 
+              : 'Rotas atribuídas a você'}
+          </p>
+        </div>
 
       {/* Filters - Stacked on mobile */}
       <div className="space-y-3">
@@ -264,7 +318,28 @@ export default function MinhasRotas() {
                     {/* Header row */}
                     <div className="flex items-start justify-between gap-2 mb-3">
                       <div className="min-w-0 flex-1">
-                        <p className="font-semibold text-base">{route.route_code}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="font-semibold text-base">{route.route_code}</p>
+                          {route.farm_coordinates.length > 0 && (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <a
+                                  href={buildGoogleMapsRouteUrl(route.farm_coordinates) || '#'}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="p-1 rounded-md hover:bg-muted transition-colors"
+                                >
+                                  <MapIcon className="h-4 w-4 text-primary" />
+                                </a>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                <p>Ver rota no Google Maps</p>
+                                <p className="text-xs text-muted-foreground">Saindo de {DEFAULT_ORIGIN.name}</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          )}
+                        </div>
                         {isAdminOrCoordinator && (
                           <p className="text-sm text-muted-foreground flex items-center gap-1 mt-0.5">
                             <User className="h-3 w-3" />
@@ -335,6 +410,7 @@ export default function MinhasRotas() {
           </CardContent>
         </Card>
       )}
-    </div>
+      </div>
+    </TooltipProvider>
   );
 }
