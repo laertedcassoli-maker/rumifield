@@ -50,9 +50,9 @@ export default function DocView() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('system_documentation')
-        .select('*, profiles:updated_by(nome)')
+        .select('*')
         .eq('slug', slug)
-        .single();
+        .maybeSingle();
       
       if (error) throw error;
       return data;
@@ -248,12 +248,6 @@ export default function DocView() {
               <Calendar className="h-4 w-4" />
               <span>Atualizado em {format(new Date(doc.updated_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}</span>
             </div>
-            {doc.profiles && (
-              <div className="flex items-center gap-1">
-                <User className="h-4 w-4" />
-                <span>Por {(doc.profiles as any).nome}</span>
-              </div>
-            )}
           </div>
         </CardHeader>
         
