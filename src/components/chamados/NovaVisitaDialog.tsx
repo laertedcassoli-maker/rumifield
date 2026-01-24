@@ -132,7 +132,7 @@ export default function NovaVisitaDialog({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['ticket-visits', ticketId] });
       queryClient.invalidateQueries({ queryKey: ['ticket-timeline', ticketId] });
-      queryClient.invalidateQueries({ queryKey: ['ticket', ticketId] });
+      queryClient.invalidateQueries({ queryKey: ['ticket-detail', ticketId] });
       toast({ title: 'Visita agendada com sucesso!' });
       handleClose();
     },
