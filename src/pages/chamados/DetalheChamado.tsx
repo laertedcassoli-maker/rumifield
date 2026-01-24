@@ -37,12 +37,25 @@ import {
   CalendarPlus,
   MessageSquare,
   History,
-  ShoppingCart
+  ShoppingCart,
+  Phone,
+  FileText,
+  Settings
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import TicketPartsRequestPanel from '@/components/chamados/TicketPartsRequestPanel';
 import NovaVisitaDialog from '@/components/chamados/NovaVisitaDialog';
+import NovaInteracaoDialog from '@/components/chamados/NovaInteracaoDialog';
+
+// Interaction type config
+const interactionTypeConfig = {
+  system: { icon: Settings, color: 'text-muted-foreground', bgColor: 'bg-muted' },
+  call: { icon: Phone, color: 'text-blue-600', bgColor: 'bg-blue-100 dark:bg-blue-900/30' },
+  message: { icon: MessageSquare, color: 'text-green-600', bgColor: 'bg-green-100 dark:bg-green-900/30' },
+  waiting: { icon: Clock, color: 'text-orange-600', bgColor: 'bg-orange-100 dark:bg-orange-900/30' },
+  note: { icon: FileText, color: 'text-purple-600', bgColor: 'bg-purple-100 dark:bg-purple-900/30' },
+};
 
 const statusConfig = {
   aberto: { label: 'Aberto', color: 'bg-blue-500/10 text-blue-600 border-blue-500/20', icon: Clock },
@@ -76,6 +89,7 @@ export default function DetalheChamado() {
 
   const [showPartsPanel, setShowPartsPanel] = useState(false);
   const [showNovaVisita, setShowNovaVisita] = useState(false);
+  const [showNovaInteracao, setShowNovaInteracao] = useState(false);
   const [resolutionSummary, setResolutionSummary] = useState('');
 
   const isAdminOrCoordinator = role === 'admin' || role === 'coordenador_servicos';
@@ -475,36 +489,67 @@ export default function DetalheChamado() {
             </CardContent>
           </Card>
 
-          {/* Timeline */}
+          {/* Timeline / Interações */}
           <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <History className="h-5 w-5" />
-                Histórico
-              </CardTitle>
+            <CardHeader className="flex flex-row items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <History className="h-5 w-5" />
+                  Histórico e Interações
+                </CardTitle>
+                <CardDescription>
+                  Registro cronológico de eventos e interações
+                </CardDescription>
+              </div>
+              <Button size="sm" onClick={() => setShowNovaInteracao(true)}>
+                <Plus className="mr-2 h-4 w-4" />
+                Nova Interação
+              </Button>
             </CardHeader>
             <CardContent>
               {timeline?.length ? (
                 <div className="space-y-4">
-                  {timeline.map((entry, index) => (
-                    <div key={entry.id} className="flex gap-3">
-                      <div className="flex flex-col items-center">
-                        <div className="h-2 w-2 rounded-full bg-primary" />
-                        {index < timeline.length - 1 && (
-                          <div className="w-px h-full bg-border min-h-[24px]" />
-                        )}
+                  {timeline.map((entry, index) => {
+                    const typeConfig = interactionTypeConfig[(entry.interaction_type as keyof typeof interactionTypeConfig) || 'system'] || interactionTypeConfig.system;
+                    const Icon = typeConfig.icon;
+                    const isManualInteraction = entry.interaction_type && entry.interaction_type !== 'system';
+                    
+                    return (
+                      <div key={entry.id} className="flex gap-3">
+                        <div className="flex flex-col items-center">
+                          <div className={`h-8 w-8 rounded-full flex items-center justify-center ${typeConfig.bgColor}`}>
+                            <Icon className={`h-4 w-4 ${typeConfig.color}`} />
+                          </div>
+                          {index < timeline.length - 1 && (
+                            <div className="w-px flex-1 bg-border min-h-[16px]" />
+                          )}
+                        </div>
+                        <div className="flex-1 pb-4">
+                          {isManualInteraction && entry.notes ? (
+                            <>
+                              <p className="text-sm font-medium">{entry.event_description}</p>
+                              <p className="text-sm text-muted-foreground mt-1 whitespace-pre-wrap">{entry.notes}</p>
+                            </>
+                          ) : (
+                            <p className="text-sm">{entry.event_description}</p>
+                          )}
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {entry.user_name} • {format(new Date(entry.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                          </p>
+                        </div>
                       </div>
-                      <div className="pb-4">
-                        <p className="text-sm">{entry.event_description}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {entry.user_name} • {format(new Date(entry.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               ) : (
-                <p className="text-center text-muted-foreground py-4">Nenhum evento registrado</p>
+                <div className="text-center py-6 text-muted-foreground">
+                  <MessageSquare className="mx-auto h-8 w-8 mb-2 opacity-50" />
+                  <p>Nenhum evento registrado</p>
+                  <Button variant="outline" size="sm" className="mt-2" onClick={() => setShowNovaInteracao(true)}>
+                    <Plus className="mr-2 h-4 w-4" />
+                    Adicionar Interação
+                  </Button>
+                </div>
               )}
             </CardContent>
           </Card>
@@ -701,6 +746,13 @@ export default function DetalheChamado() {
         onOpenChange={setShowNovaVisita}
         ticketId={id!}
         clientId={ticket.client_id}
+      />
+
+      {/* Nova Interação Dialog */}
+      <NovaInteracaoDialog
+        open={showNovaInteracao}
+        onOpenChange={setShowNovaInteracao}
+        ticketId={id!}
       />
     </div>
   );
