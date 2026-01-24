@@ -53,6 +53,8 @@ export default function ExecucaoVisitaCorretiva() {
   const { getLocation } = useGeolocation();
   const [showCompleteDialog, setShowCompleteDialog] = useState(false);
   const [showWarningDialog, setShowWarningDialog] = useState(false);
+  const [showResultDialog, setShowResultDialog] = useState(false);
+  const [selectedResult, setSelectedResult] = useState<'resolvido' | 'parcial' | 'aguardando_peca' | null>(null);
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
   const [checklistStatus, setChecklistStatus] = useState<'not_started' | 'in_progress' | 'completed'>('not_started');
   const [isCheckingIn, setIsCheckingIn] = useState(false);
@@ -226,7 +228,7 @@ export default function ExecucaoVisitaCorretiva() {
 
   // Complete visit mutation
   const completeMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (result: 'resolvido' | 'parcial' | 'aguardando_peca') => {
       if (!visit) throw new Error('Visita não encontrada');
 
       let lat: number | null = null;
@@ -248,7 +250,7 @@ export default function ExecucaoVisitaCorretiva() {
           checkout_at: new Date().toISOString(),
           checkout_lat: lat,
           checkout_lon: lon,
-          result: 'resolvido',
+          result: result,
         })
         .eq('id', visitId);
 
@@ -267,25 +269,64 @@ export default function ExecucaoVisitaCorretiva() {
         if (pmError) throw pmError;
       }
 
+      // Build result label for timeline
+      const resultLabels = {
+        resolvido: 'Resolvido',
+        parcial: 'Parcialmente resolvido',
+        aguardando_peca: 'Aguardando peça'
+      };
+
       // Add timeline entry
       await supabase.from('ticket_timeline').insert({
         ticket_id: visit.ticket_id,
         user_id: user!.id,
         event_type: 'visit_completed',
-        event_description: `Visita ${visit.visit_code} concluída`,
+        event_description: `Visita ${visit.visit_code} concluída - ${resultLabels[result]}`,
       });
 
-      return true;
+      // If result is "resolvido", close the ticket
+      if (result === 'resolvido') {
+        const { error: ticketError } = await supabase
+          .from('technical_tickets')
+          .update({ 
+            status: 'resolvido',
+            resolved_at: new Date().toISOString(),
+          })
+          .eq('id', visit.ticket_id);
+
+        if (ticketError) throw ticketError;
+
+        // Add timeline entry for ticket resolution
+        await supabase.from('ticket_timeline').insert({
+          ticket_id: visit.ticket_id,
+          user_id: user!.id,
+          event_type: 'status_change',
+          event_description: 'Chamado encerrado - Problema resolvido na visita',
+        });
+      }
+
+      return result;
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['corrective-visit-execution', visitId] });
       queryClient.invalidateQueries({ queryKey: ['my-corrective-visits'] });
       queryClient.invalidateQueries({ queryKey: ['ticket-timeline', visit?.ticket_id] });
+      queryClient.invalidateQueries({ queryKey: ['ticket', visit?.ticket_id] });
+      
+      const messages = {
+        resolvido: 'Visita encerrada e chamado resolvido!',
+        parcial: 'Visita encerrada como parcialmente resolvida.',
+        aguardando_peca: 'Visita encerrada - aguardando peça.'
+      };
+      
       toast({
-        title: 'Visita encerrada!',
-        description: 'A visita foi marcada como concluída.',
+        title: messages[result],
+        description: result === 'resolvido' 
+          ? 'O chamado foi marcado como resolvido.' 
+          : 'O chamado permanece aberto para acompanhamento.',
       });
       refetch();
+      setSelectedResult(null);
     },
     onError: (error: Error) => {
       toast({
@@ -371,13 +412,19 @@ export default function ExecucaoVisitaCorretiva() {
     if (result.warnings.length > 0) {
       setShowWarningDialog(true);
     } else {
-      setShowCompleteDialog(true);
+      setShowResultDialog(true);
     }
+  };
+
+  const handleResultSelection = (result: 'resolvido' | 'parcial' | 'aguardando_peca') => {
+    setSelectedResult(result);
+    setShowResultDialog(false);
+    setShowCompleteDialog(true);
   };
 
   const handleProceedAfterWarning = () => {
     setShowWarningDialog(false);
-    setShowCompleteDialog(true);
+    setShowResultDialog(true);
   };
 
   if (isLoading) {
@@ -647,14 +694,82 @@ export default function ExecucaoVisitaCorretiva() {
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* Result Selection Dialog */}
+      <AlertDialog open={showResultDialog} onOpenChange={setShowResultDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Resultado da Visita</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3">
+                <p>Qual foi o resultado desta visita corretiva?</p>
+                <div className="grid gap-2 mt-4">
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start h-auto py-3 px-4 border-green-500/30 hover:bg-green-500/10 hover:border-green-500"
+                    onClick={() => handleResultSelection('resolvido')}
+                  >
+                    <CheckCircle2 className="h-5 w-5 text-green-600 mr-3" />
+                    <div className="text-left">
+                      <p className="font-medium">Resolvido</p>
+                      <p className="text-xs text-muted-foreground">Problema solucionado, chamado será encerrado</p>
+                    </div>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start h-auto py-3 px-4 border-amber-500/30 hover:bg-amber-500/10 hover:border-amber-500"
+                    onClick={() => handleResultSelection('parcial')}
+                  >
+                    <AlertTriangle className="h-5 w-5 text-amber-500 mr-3" />
+                    <div className="text-left">
+                      <p className="font-medium">Parcialmente Resolvido</p>
+                      <p className="text-xs text-muted-foreground">Requer nova visita, chamado permanece aberto</p>
+                    </div>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start h-auto py-3 px-4 border-blue-500/30 hover:bg-blue-500/10 hover:border-blue-500"
+                    onClick={() => handleResultSelection('aguardando_peca')}
+                  >
+                    <Clock className="h-5 w-5 text-blue-500 mr-3" />
+                    <div className="text-left">
+                      <p className="font-medium">Aguardando Peça</p>
+                      <p className="text-xs text-muted-foreground">Peça solicitada, chamado permanece aberto</p>
+                    </div>
+                  </Button>
+                </div>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Complete Confirmation Dialog */}
       <AlertDialog open={showCompleteDialog} onOpenChange={setShowCompleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Encerrar visita corretiva?</AlertDialogTitle>
+            <AlertDialogTitle>Confirmar encerramento?</AlertDialogTitle>
             <AlertDialogDescription asChild>
               <div className="space-y-3">
                 <p>Isso marcará a visita como concluída. Você poderá visualizar o resumo mas não poderá editar as respostas.</p>
+                
+                {selectedResult && (
+                  <div className={`rounded-lg p-3 ${
+                    selectedResult === 'resolvido' ? 'bg-green-500/10 border border-green-500/30' :
+                    selectedResult === 'parcial' ? 'bg-amber-500/10 border border-amber-500/30' :
+                    'bg-blue-500/10 border border-blue-500/30'
+                  }`}>
+                    <p className="text-xs text-muted-foreground mb-1">Resultado selecionado</p>
+                    <p className="font-semibold">
+                      {selectedResult === 'resolvido' && '✓ Resolvido - Chamado será encerrado'}
+                      {selectedResult === 'parcial' && '⚠ Parcialmente resolvido - Chamado permanece aberto'}
+                      {selectedResult === 'aguardando_peca' && '⏳ Aguardando peça - Chamado permanece aberto'}
+                    </p>
+                  </div>
+                )}
+                
                 <div className="bg-muted rounded-lg p-3 text-center">
                   <p className="text-xs text-muted-foreground mb-1">Data e hora de encerramento</p>
                   <p className="text-base font-semibold text-foreground">
@@ -665,10 +780,10 @@ export default function ExecucaoVisitaCorretiva() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel onClick={() => setSelectedResult(null)}>Cancelar</AlertDialogCancel>
             <AlertDialogAction 
-              onClick={() => completeMutation.mutate()}
-              disabled={completeMutation.isPending}
+              onClick={() => selectedResult && completeMutation.mutate(selectedResult)}
+              disabled={completeMutation.isPending || !selectedResult}
             >
               {completeMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               Confirmar Encerramento
