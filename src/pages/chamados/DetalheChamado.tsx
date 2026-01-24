@@ -313,10 +313,9 @@ export default function DetalheChamado() {
         </div>
       </div>
 
-      {/* Status Stepper with integrated substatus */}
+      {/* Status Stepper */}
       <TicketStatusStepper 
         currentStatus={ticket.status} 
-        substatus={ticket.status === 'em_atendimento' ? (ticket as any).substatus : null}
         createdAt={ticket.created_at}
         updatedAt={ticket.updated_at}
         resolvedAt={ticket.resolved_at}
