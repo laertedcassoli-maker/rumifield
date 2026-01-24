@@ -193,7 +193,7 @@ export default function TicketPartsRequestPanel({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['ticket-parts-requests', ticketId] });
       queryClient.invalidateQueries({ queryKey: ['ticket-timeline', ticketId] });
-      queryClient.invalidateQueries({ queryKey: ['ticket', ticketId] });
+      queryClient.invalidateQueries({ queryKey: ['ticket-detail', ticketId] });
       toast({ title: 'Solicitação de peças criada!' });
       setItems([]);
       setObservacoes('');

@@ -77,7 +77,7 @@ export default function NovaInteracaoDialog({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['ticket-timeline', ticketId] });
-      queryClient.invalidateQueries({ queryKey: ['ticket', ticketId] });
+      queryClient.invalidateQueries({ queryKey: ['ticket-detail', ticketId] });
       toast({ title: 'Interação registrada!' });
       setNotes('');
       setInteractionType('note');
