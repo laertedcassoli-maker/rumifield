@@ -348,60 +348,6 @@ export default function DetalheChamado() {
             </CardContent>
           </Card>
 
-          {/* Visits */}
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle>Visitas Corretivas</CardTitle>
-                <CardDescription>{visits?.length || 0} visita(s) registrada(s)</CardDescription>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {visits?.length ? (
-                <div className="space-y-3">
-                  {visits.map(visit => (
-                    <div 
-                      key={visit.id} 
-                      className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div>
-                          <div className="font-medium">{visit.technician_name}</div>
-                          <div className="text-sm text-muted-foreground">
-                            {visit.planned_start_date 
-                              ? format(new Date(visit.planned_start_date), "dd/MM/yyyy", { locale: ptBR })
-                              : 'Data não definida'}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <Badge variant="outline" className={visitStatusConfig[visit.status as keyof typeof visitStatusConfig]?.color}>
-                          {visitStatusConfig[visit.status as keyof typeof visitStatusConfig]?.label}
-                        </Badge>
-                        <Button variant="ghost" size="sm" asChild>
-                          <Link to={`/chamados/visita/${visit.id}`}>
-                            <Eye className="h-4 w-4" />
-                          </Link>
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-6 text-muted-foreground">
-                  <CalendarPlus className="mx-auto h-8 w-8 mb-2 opacity-50" />
-                  <p>Nenhuma visita agendada</p>
-                  {isAdminOrCoordinator && (
-                    <Button variant="outline" size="sm" className="mt-2" onClick={() => setShowNovaVisita(true)}>
-                      <Plus className="mr-2 h-4 w-4" />
-                      Agendar Visita
-                    </Button>
-                  )}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
           {/* Timeline / Interações - Movido para cima */}
           <Card>
             <CardHeader className="flex flex-row items-center justify-between">
@@ -546,6 +492,58 @@ export default function DetalheChamado() {
                     Ver no Maps
                   </a>
                 </Button>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Visits - Moved to sidebar */}
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between pb-3">
+              <div>
+                <CardTitle className="text-base">Visitas Corretivas</CardTitle>
+                <CardDescription>{visits?.length || 0} visita(s)</CardDescription>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {visits?.length ? (
+                <div className="space-y-2">
+                  {visits.map(visit => (
+                    <div 
+                      key={visit.id} 
+                      className="flex items-center justify-between p-2 border rounded-lg hover:bg-muted/50 transition-colors"
+                    >
+                      <div>
+                        <div className="text-sm font-medium">{visit.technician_name}</div>
+                        <div className="text-xs text-muted-foreground">
+                          {visit.planned_start_date 
+                            ? format(new Date(visit.planned_start_date), "dd/MM/yyyy", { locale: ptBR })
+                            : 'Sem data'}
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <Badge variant="outline" className={`text-xs ${visitStatusConfig[visit.status as keyof typeof visitStatusConfig]?.color}`}>
+                          {visitStatusConfig[visit.status as keyof typeof visitStatusConfig]?.label}
+                        </Badge>
+                        <Button variant="ghost" size="icon" className="h-7 w-7" asChild>
+                          <Link to={`/chamados/visita/${visit.id}`}>
+                            <Eye className="h-3.5 w-3.5" />
+                          </Link>
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-center py-4 text-muted-foreground">
+                  <CalendarPlus className="mx-auto h-6 w-6 mb-1 opacity-50" />
+                  <p className="text-sm">Nenhuma visita</p>
+                  {isAdminOrCoordinator && (
+                    <Button variant="outline" size="sm" className="mt-2" onClick={() => setShowNovaVisita(true)}>
+                      <Plus className="mr-1 h-3 w-3" />
+                      Agendar
+                    </Button>
+                  )}
+                </div>
               )}
             </CardContent>
           </Card>
