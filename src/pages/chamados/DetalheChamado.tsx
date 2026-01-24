@@ -41,6 +41,7 @@ const interactionTypeConfig = {
   message: { icon: MessageSquare, color: 'text-green-600', bgColor: 'bg-green-100 dark:bg-green-900/30' },
   waiting: { icon: Clock, color: 'text-orange-600', bgColor: 'bg-orange-100 dark:bg-orange-900/30' },
   note: { icon: FileText, color: 'text-purple-600', bgColor: 'bg-purple-100 dark:bg-purple-900/30' },
+  visit: { icon: CalendarPlus, color: 'text-indigo-600', bgColor: 'bg-indigo-100 dark:bg-indigo-900/30' },
 };
 
 const statusConfig = {
@@ -196,7 +197,7 @@ export default function DetalheChamado() {
     enabled: !!id,
   });
 
-  // Fetch timeline
+  // Fetch timeline and merge with visits
   const { data: timeline } = useQuery({
     queryKey: ['ticket-timeline', id],
     queryFn: async () => {
@@ -216,12 +217,35 @@ export default function DetalheChamado() {
       
       const profilesMap = new Map(profiles?.map(p => [p.id, p.nome]) || []);
 
-      return data?.map(t => ({
+      // Get visits to merge into timeline
+      const visitsForTimeline = visits?.map(v => ({
+        id: `visit-${v.id}`,
+        created_at: v.created_at,
+        event_type: 'visit',
+        event_description: '',
+        interaction_type: 'visit' as const,
+        notes: null,
+        user_id: v.field_technician_user_id,
+        user_name: v.technician_name,
+        ticket_id: id,
+        metadata: null,
+        visit_data: v,
+      })) || [];
+
+      const timelineWithNames = data?.map(t => ({
         ...t,
         user_name: profilesMap.get(t.user_id) || 'Usuário',
+        visit_data: null as any,
       })) || [];
+
+      // Merge and sort by created_at descending
+      const merged = [...timelineWithNames, ...visitsForTimeline].sort(
+        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+
+      return merged;
     },
-    enabled: !!id,
+    enabled: !!id && visits !== undefined,
   });
 
   // Update technician mutation
@@ -375,9 +399,10 @@ export default function DetalheChamado() {
               {timeline?.length ? (
                 <div className="space-y-4">
                   {timeline.map((entry, index) => {
+                    const isVisit = entry.interaction_type === 'visit' && entry.visit_data;
                     const typeConfig = interactionTypeConfig[(entry.interaction_type as keyof typeof interactionTypeConfig) || 'system'] || interactionTypeConfig.system;
                     const Icon = typeConfig.icon;
-                    const isManualInteraction = entry.interaction_type && entry.interaction_type !== 'system';
+                    const isManualInteraction = entry.interaction_type && entry.interaction_type !== 'system' && !isVisit;
                     
                     return (
                       <div key={entry.id} className="flex gap-3">
@@ -390,7 +415,75 @@ export default function DetalheChamado() {
                           )}
                         </div>
                         <div className="flex-1 pb-4">
-                          {isManualInteraction && entry.notes ? (
+                          {isVisit && entry.visit_data ? (
+                            /* Visit Card Expandido */
+                            <div className="border rounded-lg p-3 bg-indigo-50/50 dark:bg-indigo-900/10">
+                              <div className="flex items-center justify-between mb-2">
+                                <div className="font-medium text-sm">
+                                  Visita Técnica
+                                  {entry.visit_data.visit_code && (
+                                    <span className="ml-2 font-mono text-xs text-muted-foreground">
+                                      {entry.visit_data.visit_code}
+                                    </span>
+                                  )}
+                                </div>
+                                <Badge variant="outline" className={`text-xs ${visitStatusConfig[entry.visit_data.status as keyof typeof visitStatusConfig]?.color}`}>
+                                  {visitStatusConfig[entry.visit_data.status as keyof typeof visitStatusConfig]?.label}
+                                </Badge>
+                              </div>
+                              <div className="space-y-1 text-sm">
+                                <div className="flex items-center gap-2">
+                                  <User className="h-3.5 w-3.5 text-muted-foreground" />
+                                  <span>{entry.visit_data.technician_name}</span>
+                                </div>
+                                {entry.visit_data.planned_start_date && (
+                                  <div className="flex items-center gap-2">
+                                    <Clock className="h-3.5 w-3.5 text-muted-foreground" />
+                                    <span>
+                                      Planejada: {format(new Date(entry.visit_data.planned_start_date), "dd/MM/yyyy", { locale: ptBR })}
+                                    </span>
+                                  </div>
+                                )}
+                                {entry.visit_data.checkin_at && (
+                                  <div className="flex items-center gap-2 text-green-600">
+                                    <MapPin className="h-3.5 w-3.5" />
+                                    <span>
+                                      Check-in: {format(new Date(entry.visit_data.checkin_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                                    </span>
+                                  </div>
+                                )}
+                                {entry.visit_data.checkout_at && (
+                                  <div className="flex items-center gap-2 text-blue-600">
+                                    <MapPin className="h-3.5 w-3.5" />
+                                    <span>
+                                      Check-out: {format(new Date(entry.visit_data.checkout_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                                    </span>
+                                  </div>
+                                )}
+                                {entry.visit_data.result && (
+                                  <div className="mt-2 pt-2 border-t">
+                                    <Badge variant="outline" className={
+                                      entry.visit_data.result === 'resolvido' ? 'bg-green-500/10 text-green-600' :
+                                      entry.visit_data.result === 'pendente' ? 'bg-warning/10 text-warning' :
+                                      'bg-muted text-muted-foreground'
+                                    }>
+                                      {entry.visit_data.result === 'resolvido' && 'Problema Resolvido'}
+                                      {entry.visit_data.result === 'pendente' && 'Pendente'}
+                                      {entry.visit_data.result === 'requer_retorno' && 'Requer Retorno'}
+                                    </Badge>
+                                  </div>
+                                )}
+                              </div>
+                              <div className="flex justify-end mt-2">
+                                <Button variant="ghost" size="sm" asChild>
+                                  <Link to={`/chamados/visita/${entry.visit_data.id}`}>
+                                    <Eye className="mr-1 h-3.5 w-3.5" />
+                                    Ver detalhes
+                                  </Link>
+                                </Button>
+                              </div>
+                            </div>
+                          ) : isManualInteraction && entry.notes ? (
                             <>
                               <p className="text-sm font-medium">{entry.event_description}</p>
                               <p className="text-sm text-muted-foreground mt-1 whitespace-pre-wrap">{entry.notes}</p>
@@ -398,9 +491,11 @@ export default function DetalheChamado() {
                           ) : (
                             <p className="text-sm">{entry.event_description}</p>
                           )}
-                          <p className="text-xs text-muted-foreground mt-1">
-                            {entry.user_name} • {format(new Date(entry.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
-                          </p>
+                          {!isVisit && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {entry.user_name} • {format(new Date(entry.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                            </p>
+                          )}
                         </div>
                       </div>
                     );
@@ -498,58 +593,6 @@ export default function DetalheChamado() {
                     Ver no Maps
                   </a>
                 </Button>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Visits - Moved to sidebar */}
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-3">
-              <div>
-                <CardTitle className="text-base">Visitas Corretivas</CardTitle>
-                <CardDescription>{visits?.length || 0} visita(s)</CardDescription>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {visits?.length ? (
-                <div className="space-y-2">
-                  {visits.map(visit => (
-                    <div 
-                      key={visit.id} 
-                      className="flex items-center justify-between p-2 border rounded-lg hover:bg-muted/50 transition-colors"
-                    >
-                      <div>
-                        <div className="text-sm font-medium">{visit.technician_name}</div>
-                        <div className="text-xs text-muted-foreground">
-                          {visit.planned_start_date 
-                            ? format(new Date(visit.planned_start_date), "dd/MM/yyyy", { locale: ptBR })
-                            : 'Sem data'}
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Badge variant="outline" className={`text-xs ${visitStatusConfig[visit.status as keyof typeof visitStatusConfig]?.color}`}>
-                          {visitStatusConfig[visit.status as keyof typeof visitStatusConfig]?.label}
-                        </Badge>
-                        <Button variant="ghost" size="icon" className="h-7 w-7" asChild>
-                          <Link to={`/chamados/visita/${visit.id}`}>
-                            <Eye className="h-3.5 w-3.5" />
-                          </Link>
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="text-center py-4 text-muted-foreground">
-                  <CalendarPlus className="mx-auto h-6 w-6 mb-1 opacity-50" />
-                  <p className="text-sm">Nenhuma visita</p>
-                  {isAdminOrCoordinator && (
-                    <Button variant="outline" size="sm" className="mt-2" onClick={() => setShowNovaVisita(true)}>
-                      <Plus className="mr-1 h-3 w-3" />
-                      Agendar
-                    </Button>
-                  )}
-                </div>
               )}
             </CardContent>
           </Card>
