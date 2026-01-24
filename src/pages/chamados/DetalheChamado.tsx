@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -47,6 +47,7 @@ import { ptBR } from 'date-fns/locale';
 import TicketPartsRequestPanel from '@/components/chamados/TicketPartsRequestPanel';
 import NovaVisitaDialog from '@/components/chamados/NovaVisitaDialog';
 import NovaInteracaoDialog from '@/components/chamados/NovaInteracaoDialog';
+import SelectableOptionCard from '@/components/preventivas/SelectableOptionCard';
 
 // Interaction type config
 const interactionTypeConfig = {
@@ -91,6 +92,8 @@ export default function DetalheChamado() {
   const [showNovaVisita, setShowNovaVisita] = useState(false);
   const [showNovaInteracao, setShowNovaInteracao] = useState(false);
   const [resolutionSummary, setResolutionSummary] = useState('');
+  const [showResolveDialog, setShowResolveDialog] = useState(false);
+  const autoStatusChangeRef = useRef(false);
 
   const isAdminOrCoordinator = role === 'admin' || role === 'coordenador_servicos';
 
@@ -310,6 +313,18 @@ export default function DetalheChamado() {
     enabled: isAdminOrCoordinator,
   });
 
+  // Auto-change status to "em_atendimento" when opening a ticket that is "aberto"
+  useEffect(() => {
+    if (
+      ticket?.status === 'aberto' && 
+      user?.id && 
+      !autoStatusChangeRef.current
+    ) {
+      autoStatusChangeRef.current = true;
+      updateStatus.mutate('em_atendimento');
+    }
+  }, [ticket?.status, user?.id]);
+
   const renderStatusBadge = (status: string) => {
     const config = statusConfig[status as keyof typeof statusConfig];
     if (!config) return null;
@@ -321,6 +336,34 @@ export default function DetalheChamado() {
       </Badge>
     );
   };
+
+  // Handle status button click
+  const handleStatusClick = (newStatus: string) => {
+    if (newStatus === 'resolvido') {
+      setShowResolveDialog(true);
+    } else {
+      updateStatus.mutate(newStatus);
+    }
+  };
+
+  // Available status transitions
+  const availableStatuses = useMemo(() => {
+    if (!ticket) return [];
+    const currentStatus = ticket.status;
+    
+    // Define allowed transitions
+    if (currentStatus === 'resolvido' || currentStatus === 'cancelado') {
+      return []; // No transitions from final states (could add "reopen" for admins later)
+    }
+    
+    return [
+      { key: 'aberto', ...statusConfig.aberto },
+      { key: 'em_atendimento', ...statusConfig.em_atendimento },
+      { key: 'aguardando_peca', ...statusConfig.aguardando_peca },
+      { key: 'resolvido', ...statusConfig.resolvido },
+      { key: 'cancelado', ...statusConfig.cancelado },
+    ];
+  }, [ticket]);
 
   if (isLoading) {
     return (
@@ -373,6 +416,40 @@ export default function DetalheChamado() {
           )}
         </div>
       </div>
+
+      {/* Status Bar - Quick Status Change */}
+      {availableStatuses.length > 0 && (
+        <Card className="border-dashed">
+          <CardContent className="py-3">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-sm font-medium text-muted-foreground">Status:</span>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
+              {availableStatuses.map((status) => {
+                const Icon = status.icon;
+                const isSelected = ticket.status === status.key;
+                const variant = status.key === 'cancelado' ? 'danger' 
+                  : status.key === 'resolvido' ? 'success'
+                  : status.key === 'aguardando_peca' ? 'warning'
+                  : 'default';
+                
+                return (
+                  <SelectableOptionCard
+                    key={status.key}
+                    label={status.label}
+                    selected={isSelected}
+                    loading={updateStatus.isPending && updateStatus.variables === status.key}
+                    disabled={updateStatus.isPending}
+                    onClick={() => handleStatusClick(status.key)}
+                    icon={<Icon className="h-4 w-4" />}
+                    variant={variant}
+                  />
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Main Content */}
@@ -608,62 +685,6 @@ export default function DetalheChamado() {
 
               <Separator />
 
-              {/* Status */}
-              {isAdminOrCoordinator && ticket.status !== 'resolvido' && ticket.status !== 'cancelado' && (
-                <div>
-                  <div className="text-sm font-medium mb-2">Alterar Status</div>
-                  <Select 
-                    value={ticket.status} 
-                    onValueChange={(v) => updateStatus.mutate(v)}
-                    disabled={updateStatus.isPending}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="aberto">Aberto</SelectItem>
-                      <SelectItem value="em_atendimento">Em Atendimento</SelectItem>
-                      <SelectItem value="aguardando_peca">Aguardando Peça</SelectItem>
-                      <SelectItem value="cancelado">Cancelado</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
-
-              {/* Resolve */}
-              {isAdminOrCoordinator && ticket.status !== 'resolvido' && ticket.status !== 'cancelado' && (
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button className="w-full" variant="default">
-                      <CheckCircle className="mr-2 h-4 w-4" />
-                      Marcar como Resolvido
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent>
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Resolver Chamado</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        Descreva a resolução do problema antes de fechar o chamado.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <Textarea
-                      value={resolutionSummary}
-                      onChange={(e) => setResolutionSummary(e.target.value)}
-                      placeholder="Resumo da resolução..."
-                      rows={4}
-                    />
-                    <AlertDialogFooter>
-                      <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                      <AlertDialogAction onClick={() => updateStatus.mutate('resolvido')}>
-                        Confirmar
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              )}
-
-              <Separator />
-
               {/* Technician Assignment */}
               {isAdminOrCoordinator && (
                 <div>
@@ -754,6 +775,33 @@ export default function DetalheChamado() {
         onOpenChange={setShowNovaInteracao}
         ticketId={id!}
       />
+
+      {/* Resolve Dialog */}
+      <AlertDialog open={showResolveDialog} onOpenChange={setShowResolveDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Resolver Chamado</AlertDialogTitle>
+            <AlertDialogDescription>
+              Descreva a resolução do problema antes de fechar o chamado.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <Textarea
+            value={resolutionSummary}
+            onChange={(e) => setResolutionSummary(e.target.value)}
+            placeholder="Resumo da resolução..."
+            rows={4}
+          />
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={() => {
+              updateStatus.mutate('resolvido');
+              setShowResolveDialog(false);
+            }}>
+              Confirmar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
