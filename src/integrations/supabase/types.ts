@@ -2530,6 +2530,7 @@ export type Database = {
           preventive_status: string
         }[]
       }
+      has_role: { Args: { _role: string; _user_id: string }; Returns: boolean }
       is_admin_or_coordinator: { Args: { _user_id: string }; Returns: boolean }
     }
     Enums: {
