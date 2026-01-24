@@ -49,6 +49,7 @@ const newUserSchema = z.object({
   email: z.string().email('Email inválido'),
   password: z.string().min(6, 'Senha deve ter no mínimo 6 caracteres'),
   role: z.enum(['admin', 'coordenador_rplus', 'consultor_rplus', 'coordenador_servicos', 'tecnico_campo', 'tecnico_oficina']),
+  cidade_base: z.string().optional(),
 });
 
 export default function AdminUsuarios() {
@@ -65,8 +66,10 @@ export default function AdminUsuarios() {
     email: '',
     password: '',
     role: 'consultor_rplus' as 'admin' | 'coordenador_rplus' | 'consultor_rplus' | 'coordenador_servicos' | 'tecnico_campo' | 'tecnico_oficina',
+    cidade_base: '',
   });
   const [isCreating, setIsCreating] = useState(false);
+  const [editingCidadeBase, setEditingCidadeBase] = useState<{ userId: string; value: string } | null>(null);
 
   const { data: usuarios, isLoading } = useQuery({
     queryKey: ['usuarios-admin'],
@@ -161,6 +164,24 @@ export default function AdminUsuarios() {
     },
   });
 
+  const updateCidadeBase = useMutation({
+    mutationFn: async ({ userId, cidadeBase }: { userId: string; cidadeBase: string }) => {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ cidade_base: cidadeBase || null })
+        .eq('id', userId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['usuarios-admin'] });
+      toast({ title: 'Cidade base atualizada!' });
+      setEditingCidadeBase(null);
+    },
+    onError: (error: Error) => {
+      toast({ variant: 'destructive', title: 'Erro ao atualizar', description: error.message });
+    },
+  });
+
   const handleRoleChange = (userId: string, newRole: string) => {
     if (userId === currentUser?.id) {
       toast({ variant: 'destructive', title: 'Você não pode alterar sua própria permissão' });
@@ -205,28 +226,39 @@ export default function AdminUsuarios() {
         .single();
 
       // Se o role selecionado for diferente do padrão, atualizar
-      if (newProfile && newUserForm.role !== 'consultor_rplus') {
-        const { error: roleError } = await supabase
-          .from('user_roles')
-          .update({ role: newUserForm.role })
-          .eq('user_id', newProfile.id);
+      if (newProfile) {
+        const updates: { role?: string; cidade_base?: string } = {};
         
-        if (roleError) {
-          console.error('Erro ao atualizar role:', roleError);
-          toast({ 
-            title: 'Usuário criado!', 
-            description: 'Atualize a permissão manualmente na lista.',
-            variant: 'default'
-          });
-        } else {
-          toast({ title: 'Usuário criado com sucesso!' });
+        if (newUserForm.role !== 'consultor_rplus') {
+          const { error: roleError } = await supabase
+            .from('user_roles')
+            .update({ role: newUserForm.role })
+            .eq('user_id', newProfile.id);
+          
+          if (roleError) {
+            console.error('Erro ao atualizar role:', roleError);
+          }
         }
+        
+        // Update cidade_base if provided
+        if (newUserForm.cidade_base) {
+          const { error: cidadeError } = await supabase
+            .from('profiles')
+            .update({ cidade_base: newUserForm.cidade_base })
+            .eq('id', newProfile.id);
+          
+          if (cidadeError) {
+            console.error('Erro ao atualizar cidade base:', cidadeError);
+          }
+        }
+        
+        toast({ title: 'Usuário criado com sucesso!' });
       } else {
         toast({ title: 'Usuário criado com sucesso!' });
       }
 
       setOpenDialog(false);
-      setNewUserForm({ nome: '', email: '', password: '', role: 'consultor_rplus' });
+      setNewUserForm({ nome: '', email: '', password: '', role: 'consultor_rplus', cidade_base: '' });
       queryClient.invalidateQueries({ queryKey: ['usuarios-admin'] });
     } catch (error: any) {
       if (error.message?.includes('already registered')) {
@@ -317,6 +349,17 @@ export default function AdminUsuarios() {
                     </SelectContent>
                   </Select>
                 </div>
+                <div className="space-y-2">
+                  <Label>Cidade Base (para rotas)</Label>
+                  <Input
+                    placeholder="Ex: Piracicaba/SP"
+                    value={newUserForm.cidade_base}
+                    onChange={(e) => setNewUserForm({ ...newUserForm, cidade_base: e.target.value })}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Ponto de partida padrão para planejamento de rotas
+                  </p>
+                </div>
                 <Button type="submit" className="w-full" disabled={isCreating}>
                   {isCreating ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Criar Usuário'}
                 </Button>
@@ -361,6 +404,7 @@ export default function AdminUsuarios() {
                       Permissão {getSortIcon('role')}
                     </Button>
                   </TableHead>
+                  <TableHead>Cidade Base</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -403,6 +447,48 @@ export default function AdminUsuarios() {
                             <Shield className="mr-1 h-3 w-3" />
                             {roleLabels[userRole]}
                           </Badge>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {isAdmin ? (
+                          editingCidadeBase?.userId === usuario.id ? (
+                            <div className="flex items-center gap-2">
+                              <Input
+                                value={editingCidadeBase.value}
+                                onChange={(e) => setEditingCidadeBase({ ...editingCidadeBase, value: e.target.value })}
+                                placeholder="Piracicaba/SP"
+                                className="h-8 w-32"
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    updateCidadeBase.mutate({ userId: usuario.id, cidadeBase: editingCidadeBase.value });
+                                  } else if (e.key === 'Escape') {
+                                    setEditingCidadeBase(null);
+                                  }
+                                }}
+                                autoFocus
+                              />
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-8 px-2"
+                                onClick={() => updateCidadeBase.mutate({ userId: usuario.id, cidadeBase: editingCidadeBase.value })}
+                                disabled={updateCidadeBase.isPending}
+                              >
+                                {updateCidadeBase.isPending ? <Loader2 className="h-3 w-3 animate-spin" /> : 'OK'}
+                              </Button>
+                            </div>
+                          ) : (
+                            <button
+                              onClick={() => setEditingCidadeBase({ userId: usuario.id, value: usuario.cidade_base || '' })}
+                              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+                            >
+                              {usuario.cidade_base || <span className="italic text-muted-foreground/50">Não definida</span>}
+                            </button>
+                          )
+                        ) : (
+                          <span className="text-sm text-muted-foreground">
+                            {usuario.cidade_base || '-'}
+                          </span>
                         )}
                       </TableCell>
                     </TableRow>
