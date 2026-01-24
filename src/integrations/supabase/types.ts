@@ -1521,6 +1521,72 @@ export type Database = {
         }
         Relationships: []
       }
+      technical_tickets: {
+        Row: {
+          assigned_technician_id: string | null
+          client_id: string
+          created_at: string
+          created_by_user_id: string
+          description: string | null
+          id: string
+          priority: Database["public"]["Enums"]["ticket_priority"]
+          resolution_summary: string | null
+          resolved_at: string | null
+          resolved_by_user_id: string | null
+          status: Database["public"]["Enums"]["ticket_status"]
+          ticket_code: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          assigned_technician_id?: string | null
+          client_id: string
+          created_at?: string
+          created_by_user_id: string
+          description?: string | null
+          id?: string
+          priority?: Database["public"]["Enums"]["ticket_priority"]
+          resolution_summary?: string | null
+          resolved_at?: string | null
+          resolved_by_user_id?: string | null
+          status?: Database["public"]["Enums"]["ticket_status"]
+          ticket_code: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          assigned_technician_id?: string | null
+          client_id?: string
+          created_at?: string
+          created_by_user_id?: string
+          description?: string | null
+          id?: string
+          priority?: Database["public"]["Enums"]["ticket_priority"]
+          resolution_summary?: string | null
+          resolved_at?: string | null
+          resolved_by_user_id?: string | null
+          status?: Database["public"]["Enums"]["ticket_status"]
+          ticket_code?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "technical_tickets_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "client_preventive_overview"
+            referencedColumns: ["client_id"]
+          },
+          {
+            foreignKeyName: "technical_tickets_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tecnico_clientes: {
         Row: {
           cliente_id: string
@@ -1553,6 +1619,226 @@ export type Database = {
             columns: ["cliente_id"]
             isOneToOne: false
             referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ticket_parts_requests: {
+        Row: {
+          created_at: string
+          id: string
+          pedido_id: string
+          ticket_id: string
+          visit_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          pedido_id: string
+          ticket_id: string
+          visit_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          pedido_id?: string
+          ticket_id?: string
+          visit_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ticket_parts_requests_pedido_id_fkey"
+            columns: ["pedido_id"]
+            isOneToOne: false
+            referencedRelation: "pedidos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ticket_parts_requests_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "technical_tickets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ticket_parts_requests_visit_id_fkey"
+            columns: ["visit_id"]
+            isOneToOne: false
+            referencedRelation: "ticket_visits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ticket_timeline: {
+        Row: {
+          created_at: string
+          event_description: string
+          event_type: string
+          id: string
+          metadata: Json | null
+          ticket_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          event_description: string
+          event_type: string
+          id?: string
+          metadata?: Json | null
+          ticket_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          event_description?: string
+          event_type?: string
+          id?: string
+          metadata?: Json | null
+          ticket_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ticket_timeline_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "technical_tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ticket_visit_actions: {
+        Row: {
+          action_description: string
+          completed: boolean
+          completed_at: string | null
+          created_at: string
+          id: string
+          order_index: number
+          visit_id: string
+        }
+        Insert: {
+          action_description: string
+          completed?: boolean
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          order_index?: number
+          visit_id: string
+        }
+        Update: {
+          action_description?: string
+          completed?: boolean
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          order_index?: number
+          visit_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ticket_visit_actions_visit_id_fkey"
+            columns: ["visit_id"]
+            isOneToOne: false
+            referencedRelation: "ticket_visits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ticket_visits: {
+        Row: {
+          checkin_at: string | null
+          checkin_lat: number | null
+          checkin_lon: number | null
+          checklist_template_id: string | null
+          checkout_at: string | null
+          checkout_lat: number | null
+          checkout_lon: number | null
+          client_id: string
+          created_at: string
+          field_technician_user_id: string
+          id: string
+          internal_notes: string | null
+          planned_end_date: string | null
+          planned_start_date: string | null
+          public_notes: string | null
+          result: Database["public"]["Enums"]["visit_result"] | null
+          status: Database["public"]["Enums"]["ticket_visit_status"]
+          ticket_id: string
+          updated_at: string
+          visit_summary: string | null
+        }
+        Insert: {
+          checkin_at?: string | null
+          checkin_lat?: number | null
+          checkin_lon?: number | null
+          checklist_template_id?: string | null
+          checkout_at?: string | null
+          checkout_lat?: number | null
+          checkout_lon?: number | null
+          client_id: string
+          created_at?: string
+          field_technician_user_id: string
+          id?: string
+          internal_notes?: string | null
+          planned_end_date?: string | null
+          planned_start_date?: string | null
+          public_notes?: string | null
+          result?: Database["public"]["Enums"]["visit_result"] | null
+          status?: Database["public"]["Enums"]["ticket_visit_status"]
+          ticket_id: string
+          updated_at?: string
+          visit_summary?: string | null
+        }
+        Update: {
+          checkin_at?: string | null
+          checkin_lat?: number | null
+          checkin_lon?: number | null
+          checklist_template_id?: string | null
+          checkout_at?: string | null
+          checkout_lat?: number | null
+          checkout_lon?: number | null
+          client_id?: string
+          created_at?: string
+          field_technician_user_id?: string
+          id?: string
+          internal_notes?: string | null
+          planned_end_date?: string | null
+          planned_start_date?: string | null
+          public_notes?: string | null
+          result?: Database["public"]["Enums"]["visit_result"] | null
+          status?: Database["public"]["Enums"]["ticket_visit_status"]
+          ticket_id?: string
+          updated_at?: string
+          visit_summary?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ticket_visits_checklist_template_id_fkey"
+            columns: ["checklist_template_id"]
+            isOneToOne: false
+            referencedRelation: "checklist_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ticket_visits_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "client_preventive_overview"
+            referencedColumns: ["client_id"]
+          },
+          {
+            foreignKeyName: "ticket_visits_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ticket_visits_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "technical_tickets"
             referencedColumns: ["id"]
           },
         ]
@@ -2093,6 +2379,7 @@ export type Database = {
     Functions: {
       can_delete_peca: { Args: { _peca_id: string }; Returns: boolean }
       generate_preventive_route_code: { Args: never; Returns: string }
+      generate_ticket_code: { Args: never; Returns: string }
       generate_warranty_batch_number: { Args: never; Returns: string }
       generate_work_order_code: { Args: never; Returns: string }
       get_client_preventive_status: {
@@ -2136,7 +2423,21 @@ export type Database = {
         | "planejada"
         | "em_execucao"
         | "finalizada"
+      ticket_priority: "baixa" | "media" | "alta" | "urgente"
+      ticket_status:
+        | "aberto"
+        | "em_atendimento"
+        | "aguardando_peca"
+        | "resolvido"
+        | "cancelado"
+      ticket_visit_status:
+        | "em_elaboracao"
+        | "planejada"
+        | "em_execucao"
+        | "finalizada"
+        | "cancelada"
       time_entry_status: "running" | "paused" | "finished"
+      visit_result: "resolvido" | "parcial" | "aguardando_peca"
       work_order_status: "aguardando" | "em_manutencao" | "concluido"
     }
     CompositeTypes: {
@@ -2298,7 +2599,23 @@ export const Constants = {
         "em_execucao",
         "finalizada",
       ],
+      ticket_priority: ["baixa", "media", "alta", "urgente"],
+      ticket_status: [
+        "aberto",
+        "em_atendimento",
+        "aguardando_peca",
+        "resolvido",
+        "cancelado",
+      ],
+      ticket_visit_status: [
+        "em_elaboracao",
+        "planejada",
+        "em_execucao",
+        "finalizada",
+        "cancelada",
+      ],
       time_entry_status: ["running", "paused", "finished"],
+      visit_result: ["resolvido", "parcial", "aguardando_peca"],
       work_order_status: ["aguardando", "em_manutencao", "concluido"],
     },
   },

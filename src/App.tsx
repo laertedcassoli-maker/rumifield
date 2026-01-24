@@ -38,6 +38,9 @@ import Instalar from "./pages/Instalar";
 import Nfc from "./pages/Nfc";
 import NotFound from "./pages/NotFound";
 import RelatorioPreventivo from "./pages/preventivas/RelatorioPreventivo";
+import ChamadosIndex from "./pages/chamados/Index";
+import NovoChamado from "./pages/chamados/NovoChamado";
+import DetalheChamado from "./pages/chamados/DetalheChamado";
 
 const queryClient = new QueryClient();
 
@@ -279,6 +282,33 @@ const App = () => (
             {/* Public report routes - no auth required */}
             <Route path="/relatorio/:token" element={<RelatorioPreventivo />} />
             <Route path="/relatorio/:token/:type" element={<RelatorioPreventivo />} />
+            
+            {/* Chamados Técnicos */}
+            <Route
+              path="/chamados"
+              element={
+                <AppLayout>
+                  <ChamadosIndex />
+                </AppLayout>
+              }
+            />
+            <Route
+              path="/chamados/novo"
+              element={
+                <AppLayout>
+                  <NovoChamado />
+                </AppLayout>
+              }
+            />
+            <Route
+              path="/chamados/:id"
+              element={
+                <AppLayout>
+                  <DetalheChamado />
+                </AppLayout>
+              }
+            />
+            
             <Route path="*" element={<NotFound />} />
           </Routes>
           </TooltipProvider>
