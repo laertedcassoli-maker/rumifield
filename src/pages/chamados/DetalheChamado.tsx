@@ -315,11 +315,19 @@ export default function DetalheChamado() {
       </div>
 
       {/* Status Stepper */}
-      <TicketStatusStepper currentStatus={ticket.status} />
+      <TicketStatusStepper 
+        currentStatus={ticket.status} 
+        createdAt={ticket.created_at}
+        updatedAt={ticket.updated_at}
+        resolvedAt={ticket.resolved_at}
+      />
 
       {/* Substatus Card - only when em_atendimento */}
       {ticket.status === 'em_atendimento' && (
-        <TicketSubstatusCard substatus={(ticket as any).substatus} />
+        <TicketSubstatusCard 
+          substatus={(ticket as any).substatus} 
+          updatedAt={ticket.updated_at}
+        />
       )}
 
       <div className="grid gap-6 lg:grid-cols-3">
