@@ -48,14 +48,6 @@ export default function Home() {
       permKey: 'minhas_rotas',
     },
     {
-      title: 'Visitas',
-      icon: MapPin,
-      url: '/visitas',
-      color: 'text-rose-600',
-      bgColor: 'bg-rose-100 dark:bg-rose-900/30',
-      permKey: 'visitas',
-    },
-    {
       title: 'Chamados',
       icon: AlertTriangle,
       url: '/chamados',
