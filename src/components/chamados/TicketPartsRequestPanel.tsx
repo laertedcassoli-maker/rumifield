@@ -239,7 +239,7 @@ export default function TicketPartsRequestPanel({
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-[350px] p-0" align="start">
-                <Command>
+                <Command shouldFilter={false}>
                   <CommandInput 
                     placeholder="Buscar por código ou nome..." 
                     value={partSearch}
@@ -252,7 +252,7 @@ export default function TicketPartsRequestPanel({
                         {parts.slice(0, 20).map((part) => (
                           <CommandItem
                             key={part.id}
-                            value={part.id}
+                            value={`${part.codigo} ${part.nome}`.toLowerCase()}
                             onSelect={() => addPart(part)}
                           >
                             <Check
