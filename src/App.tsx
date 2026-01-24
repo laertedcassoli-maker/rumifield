@@ -42,6 +42,10 @@ import ChamadosIndex from "./pages/chamados/Index";
 import NovoChamado from "./pages/chamados/NovoChamado";
 import DetalheChamado from "./pages/chamados/DetalheChamado";
 import ExecucaoVisitaCorretiva from "./pages/chamados/ExecucaoVisitaCorretiva";
+import DocsIndex from "./pages/docs/Index";
+import DocView from "./pages/docs/DocView";
+import DocEditor from "./pages/docs/DocEditor";
+import DocChat from "./pages/docs/DocChat";
 
 const queryClient = new QueryClient();
 
@@ -314,12 +318,54 @@ const App = () => (
               element={
                 <AppLayout>
                   <ExecucaoVisitaCorretiva />
-                </AppLayout>
-              }
-            />
+              </AppLayout>
+            }
+          />
+
+          {/* Documentação do Sistema */}
+          <Route
+            path="/docs"
+            element={
+              <AppLayout>
+                <DocsIndex />
+              </AppLayout>
+            }
+          />
+          <Route
+            path="/docs/novo"
+            element={
+              <AppLayout>
+                <DocEditor />
+              </AppLayout>
+            }
+          />
+          <Route
+            path="/docs/chat"
+            element={
+              <AppLayout>
+                <DocChat />
+              </AppLayout>
+            }
+          />
+          <Route
+            path="/docs/:slug"
+            element={
+              <AppLayout>
+                <DocView />
+              </AppLayout>
+            }
+          />
+          <Route
+            path="/docs/:slug/editar"
+            element={
+              <AppLayout>
+                <DocEditor />
+              </AppLayout>
+            }
+          />
             
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+          <Route path="*" element={<NotFound />} />
+        </Routes>
           </TooltipProvider>
         </OfflineProvider>
       </AuthProvider>

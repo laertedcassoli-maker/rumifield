@@ -18,7 +18,8 @@ import {
   Box,
   Calendar,
   AlertTriangle,
-  Navigation
+  Navigation,
+  BookOpen
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useMenuPermissions } from '@/hooks/useMenuPermissions';
@@ -181,6 +182,14 @@ export default function Home() {
       url: '/admin/permissoes',
       color: 'text-red-600',
       bgColor: 'bg-red-100 dark:bg-red-900/30',
+      permKey: 'admin_permissoes',
+    },
+    {
+      title: 'Documentação',
+      icon: BookOpen,
+      url: '/docs',
+      color: 'text-sky-600',
+      bgColor: 'bg-sky-100 dark:bg-sky-900/30',
       permKey: 'admin_permissoes',
     },
     {
