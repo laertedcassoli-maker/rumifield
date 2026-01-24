@@ -1,9 +1,12 @@
 import { Clock, Package, CalendarClock, MapPin, User } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 interface TicketSubstatusCardProps {
   substatus: string | null;
+  updatedAt?: string;
 }
 
 const substatusConfig = {
@@ -41,18 +44,27 @@ const substatusConfig = {
   },
 };
 
-export default function TicketSubstatusCard({ substatus }: TicketSubstatusCardProps) {
+export default function TicketSubstatusCard({ substatus, updatedAt }: TicketSubstatusCardProps) {
+  const formatDate = (date: string) => {
+    return format(new Date(date), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
+  };
+
   if (!substatus) {
     return (
       <Card className="border-dashed border-muted-foreground/30">
         <CardContent className="py-4 flex items-center gap-3">
           <Clock className="h-5 w-5 text-muted-foreground" />
-          <div>
+          <div className="flex-1">
             <p className="text-sm font-medium text-muted-foreground">Em andamento</p>
             <p className="text-xs text-muted-foreground/70">
               O chamado está sendo trabalhado ativamente.
             </p>
           </div>
+          {updatedAt && (
+            <span className="text-[10px] text-muted-foreground/60">
+              desde {formatDate(updatedAt)}
+            </span>
+          )}
         </CardContent>
       </Card>
     );
@@ -72,10 +84,15 @@ export default function TicketSubstatusCard({ substatus }: TicketSubstatusCardPr
         <div className={cn('p-2 rounded-full', config.bgColor)}>
           <Icon className={cn('h-5 w-5', config.color)} />
         </div>
-        <div>
+        <div className="flex-1">
           <p className={cn('text-sm font-semibold', config.color)}>{config.label}</p>
           <p className="text-xs text-muted-foreground">{config.description}</p>
         </div>
+        {updatedAt && (
+          <span className="text-[10px] text-muted-foreground/60">
+            desde {formatDate(updatedAt)}
+          </span>
+        )}
       </CardContent>
     </Card>
   );
