@@ -255,7 +255,7 @@ export default function MinhasRotas() {
           ticket_id,
           client_id
         `)
-        .in('status', ['planejada', 'em_execucao'])
+        .in('status', ['planejada', 'em_elaboracao', 'em_execucao'])
         .order('planned_start_date', { ascending: true });
 
       if (!isAdminOrCoordinator) {
