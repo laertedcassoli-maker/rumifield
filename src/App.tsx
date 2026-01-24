@@ -41,6 +41,7 @@ import RelatorioPreventivo from "./pages/preventivas/RelatorioPreventivo";
 import ChamadosIndex from "./pages/chamados/Index";
 import NovoChamado from "./pages/chamados/NovoChamado";
 import DetalheChamado from "./pages/chamados/DetalheChamado";
+import ExecucaoVisitaCorretiva from "./pages/chamados/ExecucaoVisitaCorretiva";
 
 const queryClient = new QueryClient();
 
@@ -305,6 +306,14 @@ const App = () => (
               element={
                 <AppLayout>
                   <DetalheChamado />
+                </AppLayout>
+              }
+            />
+            <Route
+              path="/chamados/visita/:visitId"
+              element={
+                <AppLayout>
+                  <ExecucaoVisitaCorretiva />
                 </AppLayout>
               }
             />
