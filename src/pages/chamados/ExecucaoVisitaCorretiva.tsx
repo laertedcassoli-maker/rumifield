@@ -327,10 +327,11 @@ export default function ExecucaoVisitaCorretiva() {
           : 'O chamado permanece aberto para acompanhamento.',
       });
       
-      // Set local completed state to show completion UI
-      setCompletedResult(result);
       setSelectedResult(null);
       setShowCompleteDialog(false);
+      
+      // Navigate back to Minhas Rotas after completion
+      navigate('/preventivas/minhas-rotas');
     },
     onError: (error: Error) => {
       toast({
