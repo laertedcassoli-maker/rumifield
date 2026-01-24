@@ -511,6 +511,89 @@ export type Database = {
         }
         Relationships: []
       }
+      corrective_maintenance: {
+        Row: {
+          checkin_at: string | null
+          checkin_lat: number | null
+          checkin_lon: number | null
+          checklist_template_id: string | null
+          checkout_at: string | null
+          checkout_lat: number | null
+          checkout_lon: number | null
+          client_id: string
+          created_at: string
+          id: string
+          notes: string | null
+          public_token: string | null
+          status: string
+          updated_at: string
+          visit_id: string
+        }
+        Insert: {
+          checkin_at?: string | null
+          checkin_lat?: number | null
+          checkin_lon?: number | null
+          checklist_template_id?: string | null
+          checkout_at?: string | null
+          checkout_lat?: number | null
+          checkout_lon?: number | null
+          client_id: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          public_token?: string | null
+          status?: string
+          updated_at?: string
+          visit_id: string
+        }
+        Update: {
+          checkin_at?: string | null
+          checkin_lat?: number | null
+          checkin_lon?: number | null
+          checklist_template_id?: string | null
+          checkout_at?: string | null
+          checkout_lat?: number | null
+          checkout_lon?: number | null
+          client_id?: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          public_token?: string | null
+          status?: string
+          updated_at?: string
+          visit_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "corrective_maintenance_checklist_template_id_fkey"
+            columns: ["checklist_template_id"]
+            isOneToOne: false
+            referencedRelation: "checklist_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "corrective_maintenance_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "client_preventive_overview"
+            referencedColumns: ["client_id"]
+          },
+          {
+            foreignKeyName: "corrective_maintenance_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "corrective_maintenance_visit_id_fkey"
+            columns: ["visit_id"]
+            isOneToOne: true
+            referencedRelation: "ticket_visits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       envios_log: {
         Row: {
           campo_alterado: string
@@ -1766,6 +1849,7 @@ export type Database = {
           status: Database["public"]["Enums"]["ticket_visit_status"]
           ticket_id: string
           updated_at: string
+          visit_code: string | null
           visit_summary: string | null
         }
         Insert: {
@@ -1788,6 +1872,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["ticket_visit_status"]
           ticket_id: string
           updated_at?: string
+          visit_code?: string | null
           visit_summary?: string | null
         }
         Update: {
@@ -1810,6 +1895,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["ticket_visit_status"]
           ticket_id?: string
           updated_at?: string
+          visit_code?: string | null
           visit_summary?: string | null
         }
         Relationships: [
@@ -2378,6 +2464,7 @@ export type Database = {
     }
     Functions: {
       can_delete_peca: { Args: { _peca_id: string }; Returns: boolean }
+      generate_corrective_visit_code: { Args: never; Returns: string }
       generate_preventive_route_code: { Args: never; Returns: string }
       generate_ticket_code: { Args: never; Returns: string }
       generate_warranty_batch_number: { Args: never; Returns: string }

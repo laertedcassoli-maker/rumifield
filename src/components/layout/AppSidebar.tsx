@@ -1,4 +1,4 @@
-import { Home, MapPin, ShoppingCart, Users, Settings, LogOut, Beaker, Truck, ChevronDown, ClipboardCheck, TrendingDown, Play, Building2, History, Package, FlaskConical, Shield, Wrench, ListChecks, Box, FileText, Calendar, Route, CalendarDays, ClipboardList, AlertTriangle } from 'lucide-react';
+import { Home, MapPin, ShoppingCart, Users, Settings, LogOut, Beaker, Truck, ChevronDown, ClipboardCheck, TrendingDown, Play, Building2, History, Package, FlaskConical, Shield, Wrench, ListChecks, Box, FileText, Calendar, Route, CalendarDays, ClipboardList, AlertTriangle, Navigation } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarMenuSub, SidebarMenuSubItem, SidebarMenuSubButton } from '@/components/ui/sidebar';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -32,6 +32,7 @@ export function AppSidebar() {
   // Main menu items with permission keys
   const mainMenuItems = [
     { title: 'Início', icon: Home, url: '/', permKey: 'inicio' },
+    { title: 'Minhas Rotas', icon: Navigation, url: '/preventivas/minhas-rotas', permKey: 'minhas_rotas' },
     { title: 'Visitas', icon: MapPin, url: '/visitas', permKey: 'visitas' },
     { title: 'Chamados', icon: AlertTriangle, url: '/chamados', permKey: 'chamados' },
     { title: 'Solicitação Peças', icon: ShoppingCart, url: '/pedidos', permKey: 'pedidos' },
@@ -41,15 +42,11 @@ export function AppSidebar() {
   const isTecnicoCampo = role === 'tecnico_campo';
   const isAdminOrCoordServicos = role === 'admin' || role === 'coordenador_servicos';
   
-  const preventivasItems = isTecnicoCampo
-    ? [
-        { title: 'Minhas Rotas', icon: Route, url: '/preventivas/minhas-rotas', permKey: 'preventivas' },
-      ]
-    : isAdminOrCoordServicos
+  // Preventivas submenu - "Minhas Rotas" moved to main menu, only show management items here
+  const preventivasItems = isAdminOrCoordServicos
     ? [
         { title: 'Clientes Preventiva', icon: Building2, url: '/preventivas', permKey: 'preventivas' },
         { title: 'Rotas', icon: Route, url: '/preventivas/rotas', permKey: 'preventivas' },
-        { title: 'Minhas Rotas', icon: MapPin, url: '/preventivas/minhas-rotas', permKey: 'preventivas' },
         { title: 'Calendário Anual', icon: CalendarDays, url: '/preventivas/calendario', permKey: 'preventivas' },
       ]
     : [
@@ -60,8 +57,9 @@ export function AppSidebar() {
 
   const filteredPreventivasItems = preventivasItems.filter(item => canAccess(item.permKey));
 
-  const showPreventivasMenu = canAccess('preventivas') && filteredPreventivasItems.length > 0;
-  const isPreventivasActive = location.pathname === '/preventivas' || location.pathname.startsWith('/preventivas/');
+  // For tecnico_campo, hide the Preventivas submenu entirely (they use "Minhas Rotas" in main menu)
+  const showPreventivasMenu = canAccess('preventivas') && filteredPreventivasItems.length > 0 && !isTecnicoCampo;
+  const isPreventivasActive = location.pathname === '/preventivas' || (location.pathname.startsWith('/preventivas/') && !location.pathname.startsWith('/preventivas/minhas-rotas') && !location.pathname.startsWith('/preventivas/execucao'));
 
   // Estoque submenu
   const estoqueItems = [
