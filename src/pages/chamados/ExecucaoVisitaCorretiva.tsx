@@ -58,6 +58,7 @@ export default function ExecucaoVisitaCorretiva() {
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
   const [checklistStatus, setChecklistStatus] = useState<'not_started' | 'in_progress' | 'completed'>('not_started');
   const [isCheckingIn, setIsCheckingIn] = useState(false);
+  const [completedResult, setCompletedResult] = useState<'resolvido' | 'parcial' | 'aguardando_peca' | null>(null);
 
   const isAdminOrCoordinator = role === 'admin' || role === 'coordenador_servicos';
 
@@ -325,8 +326,11 @@ export default function ExecucaoVisitaCorretiva() {
           ? 'O chamado foi marcado como resolvido.' 
           : 'O chamado permanece aberto para acompanhamento.',
       });
-      refetch();
+      
+      // Set local completed state to show completion UI
+      setCompletedResult(result);
       setSelectedResult(null);
+      setShowCompleteDialog(false);
     },
     onError: (error: Error) => {
       toast({
@@ -338,7 +342,7 @@ export default function ExecucaoVisitaCorretiva() {
   });
 
   const canAccess = isAdminOrCoordinator || visit?.field_technician_user_id === user?.id;
-  const isVisitCompleted = visit?.status === 'finalizada';
+  const isVisitCompleted = visit?.status === 'finalizada' || !!completedResult;
   const hasCheckedIn = !!visit?.checkin_at;
   const canFinishVisit = checklistStatus === 'completed';
 
@@ -615,27 +619,44 @@ export default function ExecucaoVisitaCorretiva() {
           )}
 
           {/* Share Section - When Visit is Completed */}
-          {isVisitCompleted && visit.publicToken && (
-            <Card>
+          {isVisitCompleted && (
+            <Card className="border-green-500/30 bg-green-500/5">
               <CardContent className="p-4 space-y-4">
                 <div className="flex items-center gap-3">
-                  <CheckCircle2 className="h-5 w-5 text-green-600" />
-                  <span className="font-semibold text-foreground">Visita Encerrada</span>
+                  <div className="h-10 w-10 rounded-full bg-green-500/20 flex items-center justify-center">
+                    <CheckCircle2 className="h-5 w-5 text-green-600" />
+                  </div>
+                  <div>
+                    <span className="font-semibold text-foreground">Visita Encerrada</span>
+                    <p className="text-sm text-muted-foreground">
+                      {(completedResult || visit.result) === 'resolvido' && 'Problema resolvido - Chamado encerrado'}
+                      {(completedResult || visit.result) === 'parcial' && 'Parcialmente resolvido - Requer nova visita'}
+                      {(completedResult || visit.result) === 'aguardando_peca' && 'Aguardando peça - Chamado aberto'}
+                    </p>
+                  </div>
                 </div>
-                <p className="text-sm text-muted-foreground">
-                  A visita corretiva foi concluída com sucesso.
-                </p>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Visit Completed without token */}
-          {isVisitCompleted && !visit.publicToken && (
-            <Card>
-              <CardContent className="p-4 space-y-4">
-                <div className="flex items-center gap-3">
-                  <CheckCircle2 className="h-5 w-5 text-green-600" />
-                  <span className="font-semibold text-foreground">Visita Encerrada</span>
+                
+                <div className="flex gap-2 pt-2">
+                  <Button 
+                    variant="outline" 
+                    className="flex-1"
+                    asChild
+                  >
+                    <Link to={`/chamados/${visit.ticket_id}`}>
+                      <ClipboardCheck className="h-4 w-4 mr-2" />
+                      Ver Chamado
+                    </Link>
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="flex-1"
+                    asChild
+                  >
+                    <Link to="/preventivas/minhas-rotas">
+                      <ArrowLeft className="h-4 w-4 mr-2" />
+                      Minhas Rotas
+                    </Link>
+                  </Button>
                 </div>
               </CardContent>
             </Card>
