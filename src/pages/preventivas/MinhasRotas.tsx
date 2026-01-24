@@ -42,6 +42,7 @@ const correctiveStatusConfig = {
 
 type FilterType = 'hoje' | 'semana' | 'todas';
 type RouteType = 'all' | 'preventive' | 'corrective';
+type StatusFilter = 'ativas' | 'concluidas' | 'todas';
 
 interface PreventiveRoute {
   type: 'preventive';
@@ -86,6 +87,7 @@ export default function MinhasRotas() {
   const [filter, setFilter] = useState<FilterType>('todas');
   const [technicianFilter, setTechnicianFilter] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<RouteType>('all');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('ativas');
 
   const isAdminOrCoordinator = role === 'admin' || role === 'coordenador_servicos';
 
@@ -335,6 +337,14 @@ export default function MinhasRotas() {
         if (typeFilter === 'corrective' && route.type !== 'corrective') return false;
       }
 
+      // Status filter
+      if (statusFilter !== 'todas') {
+        const completedStatuses = ['concluida', 'finalizada'];
+        const isCompleted = completedStatuses.includes(route.status);
+        if (statusFilter === 'ativas' && isCompleted) return false;
+        if (statusFilter === 'concluidas' && !isCompleted) return false;
+      }
+
       // Technician filter
       const techId = route.field_technician_user_id;
       if (technicianFilter !== 'all' && techId !== technicianFilter) return false;
@@ -370,7 +380,7 @@ export default function MinhasRotas() {
       const dateB = b.type === 'preventive' ? b.start_date : b.scheduled_date;
       return new Date(dateA).getTime() - new Date(dateB).getTime();
     });
-  }, [preventiveRoutes, correctiveVisits, filter, technicianFilter, typeFilter]);
+  }, [preventiveRoutes, correctiveVisits, filter, technicianFilter, typeFilter, statusFilter]);
 
   const renderStatusBadge = (route: UnifiedRoute) => {
     if (route.type === 'preventive') {
@@ -645,6 +655,19 @@ export default function MinhasRotas() {
             </Button>
           </div>
 
+          {/* Status Filter */}
+          <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilter)}>
+            <SelectTrigger className="w-full">
+              <CheckCircle2 className="mr-2 h-4 w-4 shrink-0" />
+              <SelectValue placeholder="Filtrar por status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ativas">Em andamento</SelectItem>
+              <SelectItem value="concluidas">Concluídas</SelectItem>
+              <SelectItem value="todas">Todos os status</SelectItem>
+            </SelectContent>
+          </Select>
+
           {/* Technician Filter (Admin/Coordinator only) */}
           {isAdminOrCoordinator && (
             <Select value={technicianFilter} onValueChange={setTechnicianFilter}>
@@ -682,23 +705,23 @@ export default function MinhasRotas() {
             <CardContent className="py-10 text-center">
               <Route className="mx-auto h-10 w-10 text-muted-foreground/50" />
               <h3 className="mt-3 font-semibold text-sm">
-                {filter !== 'todas' || technicianFilter !== 'all' || typeFilter !== 'all'
+                {filter !== 'todas' || technicianFilter !== 'all' || typeFilter !== 'all' || statusFilter !== 'ativas'
                   ? 'Nenhuma rota encontrada' 
                   : isAdminOrCoordinator 
                     ? 'Nenhuma rota em execução'
                     : 'Nenhuma rota atribuída'}
               </h3>
               <p className="text-xs text-muted-foreground mt-1">
-                {filter !== 'todas' || technicianFilter !== 'all' || typeFilter !== 'all'
+                {filter !== 'todas' || technicianFilter !== 'all' || typeFilter !== 'all' || statusFilter !== 'ativas'
                   ? 'Tente outros filtros' 
                   : 'Aguarde novas atribuições'}
               </p>
-              {(filter !== 'todas' || technicianFilter !== 'all' || typeFilter !== 'all') && (
+              {(filter !== 'todas' || technicianFilter !== 'all' || typeFilter !== 'all' || statusFilter !== 'ativas') && (
                 <Button 
                   variant="outline" 
                   size="sm"
                   className="mt-3" 
-                  onClick={() => { setFilter('todas'); setTechnicianFilter('all'); setTypeFilter('all'); }}
+                  onClick={() => { setFilter('todas'); setTechnicianFilter('all'); setTypeFilter('all'); setStatusFilter('ativas'); }}
                 >
                   Limpar filtros
                 </Button>
