@@ -55,6 +55,32 @@ export default function MinhasRotas() {
 
   const isAdminOrCoordinator = role === 'admin' || role === 'coordenador_servicos';
 
+  // Piracicaba/SP coordinates as default origin
+  const DEFAULT_ORIGIN = { lat: -22.7249, lon: -47.6476, name: 'Piracicaba/SP' };
+
+  // Fetch current user's profile for cidade_base
+  const { data: userProfile } = useQuery({
+    queryKey: ['user-profile-cidade-base', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return null;
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('cidade_base, cidade_base_lat, cidade_base_lon')
+        .eq('id', user.id)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user?.id,
+  });
+
+  // Determine origin based on user profile or default
+  const userOrigin = userProfile?.cidade_base_lat && userProfile?.cidade_base_lon
+    ? { lat: userProfile.cidade_base_lat, lon: userProfile.cidade_base_lon, name: userProfile.cidade_base || 'Minha cidade' }
+    : userProfile?.cidade_base
+      ? { ...DEFAULT_ORIGIN, name: userProfile.cidade_base }
+      : DEFAULT_ORIGIN;
+
   // Fetch field technicians (only for admin/coordinator)
   const { data: technicians } = useQuery<Technician[]>({
     queryKey: ['field-technicians'],
@@ -217,15 +243,12 @@ export default function MinhasRotas() {
     return Math.round((executed / total) * 100);
   };
 
-  // Piracicaba/SP coordinates as default origin
-  const DEFAULT_ORIGIN = { lat: -22.7249, lon: -47.6476, name: 'Piracicaba/SP' };
-
   const buildGoogleMapsRouteUrl = (coordinates: Array<{ lat: number; lon: number; name: string }>) => {
     if (coordinates.length === 0) return null;
     
     // Google Maps Directions URL format:
     // https://www.google.com/maps/dir/origin/waypoint1/waypoint2/.../destination
-    const origin = `${DEFAULT_ORIGIN.lat},${DEFAULT_ORIGIN.lon}`;
+    const origin = `${userOrigin.lat},${userOrigin.lon}`;
     const waypoints = coordinates.map(c => `${c.lat},${c.lon}`);
     
     // If only one destination, use simple format
@@ -335,7 +358,7 @@ export default function MinhasRotas() {
                               </TooltipTrigger>
                               <TooltipContent>
                                 <p>Ver rota no Google Maps</p>
-                                <p className="text-xs text-muted-foreground">Saindo de {DEFAULT_ORIGIN.name}</p>
+                                <p className="text-xs text-muted-foreground">Saindo de {userOrigin.name}</p>
                               </TooltipContent>
                             </Tooltip>
                           )}
