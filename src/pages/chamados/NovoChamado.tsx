@@ -1,0 +1,339 @@
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { 
+  ArrowLeft, 
+  Loader2, 
+  Check, 
+  ChevronsUpDown,
+  Building2,
+  User
+} from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { cn } from '@/lib/utils';
+
+interface Client {
+  id: string;
+  nome: string;
+  fazenda: string | null;
+  cidade: string | null;
+}
+
+interface Technician {
+  id: string;
+  nome: string;
+}
+
+export default function NovoChamado() {
+  const navigate = useNavigate();
+  const { user } = useAuth();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const [title, setTitle] = useState('');
+  const [description, setDescription] = useState('');
+  const [priority, setPriority] = useState<string>('media');
+  const [clientId, setClientId] = useState<string>('');
+  const [technicianId, setTechnicianId] = useState<string>('');
+  const [clientSearch, setClientSearch] = useState('');
+  const [clientPopoverOpen, setClientPopoverOpen] = useState(false);
+
+  // Fetch active clients
+  const { data: clients, isLoading: clientsLoading } = useQuery<Client[]>({
+    queryKey: ['active-clients'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('clientes')
+        .select('id, nome, fazenda, cidade')
+        .eq('status', 'ativo')
+        .order('nome');
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  // Fetch field technicians
+  const { data: technicians } = useQuery<Technician[]>({
+    queryKey: ['field-technicians'],
+    queryFn: async () => {
+      const { data: roles } = await supabase
+        .from('user_roles')
+        .select('user_id')
+        .eq('role', 'tecnico_campo');
+      
+      if (!roles?.length) return [];
+
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, nome')
+        .in('id', roles.map(r => r.user_id))
+        .order('nome');
+      
+      return profiles || [];
+    },
+  });
+
+  // Filter clients by search
+  const filteredClients = clients?.filter(client => {
+    if (!clientSearch) return true;
+    const search = clientSearch.toLowerCase();
+    return (
+      client.nome.toLowerCase().includes(search) ||
+      client.fazenda?.toLowerCase().includes(search) ||
+      client.cidade?.toLowerCase().includes(search)
+    );
+  }) || [];
+
+  const selectedClient = clients?.find(c => c.id === clientId);
+
+  // Create ticket mutation
+  const createTicket = useMutation({
+    mutationFn: async () => {
+      // Generate ticket code
+      const { data: ticketCode, error: codeError } = await supabase.rpc('generate_ticket_code');
+      if (codeError) throw codeError;
+
+      // Insert ticket
+      const { data: ticket, error } = await supabase
+        .from('technical_tickets')
+        .insert({
+          ticket_code: ticketCode,
+          client_id: clientId,
+          created_by_user_id: user!.id,
+          assigned_technician_id: technicianId || null,
+          title,
+          description: description || null,
+          priority: priority as any,
+          status: 'aberto',
+        })
+        .select('id')
+        .single();
+
+      if (error) throw error;
+
+      // Add timeline entry
+      await supabase.from('ticket_timeline').insert({
+        ticket_id: ticket.id,
+        user_id: user!.id,
+        event_type: 'ticket_created',
+        event_description: `Chamado criado: ${ticketCode}`,
+      });
+
+      return ticket;
+    },
+    onSuccess: (ticket) => {
+      queryClient.invalidateQueries({ queryKey: ['technical-tickets'] });
+      toast({ title: 'Chamado criado com sucesso!' });
+      navigate(`/chamados/${ticket.id}`);
+    },
+    onError: (error: Error) => {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao criar chamado',
+        description: error.message,
+      });
+    },
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!clientId || !title.trim()) {
+      toast({
+        variant: 'destructive',
+        title: 'Campos obrigatórios',
+        description: 'Selecione um cliente e informe o título do chamado.',
+      });
+      return;
+    }
+    createTicket.mutate();
+  };
+
+  return (
+    <div className="space-y-6 animate-fade-in">
+      <div className="flex items-center gap-4">
+        <Button variant="ghost" size="icon" asChild>
+          <Link to="/chamados">
+            <ArrowLeft className="h-4 w-4" />
+          </Link>
+        </Button>
+        <div>
+          <h1 className="text-2xl font-bold">Novo Chamado</h1>
+          <p className="text-muted-foreground">Registre um novo chamado técnico</p>
+        </div>
+      </div>
+
+      <form onSubmit={handleSubmit}>
+        <div className="grid gap-6 md:grid-cols-2">
+          {/* Cliente */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Building2 className="h-5 w-5" />
+                Cliente
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label>Cliente *</Label>
+                <Popover open={clientPopoverOpen} onOpenChange={setClientPopoverOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      role="combobox"
+                      className={cn(
+                        "w-full justify-between",
+                        !clientId && "text-muted-foreground"
+                      )}
+                    >
+                      {selectedClient ? (
+                        <span className="truncate">
+                          {selectedClient.nome}
+                          {selectedClient.fazenda && ` - ${selectedClient.fazenda}`}
+                        </span>
+                      ) : (
+                        "Selecione um cliente..."
+                      )}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[400px] p-0" align="start">
+                    <Command>
+                      <CommandInput 
+                        placeholder="Buscar cliente..." 
+                        value={clientSearch}
+                        onValueChange={setClientSearch}
+                      />
+                      <CommandList>
+                        <CommandEmpty>
+                          {clientsLoading ? 'Carregando...' : 'Nenhum cliente encontrado.'}
+                        </CommandEmpty>
+                        <CommandGroup>
+                          {filteredClients.slice(0, 50).map((client) => (
+                            <CommandItem
+                              key={client.id}
+                              value={client.id}
+                              onSelect={() => {
+                                setClientId(client.id);
+                                setClientPopoverOpen(false);
+                              }}
+                            >
+                              <Check
+                                className={cn(
+                                  "mr-2 h-4 w-4",
+                                  clientId === client.id ? "opacity-100" : "opacity-0"
+                                )}
+                              />
+                              <div>
+                                <div className="font-medium">{client.nome}</div>
+                                {(client.fazenda || client.cidade) && (
+                                  <div className="text-sm text-muted-foreground">
+                                    {[client.fazenda, client.cidade].filter(Boolean).join(' • ')}
+                                  </div>
+                                )}
+                              </div>
+                            </CommandItem>
+                          ))}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Atribuição */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <User className="h-5 w-5" />
+                Atribuição
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label>Técnico de Campo</Label>
+                <Select value={technicianId} onValueChange={setTechnicianId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione um técnico (opcional)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {technicians?.map(tech => (
+                      <SelectItem key={tech.id} value={tech.id}>
+                        {tech.nome}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>Prioridade *</Label>
+                <Select value={priority} onValueChange={setPriority}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="baixa">Baixa</SelectItem>
+                    <SelectItem value="media">Média</SelectItem>
+                    <SelectItem value="alta">Alta</SelectItem>
+                    <SelectItem value="urgente">Urgente</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Detalhes do Problema */}
+          <Card className="md:col-span-2">
+            <CardHeader>
+              <CardTitle>Detalhes do Problema</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label>Título *</Label>
+                <Input
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  placeholder="Resumo do problema"
+                  maxLength={200}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label>Descrição</Label>
+                <Textarea
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Descreva o problema em detalhes..."
+                  rows={5}
+                />
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        <div className="flex justify-end gap-4 mt-6">
+          <Button type="button" variant="outline" asChild>
+            <Link to="/chamados">Cancelar</Link>
+          </Button>
+          <Button type="submit" disabled={createTicket.isPending}>
+            {createTicket.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Criar Chamado
+          </Button>
+        </div>
+      </form>
+    </div>
+  );
+}
