@@ -291,6 +291,7 @@ export default function ExecucaoVisitaCorretiva() {
           .from('technical_tickets')
           .update({ 
             status: 'resolvido',
+            substatus: null, // Clear substatus to satisfy check constraint
             resolved_at: new Date().toISOString(),
           })
           .eq('id', visit.ticket_id);
