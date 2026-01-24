@@ -333,11 +333,18 @@ export default function DetalheChamado() {
         <div className="lg:col-span-2 space-y-6">
           {/* Problem Description */}
           <Card>
-            <CardHeader>
+            <CardHeader className="pb-3">
               <CardTitle>Descrição do Problema</CardTitle>
             </CardHeader>
-            <CardContent>
-              <p className="whitespace-pre-wrap">{ticket.description || 'Sem descrição detalhada.'}</p>
+            <CardContent className="space-y-4">
+              <div className="p-4 bg-muted/50 rounded-lg border">
+                <h3 className="text-lg font-semibold text-foreground">{ticket.title}</h3>
+              </div>
+              {ticket.description ? (
+                <p className="text-muted-foreground whitespace-pre-wrap">{ticket.description}</p>
+              ) : (
+                <p className="text-sm text-muted-foreground italic">Sem descrição detalhada.</p>
+              )}
             </CardContent>
           </Card>
 
