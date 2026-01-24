@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -93,7 +93,6 @@ export default function DetalheChamado() {
   const [showNovaInteracao, setShowNovaInteracao] = useState(false);
   const [resolutionSummary, setResolutionSummary] = useState('');
   const [showResolveDialog, setShowResolveDialog] = useState(false);
-  const autoStatusChangeRef = useRef(false);
 
   const isAdminOrCoordinator = role === 'admin' || role === 'coordenador_servicos';
 
@@ -312,18 +311,6 @@ export default function DetalheChamado() {
     },
     enabled: isAdminOrCoordinator,
   });
-
-  // Auto-change status to "em_atendimento" when opening a ticket that is "aberto"
-  useEffect(() => {
-    if (
-      ticket?.status === 'aberto' && 
-      user?.id && 
-      !autoStatusChangeRef.current
-    ) {
-      autoStatusChangeRef.current = true;
-      updateStatus.mutate('em_atendimento');
-    }
-  }, [ticket?.status, user?.id]);
 
   const renderStatusBadge = (status: string) => {
     const config = statusConfig[status as keyof typeof statusConfig];
