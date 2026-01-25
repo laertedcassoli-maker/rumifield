@@ -2599,6 +2599,15 @@ export type Database = {
           preventive_status: string
         }[]
       }
+      get_schema_tables: {
+        Args: never
+        Returns: {
+          column_count: number
+          has_rls: boolean
+          policy_count: number
+          table_name: string
+        }[]
+      }
       has_role: { Args: { _role: string; _user_id: string }; Returns: boolean }
       is_admin_or_coordinator: { Args: { _user_id: string }; Returns: boolean }
     }

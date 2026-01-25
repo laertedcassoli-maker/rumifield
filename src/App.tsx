@@ -46,6 +46,7 @@ import DocsIndex from "./pages/docs/Index";
 import DocView from "./pages/docs/DocView";
 import DocEditor from "./pages/docs/DocEditor";
 import DocChat from "./pages/docs/DocChat";
+import PublicDocs from "./pages/docs/PublicDocs";
 
 const queryClient = new QueryClient();
 
@@ -287,6 +288,7 @@ const App = () => (
             {/* Public report routes - no auth required */}
             <Route path="/relatorio/:token" element={<RelatorioPreventivo />} />
             <Route path="/relatorio/:token/:type" element={<RelatorioPreventivo />} />
+            <Route path="/docs/public" element={<PublicDocs />} />
             
             {/* Chamados Técnicos */}
             <Route

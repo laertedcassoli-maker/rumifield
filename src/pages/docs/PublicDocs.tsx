@@ -18,7 +18,6 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Link } from 'react-router-dom';
 import { Input } from '@/components/ui/input';
-import ReactMarkdown from 'react-markdown';
 
 const categoryConfig: Record<string, { label: string; icon: React.ElementType; color: string }> = {
   visao_geral: { label: 'Visão Geral', icon: Book, color: 'bg-blue-100 text-blue-700' },
@@ -104,8 +103,8 @@ export default function PublicDocs() {
             Atualizado em {format(new Date(selectedDoc.updated_at), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
           </div>
 
-          <div className="prose prose-sm max-w-none dark:prose-invert">
-            <ReactMarkdown>{selectedDoc.content}</ReactMarkdown>
+          <div className="prose prose-sm max-w-none dark:prose-invert whitespace-pre-wrap">
+            {selectedDoc.content}
           </div>
         </div>
       </div>
