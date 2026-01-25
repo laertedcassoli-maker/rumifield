@@ -20,3 +20,12 @@ verify_jwt = false
 
 [functions.generate-table-docs]
 verify_jwt = false
+
+[functions.docs-ai-index]
+verify_jwt = false
+
+[functions.docs-ai-item]
+verify_jwt = false
+
+[functions.docs-ai-schema]
+verify_jwt = false

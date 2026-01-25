@@ -1633,6 +1633,7 @@ export type Database = {
       }
       system_documentation: {
         Row: {
+          ai_metadata: Json | null
           category: Database["public"]["Enums"]["doc_category"]
           content: string
           created_at: string
@@ -1646,6 +1647,7 @@ export type Database = {
           updated_by: string | null
         }
         Insert: {
+          ai_metadata?: Json | null
           category: Database["public"]["Enums"]["doc_category"]
           content?: string
           created_at?: string
@@ -1659,6 +1661,7 @@ export type Database = {
           updated_by?: string | null
         }
         Update: {
+          ai_metadata?: Json | null
           category?: Database["public"]["Enums"]["doc_category"]
           content?: string
           created_at?: string
