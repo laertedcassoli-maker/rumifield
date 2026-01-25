@@ -2,12 +2,14 @@ import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Checkbox } from '@/components/ui/checkbox';
+import { toast } from 'sonner';
 import { 
   BookOpen, 
   FileText, 
@@ -20,7 +22,9 @@ import {
   RefreshCw,
   ExternalLink,
   AlertTriangle,
-  CheckCircle2
+  CheckCircle2,
+  Sparkles,
+  Loader2
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -48,9 +52,12 @@ interface SchemaSummary {
 
 export default function DocsIndex() {
   const { role } = useAuth();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('all');
   const [isDetecting, setIsDetecting] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
   const [schemaChanges, setSchemaChanges] = useState<SchemaSummary | null>(null);
+  const [selectedTables, setSelectedTables] = useState<Set<string>>(new Set());
 
   const canEdit = role === 'admin' || role === 'coordenador_servicos';
 
@@ -70,6 +77,7 @@ export default function DocsIndex() {
 
   const detectChanges = async () => {
     setIsDetecting(true);
+    setSelectedTables(new Set());
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
@@ -86,6 +94,64 @@ export default function DocsIndex() {
       console.error('Error detecting changes:', error);
     } finally {
       setIsDetecting(false);
+    }
+  };
+
+  const toggleTableSelection = (tableName: string) => {
+    setSelectedTables(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(tableName)) {
+        newSet.delete(tableName);
+      } else {
+        newSet.add(tableName);
+      }
+      return newSet;
+    });
+  };
+
+  const selectAllTables = () => {
+    if (!schemaChanges) return;
+    const allTables = schemaChanges.changes.map(c => c.table_name);
+    setSelectedTables(new Set(allTables));
+  };
+
+  const deselectAllTables = () => {
+    setSelectedTables(new Set());
+  };
+
+  const generateDocumentation = async () => {
+    if (selectedTables.size === 0) {
+      toast.error('Selecione pelo menos uma tabela');
+      return;
+    }
+
+    setIsGenerating(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const tablesToDocument = Array.from(selectedTables);
+      
+      const { data, error } = await supabase.functions.invoke('generate-table-docs', {
+        body: { tables: tablesToDocument },
+        headers: {
+          Authorization: `Bearer ${session.access_token}`
+        }
+      });
+
+      if (error) throw error;
+      
+      toast.success(`${data.generated} documento(s) gerado(s) com sucesso!`);
+      setSchemaChanges(null);
+      setSelectedTables(new Set());
+      
+      // Refresh the docs list
+      window.location.reload();
+    } catch (error) {
+      console.error('Error generating documentation:', error);
+      toast.error('Erro ao gerar documentação');
+    } finally {
+      setIsGenerating(false);
     }
   };
 
@@ -182,22 +248,76 @@ export default function DocsIndex() {
           </CardHeader>
           {schemaChanges.undocumented_count > 0 && (
             <CardContent className="pt-0">
+              <div className="flex items-center gap-2 mb-3">
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={selectAllTables}
+                >
+                  Selecionar todas
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={deselectAllTables}
+                >
+                  Limpar seleção
+                </Button>
+                {selectedTables.size > 0 && (
+                  <Badge variant="secondary">
+                    {selectedTables.size} selecionada(s)
+                  </Badge>
+                )}
+              </div>
               <div className="space-y-2 max-h-48 overflow-y-auto">
                 {schemaChanges.changes.map((change, i) => (
-                  <div key={i} className="text-sm p-2 bg-muted rounded">
-                    <span className="font-mono font-medium">{change.table_name}</span>
-                    <p className="text-muted-foreground text-xs mt-1">{change.details}</p>
+                  <div 
+                    key={i} 
+                    className={`text-sm p-2 rounded flex items-start gap-3 cursor-pointer transition-colors ${
+                      selectedTables.has(change.table_name) 
+                        ? 'bg-primary/10 border border-primary/30' 
+                        : 'bg-muted hover:bg-muted/80'
+                    }`}
+                    onClick={() => toggleTableSelection(change.table_name)}
+                  >
+                    <Checkbox 
+                      checked={selectedTables.has(change.table_name)}
+                      onCheckedChange={() => toggleTableSelection(change.table_name)}
+                      className="mt-0.5"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <span className="font-mono font-medium">{change.table_name}</span>
+                      <p className="text-muted-foreground text-xs mt-1">{change.details}</p>
+                    </div>
                   </div>
                 ))}
               </div>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="mt-3"
-                onClick={() => setSchemaChanges(null)}
-              >
-                Fechar
-              </Button>
+              <div className="flex items-center gap-2 mt-3">
+                <Button 
+                  size="sm" 
+                  onClick={generateDocumentation}
+                  disabled={selectedTables.size === 0 || isGenerating}
+                >
+                  {isGenerating ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Gerando...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="mr-2 h-4 w-4" />
+                      Gerar Documentação ({selectedTables.size})
+                    </>
+                  )}
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={() => setSchemaChanges(null)}
+                >
+                  Fechar
+                </Button>
+              </div>
             </CardContent>
           )}
         </Card>

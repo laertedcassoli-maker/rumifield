@@ -14,3 +14,9 @@ verify_jwt = false
 
 [functions.doc-chat]
 verify_jwt = false
+
+[functions.detect-schema-changes]
+verify_jwt = false
+
+[functions.generate-table-docs]
+verify_jwt = false
