@@ -528,8 +528,9 @@ export default function MinhasRotas() {
                           target="_blank"
                           rel="noopener noreferrer"
                           onClick={(e) => e.stopPropagation()}
-                          className="p-1 rounded-md hover:bg-muted transition-colors"
+                          className="flex items-center gap-1 p-1 rounded-md hover:bg-muted transition-colors"
                         >
+                          <span className="text-xs text-muted-foreground">Rota</span>
                           <MapIcon className="h-4 w-4 text-primary" />
                         </a>
                       </TooltipTrigger>
@@ -541,7 +542,8 @@ export default function MinhasRotas() {
                   ) : (
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <span className="p-1 rounded-md cursor-not-allowed">
+                        <span className="flex items-center gap-1 p-1 rounded-md cursor-not-allowed">
+                          <span className="text-xs text-muted-foreground/40">Rota</span>
                           <MapIcon className="h-4 w-4 text-muted-foreground/40" />
                         </span>
                       </TooltipTrigger>
