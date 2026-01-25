@@ -13,6 +13,12 @@ interface TableSchema {
   policy_count: number;
   documentation_slug?: string;
   documentation_summary?: string;
+  // New enriched fields from ai_metadata
+  entity_type?: string;
+  semantic_tags?: string[];
+  related_entities?: Record<string, string>;
+  common_queries?: string[];
+  business_context?: string;
 }
 
 interface SchemaIndex {
@@ -39,33 +45,48 @@ serve(async (req) => {
     
     if (schemaError) throw schemaError;
 
-    // Get table documentation
+    // Get table documentation with ai_metadata
     const { data: tableDocs, error: docsError } = await supabase
       .from('system_documentation')
-      .select('slug, title, summary')
+      .select('slug, title, summary, ai_metadata')
       .eq('category', 'tabela')
       .eq('is_public', true);
 
     if (docsError) throw docsError;
 
     // Create lookup for table docs by extracting table name from slug
-    const docLookup = new Map<string, { slug: string; summary: string | null }>();
+    const docLookup = new Map<string, { 
+      slug: string; 
+      summary: string | null;
+      ai_metadata: any;
+    }>();
     (tableDocs || []).forEach(doc => {
       // Extract table name from slug (e.g., "tabela-clientes" -> "clientes")
       const tableName = doc.slug.replace('tabela-', '').replace(/-/g, '_');
-      docLookup.set(tableName, { slug: doc.slug, summary: doc.summary });
+      docLookup.set(tableName, { 
+        slug: doc.slug, 
+        summary: doc.summary,
+        ai_metadata: doc.ai_metadata || {}
+      });
     });
 
-    // Merge schema with documentation
+    // Merge schema with documentation and enriched metadata
     const tables: TableSchema[] = (schemaTables || []).map((t: any) => {
       const docInfo = docLookup.get(t.table_name);
+      const aiMeta = docInfo?.ai_metadata || {};
       return {
         table_name: t.table_name,
         column_count: t.column_count,
         has_rls: t.has_rls,
         policy_count: t.policy_count,
         documentation_slug: docInfo?.slug,
-        documentation_summary: docInfo?.summary
+        documentation_summary: docInfo?.summary,
+        // Include enriched ai_metadata fields
+        entity_type: aiMeta.entity_type,
+        semantic_tags: aiMeta.semantic_tags,
+        related_entities: aiMeta.related_entities,
+        common_queries: aiMeta.common_queries,
+        business_context: aiMeta.business_context
       };
     });
 
