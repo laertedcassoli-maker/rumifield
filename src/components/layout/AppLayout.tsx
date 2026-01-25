@@ -39,19 +39,18 @@ export function AppLayout({ children }: AppLayoutProps) {
   const handleForceRefresh = async () => {
     setIsRefreshing(true);
     try {
-      // Unregister all service workers
-      if ('serviceWorker' in navigator) {
-        const registrations = await navigator.serviceWorker.getRegistrations();
-        for (const registration of registrations) {
-          await registration.unregister();
-        }
-      }
-      // Clear caches
+      // Only clear data caches, NOT the PWA workbox caches (preserves offline functionality)
       if ('caches' in window) {
         const cacheNames = await caches.keys();
-        await Promise.all(cacheNames.map(name => caches.delete(name)));
+        // Only delete supabase/data caches, keep workbox-precache for offline
+        const dataCaches = cacheNames.filter(name => 
+          name.includes('supabase') || 
+          name.includes('api') || 
+          name.includes('runtime')
+        );
+        await Promise.all(dataCaches.map(name => caches.delete(name)));
       }
-      // Force reload from server
+      // Force reload from server (soft reload - keeps SW active)
       window.location.reload();
     } catch (error) {
       console.error('Error refreshing:', error);
