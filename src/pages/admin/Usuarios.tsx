@@ -225,19 +225,21 @@ export default function AdminUsuarios() {
         .eq('email', newUserForm.email)
         .single();
 
-      // Se o role selecionado for diferente do padrão, atualizar
+      // Atualizar o role para o valor selecionado
       if (newProfile) {
-        const updates: { role?: string; cidade_base?: string } = {};
+        // Sempre atualizar o role para o valor selecionado pelo admin
+        const { error: roleError } = await supabase
+          .from('user_roles')
+          .update({ role: newUserForm.role })
+          .eq('user_id', newProfile.id);
         
-        if (newUserForm.role !== 'consultor_rplus') {
-          const { error: roleError } = await supabase
-            .from('user_roles')
-            .update({ role: newUserForm.role })
-            .eq('user_id', newProfile.id);
-          
-          if (roleError) {
-            console.error('Erro ao atualizar role:', roleError);
-          }
+        if (roleError) {
+          console.error('Erro ao atualizar role:', roleError);
+          toast({
+            variant: 'destructive',
+            title: 'Aviso',
+            description: 'Usuário criado, mas houve erro ao definir a permissão. Atualize manualmente.',
+          });
         }
         
         // Update cidade_base if provided
