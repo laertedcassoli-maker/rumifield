@@ -16,7 +16,11 @@ import {
   Layers,
   Shield,
   Eye,
-  Database
+  Database,
+  RefreshCw,
+  ExternalLink,
+  AlertTriangle,
+  CheckCircle2
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -29,9 +33,24 @@ const categoryConfig: Record<string, { label: string; icon: React.ElementType; c
   tabela: { label: 'Tabela', icon: Database, color: 'bg-cyan-100 text-cyan-700' },
 };
 
+interface SchemaChange {
+  type: string;
+  table_name: string;
+  details: string;
+}
+
+interface SchemaSummary {
+  total_tables: number;
+  documented_tables: number;
+  undocumented_count: number;
+  changes: SchemaChange[];
+}
+
 export default function DocsIndex() {
   const { role } = useAuth();
   const [activeTab, setActiveTab] = useState('all');
+  const [isDetecting, setIsDetecting] = useState(false);
+  const [schemaChanges, setSchemaChanges] = useState<SchemaSummary | null>(null);
 
   const canEdit = role === 'admin' || role === 'coordenador_servicos';
 
@@ -48,6 +67,27 @@ export default function DocsIndex() {
       return data;
     },
   });
+
+  const detectChanges = async () => {
+    setIsDetecting(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const { data, error } = await supabase.functions.invoke('detect-schema-changes', {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`
+        }
+      });
+
+      if (error) throw error;
+      setSchemaChanges(data as SchemaSummary);
+    } catch (error) {
+      console.error('Error detecting changes:', error);
+    } finally {
+      setIsDetecting(false);
+    }
+  };
 
   const filteredDocs = docs?.filter(doc => 
     activeTab === 'all' || doc.category === activeTab
@@ -89,16 +129,28 @@ export default function DocsIndex() {
             Base de conhecimento e regras de negócio
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
+          <a href="/docs/public" target="_blank" rel="noopener noreferrer">
+            <Button variant="outline" size="sm">
+              <ExternalLink className="mr-2 h-4 w-4" />
+              Link Público
+            </Button>
+          </a>
+          {canEdit && (
+            <Button variant="outline" size="sm" onClick={detectChanges} disabled={isDetecting}>
+              <RefreshCw className={`mr-2 h-4 w-4 ${isDetecting ? 'animate-spin' : ''}`} />
+              Detectar Mudanças
+            </Button>
+          )}
           <Link to="/docs/chat">
-            <Button variant="outline">
+            <Button variant="outline" size="sm">
               <MessageSquare className="mr-2 h-4 w-4" />
               Chat com IA
             </Button>
           </Link>
           {canEdit && (
             <Link to="/docs/novo">
-              <Button>
+              <Button size="sm">
                 <Plus className="mr-2 h-4 w-4" />
                 Novo Documento
               </Button>
@@ -106,6 +158,50 @@ export default function DocsIndex() {
           )}
         </div>
       </div>
+
+      {/* Schema Changes Result */}
+      {schemaChanges && (
+        <Card className={schemaChanges.undocumented_count > 0 ? 'border-amber-500' : 'border-green-500'}>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              {schemaChanges.undocumented_count > 0 ? (
+                <>
+                  <AlertTriangle className="h-5 w-5 text-amber-500" />
+                  {schemaChanges.undocumented_count} tabela(s) sem documentação
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 className="h-5 w-5 text-green-500" />
+                  Todas as tabelas estão documentadas!
+                </>
+              )}
+            </CardTitle>
+            <CardDescription>
+              {schemaChanges.documented_tables} de {schemaChanges.total_tables} tabelas documentadas
+            </CardDescription>
+          </CardHeader>
+          {schemaChanges.undocumented_count > 0 && (
+            <CardContent className="pt-0">
+              <div className="space-y-2 max-h-48 overflow-y-auto">
+                {schemaChanges.changes.map((change, i) => (
+                  <div key={i} className="text-sm p-2 bg-muted rounded">
+                    <span className="font-mono font-medium">{change.table_name}</span>
+                    <p className="text-muted-foreground text-xs mt-1">{change.details}</p>
+                  </div>
+                ))}
+              </div>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="mt-3"
+                onClick={() => setSchemaChanges(null)}
+              >
+                Fechar
+              </Button>
+            </CardContent>
+          )}
+        </Card>
+      )}
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
