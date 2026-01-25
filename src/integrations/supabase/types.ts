@@ -1637,6 +1637,7 @@ export type Database = {
           content: string
           created_at: string
           id: string
+          is_public: boolean
           related_modules: string[] | null
           slug: string
           summary: string | null
@@ -1649,6 +1650,7 @@ export type Database = {
           content?: string
           created_at?: string
           id?: string
+          is_public?: boolean
           related_modules?: string[] | null
           slug: string
           summary?: string | null
@@ -1661,6 +1663,7 @@ export type Database = {
           content?: string
           created_at?: string
           id?: string
+          is_public?: boolean
           related_modules?: string[] | null
           slug?: string
           summary?: string | null
