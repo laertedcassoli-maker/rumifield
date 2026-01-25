@@ -2609,7 +2609,12 @@ export type Database = {
         | "tecnico_oficina"
       checklist_execution_status: "em_andamento" | "concluido"
       checklist_item_status: "S" | "N" | "NA"
-      doc_category: "visao_geral" | "modulo" | "regra_transversal" | "permissao"
+      doc_category:
+        | "visao_geral"
+        | "modulo"
+        | "regra_transversal"
+        | "permissao"
+        | "tabela"
       execution_type: "UNIVOCA" | "LOTE"
       meter_type: "horimetro"
       pedido_status:
@@ -2783,7 +2788,13 @@ export const Constants = {
       ],
       checklist_execution_status: ["em_andamento", "concluido"],
       checklist_item_status: ["S", "N", "NA"],
-      doc_category: ["visao_geral", "modulo", "regra_transversal", "permissao"],
+      doc_category: [
+        "visao_geral",
+        "modulo",
+        "regra_transversal",
+        "permissao",
+        "tabela",
+      ],
       execution_type: ["UNIVOCA", "LOTE"],
       meter_type: ["horimetro"],
       pedido_status: [

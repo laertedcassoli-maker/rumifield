@@ -15,7 +15,8 @@ import {
   MessageSquare,
   Layers,
   Shield,
-  Eye
+  Eye,
+  Database
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -25,6 +26,7 @@ const categoryConfig: Record<string, { label: string; icon: React.ElementType; c
   modulo: { label: 'Módulo', icon: Layers, color: 'bg-green-100 text-green-700' },
   regra_transversal: { label: 'Regra', icon: Shield, color: 'bg-amber-100 text-amber-700' },
   permissao: { label: 'Permissão', icon: Shield, color: 'bg-purple-100 text-purple-700' },
+  tabela: { label: 'Tabela', icon: Database, color: 'bg-cyan-100 text-cyan-700' },
 };
 
 export default function DocsIndex() {
@@ -107,12 +109,13 @@ export default function DocsIndex() {
 
       {/* Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-6">
           <TabsTrigger value="all">Todos</TabsTrigger>
           <TabsTrigger value="visao_geral">Visão Geral</TabsTrigger>
           <TabsTrigger value="modulo">Módulos</TabsTrigger>
           <TabsTrigger value="regra_transversal">Regras</TabsTrigger>
           <TabsTrigger value="permissao">Permissões</TabsTrigger>
+          <TabsTrigger value="tabela">Tabelas</TabsTrigger>
         </TabsList>
 
         <TabsContent value={activeTab} className="mt-6">

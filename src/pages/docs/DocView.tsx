@@ -35,6 +35,7 @@ const categoryConfig: Record<string, { label: string; color: string }> = {
   modulo: { label: 'Módulo', color: 'bg-green-100 text-green-700' },
   regra_transversal: { label: 'Regra Transversal', color: 'bg-amber-100 text-amber-700' },
   permissao: { label: 'Permissão', color: 'bg-purple-100 text-purple-700' },
+  tabela: { label: 'Tabela', color: 'bg-cyan-100 text-cyan-700' },
 };
 
 export default function DocView() {
