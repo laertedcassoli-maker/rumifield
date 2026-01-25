@@ -16,6 +16,7 @@ interface AIDocument {
   content: string;
   updated_at: string;
   metadata: {
+    // Legacy fields (for backward compatibility)
     scope?: string;
     business_rules?: string[];
     events?: string[];
@@ -24,6 +25,13 @@ interface AIDocument {
     possible_statuses?: string[];
     enabled_metrics?: string[];
     practical_examples?: string[];
+    // New enriched fields
+    entity_type?: string;
+    semantic_tags?: string[];
+    related_entities?: Record<string, string>;
+    key_fields?: Record<string, string>;
+    common_queries?: string[];
+    business_context?: string;
   };
   related_modules: string[];
 }
@@ -64,24 +72,34 @@ serve(async (req) => {
       });
     }
 
+    const aiMeta = doc.ai_metadata || {};
+    
     const aiDoc: AIDocument = {
       id: doc.id,
       slug: doc.slug,
       title: doc.title,
-      type: doc.ai_metadata?.type || categoryToType(doc.category),
+      type: aiMeta.type || categoryToType(doc.category),
       category: doc.category,
       summary: doc.summary,
       content: doc.content,
       updated_at: doc.updated_at,
       metadata: {
-        scope: doc.ai_metadata?.scope,
-        business_rules: doc.ai_metadata?.business_rules || [],
-        events: doc.ai_metadata?.events || [],
-        related_tables: doc.ai_metadata?.related_tables || [],
-        main_fields: doc.ai_metadata?.main_fields || [],
-        possible_statuses: doc.ai_metadata?.possible_statuses || [],
-        enabled_metrics: doc.ai_metadata?.enabled_metrics || [],
-        practical_examples: doc.ai_metadata?.practical_examples || []
+        // Legacy fields
+        scope: aiMeta.scope,
+        business_rules: aiMeta.business_rules || [],
+        events: aiMeta.events || [],
+        related_tables: aiMeta.related_tables || [],
+        main_fields: aiMeta.main_fields || [],
+        possible_statuses: aiMeta.possible_statuses || [],
+        enabled_metrics: aiMeta.enabled_metrics || [],
+        practical_examples: aiMeta.practical_examples || [],
+        // New enriched fields
+        entity_type: aiMeta.entity_type,
+        semantic_tags: aiMeta.semantic_tags || [],
+        related_entities: aiMeta.related_entities || {},
+        key_fields: aiMeta.key_fields || {},
+        common_queries: aiMeta.common_queries || [],
+        business_context: aiMeta.business_context
       },
       related_modules: doc.related_modules || []
     };
@@ -239,6 +257,62 @@ function generateMarkdown(doc: AIDocument): string {
       lines.push(example);
       lines.push('');
     });
+  }
+  
+  // === NEW ENRICHED FIELDS ===
+  
+  // Business Context
+  if (doc.metadata.business_context) {
+    lines.push('## Contexto de Negócio');
+    lines.push('');
+    lines.push(doc.metadata.business_context);
+    lines.push('');
+  }
+  
+  // Entity Type
+  if (doc.metadata.entity_type) {
+    lines.push(`**Tipo de Entidade:** \`${doc.metadata.entity_type}\``);
+    lines.push('');
+  }
+  
+  // Semantic Tags
+  if (doc.metadata.semantic_tags?.length) {
+    lines.push('## Tags Semânticas');
+    lines.push('');
+    lines.push(doc.metadata.semantic_tags.map(t => `\`${t}\``).join(', '));
+    lines.push('');
+  }
+  
+  // Key Fields with descriptions
+  if (doc.metadata.key_fields && Object.keys(doc.metadata.key_fields).length) {
+    lines.push('## Campos-Chave');
+    lines.push('');
+    lines.push('| Campo | Descrição |');
+    lines.push('|-------|-----------|');
+    Object.entries(doc.metadata.key_fields).forEach(([field, desc]) => {
+      lines.push(`| \`${field}\` | ${desc} |`);
+    });
+    lines.push('');
+  }
+  
+  // Related Entities
+  if (doc.metadata.related_entities && Object.keys(doc.metadata.related_entities).length) {
+    lines.push('## Entidades Relacionadas');
+    lines.push('');
+    Object.entries(doc.metadata.related_entities).forEach(([rel, table]) => {
+      lines.push(`- **${rel}**: \`${table}\``);
+    });
+    lines.push('');
+  }
+  
+  // Common Queries (for RAG)
+  if (doc.metadata.common_queries?.length) {
+    lines.push('## Perguntas Frequentes');
+    lines.push('');
+    doc.metadata.common_queries.forEach(q => {
+      lines.push(`- ${q}`);
+    });
+    lines.push('');
   }
   
   return lines.join('\n');
