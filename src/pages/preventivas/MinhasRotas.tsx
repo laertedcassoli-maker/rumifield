@@ -520,7 +520,7 @@ export default function MinhasRotas() {
                     CORR
                   </Badge>
                   <p className="font-semibold text-base">{visit.code}</p>
-                  {visit.client_lat && visit.client_lon && (
+                  {visit.client_lat && visit.client_lon ? (
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <a
@@ -536,6 +536,18 @@ export default function MinhasRotas() {
                       <TooltipContent>
                         <p>Ver no Google Maps</p>
                         <p className="text-xs text-muted-foreground">Saindo de {userOrigin.name}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  ) : (
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="p-1 rounded-md cursor-not-allowed">
+                          <MapIcon className="h-4 w-4 text-muted-foreground/40" />
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>Mapa indisponível</p>
+                        <p className="text-xs text-muted-foreground">Cliente sem coordenadas cadastradas</p>
                       </TooltipContent>
                     </Tooltip>
                   )}
