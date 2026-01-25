@@ -24,8 +24,10 @@ import {
   AlertTriangle,
   CheckCircle2,
   Sparkles,
-  Loader2
+  Loader2,
+  Search
 } from 'lucide-react';
+import { Input } from '@/components/ui/input';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -54,6 +56,7 @@ export default function DocsIndex() {
   const { role } = useAuth();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
   const [isDetecting, setIsDetecting] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [schemaChanges, setSchemaChanges] = useState<SchemaSummary | null>(null);
@@ -155,9 +158,14 @@ export default function DocsIndex() {
     }
   };
 
-  const filteredDocs = docs?.filter(doc => 
-    activeTab === 'all' || doc.category === activeTab
-  );
+  const filteredDocs = docs?.filter(doc => {
+    const matchesTab = activeTab === 'all' || doc.category === activeTab;
+    const matchesSearch = !searchQuery || 
+      doc.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      doc.summary?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      doc.content?.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesTab && matchesSearch;
+  });
 
   const groupedDocs = filteredDocs?.reduce((acc, doc) => {
     const category = doc.category;
@@ -323,16 +331,27 @@ export default function DocsIndex() {
         </Card>
       )}
 
-      {/* Tabs */}
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-6">
-          <TabsTrigger value="all">Todos</TabsTrigger>
-          <TabsTrigger value="visao_geral">Visão Geral</TabsTrigger>
-          <TabsTrigger value="modulo">Módulos</TabsTrigger>
-          <TabsTrigger value="regra_transversal">Regras</TabsTrigger>
-          <TabsTrigger value="permissao">Permissões</TabsTrigger>
-          <TabsTrigger value="tabela">Tabelas</TabsTrigger>
-        </TabsList>
+      {/* Search + Tabs */}
+      <div className="space-y-4">
+        <div className="relative max-w-md">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Input
+            placeholder="Buscar documentos..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="pl-9"
+          />
+        </div>
+
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList className="grid w-full grid-cols-6">
+            <TabsTrigger value="all">Todos</TabsTrigger>
+            <TabsTrigger value="visao_geral">Visão Geral</TabsTrigger>
+            <TabsTrigger value="modulo">Módulos</TabsTrigger>
+            <TabsTrigger value="regra_transversal">Regras</TabsTrigger>
+            <TabsTrigger value="permissao">Permissões</TabsTrigger>
+            <TabsTrigger value="tabela">Tabelas</TabsTrigger>
+          </TabsList>
 
         <TabsContent value={activeTab} className="mt-6">
           {isLoading ? (
@@ -414,6 +433,7 @@ export default function DocsIndex() {
           )}
         </TabsContent>
       </Tabs>
+      </div>
     </div>
   );
 }
