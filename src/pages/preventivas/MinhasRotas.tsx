@@ -453,14 +453,14 @@ export default function MinhasRotas() {
                           target="_blank"
                           rel="noopener noreferrer"
                           onClick={(e) => e.stopPropagation()}
-                          className="p-1 rounded-md hover:bg-muted transition-colors"
+                          className="flex items-center gap-1 text-primary hover:text-primary/80"
                         >
-                          <MapIcon className="h-4 w-4 text-primary" />
+                          <MapIcon className="h-4 w-4" />
+                          <span className="text-xs font-medium">Rota</span>
                         </a>
                       </TooltipTrigger>
                       <TooltipContent>
-                        <p>Ver rota no Google Maps</p>
-                        <p className="text-xs text-muted-foreground">Saindo de {userOrigin.name}</p>
+                        <p>Abrir trajeto no Google Maps</p>
                       </TooltipContent>
                     </Tooltip>
                   )}
