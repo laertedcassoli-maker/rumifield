@@ -25,7 +25,9 @@ import {
   CheckCircle2,
   Sparkles,
   Loader2,
-  Search
+  Search,
+  Copy,
+  Check
 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { format } from 'date-fns';
@@ -61,6 +63,9 @@ export default function DocsIndex() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [schemaChanges, setSchemaChanges] = useState<SchemaSummary | null>(null);
   const [selectedTables, setSelectedTables] = useState<Set<string>>(new Set());
+  const [copiedLink, setCopiedLink] = useState(false);
+
+  const publicDocsUrl = 'https://rumifield.lovable.app/docs/public';
 
   const canEdit = role === 'admin' || role === 'coordenador_servicos';
 
@@ -204,12 +209,29 @@ export default function DocsIndex() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <a href="/docs/public" target="_blank" rel="noopener noreferrer">
+          <a href={publicDocsUrl} target="_blank" rel="noopener noreferrer">
             <Button variant="outline" size="sm">
               <ExternalLink className="mr-2 h-4 w-4" />
               Link Público
             </Button>
           </a>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => {
+              navigator.clipboard.writeText(publicDocsUrl);
+              setCopiedLink(true);
+              toast.success('Link copiado!');
+              setTimeout(() => setCopiedLink(false), 2000);
+            }}
+          >
+            {copiedLink ? (
+              <Check className="mr-2 h-4 w-4 text-green-500" />
+            ) : (
+              <Copy className="mr-2 h-4 w-4" />
+            )}
+            Copiar Link
+          </Button>
           {canEdit && (
             <Button variant="outline" size="sm" onClick={detectChanges} disabled={isDetecting}>
               <RefreshCw className={`mr-2 h-4 w-4 ${isDetecting ? 'animate-spin' : ''}`} />
