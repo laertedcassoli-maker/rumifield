@@ -146,6 +146,8 @@ export default function MinhasRotas() {
   // Fetch preventive routes
   const { data: preventiveRoutes, isLoading: isLoadingPreventive } = useQuery<PreventiveRoute[]>({
     queryKey: ['my-preventive-routes', user?.id, isAdminOrCoordinator],
+    refetchInterval: 30000,
+    refetchOnWindowFocus: true,
     queryFn: async () => {
       if (!user?.id) return [];
 
