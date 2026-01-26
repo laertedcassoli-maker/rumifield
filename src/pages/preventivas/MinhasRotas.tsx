@@ -152,7 +152,7 @@ export default function MinhasRotas() {
       let query = supabase
         .from('preventive_routes')
         .select('id, route_code, start_date, end_date, status, field_technician_user_id')
-        .in('status', ['planejada', 'em_execucao'])
+        .in('status', ['planejada', 'em_execucao', 'finalizada'])
         .order('start_date', { ascending: true });
 
       if (!isAdminOrCoordinator) {
