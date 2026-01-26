@@ -36,6 +36,48 @@ export function AppLayout({ children }: AppLayoutProps) {
   const showBanner = !isOnline || syncStatus === "syncing" || pendingCount > 0;
   const showFloatingHomeButton = !isHomePage && !isChecklistExecution;
 
+  const forceServiceWorkerUpdateAndReload = async () => {
+    if (!('serviceWorker' in navigator)) return;
+
+    const registrations = await navigator.serviceWorker.getRegistrations();
+    await Promise.all(
+      registrations.map(async (reg) => {
+        try {
+          // Ask the browser to check for a newer SW
+          await reg.update();
+
+          // If an update is already waiting, activate it immediately
+          if (reg.waiting) {
+            reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+          }
+
+          // Some browsers keep the new SW in "installing" state briefly
+          if (reg.installing) {
+            const installing = reg.installing;
+            installing.addEventListener('statechange', () => {
+              if (installing.state === 'installed' && reg.waiting) {
+                reg.waiting.postMessage({ type: 'SKIP_WAITING' });
+              }
+            });
+          }
+        } catch (e) {
+          console.warn('[PWA] Falha ao atualizar service worker:', e);
+        }
+      })
+    );
+
+    // When the new SW takes control, reload to pick up the new build assets
+    await new Promise<void>((resolve) => {
+      const onControllerChange = () => {
+        navigator.serviceWorker.removeEventListener('controllerchange', onControllerChange);
+        resolve();
+      };
+      navigator.serviceWorker.addEventListener('controllerchange', onControllerChange);
+      // Fallback: if nothing changes quickly, continue anyway
+      window.setTimeout(() => resolve(), 1500);
+    });
+  };
+
   const handleForceRefresh = async () => {
     setIsRefreshing(true);
     try {
@@ -50,8 +92,15 @@ export function AppLayout({ children }: AppLayoutProps) {
         );
         await Promise.all(dataCaches.map(name => caches.delete(name)));
       }
-      // Force reload from server (soft reload - keeps SW active)
-      window.location.reload();
+
+      // Also force a SW update so the UI isn't stuck on an old precached build
+      await forceServiceWorkerUpdateAndReload();
+
+      // Force reload (soft reload - keeps SW active)
+      // Add a cache-buster to avoid stubborn HTTP cache layers.
+      const url = new URL(window.location.href);
+      url.searchParams.set('r', String(Date.now()));
+      window.location.replace(url.toString());
     } catch (error) {
       console.error('Error refreshing:', error);
       window.location.reload();
