@@ -175,6 +175,23 @@ export default function AtendimentoPreventivo() {
         if (pmError) throw pmError;
       }
 
+      // Check if all route items are now executado - if so, complete the route
+      const { data: remainingItems } = await supabase
+        .from('preventive_route_items')
+        .select('id, status')
+        .eq('route_id', routeId)
+        .neq('status', 'executado');
+
+      // If no remaining items (all are executado), mark route as finalizada
+      if (!remainingItems || remainingItems.length === 0) {
+        const { error: routeError } = await supabase
+          .from('preventive_routes')
+          .update({ status: 'finalizada' })
+          .eq('id', routeId);
+
+        if (routeError) throw routeError;
+      }
+
       return true;
     },
     onSuccess: () => {
