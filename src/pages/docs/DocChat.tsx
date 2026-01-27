@@ -4,11 +4,12 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import ReactMarkdown from 'react-markdown';
 import { 
   ArrowLeft, 
   Send, 
@@ -174,13 +175,19 @@ export default function DocChat() {
         </div>
         <div className={`flex-1 max-w-[80%] ${isUser ? 'text-right' : ''}`}>
           <div
-            className={`inline-block p-3 rounded-lg ${
+            className={`inline-block p-3 rounded-lg text-left ${
               isUser
                 ? 'bg-primary text-primary-foreground'
                 : 'bg-muted'
             }`}
           >
-            <div className="whitespace-pre-wrap text-sm">{message.content}</div>
+            {isUser ? (
+              <div className="whitespace-pre-wrap text-sm">{message.content}</div>
+            ) : (
+              <div className="prose prose-sm max-w-none dark:prose-invert prose-p:my-1 prose-ul:my-1 prose-ol:my-1 prose-li:my-0.5 prose-headings:my-2 prose-code:bg-background/50 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-xs prose-code:before:content-none prose-code:after:content-none">
+                <ReactMarkdown>{message.content}</ReactMarkdown>
+              </div>
+            )}
           </div>
           <p className="text-xs text-muted-foreground mt-1">
             {format(message.timestamp, 'HH:mm', { locale: ptBR })}
