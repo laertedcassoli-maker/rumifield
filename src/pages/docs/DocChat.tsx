@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { useQuery, useMutation } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Link } from 'react-router-dom';
@@ -9,6 +9,17 @@ import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import ReactMarkdown from 'react-markdown';
 import { 
   ArrowLeft, 
@@ -19,7 +30,8 @@ import {
   Loader2,
   BookOpen,
   Shield,
-  AlertCircle
+  AlertCircle,
+  Trash2
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -35,8 +47,10 @@ interface Message {
 
 export default function DocChat() {
   const { role, user } = useAuth();
+  const queryClient = useQueryClient();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
+  const [isClearing, setIsClearing] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const canAccess = role === 'admin' || role === 'coordenador_servicos';
@@ -144,6 +158,29 @@ export default function DocChat() {
     chatMutation.mutate(question);
   };
 
+  const handleClearHistory = async () => {
+    if (!user) return;
+    
+    setIsClearing(true);
+    try {
+      const { error } = await supabase
+        .from('doc_chat_history')
+        .delete()
+        .eq('user_id', user.id);
+      
+      if (error) throw error;
+      
+      setMessages([]);
+      queryClient.invalidateQueries({ queryKey: ['doc-chat-history'] });
+      toast.success('Histórico limpo com sucesso');
+    } catch (error) {
+      console.error('Erro ao limpar histórico:', error);
+      toast.error('Erro ao limpar histórico');
+    } finally {
+      setIsClearing(false);
+    }
+  };
+
   if (!canAccess) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -218,10 +255,41 @@ export default function DocChat() {
             </p>
           </div>
         </div>
-        <Badge variant="secondary" className="flex items-center gap-1">
-          <BookOpen className="h-3 w-3" />
-          Baseado na documentação
-        </Badge>
+        <div className="flex items-center gap-2">
+          {messages.length > 0 && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="outline" size="sm" disabled={isClearing}>
+                  {isClearing ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-4 w-4" />
+                  )}
+                  <span className="ml-2 hidden sm:inline">Limpar</span>
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Limpar histórico?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Esta ação irá apagar todo o histórico de conversas com a IA. 
+                    Esta ação não pode ser desfeita.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction onClick={handleClearHistory}>
+                    Limpar
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
+          <Badge variant="secondary" className="flex items-center gap-1">
+            <BookOpen className="h-3 w-3" />
+            Baseado na documentação
+          </Badge>
+        </div>
       </div>
 
       {/* Chat area */}
