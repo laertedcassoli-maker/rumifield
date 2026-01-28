@@ -429,6 +429,7 @@ export default function ExecucaoRota() {
         farmFazenda={checkinItem?.client_fazenda || undefined}
         onConfirm={handleCheckinConfirm}
         isLoading={checkinMutation.isPending}
+        routeStartDate={route?.start_date}
       />
     </div>
   );
