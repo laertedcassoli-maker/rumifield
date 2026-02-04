@@ -7,7 +7,8 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Loader2, Search, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Pencil, RefreshCw, CheckCircle2, XCircle, Eye, EyeOff, Settings, ImageIcon, Package } from 'lucide-react';
+import { Plus, Loader2, Search, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Pencil, RefreshCw, CheckCircle2, XCircle, Eye, EyeOff, Settings, ImageIcon, Package, Activity, ChevronDown, Trash2 } from 'lucide-react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
@@ -16,6 +17,7 @@ import { Switch } from '@/components/ui/switch';
 type ProdutoSortField = 'nome' | 'unidade' | 'descricao';
 type PecaSortField = 'codigo' | 'nome' | 'familia' | 'omie_codigo' | 'descricao' | 'quantidade_estoque';
 type ProdutoComercialSortField = 'nome' | 'descricao';
+type IndicadorSortField = 'nome' | 'unidade';
 type SortDirection = 'asc' | 'desc';
 
 const ITEMS_PER_PAGE = 10;
@@ -43,6 +45,14 @@ interface ProdutoComercialFormData {
   descricao: string;
 }
 
+interface IndicadorFormData {
+  id?: string;
+  produto_id: string;
+  nome: string;
+  descricao: string;
+  unidade: string;
+}
+
 export default function AdminConfig() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -50,14 +60,18 @@ export default function AdminConfig() {
   const [produtoOpen, setProdutoOpen] = useState(false);
   const [pecaOpen, setPecaOpen] = useState(false);
   const [produtoComercialOpen, setProdutoComercialOpen] = useState(false);
+  const [indicadorOpen, setIndicadorOpen] = useState(false);
   const [imagePreviewOpen, setImagePreviewOpen] = useState(false);
   const [previewImage, setPreviewImage] = useState<{ url: string; nome: string } | null>(null);
   const [produtoForm, setProdutoForm] = useState<ProdutoFormData>({ nome: '', unidade: 'litros', descricao: '', litros_por_vaca_2x: 0, litros_por_vaca_3x: 0 });
   const [pecaForm, setPecaForm] = useState<PecaFormData>({ codigo: '', nome: '', descricao: '', omie_codigo: '' });
   const [produtoComercialForm, setProdutoComercialForm] = useState<ProdutoComercialFormData>({ nome: '', descricao: '' });
+  const [indicadorForm, setIndicadorForm] = useState<IndicadorFormData>({ produto_id: '', nome: '', descricao: '', unidade: '' });
   const [isEditingProduto, setIsEditingProduto] = useState(false);
   const [isEditingPeca, setIsEditingPeca] = useState(false);
   const [isEditingProdutoComercial, setIsEditingProdutoComercial] = useState(false);
+  const [isEditingIndicador, setIsEditingIndicador] = useState(false);
+  const [expandedProdutos, setExpandedProdutos] = useState<Set<string>>(new Set());
   const [isSyncingOmie, setIsSyncingOmie] = useState(false);
 
   // Omie integration states
@@ -159,6 +173,19 @@ export default function AdminConfig() {
       const { data, error } = await (supabase as any).from('produtos').select('*').order('nome');
       if (error) throw error;
       return data as { id: string; nome: string; descricao: string | null; ativo: boolean; cod_imilk: string | null; created_at: string; updated_at: string }[];
+    },
+  });
+
+  const { data: healthIndicators, isLoading: loadingIndicadores } = useQuery({
+    queryKey: ['health-indicators-config'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('product_health_indicators')
+        .select('*')
+        .eq('ativo', true)
+        .order('nome');
+      if (error) throw error;
+      return data;
     },
   });
 
@@ -379,6 +406,60 @@ export default function AdminConfig() {
     },
   });
 
+  const createIndicador = useMutation({
+    mutationFn: async (data: IndicadorFormData) => {
+      const { error } = await supabase.from('product_health_indicators').insert({
+        produto_id: data.produto_id,
+        nome: data.nome,
+        descricao: data.descricao || null,
+        unidade: data.unidade,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['health-indicators-config'] });
+      closeIndicadorDialog();
+      toast({ title: 'Indicador cadastrado!' });
+    },
+    onError: (error: Error) => {
+      toast({ variant: 'destructive', title: 'Erro', description: error.message });
+    },
+  });
+
+  const updateIndicador = useMutation({
+    mutationFn: async (data: IndicadorFormData) => {
+      if (!data.id) throw new Error('ID do indicador não informado');
+      const { error } = await supabase.from('product_health_indicators').update({
+        nome: data.nome,
+        descricao: data.descricao || null,
+        unidade: data.unidade,
+      }).eq('id', data.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['health-indicators-config'] });
+      closeIndicadorDialog();
+      toast({ title: 'Indicador atualizado!' });
+    },
+    onError: (error: Error) => {
+      toast({ variant: 'destructive', title: 'Erro', description: error.message });
+    },
+  });
+
+  const deleteIndicador = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('product_health_indicators').update({ ativo: false }).eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['health-indicators-config'] });
+      toast({ title: 'Indicador removido!' });
+    },
+    onError: (error: Error) => {
+      toast({ variant: 'destructive', title: 'Erro', description: error.message });
+    },
+  });
+
   const openNewProduto = () => {
     setProdutoForm({ nome: '', unidade: 'litros', descricao: '', litros_por_vaca_2x: 0, litros_por_vaca_3x: 0 });
     setIsEditingProduto(false);
@@ -449,6 +530,58 @@ export default function AdminConfig() {
     setProdutoComercialForm({ nome: '', descricao: '' });
     setIsEditingProdutoComercial(false);
   };
+
+  const openNewIndicador = (produtoId: string) => {
+    setIndicadorForm({ produto_id: produtoId, nome: '', descricao: '', unidade: '' });
+    setIsEditingIndicador(false);
+    setIndicadorOpen(true);
+  };
+
+  const openEditIndicador = (indicador: { id: string; produto_id: string; nome: string; descricao: string | null; unidade: string }) => {
+    setIndicadorForm({
+      id: indicador.id,
+      produto_id: indicador.produto_id,
+      nome: indicador.nome,
+      descricao: indicador.descricao || '',
+      unidade: indicador.unidade,
+    });
+    setIsEditingIndicador(true);
+    setIndicadorOpen(true);
+  };
+
+  const closeIndicadorDialog = () => {
+    setIndicadorOpen(false);
+    setIndicadorForm({ produto_id: '', nome: '', descricao: '', unidade: '' });
+    setIsEditingIndicador(false);
+  };
+
+  const toggleProdutoExpanded = (produtoId: string) => {
+    setExpandedProdutos(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(produtoId)) {
+        newSet.delete(produtoId);
+      } else {
+        newSet.add(produtoId);
+      }
+      return newSet;
+    });
+  };
+
+  const getIndicadoresForProduto = (produtoId: string) => {
+    return healthIndicators?.filter(i => i.produto_id === produtoId) || [];
+  };
+
+  const handleIndicadorSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!indicadorForm.nome.trim() || !indicadorForm.unidade.trim()) return;
+    if (isEditingIndicador) {
+      updateIndicador.mutate(indicadorForm);
+    } else {
+      createIndicador.mutate(indicadorForm);
+    }
+  };
+
+  const isIndicadorSaving = createIndicador.isPending || updateIndicador.isPending;
 
   const handleProdutoComercialSort = (field: ProdutoComercialSortField) => {
     if (produtoComercialSortField === field) {
@@ -939,51 +1072,160 @@ export default function AdminConfig() {
             </DialogContent>
           </Dialog>
 
-          {loadingProdutosComerciais ? (
+          {/* Indicador de Saúde Dialog */}
+          <Dialog open={indicadorOpen} onOpenChange={(open) => !open && closeIndicadorDialog()}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>{isEditingIndicador ? 'Editar Indicador de Saúde' : 'Novo Indicador de Saúde'}</DialogTitle>
+              </DialogHeader>
+              <form onSubmit={handleIndicadorSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Nome *</Label>
+                  <Input
+                    value={indicadorForm.nome}
+                    onChange={(e) => setIndicadorForm({ ...indicadorForm, nome: e.target.value })}
+                    placeholder="Ex: NCS, DEL, Taxa de Prenhez..."
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Unidade *</Label>
+                  <Input
+                    value={indicadorForm.unidade}
+                    onChange={(e) => setIndicadorForm({ ...indicadorForm, unidade: e.target.value })}
+                    placeholder="Ex: %, dias, células/mL..."
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Descrição</Label>
+                  <Input
+                    value={indicadorForm.descricao}
+                    onChange={(e) => setIndicadorForm({ ...indicadorForm, descricao: e.target.value })}
+                    placeholder="Descrição do indicador"
+                  />
+                </div>
+                <Button type="submit" className="w-full" disabled={isIndicadorSaving}>
+                  {isIndicadorSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : isEditingIndicador ? 'Salvar Alterações' : 'Cadastrar'}
+                </Button>
+              </form>
+            </DialogContent>
+          </Dialog>
+
+          {loadingProdutosComerciais || loadingIndicadores ? (
             <div className="flex justify-center py-8">
               <Loader2 className="h-6 w-6 animate-spin text-primary" />
             </div>
           ) : (
             <>
-              <div className="rounded-md border">
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>
-                        <Button variant="ghost" onClick={() => handleProdutoComercialSort('nome')} className="hover:bg-transparent p-0">
-                          Nome {getSortIcon('nome', produtoComercialSortField, produtoComercialSortDirection)}
-                        </Button>
-                      </TableHead>
-                      <TableHead>
-                        <Button variant="ghost" onClick={() => handleProdutoComercialSort('descricao')} className="hover:bg-transparent p-0">
-                          Descrição {getSortIcon('descricao', produtoComercialSortField, produtoComercialSortDirection)}
-                        </Button>
-                      </TableHead>
-                      <TableHead className="w-[80px]">Ações</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {paginatedProdutosComerciais.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={3} className="text-center text-muted-foreground py-8">
-                          Nenhum produto encontrado
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      paginatedProdutosComerciais.map((produto) => (
-                        <TableRow key={produto.id}>
-                          <TableCell className="font-medium">{produto.nome}</TableCell>
-                          <TableCell className="text-muted-foreground">{produto.descricao || '-'}</TableCell>
-                          <TableCell>
-                            <Button variant="ghost" size="icon" onClick={() => openEditProdutoComercial(produto)}>
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))
-                    )}
-                  </TableBody>
-                </Table>
+              <div className="space-y-3">
+                {paginatedProdutosComerciais.length === 0 ? (
+                  <Card>
+                    <CardContent className="py-8 text-center text-muted-foreground">
+                      Nenhum produto encontrado
+                    </CardContent>
+                  </Card>
+                ) : (
+                  paginatedProdutosComerciais.map((produto) => {
+                    const indicadores = getIndicadoresForProduto(produto.id);
+                    const isExpanded = expandedProdutos.has(produto.id);
+                    
+                    return (
+                      <Card key={produto.id}>
+                        <CardHeader className="py-3 px-4">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <button
+                                type="button"
+                                onClick={() => toggleProdutoExpanded(produto.id)}
+                                className="p-1 hover:bg-muted rounded transition-colors"
+                              >
+                                <ChevronDown className={`h-4 w-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
+                              </button>
+                              <div>
+                                <CardTitle className="text-base">{produto.nome}</CardTitle>
+                                {produto.descricao && (
+                                  <CardDescription className="text-sm">{produto.descricao}</CardDescription>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Badge variant="outline" className="gap-1">
+                                <Activity className="h-3 w-3" />
+                                {indicadores.length} {indicadores.length === 1 ? 'indicador' : 'indicadores'}
+                              </Badge>
+                              <Button variant="ghost" size="icon" onClick={() => openEditProdutoComercial(produto)}>
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        </CardHeader>
+                        
+                        {isExpanded && (
+                          <CardContent className="pt-0 pb-4 px-4">
+                            <div className="border-t pt-4">
+                              <div className="flex items-center justify-between mb-3">
+                                <h4 className="text-sm font-medium flex items-center gap-2">
+                                  <Activity className="h-4 w-4" />
+                                  Indicadores de Saúde
+                                </h4>
+                                <Button variant="outline" size="sm" onClick={() => openNewIndicador(produto.id)}>
+                                  <Plus className="mr-1 h-3 w-3" />
+                                  Novo Indicador
+                                </Button>
+                              </div>
+                              
+                              {indicadores.length === 0 ? (
+                                <p className="text-sm text-muted-foreground text-center py-4">
+                                  Nenhum indicador cadastrado para este produto
+                                </p>
+                              ) : (
+                                <div className="rounded-md border">
+                                  <Table>
+                                    <TableHeader>
+                                      <TableRow>
+                                        <TableHead>Nome</TableHead>
+                                        <TableHead>Unidade</TableHead>
+                                        <TableHead>Descrição</TableHead>
+                                        <TableHead className="w-[80px]">Ações</TableHead>
+                                      </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                      {indicadores.map((indicador) => (
+                                        <TableRow key={indicador.id}>
+                                          <TableCell className="font-medium">{indicador.nome}</TableCell>
+                                          <TableCell>
+                                            <Badge variant="secondary">{indicador.unidade}</Badge>
+                                          </TableCell>
+                                          <TableCell className="text-muted-foreground">{indicador.descricao || '-'}</TableCell>
+                                          <TableCell>
+                                            <div className="flex gap-1">
+                                              <Button variant="ghost" size="icon" onClick={() => openEditIndicador(indicador)}>
+                                                <Pencil className="h-4 w-4" />
+                                              </Button>
+                                              <Button 
+                                                variant="ghost" 
+                                                size="icon" 
+                                                onClick={() => deleteIndicador.mutate(indicador.id)}
+                                                disabled={deleteIndicador.isPending}
+                                              >
+                                                <Trash2 className="h-4 w-4 text-destructive" />
+                                              </Button>
+                                            </div>
+                                          </TableCell>
+                                        </TableRow>
+                                      ))}
+                                    </TableBody>
+                                  </Table>
+                                </div>
+                              )}
+                            </div>
+                          </CardContent>
+                        )}
+                      </Card>
+                    );
+                  })
+                )}
               </div>
 
               {totalProdutoComercialPages > 1 && (
