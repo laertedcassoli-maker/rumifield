@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Plus, Loader2, Search, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Pencil, RefreshCw, CheckCircle2, XCircle, Eye, EyeOff, Settings, ImageIcon } from 'lucide-react';
+import { Plus, Loader2, Search, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Pencil, RefreshCw, CheckCircle2, XCircle, Eye, EyeOff, Settings, ImageIcon, Package } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
@@ -15,6 +15,7 @@ import { Switch } from '@/components/ui/switch';
 
 type ProdutoSortField = 'nome' | 'unidade' | 'descricao';
 type PecaSortField = 'codigo' | 'nome' | 'familia' | 'omie_codigo' | 'descricao' | 'quantidade_estoque';
+type ProdutoComercialSortField = 'nome' | 'descricao';
 type SortDirection = 'asc' | 'desc';
 
 const ITEMS_PER_PAGE = 10;
@@ -36,18 +37,27 @@ interface PecaFormData {
   omie_codigo: string;
 }
 
+interface ProdutoComercialFormData {
+  id?: string;
+  nome: string;
+  descricao: string;
+}
+
 export default function AdminConfig() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
   const [produtoOpen, setProdutoOpen] = useState(false);
   const [pecaOpen, setPecaOpen] = useState(false);
+  const [produtoComercialOpen, setProdutoComercialOpen] = useState(false);
   const [imagePreviewOpen, setImagePreviewOpen] = useState(false);
   const [previewImage, setPreviewImage] = useState<{ url: string; nome: string } | null>(null);
   const [produtoForm, setProdutoForm] = useState<ProdutoFormData>({ nome: '', unidade: 'litros', descricao: '', litros_por_vaca_2x: 0, litros_por_vaca_3x: 0 });
   const [pecaForm, setPecaForm] = useState<PecaFormData>({ codigo: '', nome: '', descricao: '', omie_codigo: '' });
+  const [produtoComercialForm, setProdutoComercialForm] = useState<ProdutoComercialFormData>({ nome: '', descricao: '' });
   const [isEditingProduto, setIsEditingProduto] = useState(false);
   const [isEditingPeca, setIsEditingPeca] = useState(false);
+  const [isEditingProdutoComercial, setIsEditingProdutoComercial] = useState(false);
   const [isSyncingOmie, setIsSyncingOmie] = useState(false);
 
   // Omie integration states
@@ -110,16 +120,20 @@ export default function AdminConfig() {
   // Search states
   const [produtoSearch, setProdutoSearch] = useState('');
   const [pecaSearch, setPecaSearch] = useState('');
+  const [produtoComercialSearch, setProdutoComercialSearch] = useState('');
 
   // Sort states
   const [produtoSortField, setProdutoSortField] = useState<ProdutoSortField>('nome');
   const [produtoSortDirection, setProdutoSortDirection] = useState<SortDirection>('asc');
   const [pecaSortField, setPecaSortField] = useState<PecaSortField>('codigo');
   const [pecaSortDirection, setPecaSortDirection] = useState<SortDirection>('asc');
+  const [produtoComercialSortField, setProdutoComercialSortField] = useState<ProdutoComercialSortField>('nome');
+  const [produtoComercialSortDirection, setProdutoComercialSortDirection] = useState<SortDirection>('asc');
 
   // Pagination states
   const [produtoPage, setProdutoPage] = useState(1);
   const [pecaPage, setPecaPage] = useState(1);
+  const [produtoComercialPage, setProdutoComercialPage] = useState(1);
 
   const { data: produtos, isLoading: loadingProdutos } = useQuery({
     queryKey: ['produtos-config'],
@@ -136,6 +150,15 @@ export default function AdminConfig() {
       const { data, error } = await supabase.from('pecas').select('*').order('codigo');
       if (error) throw error;
       return data;
+    },
+  });
+
+  const { data: produtosComerciais, isLoading: loadingProdutosComerciais } = useQuery({
+    queryKey: ['produtos-comerciais-config'],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).from('produtos').select('*').order('nome');
+      if (error) throw error;
+      return data as { id: string; nome: string; descricao: string | null; ativo: boolean; cod_imilk: string | null; created_at: string; updated_at: string }[];
     },
   });
 
@@ -183,6 +206,28 @@ export default function AdminConfig() {
   }, [filteredPecas, pecaPage]);
 
   const totalPecaPages = Math.ceil(filteredPecas.length / ITEMS_PER_PAGE);
+
+  // Filtered and sorted produtos comerciais
+  const filteredProdutosComerciais = useMemo(() => {
+    if (!produtosComerciais) return [];
+    let filtered = produtosComerciais.filter(p =>
+      p.nome.toLowerCase().includes(produtoComercialSearch.toLowerCase()) ||
+      (p.descricao?.toLowerCase().includes(produtoComercialSearch.toLowerCase()))
+    );
+    filtered.sort((a, b) => {
+      const aVal = (a[produtoComercialSortField] || '').toString().toLowerCase();
+      const bVal = (b[produtoComercialSortField] || '').toString().toLowerCase();
+      return produtoComercialSortDirection === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
+    });
+    return filtered;
+  }, [produtosComerciais, produtoComercialSearch, produtoComercialSortField, produtoComercialSortDirection]);
+
+  const paginatedProdutosComerciais = useMemo(() => {
+    const start = (produtoComercialPage - 1) * ITEMS_PER_PAGE;
+    return filteredProdutosComerciais.slice(start, start + ITEMS_PER_PAGE);
+  }, [filteredProdutosComerciais, produtoComercialPage]);
+
+  const totalProdutoComercialPages = Math.ceil(filteredProdutosComerciais.length / ITEMS_PER_PAGE);
 
   const handleProdutoSort = (field: ProdutoSortField) => {
     if (produtoSortField === field) {
@@ -297,6 +342,43 @@ export default function AdminConfig() {
     },
   });
 
+  const createProdutoComercial = useMutation({
+    mutationFn: async (data: ProdutoComercialFormData) => {
+      const { error } = await (supabase as any).from('produtos').insert({
+        nome: data.nome,
+        descricao: data.descricao || null,
+      });
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['produtos-comerciais-config'] });
+      closeProdutoComercialDialog();
+      toast({ title: 'Produto cadastrado!' });
+    },
+    onError: (error: Error) => {
+      toast({ variant: 'destructive', title: 'Erro', description: error.message });
+    },
+  });
+
+  const updateProdutoComercial = useMutation({
+    mutationFn: async (data: ProdutoComercialFormData) => {
+      if (!data.id) throw new Error('ID do produto não informado');
+      const { error } = await (supabase as any).from('produtos').update({
+        nome: data.nome,
+        descricao: data.descricao || null,
+      }).eq('id', data.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['produtos-comerciais-config'] });
+      closeProdutoComercialDialog();
+      toast({ title: 'Produto atualizado!' });
+    },
+    onError: (error: Error) => {
+      toast({ variant: 'destructive', title: 'Erro', description: error.message });
+    },
+  });
+
   const openNewProduto = () => {
     setProdutoForm({ nome: '', unidade: 'litros', descricao: '', litros_por_vaca_2x: 0, litros_por_vaca_3x: 0 });
     setIsEditingProduto(false);
@@ -346,6 +428,38 @@ export default function AdminConfig() {
     setIsEditingPeca(false);
   };
 
+  const openNewProdutoComercial = () => {
+    setProdutoComercialForm({ nome: '', descricao: '' });
+    setIsEditingProdutoComercial(false);
+    setProdutoComercialOpen(true);
+  };
+
+  const openEditProdutoComercial = (produto: typeof produtosComerciais extends (infer T)[] ? T : never) => {
+    setProdutoComercialForm({
+      id: produto.id,
+      nome: produto.nome,
+      descricao: produto.descricao || '',
+    });
+    setIsEditingProdutoComercial(true);
+    setProdutoComercialOpen(true);
+  };
+
+  const closeProdutoComercialDialog = () => {
+    setProdutoComercialOpen(false);
+    setProdutoComercialForm({ nome: '', descricao: '' });
+    setIsEditingProdutoComercial(false);
+  };
+
+  const handleProdutoComercialSort = (field: ProdutoComercialSortField) => {
+    if (produtoComercialSortField === field) {
+      setProdutoComercialSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setProdutoComercialSortField(field);
+      setProdutoComercialSortDirection('asc');
+    }
+    setProdutoComercialPage(1);
+  };
+
   const handleProdutoSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!produtoForm.nome.trim()) return;
@@ -365,6 +479,18 @@ export default function AdminConfig() {
       createPeca.mutate(pecaForm);
     }
   };
+
+  const handleProdutoComercialSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!produtoComercialForm.nome.trim()) return;
+    if (isEditingProdutoComercial) {
+      updateProdutoComercial.mutate(produtoComercialForm);
+    } else {
+      createProdutoComercial.mutate(produtoComercialForm);
+    }
+  };
+
+  const isProdutoComercialSaving = createProdutoComercial.isPending || updateProdutoComercial.isPending;
 
   const isProdutoSaving = createProduto.isPending || updateProduto.isPending;
   const isPecaSaving = createPeca.isPending || updatePeca.isPending;
@@ -649,12 +775,13 @@ export default function AdminConfig() {
     <div className="space-y-6 animate-fade-in">
       <div>
         <h1 className="text-2xl font-bold">Configurações</h1>
-        <p className="text-muted-foreground">Gerencie produtos químicos e catálogo de peças</p>
+        <p className="text-muted-foreground">Gerencie cadastros e configurações do sistema</p>
       </div>
 
-      <Tabs defaultValue="produtos">
-        <TabsList>
+      <Tabs defaultValue="produtos_comerciais">
+        <TabsList className="flex-wrap h-auto">
           <TabsTrigger value="config">Configuração</TabsTrigger>
+          <TabsTrigger value="produtos_comerciais">Produtos</TabsTrigger>
           <TabsTrigger value="produtos">Produtos Químicos</TabsTrigger>
           <TabsTrigger value="pecas">Catálogo de Peças</TabsTrigger>
           <TabsTrigger value="integracoes">Integrações</TabsTrigger>
@@ -762,6 +889,121 @@ export default function AdminConfig() {
               </div>
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="produtos_comerciais" className="space-y-4">
+          <div className="flex flex-col sm:flex-row gap-4 justify-between">
+            <div className="relative flex-1 max-w-sm">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Buscar por nome ou descrição..."
+                value={produtoComercialSearch}
+                onChange={(e) => { setProdutoComercialSearch(e.target.value); setProdutoComercialPage(1); }}
+                className="pl-10"
+              />
+            </div>
+            <Button onClick={openNewProdutoComercial}>
+              <Plus className="mr-2 h-4 w-4" />
+              Novo Produto
+            </Button>
+          </div>
+
+          {/* Produto Comercial Dialog */}
+          <Dialog open={produtoComercialOpen} onOpenChange={(open) => !open && closeProdutoComercialDialog()}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>{isEditingProdutoComercial ? 'Editar Produto' : 'Cadastrar Produto'}</DialogTitle>
+              </DialogHeader>
+              <form onSubmit={handleProdutoComercialSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Nome *</Label>
+                  <Input
+                    value={produtoComercialForm.nome}
+                    onChange={(e) => setProdutoComercialForm({ ...produtoComercialForm, nome: e.target.value })}
+                    placeholder="Ex: RumiFlow, RumiPré..."
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Descrição</Label>
+                  <Input
+                    value={produtoComercialForm.descricao}
+                    onChange={(e) => setProdutoComercialForm({ ...produtoComercialForm, descricao: e.target.value })}
+                    placeholder="Descrição do produto"
+                  />
+                </div>
+                <Button type="submit" className="w-full" disabled={isProdutoComercialSaving}>
+                  {isProdutoComercialSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : isEditingProdutoComercial ? 'Salvar Alterações' : 'Cadastrar'}
+                </Button>
+              </form>
+            </DialogContent>
+          </Dialog>
+
+          {loadingProdutosComerciais ? (
+            <div className="flex justify-center py-8">
+              <Loader2 className="h-6 w-6 animate-spin text-primary" />
+            </div>
+          ) : (
+            <>
+              <div className="rounded-md border">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>
+                        <Button variant="ghost" onClick={() => handleProdutoComercialSort('nome')} className="hover:bg-transparent p-0">
+                          Nome {getSortIcon('nome', produtoComercialSortField, produtoComercialSortDirection)}
+                        </Button>
+                      </TableHead>
+                      <TableHead>
+                        <Button variant="ghost" onClick={() => handleProdutoComercialSort('descricao')} className="hover:bg-transparent p-0">
+                          Descrição {getSortIcon('descricao', produtoComercialSortField, produtoComercialSortDirection)}
+                        </Button>
+                      </TableHead>
+                      <TableHead className="w-[80px]">Ações</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {paginatedProdutosComerciais.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={3} className="text-center text-muted-foreground py-8">
+                          Nenhum produto encontrado
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      paginatedProdutosComerciais.map((produto) => (
+                        <TableRow key={produto.id}>
+                          <TableCell className="font-medium">{produto.nome}</TableCell>
+                          <TableCell className="text-muted-foreground">{produto.descricao || '-'}</TableCell>
+                          <TableCell>
+                            <Button variant="ghost" size="icon" onClick={() => openEditProdutoComercial(produto)}>
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
+
+              {totalProdutoComercialPages > 1 && (
+                <div className="flex items-center justify-between">
+                  <p className="text-sm text-muted-foreground">
+                    Mostrando {((produtoComercialPage - 1) * ITEMS_PER_PAGE) + 1} a {Math.min(produtoComercialPage * ITEMS_PER_PAGE, filteredProdutosComerciais.length)} de {filteredProdutosComerciais.length}
+                  </p>
+                  <div className="flex items-center gap-2">
+                    <Button variant="outline" size="sm" onClick={() => setProdutoComercialPage(p => p - 1)} disabled={produtoComercialPage === 1}>
+                      <ChevronLeft className="h-4 w-4" />
+                    </Button>
+                    <span className="text-sm">Página {produtoComercialPage} de {totalProdutoComercialPages}</span>
+                    <Button variant="outline" size="sm" onClick={() => setProdutoComercialPage(p => p + 1)} disabled={produtoComercialPage === totalProdutoComercialPages}>
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </>
+          )}
         </TabsContent>
 
         <TabsContent value="produtos" className="space-y-4">
