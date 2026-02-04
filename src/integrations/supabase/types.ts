@@ -1523,6 +1523,36 @@ export type Database = {
           },
         ]
       }
+      produtos: {
+        Row: {
+          ativo: boolean
+          cod_imilk: string | null
+          created_at: string
+          descricao: string | null
+          id: string
+          nome: string
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          cod_imilk?: string | null
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          nome: string
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          cod_imilk?: string | null
+          created_at?: string
+          descricao?: string | null
+          id?: string
+          nome?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       produtos_quimicos: {
         Row: {
           ativo: boolean | null
