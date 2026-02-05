@@ -54,22 +54,48 @@ interface SchemaSummary {
   changes: SchemaChange[];
 }
 
+interface CodeChange {
+  type: string;
+  module_name: string;
+  module_type: string;
+  module_path: string;
+  details: string;
+}
+
+interface CodeSummary {
+  total_modules: number;
+  documented_modules: number;
+  undocumented_count: number;
+  changes: CodeChange[];
+  module_types: {
+    pages: number;
+    components: number;
+    hooks: number;
+    contexts: number;
+  };
+}
+
 export default function DocsIndex() {
   const { role } = useAuth();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
-  const [isDetecting, setIsDetecting] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false);
+  const [isDetectingSchema, setIsDetectingSchema] = useState(false);
+  const [isDetectingCode, setIsDetectingCode] = useState(false);
+  const [isGeneratingTables, setIsGeneratingTables] = useState(false);
+  const [isGeneratingModules, setIsGeneratingModules] = useState(false);
   const [schemaChanges, setSchemaChanges] = useState<SchemaSummary | null>(null);
+  const [codeChanges, setCodeChanges] = useState<CodeSummary | null>(null);
   const [selectedTables, setSelectedTables] = useState<Set<string>>(new Set());
+  const [selectedModules, setSelectedModules] = useState<Set<string>>(new Set());
   const [copiedLink, setCopiedLink] = useState(false);
+  const [detectionMode, setDetectionMode] = useState<'schema' | 'code' | null>(null);
 
   const publicDocsUrl = 'https://rumifield.lovable.app/docs/public';
 
   const canEdit = role === 'admin' || role === 'coordenador_servicos';
 
-  const { data: docs, isLoading } = useQuery({
+  const { data: docs, isLoading, refetch } = useQuery({
     queryKey: ['system-documentation'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -83,9 +109,10 @@ export default function DocsIndex() {
     },
   });
 
-  const detectChanges = async () => {
-    setIsDetecting(true);
+  const detectSchemaChanges = async () => {
+    setIsDetectingSchema(true);
     setSelectedTables(new Set());
+    setDetectionMode('schema');
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
@@ -98,10 +125,37 @@ export default function DocsIndex() {
 
       if (error) throw error;
       setSchemaChanges(data as SchemaSummary);
+      setCodeChanges(null);
     } catch (error) {
-      console.error('Error detecting changes:', error);
+      console.error('Error detecting schema changes:', error);
+      toast.error('Erro ao detectar mudanças no schema');
     } finally {
-      setIsDetecting(false);
+      setIsDetectingSchema(false);
+    }
+  };
+
+  const detectCodeChanges = async () => {
+    setIsDetectingCode(true);
+    setSelectedModules(new Set());
+    setDetectionMode('code');
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const { data, error } = await supabase.functions.invoke('detect-code-changes', {
+        headers: {
+          Authorization: `Bearer ${session.access_token}`
+        }
+      });
+
+      if (error) throw error;
+      setCodeChanges(data as CodeSummary);
+      setSchemaChanges(null);
+    } catch (error) {
+      console.error('Error detecting code changes:', error);
+      toast.error('Erro ao detectar mudanças de código');
+    } finally {
+      setIsDetectingCode(false);
     }
   };
 
@@ -117,23 +171,45 @@ export default function DocsIndex() {
     });
   };
 
+  const toggleModuleSelection = (moduleName: string) => {
+    setSelectedModules(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(moduleName)) {
+        newSet.delete(moduleName);
+      } else {
+        newSet.add(moduleName);
+      }
+      return newSet;
+    });
+  };
+
   const selectAllTables = () => {
     if (!schemaChanges) return;
     const allTables = schemaChanges.changes.map(c => c.table_name);
     setSelectedTables(new Set(allTables));
   };
 
+  const selectAllModules = () => {
+    if (!codeChanges) return;
+    const allModules = codeChanges.changes.map(c => c.module_name);
+    setSelectedModules(new Set(allModules));
+  };
+
   const deselectAllTables = () => {
     setSelectedTables(new Set());
   };
 
-  const generateDocumentation = async () => {
+  const deselectAllModules = () => {
+    setSelectedModules(new Set());
+  };
+
+  const generateTableDocumentation = async () => {
     if (selectedTables.size === 0) {
       toast.error('Selecione pelo menos uma tabela');
       return;
     }
 
-    setIsGenerating(true);
+    setIsGeneratingTables(true);
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session) return;
@@ -149,18 +225,65 @@ export default function DocsIndex() {
 
       if (error) throw error;
       
-      toast.success(`${data.generated} documento(s) gerado(s) com sucesso!`);
+      toast.success(`${data.generated} documento(s) de tabela gerado(s)!`);
       setSchemaChanges(null);
       setSelectedTables(new Set());
-      
-      // Refresh the docs list
-      window.location.reload();
+      refetch();
     } catch (error) {
-      console.error('Error generating documentation:', error);
-      toast.error('Erro ao gerar documentação');
+      console.error('Error generating table documentation:', error);
+      toast.error('Erro ao gerar documentação de tabelas');
     } finally {
-      setIsGenerating(false);
+      setIsGeneratingTables(false);
     }
+  };
+
+  const generateModuleDocumentation = async () => {
+    if (selectedModules.size === 0) {
+      toast.error('Selecione pelo menos um módulo');
+      return;
+    }
+
+    setIsGeneratingModules(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
+
+      const modulesToDocument = codeChanges?.changes
+        .filter(c => selectedModules.has(c.module_name))
+        .map(c => ({
+          name: c.module_name,
+          type: c.module_type,
+          path: c.module_path,
+          category: c.details.includes('regra_transversal') ? 'regra_transversal' : 'modulo'
+        })) || [];
+      
+      const { data, error } = await supabase.functions.invoke('generate-module-docs', {
+        body: { modules: modulesToDocument },
+        headers: {
+          Authorization: `Bearer ${session.access_token}`
+        }
+      });
+
+      if (error) throw error;
+      
+      toast.success(`${data.generated} documento(s) de módulo gerado(s)!`);
+      setCodeChanges(null);
+      setSelectedModules(new Set());
+      refetch();
+    } catch (error) {
+      console.error('Error generating module documentation:', error);
+      toast.error('Erro ao gerar documentação de módulos');
+    } finally {
+      setIsGeneratingModules(false);
+    }
+  };
+
+  const closeDetection = () => {
+    setSchemaChanges(null);
+    setCodeChanges(null);
+    setSelectedTables(new Set());
+    setSelectedModules(new Set());
+    setDetectionMode(null);
   };
 
   const filteredDocs = docs?.filter(doc => {
@@ -233,10 +356,26 @@ export default function DocsIndex() {
             Copiar Link
           </Button>
           {canEdit && (
-            <Button variant="outline" size="sm" onClick={detectChanges} disabled={isDetecting}>
-              <RefreshCw className={`mr-2 h-4 w-4 ${isDetecting ? 'animate-spin' : ''}`} />
-              Detectar Mudanças
-            </Button>
+            <div className="flex gap-1">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={detectSchemaChanges} 
+                disabled={isDetectingSchema || isDetectingCode}
+              >
+                <Database className={`mr-2 h-4 w-4 ${isDetectingSchema ? 'animate-spin' : ''}`} />
+                Tabelas
+              </Button>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={detectCodeChanges} 
+                disabled={isDetectingSchema || isDetectingCode}
+              >
+                <Layers className={`mr-2 h-4 w-4 ${isDetectingCode ? 'animate-spin' : ''}`} />
+                Módulos
+              </Button>
+            </div>
           )}
           <Link to="/docs/chat">
             <Button variant="outline" size="sm">
@@ -325,10 +464,10 @@ export default function DocsIndex() {
               <div className="flex items-center gap-2 mt-3">
                 <Button 
                   size="sm" 
-                  onClick={generateDocumentation}
-                  disabled={selectedTables.size === 0 || isGenerating}
+                  onClick={generateTableDocumentation}
+                  disabled={selectedTables.size === 0 || isGeneratingTables}
                 >
-                  {isGenerating ? (
+                  {isGeneratingTables ? (
                     <>
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       Gerando...
@@ -336,14 +475,120 @@ export default function DocsIndex() {
                   ) : (
                     <>
                       <Sparkles className="mr-2 h-4 w-4" />
-                      Gerar Documentação ({selectedTables.size})
+                      Gerar Docs ({selectedTables.size})
                     </>
                   )}
                 </Button>
                 <Button 
                   variant="outline" 
                   size="sm"
-                  onClick={() => setSchemaChanges(null)}
+                  onClick={closeDetection}
+                >
+                  Fechar
+                </Button>
+              </div>
+            </CardContent>
+          )}
+        </Card>
+      )}
+
+      {/* Code Changes Result */}
+      {codeChanges && (
+        <Card className={codeChanges.undocumented_count > 0 ? 'border-amber-500' : 'border-green-500'}>
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex items-center gap-2">
+              {codeChanges.undocumented_count > 0 ? (
+                <>
+                  <AlertTriangle className="h-5 w-5 text-amber-500" />
+                  {codeChanges.undocumented_count} módulo(s) sem documentação
+                </>
+              ) : (
+                <>
+                  <CheckCircle2 className="h-5 w-5 text-green-500" />
+                  Todos os módulos estão documentados!
+                </>
+              )}
+            </CardTitle>
+            <CardDescription>
+              {codeChanges.documented_modules} de {codeChanges.total_modules} módulos documentados
+              <span className="ml-2 text-xs">
+                ({codeChanges.module_types.pages} páginas, {codeChanges.module_types.components} componentes, {codeChanges.module_types.hooks} hooks, {codeChanges.module_types.contexts} contexts)
+              </span>
+            </CardDescription>
+          </CardHeader>
+          {codeChanges.undocumented_count > 0 && (
+            <CardContent className="pt-0">
+              <div className="flex items-center gap-2 mb-3">
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={selectAllModules}
+                >
+                  Selecionar todos
+                </Button>
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={deselectAllModules}
+                >
+                  Limpar seleção
+                </Button>
+                {selectedModules.size > 0 && (
+                  <Badge variant="secondary">
+                    {selectedModules.size} selecionado(s)
+                  </Badge>
+                )}
+              </div>
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {codeChanges.changes.map((change, i) => (
+                  <div 
+                    key={i} 
+                    className={`text-sm p-2 rounded flex items-start gap-3 cursor-pointer transition-colors ${
+                      selectedModules.has(change.module_name) 
+                        ? 'bg-primary/10 border border-primary/30' 
+                        : 'bg-muted hover:bg-muted/80'
+                    }`}
+                    onClick={() => toggleModuleSelection(change.module_name)}
+                  >
+                    <Checkbox 
+                      checked={selectedModules.has(change.module_name)}
+                      onCheckedChange={() => toggleModuleSelection(change.module_name)}
+                      className="mt-0.5"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium">{change.module_name}</span>
+                        <Badge variant="outline" className="text-xs">
+                          {change.module_type}
+                        </Badge>
+                      </div>
+                      <p className="text-muted-foreground text-xs mt-1 font-mono">{change.module_path}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="flex items-center gap-2 mt-3">
+                <Button 
+                  size="sm" 
+                  onClick={generateModuleDocumentation}
+                  disabled={selectedModules.size === 0 || isGeneratingModules}
+                >
+                  {isGeneratingModules ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Gerando...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="mr-2 h-4 w-4" />
+                      Gerar Docs ({selectedModules.size})
+                    </>
+                  )}
+                </Button>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  onClick={closeDetection}
                 >
                   Fechar
                 </Button>
