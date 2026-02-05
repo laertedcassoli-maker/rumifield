@@ -257,17 +257,23 @@ export default function ExecucaoVisitaCorretiva() {
 
       if (visitError) throw visitError;
 
-      // Update preventive_maintenance to concluida
+      // Update corrective_maintenance with checkout info and generate public_token
       if (visit.preventiveId) {
-        const { error: pmError } = await supabase
-          .from('preventive_maintenance')
+        // Generate a new UUID for public_token
+        const publicToken = crypto.randomUUID();
+        
+        const { error: cmError } = await supabase
+          .from('corrective_maintenance')
           .update({
             status: 'concluida',
-            completed_date: new Date().toISOString().split('T')[0],
+            checkout_at: new Date().toISOString(),
+            checkout_lat: lat,
+            checkout_lon: lon,
+            public_token: publicToken,
           })
           .eq('id', visit.preventiveId);
 
-        if (pmError) throw pmError;
+        if (cmError) throw cmError;
       }
 
       // Build result label for timeline

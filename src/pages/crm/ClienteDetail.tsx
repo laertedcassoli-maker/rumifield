@@ -86,7 +86,7 @@ export default function ClienteDetail() {
     enabled: !!id,
   });
 
-  // Fetch visitas corretivas
+  // Fetch visitas corretivas with corrective_maintenance public_token
   const { data: corretivas = [] } = useQuery({
     queryKey: ['cliente-corretivas', id],
     queryFn: async () => {
@@ -98,7 +98,8 @@ export default function ClienteDetail() {
           status, 
           planned_start_date, 
           checkin_at,
-          technical_tickets!inner(client_id, title)
+          technical_tickets!inner(client_id, title),
+          corrective_maintenance(public_token)
         `)
         .eq('technical_tickets.client_id', id)
         .order('created_at', { ascending: false })
@@ -133,16 +134,24 @@ export default function ClienteDetail() {
       statusColor: getStatusColor(p.status, 'preventiva'),
       link: p.public_token ? `/relatorio/${p.public_token}` : undefined,
     })),
-    ...corretivas.map((v): TimelineEvent => ({
-      id: v.id,
-      type: 'corretiva',
-      title: `Visita ${v.visit_code}`,
-      subtitle: (v.technical_tickets as any)?.title,
-      date: new Date(v.checkin_at || v.planned_start_date || new Date()),
-      status: getStatusLabel(v.status, 'corretiva'),
-      statusColor: getStatusColor(v.status, 'corretiva'),
-      link: `/chamados/visita/${v.id}`,
-    })),
+    ...corretivas.map((v): TimelineEvent => {
+      // Get public_token from corrective_maintenance relation (1:1)
+      const cmData = v.corrective_maintenance as { public_token: string | null } | null;
+      const publicToken = cmData?.public_token;
+      
+      return {
+        id: v.id,
+        type: 'corretiva',
+        title: `Visita ${v.visit_code}`,
+        subtitle: (v.technical_tickets as any)?.title,
+        date: new Date(v.checkin_at || v.planned_start_date || new Date()),
+        status: getStatusLabel(v.status, 'corretiva'),
+        statusColor: getStatusColor(v.status, 'corretiva'),
+        link: publicToken 
+          ? `/relatorio-corretivo/${publicToken}` 
+          : `/chamados/visita/${v.id}`,
+      };
+    }),
   ].sort((a, b) => b.date.getTime() - a.date.getTime());
 
   // Filter timeline based on selected type
