@@ -42,6 +42,7 @@ import ChamadosIndex from "./pages/chamados/Index";
 import NovoChamado from "./pages/chamados/NovoChamado";
 import DetalheChamado from "./pages/chamados/DetalheChamado";
 import ExecucaoVisitaCorretiva from "./pages/chamados/ExecucaoVisitaCorretiva";
+import RelatorioCorretivo from "./pages/chamados/RelatorioCorretivo";
 import DocsIndex from "./pages/docs/Index";
 import DocView from "./pages/docs/DocView";
 import DocEditor from "./pages/docs/DocEditor";
@@ -290,6 +291,8 @@ const App = () => (
             {/* Public report routes - no auth required */}
             <Route path="/relatorio/:token" element={<RelatorioPreventivo />} />
             <Route path="/relatorio/:token/:type" element={<RelatorioPreventivo />} />
+            <Route path="/relatorio-corretivo/:token" element={<RelatorioCorretivo />} />
+            <Route path="/relatorio-corretivo/:token/:type" element={<RelatorioCorretivo />} />
             <Route path="/docs/public" element={<PublicDocs />} />
             
             {/* CRM - Clientes */}
