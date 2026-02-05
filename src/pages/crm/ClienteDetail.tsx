@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -22,10 +23,13 @@ import {
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { cn } from '@/lib/utils';
+
+type EventType = 'chamado' | 'preventiva' | 'corretiva';
 
 interface TimelineEvent {
   id: string;
-  type: 'chamado' | 'preventiva' | 'corretiva';
+  type: EventType;
   title: string;
   subtitle?: string;
   date: Date;
@@ -36,6 +40,7 @@ interface TimelineEvent {
 
 export default function ClienteDetail() {
   const { id } = useParams<{ id: string }>();
+  const [filterType, setFilterType] = useState<EventType | null>(null);
 
   const { data: cliente, isLoading: loadingCliente } = useQuery({
     queryKey: ['cliente-detail', id],
@@ -141,6 +146,15 @@ export default function ClienteDetail() {
       link: `/chamados/visita/${v.id}`,
     })),
   ].sort((a, b) => b.date.getTime() - a.date.getTime());
+
+  // Filter timeline based on selected type
+  const filteredTimeline = filterType 
+    ? timeline.filter(e => e.type === filterType)
+    : timeline;
+
+  const toggleFilter = (type: EventType) => {
+    setFilterType(prev => prev === type ? null : type);
+  };
 
   if (loadingCliente) {
     return (
@@ -285,23 +299,47 @@ export default function ClienteDetail() {
         </TabsContent>
 
         <TabsContent value="historico" className="mt-4">
-          {/* Summary Cards */}
+          {/* Summary Cards - Clickable Filters */}
           <div className="grid grid-cols-3 gap-2 mb-4">
-            <Card className="bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800">
+            <Card 
+              className={cn(
+                "cursor-pointer transition-all hover:scale-[1.02]",
+                filterType === 'chamado' 
+                  ? "ring-2 ring-orange-500 bg-orange-100 dark:bg-orange-900/40" 
+                  : "bg-orange-50 dark:bg-orange-900/20 border-orange-200 dark:border-orange-800"
+              )}
+              onClick={() => toggleFilter('chamado')}
+            >
               <CardContent className="py-3 text-center">
                 <AlertTriangle className="h-5 w-5 mx-auto text-orange-600" />
                 <p className="text-lg font-bold mt-1">{chamados.length}</p>
                 <p className="text-xs text-muted-foreground">Chamados</p>
               </CardContent>
             </Card>
-            <Card className="bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800">
+            <Card 
+              className={cn(
+                "cursor-pointer transition-all hover:scale-[1.02]",
+                filterType === 'preventiva' 
+                  ? "ring-2 ring-green-500 bg-green-100 dark:bg-green-900/40" 
+                  : "bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800"
+              )}
+              onClick={() => toggleFilter('preventiva')}
+            >
               <CardContent className="py-3 text-center">
                 <Calendar className="h-5 w-5 mx-auto text-green-600" />
                 <p className="text-lg font-bold mt-1">{preventivas.length}</p>
                 <p className="text-xs text-muted-foreground">Preventivas</p>
               </CardContent>
             </Card>
-            <Card className="bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
+            <Card 
+              className={cn(
+                "cursor-pointer transition-all hover:scale-[1.02]",
+                filterType === 'corretiva' 
+                  ? "ring-2 ring-blue-500 bg-blue-100 dark:bg-blue-900/40" 
+                  : "bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800"
+              )}
+              onClick={() => toggleFilter('corretiva')}
+            >
               <CardContent className="py-3 text-center">
                 <Wrench className="h-5 w-5 mx-auto text-blue-600" />
                 <p className="text-lg font-bold mt-1">{corretivas.length}</p>
@@ -310,19 +348,31 @@ export default function ClienteDetail() {
             </Card>
           </div>
 
+          {/* Filter indicator */}
+          {filterType && (
+            <div className="flex items-center justify-between mb-3 px-1">
+              <span className="text-sm text-muted-foreground">
+                Mostrando apenas: <span className="font-medium capitalize">{filterType}s</span>
+              </span>
+              <Button variant="ghost" size="sm" onClick={() => setFilterType(null)}>
+                Limpar filtro
+              </Button>
+            </div>
+          )}
+
           {/* Timeline */}
           <Card>
             <CardHeader className="pb-2">
               <CardTitle className="text-base">Linha do Tempo</CardTitle>
             </CardHeader>
             <CardContent>
-              {timeline.length === 0 ? (
+              {filteredTimeline.length === 0 ? (
                 <p className="text-center text-muted-foreground py-4">
-                  Nenhum atendimento registrado
+                  {filterType ? 'Nenhum registro encontrado para este filtro' : 'Nenhum atendimento registrado'}
                 </p>
               ) : (
                 <div className="space-y-4">
-                  {timeline.slice(0, 15).map((event, index) => (
+                  {filteredTimeline.slice(0, 20).map((event) => (
                     <div key={`${event.type}-${event.id}`} className="flex gap-3">
                       {/* Icon */}
                       <div className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
