@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -15,12 +15,18 @@ import {
   AlertTriangle,
   Wrench,
   Calendar,
-  ExternalLink
+  ExternalLink,
+  WifiOff
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { TimelineEventModal } from '@/components/crm/TimelineEventModal';
+import { useOffline } from '@/contexts/OfflineContext';
+import { useOfflineClientes } from '@/hooks/useOfflineData';
+import { useOfflineChamados } from '@/hooks/useOfflineChamados';
+import { useOfflinePreventivas } from '@/hooks/useOfflinePreventivas';
+import { useOfflineCorretivas } from '@/hooks/useOfflineCorretivas';
 
 type EventType = 'chamado' | 'preventiva' | 'corretiva';
 
@@ -39,8 +45,40 @@ export default function ClienteDetail() {
   const { id } = useParams<{ id: string }>();
   const [filterType, setFilterType] = useState<EventType | null>(null);
   const [selectedEvent, setSelectedEvent] = useState<TimelineEvent | null>(null);
+  const { isOnline } = useOffline();
+  
+  // Offline hooks - always call them
+  const { getClienteById } = useOfflineClientes();
+  const { chamados: allOfflineChamados } = useOfflineChamados();
+  const { preventivas: allOfflinePreventivas } = useOfflinePreventivas();
+  const { corretivas: allOfflineCorretivas } = useOfflineCorretivas();
+  
+  // State for offline data
+  const [offlineCliente, setOfflineCliente] = useState<any>(null);
+  
+  // Load offline cliente when offline
+  useEffect(() => {
+    if (!isOnline && id) {
+      getClienteById(id).then(setOfflineCliente);
+    }
+  }, [isOnline, id, getClienteById]);
+  
+  // Filter offline data by client
+  const offlineChamados = useMemo(() => 
+    allOfflineChamados.filter(c => c.client_id === id).slice(0, 20), 
+    [allOfflineChamados, id]
+  );
+  const offlinePreventivas = useMemo(() => 
+    allOfflinePreventivas.filter(p => p.client_id === id).slice(0, 20), 
+    [allOfflinePreventivas, id]
+  );
+  const offlineCorretivas = useMemo(() => 
+    allOfflineCorretivas.filter(c => c.client_id === id).slice(0, 20), 
+    [allOfflineCorretivas, id]
+  );
 
-  const { data: cliente, isLoading: loadingCliente } = useQuery({
+  // Online queries
+  const { data: onlineCliente, isLoading: loadingOnlineCliente } = useQuery({
     queryKey: ['cliente-detail', id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -51,11 +89,11 @@ export default function ClienteDetail() {
       if (error) throw error;
       return data;
     },
-    enabled: !!id,
+    enabled: !!id && isOnline,
   });
 
   // Fetch chamados
-  const { data: chamados = [] } = useQuery({
+  const { data: onlineChamados = [] } = useQuery({
     queryKey: ['cliente-chamados', id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -67,11 +105,11 @@ export default function ClienteDetail() {
       if (error) throw error;
       return data;
     },
-    enabled: !!id,
+    enabled: !!id && isOnline,
   });
 
   // Fetch preventivas
-  const { data: preventivas = [] } = useQuery({
+  const { data: onlinePreventivas = [] } = useQuery({
     queryKey: ['cliente-preventivas', id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -83,11 +121,11 @@ export default function ClienteDetail() {
       if (error) throw error;
       return data;
     },
-    enabled: !!id,
+    enabled: !!id && isOnline,
   });
 
   // Fetch visitas corretivas with corrective_maintenance public_token
-  const { data: corretivas = [] } = useQuery({
+  const { data: onlineCorretivas = [] } = useQuery({
     queryKey: ['cliente-corretivas', id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -107,8 +145,36 @@ export default function ClienteDetail() {
       if (error) throw error;
       return data;
     },
-    enabled: !!id,
+    enabled: !!id && isOnline,
   });
+  
+  // Use appropriate data based on online status
+  const cliente = isOnline ? onlineCliente : offlineCliente;
+  const loadingCliente = isOnline ? loadingOnlineCliente : !offlineCliente;
+  const chamados = isOnline ? onlineChamados : offlineChamados.map(c => ({
+    id: c.id,
+    ticket_code: c.ticket_code,
+    title: c.title,
+    status: c.status,
+    priority: c.priority,
+    created_at: c.created_at,
+  }));
+  const preventivas = isOnline ? onlinePreventivas : offlinePreventivas.map(p => ({
+    id: p.id,
+    scheduled_date: p.scheduled_date,
+    completed_date: p.completed_date,
+    status: p.status,
+    public_token: p.public_token,
+  }));
+  const corretivas = isOnline ? onlineCorretivas : offlineCorretivas.map(c => ({
+    id: c.id,
+    visit_code: c.visit_code,
+    status: c.status,
+    planned_start_date: c.planned_start_date,
+    checkin_at: c.checkin_at,
+    technical_tickets: { client_id: c.client_id, title: c.ticket_title },
+    corrective_maintenance: { public_token: c.public_token },
+  }));
 
   // Build unified timeline
   const timeline: TimelineEvent[] = [
@@ -193,12 +259,18 @@ export default function ClienteDetail() {
             <ArrowLeft className="h-5 w-5" />
           </Button>
         </Link>
-        <div>
+        <div className="flex-1">
           <h1 className="text-xl font-bold">{cliente.nome}</h1>
           {cliente.fazenda && (
             <p className="text-muted-foreground">{cliente.fazenda}</p>
           )}
         </div>
+        {!isOnline && (
+          <Badge variant="secondary" className="gap-1">
+            <WifiOff className="h-3 w-3" />
+            Offline
+          </Badge>
+        )}
       </div>
 
       {/* Tabs */}
