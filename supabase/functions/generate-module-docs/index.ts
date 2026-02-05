@@ -137,7 +137,7 @@ Deno.serve(async (req) => {
             category: module.category,
             content,
             summary,
-            is_public: false,
+                is_public: true,
             related_modules: [module.path],
             ai_metadata: {
               auto_generated: true,
@@ -160,7 +160,7 @@ Deno.serve(async (req) => {
                 category: module.category,
                 content,
                 summary,
-                is_public: false,
+                is_public: true,
                 related_modules: [module.path],
                 ai_metadata: {
                   auto_generated: true,
