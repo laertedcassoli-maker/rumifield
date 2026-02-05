@@ -17,8 +17,10 @@ import {
   User,
   Map as MapIcon,
   AlertTriangle,
-  Wrench
+  Wrench,
+  Plus
 } from 'lucide-react';
+import NovaVisitaDiretaDialog from '@/components/chamados/NovaVisitaDiretaDialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { format, isToday, isThisWeek, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -88,6 +90,7 @@ export default function MinhasRotas() {
   const [technicianFilter, setTechnicianFilter] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<RouteType>('all');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('ativas');
+  const [showNovaVisita, setShowNovaVisita] = useState(false);
 
   const isAdminOrCoordinator = role === 'admin' || role === 'coordenador_servicos';
 
@@ -600,15 +603,26 @@ export default function MinhasRotas() {
     <TooltipProvider>
       <div className="space-y-4 animate-fade-in">
         {/* Header - Compact on mobile */}
-        <div>
-          <h1 className="text-xl font-bold">
-            {isAdminOrCoordinator ? 'Rotas em Execução' : 'Minhas Rotas'}
-          </h1>
-          <p className="text-sm text-muted-foreground">
-            {isAdminOrCoordinator 
-              ? 'Acompanhe rotas preventivas e visitas corretivas' 
-              : 'Rotas preventivas e visitas corretivas atribuídas'}
-          </p>
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <h1 className="text-xl font-bold">
+              {isAdminOrCoordinator ? 'Rotas em Execução' : 'Minhas Rotas'}
+            </h1>
+            <p className="text-sm text-muted-foreground">
+              {isAdminOrCoordinator 
+                ? 'Acompanhe rotas preventivas e visitas corretivas' 
+                : 'Rotas preventivas e visitas corretivas atribuídas'}
+            </p>
+          </div>
+          <Button 
+            size="sm" 
+            className="shrink-0 gap-1 h-9"
+            onClick={() => setShowNovaVisita(true)}
+          >
+            <Plus className="h-4 w-4" />
+            <span className="hidden sm:inline">Nova Visita</span>
+            <span className="sm:hidden">Visita</span>
+          </Button>
         </div>
 
         {/* Filters - Stacked on mobile */}
@@ -745,6 +759,11 @@ export default function MinhasRotas() {
             </CardContent>
           </Card>
         )}
+
+        <NovaVisitaDiretaDialog 
+          open={showNovaVisita} 
+          onOpenChange={setShowNovaVisita} 
+        />
       </div>
     </TooltipProvider>
   );
