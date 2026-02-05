@@ -50,6 +50,7 @@ import DocChat from "./pages/docs/DocChat";
 import PublicDocs from "./pages/docs/PublicDocs";
 import ClientesList from "./pages/crm/ClientesList";
 import ClienteDetail from "./pages/crm/ClienteDetail";
+import AceitarConvite from "./pages/AceitarConvite";
 
 const queryClient = new QueryClient();
 
@@ -63,6 +64,7 @@ const App = () => (
             <Sonner />
           <Routes>
             <Route path="/auth" element={<Auth />} />
+            <Route path="/convite/:token" element={<AceitarConvite />} />
             <Route
               path="/"
               element={
