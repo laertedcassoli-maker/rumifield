@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Link } from 'react-router-dom';
@@ -6,14 +6,19 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Search, Building2, MapPin, Phone, ChevronRight } from 'lucide-react';
+import { Search, Building2, MapPin, Phone, ChevronRight, WifiOff } from 'lucide-react';
 import { useDebounce } from '@/hooks/useDebounce';
+import { useOffline } from '@/contexts/OfflineContext';
+import { useOfflineClientes } from '@/hooks/useOfflineData';
 
 export default function ClientesList() {
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search, 300);
+  const { isOnline } = useOffline();
+  const { clientes: offlineClientes, isLoading: offlineLoading } = useOfflineClientes();
 
-  const { data: clientes, isLoading } = useQuery({
+  // Online query
+  const { data: onlineClientes, isLoading: onlineLoading } = useQuery({
     queryKey: ['clientes-crm', debouncedSearch],
     queryFn: async () => {
       let query = supabase
@@ -30,14 +35,45 @@ export default function ClientesList() {
       if (error) throw error;
       return data;
     },
+    enabled: isOnline,
   });
+
+  // Use offline data when offline, online data when online
+  const clientes = useMemo(() => {
+    if (!isOnline) {
+      // Filter offline data based on search
+      const searchLower = debouncedSearch.toLowerCase();
+      return offlineClientes
+        .filter(c => c.status === 'ativo')
+        .filter(c => {
+          if (!debouncedSearch) return true;
+          return (
+            c.nome.toLowerCase().includes(searchLower) ||
+            (c.fazenda?.toLowerCase().includes(searchLower) ?? false) ||
+            (c.cidade?.toLowerCase().includes(searchLower) ?? false)
+          );
+        })
+        .slice(0, 50);
+    }
+    return onlineClientes || [];
+  }, [isOnline, onlineClientes, offlineClientes, debouncedSearch]);
+
+  const isLoading = isOnline ? onlineLoading : offlineLoading;
 
   return (
     <div className="space-y-4 animate-fade-in">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold">Clientes</h1>
-        <p className="text-muted-foreground">Visão 360° dos seus clientes</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">Clientes</h1>
+          <p className="text-muted-foreground">Visão 360° dos seus clientes</p>
+        </div>
+        {!isOnline && (
+          <Badge variant="secondary" className="gap-1">
+            <WifiOff className="h-3 w-3" />
+            Offline
+          </Badge>
+        )}
       </div>
 
       {/* Search */}

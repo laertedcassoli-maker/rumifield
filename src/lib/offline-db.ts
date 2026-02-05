@@ -16,8 +16,120 @@ export interface OfflineCliente {
   omie_codigo?: string | null;
   observacoes?: string | null;
   endereco?: string | null;
+  link_maps?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  quantidade_pistolas?: number | null;
+  tipo_painel?: string | null;
+  modelo_contrato?: string | null;
+  preventive_frequency_days?: number | null;
   created_at: string;
   updated_at: string;
+}
+
+// Chamados (technical tickets)
+export interface OfflineChamado {
+  id: string;
+  ticket_code: string;
+  title: string;
+  description?: string | null;
+  priority: string;
+  status: string;
+  client_id: string;
+  assigned_technician_id?: string | null;
+  created_at: string;
+  resolved_at?: string | null;
+  updated_at: string;
+  // Nested data for display
+  client_name?: string;
+  client_fazenda?: string | null;
+  technician_name?: string | null;
+  visits_count?: number;
+}
+
+// Preventive maintenance records
+export interface OfflinePreventiva {
+  id: string;
+  client_id: string;
+  scheduled_date: string;
+  completed_date?: string | null;
+  status: string;
+  notes?: string | null;
+  internal_notes?: string | null;
+  public_notes?: string | null;
+  public_token?: string | null;
+  route_id?: string | null;
+  technician_user_id?: string | null;
+  created_at: string;
+  updated_at: string;
+  // Nested data for display
+  client_name?: string;
+  client_fazenda?: string | null;
+  technician_name?: string | null;
+}
+
+// Corrective visits (ticket_visits)
+export interface OfflineCorretiva {
+  id: string;
+  visit_code: string;
+  ticket_id: string;
+  client_id: string;
+  status: string;
+  planned_start_date?: string | null;
+  checkin_at?: string | null;
+  checkin_lat?: number | null;
+  checkin_lon?: number | null;
+  checkout_at?: string | null;
+  field_technician_user_id?: string | null;
+  notes?: string | null;
+  created_at: string;
+  updated_at: string;
+  // Nested data for display
+  ticket_code?: string;
+  ticket_title?: string;
+  client_name?: string;
+  client_fazenda?: string | null;
+  technician_name?: string | null;
+  public_token?: string | null;
+}
+
+// Preventive routes
+export interface OfflineRota {
+  id: string;
+  route_code: string;
+  start_date: string;
+  end_date: string;
+  status: string;
+  checklist_template_id?: string | null;
+  field_technician_user_id: string;
+  notes?: string | null;
+  created_at: string;
+  updated_at: string;
+  // Nested data for display
+  technician_name?: string | null;
+  total_farms?: number;
+  executed_farms?: number;
+}
+
+// Preventive route items
+export interface OfflineRotaItem {
+  id: string;
+  route_id: string;
+  client_id: string;
+  order_index?: number | null;
+  planned_date?: string | null;
+  status: string;
+  checkin_at?: string | null;
+  checkin_lat?: number | null;
+  checkin_lon?: number | null;
+  suggested_reason?: string | null;
+  created_at: string;
+  updated_at: string;
+  // Nested data for display
+  client_name?: string;
+  client_fazenda?: string | null;
+  client_lat?: number | null;
+  client_lon?: number | null;
 }
 
 export interface OfflinePeca {
@@ -131,6 +243,11 @@ class OfflineDatabase extends Dexie {
   estoque!: Table<OfflineEstoque, string>;
   pedidos!: Table<OfflinePedido, string>;
   pedido_itens!: Table<OfflinePedidoItem, string>;
+  chamados!: Table<OfflineChamado, string>;
+  preventivas!: Table<OfflinePreventiva, string>;
+  corretivas!: Table<OfflineCorretiva, string>;
+  rotas!: Table<OfflineRota, string>;
+  rota_items!: Table<OfflineRotaItem, string>;
   syncQueue!: Table<SyncQueueItem, number>;
   syncMeta!: Table<SyncMeta, string>;
 
@@ -148,6 +265,24 @@ class OfflineDatabase extends Dexie {
       syncQueue: "++id, table, operation, createdAt",
       syncMeta: "id, table, lastSync",
     });
+
+    // Version 3: Add support for chamados, preventivas, corretivas, rotas
+    this.version(3).stores({
+      clientes: "id, nome, status, cidade, estado",
+      pecas: "id, codigo, nome, ativo",
+      produtos_quimicos: "id, nome, ativo",
+      visitas: "id, tecnico_id, cliente_id, data_visita, _pendingSync",
+      estoque: "id, cliente_id, produto_id, data_afericao, _pendingSync",
+      pedidos: "id, solicitante_id, cliente_id, status, created_at, _pendingSync",
+      pedido_itens: "id, pedido_id, peca_id, _pendingSync",
+      chamados: "id, ticket_code, client_id, status, priority, created_at",
+      preventivas: "id, client_id, scheduled_date, status, route_id, technician_user_id",
+      corretivas: "id, visit_code, ticket_id, client_id, status, field_technician_user_id",
+      rotas: "id, route_code, status, field_technician_user_id, start_date",
+      rota_items: "id, route_id, client_id, status, order_index",
+      syncQueue: "++id, table, operation, createdAt",
+      syncMeta: "id, table, lastSync",
+    });
   }
 
   // Clear all offline data
@@ -159,6 +294,11 @@ class OfflineDatabase extends Dexie {
     await this.estoque.clear();
     await this.pedidos.clear();
     await this.pedido_itens.clear();
+    await this.chamados.clear();
+    await this.preventivas.clear();
+    await this.corretivas.clear();
+    await this.rotas.clear();
+    await this.rota_items.clear();
     await this.syncQueue.clear();
     await this.syncMeta.clear();
   }
