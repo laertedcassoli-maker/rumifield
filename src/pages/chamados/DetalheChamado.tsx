@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useParams, Link, useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -79,10 +79,19 @@ export default function DetalheChamado() {
   const { user, role } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const location = useLocation();
 
   const [showPartsPanel, setShowPartsPanel] = useState(false);
   const [showNovaVisita, setShowNovaVisita] = useState(false);
   const [showNovaInteracao, setShowNovaInteracao] = useState(false);
+
+  useEffect(() => {
+    if (location.state?.openVisita) {
+      setShowNovaVisita(true);
+      // Limpa o estado para não reabrir ao atualizar a página
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
 
   const isAdminOrCoordinator = role === 'admin' || role === 'coordenador_servicos';
 
