@@ -8,7 +8,6 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { 
-  Building2, 
   MapPin, 
   Phone, 
   Mail, 
@@ -16,14 +15,12 @@ import {
   AlertTriangle,
   Wrench,
   Calendar,
-  Clock,
-  CheckCircle2,
-  XCircle,
   ExternalLink
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import { TimelineEventModal } from '@/components/crm/TimelineEventModal';
 
 type EventType = 'chamado' | 'preventiva' | 'corretiva';
 
@@ -41,6 +38,7 @@ interface TimelineEvent {
 export default function ClienteDetail() {
   const { id } = useParams<{ id: string }>();
   const [filterType, setFilterType] = useState<EventType | null>(null);
+  const [selectedEvent, setSelectedEvent] = useState<TimelineEvent | null>(null);
 
   const { data: cliente, isLoading: loadingCliente } = useQuery({
     queryKey: ['cliente-detail', id],
@@ -373,7 +371,11 @@ export default function ClienteDetail() {
               ) : (
                 <div className="space-y-4">
                   {filteredTimeline.slice(0, 20).map((event) => (
-                    <div key={`${event.type}-${event.id}`} className="flex gap-3">
+                    <div 
+                      key={`${event.type}-${event.id}`} 
+                      className="flex gap-3 cursor-pointer hover:bg-muted/50 p-2 -m-2 rounded-lg transition-colors"
+                      onClick={() => setSelectedEvent(event)}
+                    >
                       {/* Icon */}
                       <div className={`shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
                         event.type === 'chamado' 
@@ -401,11 +403,6 @@ export default function ClienteDetail() {
                         <p className="text-xs text-muted-foreground mt-1">
                           {format(event.date, "dd 'de' MMM 'de' yyyy", { locale: ptBR })}
                         </p>
-                        {event.link && (
-                          <Link to={event.link} className="text-xs text-primary hover:underline">
-                            Ver detalhes →
-                          </Link>
-                        )}
                       </div>
                     </div>
                   ))}
@@ -415,6 +412,12 @@ export default function ClienteDetail() {
           </Card>
         </TabsContent>
       </Tabs>
+
+      <TimelineEventModal
+        event={selectedEvent}
+        open={!!selectedEvent}
+        onOpenChange={(open) => !open && setSelectedEvent(null)}
+      />
     </div>
   );
 }
