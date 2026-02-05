@@ -67,6 +67,7 @@ export default function NovoChamado() {
   const [clientPopoverOpen, setClientPopoverOpen] = useState(false);
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
   const [categoryId, setCategoryId] = useState<string>('');
+  const [shouldScheduleVisit, setShouldScheduleVisit] = useState(false);
 
   // Fetch active clients
   const { data: clients, isLoading: clientsLoading } = useQuery<Client[]>({
@@ -178,7 +179,9 @@ export default function NovoChamado() {
     onSuccess: (ticket) => {
       queryClient.invalidateQueries({ queryKey: ['technical-tickets'] });
       toast({ title: 'Chamado criado com sucesso!' });
-      navigate(`/chamados/${ticket.id}`);
+      navigate(`/chamados/${ticket.id}`, { 
+        state: { openVisita: shouldScheduleVisit } 
+      });
     },
     onError: (error: Error) => {
       toast({
@@ -189,7 +192,7 @@ export default function NovoChamado() {
     },
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent, scheduleVisit = false) => {
     e.preventDefault();
     if (!clientId || !title.trim()) {
       toast({
@@ -199,6 +202,7 @@ export default function NovoChamado() {
       });
       return;
     }
+    setShouldScheduleVisit(scheduleVisit);
     createTicket.mutate();
   };
 
@@ -216,7 +220,7 @@ export default function NovoChamado() {
         </div>
       </div>
 
-      <form onSubmit={handleSubmit}>
+      <form onSubmit={(e) => handleSubmit(e, false)}>
         <div className="grid gap-6 md:grid-cols-2">
           {/* Cliente */}
           <Card>
@@ -450,8 +454,21 @@ export default function NovoChamado() {
           <Button type="button" variant="outline" asChild>
             <Link to="/chamados">Cancelar</Link>
           </Button>
-          <Button type="submit" disabled={createTicket.isPending}>
-            {createTicket.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+          <Button 
+            type="button" 
+            variant="secondary" 
+            disabled={createTicket.isPending}
+            onClick={(e) => handleSubmit(e as any, true)}
+          >
+            {createTicket.isPending && shouldScheduleVisit && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Criar + Agendar Visita
+          </Button>
+          <Button 
+            type="submit" 
+            disabled={createTicket.isPending}
+            onClick={() => setShouldScheduleVisit(false)}
+          >
+            {createTicket.isPending && !shouldScheduleVisit && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Criar Chamado
           </Button>
         </div>
