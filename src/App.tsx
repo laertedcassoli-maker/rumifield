@@ -47,6 +47,8 @@ import DocView from "./pages/docs/DocView";
 import DocEditor from "./pages/docs/DocEditor";
 import DocChat from "./pages/docs/DocChat";
 import PublicDocs from "./pages/docs/PublicDocs";
+import ClientesList from "./pages/crm/ClientesList";
+import ClienteDetail from "./pages/crm/ClienteDetail";
 
 const queryClient = new QueryClient();
 
@@ -289,6 +291,24 @@ const App = () => (
             <Route path="/relatorio/:token" element={<RelatorioPreventivo />} />
             <Route path="/relatorio/:token/:type" element={<RelatorioPreventivo />} />
             <Route path="/docs/public" element={<PublicDocs />} />
+            
+            {/* CRM - Clientes */}
+            <Route
+              path="/clientes"
+              element={
+                <AppLayout>
+                  <ClientesList />
+                </AppLayout>
+              }
+            />
+            <Route
+              path="/clientes/:id"
+              element={
+                <AppLayout>
+                  <ClienteDetail />
+                </AppLayout>
+              }
+            />
             
             {/* Chamados Técnicos */}
             <Route
