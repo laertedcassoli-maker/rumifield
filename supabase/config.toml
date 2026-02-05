@@ -29,3 +29,9 @@ verify_jwt = false
 
 [functions.docs-ai-schema]
 verify_jwt = false
+
+[functions.detect-code-changes]
+verify_jwt = false
+
+[functions.generate-module-docs]
+verify_jwt = false
