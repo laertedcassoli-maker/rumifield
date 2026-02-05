@@ -83,9 +83,9 @@ export function TimelineEventModal({ event, open, onOpenChange }: TimelineEventM
       if (!isOpen) setIframeLoaded(false);
       onOpenChange(isOpen);
     }}>
-      <DialogContent className={hasIframeLink ? "sm:max-w-4xl h-[85vh] flex flex-col" : "sm:max-w-md"}>
-        <DialogHeader className="shrink-0">
-          <div className="flex items-center justify-between gap-2">
+      <DialogContent className={hasIframeLink ? "w-[95vw] max-w-5xl h-[90vh] flex flex-col p-3 sm:p-6" : "sm:max-w-md"}>
+        <DialogHeader className="shrink-0 pb-2">
+          <div className="flex items-start justify-between gap-2">
             <DialogTitle className="flex items-center gap-2">
               <div className={`p-2 rounded-full ${getBgColor()}`}>
                 {getIcon()}
