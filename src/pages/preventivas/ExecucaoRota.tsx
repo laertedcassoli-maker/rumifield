@@ -17,12 +17,14 @@ import {
   Eye,
   Navigation,
   AlertCircle,
-  Share2
+  Share2,
+  XCircle
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
 import { CheckinDialog } from '@/components/preventivas/CheckinDialog';
+import { CancelarVisitaDialog } from '@/components/preventivas/CancelarVisitaDialog';
 
 const routeStatusConfig = {
   planejada: { label: 'Planejada', color: 'bg-blue-500/10 text-blue-600 border-blue-500/20' },
@@ -30,12 +32,13 @@ const routeStatusConfig = {
   finalizada: { label: 'Finalizada', color: 'bg-green-500/10 text-green-600 border-green-500/20' },
 };
 
-type AttendanceStatus = 'nao_iniciada' | 'em_atendimento' | 'concluida';
+type AttendanceStatus = 'nao_iniciada' | 'em_atendimento' | 'concluida' | 'cancelada';
 
 const attendanceStatusConfig: Record<AttendanceStatus, { label: string; color: string; icon: typeof Clock }> = {
   nao_iniciada: { label: 'Pendente', color: 'bg-slate-500/10 text-slate-600 border-slate-500/20', icon: Clock },
   em_atendimento: { label: 'Em andamento', color: 'bg-warning/10 text-warning border-warning/20', icon: Play },
   concluida: { label: 'Concluída', color: 'bg-green-500/10 text-green-600 border-green-500/20', icon: CheckCircle2 },
+  cancelada: { label: 'Cancelada', color: 'bg-destructive/10 text-destructive border-destructive/20', icon: XCircle },
 };
 
 interface RouteItem {
@@ -55,6 +58,7 @@ interface RouteItem {
 }
 
 function getAttendanceStatus(item: RouteItem): AttendanceStatus {
+  if (item.status === 'cancelado') return 'cancelada';
   if (item.status === 'executado') return 'concluida';
   if (item.checkin_at) return 'em_atendimento';
   return 'nao_iniciada';
@@ -66,6 +70,7 @@ export default function ExecucaoRota() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [checkinItem, setCheckinItem] = useState<RouteItem | null>(null);
+  const [cancelItem, setCancelItem] = useState<RouteItem | null>(null);
 
   const isAdminOrCoordinator = role === 'admin' || role === 'coordenador_servicos';
 
@@ -166,9 +171,87 @@ export default function ExecucaoRota() {
     },
   });
 
+  // Cancel visit mutation
+  const cancelMutation = useMutation({
+    mutationFn: async ({ itemId, clientId, justification }: { itemId: string; clientId: string; justification: string }) => {
+      // Update route item to cancelado
+      const { error: itemError } = await supabase
+        .from('preventive_route_items')
+        .update({ status: 'cancelado' } as any)
+        .eq('id', itemId);
+
+      if (itemError) throw itemError;
+
+      // Update or create preventive_maintenance with status cancelada
+      const { data: existingMaint } = await supabase
+        .from('preventive_maintenance')
+        .select('id')
+        .eq('client_id', clientId)
+        .eq('route_id', id)
+        .maybeSingle();
+
+      if (existingMaint) {
+        await supabase
+          .from('preventive_maintenance')
+          .update({ 
+            status: 'cancelada',
+            notes: justification,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', existingMaint.id);
+      } else {
+        await supabase
+          .from('preventive_maintenance')
+          .insert({
+            client_id: clientId,
+            route_id: id,
+            scheduled_date: route?.start_date || new Date().toISOString().split('T')[0],
+            status: 'cancelada',
+            notes: justification,
+            technician_user_id: route?.field_technician_user_id
+          });
+      }
+
+      // Check if all items are completed or cancelled -> finalize route
+      const { data: allItems } = await supabase
+        .from('preventive_route_items')
+        .select('status')
+        .eq('route_id', id);
+
+      const allDone = allItems?.every(i => i.status === 'executado' || i.status === 'cancelado');
+      if (allDone && allItems && allItems.length > 0) {
+        await supabase
+          .from('preventive_routes')
+          .update({ status: 'finalizada' })
+          .eq('id', id);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['route-execution', id] });
+      queryClient.invalidateQueries({ queryKey: ['route-execution-items', id] });
+      toast({
+        title: 'Visita cancelada',
+        description: 'O cancelamento foi registrado.',
+      });
+      setCancelItem(null);
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Erro ao cancelar visita',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+
   const handleCheckinConfirm = (lat: number | null, lon: number | null) => {
     if (!checkinItem) return;
     checkinMutation.mutate({ itemId: checkinItem.id, lat, lon });
+  };
+
+  const handleCancelConfirm = (justification: string) => {
+    if (!cancelItem) return;
+    cancelMutation.mutate({ itemId: cancelItem.id, clientId: cancelItem.client_id, justification });
   };
 
   const canAccess = isAdminOrCoordinator || route?.field_technician_user_id === user?.id;
@@ -208,9 +291,11 @@ export default function ExecucaoRota() {
 
   const statusConfig = routeStatusConfig[route.status as keyof typeof routeStatusConfig];
   const executedCount = items?.filter(i => i.status === 'executado').length || 0;
-  const inProgressCount = items?.filter(i => i.checkin_at && i.status !== 'executado').length || 0;
+  const cancelledCount = items?.filter(i => i.status === 'cancelado').length || 0;
+  const inProgressCount = items?.filter(i => i.checkin_at && i.status !== 'executado' && i.status !== 'cancelado').length || 0;
   const totalCount = items?.length || 0;
-  const progress = totalCount > 0 ? Math.round((executedCount / totalCount) * 100) : 0;
+  const completedCount = executedCount + cancelledCount;
+  const progress = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
 
   return (
     <div className="space-y-4 animate-fade-in">
@@ -257,7 +342,7 @@ export default function ExecucaoRota() {
           <div className="flex justify-between text-xs text-muted-foreground">
             <span className="flex items-center gap-1">
               <Clock className="h-3 w-3" />
-              {totalCount - executedCount - inProgressCount} pendentes
+              {totalCount - completedCount - inProgressCount} pendentes
             </span>
             <span className="flex items-center gap-1">
               <Play className="h-3 w-3" />
@@ -267,6 +352,12 @@ export default function ExecucaoRota() {
               <CheckCircle2 className="h-3 w-3" />
               {executedCount} concluídas
             </span>
+            {cancelledCount > 0 && (
+              <span className="flex items-center gap-1 text-destructive">
+                <XCircle className="h-3 w-3" />
+                {cancelledCount} canceladas
+              </span>
+            )}
           </div>
         </CardContent>
       </Card>
@@ -336,14 +427,24 @@ export default function ExecucaoRota() {
                   )}
 
                   {attendanceStatus === 'nao_iniciada' && (
-                    <button
-                      onClick={() => setCheckinItem(item)}
-                      disabled={checkinMutation.isPending}
-                      className="flex-1 flex items-center justify-center gap-2 py-3 text-sm font-medium text-primary hover:bg-primary/5 active:bg-primary/10 transition-colors disabled:opacity-50"
-                    >
-                      <Play className="h-4 w-4" />
-                      Check-in
-                    </button>
+                    <>
+                      <button
+                        onClick={() => setCancelItem(item)}
+                        disabled={cancelMutation.isPending}
+                        className="flex-1 flex items-center justify-center gap-2 py-3 text-sm text-destructive hover:bg-destructive/5 active:bg-destructive/10 transition-colors disabled:opacity-50"
+                      >
+                        <XCircle className="h-4 w-4" />
+                        Cancelar
+                      </button>
+                      <button
+                        onClick={() => setCheckinItem(item)}
+                        disabled={checkinMutation.isPending}
+                        className="flex-1 flex items-center justify-center gap-2 py-3 text-sm font-medium text-primary hover:bg-primary/5 active:bg-primary/10 transition-colors disabled:opacity-50"
+                      >
+                        <Play className="h-4 w-4" />
+                        Check-in
+                      </button>
+                    </>
                   )}
 
                   {attendanceStatus === 'em_atendimento' && (
@@ -430,6 +531,16 @@ export default function ExecucaoRota() {
         onConfirm={handleCheckinConfirm}
         isLoading={checkinMutation.isPending}
         routeStartDate={route?.start_date}
+      />
+
+      {/* Cancel Dialog */}
+      <CancelarVisitaDialog
+        open={!!cancelItem}
+        onOpenChange={(open) => !open && setCancelItem(null)}
+        farmName={cancelItem?.client_name || ''}
+        farmFazenda={cancelItem?.client_fazenda || undefined}
+        onConfirm={handleCancelConfirm}
+        isLoading={cancelMutation.isPending}
       />
     </div>
   );
