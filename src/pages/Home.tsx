@@ -19,7 +19,8 @@ import {
   Calendar,
   AlertTriangle,
   Navigation,
-  BookOpen
+  BookOpen,
+  Contact
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useMenuPermissions } from '@/hooks/useMenuPermissions';
@@ -54,6 +55,14 @@ export default function Home() {
       color: 'text-orange-600',
       bgColor: 'bg-orange-100 dark:bg-orange-900/30',
       permKey: 'chamados',
+    },
+    {
+      title: 'Clientes',
+      icon: Contact,
+      url: '/clientes',
+      color: 'text-cyan-600',
+      bgColor: 'bg-cyan-100 dark:bg-cyan-900/30',
+      permKey: 'crm_clientes',
     },
     {
       title: 'Solicitação Peças',
