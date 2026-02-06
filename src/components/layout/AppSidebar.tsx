@@ -107,6 +107,7 @@ export function AppSidebar() {
     { title: 'Usuários', icon: Users, url: '/admin/usuarios', permKey: 'admin_usuarios' },
     { title: 'Envios', icon: Truck, url: '/admin/envios', permKey: 'admin_envios' },
     { title: 'Cadastros', icon: Settings, url: '/admin/config', permKey: 'admin_cadastros' },
+    { title: 'Config. CRM', icon: Briefcase, url: '/admin/crm', permKey: 'admin_cadastros' },
     { title: 'Permissões', icon: Shield, url: '/admin/permissoes', permKey: 'admin_permissoes' },
     { title: 'Documentação', icon: BookOpen, url: '/docs', permKey: 'admin_permissoes' },
     { title: 'API Docs (IA)', icon: Bot, url: '/docs/api-docs-ai-layer', permKey: 'admin_permissoes' },
