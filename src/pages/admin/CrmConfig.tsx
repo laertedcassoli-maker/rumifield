@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
-import { Plus, ChevronDown, Pencil, Trash2, GripVertical } from 'lucide-react';
+import { Plus, ChevronDown, Pencil, Trash2, GripVertical, Save, Loader2 } from 'lucide-react';
 import { PRODUCT_LABELS, type ProductCode, PRODUCT_ORDER } from '@/hooks/useCrmData';
 
 const ANSWER_TYPES = [
@@ -80,6 +80,58 @@ export default function CrmConfig() {
       return data as QualItem[];
     },
   });
+
+  // Fetch produtos (commercial products) for nome + cod_imilk editing
+  interface ProdutoComercial { id: string; nome: string; descricao: string | null; cod_imilk: string | null; ativo: boolean; }
+  const { data: produtosComerciais, isLoading: loadingProdutos } = useQuery({
+    queryKey: ['produtos-comerciais-crm'],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).from('produtos').select('*').order('nome');
+      if (error) throw error;
+      return data as ProdutoComercial[];
+    },
+  });
+
+  // Track inline edits for product nome/cod_imilk
+  const [productEdits, setProductEdits] = useState<Record<string, { nome: string; cod_imilk: string }>>({});
+
+  const updateProdutoComercial = useMutation({
+    mutationFn: async ({ id, nome, cod_imilk }: { id: string; nome: string; cod_imilk: string }) => {
+      const { error } = await (supabase as any).from('produtos').update({
+        nome: nome.trim(),
+        cod_imilk: cod_imilk.trim() || null,
+      }).eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success('Produto atualizado!');
+      queryClient.invalidateQueries({ queryKey: ['produtos-comerciais-crm'] });
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
+  const getProductRecord = (productCode: ProductCode): ProdutoComercial | undefined => {
+    // Try to match by name (PRODUCT_LABELS maps code to display name)
+    const label = PRODUCT_LABELS[productCode].toLowerCase();
+    return (produtosComerciais || []).find(p => p.nome.toLowerCase() === label);
+  };
+
+  const getProductEdit = (produto: ProdutoComercial) => {
+    return productEdits[produto.id] || { nome: produto.nome, cod_imilk: produto.cod_imilk || '' };
+  };
+
+  const setProductEdit = (id: string, field: 'nome' | 'cod_imilk', value: string) => {
+    setProductEdits(prev => ({
+      ...prev,
+      [id]: { ...prev[id], [field]: value },
+    }));
+  };
+
+  const hasProductChanges = (produto: ProdutoComercial) => {
+    const edit = productEdits[produto.id];
+    if (!edit) return false;
+    return edit.nome !== produto.nome || edit.cod_imilk !== (produto.cod_imilk || '');
+  };
 
   const invalidateAll = () => {
     queryClient.invalidateQueries({ queryKey: ['qual-templates-admin'] });
@@ -228,13 +280,15 @@ export default function CrmConfig() {
     <div className="p-4 md:p-6 space-y-6 max-w-4xl">
       <div>
         <h1 className="text-2xl font-bold">Configuração CRM</h1>
-        <p className="text-sm text-muted-foreground mt-1">Gerencie os formulários de qualificação por produto</p>
+        <p className="text-sm text-muted-foreground mt-1">Gerencie produtos, integração iMilk e formulários de qualificação</p>
       </div>
 
       <div className="space-y-3">
         {PRODUCT_ORDER.map(productCode => {
           const productTemplates = (templates || []).filter(t => t.product_code === productCode);
           const isExpanded = expandedProducts.has(productCode);
+          const produtoRecord = getProductRecord(productCode);
+          const produtoEdit = produtoRecord ? getProductEdit(produtoRecord) : null;
 
           return (
             <Card key={productCode}>
@@ -244,6 +298,9 @@ export default function CrmConfig() {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         <CardTitle className="text-base">{PRODUCT_LABELS[productCode]}</CardTitle>
+                        {produtoRecord?.cod_imilk && (
+                          <Badge variant="secondary" className="text-[10px]">iMilk: {produtoRecord.cod_imilk}</Badge>
+                        )}
                         <Badge variant={productTemplates.length > 0 ? 'default' : 'outline'} className="text-xs">
                           {productTemplates.length} template{productTemplates.length !== 1 ? 's' : ''}
                         </Badge>
@@ -253,9 +310,52 @@ export default function CrmConfig() {
                   </CardHeader>
                 </CollapsibleTrigger>
                 <CollapsibleContent>
-                  <CardContent className="pt-0 space-y-4">
+                  <CardContent className="pt-0 space-y-5">
+                    {/* Product details editing */}
+                    {produtoRecord && produtoEdit && (
+                      <div className="border rounded-lg p-4 space-y-3 bg-muted/20">
+                        <h4 className="text-sm font-medium text-muted-foreground">Dados do Produto</h4>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <Label className="text-xs">Nome</Label>
+                            <Input
+                              value={produtoEdit.nome}
+                              onChange={e => setProductEdit(produtoRecord.id, 'nome', e.target.value)}
+                              className="mt-1 h-8 text-sm"
+                            />
+                          </div>
+                          <div>
+                            <Label className="text-xs">Código iMilk</Label>
+                            <Input
+                              value={produtoEdit.cod_imilk}
+                              onChange={e => setProductEdit(produtoRecord.id, 'cod_imilk', e.target.value)}
+                              className="mt-1 h-8 text-sm"
+                              placeholder="Relacionar com iMilk..."
+                            />
+                          </div>
+                        </div>
+                        {hasProductChanges(produtoRecord) && (
+                          <Button
+                            size="sm"
+                            onClick={() => updateProdutoComercial.mutate({
+                              id: produtoRecord.id,
+                              nome: produtoEdit.nome,
+                              cod_imilk: produtoEdit.cod_imilk,
+                            })}
+                            disabled={updateProdutoComercial.isPending}
+                          >
+                            {updateProdutoComercial.isPending ? <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin" /> : <Save className="h-3.5 w-3.5 mr-1" />}
+                            Salvar
+                          </Button>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Qualification templates */}
+                    <div>
+                      <h4 className="text-sm font-medium text-muted-foreground mb-3">Formulário de Qualificação</h4>
                     {productTemplates.length === 0 ? (
-                      <div className="text-center py-6">
+                      <div className="text-center py-4">
                         <p className="text-sm text-muted-foreground mb-3">Nenhum template de qualificação configurado</p>
                         <Button size="sm" onClick={() => openNewTemplate(productCode)}>
                           <Plus className="h-4 w-4 mr-1" /> Criar Template
@@ -334,6 +434,7 @@ export default function CrmConfig() {
                         <Plus className="h-4 w-4 mr-1" /> Novo Template
                       </Button>
                     )}
+                    </div>
                   </CardContent>
                 </CollapsibleContent>
               </Collapsible>
