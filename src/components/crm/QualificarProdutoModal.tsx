@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -95,7 +96,7 @@ export function QualificarProdutoModal({ open, onOpenChange, clientProductId, pr
           answer_number: item.answer_type === 'number' ? (val ? Number(val) : null) : null,
           answer_date: item.answer_type === 'date' ? (val || null) : null,
           answer_boolean: item.answer_type === 'boolean' ? (val === true || val === 'true') : null,
-          answer_choice: item.answer_type === 'choice' ? (val || null) : null,
+          answer_choice: (item.answer_type === 'choice' || item.answer_type === 'list') ? (val || null) : null,
           updated_by: user!.id,
           updated_at: new Date().toISOString(),
         };
@@ -195,6 +196,21 @@ export function QualificarProdutoModal({ open, onOpenChange, clientProductId, pr
                     onChange={(e) => setAnswers(p => ({ ...p, [item.id]: e.target.value }))}
                     placeholder="Digite a opção..."
                   />
+                )}
+                {item.answer_type === 'list' && (
+                  <Select
+                    value={answers[item.id] || ''}
+                    onValueChange={(v) => setAnswers(p => ({ ...p, [item.id]: v }))}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {(item.choice_options || []).map((opt: string) => (
+                        <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 )}
               </div>
             ))}

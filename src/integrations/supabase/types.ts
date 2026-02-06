@@ -925,6 +925,7 @@ export type Database = {
       crm_product_qualification_items: {
         Row: {
           answer_type: string
+          choice_options: string[] | null
           id: string
           is_required: boolean
           question: string
@@ -933,6 +934,7 @@ export type Database = {
         }
         Insert: {
           answer_type?: string
+          choice_options?: string[] | null
           id?: string
           is_required?: boolean
           question: string
@@ -941,6 +943,7 @@ export type Database = {
         }
         Update: {
           answer_type?: string
+          choice_options?: string[] | null
           id?: string
           is_required?: boolean
           question?: string
