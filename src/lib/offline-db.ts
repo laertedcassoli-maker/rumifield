@@ -277,11 +277,16 @@ class OfflineDatabase extends Dexie {
       pedido_itens: "id, pedido_id, peca_id, _pendingSync",
       chamados: "id, ticket_code, client_id, status, priority, created_at",
       preventivas: "id, client_id, scheduled_date, status, route_id, technician_user_id",
-      corretivas: "id, visit_code, ticket_id, client_id, status, field_technician_user_id",
+      corretivas: "id, visit_code, ticket_id, client_id, status, field_technician_user_id, created_at",
       rotas: "id, route_code, status, field_technician_user_id, start_date",
       rota_items: "id, route_id, client_id, status, order_index",
       syncQueue: "++id, table, operation, createdAt",
       syncMeta: "id, table, lastSync",
+    });
+
+    // Version 4: Add created_at index on corretivas
+    this.version(4).stores({
+      corretivas: "id, visit_code, ticket_id, client_id, status, field_technician_user_id, created_at",
     });
   }
 
