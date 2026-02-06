@@ -21,6 +21,7 @@ const ANSWER_TYPES = [
   { value: 'boolean', label: 'Sim/Não' },
   { value: 'date', label: 'Data' },
   { value: 'choice', label: 'Escolha' },
+  { value: 'list', label: 'Lista (opções predefinidas)' },
 ];
 
 interface QualTemplate {
@@ -37,6 +38,7 @@ interface QualItem {
   answer_type: string;
   is_required: boolean;
   sort_order: number;
+  choice_options: string[];
 }
 
 export default function CrmConfig() {
@@ -48,7 +50,7 @@ export default function CrmConfig() {
   const [editingItem, setEditingItem] = useState<QualItem | null>(null);
   const [selectedProductForTemplate, setSelectedProductForTemplate] = useState<ProductCode | ''>('');
   const [templateForm, setTemplateForm] = useState({ name: '', is_active: true });
-  const [itemForm, setItemForm] = useState({ question: '', answer_type: 'text', is_required: false, sort_order: 0 });
+  const [itemForm, setItemForm] = useState({ question: '', answer_type: 'text', is_required: false, sort_order: 0, choice_options: '' });
   const [activeTemplateId, setActiveTemplateId] = useState<string | null>(null);
 
   // Fetch all templates
@@ -126,6 +128,9 @@ export default function CrmConfig() {
   const saveItem = useMutation({
     mutationFn: async () => {
       if (!activeTemplateId) throw new Error('Template não selecionado');
+      const choiceOpts = (itemForm.answer_type === 'list' || itemForm.answer_type === 'choice')
+        ? itemForm.choice_options.split('\n').map(s => s.trim()).filter(Boolean)
+        : [];
       if (editingItem) {
         // @ts-ignore
         const { error } = await supabase
@@ -135,6 +140,7 @@ export default function CrmConfig() {
             answer_type: itemForm.answer_type,
             is_required: itemForm.is_required,
             sort_order: itemForm.sort_order,
+            choice_options: choiceOpts,
           })
           .eq('id', editingItem.id);
         if (error) throw error;
@@ -148,6 +154,7 @@ export default function CrmConfig() {
             answer_type: itemForm.answer_type,
             is_required: itemForm.is_required,
             sort_order: itemForm.sort_order,
+            choice_options: choiceOpts,
           });
         if (error) throw error;
       }
@@ -189,14 +196,14 @@ export default function CrmConfig() {
     setEditingItem(null);
     setActiveTemplateId(templateId);
     const existingItems = (allItems || []).filter(i => i.template_id === templateId);
-    setItemForm({ question: '', answer_type: 'text', is_required: false, sort_order: (existingItems.length + 1) * 10 });
+    setItemForm({ question: '', answer_type: 'text', is_required: false, sort_order: (existingItems.length + 1) * 10, choice_options: '' });
     setItemDialogOpen(true);
   };
 
   const openEditItem = (item: QualItem) => {
     setEditingItem(item);
     setActiveTemplateId(item.template_id);
-    setItemForm({ question: item.question, answer_type: item.answer_type, is_required: item.is_required, sort_order: item.sort_order });
+    setItemForm({ question: item.question, answer_type: item.answer_type, is_required: item.is_required, sort_order: item.sort_order, choice_options: (item.choice_options || []).join('\n') });
     setItemDialogOpen(true);
   };
 
@@ -396,6 +403,17 @@ export default function CrmConfig() {
                 </SelectContent>
               </Select>
             </div>
+            {(itemForm.answer_type === 'list' || itemForm.answer_type === 'choice') && (
+              <div>
+                <Label>Opções (uma por linha)</Label>
+                <textarea
+                  className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring min-h-[100px]"
+                  value={itemForm.choice_options}
+                  onChange={e => setItemForm(p => ({ ...p, choice_options: e.target.value }))}
+                  placeholder={"Opção 1\nOpção 2\nOpção 3"}
+                />
+              </div>
+            )}
             <div>
               <Label>Ordem</Label>
               <Input
