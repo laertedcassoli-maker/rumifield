@@ -14,6 +14,10 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 import { Plus, ChevronDown, Pencil, Trash2, GripVertical, Save, Loader2 } from 'lucide-react';
 import { PRODUCT_LABELS, type ProductCode, PRODUCT_ORDER } from '@/hooks/useCrmData';
+import { CrmLossReasonsSection } from '@/components/admin/CrmLossReasonsSection';
+import { CrmMetricDefsSection } from '@/components/admin/CrmMetricDefsSection';
+import { CrmChecklistRulesSection } from '@/components/admin/CrmChecklistRulesSection';
+import { Separator } from '@/components/ui/separator';
 
 const ANSWER_TYPES = [
   { value: 'text', label: 'Texto' },
@@ -280,7 +284,7 @@ export default function CrmConfig() {
     <div className="p-4 md:p-6 space-y-6 max-w-4xl">
       <div>
         <h1 className="text-2xl font-bold">Configuração CRM</h1>
-        <p className="text-sm text-muted-foreground mt-1">Gerencie produtos, integração iMilk e formulários de qualificação</p>
+        <p className="text-sm text-muted-foreground mt-1">Gerencie produtos, qualificação, motivos de perda, métricas e regras de checklist</p>
       </div>
 
       <div className="space-y-3">
@@ -435,6 +439,15 @@ export default function CrmConfig() {
                       </Button>
                     )}
                     </div>
+
+                    <Separator />
+                    <CrmLossReasonsSection productCode={productCode} />
+
+                    <Separator />
+                    <CrmMetricDefsSection productCode={productCode} />
+
+                    <Separator />
+                    <CrmChecklistRulesSection productCode={productCode} />
                   </CardContent>
                 </CollapsibleContent>
               </Collapsible>
