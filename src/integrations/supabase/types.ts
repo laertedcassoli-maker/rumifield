@@ -661,6 +661,41 @@ export type Database = {
           },
         ]
       }
+      crm_checklist_rules: {
+        Row: {
+          checklist_template_id: string
+          created_at: string
+          id: string
+          is_active: boolean
+          priority: number
+          product_code: Database["public"]["Enums"]["product_code"]
+        }
+        Insert: {
+          checklist_template_id: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          priority?: number
+          product_code: Database["public"]["Enums"]["product_code"]
+        }
+        Update: {
+          checklist_template_id?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          priority?: number
+          product_code?: Database["public"]["Enums"]["product_code"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_checklist_rules_checklist_template_id_fkey"
+            columns: ["checklist_template_id"]
+            isOneToOne: false
+            referencedRelation: "checklist_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       crm_client_product_qualification_answers: {
         Row: {
           answer_boolean: boolean | null
@@ -983,6 +1018,139 @@ export type Database = {
             columns: ["client_product_id"]
             isOneToOne: false
             referencedRelation: "crm_client_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_visit_checklists: {
+        Row: {
+          checklist_template_id: string
+          completed_at: string | null
+          created_at: string
+          id: string
+          origin: string
+          product_code: Database["public"]["Enums"]["product_code"] | null
+          started_at: string | null
+          status: Database["public"]["Enums"]["checklist_execution_status"]
+          visit_id: string
+        }
+        Insert: {
+          checklist_template_id: string
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          origin?: string
+          product_code?: Database["public"]["Enums"]["product_code"] | null
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["checklist_execution_status"]
+          visit_id: string
+        }
+        Update: {
+          checklist_template_id?: string
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          origin?: string
+          product_code?: Database["public"]["Enums"]["product_code"] | null
+          started_at?: string | null
+          status?: Database["public"]["Enums"]["checklist_execution_status"]
+          visit_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_visit_checklists_checklist_template_id_fkey"
+            columns: ["checklist_template_id"]
+            isOneToOne: false
+            referencedRelation: "checklist_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_visit_checklists_visit_id_fkey"
+            columns: ["visit_id"]
+            isOneToOne: false
+            referencedRelation: "crm_visits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_visits: {
+        Row: {
+          checkin_at: string | null
+          checkin_lat: number | null
+          checkin_lon: number | null
+          checkout_at: string | null
+          checkout_lat: number | null
+          checkout_lon: number | null
+          client_id: string
+          created_at: string
+          id: string
+          objective: string | null
+          owner_user_id: string
+          planned_end_at: string | null
+          planned_start_at: string | null
+          route_id: string | null
+          status: Database["public"]["Enums"]["crm_visit_status"]
+          summary: string | null
+          updated_at: string
+        }
+        Insert: {
+          checkin_at?: string | null
+          checkin_lat?: number | null
+          checkin_lon?: number | null
+          checkout_at?: string | null
+          checkout_lat?: number | null
+          checkout_lon?: number | null
+          client_id: string
+          created_at?: string
+          id?: string
+          objective?: string | null
+          owner_user_id: string
+          planned_end_at?: string | null
+          planned_start_at?: string | null
+          route_id?: string | null
+          status?: Database["public"]["Enums"]["crm_visit_status"]
+          summary?: string | null
+          updated_at?: string
+        }
+        Update: {
+          checkin_at?: string | null
+          checkin_lat?: number | null
+          checkin_lon?: number | null
+          checkout_at?: string | null
+          checkout_lat?: number | null
+          checkout_lon?: number | null
+          client_id?: string
+          created_at?: string
+          id?: string
+          objective?: string | null
+          owner_user_id?: string
+          planned_end_at?: string | null
+          planned_start_at?: string | null
+          route_id?: string | null
+          status?: Database["public"]["Enums"]["crm_visit_status"]
+          summary?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_visits_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "client_preventive_overview"
+            referencedColumns: ["client_id"]
+          },
+          {
+            foreignKeyName: "crm_visits_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_visits_route_id_fkey"
+            columns: ["route_id"]
+            isOneToOne: false
+            referencedRelation: "preventive_routes"
             referencedColumns: ["id"]
           },
         ]
@@ -3141,6 +3309,7 @@ export type Database = {
         | "ganho"
         | "perdido"
         | "descartado"
+      crm_visit_status: "planejada" | "em_andamento" | "concluida" | "cancelada"
       doc_category:
         | "visao_geral"
         | "modulo"
@@ -3338,6 +3507,7 @@ export const Constants = {
         "perdido",
         "descartado",
       ],
+      crm_visit_status: ["planejada", "em_andamento", "concluida", "cancelada"],
       doc_category: [
         "visao_geral",
         "modulo",
