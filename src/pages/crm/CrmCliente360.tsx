@@ -12,8 +12,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, MapPin, Phone, Mail, Plus, Clock, FileText, User } from 'lucide-react';
+import { ArrowLeft, MapPin, Phone, Mail, Plus, Clock, FileText, User, Eye } from 'lucide-react';
 import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 export default function CrmCliente360() {
   const { id } = useParams<{ id: string }>();
@@ -42,6 +43,22 @@ export default function CrmCliente360() {
     clientProducts, snapshots, metricDefs, actions, proposals, lossReasons,
     isLoading, refetchProducts, refetchActions, refetchProposals,
   } = useCliente360Data(id);
+
+  // @ts-ignore
+  const { data: visits } = useQuery({
+    queryKey: ['crm-360-visits', id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('crm_visits')
+        .select('id, status, objective, summary, checkin_at, checkout_at, created_at')
+        .eq('client_id', id)
+        .order('created_at', { ascending: false })
+        .limit(10);
+      if (error) throw error;
+      return data as any[];
+    },
+    enabled: !!id,
+  });
 
   // Modals state
   const [qualModal, setQualModal] = useState<{ open: boolean; cpId: string; pc: ProductCode }>({ open: false, cpId: '', pc: 'ideagri' });
@@ -191,6 +208,36 @@ export default function CrmCliente360() {
                   </div>
                 </CardContent>
               </Card>
+            ))}
+          </div>
+        </div>
+      )}
+      {/* Visitas */}
+      {visits && visits.length > 0 && (
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <h2 className="text-lg font-semibold">Visitas Recentes</h2>
+            <Link to="/crm/visitas" className="text-xs text-primary hover:underline">Ver todas</Link>
+          </div>
+          <div className="space-y-2">
+            {visits.map((v: any) => (
+              <Link to={`/crm/visitas/${v.id}`} key={v.id}>
+                <Card className="hover:border-primary/30 transition-colors">
+                  <CardContent className="py-3 flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <Eye className="h-3.5 w-3.5 text-muted-foreground" />
+                        <span className="text-sm font-medium">{v.objective || 'Visita'}</span>
+                        <Badge variant="outline" className="text-[10px]">{v.status}</Badge>
+                      </div>
+                      {v.summary && <p className="text-xs text-muted-foreground truncate mt-0.5">{v.summary}</p>}
+                    </div>
+                    <span className="text-xs text-muted-foreground shrink-0">
+                      {format(new Date(v.created_at), "dd/MM", { locale: ptBR })}
+                    </span>
+                  </CardContent>
+                </Card>
+              </Link>
             ))}
           </div>
         </div>

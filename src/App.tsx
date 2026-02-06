@@ -53,6 +53,8 @@ import ClienteDetail from "./pages/crm/ClienteDetail";
 import CrmCarteira from "./pages/crm/CrmCarteira";
 import CrmCliente360 from "./pages/crm/CrmCliente360";
 import CrmPipeline from "./pages/crm/CrmPipeline";
+import CrmVisitas from "./pages/crm/CrmVisitas";
+import CrmVisitaExecucao from "./pages/crm/CrmVisitaExecucao";
 import AceitarConvite from "./pages/AceitarConvite";
 
 const queryClient = new QueryClient();
@@ -338,6 +340,22 @@ const App = () => (
               element={
                 <AppLayout>
                   <CrmPipeline />
+                </AppLayout>
+              }
+            />
+            <Route
+              path="/crm/visitas"
+              element={
+                <AppLayout>
+                  <CrmVisitas />
+                </AppLayout>
+              }
+            />
+            <Route
+              path="/crm/visitas/:id"
+              element={
+                <AppLayout>
+                  <CrmVisitaExecucao />
                 </AppLayout>
               }
             />
