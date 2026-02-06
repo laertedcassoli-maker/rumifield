@@ -594,6 +594,399 @@ export type Database = {
           },
         ]
       }
+      crm_actions: {
+        Row: {
+          client_id: string
+          client_product_id: string | null
+          created_at: string
+          created_by: string
+          description: string | null
+          due_at: string | null
+          id: string
+          owner_user_id: string
+          priority: number
+          status: Database["public"]["Enums"]["action_status"]
+          title: string
+          type: Database["public"]["Enums"]["action_type"]
+        }
+        Insert: {
+          client_id: string
+          client_product_id?: string | null
+          created_at?: string
+          created_by: string
+          description?: string | null
+          due_at?: string | null
+          id?: string
+          owner_user_id: string
+          priority?: number
+          status?: Database["public"]["Enums"]["action_status"]
+          title: string
+          type?: Database["public"]["Enums"]["action_type"]
+        }
+        Update: {
+          client_id?: string
+          client_product_id?: string | null
+          created_at?: string
+          created_by?: string
+          description?: string | null
+          due_at?: string | null
+          id?: string
+          owner_user_id?: string
+          priority?: number
+          status?: Database["public"]["Enums"]["action_status"]
+          title?: string
+          type?: Database["public"]["Enums"]["action_type"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_actions_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "client_preventive_overview"
+            referencedColumns: ["client_id"]
+          },
+          {
+            foreignKeyName: "crm_actions_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_actions_client_product_id_fkey"
+            columns: ["client_product_id"]
+            isOneToOne: false
+            referencedRelation: "crm_client_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_client_product_qualification_answers: {
+        Row: {
+          answer_boolean: boolean | null
+          answer_choice: string | null
+          answer_date: string | null
+          answer_number: number | null
+          answer_text: string | null
+          client_product_id: string
+          id: string
+          item_id: string
+          updated_at: string
+          updated_by: string
+        }
+        Insert: {
+          answer_boolean?: boolean | null
+          answer_choice?: string | null
+          answer_date?: string | null
+          answer_number?: number | null
+          answer_text?: string | null
+          client_product_id: string
+          id?: string
+          item_id: string
+          updated_at?: string
+          updated_by: string
+        }
+        Update: {
+          answer_boolean?: boolean | null
+          answer_choice?: string | null
+          answer_date?: string | null
+          answer_number?: number | null
+          answer_text?: string | null
+          client_product_id?: string
+          id?: string
+          item_id?: string
+          updated_at?: string
+          updated_by?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_client_product_qualification_answers_client_product_id_fkey"
+            columns: ["client_product_id"]
+            isOneToOne: false
+            referencedRelation: "crm_client_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_client_product_qualification_answers_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "crm_product_qualification_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_client_product_snapshots: {
+        Row: {
+          client_id: string
+          data: Json
+          health_reasons: Json
+          health_status: string | null
+          id: string
+          product_code: Database["public"]["Enums"]["product_code"]
+          snapshot_at: string
+        }
+        Insert: {
+          client_id: string
+          data?: Json
+          health_reasons?: Json
+          health_status?: string | null
+          id?: string
+          product_code: Database["public"]["Enums"]["product_code"]
+          snapshot_at?: string
+        }
+        Update: {
+          client_id?: string
+          data?: Json
+          health_reasons?: Json
+          health_status?: string | null
+          id?: string
+          product_code?: Database["public"]["Enums"]["product_code"]
+          snapshot_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_client_product_snapshots_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "client_preventive_overview"
+            referencedColumns: ["client_id"]
+          },
+          {
+            foreignKeyName: "crm_client_product_snapshots_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_client_products: {
+        Row: {
+          client_id: string
+          created_at: string
+          id: string
+          loss_notes: string | null
+          loss_reason_id: string | null
+          notes: string | null
+          owner_user_id: string
+          probability: number | null
+          product_code: Database["public"]["Enums"]["product_code"]
+          stage: Database["public"]["Enums"]["crm_stage"]
+          stage_updated_at: string
+          value_estimated: number | null
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          id?: string
+          loss_notes?: string | null
+          loss_reason_id?: string | null
+          notes?: string | null
+          owner_user_id: string
+          probability?: number | null
+          product_code: Database["public"]["Enums"]["product_code"]
+          stage?: Database["public"]["Enums"]["crm_stage"]
+          stage_updated_at?: string
+          value_estimated?: number | null
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          id?: string
+          loss_notes?: string | null
+          loss_reason_id?: string | null
+          notes?: string | null
+          owner_user_id?: string
+          probability?: number | null
+          product_code?: Database["public"]["Enums"]["product_code"]
+          stage?: Database["public"]["Enums"]["crm_stage"]
+          stage_updated_at?: string
+          value_estimated?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_client_products_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "client_preventive_overview"
+            referencedColumns: ["client_id"]
+          },
+          {
+            foreignKeyName: "crm_client_products_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_client_products_loss_reason_id_fkey"
+            columns: ["loss_reason_id"]
+            isOneToOne: false
+            referencedRelation: "crm_loss_reasons"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_loss_reasons: {
+        Row: {
+          id: string
+          is_active: boolean
+          product_code: Database["public"]["Enums"]["product_code"]
+          reason: string
+          sort_order: number
+        }
+        Insert: {
+          id?: string
+          is_active?: boolean
+          product_code: Database["public"]["Enums"]["product_code"]
+          reason: string
+          sort_order?: number
+        }
+        Update: {
+          id?: string
+          is_active?: boolean
+          product_code?: Database["public"]["Enums"]["product_code"]
+          reason?: string
+          sort_order?: number
+        }
+        Relationships: []
+      }
+      crm_metric_definitions: {
+        Row: {
+          group_name: string | null
+          id: string
+          is_active: boolean
+          label: string
+          metric_key: string
+          priority: number
+          product_code: Database["public"]["Enums"]["product_code"]
+          unit: string | null
+          value_type: string
+        }
+        Insert: {
+          group_name?: string | null
+          id?: string
+          is_active?: boolean
+          label: string
+          metric_key: string
+          priority?: number
+          product_code: Database["public"]["Enums"]["product_code"]
+          unit?: string | null
+          value_type?: string
+        }
+        Update: {
+          group_name?: string | null
+          id?: string
+          is_active?: boolean
+          label?: string
+          metric_key?: string
+          priority?: number
+          product_code?: Database["public"]["Enums"]["product_code"]
+          unit?: string | null
+          value_type?: string
+        }
+        Relationships: []
+      }
+      crm_product_qualification_items: {
+        Row: {
+          answer_type: string
+          id: string
+          is_required: boolean
+          question: string
+          sort_order: number
+          template_id: string
+        }
+        Insert: {
+          answer_type?: string
+          id?: string
+          is_required?: boolean
+          question: string
+          sort_order?: number
+          template_id: string
+        }
+        Update: {
+          answer_type?: string
+          id?: string
+          is_required?: boolean
+          question?: string
+          sort_order?: number
+          template_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_product_qualification_items_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "crm_product_qualification_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      crm_product_qualification_templates: {
+        Row: {
+          id: string
+          is_active: boolean
+          name: string
+          product_code: Database["public"]["Enums"]["product_code"]
+        }
+        Insert: {
+          id?: string
+          is_active?: boolean
+          name: string
+          product_code: Database["public"]["Enums"]["product_code"]
+        }
+        Update: {
+          id?: string
+          is_active?: boolean
+          name?: string
+          product_code?: Database["public"]["Enums"]["product_code"]
+        }
+        Relationships: []
+      }
+      crm_proposals: {
+        Row: {
+          client_product_id: string
+          created_at: string
+          created_by: string
+          id: string
+          notes: string | null
+          proposed_value: number | null
+          sent_at: string | null
+          status: Database["public"]["Enums"]["proposal_status"]
+          valid_until: string | null
+        }
+        Insert: {
+          client_product_id: string
+          created_at?: string
+          created_by: string
+          id?: string
+          notes?: string | null
+          proposed_value?: number | null
+          sent_at?: string | null
+          status?: Database["public"]["Enums"]["proposal_status"]
+          valid_until?: string | null
+        }
+        Update: {
+          client_product_id?: string
+          created_at?: string
+          created_by?: string
+          id?: string
+          notes?: string | null
+          proposed_value?: number | null
+          sent_at?: string | null
+          status?: Database["public"]["Enums"]["proposal_status"]
+          valid_until?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_proposals_client_product_id_fkey"
+            columns: ["client_product_id"]
+            isOneToOne: false
+            referencedRelation: "crm_client_products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       doc_chat_history: {
         Row: {
           answer: string
@@ -2723,8 +3116,14 @@ export type Database = {
       }
       has_role: { Args: { _role: string; _user_id: string }; Returns: boolean }
       is_admin_or_coordinator: { Args: { _user_id: string }; Returns: boolean }
+      is_crm_client_owner: {
+        Args: { _client_id: string; _user_id: string }
+        Returns: boolean
+      }
     }
     Enums: {
+      action_status: "aberta" | "em_execucao" | "concluida"
+      action_type: "tarefa" | "pendencia" | "oportunidade"
       app_role:
         | "admin"
         | "coordenador_rplus"
@@ -2734,6 +3133,14 @@ export type Database = {
         | "tecnico_oficina"
       checklist_execution_status: "em_andamento" | "concluido"
       checklist_item_status: "S" | "N" | "NA"
+      crm_stage:
+        | "nao_qualificado"
+        | "qualificado"
+        | "proposta"
+        | "negociacao"
+        | "ganho"
+        | "perdido"
+        | "descartado"
       doc_category:
         | "visao_geral"
         | "modulo"
@@ -2760,6 +3167,13 @@ export type Database = {
         | "planejada"
         | "em_execucao"
         | "finalizada"
+      product_code:
+        | "ideagri"
+        | "rumiflow"
+        | "onfarm"
+        | "rumiaction"
+        | "insights"
+      proposal_status: "ativa" | "expirada" | "aceita" | "recusada"
       ticket_priority: "baixa" | "media" | "alta" | "urgente"
       ticket_status:
         | "aberto"
@@ -2903,6 +3317,8 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
+      action_status: ["aberta", "em_execucao", "concluida"],
+      action_type: ["tarefa", "pendencia", "oportunidade"],
       app_role: [
         "admin",
         "coordenador_rplus",
@@ -2913,6 +3329,15 @@ export const Constants = {
       ],
       checklist_execution_status: ["em_andamento", "concluido"],
       checklist_item_status: ["S", "N", "NA"],
+      crm_stage: [
+        "nao_qualificado",
+        "qualificado",
+        "proposta",
+        "negociacao",
+        "ganho",
+        "perdido",
+        "descartado",
+      ],
       doc_category: [
         "visao_geral",
         "modulo",
@@ -2943,6 +3368,8 @@ export const Constants = {
         "em_execucao",
         "finalizada",
       ],
+      product_code: ["ideagri", "rumiflow", "onfarm", "rumiaction", "insights"],
+      proposal_status: ["ativa", "expirada", "aceita", "recusada"],
       ticket_priority: ["baixa", "media", "alta", "urgente"],
       ticket_status: [
         "aberto",
