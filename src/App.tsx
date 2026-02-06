@@ -50,6 +50,9 @@ import DocChat from "./pages/docs/DocChat";
 import PublicDocs from "./pages/docs/PublicDocs";
 import ClientesList from "./pages/crm/ClientesList";
 import ClienteDetail from "./pages/crm/ClienteDetail";
+import CrmCarteira from "./pages/crm/CrmCarteira";
+import CrmCliente360 from "./pages/crm/CrmCliente360";
+import CrmPipeline from "./pages/crm/CrmPipeline";
 import AceitarConvite from "./pages/AceitarConvite";
 
 const queryClient = new QueryClient();
@@ -311,6 +314,30 @@ const App = () => (
               element={
                 <AppLayout>
                   <ClienteDetail />
+                </AppLayout>
+              }
+            />
+            <Route
+              path="/crm/carteira"
+              element={
+                <AppLayout>
+                  <CrmCarteira />
+                </AppLayout>
+              }
+            />
+            <Route
+              path="/crm/:id"
+              element={
+                <AppLayout>
+                  <CrmCliente360 />
+                </AppLayout>
+              }
+            />
+            <Route
+              path="/crm/pipeline"
+              element={
+                <AppLayout>
+                  <CrmPipeline />
                 </AppLayout>
               }
             />
