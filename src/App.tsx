@@ -55,6 +55,7 @@ import CrmCliente360 from "./pages/crm/CrmCliente360";
 import CrmPipeline from "./pages/crm/CrmPipeline";
 import CrmVisitas from "./pages/crm/CrmVisitas";
 import CrmVisitaExecucao from "./pages/crm/CrmVisitaExecucao";
+import AdminCrmConfig from "./pages/admin/CrmConfig";
 import AceitarConvite from "./pages/AceitarConvite";
 
 const queryClient = new QueryClient();
@@ -360,6 +361,14 @@ const App = () => (
               }
             />
             
+            <Route
+              path="/admin/crm"
+              element={
+                <AppLayout>
+                  <AdminCrmConfig />
+                </AppLayout>
+              }
+            />
             {/* Chamados Técnicos */}
             <Route
               path="/chamados"
