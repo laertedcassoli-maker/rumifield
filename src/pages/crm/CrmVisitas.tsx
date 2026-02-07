@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -12,12 +12,13 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sh
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import {
-  Plus, Search, MapPin, Clock, Building2, ChevronRight,
-  CalendarDays, Loader2, CheckCircle2, Eye,
+  Plus, Search, MapPin, Building2, ChevronRight,
+  CalendarDays, Loader2, CheckCircle2,
 } from 'lucide-react';
 import { format, isToday, isYesterday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
 
 const STATUS_LABELS: Record<string, string> = {
   planejada: 'Planejada',
@@ -47,7 +48,6 @@ export default function CrmVisitas() {
   const [objective, setObjective] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
-  // Fetch visits
   // @ts-ignore - crm_visits not in types yet
   const { data: visitas, isLoading } = useQuery({
     queryKey: ['crm-visitas', user?.id, isAdmin],
@@ -63,7 +63,6 @@ export default function CrmVisitas() {
     enabled: !!user,
   });
 
-  // Fetch clients for new visit
   const { data: clientes } = useQuery({
     queryKey: ['crm-visitas-clientes', user?.id, isAdmin],
     queryFn: async () => {
@@ -143,7 +142,6 @@ export default function CrmVisitas() {
     return result;
   }, [visitas, statusFilter, search]);
 
-  // Group by date
   const grouped = useMemo(() => {
     const groups: Record<string, any[]> = {};
     filteredVisitas.forEach(v => {
@@ -158,7 +156,6 @@ export default function CrmVisitas() {
     return groups;
   }, [filteredVisitas]);
 
-  // Counts
   const counts = useMemo(() => {
     if (!visitas) return { planejada: 0, em_andamento: 0, concluida: 0 };
     return {
@@ -169,26 +166,30 @@ export default function CrmVisitas() {
   }, [visitas]);
 
   return (
-    <div className="space-y-4 pb-24">
+    <div className="space-y-3 pb-24">
+      {/* Header */}
       <div>
         <h1 className="text-xl font-bold">Visitas CRM</h1>
-        <p className="text-sm text-muted-foreground">Visitas a clientes da carteira</p>
+        <p className="text-xs text-muted-foreground">Visitas a clientes da carteira</p>
       </div>
 
-      {/* Status counts */}
-      <div className="grid grid-cols-3 gap-2">
+      {/* Status counts - compact on mobile */}
+      <div className="grid grid-cols-3 gap-1.5">
         {[
           { key: 'planejada', label: 'Planejadas', count: counts.planejada, color: 'text-blue-600' },
-          { key: 'em_andamento', label: 'Em andamento', count: counts.em_andamento, color: 'text-amber-600' },
+          { key: 'em_andamento', label: 'Andamento', count: counts.em_andamento, color: 'text-amber-600' },
           { key: 'concluida', label: 'Concluídas', count: counts.concluida, color: 'text-green-600' },
         ].map(s => (
           <button
             key={s.key}
             onClick={() => setStatusFilter(statusFilter === s.key ? 'all' : s.key)}
-            className={`rounded-lg border p-3 text-center transition-colors ${statusFilter === s.key ? 'border-primary bg-primary/5' : 'border-border'}`}
+            className={cn(
+              "rounded-lg border py-2 px-1 text-center transition-colors",
+              statusFilter === s.key ? 'border-primary bg-primary/5' : 'border-border'
+            )}
           >
-            <span className={`text-lg font-bold ${s.color}`}>{s.count}</span>
-            <p className="text-xs text-muted-foreground">{s.label}</p>
+            <span className={cn("text-lg font-bold block", s.color)}>{s.count}</span>
+            <p className="text-[11px] text-muted-foreground leading-tight">{s.label}</p>
           </button>
         ))}
       </div>
@@ -196,47 +197,69 @@ export default function CrmVisitas() {
       {/* Search */}
       <div className="relative">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input placeholder="Buscar visita..." value={search} onChange={e => setSearch(e.target.value)} className="pl-10" />
+        <Input placeholder="Buscar visita..." value={search} onChange={e => setSearch(e.target.value)} className="pl-10 h-9 text-sm" />
       </div>
+
+      {/* Active filter indicator */}
+      {statusFilter !== 'all' && (
+        <div className="flex items-center justify-between">
+          <span className="text-xs text-muted-foreground">
+            Filtro: <span className="font-medium">{STATUS_LABELS[statusFilter]}</span>
+          </span>
+          <Button variant="ghost" size="sm" className="h-6 text-xs px-2" onClick={() => setStatusFilter('all')}>
+            Limpar
+          </Button>
+        </div>
+      )}
 
       {/* List */}
       {isLoading ? (
-        <div className="space-y-2">{[1,2,3].map(i => <Skeleton key={i} className="h-20 w-full" />)}</div>
+        <div className="space-y-2">{[1, 2, 3].map(i => <Skeleton key={i} className="h-16 w-full" />)}</div>
       ) : filteredVisitas.length === 0 ? (
         <Card><CardContent className="py-12 text-center">
-          <CalendarDays className="mx-auto h-12 w-12 text-muted-foreground/50" />
-          <h3 className="mt-4 font-semibold">Nenhuma visita encontrada</h3>
-          <p className="text-sm text-muted-foreground">Toque em + para criar uma visita</p>
+          <CalendarDays className="mx-auto h-10 w-10 text-muted-foreground/50" />
+          <h3 className="mt-3 font-semibold text-sm">Nenhuma visita encontrada</h3>
+          <p className="text-xs text-muted-foreground">Toque em + para criar uma visita</p>
         </CardContent></Card>
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-4">
           {Object.entries(grouped).map(([dateLabel, items]) => (
             <div key={dateLabel}>
-              <h3 className="text-sm font-medium text-muted-foreground mb-2 sticky top-0 bg-background py-1">{dateLabel}</h3>
-              <div className="space-y-2">
+              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 sticky top-0 bg-background py-1 z-10">
+                {dateLabel}
+              </h3>
+              <div className="space-y-1.5">
                 {items.map((v: any) => (
-                  <Card key={v.id} className="overflow-hidden cursor-pointer hover:border-primary/30 transition-colors"
-                    onClick={() => navigate(`/crm/visitas/${v.id}`)}>
+                  <Card
+                    key={v.id}
+                    className="overflow-hidden cursor-pointer hover:border-primary/30 active:bg-muted/50 transition-colors"
+                    onClick={() => navigate(`/crm/visitas/${v.id}`)}
+                  >
                     <CardContent className="p-3">
-                      <div className="flex items-start gap-3">
-                        <div className="flex-shrink-0 w-12 text-center">
-                          <span className="text-lg font-semibold">{format(new Date(v.created_at), 'HH:mm')}</span>
-                        </div>
+                      <div className="flex items-start gap-2">
+                        {/* Time badge - compact */}
+                        <span className="text-xs font-mono text-muted-foreground bg-muted rounded px-1.5 py-0.5 shrink-0 mt-0.5">
+                          {format(new Date(v.created_at), 'HH:mm')}
+                        </span>
+
+                        {/* Content */}
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2">
-                            <p className="font-medium truncate">{v.clientes?.nome}</p>
-                            <Badge className={`text-[10px] shrink-0 ${STATUS_COLORS[v.status]}`}>
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <p className="font-medium text-sm truncate max-w-[60%]">{v.clientes?.nome}</p>
+                            <Badge className={cn("text-[10px] shrink-0 px-1.5 py-0", STATUS_COLORS[v.status])}>
                               {STATUS_LABELS[v.status]}
                             </Badge>
+                            {v.checkin_at && <MapPin className="h-3 w-3 text-green-600 shrink-0" />}
                           </div>
                           {v.clientes?.fazenda && (
-                            <p className="text-sm text-muted-foreground truncate">{v.clientes.fazenda}</p>
+                            <p className="text-xs text-muted-foreground truncate">{v.clientes.fazenda}</p>
                           )}
                           {v.objective && (
-                            <p className="text-sm text-muted-foreground mt-1 line-clamp-1">{v.objective}</p>
+                            <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{v.objective}</p>
                           )}
                         </div>
-                        {v.checkin_at && <MapPin className="h-4 w-4 text-green-600 shrink-0" />}
+
+                        <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
                       </div>
                     </CardContent>
                   </Card>
@@ -259,53 +282,53 @@ export default function CrmVisitas() {
       {/* New Visit Sheet */}
       <Sheet open={sheetOpen} onOpenChange={open => !open && handleCloseSheet()}>
         <SheetContent side="bottom" className="h-[85vh] rounded-t-xl">
-          <SheetHeader className="text-left pb-4">
-            <SheetTitle>{selectedCliente ? 'Nova Visita' : 'Selecionar Cliente'}</SheetTitle>
+          <SheetHeader className="text-left pb-3">
+            <SheetTitle className="text-base">{selectedCliente ? 'Nova Visita' : 'Selecionar Cliente'}</SheetTitle>
           </SheetHeader>
 
           {!selectedCliente ? (
-            <div className="space-y-4 h-full flex flex-col">
+            <div className="space-y-3 h-full flex flex-col">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input placeholder="Buscar cliente..." value={clienteSearch} onChange={e => setClienteSearch(e.target.value)} className="pl-10" autoFocus />
+                <Input placeholder="Buscar cliente..." value={clienteSearch} onChange={e => setClienteSearch(e.target.value)} className="pl-10 h-9 text-sm" autoFocus />
               </div>
-              <div className="flex-1 overflow-y-auto -mx-6 px-6 space-y-1">
+              <div className="flex-1 overflow-y-auto -mx-6 px-6 space-y-0.5">
                 {filteredClientes.map((c: any) => (
                   <button key={c.id} onClick={() => setSelectedCliente(c)}
-                    className="w-full p-3 rounded-lg text-left hover:bg-muted active:bg-muted/80 transition-colors flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
-                      <Building2 className="h-5 w-5 text-primary" />
+                    className="w-full p-2.5 rounded-lg text-left hover:bg-muted active:bg-muted/80 transition-colors flex items-center gap-2.5">
+                    <div className="h-9 w-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                      <Building2 className="h-4 w-4 text-primary" />
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium truncate">{c.nome}</p>
-                      {c.fazenda && <p className="text-sm text-muted-foreground truncate">{c.fazenda}</p>}
+                      <p className="font-medium text-sm truncate">{c.nome}</p>
+                      {c.fazenda && <p className="text-xs text-muted-foreground truncate">{c.fazenda}</p>}
                     </div>
-                    <ChevronRight className="h-5 w-5 text-muted-foreground shrink-0" />
+                    <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
                   </button>
                 ))}
                 {filteredClientes.length === 0 && (
-                  <div className="text-center py-8 text-muted-foreground">Nenhum cliente encontrado</div>
+                  <div className="text-center py-8 text-sm text-muted-foreground">Nenhum cliente encontrado</div>
                 )}
               </div>
             </div>
           ) : (
             <div className="space-y-4">
               <Card>
-                <CardContent className="p-4 flex items-center gap-3">
-                  <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
-                    <Building2 className="h-6 w-6 text-primary" />
+                <CardContent className="p-3 flex items-center gap-3">
+                  <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                    <Building2 className="h-5 w-5 text-primary" />
                   </div>
-                  <div className="flex-1">
-                    <p className="font-semibold">{selectedCliente.nome}</p>
-                    {selectedCliente.fazenda && <p className="text-sm text-muted-foreground">{selectedCliente.fazenda}</p>}
+                  <div className="flex-1 min-w-0">
+                    <p className="font-semibold text-sm">{selectedCliente.nome}</p>
+                    {selectedCliente.fazenda && <p className="text-xs text-muted-foreground truncate">{selectedCliente.fazenda}</p>}
                   </div>
-                  <Button variant="ghost" size="sm" onClick={() => setSelectedCliente(null)}>Trocar</Button>
+                  <Button variant="ghost" size="sm" className="text-xs h-7" onClick={() => setSelectedCliente(null)}>Trocar</Button>
                 </CardContent>
               </Card>
 
-              <div className="space-y-2">
-                <Label>Objetivo da visita (opcional)</Label>
-                <Textarea placeholder="Ex: Qualificação de produto, revisão de contrato..." value={objective} onChange={e => setObjective(e.target.value)} rows={3} className="resize-none" />
+              <div className="space-y-1.5">
+                <Label className="text-sm">Objetivo da visita (opcional)</Label>
+                <Textarea placeholder="Ex: Qualificação de produto..." value={objective} onChange={e => setObjective(e.target.value)} rows={3} className="resize-none text-sm" />
               </div>
 
               <Button size="lg" className="w-full" onClick={handleSubmitVisit} disabled={createVisit.isPending}>
