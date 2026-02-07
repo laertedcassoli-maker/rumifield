@@ -16,7 +16,7 @@ import { Plus, ChevronDown, Pencil, Trash2, GripVertical, Save, Loader2 } from '
 import { Link } from 'react-router-dom';
 import { PRODUCT_LABELS, type ProductCode, PRODUCT_ORDER } from '@/hooks/useCrmData';
 import { CrmLossReasonsSection } from '@/components/admin/CrmLossReasonsSection';
-import { CrmMetricDefsTable } from '@/components/admin/CrmMetricDefsTable';
+import { CrmMetricDefsSection } from '@/components/admin/CrmMetricDefsSection';
 import { CrmChecklistRulesSection } from '@/components/admin/CrmChecklistRulesSection';
 import { Separator } from '@/components/ui/separator';
 
@@ -464,6 +464,9 @@ export default function CrmConfig() {
                     </div>
 
                     <Separator />
+                    <CrmMetricDefsSection productCode={productCode} />
+
+                    <Separator />
                     <CrmLossReasonsSection productCode={productCode} />
 
                     <Separator />
@@ -476,8 +479,6 @@ export default function CrmConfig() {
         })}
       </div>
 
-      {/* Metrics Table - flat, all products */}
-      <CrmMetricDefsTable />
 
       {/* Template Dialog */}
       <Dialog open={templateDialogOpen} onOpenChange={setTemplateDialogOpen}>
