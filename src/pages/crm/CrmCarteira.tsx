@@ -183,22 +183,22 @@ export default function CrmCarteira() {
                     </div>
                   </div>
 
-                  {/* Actions */}
-                  <div className="flex items-center gap-0 shrink-0">
-                    <Button
-                      variant="ghost" size="icon" className="h-7 w-7 min-w-7"
-                      onClick={(e) => { e.stopPropagation(); setActionModal({ open: true, clientId: c.id }); }}
-                    >
-                      <Plus className="h-3.5 w-3.5" />
-                    </Button>
-                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                  </div>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
                 </div>
               </CardContent>
             </Card>
           ))
         )}
       </div>
+
+      {/* FAB */}
+      <Button
+        size="lg"
+        className="fixed bottom-20 right-4 h-14 w-14 rounded-full shadow-lg z-50 md:bottom-6"
+        onClick={() => setActionModal({ open: true, clientId: '' })}
+      >
+        <Plus className="h-6 w-6" />
+      </Button>
 
       <CriarAcaoModal
         open={actionModal.open}
