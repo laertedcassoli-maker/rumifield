@@ -141,10 +141,11 @@ export default function CrmConfig() {
   };
 
   const setProductEdit = (id: string, field: 'nome' | 'cod_imilk', value: string) => {
-    setProductEdits(prev => ({
-      ...prev,
-      [id]: { ...prev[id], [field]: value },
-    }));
+    setProductEdits(prev => {
+      const produto = (produtosComerciais || []).find(p => p.id === id);
+      const current = prev[id] || { nome: produto?.nome || '', cod_imilk: produto?.cod_imilk || '' };
+      return { ...prev, [id]: { ...current, [field]: value } };
+    });
   };
 
   const hasProductChanges = (produto: ProdutoComercial) => {
