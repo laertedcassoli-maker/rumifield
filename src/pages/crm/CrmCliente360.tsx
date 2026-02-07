@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useCliente360Data, PRODUCT_ORDER, STAGE_LABELS, PRODUCT_LABELS, type ProductCode, type CrmStage } from '@/hooks/useCrmData';
@@ -21,6 +21,7 @@ import { ptBR } from 'date-fns/locale';
 
 export default function CrmCliente360() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
 
   const { data: cliente, isLoading: loadingCliente } = useQuery({
     queryKey: ['crm-cliente', id],
@@ -84,9 +85,7 @@ export default function CrmCliente360() {
     <div className="space-y-4 animate-fade-in">
       {/* Header */}
       <div className="flex items-center gap-3">
-        <Link to="/crm/carteira">
-          <Button variant="ghost" size="icon"><ArrowLeft className="h-5 w-5" /></Button>
-        </Link>
+        <Button variant="ghost" size="icon" onClick={() => navigate(-1)}><ArrowLeft className="h-5 w-5" /></Button>
         <div className="flex-1">
           <h1 className="text-xl font-bold">{cliente.nome}</h1>
           {cliente.fazenda && <p className="text-muted-foreground text-sm">{cliente.fazenda}</p>}
