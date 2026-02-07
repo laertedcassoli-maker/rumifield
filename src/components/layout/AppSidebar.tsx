@@ -37,6 +37,7 @@ export function AppSidebar() {
     { title: 'CRM Carteira', icon: Briefcase, url: '/crm/carteira', permKey: 'crm_clientes' },
     { title: 'Visitas CRM', icon: Eye, url: '/crm/visitas', permKey: 'crm_clientes' },
     { title: 'Pipeline', icon: BarChart3, url: '/crm/pipeline', permKey: 'crm_clientes' },
+    { title: 'Ações CRM', icon: ListChecks, url: '/crm/acoes', permKey: 'crm_clientes' },
     { title: 'Solicitação Peças', icon: ShoppingCart, url: '/pedidos', permKey: 'pedidos' },
   ].filter(item => canAccess(item.permKey));
 
