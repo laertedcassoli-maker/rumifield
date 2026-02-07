@@ -288,6 +288,7 @@ export default function CrmVisitaExecucao() {
                 lossReasons={lossReasons}
                 lossReasonId={cp.loss_reason_id}
                 lossNotes={cp.loss_notes}
+                readOnly={isCompleted}
                 onQualify={() => setQualModal({ open: true, cpId: cp.id, pc })}
                 onCreateProposal={() => setPropModal({ open: true, cpId: cp.id, pc })}
                 onUpdateNegotiation={() => setNegModal({ open: true, cpId: cp.id, pc, stage: cp.stage as CrmStage })}
