@@ -1,69 +1,59 @@
 
 
-## Snapshot dos Produtos no Checkout da Visita
+## Tela de Acoes CRM (visao flat)
 
-### Objetivo
-Salvar o estado (stage) de cada produto do cliente no momento em que a visita e finalizada, para que ao reabrir uma visita concluida, os cards de produto mostrem o status historico correto -- nao o status atual.
+### O que e
+Uma nova pagina `/crm/acoes` que lista todas as acoes de todos os clientes em uma unica tela, com filtros e ordenacao. Tanto o consultor quanto o gestor conseguem ver rapidamente o que esta pendente, vencido, ou concluido.
 
-### O que muda para o usuario
-- Ao abrir uma visita concluida, os produtos aparecerao com o status que tinham naquele momento (ex: "Nao Qualificado"), mesmo que hoje estejam em outro estagio.
-- Visitas novas continuam funcionando normalmente.
+### Funcionalidades
 
----
+1. **Listagem flat** de todas as acoes com:
+   - Titulo da acao
+   - Nome do cliente (com link para o 360)
+   - Tipo (tarefa, pendencia, oportunidade)
+   - Status (pendente, concluida, cancelada)
+   - Prioridade
+   - Prazo (com destaque visual se vencido)
+   - Responsavel (para gestores que veem todos)
+
+2. **Filtros**:
+   - Status: Pendentes (padrao), Concluidas, Canceladas, Todas
+   - Tipo: Todos, Tarefa, Pendencia, Oportunidade
+   - Busca por texto (titulo ou nome do cliente)
+
+3. **Ordenacao**: por prazo (mais urgentes primeiro), com vencidas no topo
+
+4. **Permissoes**:
+   - Consultor ve apenas suas acoes (filtro por `owner_user_id`)
+   - Admin/Coordenador R+ ve todas as acoes, com nome do responsavel visivel
+
+5. **Link no menu lateral**: "Acoes CRM" com icone `ListChecks`, usando a permissao `crm_clientes`
 
 ### Detalhes tecnicos
 
-#### 1. Nova tabela: `crm_visit_product_snapshots`
+**Novo arquivo**: `src/pages/crm/CrmAcoes.tsx`
 
-Armazena uma copia do estado de cada produto no momento do checkout.
+- Query na tabela `crm_actions` com join em `clientes` (para nome do cliente) e `profiles` (para nome do responsavel)
+- Filtro por `owner_user_id` quando nao e admin/coordenador
+- Componentes: Card-based (mobile-first), com badges de status e prioridade
+- Acoes vencidas (due_at < now e status pendente) destacadas com borda/texto vermelho
 
-| Coluna | Tipo | Descricao |
-|--------|------|-----------|
-| id | uuid PK | |
-| visit_id | uuid FK -> crm_visits | Visita associada |
-| client_product_id | uuid FK -> crm_client_products | Produto original |
-| product_code | product_code (enum) | Codigo do produto |
-| stage | crm_stage (enum) | Estagio no momento do checkout |
-| value_estimated | numeric | Valor estimado na epoca |
-| probability | integer | Probabilidade na epoca |
-| loss_reason_id | uuid | Motivo de perda, se aplicavel |
-| loss_notes | text | Notas de perda |
-| created_at | timestamptz | Timestamp do snapshot |
+**Alteracoes**:
 
-RLS: mesmas regras dos outros dados CRM (admin/coordenador ve tudo, consultor ve os seus).
+| Arquivo | Mudanca |
+|---------|---------|
+| `src/pages/crm/CrmAcoes.tsx` | Nova pagina com listagem, filtros e busca |
+| `src/App.tsx` | Adicionar rota `/crm/acoes` |
+| `src/components/layout/AppSidebar.tsx` | Adicionar item "Acoes CRM" no menu principal |
 
-#### 2. Alteracao no `FinalizarVisitaModal.tsx`
-
-No `mutationFn`, apos atualizar a visita para "concluida", buscar todos os `crm_client_products` do cliente e inserir um registro por produto na tabela `crm_visit_product_snapshots`.
-
+**Query principal** (pseudocodigo):
 ```
-// Pseudocodigo dentro do finalizeMutation
-const { data: products } = await supabase
-  .from('crm_client_products')
-  .select('id, product_code, stage, value_estimated, probability, loss_reason_id, loss_notes')
-  .eq('client_id', clientId);
-
-const snapshotInserts = products.map(p => ({
-  visit_id: visitId,
-  client_product_id: p.id,
-  product_code: p.product_code,
-  stage: p.stage,
-  value_estimated: p.value_estimated,
-  probability: p.probability,
-  loss_reason_id: p.loss_reason_id,
-  loss_notes: p.loss_notes,
-}));
-
-await supabase.from('crm_visit_product_snapshots').insert(snapshotInserts);
+supabase
+  .from('crm_actions')
+  .select('*, clientes!inner(id, nome), profiles!crm_actions_owner_user_id_fkey(nome)')
+  .order('due_at', { ascending: true, nullsFirst: false })
 ```
 
-#### 3. Alteracao no `CrmVisitaExecucao.tsx`
+Para consultores, adiciona `.eq('owner_user_id', user.id)`.
 
-- Adicionar query para buscar snapshots da visita: `crm_visit_product_snapshots` filtrado por `visit_id`.
-- Quando a visita esta concluida (`isCompleted`) e existem snapshots, usar os dados do snapshot (stage, loss_reason_id, loss_notes) ao renderizar os `ProductCard`, em vez dos dados ao vivo do `crm_client_products`.
-- Quando nao ha snapshots (visitas antigas, antes desta feature), continuar usando os dados ao vivo como fallback.
-
-#### 4. Nenhuma alteracao no `ProductCard`
-
-O `ProductCard` ja recebe `stage`, `lossReasonId`, `lossNotes` como props -- basta passar os valores do snapshot em vez dos ao vivo.
-
+Nao requer alteracoes no banco de dados -- usa tabelas e RLS ja existentes.
