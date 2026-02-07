@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { cn } from '@/lib/utils';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -98,14 +99,29 @@ export function CriarAcaoModal({ open, onOpenChange, clientId, clientProductId, 
           </div>
           <div>
             <Label>Status</Label>
-            <Select value={status} onValueChange={setStatus}>
-              <SelectTrigger><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="pendente">Pendente</SelectItem>
-                <SelectItem value="concluida">Concluída</SelectItem>
-                <SelectItem value="cancelada">Cancelada</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="flex gap-2 mt-1.5">
+              {([
+                { value: 'pendente', label: 'Pendente', style: 'border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100' },
+                { value: 'concluida', label: 'Concluída', style: 'border-green-300 bg-green-50 text-green-700 hover:bg-green-100' },
+                { value: 'cancelada', label: 'Cancelada', style: 'border-gray-300 bg-gray-50 text-gray-500 hover:bg-gray-100' },
+              ] as const).map(opt => (
+                <Button
+                  key={opt.value}
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className={cn(
+                    "flex-1 text-xs",
+                    status === opt.value
+                      ? `${opt.style} ring-2 ring-offset-1 ring-current font-semibold`
+                      : "opacity-60"
+                  )}
+                  onClick={() => setStatus(opt.value)}
+                >
+                  {opt.label}
+                </Button>
+              ))}
+            </div>
           </div>
           <div>
             <Label>Prazo</Label>
