@@ -18,7 +18,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, MapPin, Clock, Navigation, Loader2, CheckCircle2, LogOut, Plus, ClipboardList, FileText, Timer } from 'lucide-react';
+import { ArrowLeft, MapPin, Clock, Navigation, Loader2, CheckCircle2, LogOut, Plus, ClipboardList, FileText, Timer, ExternalLink } from 'lucide-react';
 import { format, differenceInMinutes } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { CheckinDialog } from '@/components/preventivas/CheckinDialog';
@@ -220,10 +220,24 @@ export default function CrmVisitaExecucao() {
           <div className="flex flex-wrap gap-4 text-muted-foreground">
             <span className="flex items-center gap-1"><Clock className="h-3.5 w-3.5" /> Criada: {format(new Date(visit.created_at), "dd/MM 'às' HH:mm")}</span>
             {visit.checkin_at && (
-              <span className="flex items-center gap-1 text-green-600"><MapPin className="h-3.5 w-3.5" /> Check-in: {format(new Date(visit.checkin_at), "HH:mm")}</span>
+              <span className="flex items-center gap-1 text-green-600">
+                <MapPin className="h-3.5 w-3.5" /> Check-in: {format(new Date(visit.checkin_at), "HH:mm")}
+                {visit.checkin_lat && visit.checkin_lon && (
+                  <a href={`https://www.google.com/maps?q=${visit.checkin_lat},${visit.checkin_lon}`} target="_blank" rel="noopener noreferrer" className="ml-0.5 hover:opacity-70" title="Ver no mapa">
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                )}
+              </span>
             )}
             {visit.checkout_at && (
-              <span className="flex items-center gap-1 text-primary"><LogOut className="h-3.5 w-3.5" /> Check-out: {format(new Date(visit.checkout_at), "HH:mm")}</span>
+              <span className="flex items-center gap-1 text-primary">
+                <LogOut className="h-3.5 w-3.5" /> Check-out: {format(new Date(visit.checkout_at), "HH:mm")}
+                {visit.checkout_lat && visit.checkout_lon && (
+                  <a href={`https://www.google.com/maps?q=${visit.checkout_lat},${visit.checkout_lon}`} target="_blank" rel="noopener noreferrer" className="ml-0.5 hover:opacity-70" title="Ver no mapa">
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                )}
+              </span>
             )}
             {durationLabel && (
               <span className="flex items-center gap-1 text-foreground font-medium"><Timer className="h-3.5 w-3.5" /> Duração: {durationLabel}</span>
