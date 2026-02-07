@@ -264,16 +264,25 @@ export default function CrmVisitaExecucao() {
         </div>
       )}
 
-      {/* Open Actions */}
-      {actions.filter((a: any) => a.status !== 'concluida').length > 0 && (
+      {/* All Actions */}
+      {actions.length > 0 && (
         <div>
-          <h2 className="text-lg font-semibold mb-3">Pendências</h2>
+          <h2 className="text-lg font-semibold mb-3">Ações</h2>
           <div className="space-y-2">
-            {actions.filter((a: any) => a.status !== 'concluida').map((a: any) => (
-              <Card key={a.id}>
+            {actions.map((a: any) => (
+              <Card key={a.id} className={cn(a.status === 'concluida' && 'opacity-60')}>
                 <CardContent className="py-3 flex items-center justify-between gap-2">
-                  <p className="text-sm font-medium truncate">{a.title}</p>
-                  <Badge variant="outline" className="text-[10px]">{a.type}</Badge>
+                  <p className={cn("text-sm font-medium truncate", a.status === 'concluida' && 'line-through')}>{a.title}</p>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <Badge variant="outline" className="text-[10px]">{a.type}</Badge>
+                    <Badge variant="outline" className={cn("text-[10px]",
+                      a.status === 'concluida' ? 'bg-green-50 text-green-700 border-green-300' :
+                      a.status === 'cancelada' ? 'bg-gray-50 text-gray-500 border-gray-300' :
+                      'bg-amber-50 text-amber-700 border-amber-300'
+                    )}>
+                      {a.status === 'concluida' ? 'Concluída' : a.status === 'cancelada' ? 'Cancelada' : 'Pendente'}
+                    </Badge>
+                  </div>
                 </CardContent>
               </Card>
             ))}
