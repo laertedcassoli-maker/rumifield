@@ -119,9 +119,17 @@ export function VisitAudioList({ visitId }: Props) {
   })();
 
   const handleTranscribe = useCallback(async (item: AudioItem) => {
+    console.log('[Transcribe] item.id:', item.id, 'source:', item.source, 'audioData type:', typeof item.audioData, 'audioData:', item.audioData, 'byteLength:', item.audioData?.byteLength, 'length:', (item.audioData as any)?.length);
     if (!item.audioData || item.audioData.byteLength === 0) {
-      toast({ variant: 'destructive', title: 'Áudio não disponível ou vazio' });
-      return;
+      // Try re-fetching from IndexedDB directly
+      const localRecord = await offlineDb.crm_visit_audios.get(item.id);
+      console.log('[Transcribe] Re-fetched from IndexedDB:', localRecord ? `found, audioData byteLength: ${localRecord.audioData?.byteLength}` : 'not found');
+      if (localRecord?.audioData && localRecord.audioData.byteLength > 0) {
+        item = { ...item, audioData: localRecord.audioData };
+      } else {
+        toast({ variant: 'destructive', title: 'Áudio não disponível ou vazio' });
+        return;
+      }
     }
 
     setProcessingId(item.id);
