@@ -95,7 +95,7 @@ export default function CrmCarteira() {
   }, [clienteData, debouncedSearch, filter]);
 
   return (
-    <div className="space-y-3 animate-fade-in pb-24">
+    <div className="space-y-3 animate-fade-in pb-24 overflow-x-hidden">
       <h1 className="text-lg font-bold">Carteira CRM</h1>
 
       {/* Search + Filter */}
@@ -124,7 +124,7 @@ export default function CrmCarteira() {
       </div>
 
       {/* Summary - compact row */}
-      <div className="grid grid-cols-4 gap-1.5">
+      <div className="grid grid-cols-4 gap-1">
         {[
           { val: clienteData.length, label: 'Clientes', color: '' },
           { val: clienteData.filter(c => c.worstHealth === 'vermelho').length, label: 'Críticos', color: 'text-red-600' },
@@ -132,9 +132,9 @@ export default function CrmCarteira() {
           { val: clienteData.reduce((s, c) => s + c.overdueActions, 0), label: 'Vencidas', color: 'text-destructive' },
         ].map((item, i) => (
           <Card key={i}>
-            <CardContent className="py-2 px-2 text-center">
-              <p className={`text-base font-bold ${item.color}`}>{item.val}</p>
-              <p className="text-[10px] text-muted-foreground leading-tight">{item.label}</p>
+            <CardContent className="py-1.5 px-1 text-center">
+              <p className={`text-sm font-bold ${item.color}`}>{item.val}</p>
+              <p className="text-[9px] text-muted-foreground leading-tight">{item.label}</p>
             </CardContent>
           </Card>
         ))}
