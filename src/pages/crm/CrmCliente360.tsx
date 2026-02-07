@@ -15,6 +15,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { ClienteAnaliseIA } from '@/components/crm/ClienteAnaliseIA';
 import { ArrowLeft, MapPin, Phone, Mail, Plus, Clock, Eye, User, ChevronRight } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -101,9 +102,12 @@ export default function CrmCliente360() {
           <h1 className="text-xl font-bold">{cliente.nome}</h1>
           {cliente.fazenda && <p className="text-muted-foreground text-sm">{cliente.fazenda}</p>}
         </div>
-        <Button size="sm" variant="outline" onClick={() => setActionModal(true)} className="gap-1">
-          <Plus className="h-3.5 w-3.5" /> Ação
-        </Button>
+        <div className="flex items-center gap-2">
+          <ClienteAnaliseIA clientId={id!} clientName={cliente.nome} />
+          <Button size="sm" variant="outline" onClick={() => setActionModal(true)} className="gap-1">
+            <Plus className="h-3.5 w-3.5" /> Ação
+          </Button>
+        </div>
       </div>
 
       {/* Contact + Consultor */}

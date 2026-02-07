@@ -35,3 +35,6 @@ verify_jwt = false
 
 [functions.generate-module-docs]
 verify_jwt = false
+
+[functions.crm-client-analysis]
+verify_jwt = false
