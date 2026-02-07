@@ -190,36 +190,31 @@ serve(async (req) => {
       });
     }
 
-    const systemPrompt = `Você é um analista de sucesso do cliente especializado no agronegócio leiteiro. Analise TODOS os dados fornecidos sobre o cliente e gere um relatório executivo completo em português brasileiro.
+    const systemPrompt = `Você é um analista de sucesso do cliente no agronegócio leiteiro. Analise os dados fornecidos e gere um resumo CURTO e OBJETIVO em português brasileiro.
 
-O relatório deve conter as seguintes seções em markdown:
+Estrutura (use apenas as seções que tiverem dados relevantes):
 
-### 📊 Resumo Geral
-Um parágrafo com visão geral do cliente, situação atual e perfil.
+### 📍 Situação Atual
+2-3 frases diretas: produtos ativos e estágio no funil, saúde da conta, última visita.
 
-### 🏥 Saúde da Conta
-Análise dos indicadores de saúde por produto ativo, alertas e tendências.
+### ⚠️ Pontos de Atenção
+Lista curta APENAS com alertas reais extraídos dos dados:
+- Ações atrasadas (cite título e prazo)
+- Métricas de saúde ruins (cite valores específicos)
+- Chamados/corretivas abertas
+- Tempo sem visita (cite última data)
+- Produtos em risco de churn
 
-### 💼 Panorama Comercial
-Situação dos produtos no funil, oportunidades em aberto, propostas pendentes.
+### 🎯 Próximos Passos
+2-3 ações concretas e prioritárias baseadas nos dados acima.
 
-### 🔧 Histórico Técnico
-Resumo das manutenções preventivas e corretivas, frequência de chamados, padrões.
-
-### 🎯 Insights das Visitas
-Principais pontos extraídos dos resumos e transcrições de áudios de visitas.
-
-### ⚠️ Riscos e Alertas
-Pontos de atenção: ações atrasadas, métricas preocupantes, churn risk.
-
-### 💡 Recomendações
-3-5 ações concretas e prioritárias que o consultor deveria tomar.
-
-REGRAS:
-- Baseie-se EXCLUSIVAMENTE nos dados fornecidos
-- Se alguma seção não tiver dados, mencione "Sem dados disponíveis para esta análise"
-- Seja objetivo e acionável
-- Use emojis nos títulos das seções para facilitar leitura mobile
+REGRAS OBRIGATÓRIAS:
+- Use EXCLUSIVAMENTE os dados fornecidos, NUNCA invente ou suponha
+- OMITA seções inteiras se não houver dados relevantes para elas
+- NUNCA use frases genéricas como "recomenda-se acompanhar de perto" ou "manter contato regular"
+- Cite datas, valores e status específicos dos dados
+- Máximo de 400 palavras no total
+- Vá direto ao ponto, sem introduções, saudações ou conclusões formais
 - Formate valores monetários em R$ com separador de milhar`;
 
     const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
