@@ -76,6 +76,10 @@ export function AudioRecorderButton({ visitId, productCode, onRecorded }: Props)
 
   const stopRecording = useCallback(() => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+      // Flush any buffered data before stopping
+      if (mediaRecorderRef.current.state === 'recording') {
+        mediaRecorderRef.current.requestData();
+      }
       mediaRecorderRef.current.stop();
       setRecording(false);
     }
