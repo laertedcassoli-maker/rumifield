@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -86,7 +86,7 @@ export default function CrmConfig() {
   });
 
   // Fetch produtos (commercial products) for nome + cod_imilk editing
-  interface ProdutoComercial { id: string; nome: string; descricao: string | null; cod_imilk: string | null; ativo: boolean; }
+  interface ProdutoComercial { id: string; nome: string; descricao: string | null; cod_imilk: string | null; ativo: boolean; product_code: string | null; }
   const { data: produtosComerciais, isLoading: loadingProdutos } = useQuery({
     queryKey: ['produtos-comerciais-crm'],
     queryFn: async () => {
@@ -95,6 +95,24 @@ export default function CrmConfig() {
       return data as ProdutoComercial[];
     },
   });
+
+  // Auto-provision missing products
+  const provisionedRef = useRef(false);
+  useEffect(() => {
+    if (!produtosComerciais || loadingProdutos || provisionedRef.current) return;
+    const existingCodes = new Set(produtosComerciais.map(p => p.product_code).filter(Boolean));
+    const missing = PRODUCT_ORDER.filter(code => !existingCodes.has(code));
+    if (missing.length > 0) {
+      provisionedRef.current = true;
+      const inserts = missing.map(code => ({
+        nome: PRODUCT_LABELS[code],
+        product_code: code,
+      }));
+      (supabase as any).from('produtos').insert(inserts).then(() => {
+        queryClient.invalidateQueries({ queryKey: ['produtos-comerciais-crm'] });
+      });
+    }
+  }, [produtosComerciais, loadingProdutos]);
 
   // Track inline edits for product nome/cod_imilk
   const [productEdits, setProductEdits] = useState<Record<string, { nome: string; cod_imilk: string }>>({});
@@ -115,9 +133,7 @@ export default function CrmConfig() {
   });
 
   const getProductRecord = (productCode: ProductCode): ProdutoComercial | undefined => {
-    // Try to match by name (PRODUCT_LABELS maps code to display name)
-    const label = PRODUCT_LABELS[productCode].toLowerCase();
-    return (produtosComerciais || []).find(p => p.nome.toLowerCase() === label);
+    return (produtosComerciais || []).find(p => p.product_code === productCode);
   };
 
   const getProductEdit = (produto: ProdutoComercial) => {
