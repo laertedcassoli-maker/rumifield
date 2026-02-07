@@ -14,8 +14,8 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, MapPin, Clock, Navigation, Loader2, CheckCircle2, LogOut, Plus, ClipboardList } from 'lucide-react';
-import { format } from 'date-fns';
+import { ArrowLeft, MapPin, Clock, Navigation, Loader2, CheckCircle2, LogOut, Plus, ClipboardList, FileText, Timer } from 'lucide-react';
+import { format, differenceInMinutes } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { CheckinDialog } from '@/components/preventivas/CheckinDialog';
 import { cn } from '@/lib/utils';
@@ -63,7 +63,7 @@ export default function CrmVisitaExecucao() {
 
   const {
     clientProducts, snapshots, metricDefs, actions, proposals, lossReasons,
-    refetchProducts, refetchActions,
+    refetchProducts, refetchActions, refetchProposals,
   } = useCliente360Data(clientId);
 
   // Fetch visit checklists
@@ -147,6 +147,16 @@ export default function CrmVisitaExecucao() {
   const isCompleted = visit.status === 'concluida';
   const wonProducts = clientProducts.filter((p: any) => p.stage === 'ganho');
 
+  // Duration calculation
+  const durationMinutes = visit.checkout_at && visit.checkin_at
+    ? differenceInMinutes(new Date(visit.checkout_at), new Date(visit.checkin_at))
+    : null;
+  const durationLabel = durationMinutes != null
+    ? durationMinutes >= 60
+      ? `${Math.floor(durationMinutes / 60)}h ${durationMinutes % 60}min`
+      : `${durationMinutes}min`
+    : null;
+
   return (
     <div className="space-y-6 animate-fade-in pb-24">
       {/* Header */}
@@ -178,10 +188,27 @@ export default function CrmVisitaExecucao() {
             {visit.checkout_at && (
               <span className="flex items-center gap-1 text-primary"><LogOut className="h-3.5 w-3.5" /> Check-out: {format(new Date(visit.checkout_at), "HH:mm")}</span>
             )}
+            {durationLabel && (
+              <span className="flex items-center gap-1 text-foreground font-medium"><Timer className="h-3.5 w-3.5" /> Duração: {durationLabel}</span>
+            )}
           </div>
-          {visit.summary && <p><span className="text-muted-foreground">Resumo:</span> {visit.summary}</p>}
+          {/* Summary: inline for non-completed, highlighted card for completed */}
+          {visit.summary && !isCompleted && <p><span className="text-muted-foreground">Resumo:</span> {visit.summary}</p>}
         </CardContent>
       </Card>
+
+      {/* Highlighted summary for completed visits */}
+      {isCompleted && visit.summary && (
+        <Card className="border-green-200 bg-green-50 dark:bg-green-950/30 dark:border-green-900">
+          <CardContent className="py-4 flex gap-3">
+            <CheckCircle2 className="h-5 w-5 text-green-600 shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-semibold text-green-800 dark:text-green-300 mb-1">Resumo da Visita</p>
+              <p className="text-sm text-green-900 dark:text-green-200 whitespace-pre-line">{visit.summary}</p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Action Buttons */}
       {isPlanned && (
@@ -199,6 +226,44 @@ export default function CrmVisitaExecucao() {
           <Button size="lg" className="flex-1 gap-1" onClick={() => setFinalizarOpen(true)}>
             <CheckCircle2 className="h-4 w-4" /> Finalizar
           </Button>
+        </div>
+      )}
+
+      {/* Proposals section (for completed visits, show before products) */}
+      {proposals.length > 0 && (
+        <div>
+          <h2 className="text-lg font-semibold mb-3">Propostas</h2>
+          <div className="space-y-2">
+            {proposals.map((p: any) => {
+              const pc = p.crm_client_products?.product_code as ProductCode | undefined;
+              const statusMap: Record<string, { label: string; cls: string }> = {
+                rascunho: { label: 'Rascunho', cls: 'bg-muted text-muted-foreground' },
+                enviada: { label: 'Enviada', cls: 'bg-blue-50 text-blue-700 border-blue-300' },
+                aceita: { label: 'Aceita', cls: 'bg-green-50 text-green-700 border-green-300' },
+                recusada: { label: 'Recusada', cls: 'bg-red-50 text-red-700 border-red-300' },
+              };
+              const st = statusMap[p.status] || { label: p.status, cls: '' };
+              return (
+                <Card key={p.id}>
+                  <CardContent className="py-3 flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      {pc && <p className="text-xs text-muted-foreground">{PRODUCT_LABELS[pc]}</p>}
+                      {p.proposed_value != null && (
+                        <p className="text-sm font-medium">
+                          {Number(p.proposed_value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                        </p>
+                      )}
+                      <div className="flex gap-3 text-[11px] text-muted-foreground mt-0.5">
+                        {p.sent_at && <span>Enviada: {format(new Date(p.sent_at), 'dd/MM/yyyy')}</span>}
+                        {p.valid_until && <span>Validade: {format(new Date(p.valid_until), 'dd/MM/yyyy')}</span>}
+                      </div>
+                    </div>
+                    <Badge variant="outline" className={cn("text-[10px] shrink-0", st.cls)}>{st.label}</Badge>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
         </div>
       )}
 
