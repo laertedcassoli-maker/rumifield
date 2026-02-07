@@ -1,5 +1,7 @@
 import { useState, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 import { useCarteiraData, PRODUCT_ORDER, PRODUCT_LABELS, STAGE_LABELS, HEALTH_COLORS } from '@/hooks/useCrmData';
 import type { ProductCode } from '@/hooks/useCrmData';
 import { Input } from '@/components/ui/input';
@@ -16,6 +18,18 @@ type FilterKey = 'all' | 'health_red' | 'no_qual_2' | 'negociacao_aberta' | 'pen
 
 export default function CrmCarteira() {
   const { clientes, clientProducts, snapshots, actions, isLoading } = useCarteiraData();
+
+  // Fetch badge colors from produtos table
+  const { data: produtoBadgeColors } = useQuery({
+    queryKey: ['produto-badge-colors'],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).from('produtos').select('product_code, badge_color');
+      if (error) throw error;
+      const map: Record<string, string> = {};
+      (data || []).forEach((p: any) => { if (p.product_code && p.badge_color) map[p.product_code] = p.badge_color; });
+      return map;
+    },
+  });
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search, 300);
@@ -167,14 +181,17 @@ export default function CrmCarteira() {
                     <div className="flex items-center gap-1 mt-1">
                       {PRODUCT_ORDER.map(code => {
                         const isActive = c.activeProducts.includes(code);
+                        const badgeColor = produtoBadgeColors?.[code];
                         return (
                           <span
                             key={code}
                             className={`text-[10px] font-medium rounded px-1.5 py-0.5 ${
-                              isActive
-                                ? 'text-green-700 dark:text-green-400 bg-green-100 dark:bg-green-900/30'
-                                : 'text-muted-foreground/50 bg-muted/50'
+                              !isActive ? 'text-muted-foreground/50 bg-muted/50' : ''
                             }`}
+                            style={isActive && badgeColor ? {
+                              backgroundColor: `${badgeColor}20`,
+                              color: badgeColor,
+                            } : undefined}
                           >
                             {PRODUCT_LABELS[code]}
                           </span>
