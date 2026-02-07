@@ -128,7 +128,7 @@ export default function CrmCliente360() {
       <Tabs defaultValue="produtos" className="w-full">
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="produtos">Produtos</TabsTrigger>
-          <TabsTrigger value="historico">Chamados Técnicos</TabsTrigger>
+          <TabsTrigger value="historico">Serviços Técnicos</TabsTrigger>
         </TabsList>
 
         <TabsContent value="produtos" className="space-y-6 mt-4">
