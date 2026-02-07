@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { useCarteiraData, PRODUCT_ORDER, STAGE_LABELS, HEALTH_COLORS } from '@/hooks/useCrmData';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
@@ -15,6 +15,7 @@ type FilterKey = 'all' | 'health_red' | 'no_qual_2' | 'negociacao_aberta' | 'pen
 
 export default function CrmCarteira() {
   const { clientes, clientProducts, snapshots, actions, isLoading } = useCarteiraData();
+  const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search, 300);
   const [filter, setFilter] = useState<FilterKey>('all');
@@ -134,7 +135,11 @@ export default function CrmCarteira() {
           <Card><CardContent className="py-6 text-center text-sm text-muted-foreground">Nenhum cliente encontrado</CardContent></Card>
         ) : (
           filtered.map(c => (
-            <Card key={c.id} className="active:bg-muted/50 transition-colors">
+            <Card
+              key={c.id}
+              className="active:bg-muted/50 transition-colors cursor-pointer hover:border-primary/30"
+              onClick={() => navigate(`/crm/${c.id}`, { state: { from: '/crm/carteira', fromLabel: 'Carteira' } })}
+            >
               <CardContent className="py-2.5 px-3">
                 <div className="flex items-center gap-2">
                   <div className="flex-1 min-w-0">
@@ -143,7 +148,7 @@ export default function CrmCarteira() {
                       {c.worstHealth && (
                         <CircleDot className={`h-3 w-3 shrink-0 ${HEALTH_COLORS[c.worstHealth]}`} />
                       )}
-                      <Link to={`/crm/${c.id}`} state={{ from: '/crm/carteira', fromLabel: 'Carteira' }} className="text-sm font-medium truncate hover:underline">{c.nome}</Link>
+                      <span className="text-sm font-medium truncate">{c.nome}</span>
                     </div>
 
                     {/* Row 2: location */}
@@ -179,16 +184,14 @@ export default function CrmCarteira() {
                   </div>
 
                   {/* Actions */}
-                  <div className="flex items-center gap-0.5 shrink-0">
+                  <div className="flex items-center gap-0 shrink-0">
                     <Button
-                      variant="ghost" size="icon" className="h-7 w-7"
-                      onClick={(e) => { e.preventDefault(); setActionModal({ open: true, clientId: c.id }); }}
+                      variant="ghost" size="icon" className="h-7 w-7 min-w-7"
+                      onClick={(e) => { e.stopPropagation(); setActionModal({ open: true, clientId: c.id }); }}
                     >
                       <Plus className="h-3.5 w-3.5" />
                     </Button>
-                    <Link to={`/crm/${c.id}`} state={{ from: '/crm/carteira', fromLabel: 'Carteira' }}>
-                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
-                    </Link>
+                    <ChevronRight className="h-4 w-4 text-muted-foreground" />
                   </div>
                 </div>
               </CardContent>
