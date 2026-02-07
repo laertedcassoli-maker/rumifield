@@ -15,7 +15,7 @@ import { toast } from 'sonner';
 import { Plus, ChevronDown, Pencil, Trash2, GripVertical, Save, Loader2 } from 'lucide-react';
 import { PRODUCT_LABELS, type ProductCode, PRODUCT_ORDER } from '@/hooks/useCrmData';
 import { CrmLossReasonsSection } from '@/components/admin/CrmLossReasonsSection';
-import { CrmMetricDefsSection } from '@/components/admin/CrmMetricDefsSection';
+import { CrmMetricDefsTable } from '@/components/admin/CrmMetricDefsTable';
 import { CrmChecklistRulesSection } from '@/components/admin/CrmChecklistRulesSection';
 import { Separator } from '@/components/ui/separator';
 
@@ -461,9 +461,6 @@ export default function CrmConfig() {
                     <CrmLossReasonsSection productCode={productCode} />
 
                     <Separator />
-                    <CrmMetricDefsSection productCode={productCode} />
-
-                    <Separator />
                     <CrmChecklistRulesSection productCode={productCode} />
                   </CardContent>
                 </CollapsibleContent>
@@ -472,6 +469,9 @@ export default function CrmConfig() {
           );
         })}
       </div>
+
+      {/* Metrics Table - flat, all products */}
+      <CrmMetricDefsTable />
 
       {/* Template Dialog */}
       <Dialog open={templateDialogOpen} onOpenChange={setTemplateDialogOpen}>
