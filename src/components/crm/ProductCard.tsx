@@ -15,6 +15,7 @@ interface Props {
   lossReasons: any[];
   lossReasonId?: string | null;
   lossNotes?: string | null;
+  readOnly?: boolean;
   onQualify: () => void;
   onCreateProposal: () => void;
   onUpdateNegotiation: () => void;
@@ -23,7 +24,7 @@ interface Props {
 
 export function ProductCard({
   productCode, stage, snapshot, metricDefs, lossReasons,
-  lossReasonId, lossNotes,
+  lossReasonId, lossNotes, readOnly,
   onQualify, onCreateProposal, onUpdateNegotiation, onViewDetails,
 }: Props) {
   const healthStatus = snapshot?.health_status;
@@ -119,7 +120,7 @@ export function ProductCard({
         )}
 
         {/* CTA */}
-        <div className="flex justify-end pt-1">{ctaButton}</div>
+        {!readOnly && <div className="flex justify-end pt-1">{ctaButton}</div>}
       </CardContent>
     </Card>
   );
