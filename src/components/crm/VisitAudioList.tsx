@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -9,7 +9,7 @@ import { ProductBadge } from '@/components/crm/ProductBadge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Trash2, FileAudio, Type, ListChecks } from 'lucide-react';
+import { Loader2, Trash2, FileAudio, Type, ListChecks, Play, Square } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface Props {
@@ -50,6 +50,9 @@ export function VisitAudioList({ visitId }: Props) {
   const queryClient = useQueryClient();
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [processingAction, setProcessingAction] = useState<'transcribe' | 'summarize' | null>(null);
+  const [playingId, setPlayingId] = useState<string | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const audioUrlRef = useRef<string | null>(null);
 
   // Local audios from IndexedDB
   const localAudios = useLiveQuery(
@@ -117,6 +120,42 @@ export function VisitAudioList({ visitId }: Props) {
     items.sort((a, b) => a.created_at.localeCompare(b.created_at));
     return items;
   })();
+
+  const handlePlay = useCallback(async (item: AudioItem) => {
+    // Stop current playback
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+    if (audioUrlRef.current) {
+      URL.revokeObjectURL(audioUrlRef.current);
+      audioUrlRef.current = null;
+    }
+
+    if (playingId === item.id) {
+      setPlayingId(null);
+      return;
+    }
+
+    const audioData = item.audioData || (await offlineDb.crm_visit_audios.get(item.id))?.audioData;
+    if (!audioData || audioData.byteLength === 0) {
+      toast({ variant: 'destructive', title: 'Sem dados de áudio para reproduzir' });
+      return;
+    }
+
+    const blob = new Blob([audioData.slice().buffer as ArrayBuffer], { type: 'audio/webm' });
+    const url = URL.createObjectURL(blob);
+    audioUrlRef.current = url;
+    const audio = new Audio(url);
+    audioRef.current = audio;
+    audio.onended = () => setPlayingId(null);
+    audio.onerror = () => {
+      toast({ variant: 'destructive', title: 'Erro ao reproduzir áudio' });
+      setPlayingId(null);
+    };
+    setPlayingId(item.id);
+    audio.play();
+  }, [playingId, toast]);
 
   const handleTranscribe = useCallback(async (item: AudioItem) => {
     console.log('[Transcribe] item.id:', item.id, 'source:', item.source, 'audioData type:', typeof item.audioData, 'audioData:', item.audioData, 'byteLength:', item.audioData?.byteLength, 'length:', (item.audioData as any)?.length);
@@ -289,6 +328,23 @@ export function VisitAudioList({ visitId }: Props) {
 
                 {/* Action buttons */}
                 <div className="flex justify-end gap-2 pt-1">
+                  {/* Play: visible if has local audioData */}
+                  {item.audioData && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handlePlay(item)}
+                      className="gap-1"
+                    >
+                      {playingId === item.id ? (
+                        <Square className="h-3.5 w-3.5" />
+                      ) : (
+                        <Play className="h-3.5 w-3.5" />
+                      )}
+                      {playingId === item.id ? 'Parar' : 'Ouvir'}
+                    </Button>
+                  )}
+
                   {/* Transcrever: visible if has audioData and not yet transcribed */}
                   {!item.transcription && item.audioData && (
                     <Button
