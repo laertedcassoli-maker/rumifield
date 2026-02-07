@@ -21,6 +21,7 @@ export interface UnifiedAction {
   _source: 'action' | 'proposal';
   proposed_value?: number | null;
   proposal_status?: ProposalStatus;
+  product_code?: ProductCode | null;
 }
 
 const PROPOSAL_STATUS_MAP: Record<string, ActionStatus> = {
@@ -71,6 +72,7 @@ export function useCrmAcoesData() {
         owner_name: ownerMap.get(a.owner_user_id) || null,
         clientes: a.clientes,
         _source: 'action',
+        product_code: null,
       }));
     },
     enabled: !!user?.id,
@@ -116,6 +118,7 @@ export function useCrmAcoesData() {
           _source: 'proposal',
           proposed_value: p.proposed_value,
           proposal_status: p.status as ProposalStatus,
+          product_code: cp.product_code as ProductCode,
         };
       });
     },

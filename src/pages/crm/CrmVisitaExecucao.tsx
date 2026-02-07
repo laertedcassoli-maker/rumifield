@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCliente360Data, PRODUCT_ORDER, PRODUCT_LABELS, type ProductCode, type CrmStage } from '@/hooks/useCrmData';
+import { ProductBadge } from '@/components/crm/ProductBadge';
 import { ProductCard } from '@/components/crm/ProductCard';
 import { QualificarProdutoModal } from '@/components/crm/QualificarProdutoModal';
 import { CriarPropostaModal } from '@/components/crm/CriarPropostaModal';
@@ -262,7 +263,7 @@ export default function CrmVisitaExecucao() {
                 <Card key={p.id}>
                   <CardContent className="py-3 flex items-center justify-between gap-2">
                     <div className="min-w-0">
-                      {pc && <p className="text-xs text-muted-foreground">{PRODUCT_LABELS[pc]}</p>}
+                      {pc && <ProductBadge productCode={pc} />}
                       {p.proposed_value != null && (
                         <p className="text-sm font-medium">
                           {Number(p.proposed_value).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}

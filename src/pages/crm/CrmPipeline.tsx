@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { usePipelineData, PRODUCT_ORDER, PRODUCT_LABELS, STAGE_LABELS, STAGE_COLORS, type ProductCode, type CrmStage } from '@/hooks/useCrmData';
+import { getProductColorClasses } from '@/components/crm/ProductBadge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -100,7 +101,10 @@ export default function CrmPipeline() {
               key={p}
               size="sm"
               variant={selectedProduct === p ? 'default' : 'outline'}
-              className="text-xs h-8"
+              className={cn(
+                'text-xs h-8',
+                selectedProduct !== p && getProductColorClasses(p)
+              )}
               onClick={() => setSelectedProduct(p)}
             >
               {PRODUCT_LABELS[p]}
