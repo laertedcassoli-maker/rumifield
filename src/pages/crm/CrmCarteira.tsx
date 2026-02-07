@@ -140,7 +140,7 @@ export default function CrmCarteira() {
               className="active:bg-muted/50 transition-colors cursor-pointer hover:border-primary/30"
               onClick={() => navigate(`/crm/${c.id}`, { state: { from: '/crm/carteira', fromLabel: 'Carteira' } })}
             >
-              <CardContent className="py-2.5 px-3">
+              <CardContent className="py-2.5 pl-3 pr-2">
                 <div className="flex items-center gap-2">
                   <div className="flex-1 min-w-0">
                     {/* Row 1: name + health */}
