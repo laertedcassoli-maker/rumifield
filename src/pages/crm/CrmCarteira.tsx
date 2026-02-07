@@ -95,14 +95,14 @@ export default function CrmCarteira() {
   }, [clienteData, debouncedSearch, filter]);
 
   return (
-    <div className="space-y-4 animate-fade-in">
+    <div className="space-y-4 animate-fade-in pb-24">
       <div>
-        <h1 className="text-2xl font-bold">Carteira CRM</h1>
-        <p className="text-muted-foreground">Visão geral dos seus clientes</p>
+        <h1 className="text-xl font-bold">Carteira CRM</h1>
+        <p className="text-sm text-muted-foreground">Visão geral dos seus clientes</p>
       </div>
 
       {/* Search + Filter */}
-      <div className="flex gap-2">
+      <div className="flex flex-col sm:flex-row gap-2">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
@@ -113,7 +113,7 @@ export default function CrmCarteira() {
           />
         </div>
         <Select value={filter} onValueChange={(v) => setFilter(v as FilterKey)}>
-          <SelectTrigger className="w-[180px]">
+          <SelectTrigger className="w-full sm:w-[180px]">
             <SelectValue placeholder="Filtro" />
           </SelectTrigger>
           <SelectContent>
@@ -127,21 +127,21 @@ export default function CrmCarteira() {
       </div>
 
       {/* Summary */}
-      <div className="grid grid-cols-4 gap-2">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
         <Card><CardContent className="py-3 text-center">
-          <p className="text-2xl font-bold">{clienteData.length}</p>
+          <p className="text-lg font-bold">{clienteData.length}</p>
           <p className="text-xs text-muted-foreground">Clientes</p>
         </CardContent></Card>
         <Card><CardContent className="py-3 text-center">
-          <p className="text-2xl font-bold text-red-600">{clienteData.filter(c => c.worstHealth === 'vermelho').length}</p>
+          <p className="text-lg font-bold text-red-600">{clienteData.filter(c => c.worstHealth === 'vermelho').length}</p>
           <p className="text-xs text-muted-foreground">Saúde Crítica</p>
         </CardContent></Card>
         <Card><CardContent className="py-3 text-center">
-          <p className="text-2xl font-bold text-amber-600">{clienteData.reduce((s, c) => s + c.openOpps, 0)}</p>
+          <p className="text-lg font-bold text-amber-600">{clienteData.reduce((s, c) => s + c.openOpps, 0)}</p>
           <p className="text-xs text-muted-foreground">Oportunidades</p>
         </CardContent></Card>
         <Card><CardContent className="py-3 text-center">
-          <p className="text-2xl font-bold text-destructive">{clienteData.reduce((s, c) => s + c.overdueActions, 0)}</p>
+          <p className="text-lg font-bold text-destructive">{clienteData.reduce((s, c) => s + c.overdueActions, 0)}</p>
           <p className="text-xs text-muted-foreground">Vencidas</p>
         </CardContent></Card>
       </div>
