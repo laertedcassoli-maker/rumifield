@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useCliente360Data, PRODUCT_ORDER, STAGE_LABELS, PRODUCT_LABELS, type ProductCode, type CrmStage } from '@/hooks/useCrmData';
@@ -15,13 +15,17 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { ArrowLeft, MapPin, Phone, Mail, Plus, Clock, Eye, User } from 'lucide-react';
+import { ArrowLeft, MapPin, Phone, Mail, Plus, Clock, Eye, User, ChevronRight } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 export default function CrmCliente360() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
+  const fromState = location.state as { from?: string; fromLabel?: string } | null;
+  const fromPath = fromState?.from || '/crm/carteira';
+  const fromLabel = fromState?.fromLabel || 'Carteira';
 
   const { data: cliente, isLoading: loadingCliente } = useQuery({
     queryKey: ['crm-cliente', id],
@@ -83,6 +87,13 @@ export default function CrmCliente360() {
 
   return (
     <div className="space-y-4 animate-fade-in">
+      {/* Breadcrumb */}
+      <nav className="flex items-center gap-1 text-sm text-muted-foreground">
+        <Link to={fromPath} className="hover:text-foreground transition-colors">{fromLabel}</Link>
+        <ChevronRight className="h-3.5 w-3.5" />
+        <span className="text-foreground font-medium truncate">{cliente.nome}</span>
+      </nav>
+
       {/* Header */}
       <div className="flex items-center gap-3">
         <Button variant="ghost" size="icon" onClick={() => navigate(-1)}><ArrowLeft className="h-5 w-5" /></Button>

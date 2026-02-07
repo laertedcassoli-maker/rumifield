@@ -149,7 +149,7 @@ export default function CrmPipeline() {
                   <span className="text-xs text-muted-foreground">({stageGroups[stage]?.length || 0})</span>
                 </div>
                 {(stageGroups[stage] || []).map((p: any) => (
-                  <Link key={p.id} to={`/crm/${p.client_id}`}>
+                  <Link key={p.id} to={`/crm/${p.client_id}`} state={{ from: '/crm/pipeline', fromLabel: 'Pipeline' }}>
                     <Card className="hover:bg-accent/30 transition-colors cursor-pointer">
                       <CardContent className="py-2 px-3">
                         <div className="flex items-center justify-between gap-1">

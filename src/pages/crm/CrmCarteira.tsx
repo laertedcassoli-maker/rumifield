@@ -143,7 +143,7 @@ export default function CrmCarteira() {
                       {c.worstHealth && (
                         <CircleDot className={`h-3 w-3 shrink-0 ${HEALTH_COLORS[c.worstHealth]}`} />
                       )}
-                      <Link to={`/crm/${c.id}`} className="text-sm font-medium truncate hover:underline">{c.nome}</Link>
+                      <Link to={`/crm/${c.id}`} state={{ from: '/crm/carteira', fromLabel: 'Carteira' }} className="text-sm font-medium truncate hover:underline">{c.nome}</Link>
                     </div>
 
                     {/* Row 2: location */}
@@ -186,7 +186,7 @@ export default function CrmCarteira() {
                     >
                       <Plus className="h-3.5 w-3.5" />
                     </Button>
-                    <Link to={`/crm/${c.id}`}>
+                    <Link to={`/crm/${c.id}`} state={{ from: '/crm/carteira', fromLabel: 'Carteira' }}>
                       <ChevronRight className="h-4 w-4 text-muted-foreground" />
                     </Link>
                   </div>
