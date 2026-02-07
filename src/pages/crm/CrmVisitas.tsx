@@ -15,9 +15,9 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   Plus, Search, MapPin, Building2, ChevronRight,
-  CalendarDays, Loader2, CheckCircle2, CalendarIcon, Navigation,
+  CalendarDays, Loader2, CheckCircle2, CalendarIcon, Navigation, Clock,
 } from 'lucide-react';
-import { format, isToday, isYesterday } from 'date-fns';
+import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
@@ -57,7 +57,7 @@ export default function CrmVisitas() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('crm_visits')
-        .select('*, clientes(nome, fazenda, cidade, estado, latitude, longitude, link_maps)')
+        .select('*, clientes(nome, fazenda, cidade, estado, latitude, longitude, link_maps), profiles:owner_user_id(nome)')
         .order('created_at', { ascending: false })
         .limit(200);
       if (error) throw error;
@@ -151,19 +151,6 @@ export default function CrmVisitas() {
     return result;
   }, [visitas, statusFilter, search]);
 
-  const grouped = useMemo(() => {
-    const groups: Record<string, any[]> = {};
-    filteredVisitas.forEach(v => {
-      const date = new Date(v.created_at);
-      let key: string;
-      if (isToday(date)) key = 'Hoje';
-      else if (isYesterday(date)) key = 'Ontem';
-      else key = format(date, "dd 'de' MMMM", { locale: ptBR });
-      if (!groups[key]) groups[key] = [];
-      groups[key].push(v);
-    });
-    return groups;
-  }, [filteredVisitas]);
 
   const counts = useMemo(() => {
     if (!visitas) return { planejada: 0, em_andamento: 0, concluida: 0 };
@@ -231,71 +218,67 @@ export default function CrmVisitas() {
           <p className="text-xs text-muted-foreground">Toque em + para criar uma visita</p>
         </CardContent></Card>
       ) : (
-        <div className="space-y-4">
-          {Object.entries(grouped).map(([dateLabel, items]) => (
-            <div key={dateLabel}>
-              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1.5 sticky top-0 bg-background py-1 z-10">
-                {dateLabel}
-              </h3>
-              <div className="space-y-1.5">
-                {items.map((v: any) => (
-                  <Card
-                    key={v.id}
-                    className="overflow-hidden cursor-pointer hover:border-primary/30 active:bg-muted/50 transition-colors"
-                    onClick={() => navigate(`/crm/visitas/${v.id}`)}
-                  >
-                    <CardContent className="p-3">
-                      <div className="flex items-start gap-2.5">
-                        {/* Date badge */}
-                        <div className="shrink-0 w-11 text-center bg-muted rounded-md py-1">
-                          <span className="text-[11px] font-medium text-muted-foreground uppercase block leading-tight">
-                            {format(new Date(v.planned_start_at || v.created_at), 'MMM', { locale: ptBR })}
-                          </span>
-                          <span className="text-lg font-bold leading-tight block">
-                            {format(new Date(v.planned_start_at || v.created_at), 'dd')}
-                          </span>
-                        </div>
+        <div className="space-y-1.5">
+          {filteredVisitas.map((v: any) => (
+            <Card
+              key={v.id}
+              className="overflow-hidden cursor-pointer hover:border-primary/30 active:bg-muted/50 transition-colors"
+              onClick={() => navigate(`/crm/visitas/${v.id}`)}
+            >
+              <CardContent className="p-3">
+                <div className="flex items-start gap-2.5">
+                  {/* Date badge */}
+                  <div className="shrink-0 w-11 text-center bg-muted rounded-md py-1">
+                    <span className="text-[11px] font-medium text-muted-foreground uppercase block leading-tight">
+                      {format(new Date(v.planned_start_at || v.created_at), 'MMM', { locale: ptBR })}
+                    </span>
+                    <span className="text-lg font-bold leading-tight block">
+                      {format(new Date(v.planned_start_at || v.created_at), 'dd')}
+                    </span>
+                  </div>
 
-                        {/* Content */}
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <p className="font-medium text-sm truncate max-w-[60%]">{v.clientes?.nome}</p>
-                            <Badge className={cn("text-[10px] shrink-0 px-1.5 py-0", STATUS_COLORS[v.status])}>
-                              {STATUS_LABELS[v.status]}
-                            </Badge>
-                            {v.checkin_at && <MapPin className="h-3 w-3 text-green-600 shrink-0" />}
-                          </div>
-                          {v.clientes?.fazenda && (
-                            <p className="text-xs text-muted-foreground truncate">{v.clientes.fazenda}</p>
-                          )}
-                          {v.objective && (
-                            <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{v.objective}</p>
-                          )}
-                        </div>
+                  {/* Content */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <p className="font-medium text-sm truncate max-w-[60%]">{v.clientes?.nome}</p>
+                      <Badge className={cn("text-[10px] shrink-0 px-1.5 py-0", STATUS_COLORS[v.status])}>
+                        {STATUS_LABELS[v.status]}
+                      </Badge>
+                      {v.checkin_at && <MapPin className="h-3 w-3 text-green-600 shrink-0" />}
+                    </div>
+                    {v.clientes?.fazenda && (
+                      <p className="text-xs text-muted-foreground truncate">{v.clientes.fazenda}</p>
+                    )}
+                    {v.objective && (
+                      <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{v.objective}</p>
+                    )}
+                    <div className="flex items-center gap-1 text-[10px] text-muted-foreground mt-1">
+                      <Clock className="h-3 w-3 shrink-0" />
+                      <span>Criado {format(new Date(v.created_at), "dd/MM HH:mm")}</span>
+                      {v.profiles?.nome && <span>· por {v.profiles.nome}</span>}
+                    </div>
+                  </div>
 
-                        {/* Navigation button */}
-                        {(v.clientes?.latitude && v.clientes?.longitude || v.clientes?.link_maps) && (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              const url = v.clientes?.latitude && v.clientes?.longitude
-                                ? `https://www.google.com/maps/dir/?api=1&destination=${v.clientes.latitude},${v.clientes.longitude}`
-                                : v.clientes?.link_maps;
-                              if (url) window.open(url, '_blank');
-                            }}
-                            className="shrink-0 p-1.5 rounded-md hover:bg-muted active:bg-muted/80 transition-colors"
-                          >
-                            <Navigation className="h-4 w-4 text-primary" />
-                          </button>
-                        )}
+                  {/* Navigation button */}
+                  {(v.clientes?.latitude && v.clientes?.longitude || v.clientes?.link_maps) && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const url = v.clientes?.latitude && v.clientes?.longitude
+                          ? `https://www.google.com/maps/dir/?api=1&destination=${v.clientes.latitude},${v.clientes.longitude}`
+                          : v.clientes?.link_maps;
+                        if (url) window.open(url, '_blank');
+                      }}
+                      className="shrink-0 p-1.5 rounded-md hover:bg-muted active:bg-muted/80 transition-colors"
+                    >
+                      <Navigation className="h-4 w-4 text-primary" />
+                    </button>
+                  )}
 
-                        <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </div>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
+                </div>
+              </CardContent>
+            </Card>
           ))}
         </div>
       )}
