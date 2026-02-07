@@ -56,6 +56,7 @@ import CrmPipeline from "./pages/crm/CrmPipeline";
 import CrmVisitas from "./pages/crm/CrmVisitas";
 import CrmVisitaExecucao from "./pages/crm/CrmVisitaExecucao";
 import AdminCrmConfig from "./pages/admin/CrmConfig";
+import AdminCrmMetricas from "./pages/admin/CrmMetricas";
 import AceitarConvite from "./pages/AceitarConvite";
 
 const ClienteRedirect = () => {
@@ -362,6 +363,14 @@ const App = () => (
               }
             />
             
+            <Route
+              path="/admin/crm/metricas"
+              element={
+                <AppLayout>
+                  <AdminCrmMetricas />
+                </AppLayout>
+              }
+            />
             <Route
               path="/admin/crm"
               element={
