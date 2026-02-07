@@ -9,7 +9,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Search, Building2, MapPin, ChevronRight, CircleDot, AlertCircle, Target, Clock, Plus, CalendarDays } from 'lucide-react';
+import { Search, Building2, MapPin, ChevronRight, CircleDot, AlertCircle, Target, Clock, Plus, CalendarDays, ShieldCheck } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useDebounce } from '@/hooks/useDebounce';
@@ -55,6 +55,7 @@ export default function CrmCarteira() {
       const activeProducts = products
         .filter((p: any) => p.stage === 'ganho')
         .map((p: any) => p.product_code as ProductCode);
+      const isFullSuite = PRODUCT_ORDER.every(code => activeProducts.includes(code));
       const openActions = clientActions.filter((a: any) => a.status !== 'concluida').length;
       const overdueActions = clientActions.filter((a: any) =>
         a.status !== 'concluida' && a.due_at && new Date(a.due_at) < new Date()
@@ -79,6 +80,7 @@ export default function CrmCarteira() {
         ...c,
         worstHealth,
         activeProducts,
+        isFullSuite,
         openOpps,
         openActions,
         overdueActions,
@@ -168,11 +170,17 @@ export default function CrmCarteira() {
                   <div className="flex-1 min-w-0">
                     {/* Row 1: name + health */}
                     <div className="flex items-center gap-1.5">
-                      {c.worstHealth && (
-                        <CircleDot className={`h-3 w-3 shrink-0 ${HEALTH_COLORS[c.worstHealth]}`} />
-                      )}
-                      <span className="text-sm font-medium truncate">{c.nome}</span>
-                    </div>
+                       {c.worstHealth && (
+                         <CircleDot className={`h-3 w-3 shrink-0 ${HEALTH_COLORS[c.worstHealth]}`} />
+                       )}
+                       <span className="text-sm font-medium truncate">{c.nome}</span>
+                       {c.isFullSuite && (
+                         <span className="shrink-0 flex items-center gap-0.5 text-amber-600 dark:text-amber-400" title="Cliente 360° — todos os produtos ativos">
+                           <ShieldCheck className="h-3.5 w-3.5" />
+                           <span className="text-[9px] font-bold">360°</span>
+                         </span>
+                       )}
+                     </div>
 
                     {/* Row 2: location */}
                     {(c.cidade || c.fazenda) && (
