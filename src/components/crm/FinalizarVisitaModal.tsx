@@ -69,6 +69,26 @@ export function FinalizarVisitaModal({ open, onOpenChange, visitId, clientId, on
         .eq('id', visitId);
       if (error) throw error;
 
+      // Snapshot product states
+      const { data: products } = await supabase
+        .from('crm_client_products')
+        .select('id, product_code, stage, value_estimated, probability, loss_reason_id, loss_notes')
+        .eq('client_id', clientId);
+
+      if (products && products.length > 0) {
+        const snapshotInserts = products.map((p: any) => ({
+          visit_id: visitId,
+          client_product_id: p.id,
+          product_code: p.product_code,
+          stage: p.stage,
+          value_estimated: p.value_estimated,
+          probability: p.probability,
+          loss_reason_id: p.loss_reason_id,
+          loss_notes: p.loss_notes,
+        }));
+        await supabase.from('crm_visit_product_snapshots').insert(snapshotInserts);
+      }
+
       // Create batch actions
       if (quickActions.length > 0) {
         const actionInserts = quickActions.map(a => ({

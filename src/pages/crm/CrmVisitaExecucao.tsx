@@ -82,6 +82,21 @@ export default function CrmVisitaExecucao() {
     enabled: !!id,
   });
 
+  // Fetch product snapshots for completed visits
+  // @ts-ignore
+  const { data: productSnapshots } = useQuery({
+    queryKey: ['crm-visit-product-snapshots', id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('crm_visit_product_snapshots')
+        .select('*')
+        .eq('visit_id', id);
+      if (error) throw error;
+      return data as any[];
+    },
+    enabled: !!id && visit?.status === 'concluida',
+  });
+
   // Check-in mutation
   // @ts-ignore
   const checkinMutation = useMutation({
@@ -278,16 +293,23 @@ export default function CrmVisitaExecucao() {
             const cp = clientProducts.find((p: any) => p.product_code === pc);
             if (!cp) return null;
             const snap = snapshots.find((s: any) => s.product_code === pc);
+            // Use snapshot data for completed visits when available
+            const visitSnap = isCompleted && productSnapshots
+              ? productSnapshots.find((s: any) => s.product_code === pc)
+              : null;
+            const displayStage = visitSnap ? visitSnap.stage : cp.stage;
+            const displayLossReasonId = visitSnap ? visitSnap.loss_reason_id : cp.loss_reason_id;
+            const displayLossNotes = visitSnap ? visitSnap.loss_notes : cp.loss_notes;
             return (
               <ProductCard
                 key={pc}
                 productCode={pc}
-                stage={cp.stage as CrmStage}
+                stage={displayStage as CrmStage}
                 snapshot={snap}
                 metricDefs={metricDefs}
                 lossReasons={lossReasons}
-                lossReasonId={cp.loss_reason_id}
-                lossNotes={cp.loss_notes}
+                lossReasonId={displayLossReasonId}
+                lossNotes={displayLossNotes}
                 readOnly={isCompleted}
                 onQualify={() => setQualModal({ open: true, cpId: cp.id, pc })}
                 onCreateProposal={() => setPropModal({ open: true, cpId: cp.id, pc })}
