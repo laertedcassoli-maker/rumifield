@@ -1,31 +1,30 @@
 
 
-## Ajuste do Prompt da Analise IA do Cliente
+## Listar Acoes Completas no Cliente 360
 
-**Problema**: O prompt atual pede um relatorio extenso com 7 secoes fixas, incluindo secoes que podem nao ter dados, gerando texto generico e pouco util.
+Atualmente a secao "Pendencias" no Cliente 360 mostra apenas acoes abertas, sem possibilidade de editar ou ver detalhes. A ideia e substituir por uma listagem completa de acoes (abertas, em execucao e concluidas) com edicao inline via painel lateral, igual ao que ja existe na tela de Acoes CRM.
 
-**Solucao**: Reescrever o `systemPrompt` na edge function para instruir a IA a ser concisa, focada apenas nos dados realmente presentes, e objetiva.
+### O que muda
 
-### Mudancas
+**Arquivo: `src/pages/crm/CrmCliente360.tsx`**
 
-**Arquivo**: `supabase/functions/crm-client-analysis/index.ts`
+1. **Importar** o componente `EditarAcaoSheet` e os tipos `UnifiedAction` / `ActionStatus`
+2. **Substituir a secao "Pendencias"** por uma secao "Acoes" que:
+   - Mostra TODAS as acoes do cliente (abertas, em execucao e concluidas)
+   - Agrupa visualmente: primeiro as abertas/em execucao, depois concluidas (com estilo atenuado)
+   - Cada card e clicavel e abre o `EditarAcaoSheet` para edicao rapida de status, titulo, prazo, etc.
+   - Exibe badge de status com cores (amarelo = pendente, azul = em execucao, verde = concluida)
+   - Acoes concluidas aparecem com opacidade reduzida e texto tachado
+3. **Adicionar estado** para controlar o `EditarAcaoSheet` (acao selecionada + open/close)
+4. **Invalidar queries** apos edicao para manter dados atualizados
 
-Substituir o `systemPrompt` atual (linhas ~189-220) por um prompt reformulado com as seguintes diretrizes:
+### Detalhes tecnicos
 
-1. **Formato compacto**: Em vez de 7 secoes fixas, usar apenas 3 blocos:
-   - **Situacao Atual** - Resumo direto do estado do cliente em 2-3 frases (produtos ativos, estagio no funil, saude)
-   - **Pontos de Atencao** - Lista curta apenas com alertas reais extraidos dos dados (acoes atrasadas, metricas ruins, chamados abertos, tempo sem visita)
-   - **Proximos Passos** - 2-3 acoes concretas e prioritarias baseadas nos dados
+- Os dados ja estao disponiveis via `useCliente360Data(id)` que retorna `actions` (todas as acoes do cliente, sem filtro de status)
+- Sera necessario mapear as acoes do formato `crm_actions` para o tipo `UnifiedAction` que o `EditarAcaoSheet` espera (adicionar campos `_source: 'action'`, `clientes`, `owner_name`, etc.)
+- O `EditarAcaoSheet` ja invalida as queries `crm-actions-flat` e `crm-proposals-flat`; sera necessario tambem invalidar `crm-360-actions` para atualizar a listagem local
+- Nenhuma mudanca no banco de dados necessaria
 
-2. **Regras do prompt**:
-   - NAO inventar ou supor informacoes que nao estejam nos dados
-   - NAO incluir secoes sem dados relevantes
-   - NAO usar frases genericas como "recomenda-se acompanhar de perto"
-   - Citar datas, valores e status especificos dos dados
-   - Maximo de 400 palavras no total
-   - Ir direto ao ponto, sem introducoes ou conclusoes formais
+### Resultado
 
-### Detalhe tecnico
-
-O unico arquivo alterado sera `supabase/functions/crm-client-analysis/index.ts`, substituindo o bloco `systemPrompt` por um prompt mais enxuto e direcionado. Nenhuma outra mudanca necessaria.
-
+O consultor podera ver e gerenciar todas as acoes do cliente diretamente na tela 360, sem precisar navegar para a tela de Acoes CRM separada.
