@@ -245,11 +245,16 @@ export default function CrmVisitas() {
                     onClick={() => navigate(`/crm/visitas/${v.id}`)}
                   >
                     <CardContent className="p-3">
-                      <div className="flex items-start gap-2">
-                        {/* Time badge - compact */}
-                        <span className="text-xs font-mono text-muted-foreground bg-muted rounded px-1.5 py-0.5 shrink-0 mt-0.5">
-                          {format(new Date(v.created_at), 'HH:mm')}
-                        </span>
+                      <div className="flex items-start gap-2.5">
+                        {/* Date badge */}
+                        <div className="shrink-0 w-11 text-center bg-muted rounded-md py-1">
+                          <span className="text-[11px] font-medium text-muted-foreground uppercase block leading-tight">
+                            {format(new Date(v.planned_start_at || v.created_at), 'MMM', { locale: ptBR })}
+                          </span>
+                          <span className="text-lg font-bold leading-tight block">
+                            {format(new Date(v.planned_start_at || v.created_at), 'dd')}
+                          </span>
+                        </div>
 
                         {/* Content */}
                         <div className="flex-1 min-w-0">
