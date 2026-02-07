@@ -13,6 +13,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Skeleton } from '@/components/ui/skeleton';
 import { toast } from 'sonner';
 import { Plus, ChevronDown, Pencil, Trash2, GripVertical, Save, Loader2 } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { PRODUCT_LABELS, type ProductCode, PRODUCT_ORDER } from '@/hooks/useCrmData';
 import { CrmLossReasonsSection } from '@/components/admin/CrmLossReasonsSection';
 import { CrmMetricDefsTable } from '@/components/admin/CrmMetricDefsTable';
@@ -299,9 +300,14 @@ export default function CrmConfig() {
 
   return (
     <div className="p-4 md:p-6 space-y-6 max-w-4xl">
-      <div>
-        <h1 className="text-2xl font-bold">Configuração CRM</h1>
-        <p className="text-sm text-muted-foreground mt-1">Gerencie produtos, qualificação, motivos de perda, métricas e regras de checklist</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">Configuração CRM</h1>
+          <p className="text-sm text-muted-foreground mt-1">Gerencie produtos, qualificação, motivos de perda, métricas e regras de checklist</p>
+        </div>
+        <Button variant="outline" asChild>
+          <Link to="/admin/crm/metricas">📊 Métricas de Saúde</Link>
+        </Button>
       </div>
 
       <div className="space-y-3">
