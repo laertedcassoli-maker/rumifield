@@ -201,27 +201,30 @@ export default function CrmCarteira() {
                       })}
                     </div>
 
-                    {/* Row 4: inline badges + next visit */}
-                    <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                    {/* Row 4: icon indicators */}
+                    <div className="flex items-center gap-2 mt-1">
                       {c.nextVisitDate && (
-                        <span className="text-[10px] text-primary bg-primary/10 rounded px-1.5 py-0.5 flex items-center gap-0.5">
-                          <CalendarDays className="h-2.5 w-2.5" />
-                          {format(c.nextVisitDate, "dd/MM", { locale: ptBR })}
+                        <span className="flex items-center gap-0.5 text-primary" title={`Visita ${format(c.nextVisitDate, "dd/MM", { locale: ptBR })}`}>
+                          <CalendarDays className="h-3.5 w-3.5" />
+                          <span className="text-[10px] font-medium">{format(c.nextVisitDate, "dd/MM", { locale: ptBR })}</span>
                         </span>
                       )}
                       {c.openOpps > 0 && (
-                        <span className="text-[10px] text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/30 rounded px-1.5 py-0.5">
-                          {c.openOpps} oport.
+                        <span className="flex items-center gap-0.5 text-amber-600 dark:text-amber-400" title={`${c.openOpps} oportunidade(s)`}>
+                          <Target className="h-3.5 w-3.5" />
+                          <span className="text-[10px] font-semibold">{c.openOpps}</span>
                         </span>
                       )}
                       {c.overdueActions > 0 && (
-                        <span className="text-[10px] text-destructive bg-destructive/10 rounded px-1.5 py-0.5">
-                          {c.overdueActions} venc.
+                        <span className="flex items-center gap-0.5 text-destructive" title={`${c.overdueActions} vencida(s)`}>
+                          <AlertCircle className="h-3.5 w-3.5" />
+                          <span className="text-[10px] font-semibold">{c.overdueActions}</span>
                         </span>
                       )}
                       {c.openActions > 0 && c.overdueActions === 0 && (
-                        <span className="text-[10px] text-muted-foreground bg-muted rounded px-1.5 py-0.5">
-                          {c.openActions} pend.
+                        <span className="flex items-center gap-0.5 text-muted-foreground" title={`${c.openActions} pendência(s)`}>
+                          <Clock className="h-3.5 w-3.5" />
+                          <span className="text-[10px] font-semibold">{c.openActions}</span>
                         </span>
                       )}
                     </div>
