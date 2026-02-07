@@ -10,7 +10,7 @@ export const PRODUCT_LABELS: Record<ProductCode, string> = {
   rumiflow: 'RumiFlow',
   onfarm: 'OnFarm',
   rumiaction: 'RumiAction',
-  insights: 'Insights',
+  insights: 'RumiProcare',
 };
 
 export const PRODUCT_ORDER: ProductCode[] = ['ideagri', 'rumiflow', 'onfarm', 'rumiaction', 'insights'];
