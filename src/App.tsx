@@ -2,7 +2,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate, useParams } from "react-router-dom";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { OfflineProvider } from "@/contexts/OfflineContext";
 import { AppLayout } from "@/components/layout/AppLayout";
@@ -49,7 +49,7 @@ import DocEditor from "./pages/docs/DocEditor";
 import DocChat from "./pages/docs/DocChat";
 import PublicDocs from "./pages/docs/PublicDocs";
 import ClientesList from "./pages/crm/ClientesList";
-import ClienteDetail from "./pages/crm/ClienteDetail";
+// ClienteDetail removed — redirected to CrmCliente360
 import CrmCarteira from "./pages/crm/CrmCarteira";
 import CrmCliente360 from "./pages/crm/CrmCliente360";
 import CrmPipeline from "./pages/crm/CrmPipeline";
@@ -57,6 +57,11 @@ import CrmVisitas from "./pages/crm/CrmVisitas";
 import CrmVisitaExecucao from "./pages/crm/CrmVisitaExecucao";
 import AdminCrmConfig from "./pages/admin/CrmConfig";
 import AceitarConvite from "./pages/AceitarConvite";
+
+const ClienteRedirect = () => {
+  const { id } = useParams();
+  return <Navigate to={`/crm/${id}`} replace />;
+};
 
 const queryClient = new QueryClient();
 
@@ -314,11 +319,7 @@ const App = () => (
             />
             <Route
               path="/clientes/:id"
-              element={
-                <AppLayout>
-                  <ClienteDetail />
-                </AppLayout>
-              }
+              element={<ClienteRedirect />}
             />
             <Route
               path="/crm/carteira"
