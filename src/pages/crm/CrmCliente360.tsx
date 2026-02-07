@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { cn } from '@/lib/utils';
 import { useParams, Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -244,7 +245,17 @@ export default function CrmCliente360() {
                           <div className="flex items-center gap-2">
                             <Eye className="h-3.5 w-3.5 text-muted-foreground" />
                             <span className="text-sm font-medium">{v.objective || 'Visita'}</span>
-                            <Badge variant="outline" className="text-[10px]">{v.status}</Badge>
+                            <Badge variant="outline" className={cn("text-[10px]", 
+                              v.status === 'concluida' ? 'bg-green-50 text-green-700 border-green-300' :
+                              v.status === 'em_andamento' ? 'bg-amber-50 text-amber-700 border-amber-300' :
+                              v.status === 'planejada' ? 'bg-blue-50 text-blue-700 border-blue-300' :
+                              v.status === 'cancelada' ? 'bg-gray-50 text-gray-500 border-gray-300' : ''
+                            )}>
+                              {v.status === 'em_andamento' ? 'Em Andamento' : 
+                               v.status === 'planejada' ? 'Planejada' : 
+                               v.status === 'concluida' ? 'Concluída' : 
+                               v.status === 'cancelada' ? 'Cancelada' : v.status}
+                            </Badge>
                           </div>
                           {v.summary && <p className="text-xs text-muted-foreground truncate mt-0.5">{v.summary}</p>}
                         </div>
