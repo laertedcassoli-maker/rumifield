@@ -1,32 +1,26 @@
 
 
-## Simplificar: Remover seção "Oportunidades"
+## Simplificar Finalização de Visita (sem áudio obrigatório)
 
-### Diagnóstico
+### Arquivo: `src/components/crm/FinalizarVisitaModal.tsx`
 
-A tela Cliente 360 exibe 3 blocos que se sobrepõem:
+Reescrever o modal para ser um diálogo simples de confirmação:
 
-1. **Produtos** - Cards com estágio do funil, métricas de saúde e ações (qualificar, proposta, negociação)
-2. **Oportunidades** - Lista dos mesmos produtos filtrados por estágio (qualificado/proposta/negociação) com valor e data
-3. **Propostas** - Registros formais de proposta comercial (valor proposto, validade, status)
+1. **Remover**: Estado e UI de `summary`, `quickActions`, `newActionTitle`, funções `addAction`/`removeAction`
+2. **Remover**: Validação `if (!summary.trim()) throw new Error(...)` 
+3. **Remover**: Criação batch de `crm_actions` no mutationFn
+4. **Adicionar**: Inputs de data (`type="date"`) e hora (`type="time"`) pré-preenchidos com momento atual, editáveis
+5. **Manter**: Aviso de áudios pendentes (apenas informativo, sem bloquear)
+6. **Manter**: Geolocalização no checkout e snapshot de produtos
+7. **Mutation**: Usar data/hora dos inputs para calcular `checkout_at`; não enviar `summary`
+8. **Botão**: Sempre habilitado (sem depender de summary), apenas desabilitado durante loading
 
-A seção "Oportunidades" é redundante: repete informações já visíveis nos cards de Produtos (estágio, valor estimado, data de qualificação).
+### Arquivo: `src/pages/crm/CrmVisitaExecucao.tsx`
 
-### Mudança proposta
-
-**Arquivo: `src/pages/crm/CrmCliente360.tsx`**
-
-- **Remover** todo o bloco "Oportunidades" (o `if openOpps.length > 0` com seu conteúdo)
-- **Remover** a variável `openOpps` que não será mais usada
-- **Manter** a seção "Propostas" como está, pois traz dados distintos (valor proposto, validade, status do documento)
+1. **Remover**: Card verde "Resumo da Visita" (linhas 237-248)
+2. **Remover**: Exibição inline de `visit.summary` (linha 233)
 
 ### Resultado
 
-A aba "Produtos" ficará com:
-1. Cards de Produtos (com estágio e saúde)
-2. Ações
-3. Propostas (quando houver)
-4. Visitas Recentes
-
-Menos repetição, informação mais direta.
+Ao clicar "Finalizar", o consultor vê apenas: data/hora editáveis + aviso de áudios (se houver) + botão Confirmar. Sem campos obrigatórios.
 
