@@ -95,121 +95,113 @@ export default function CrmCarteira() {
   }, [clienteData, debouncedSearch, filter]);
 
   return (
-    <div className="space-y-4 animate-fade-in pb-24">
-      <div>
-        <h1 className="text-xl font-bold">Carteira CRM</h1>
-        <p className="text-sm text-muted-foreground">Visão geral dos seus clientes</p>
-      </div>
+    <div className="space-y-3 animate-fade-in pb-24">
+      <h1 className="text-lg font-bold">Carteira CRM</h1>
 
       {/* Search + Filter */}
-      <div className="flex flex-col sm:flex-row gap-2">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+      <div className="flex gap-2">
+        <div className="relative flex-1 min-w-0">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
             placeholder="Buscar cliente..."
             value={search}
             onChange={e => setSearch(e.target.value)}
-            className="pl-10"
+            className="pl-8 h-9 text-sm"
           />
         </div>
         <Select value={filter} onValueChange={(v) => setFilter(v as FilterKey)}>
-          <SelectTrigger className="w-full sm:w-[180px]">
+          <SelectTrigger className="w-[140px] h-9 text-xs shrink-0">
             <SelectValue placeholder="Filtro" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos</SelectItem>
             <SelectItem value="health_red">Saúde Vermelha</SelectItem>
-            <SelectItem value="no_qual_2">Sem qualificação 2+</SelectItem>
-            <SelectItem value="negociacao_aberta">Negociação aberta</SelectItem>
-            <SelectItem value="pendencias_vencidas">Pendências vencidas</SelectItem>
+            <SelectItem value="no_qual_2">S/ qualif. 2+</SelectItem>
+            <SelectItem value="negociacao_aberta">Negociação</SelectItem>
+            <SelectItem value="pendencias_vencidas">Vencidas</SelectItem>
           </SelectContent>
         </Select>
       </div>
 
-      {/* Summary */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-        <Card><CardContent className="py-3 text-center">
-          <p className="text-lg font-bold">{clienteData.length}</p>
-          <p className="text-xs text-muted-foreground">Clientes</p>
-        </CardContent></Card>
-        <Card><CardContent className="py-3 text-center">
-          <p className="text-lg font-bold text-red-600">{clienteData.filter(c => c.worstHealth === 'vermelho').length}</p>
-          <p className="text-xs text-muted-foreground">Saúde Crítica</p>
-        </CardContent></Card>
-        <Card><CardContent className="py-3 text-center">
-          <p className="text-lg font-bold text-amber-600">{clienteData.reduce((s, c) => s + c.openOpps, 0)}</p>
-          <p className="text-xs text-muted-foreground">Oportunidades</p>
-        </CardContent></Card>
-        <Card><CardContent className="py-3 text-center">
-          <p className="text-lg font-bold text-destructive">{clienteData.reduce((s, c) => s + c.overdueActions, 0)}</p>
-          <p className="text-xs text-muted-foreground">Vencidas</p>
-        </CardContent></Card>
+      {/* Summary - compact row */}
+      <div className="grid grid-cols-4 gap-1.5">
+        {[
+          { val: clienteData.length, label: 'Clientes', color: '' },
+          { val: clienteData.filter(c => c.worstHealth === 'vermelho').length, label: 'Críticos', color: 'text-red-600' },
+          { val: clienteData.reduce((s, c) => s + c.openOpps, 0), label: 'Oport.', color: 'text-amber-600' },
+          { val: clienteData.reduce((s, c) => s + c.overdueActions, 0), label: 'Vencidas', color: 'text-destructive' },
+        ].map((item, i) => (
+          <Card key={i}>
+            <CardContent className="py-2 px-2 text-center">
+              <p className={`text-base font-bold ${item.color}`}>{item.val}</p>
+              <p className="text-[10px] text-muted-foreground leading-tight">{item.label}</p>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
       {/* Client List */}
-      <div className="space-y-2">
+      <div className="space-y-1.5">
         {isLoading ? (
-          Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-24 w-full" />)
+          Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-16 w-full" />)
         ) : filtered.length === 0 ? (
-          <Card><CardContent className="py-8 text-center text-muted-foreground">Nenhum cliente encontrado</CardContent></Card>
+          <Card><CardContent className="py-6 text-center text-sm text-muted-foreground">Nenhum cliente encontrado</CardContent></Card>
         ) : (
           filtered.map(c => (
-            <Card key={c.id} className="hover:bg-accent/30 transition-colors">
-              <CardContent className="py-3 px-4">
-                <div className="flex items-center gap-3">
+            <Card key={c.id} className="active:bg-muted/50 transition-colors">
+              <CardContent className="py-2.5 px-3">
+                <div className="flex items-center gap-2">
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <Building2 className="h-4 w-4 text-primary shrink-0" />
-                      <Link to={`/crm/${c.id}`} className="font-medium truncate hover:underline">{c.nome}</Link>
+                    {/* Row 1: name + health */}
+                    <div className="flex items-center gap-1.5">
                       {c.worstHealth && (
-                        <CircleDot className={`h-3.5 w-3.5 shrink-0 ${HEALTH_COLORS[c.worstHealth]}`} />
+                        <CircleDot className={`h-3 w-3 shrink-0 ${HEALTH_COLORS[c.worstHealth]}`} />
                       )}
+                      <Link to={`/crm/${c.id}`} className="text-sm font-medium truncate hover:underline">{c.nome}</Link>
                     </div>
 
+                    {/* Row 2: location */}
                     {(c.cidade || c.fazenda) && (
-                      <p className="text-xs text-muted-foreground mt-0.5 ml-6 truncate">
+                      <p className="text-[11px] text-muted-foreground truncate mt-0.5">
                         {c.fazenda}{c.fazenda && c.cidade ? ' · ' : ''}{c.cidade}{c.estado ? `/${c.estado}` : ''}
                       </p>
                     )}
 
-                    <div className="flex items-center gap-3 mt-1.5 ml-6 flex-wrap">
+                    {/* Row 3: inline badges */}
+                    <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                       {c.noQualCount > 0 && (
-                        <Badge variant="outline" className="text-[10px] gap-0.5">
-                          <Target className="h-3 w-3" /> {c.noQualCount} s/ qualificação
-                        </Badge>
+                        <span className="text-[10px] text-muted-foreground bg-muted rounded px-1.5 py-0.5">
+                          {c.noQualCount} s/ qual.
+                        </span>
                       )}
                       {c.openOpps > 0 && (
-                        <Badge variant="outline" className="text-[10px] gap-0.5 border-amber-400 text-amber-700 dark:text-amber-400">
-                          <AlertCircle className="h-3 w-3" /> {c.openOpps} oportunidades
-                        </Badge>
+                        <span className="text-[10px] text-amber-700 dark:text-amber-400 bg-amber-100 dark:bg-amber-900/30 rounded px-1.5 py-0.5">
+                          {c.openOpps} oport.
+                        </span>
                       )}
-                      {c.openActions > 0 && (
-                        <Badge variant="outline" className="text-[10px] gap-0.5">
-                          <Clock className="h-3 w-3" /> {c.openActions} pendências
-                          {c.overdueActions > 0 && <span className="text-destructive ml-0.5">({c.overdueActions} venc.)</span>}
-                        </Badge>
+                      {c.overdueActions > 0 && (
+                        <span className="text-[10px] text-destructive bg-destructive/10 rounded px-1.5 py-0.5">
+                          {c.overdueActions} venc.
+                        </span>
+                      )}
+                      {c.openActions > 0 && c.overdueActions === 0 && (
+                        <span className="text-[10px] text-muted-foreground bg-muted rounded px-1.5 py-0.5">
+                          {c.openActions} pend.
+                        </span>
                       )}
                     </div>
-
-                    {c.alerts.length > 0 && (
-                      <div className="mt-1.5 ml-6 space-y-0.5">
-                        {c.alerts.map((a, i) => (
-                          <p key={i} className="text-[11px] text-muted-foreground truncate">⚠ {a}</p>
-                        ))}
-                      </div>
-                    )}
                   </div>
 
-                  <div className="flex items-center gap-1 shrink-0">
+                  {/* Actions */}
+                  <div className="flex items-center gap-0.5 shrink-0">
                     <Button
-                      variant="ghost" size="icon" className="h-8 w-8"
+                      variant="ghost" size="icon" className="h-7 w-7"
                       onClick={(e) => { e.preventDefault(); setActionModal({ open: true, clientId: c.id }); }}
-                      title="Criar ação"
                     >
-                      <Plus className="h-4 w-4" />
+                      <Plus className="h-3.5 w-3.5" />
                     </Button>
                     <Link to={`/crm/${c.id}`}>
-                      <ChevronRight className="h-5 w-5 text-muted-foreground" />
+                      <ChevronRight className="h-4 w-4 text-muted-foreground" />
                     </Link>
                   </div>
                 </div>
