@@ -11,9 +11,11 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   Plus, Search, MapPin, Building2, ChevronRight,
-  CalendarDays, Loader2, CheckCircle2,
+  CalendarDays, Loader2, CheckCircle2, CalendarIcon,
 } from 'lucide-react';
 import { format, isToday, isYesterday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -46,6 +48,7 @@ export default function CrmVisitas() {
   const [clienteSearch, setClienteSearch] = useState('');
   const [selectedCliente, setSelectedCliente] = useState<any>(null);
   const [objective, setObjective] = useState('');
+  const [plannedDate, setPlannedDate] = useState<Date | undefined>(undefined);
   const [statusFilter, setStatusFilter] = useState<string>('all');
 
   // @ts-ignore - crm_visits not in types yet
@@ -83,11 +86,12 @@ export default function CrmVisitas() {
 
   // @ts-ignore
   const createVisit = useMutation({
-    mutationFn: async (data: { client_id: string; objective: string }) => {
+    mutationFn: async (data: { client_id: string; objective: string; planned_start_at?: string }) => {
       const { error } = await supabase.from('crm_visits').insert({
         client_id: data.client_id,
         owner_user_id: user!.id,
         objective: data.objective || null,
+        planned_start_at: data.planned_start_at || null,
         status: 'planejada',
       });
       if (error) throw error;
@@ -106,12 +110,17 @@ export default function CrmVisitas() {
     setSheetOpen(false);
     setSelectedCliente(null);
     setObjective('');
+    setPlannedDate(undefined);
     setClienteSearch('');
   };
 
   const handleSubmitVisit = () => {
     if (!selectedCliente) return;
-    createVisit.mutate({ client_id: selectedCliente.id, objective });
+    createVisit.mutate({
+      client_id: selectedCliente.id,
+      objective,
+      planned_start_at: plannedDate ? plannedDate.toISOString() : undefined,
+    });
   };
 
   const filteredClientes = useMemo(() => {
@@ -325,6 +334,34 @@ export default function CrmVisitas() {
                   <Button variant="ghost" size="sm" className="text-xs h-7" onClick={() => setSelectedCliente(null)}>Trocar</Button>
                 </CardContent>
               </Card>
+
+              <div className="space-y-1.5">
+                <Label className="text-sm">Data planejada (opcional)</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={cn(
+                        "w-full justify-start text-left font-normal h-9 text-sm",
+                        !plannedDate && "text-muted-foreground"
+                      )}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {plannedDate ? format(plannedDate, "dd/MM/yyyy") : 'Hoje (padrão)'}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={plannedDate}
+                      onSelect={setPlannedDate}
+                      disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+                      initialFocus
+                      className={cn("p-3 pointer-events-auto")}
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
 
               <div className="space-y-1.5">
                 <Label className="text-sm">Objetivo da visita (opcional)</Label>
