@@ -87,7 +87,7 @@ export default function CrmConfig() {
   });
 
   // Fetch produtos (commercial products) for nome + cod_imilk editing
-  interface ProdutoComercial { id: string; nome: string; descricao: string | null; cod_imilk: string | null; ativo: boolean; product_code: string | null; }
+  interface ProdutoComercial { id: string; nome: string; descricao: string | null; cod_imilk: string | null; ativo: boolean; product_code: string | null; badge_color: string | null; }
   const { data: produtosComerciais, isLoading: loadingProdutos } = useQuery({
     queryKey: ['produtos-comerciais-crm'],
     queryFn: async () => {
@@ -116,13 +116,14 @@ export default function CrmConfig() {
   }, [produtosComerciais, loadingProdutos]);
 
   // Track inline edits for product nome/cod_imilk
-  const [productEdits, setProductEdits] = useState<Record<string, { nome: string; cod_imilk: string }>>({});
+  const [productEdits, setProductEdits] = useState<Record<string, { nome: string; cod_imilk: string; badge_color: string }>>({});
 
   const updateProdutoComercial = useMutation({
-    mutationFn: async ({ id, nome, cod_imilk }: { id: string; nome: string; cod_imilk: string }) => {
+    mutationFn: async ({ id, nome, cod_imilk, badge_color }: { id: string; nome: string; cod_imilk: string; badge_color: string }) => {
       const { error } = await (supabase as any).from('produtos').update({
         nome: nome.trim(),
         cod_imilk: cod_imilk.trim() || null,
+        badge_color: badge_color.trim() || null,
       }).eq('id', id);
       if (error) throw error;
     },
@@ -138,13 +139,13 @@ export default function CrmConfig() {
   };
 
   const getProductEdit = (produto: ProdutoComercial) => {
-    return productEdits[produto.id] || { nome: produto.nome, cod_imilk: produto.cod_imilk || '' };
+    return productEdits[produto.id] || { nome: produto.nome, cod_imilk: produto.cod_imilk || '', badge_color: produto.badge_color || '#22c55e' };
   };
 
-  const setProductEdit = (id: string, field: 'nome' | 'cod_imilk', value: string) => {
+  const setProductEdit = (id: string, field: 'nome' | 'cod_imilk' | 'badge_color', value: string) => {
     setProductEdits(prev => {
       const produto = (produtosComerciais || []).find(p => p.id === id);
-      const current = prev[id] || { nome: produto?.nome || '', cod_imilk: produto?.cod_imilk || '' };
+      const current = prev[id] || { nome: produto?.nome || '', cod_imilk: produto?.cod_imilk || '', badge_color: produto?.badge_color || '#22c55e' };
       return { ...prev, [id]: { ...current, [field]: value } };
     });
   };
@@ -152,7 +153,7 @@ export default function CrmConfig() {
   const hasProductChanges = (produto: ProdutoComercial) => {
     const edit = productEdits[produto.id];
     if (!edit) return false;
-    return edit.nome !== produto.nome || edit.cod_imilk !== (produto.cod_imilk || '');
+    return edit.nome !== produto.nome || edit.cod_imilk !== (produto.cod_imilk || '') || edit.badge_color !== (produto.badge_color || '#22c55e');
   };
 
   const invalidateAll = () => {
@@ -342,7 +343,7 @@ export default function CrmConfig() {
                     {produtoRecord && produtoEdit && (
                       <div className="border rounded-lg p-4 space-y-3 bg-muted/20">
                         <h4 className="text-sm font-medium text-muted-foreground">Dados do Produto</h4>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                           <div>
                             <Label className="text-xs">Nome</Label>
                             <Input
@@ -360,6 +361,23 @@ export default function CrmConfig() {
                               placeholder="Relacionar com iMilk..."
                             />
                           </div>
+                          <div>
+                            <Label className="text-xs">Cor do Badge</Label>
+                            <div className="flex items-center gap-2 mt-1">
+                              <input
+                                type="color"
+                                value={produtoEdit.badge_color}
+                                onChange={e => setProductEdit(produtoRecord.id, 'badge_color', e.target.value)}
+                                className="h-8 w-10 rounded border cursor-pointer"
+                              />
+                              <span
+                                className="text-[10px] font-medium rounded px-2 py-0.5 text-white"
+                                style={{ backgroundColor: produtoEdit.badge_color }}
+                              >
+                                {PRODUCT_LABELS[productCode]}
+                              </span>
+                            </div>
+                          </div>
                         </div>
                         {hasProductChanges(produtoRecord) && (
                           <Button
@@ -368,6 +386,7 @@ export default function CrmConfig() {
                               id: produtoRecord.id,
                               nome: produtoEdit.nome,
                               cod_imilk: produtoEdit.cod_imilk,
+                              badge_color: produtoEdit.badge_color,
                             })}
                             disabled={updateProdutoComercial.isPending}
                           >

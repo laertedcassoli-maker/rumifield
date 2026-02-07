@@ -1,0 +1,1 @@
+ALTER TABLE public.produtos ADD COLUMN IF NOT EXISTS badge_color text DEFAULT '#22c55e';

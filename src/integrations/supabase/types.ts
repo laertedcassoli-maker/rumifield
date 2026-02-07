@@ -2192,6 +2192,7 @@ export type Database = {
       produtos: {
         Row: {
           ativo: boolean
+          badge_color: string | null
           cod_imilk: string | null
           created_at: string
           descricao: string | null
@@ -2202,6 +2203,7 @@ export type Database = {
         }
         Insert: {
           ativo?: boolean
+          badge_color?: string | null
           cod_imilk?: string | null
           created_at?: string
           descricao?: string | null
@@ -2212,6 +2214,7 @@ export type Database = {
         }
         Update: {
           ativo?: boolean
+          badge_color?: string | null
           cod_imilk?: string | null
           created_at?: string
           descricao?: string | null
