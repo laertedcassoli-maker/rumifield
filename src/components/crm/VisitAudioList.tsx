@@ -119,8 +119,8 @@ export function VisitAudioList({ visitId }: Props) {
   })();
 
   const handleTranscribe = useCallback(async (item: AudioItem) => {
-    if (!item.audioData) {
-      toast({ variant: 'destructive', title: 'Áudio não disponível localmente' });
+    if (!item.audioData || item.audioData.byteLength === 0) {
+      toast({ variant: 'destructive', title: 'Áudio não disponível ou vazio' });
       return;
     }
 
