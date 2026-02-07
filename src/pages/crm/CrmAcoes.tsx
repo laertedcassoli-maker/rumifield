@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
+import { EditarAcaoSheet } from '@/components/crm/EditarAcaoSheet';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -38,6 +39,7 @@ export default function CrmAcoes() {
   const [statusFilter, setStatusFilter] = useState<string>('aberta');
   const [typeFilter, setTypeFilter] = useState<string>('todos');
   const [search, setSearch] = useState('');
+  const [selectedAction, setSelectedAction] = useState<UnifiedAction | null>(null);
 
   const filtered = useMemo(() => {
     // Merge actions + proposals
@@ -148,7 +150,8 @@ export default function CrmAcoes() {
             return (
               <Card
                 key={`${action._source}-${action.id}`}
-                className={`transition-colors ${overdue ? 'border-destructive/60 bg-destructive/5' : ''}`}
+                className={`transition-colors cursor-pointer hover:shadow-md ${overdue ? 'border-destructive/60 bg-destructive/5' : ''}`}
+                onClick={() => setSelectedAction(action)}
               >
                 <CardContent className="p-4 space-y-2">
                   {/* Title + Status */}
@@ -215,6 +218,12 @@ export default function CrmAcoes() {
           })}
         </div>
       )}
+
+      <EditarAcaoSheet
+        action={selectedAction}
+        open={!!selectedAction}
+        onOpenChange={(open) => { if (!open) setSelectedAction(null); }}
+      />
     </div>
   );
 }
