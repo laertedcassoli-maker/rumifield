@@ -1,59 +1,41 @@
 
 
-## Tela de Acoes CRM (visao flat)
+## Incluir Propostas como "Oportunidades" na tela de Acoes CRM
 
-### O que e
-Uma nova pagina `/crm/acoes` que lista todas as acoes de todos os clientes em uma unica tela, com filtros e ordenacao. Tanto o consultor quanto o gestor conseguem ver rapidamente o que esta pendente, vencido, ou concluido.
+### O que muda para o usuario
+Ao selecionar o filtro "Oportunidade", a tela passara a listar as propostas comerciais (`crm_proposals`) como cards, com visual adaptado mostrando produto, valor proposto, validade e status da proposta. O link do cliente continua levando ao 360.
 
-### Funcionalidades
+### Como funciona
 
-1. **Listagem flat** de todas as acoes com:
-   - Titulo da acao
-   - Nome do cliente (com link para o 360)
-   - Tipo (tarefa, pendencia, oportunidade)
-   - Status (pendente, concluida, cancelada)
-   - Prioridade
-   - Prazo (com destaque visual se vencido)
-   - Responsavel (para gestores que veem todos)
-
-2. **Filtros**:
-   - Status: Pendentes (padrao), Concluidas, Canceladas, Todas
-   - Tipo: Todos, Tarefa, Pendencia, Oportunidade
-   - Busca por texto (titulo ou nome do cliente)
-
-3. **Ordenacao**: por prazo (mais urgentes primeiro), com vencidas no topo
-
-4. **Permissoes**:
-   - Consultor ve apenas suas acoes (filtro por `owner_user_id`)
-   - Admin/Coordenador R+ ve todas as acoes, com nome do responsavel visivel
-
-5. **Link no menu lateral**: "Acoes CRM" com icone `ListChecks`, usando a permissao `crm_clientes`
+A query atual busca apenas `crm_actions`. A mudanca adiciona uma segunda query em `crm_proposals` (com join em `crm_client_products` e `clientes`) e unifica os resultados em uma lista so, normalizando os campos para um formato comum.
 
 ### Detalhes tecnicos
 
-**Novo arquivo**: `src/pages/crm/CrmAcoes.tsx`
+#### Alteracoes em `src/pages/crm/CrmAcoes.tsx`
 
-- Query na tabela `crm_actions` com join em `clientes` (para nome do cliente) e `profiles` (para nome do responsavel)
-- Filtro por `owner_user_id` quando nao e admin/coordenador
-- Componentes: Card-based (mobile-first), com badges de status e prioridade
-- Acoes vencidas (due_at < now e status pendente) destacadas com borda/texto vermelho
+1. **Nova query para propostas**: buscar `crm_proposals` com join em `crm_client_products` (para `product_code` e `client_id`) e `clientes` (para `nome`). Para consultores, filtrar por `crm_client_products.owner_user_id`.
 
-**Alteracoes**:
+2. **Normalizar propostas para o mesmo formato de "acao"**:
+   - `title` -> "Proposta {PRODUCT_LABELS[product_code]}" (ex: "Proposta RumiFlow")
+   - `type` -> `'oportunidade'`
+   - `status` -> mapear: `ativa` -> `aberta`, `aceita` -> `concluida`, `recusada`/`expirada` -> `concluida`
+   - `due_at` -> `valid_until` da proposta
+   - `priority` -> 2 (media, padrao)
+   - `description` -> `notes` da proposta
+   - `clientes` -> vem do join
+
+3. **Unificar as duas listas** (`actions` + `propostas normalizadas`) no `useMemo` de filtragem, antes de aplicar filtros e ordenacao.
+
+4. **Ajustar o card para propostas**: quando o item for uma proposta, mostrar o valor proposto (`proposed_value`) formatado como moeda, e um badge de status especifico da proposta (Ativa, Aceita, Recusada, Expirada) em vez do badge generico de acao.
+
+5. **Adicionar campo `_source`** aos itens normalizados (`'action'` ou `'proposal'`) para distinguir no render.
+
+#### Nenhuma alteracao no banco de dados
+Usa tabelas e RLS ja existentes (`crm_proposals`, `crm_client_products`, `clientes`).
+
+#### Resumo de mudancas
 
 | Arquivo | Mudanca |
 |---------|---------|
-| `src/pages/crm/CrmAcoes.tsx` | Nova pagina com listagem, filtros e busca |
-| `src/App.tsx` | Adicionar rota `/crm/acoes` |
-| `src/components/layout/AppSidebar.tsx` | Adicionar item "Acoes CRM" no menu principal |
+| `src/pages/crm/CrmAcoes.tsx` | Adicionar query de propostas, normalizar e unificar com acoes, adaptar cards |
 
-**Query principal** (pseudocodigo):
-```
-supabase
-  .from('crm_actions')
-  .select('*, clientes!inner(id, nome), profiles!crm_actions_owner_user_id_fkey(nome)')
-  .order('due_at', { ascending: true, nullsFirst: false })
-```
-
-Para consultores, adiciona `.eq('owner_user_id', user.id)`.
-
-Nao requer alteracoes no banco de dados -- usa tabelas e RLS ja existentes.
