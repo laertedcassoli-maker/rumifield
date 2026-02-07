@@ -14,9 +14,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useDebounce } from '@/hooks/useDebounce';
 import { CriarAcaoModal } from '@/components/crm/CriarAcaoModal';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
-type FilterKey = 'all' | 'health_red' | 'negociacao_aberta' | 'pendencias_vencidas';
 
 export default function CrmCarteira() {
   const { clientes, clientProducts, snapshots, actions, visits, isLoading } = useCarteiraData();
@@ -35,7 +33,6 @@ export default function CrmCarteira() {
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search, 300);
-  const [filter, setFilter] = useState<FilterKey>('all');
   const [actionModal, setActionModal] = useState<{ open: boolean; clientId: string }>({ open: false, clientId: '' });
 
   const clienteData = useMemo(() => {
@@ -94,7 +91,6 @@ export default function CrmCarteira() {
   const filtered = useMemo(() => {
     let list = clienteData;
 
-    // Text search
     if (debouncedSearch) {
       const s = debouncedSearch.toLowerCase();
       list = list.filter(c =>
@@ -104,49 +100,22 @@ export default function CrmCarteira() {
       );
     }
 
-    // Filter
-    switch (filter) {
-      case 'health_red':
-        list = list.filter(c => c.worstHealth === 'vermelho');
-        break;
-      case 'negociacao_aberta':
-        list = list.filter(c => c.openOpps > 0);
-        break;
-      case 'pendencias_vencidas':
-        list = list.filter(c => c.overdueActions > 0);
-        break;
-    }
-
     return list;
-  }, [clienteData, debouncedSearch, filter]);
+  }, [clienteData, debouncedSearch]);
 
   return (
     <div className="space-y-3 animate-fade-in pb-24 overflow-x-hidden">
       <h1 className="text-lg font-bold">Carteira CRM</h1>
 
-      {/* Search + Filter */}
-      <div className="flex gap-2">
-        <div className="relative flex-1 min-w-0">
-          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Buscar cliente..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="pl-8 h-9 text-sm"
-          />
-        </div>
-        <Select value={filter} onValueChange={(v) => setFilter(v as FilterKey)}>
-          <SelectTrigger className="w-[140px] h-9 text-xs shrink-0">
-            <SelectValue placeholder="Filtro" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos</SelectItem>
-            <SelectItem value="health_red">Saúde Vermelha</SelectItem>
-            <SelectItem value="negociacao_aberta">Negociação</SelectItem>
-            <SelectItem value="negociacao_aberta">Negociação</SelectItem>
-            <SelectItem value="pendencias_vencidas">Vencidas</SelectItem>
-          </SelectContent>
-        </Select>
+      {/* Search */}
+      <div className="relative">
+        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+        <Input
+          placeholder="Buscar cliente..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          className="pl-8 h-9 text-sm"
+        />
       </div>
 
       {/* Client count */}
