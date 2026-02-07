@@ -88,7 +88,7 @@ export default function CrmCliente360() {
     return <div className="text-center py-12 text-muted-foreground">Cliente não encontrado</div>;
   }
 
-  const openOpps = clientProducts.filter((p: any) => ['qualificado', 'proposta', 'negociacao'].includes(p.stage));
+  
 
   // Map actions to UnifiedAction format for EditarAcaoSheet
   const mapToUnified = (a: any): UnifiedAction => ({
@@ -199,32 +199,6 @@ export default function CrmCliente360() {
             </div>
           </div>
 
-          {/* Opportunities */}
-          {openOpps.length > 0 && (
-            <div>
-              <h2 className="text-lg font-semibold mb-3">Oportunidades ({openOpps.length})</h2>
-              <div className="space-y-2">
-                {openOpps.map((op: any) => (
-                  <Card key={op.id}>
-                    <CardContent className="py-3 flex items-center justify-between">
-                      <div>
-                        <span className="font-medium text-sm">{PRODUCT_LABELS[op.product_code as ProductCode]}</span>
-                        <Badge className="ml-2 text-[10px]" variant="outline">{STAGE_LABELS[op.stage as CrmStage]}</Badge>
-                      </div>
-                      <div className="flex items-center gap-3 shrink-0">
-                        {op.value_estimated && (
-                          <span className="text-sm font-medium">R$ {Number(op.value_estimated).toLocaleString('pt-BR')}</span>
-                        )}
-                        {op.stage_updated_at && (
-                          <span className="text-xs text-muted-foreground">{format(new Date(op.stage_updated_at), 'dd/MM/yyyy')}</span>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </div>
-          )}
 
           {/* Actions */}
           <div>
