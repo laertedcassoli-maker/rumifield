@@ -1,45 +1,69 @@
 
 
-## Problema
+## Snapshot dos Produtos no Checkout da Visita
 
-Ao abrir uma visita concluida, a tela nao mostra adequadamente o que foi realizado. Especificamente:
+### Objetivo
+Salvar o estado (stage) de cada produto do cliente no momento em que a visita e finalizada, para que ao reabrir uma visita concluida, os cards de produto mostrem o status historico correto -- nao o status atual.
 
-1. **Resumo** -- ja aparece, mas pode ficar mais destacado visualmente
-2. **Propostas geradas** -- os dados sao carregados (`proposals` do hook) mas nunca sao exibidos na tela
-3. **Acoes** -- mostra todas as acoes do cliente, sem destaque para as criadas durante a visita
-4. **Duracao da visita** -- check-in e check-out existem mas nao mostram a duracao total
+### O que muda para o usuario
+- Ao abrir uma visita concluida, os produtos aparecerao com o status que tinham naquele momento (ex: "Nao Qualificado"), mesmo que hoje estejam em outro estagio.
+- Visitas novas continuam funcionando normalmente.
 
-## Solucao
+---
 
-Melhorar a tela de execucao para visitas concluidas, adicionando secoes informativas:
+### Detalhes tecnicos
 
-### 1. Destacar o resumo visualmente
-- Quando a visita esta concluida e tem `summary`, exibir em um card com fundo verde claro e icone de check, para ficar claro que e o resultado da visita.
+#### 1. Nova tabela: `crm_visit_product_snapshots`
 
-### 2. Adicionar secao de Propostas
-- Exibir as propostas do cliente (`proposals` ja carregadas pelo hook) em cards mostrando: produto, valor proposto, status, data de envio e validade.
-- Filtrar para mostrar apenas propostas relevantes (criadas no periodo da visita ou todas do cliente, conforme disponivel).
+Armazena uma copia do estado de cada produto no momento do checkout.
 
-### 3. Mostrar duracao da visita
-- Quando ha check-in e check-out, calcular e exibir a duracao total (ex: "1h 23min").
+| Coluna | Tipo | Descricao |
+|--------|------|-----------|
+| id | uuid PK | |
+| visit_id | uuid FK -> crm_visits | Visita associada |
+| client_product_id | uuid FK -> crm_client_products | Produto original |
+| product_code | product_code (enum) | Codigo do produto |
+| stage | crm_stage (enum) | Estagio no momento do checkout |
+| value_estimated | numeric | Valor estimado na epoca |
+| probability | integer | Probabilidade na epoca |
+| loss_reason_id | uuid | Motivo de perda, se aplicavel |
+| loss_notes | text | Notas de perda |
+| created_at | timestamptz | Timestamp do snapshot |
 
-### 4. Melhorar layout para visitas concluidas
-- Reorganizar as secoes para que visitas concluidas priorizem: Resumo, Propostas, Acoes, Checklists, Produtos.
-- Remover botoes de acao (check-in/finalizar) que ja nao se aplicam (ja e feito, mas garantir).
+RLS: mesmas regras dos outros dados CRM (admin/coordenador ve tudo, consultor ve os seus).
 
-## Detalhes tecnicos
+#### 2. Alteracao no `FinalizarVisitaModal.tsx`
 
-**Arquivo**: `src/pages/crm/CrmVisitaExecucao.tsx`
+No `mutationFn`, apos atualizar a visita para "concluida", buscar todos os `crm_client_products` do cliente e inserir um registro por produto na tabela `crm_visit_product_snapshots`.
 
-Alteracoes:
+```
+// Pseudocodigo dentro do finalizeMutation
+const { data: products } = await supabase
+  .from('crm_client_products')
+  .select('id, product_code, stage, value_estimated, probability, loss_reason_id, loss_notes')
+  .eq('client_id', clientId);
 
-1. Adicionar calculo de duracao entre `checkin_at` e `checkout_at` usando `date-fns` (ex: `differenceInMinutes`)
-2. Quando `isCompleted`, renderizar o resumo em card destacado (bg-green-50, icone CheckCircle2)
-3. Adicionar nova secao "Propostas" iterando sobre `proposals` (ja disponivel no hook) com cards mostrando:
-   - Produto (via join com `crm_client_products.product_code`)
-   - `proposed_value` formatado como moeda
-   - `status` (enviada, aceita, recusada)
-   - `sent_at` e `valid_until`
-4. Importar `differenceInMinutes` de `date-fns`
-5. Exibir duracao no card de informacoes da visita ao lado do check-out
+const snapshotInserts = products.map(p => ({
+  visit_id: visitId,
+  client_product_id: p.id,
+  product_code: p.product_code,
+  stage: p.stage,
+  value_estimated: p.value_estimated,
+  probability: p.probability,
+  loss_reason_id: p.loss_reason_id,
+  loss_notes: p.loss_notes,
+}));
+
+await supabase.from('crm_visit_product_snapshots').insert(snapshotInserts);
+```
+
+#### 3. Alteracao no `CrmVisitaExecucao.tsx`
+
+- Adicionar query para buscar snapshots da visita: `crm_visit_product_snapshots` filtrado por `visit_id`.
+- Quando a visita esta concluida (`isCompleted`) e existem snapshots, usar os dados do snapshot (stage, loss_reason_id, loss_notes) ao renderizar os `ProductCard`, em vez dos dados ao vivo do `crm_client_products`.
+- Quando nao ha snapshots (visitas antigas, antes desta feature), continuar usando os dados ao vivo como fallback.
+
+#### 4. Nenhuma alteracao no `ProductCard`
+
+O `ProductCard` ja recebe `stage`, `lossReasonId`, `lossNotes` como props -- basta passar os valores do snapshot em vez dos ao vivo.
 
