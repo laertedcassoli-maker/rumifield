@@ -116,7 +116,12 @@ export function CriarAcaoModal({ open, onOpenChange, clientId, clientProductId, 
                       ? `${opt.style} ring-2 ring-offset-1 ring-current font-semibold`
                       : "opacity-60"
                   )}
-                  onClick={() => setStatus(opt.value)}
+                  onClick={() => {
+                    setStatus(opt.value);
+                    if (opt.value === 'concluida' && !dueAt) {
+                      setDueAt(new Date().toISOString().split('T')[0]);
+                    }
+                  }}
                 >
                   {opt.label}
                 </Button>
