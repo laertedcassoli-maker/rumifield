@@ -1076,6 +1076,67 @@ export type Database = {
           },
         ]
       }
+      crm_visit_product_snapshots: {
+        Row: {
+          client_product_id: string
+          created_at: string
+          id: string
+          loss_notes: string | null
+          loss_reason_id: string | null
+          probability: number | null
+          product_code: Database["public"]["Enums"]["product_code"]
+          stage: Database["public"]["Enums"]["crm_stage"]
+          value_estimated: number | null
+          visit_id: string
+        }
+        Insert: {
+          client_product_id: string
+          created_at?: string
+          id?: string
+          loss_notes?: string | null
+          loss_reason_id?: string | null
+          probability?: number | null
+          product_code: Database["public"]["Enums"]["product_code"]
+          stage: Database["public"]["Enums"]["crm_stage"]
+          value_estimated?: number | null
+          visit_id: string
+        }
+        Update: {
+          client_product_id?: string
+          created_at?: string
+          id?: string
+          loss_notes?: string | null
+          loss_reason_id?: string | null
+          probability?: number | null
+          product_code?: Database["public"]["Enums"]["product_code"]
+          stage?: Database["public"]["Enums"]["crm_stage"]
+          value_estimated?: number | null
+          visit_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_visit_product_snapshots_client_product_id_fkey"
+            columns: ["client_product_id"]
+            isOneToOne: false
+            referencedRelation: "crm_client_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_visit_product_snapshots_loss_reason_id_fkey"
+            columns: ["loss_reason_id"]
+            isOneToOne: false
+            referencedRelation: "crm_loss_reasons"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_visit_product_snapshots_visit_id_fkey"
+            columns: ["visit_id"]
+            isOneToOne: false
+            referencedRelation: "crm_visits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       crm_visits: {
         Row: {
           checkin_at: string | null
