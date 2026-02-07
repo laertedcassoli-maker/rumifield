@@ -20,7 +20,7 @@ import {
   AlertTriangle,
   Navigation,
   BookOpen,
-  Contact
+  Briefcase
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useMenuPermissions } from '@/hooks/useMenuPermissions';
@@ -57,9 +57,9 @@ export default function Home() {
       permKey: 'chamados',
     },
     {
-      title: 'Clientes',
-      icon: Contact,
-      url: '/clientes',
+      title: 'CRM Carteira',
+      icon: Briefcase,
+      url: '/crm/carteira',
       color: 'text-cyan-600',
       bgColor: 'bg-cyan-100 dark:bg-cyan-900/30',
       permKey: 'crm_clientes',

@@ -312,11 +312,7 @@ const App = () => (
             {/* CRM - Clientes */}
             <Route
               path="/clientes"
-              element={
-                <AppLayout>
-                  <ClientesList />
-                </AppLayout>
-              }
+              element={<Navigate to="/crm/carteira" replace />}
             />
             <Route
               path="/clientes/:id"
