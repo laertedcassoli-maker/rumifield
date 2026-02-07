@@ -1,32 +1,69 @@
 
 
-## Simplificar listagem de Visitas CRM
+## Tornar a tela Acoes CRM editavel
 
 ### O que muda
 
-1. **Remover agrupamento por data de criacao (Hoje/Ontem/etc.)** -- a lista sera uma sequencia plana de cards, sem headers de grupo.
+Ao clicar em um card de acao ou proposta, abre um **sheet lateral (drawer)** com os detalhes completos e opcoes de edicao inline -- sem navegar para outra pagina.
 
-2. **Enriquecer cada card com informacoes adicionais:**
-   - **Data de criacao**: exibir abaixo da fazenda em formato compacto (ex: "Criado em 06/02 as 14:30")
-   - **Usuario responsavel**: buscar o nome do `owner_user_id` via join com a tabela `profiles` e exibir no card (ex: "por Joao Silva")
+### Comportamento por tipo
+
+**Acoes (tarefas/pendencias):**
+- Botoes de status rapido no topo do sheet: Pendente / Em Execucao / Concluida (tap para alternar, salva imediatamente)
+- Campos editaveis: titulo, descricao, prazo, prioridade, tipo
+- Botao "Salvar" para alteracoes nos campos de texto
+
+**Propostas (oportunidades):**
+- Exibicao dos dados da proposta (valor, produto, validade) em modo leitura
+- Botoes de status rapido: Ativa / Aceita / Recusada (atualiza direto na tabela `crm_proposals`)
 
 ### Detalhes tecnicos
 
-**Arquivo: `src/pages/crm/CrmVisitas.tsx`**
+**1. Novo componente: `src/components/crm/EditarAcaoSheet.tsx`**
+- Recebe a `UnifiedAction` selecionada como prop
+- Usa o componente `Sheet` (lateral) do shadcn
+- Para acoes (`_source === 'action'`):
+  - Mutation de update na tabela `crm_actions` (campos: title, description, due_at, priority, type, status)
+  - Botoes de status com feedback visual (cores iguais aos badges atuais)
+- Para propostas (`_source === 'proposal'`):
+  - Mutation de update na tabela `crm_proposals` (campo: status)
+  - Campos de valor/validade em modo leitura
+- Invalida queries `crm-actions-flat` e `crm-proposals-flat` ao salvar
 
-- Alterar a query para incluir join com profiles: `select('*, clientes(...), profiles:owner_user_id(nome)')` (ou campo equivalente na tabela profiles)
-- Remover o `useMemo` de `grouped` e a logica de `isToday`/`isYesterday`
-- Renderizar `filteredVisitas` diretamente como lista plana (sem `Object.entries(grouped)`)
-- Adicionar no card, abaixo da fazenda/objetivo, uma linha com icone de relogio + data de criacao formatada + nome do usuario
+**2. Alteracao: `src/pages/crm/CrmAcoes.tsx`**
+- Adicionar estado `selectedAction: UnifiedAction | null`
+- Tornar cada Card clicavel (`onClick` + `cursor-pointer`)
+- Renderizar o `EditarAcaoSheet` passando a acao selecionada
 
-**Layout do card atualizado:**
+**3. Alteracao: `src/hooks/useCrmAcoesData.ts`**
+- Sem alteracoes no hook de dados -- a estrutura atual ja fornece tudo necessario
+
+### Layout do Sheet
 
 ```text
-+-------+-------------------------------------------+---+
-| FEV   | CLIENTE NOME        [Planejada]  [pin]    | > |
-|  26   | Fazenda XYZ                                |   |
-|       | Criado 06/02 14:30 · por João Silva        |   |
-+-------+-------------------------------------------+---+
++--------------------------------------+
+|  [X]  Editar Acao                    |
++--------------------------------------+
+|  Cliente: Fazenda XYZ (link)         |
+|                                      |
+|  STATUS:                             |
+|  [Pendente] [Em Execucao] [Concluida]|
+|                                      |
+|  Titulo:   [________________]        |
+|  Tipo:     [Tarefa v]                |
+|  Prioridade: [P3 v]                  |
+|  Prazo:    [dd/mm/aaaa]              |
+|  Descricao: [______________]         |
+|             [______________]         |
+|                                      |
+|        [Cancelar]  [Salvar]          |
++--------------------------------------+
 ```
 
-Antes de implementar, preciso verificar o schema da tabela `profiles` para confirmar o campo de nome disponivel.
+### Arquivos envolvidos
+
+| Arquivo | Acao |
+|---------|------|
+| `src/components/crm/EditarAcaoSheet.tsx` | Criar (novo) |
+| `src/pages/crm/CrmAcoes.tsx` | Editar (click handler + sheet) |
+
