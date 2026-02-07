@@ -220,6 +220,17 @@ export interface OfflinePedidoItem {
   pecas?: { nome: string; codigo: string };
 }
 
+export interface OfflineCrmVisitAudio {
+  id: string;
+  visit_id: string;
+  product_code: string;
+  audioData: Uint8Array;
+  duration_seconds: number;
+  file_size_bytes: number;
+  status: string;
+  created_at: string;
+}
+
 export interface SyncQueueItem {
   id?: number;
   table: string;
@@ -248,6 +259,7 @@ class OfflineDatabase extends Dexie {
   corretivas!: Table<OfflineCorretiva, string>;
   rotas!: Table<OfflineRota, string>;
   rota_items!: Table<OfflineRotaItem, string>;
+  crm_visit_audios!: Table<OfflineCrmVisitAudio, string>;
   syncQueue!: Table<SyncQueueItem, number>;
   syncMeta!: Table<SyncMeta, string>;
 
@@ -288,6 +300,11 @@ class OfflineDatabase extends Dexie {
     this.version(4).stores({
       corretivas: "id, visit_code, ticket_id, client_id, status, field_technician_user_id, created_at",
     });
+
+    // Version 5: Add crm_visit_audios for offline audio recording
+    this.version(5).stores({
+      crm_visit_audios: "id, visit_id, product_code, status",
+    });
   }
 
   // Clear all offline data
@@ -304,6 +321,7 @@ class OfflineDatabase extends Dexie {
     await this.corretivas.clear();
     await this.rotas.clear();
     await this.rota_items.clear();
+    await this.crm_visit_audios.clear();
     await this.syncQueue.clear();
     await this.syncMeta.clear();
   }

@@ -1025,6 +1025,63 @@ export type Database = {
           },
         ]
       }
+      crm_visit_audios: {
+        Row: {
+          created_at: string
+          duration_seconds: number | null
+          file_size_bytes: number | null
+          id: string
+          product_code: string
+          status: string
+          storage_path: string | null
+          summary: string[] | null
+          transcription: string | null
+          user_id: string
+          visit_id: string
+        }
+        Insert: {
+          created_at?: string
+          duration_seconds?: number | null
+          file_size_bytes?: number | null
+          id?: string
+          product_code: string
+          status?: string
+          storage_path?: string | null
+          summary?: string[] | null
+          transcription?: string | null
+          user_id: string
+          visit_id: string
+        }
+        Update: {
+          created_at?: string
+          duration_seconds?: number | null
+          file_size_bytes?: number | null
+          id?: string
+          product_code?: string
+          status?: string
+          storage_path?: string | null
+          summary?: string[] | null
+          transcription?: string | null
+          user_id?: string
+          visit_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_visit_audios_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_visit_audios_visit_id_fkey"
+            columns: ["visit_id"]
+            isOneToOne: false
+            referencedRelation: "crm_visits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       crm_visit_checklists: {
         Row: {
           checklist_template_id: string

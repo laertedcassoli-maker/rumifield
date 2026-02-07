@@ -1,14 +1,16 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useMutation } from '@tanstack/react-query';
+import { useLiveQuery } from 'dexie-react-hooks';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useGeolocation } from '@/hooks/useGeolocation';
+import { offlineDb } from '@/lib/offline-db';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { Loader2, CheckCircle2, Plus, X } from 'lucide-react';
+import { Loader2, CheckCircle2, Plus, X, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface Props {
@@ -32,6 +34,13 @@ export function FinalizarVisitaModal({ open, onOpenChange, visitId, clientId, on
   const [summary, setSummary] = useState('');
   const [quickActions, setQuickActions] = useState<QuickAction[]>([]);
   const [newActionTitle, setNewActionTitle] = useState('');
+
+  // Check for pending audio uploads
+  const pendingAudios = useLiveQuery(
+    () => offlineDb.crm_visit_audios.where('visit_id').equals(visitId).count(),
+    [visitId],
+    0
+  );
 
   const addAction = () => {
     if (!newActionTitle.trim()) return;
@@ -160,6 +169,14 @@ export function FinalizarVisitaModal({ open, onOpenChange, visitId, clientId, on
             </div>
           </div>
         </div>
+
+        {/* Pending audio warning */}
+        {pendingAudios > 0 && (
+          <div className="flex items-start gap-2 text-sm p-3 rounded bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-300">
+            <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+            <span>{pendingAudios} áudio(s) pendente(s) de envio. Serão enviados quando houver conexão.</span>
+          </div>
+        )}
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>

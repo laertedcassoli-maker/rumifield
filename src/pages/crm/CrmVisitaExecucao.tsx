@@ -1,6 +1,7 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useLiveQuery } from 'dexie-react-hooks';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCliente360Data, PRODUCT_ORDER, PRODUCT_LABELS, type ProductCode, type CrmStage } from '@/hooks/useCrmData';
@@ -11,6 +12,8 @@ import { CriarPropostaModal } from '@/components/crm/CriarPropostaModal';
 import { AtualizarNegociacaoModal } from '@/components/crm/AtualizarNegociacaoModal';
 import { CriarAcaoModal } from '@/components/crm/CriarAcaoModal';
 import { FinalizarVisitaModal } from '@/components/crm/FinalizarVisitaModal';
+import { AudioRecorderButton } from '@/components/crm/AudioRecorderButton';
+import { VisitAudioList } from '@/components/crm/VisitAudioList';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -20,6 +23,7 @@ import { format, differenceInMinutes } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { CheckinDialog } from '@/components/preventivas/CheckinDialog';
 import { cn } from '@/lib/utils';
+import { offlineDb } from '@/lib/offline-db';
 
 const STATUS_LABELS: Record<string, string> = {
   planejada: 'Planejada',
@@ -43,6 +47,23 @@ export default function CrmVisitaExecucao() {
   const [propModal, setPropModal] = useState<{ open: boolean; cpId: string; pc: ProductCode }>({ open: false, cpId: '', pc: 'ideagri' });
   const [negModal, setNegModal] = useState<{ open: boolean; cpId: string; pc: ProductCode; stage: CrmStage }>({ open: false, cpId: '', pc: 'ideagri', stage: 'nao_qualificado' });
   const [actionModal, setActionModal] = useState(false);
+  const [recordingProduct, setRecordingProduct] = useState<ProductCode | null>(null);
+  const [audioRefreshKey, setAudioRefreshKey] = useState(0);
+
+  // Local audio counts per product from IndexedDB
+  const localAudioCounts = useLiveQuery(
+    async () => {
+      if (!id) return {};
+      const audios = await offlineDb.crm_visit_audios.where('visit_id').equals(id).toArray();
+      const counts: Record<string, number> = {};
+      for (const a of audios) {
+        counts[a.product_code] = (counts[a.product_code] || 0) + 1;
+      }
+      return counts;
+    },
+    [id, audioRefreshKey],
+    {}
+  );
 
   // Fetch visit
   // @ts-ignore
@@ -315,11 +336,32 @@ export default function CrmVisitaExecucao() {
                 onQualify={() => setQualModal({ open: true, cpId: cp.id, pc })}
                 onCreateProposal={() => setPropModal({ open: true, cpId: cp.id, pc })}
                 onUpdateNegotiation={() => setNegModal({ open: true, cpId: cp.id, pc, stage: cp.stage as CrmStage })}
+                onRecordAudio={isActive ? () => setRecordingProduct(pc) : undefined}
+                audioCount={localAudioCounts[pc] || 0}
               />
             );
           })}
         </div>
       </div>
+
+      {/* Audio Recorder (shown when recording a product) */}
+      {isActive && recordingProduct && id && (
+        <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 bg-card border rounded-lg shadow-lg p-4 flex items-center gap-3">
+          <ProductBadge productCode={recordingProduct} className="text-xs px-2 py-0.5" />
+          <AudioRecorderButton
+            visitId={id}
+            productCode={recordingProduct}
+            onRecorded={() => {
+              setRecordingProduct(null);
+              setAudioRefreshKey(k => k + 1);
+            }}
+          />
+          <Button variant="ghost" size="sm" onClick={() => setRecordingProduct(null)}>Cancelar</Button>
+        </div>
+      )}
+
+      {/* Visit Audio List */}
+      {id && <VisitAudioList visitId={id} />}
 
       {/* Checklists attached to this visit */}
       {visitChecklists && visitChecklists.length > 0 && (
