@@ -123,22 +123,8 @@ export default function CrmCarteira() {
         </Select>
       </div>
 
-      {/* Summary - compact row */}
-      <div className="grid grid-cols-4 gap-1">
-        {[
-          { val: clienteData.length, label: 'Clientes', color: '' },
-          { val: clienteData.filter(c => c.worstHealth === 'vermelho').length, label: 'Críticos', color: 'text-red-600' },
-          { val: clienteData.reduce((s, c) => s + c.openOpps, 0), label: 'Oport.', color: 'text-amber-600' },
-          { val: clienteData.reduce((s, c) => s + c.overdueActions, 0), label: 'Vencidas', color: 'text-destructive' },
-        ].map((item, i) => (
-          <Card key={i}>
-            <CardContent className="py-1.5 px-1 text-center">
-              <p className={`text-sm font-bold ${item.color}`}>{item.val}</p>
-              <p className="text-[9px] text-muted-foreground leading-tight">{item.label}</p>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+      {/* Client count */}
+      <p className="text-xs text-muted-foreground">{filtered.length} de {clienteData.length} clientes</p>
 
       {/* Client List */}
       <div className="space-y-1.5">
