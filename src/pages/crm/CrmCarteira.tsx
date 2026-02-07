@@ -1,15 +1,13 @@
 import { useState, useMemo } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
+import { useNavigate } from 'react-router-dom';
 import { useCarteiraData, PRODUCT_ORDER, PRODUCT_LABELS, STAGE_LABELS, HEALTH_COLORS } from '@/hooks/useCrmData';
 import type { ProductCode } from '@/hooks/useCrmData';
+import { useProductBadgeColors } from '@/components/crm/ProductBadge';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Search, Building2, MapPin, ChevronRight, CircleDot, AlertCircle, Target, Clock, Plus, CalendarDays, ShieldCheck } from 'lucide-react';
+import { Search, CircleDot, AlertCircle, Target, Clock, Plus, CalendarDays, ShieldCheck, ChevronRight } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useDebounce } from '@/hooks/useDebounce';
@@ -19,17 +17,7 @@ import { CriarAcaoModal } from '@/components/crm/CriarAcaoModal';
 export default function CrmCarteira() {
   const { clientes, clientProducts, snapshots, actions, visits, isLoading } = useCarteiraData();
 
-  // Fetch badge colors from produtos table
-  const { data: produtoBadgeColors } = useQuery({
-    queryKey: ['produto-badge-colors'],
-    queryFn: async () => {
-      const { data, error } = await (supabase as any).from('produtos').select('product_code, badge_color');
-      if (error) throw error;
-      const map: Record<string, string> = {};
-      (data || []).forEach((p: any) => { if (p.product_code && p.badge_color) map[p.product_code] = p.badge_color; });
-      return map;
-    },
-  });
+  const { data: produtoBadgeColors } = useProductBadgeColors();
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search, 300);
