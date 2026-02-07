@@ -138,23 +138,31 @@ export function VisitAudioList({ visitId }: Props) {
     }
 
     const audioData = item.audioData || (await offlineDb.crm_visit_audios.get(item.id))?.audioData;
+    console.log('[Play] audioData byteLength:', audioData?.byteLength);
     if (!audioData || audioData.byteLength === 0) {
-      toast({ variant: 'destructive', title: 'Sem dados de áudio para reproduzir' });
+      toast({ variant: 'destructive', title: 'Áudio vazio', description: 'Esta gravação não contém dados. Apague-a e grave novamente.' });
       return;
     }
 
-    const blob = new Blob([audioData.slice().buffer as ArrayBuffer], { type: 'audio/webm' });
-    const url = URL.createObjectURL(blob);
-    audioUrlRef.current = url;
-    const audio = new Audio(url);
-    audioRef.current = audio;
-    audio.onended = () => setPlayingId(null);
-    audio.onerror = () => {
-      toast({ variant: 'destructive', title: 'Erro ao reproduzir áudio' });
+    try {
+      const blob = new Blob([audioData.slice().buffer as ArrayBuffer], { type: 'audio/webm' });
+      const url = URL.createObjectURL(blob);
+      audioUrlRef.current = url;
+      const audio = new Audio(url);
+      audioRef.current = audio;
+      audio.onended = () => setPlayingId(null);
+      audio.onerror = (e) => {
+        console.error('[Play] Audio error:', e);
+        toast({ variant: 'destructive', title: 'Erro ao reproduzir', description: 'Formato de áudio não suportado pelo navegador.' });
+        setPlayingId(null);
+      };
+      setPlayingId(item.id);
+      await audio.play();
+    } catch (err: any) {
+      console.error('[Play] Play error:', err);
+      toast({ variant: 'destructive', title: 'Erro ao reproduzir', description: err.message });
       setPlayingId(null);
-    };
-    setPlayingId(item.id);
-    audio.play();
+    }
   }, [playingId, toast]);
 
   const handleTranscribe = useCallback(async (item: AudioItem) => {
