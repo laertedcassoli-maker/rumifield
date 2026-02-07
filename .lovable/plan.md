@@ -1,23 +1,20 @@
 
-# Exibir data de qualificacao no card de Oportunidades
+
+# Remover tela Clientes (/clientes) do menu e da Home
 
 ## O que sera feito
-Adicionar a data de qualificacao (campo `stage_updated_at`) ao lado direito de cada card na secao "Oportunidades" da pagina Cliente 360.
+Remover o item "Clientes" (`/clientes`) do menu lateral e da Home, mantendo apenas "CRM Carteira" (`/crm/carteira`) como ponto de entrada para o modulo CRM. A rota `/clientes` sera redirecionada para `/crm/carteira` para evitar links quebrados.
 
-## Resultado visual
-O card passara de:
-```text
-| Ideagri  Qualificado                              |
-```
-Para:
-```text
-| Ideagri  Qualificado                    07/02/2026 |
-```
+## Alteracoes
 
-## Detalhes tecnicos
+### 1. Menu lateral (`src/components/layout/AppSidebar.tsx`)
+- Remover a linha `{ title: 'Clientes', icon: Contact, url: '/clientes', permKey: 'crm_clientes' }` do array `mainMenuItems`
 
-### Arquivo: `src/pages/crm/CrmCliente360.tsx`
-- No bloco de renderizacao das oportunidades (linhas ~156-168), adicionar a exibicao de `op.stage_updated_at` formatada com `date-fns` no formato `dd/MM/yyyy`
-- Exibir ao lado do valor estimado (ou no lugar dele caso nao exista valor)
-- Usar o campo `stage_updated_at` da tabela `crm_client_products`, que ja e retornado na query existente
-- Nenhuma alteracao de query ou banco necessaria
+### 2. Home (`src/pages/Home.tsx`)
+- Remover o item "Clientes" (`/clientes`) do array `allMainMenuItems`
+- Adicionar "CRM Carteira" (`/crm/carteira`) no lugar, com icone `Briefcase` e cores apropriadas
+
+### 3. Rotas (`src/App.tsx`)
+- Alterar a rota `/clientes` para redirecionar para `/crm/carteira` em vez de renderizar `ClientesList`
+- Manter a rota `/clientes/:id` que ja redireciona para `/crm/:id`
+
