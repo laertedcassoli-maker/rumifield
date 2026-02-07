@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { cn } from '@/lib/utils';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
@@ -9,6 +9,9 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Search, Check, ChevronsUpDown } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface Props {
@@ -19,15 +22,41 @@ interface Props {
   onCreated?: () => void;
 }
 
-export function CriarAcaoModal({ open, onOpenChange, clientId, clientProductId, onCreated }: Props) {
+export function CriarAcaoModal({ open, onOpenChange, clientId: externalClientId, clientProductId, onCreated }: Props) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  const [selectedClientId, setSelectedClientId] = useState('');
+  const [clientSearchOpen, setClientSearchOpen] = useState(false);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [type, setType] = useState('tarefa');
   const [priority, setPriority] = useState('3');
   const [dueAt, setDueAt] = useState('');
   const [status, setStatus] = useState<string>('pendente');
+
+  const needsClientSelector = !externalClientId;
+  const clientId = externalClientId || selectedClientId;
+
+  // Fetch clients only when selector is needed
+  const { data: clientesList } = useQuery({
+    queryKey: ['crm-clientes-selector'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('clientes')
+        .select('id, nome, fazenda, cidade')
+        .eq('status', 'ativo')
+        .order('nome');
+      if (error) throw error;
+      return data;
+    },
+    enabled: open && needsClientSelector,
+  });
+
+  const selectedClientLabel = useMemo(() => {
+    if (!selectedClientId || !clientesList) return '';
+    const c = clientesList.find(c => c.id === selectedClientId);
+    return c ? `${c.nome}${c.fazenda ? ` · ${c.fazenda}` : ''}` : '';
+  }, [selectedClientId, clientesList]);
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -50,7 +79,7 @@ export function CriarAcaoModal({ open, onOpenChange, clientId, clientProductId, 
       queryClient.invalidateQueries({ queryKey: ['crm-'] });
       queryClient.invalidateQueries({ queryKey: ['crm-360-actions'] });
       onOpenChange(false);
-      setTitle(''); setDescription(''); setType('tarefa'); setPriority('3'); setDueAt(''); setStatus('pendente');
+      setTitle(''); setDescription(''); setType('tarefa'); setPriority('3'); setDueAt(''); setStatus('pendente'); setSelectedClientId('');
       onCreated?.();
     },
     onError: () => toast.error('Erro ao criar ação'),
@@ -63,6 +92,48 @@ export function CriarAcaoModal({ open, onOpenChange, clientId, clientProductId, 
           <DialogTitle>Nova Ação</DialogTitle>
         </DialogHeader>
         <div className="space-y-4">
+          {needsClientSelector && (
+            <div>
+              <Label>Cliente *</Label>
+              <Popover open={clientSearchOpen} onOpenChange={setClientSearchOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    className="w-full justify-between font-normal h-9 text-sm"
+                  >
+                    <span className="truncate">
+                      {selectedClientLabel || 'Selecione um cliente...'}
+                    </span>
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[--radix-popover-trigger-width] p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder="Buscar cliente..." />
+                    <CommandList>
+                      <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
+                      <CommandGroup>
+                        {(clientesList || []).map(c => (
+                          <CommandItem
+                            key={c.id}
+                            value={`${c.nome} ${c.fazenda || ''} ${c.cidade || ''}`}
+                            onSelect={() => {
+                              setSelectedClientId(c.id);
+                              setClientSearchOpen(false);
+                            }}
+                          >
+                            <Check className={cn("mr-2 h-4 w-4", selectedClientId === c.id ? "opacity-100" : "opacity-0")} />
+                            <span className="truncate">{c.nome}{c.fazenda ? ` · ${c.fazenda}` : ''}</span>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+            </div>
+          )}
           <div>
             <Label>Título *</Label>
             <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="Ex: Agendar reunião de apresentação" />
@@ -135,7 +206,7 @@ export function CriarAcaoModal({ open, onOpenChange, clientId, clientProductId, 
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-          <Button onClick={() => mutation.mutate()} disabled={!title.trim() || mutation.isPending}>
+          <Button onClick={() => mutation.mutate()} disabled={!title.trim() || !clientId || mutation.isPending}>
             Criar
           </Button>
         </DialogFooter>
