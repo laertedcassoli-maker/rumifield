@@ -9,6 +9,8 @@ import { Search, Calendar, User, AlertTriangle, CheckCircle2, Clock, DollarSign 
 import { format, isPast, isToday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useCrmAcoesData, type ActionStatus, type ActionType, type ProposalStatus, type UnifiedAction } from '@/hooks/useCrmAcoesData';
+import { ProductBadge } from '@/components/crm/ProductBadge';
+import { type ProductCode } from '@/hooks/useCrmData';
 
 const STATUS_FILTERS = [
   { value: 'aberta', label: 'Pendentes' },
@@ -172,9 +174,13 @@ export default function CrmAcoes() {
 
                   {/* Meta row */}
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                    <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-                      {TYPE_LABELS[action.type] || action.type}
-                    </Badge>
+                    {action._source === 'proposal' && action.product_code ? (
+                      <ProductBadge productCode={action.product_code} />
+                    ) : (
+                      <Badge variant="outline" className="text-[10px] px-1.5 py-0">
+                        {TYPE_LABELS[action.type] || action.type}
+                      </Badge>
+                    )}
 
                     {action._source === 'action' && <PriorityBadge priority={action.priority} />}
 

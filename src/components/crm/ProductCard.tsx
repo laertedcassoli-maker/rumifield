@@ -1,4 +1,5 @@
 import { Badge } from '@/components/ui/badge';
+import { ProductBadge } from '@/components/crm/ProductBadge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { CircleDot, Heart, TrendingUp, FileText, RefreshCw, Eye, ClipboardCheck } from 'lucide-react';
@@ -78,7 +79,7 @@ export function ProductCard({
   return (
     <Card className="overflow-hidden">
       <CardHeader className="pb-2 flex flex-row items-center justify-between gap-2">
-        <CardTitle className="text-sm font-semibold">{PRODUCT_LABELS[productCode]}</CardTitle>
+        <ProductBadge productCode={productCode} className="text-xs px-2 py-0.5" />
         <div className="flex items-center gap-2">
           {healthStatus && (
             <CircleDot className={`h-4 w-4 ${HEALTH_COLORS[healthStatus] || 'text-muted-foreground'}`} />
