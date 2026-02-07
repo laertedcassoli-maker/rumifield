@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { useCarteiraData, PRODUCT_ORDER, STAGE_LABELS, HEALTH_COLORS } from '@/hooks/useCrmData';
+import { useCarteiraData, PRODUCT_ORDER, PRODUCT_LABELS, STAGE_LABELS, HEALTH_COLORS } from '@/hooks/useCrmData';
+import type { ProductCode } from '@/hooks/useCrmData';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -36,6 +37,9 @@ export default function CrmCarteira() {
       // Counters
       const noQualCount = products.filter((p: any) => p.stage === 'nao_qualificado').length;
       const openOpps = products.filter((p: any) => ['proposta', 'negociacao'].includes(p.stage)).length;
+      const activeProducts = products
+        .filter((p: any) => p.stage === 'ganho')
+        .map((p: any) => p.product_code as ProductCode);
       const openActions = clientActions.filter((a: any) => a.status !== 'concluida').length;
       const overdueActions = clientActions.filter((a: any) =>
         a.status !== 'concluida' && a.due_at && new Date(a.due_at) < new Date()
@@ -54,6 +58,7 @@ export default function CrmCarteira() {
       return {
         ...c,
         worstHealth,
+        activeProducts,
         noQualCount,
         openOpps,
         openActions,
@@ -158,7 +163,23 @@ export default function CrmCarteira() {
                       </p>
                     )}
 
-                    {/* Row 3: inline badges */}
+                    {/* Row 3: active products */}
+                    {c.activeProducts.length > 0 && (
+                      <div className="flex items-center gap-1 mt-1 flex-wrap">
+                        {PRODUCT_ORDER
+                          .filter(code => c.activeProducts.includes(code))
+                          .map(code => (
+                            <span
+                              key={code}
+                              className="text-[10px] font-medium text-green-700 dark:text-green-400 bg-green-100 dark:bg-green-900/30 rounded px-1.5 py-0.5"
+                            >
+                              {PRODUCT_LABELS[code]}
+                            </span>
+                          ))}
+                      </div>
+                    )}
+
+                    {/* Row 4: inline badges */}
                     <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                       {c.noQualCount > 0 && (
                         <span className="text-[10px] text-muted-foreground bg-muted rounded px-1.5 py-0.5">
