@@ -2,7 +2,7 @@ import { Badge } from '@/components/ui/badge';
 import { ProductBadge } from '@/components/crm/ProductBadge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { CircleDot, Heart, TrendingUp, FileText, RefreshCw, Eye, ClipboardCheck } from 'lucide-react';
+import { CircleDot, Heart, TrendingUp, FileText, RefreshCw, Eye, ClipboardCheck, Mic } from 'lucide-react';
 import {
   PRODUCT_LABELS, STAGE_LABELS, STAGE_COLORS, HEALTH_COLORS,
   type ProductCode, type CrmStage,
@@ -21,12 +21,15 @@ interface Props {
   onCreateProposal: () => void;
   onUpdateNegotiation: () => void;
   onViewDetails?: () => void;
+  onRecordAudio?: () => void;
+  audioCount?: number;
 }
 
 export function ProductCard({
   productCode, stage, snapshot, metricDefs, lossReasons,
   lossReasonId, lossNotes, readOnly,
   onQualify, onCreateProposal, onUpdateNegotiation, onViewDetails,
+  onRecordAudio, audioCount,
 }: Props) {
   const healthStatus = snapshot?.health_status;
   const healthReasons: string[] = snapshot?.health_reasons || [];
@@ -120,8 +123,22 @@ export function ProductCard({
           </div>
         )}
 
-        {/* CTA */}
-        {!readOnly && <div className="flex justify-end pt-1">{ctaButton}</div>}
+        {/* CTA + Mic */}
+        {!readOnly && (
+          <div className="flex items-center justify-between pt-1">
+            <div className="flex items-center gap-1">
+              {onRecordAudio && (
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onRecordAudio} title="Gravar áudio">
+                  <Mic className="h-4 w-4" />
+                </Button>
+              )}
+              {(audioCount ?? 0) > 0 && (
+                <Badge variant="secondary" className="text-[10px] px-1.5">{audioCount}</Badge>
+              )}
+            </div>
+            <div>{ctaButton}</div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
