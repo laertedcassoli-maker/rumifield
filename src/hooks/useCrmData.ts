@@ -104,12 +104,29 @@ export function useCarteiraData() {
     enabled: !!user,
   });
 
+  // @ts-ignore
+  const { data: visits, isLoading: loadingVisits } = useQuery({
+    queryKey: ['crm-carteira-visits', user?.id],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from('crm_visits')
+        .select('id, client_id, planned_start_at, status')
+        .in('status', ['planejada'])
+        .gte('planned_start_at', new Date().toISOString())
+      if (error) throw error;
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user,
+  });
+
   return {
     clientes: clientes || [],
     clientProducts: clientProducts || [],
     snapshots: snapshots || [],
     actions: actions || [],
-    isLoading: loadingClientes || loadingProducts || loadingSnapshots || loadingActions,
+    visits: visits || [],
+    isLoading: loadingClientes || loadingProducts || loadingSnapshots || loadingActions || loadingVisits,
     isAdmin,
   };
 }

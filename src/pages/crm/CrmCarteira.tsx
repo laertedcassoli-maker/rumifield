@@ -9,15 +9,17 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Search, Building2, MapPin, ChevronRight, CircleDot, AlertCircle, Target, Clock, Plus } from 'lucide-react';
+import { Search, Building2, MapPin, ChevronRight, CircleDot, AlertCircle, Target, Clock, Plus, CalendarDays } from 'lucide-react';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import { useDebounce } from '@/hooks/useDebounce';
 import { CriarAcaoModal } from '@/components/crm/CriarAcaoModal';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
-type FilterKey = 'all' | 'health_red' | 'no_qual_2' | 'negociacao_aberta' | 'pendencias_vencidas';
+type FilterKey = 'all' | 'health_red' | 'negociacao_aberta' | 'pendencias_vencidas';
 
 export default function CrmCarteira() {
-  const { clientes, clientProducts, snapshots, actions, isLoading } = useCarteiraData();
+  const { clientes, clientProducts, snapshots, actions, visits, isLoading } = useCarteiraData();
 
   // Fetch badge colors from produtos table
   const { data: produtoBadgeColors } = useQuery({
@@ -49,7 +51,6 @@ export default function CrmCarteira() {
         healthStatuses.length > 0 ? 'verde' : null;
 
       // Counters
-      const noQualCount = products.filter((p: any) => p.stage === 'nao_qualificado').length;
       const openOpps = products.filter((p: any) => ['proposta', 'negociacao'].includes(p.stage)).length;
       const activeProducts = products
         .filter((p: any) => p.stage === 'ganho')
@@ -58,6 +59,10 @@ export default function CrmCarteira() {
       const overdueActions = clientActions.filter((a: any) =>
         a.status !== 'concluida' && a.due_at && new Date(a.due_at) < new Date()
       ).length;
+
+      // Next visit
+      const nextVisit = visits.find((v: any) => v.client_id === c.id);
+      const nextVisitDate = nextVisit?.planned_start_at ? new Date(nextVisit.planned_start_at) : null;
 
       // Top alerts from snapshots
       const alerts: string[] = [];
@@ -73,14 +78,14 @@ export default function CrmCarteira() {
         ...c,
         worstHealth,
         activeProducts,
-        noQualCount,
         openOpps,
         openActions,
         overdueActions,
+        nextVisitDate,
         alerts,
       };
     });
-  }, [clientes, clientProducts, snapshots, actions]);
+  }, [clientes, clientProducts, snapshots, actions, visits]);
 
   const filtered = useMemo(() => {
     let list = clienteData;
@@ -99,9 +104,6 @@ export default function CrmCarteira() {
     switch (filter) {
       case 'health_red':
         list = list.filter(c => c.worstHealth === 'vermelho');
-        break;
-      case 'no_qual_2':
-        list = list.filter(c => c.noQualCount >= 2);
         break;
       case 'negociacao_aberta':
         list = list.filter(c => c.openOpps > 0);
@@ -136,7 +138,7 @@ export default function CrmCarteira() {
           <SelectContent>
             <SelectItem value="all">Todos</SelectItem>
             <SelectItem value="health_red">Saúde Vermelha</SelectItem>
-            <SelectItem value="no_qual_2">S/ qualif. 2+</SelectItem>
+            <SelectItem value="negociacao_aberta">Negociação</SelectItem>
             <SelectItem value="negociacao_aberta">Negociação</SelectItem>
             <SelectItem value="pendencias_vencidas">Vencidas</SelectItem>
           </SelectContent>
@@ -199,11 +201,12 @@ export default function CrmCarteira() {
                       })}
                     </div>
 
-                    {/* Row 4: inline badges */}
+                    {/* Row 4: inline badges + next visit */}
                     <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                      {c.noQualCount > 0 && (
-                        <span className="text-[10px] text-muted-foreground bg-muted rounded px-1.5 py-0.5">
-                          {c.noQualCount} s/ qual.
+                      {c.nextVisitDate && (
+                        <span className="text-[10px] text-primary bg-primary/10 rounded px-1.5 py-0.5 flex items-center gap-0.5">
+                          <CalendarDays className="h-2.5 w-2.5" />
+                          {format(c.nextVisitDate, "dd/MM", { locale: ptBR })}
                         </span>
                       )}
                       {c.openOpps > 0 && (
