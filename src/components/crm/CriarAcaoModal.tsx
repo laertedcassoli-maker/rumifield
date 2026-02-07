@@ -26,16 +26,17 @@ export function CriarAcaoModal({ open, onOpenChange, clientId, clientProductId, 
   const [type, setType] = useState('tarefa');
   const [priority, setPriority] = useState('3');
   const [dueAt, setDueAt] = useState('');
+  const [status, setStatus] = useState<string>('pendente');
 
   const mutation = useMutation({
     mutationFn: async () => {
-      // @ts-ignore
       const { error } = await supabase.from('crm_actions').insert([{
         client_id: clientId,
         client_product_id: clientProductId || null,
         title,
         description: description || null,
         type: type as any,
+        status: status as any,
         priority: Number(priority),
         due_at: dueAt ? new Date(dueAt).toISOString() : null,
         owner_user_id: user!.id,
@@ -48,7 +49,7 @@ export function CriarAcaoModal({ open, onOpenChange, clientId, clientProductId, 
       queryClient.invalidateQueries({ queryKey: ['crm-'] });
       queryClient.invalidateQueries({ queryKey: ['crm-360-actions'] });
       onOpenChange(false);
-      setTitle(''); setDescription(''); setType('tarefa'); setPriority('3'); setDueAt('');
+      setTitle(''); setDescription(''); setType('tarefa'); setPriority('3'); setDueAt(''); setStatus('pendente');
       onCreated?.();
     },
     onError: () => toast.error('Erro ao criar ação'),
@@ -94,6 +95,17 @@ export function CriarAcaoModal({ open, onOpenChange, clientId, clientProductId, 
                 </SelectContent>
               </Select>
             </div>
+          </div>
+          <div>
+            <Label>Status</Label>
+            <Select value={status} onValueChange={setStatus}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="pendente">Pendente</SelectItem>
+                <SelectItem value="concluida">Concluída</SelectItem>
+                <SelectItem value="cancelada">Cancelada</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
           <div>
             <Label>Prazo</Label>
