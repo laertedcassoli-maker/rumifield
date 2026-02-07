@@ -63,14 +63,22 @@ export function EditarAcaoSheet({ action, open, onOpenChange }: EditarAcaoSheetP
   const [priority, setPriority] = useState<number>(1);
   const [type, setType] = useState<ActionType>('tarefa');
 
+  // Local form state for proposals
+  const [proposedValue, setProposedValue] = useState('');
+  const [proposalNotes, setProposalNotes] = useState('');
+
   // Reset form when action changes
   useEffect(() => {
-    if (action && action._source === 'action') {
+    if (!action) return;
+    if (action._source === 'action') {
       setTitle(action.title || '');
       setDescription(action.description || '');
       setDueAt(action.due_at ? action.due_at.slice(0, 10) : '');
       setPriority(action.priority);
       setType(action.type);
+    } else if (action._source === 'proposal') {
+      setProposedValue(action.proposed_value != null ? String(action.proposed_value) : '');
+      setProposalNotes(action.description || '');
     }
   }, [action]);
 
@@ -131,6 +139,26 @@ export function EditarAcaoSheet({ action, open, onOpenChange }: EditarAcaoSheetP
       invalidateQueries();
     },
     onError: () => toast.error('Erro ao atualizar proposta'),
+  });
+
+  const updateProposalFields = useMutation({
+    mutationFn: async () => {
+      const value = proposedValue ? parseFloat(proposedValue.replace(',', '.')) : null;
+      const { error } = await supabase
+        .from('crm_proposals')
+        .update({
+          proposed_value: value,
+          notes: proposalNotes || null,
+        })
+        .eq('id', action!.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success('Proposta atualizada');
+      invalidateQueries();
+      onOpenChange(false);
+    },
+    onError: () => toast.error('Erro ao salvar proposta'),
   });
 
   if (!action) return null;
@@ -269,16 +297,18 @@ export function EditarAcaoSheet({ action, open, onOpenChange }: EditarAcaoSheetP
                 </div>
               )}
 
-              {/* Read-only fields */}
-              {action.proposed_value != null && (
-                <div>
-                  <Label className="text-xs text-muted-foreground">Valor proposto</Label>
-                  <p className="text-lg font-semibold flex items-center gap-1 mt-1">
-                    <DollarSign className="h-4 w-4" />
-                    {action.proposed_value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                  </p>
-                </div>
-              )}
+              {/* Editable value */}
+              <div>
+                <Label htmlFor="proposed_value">Valor proposto (R$)</Label>
+                <Input
+                  id="proposed_value"
+                  type="number"
+                  step="0.01"
+                  value={proposedValue}
+                  onChange={(e) => setProposedValue(e.target.value)}
+                  placeholder="0,00"
+                />
+              </div>
 
               {action.due_at && (
                 <div>
@@ -290,12 +320,17 @@ export function EditarAcaoSheet({ action, open, onOpenChange }: EditarAcaoSheetP
                 </div>
               )}
 
-              {action.description && (
-                <div>
-                  <Label className="text-xs text-muted-foreground">Observações</Label>
-                  <p className="text-sm mt-1">{action.description}</p>
-                </div>
-              )}
+              {/* Editable notes */}
+              <div>
+                <Label htmlFor="proposal_notes">Observações</Label>
+                <Textarea
+                  id="proposal_notes"
+                  value={proposalNotes}
+                  onChange={(e) => setProposalNotes(e.target.value)}
+                  rows={3}
+                  placeholder="Notas sobre a proposta..."
+                />
+              </div>
 
               {/* Quick status buttons */}
               <div className="space-y-2">
@@ -317,6 +352,20 @@ export function EditarAcaoSheet({ action, open, onOpenChange }: EditarAcaoSheetP
                     );
                   })}
                 </div>
+              </div>
+
+              {/* Save / Cancel */}
+              <div className="flex gap-2 pt-2">
+                <Button variant="outline" className="flex-1" onClick={() => onOpenChange(false)}>
+                  Cancelar
+                </Button>
+                <Button
+                  className="flex-1"
+                  disabled={updateProposalFields.isPending}
+                  onClick={() => updateProposalFields.mutate()}
+                >
+                  {updateProposalFields.isPending ? 'Salvando…' : 'Salvar'}
+                </Button>
               </div>
             </>
           )}
