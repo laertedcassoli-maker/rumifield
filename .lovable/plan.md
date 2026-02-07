@@ -1,20 +1,18 @@
 
 
-# Remover tela Clientes (/clientes) do menu e da Home
+## Problema
 
-## O que sera feito
-Remover o item "Clientes" (`/clientes`) do menu lateral e da Home, mantendo apenas "CRM Carteira" (`/crm/carteira`) como ponto de entrada para o modulo CRM. A rota `/clientes` sera redirecionada para `/crm/carteira` para evitar links quebrados.
+O botao de voltar na tela Cliente 360 esta fixo em `/crm/carteira`. Quando voce acessa um cliente a partir do Pipeline (`/crm/pipeline`), ao clicar em voltar, ele vai para a Carteira ao inves de retornar ao Pipeline.
 
-## Alteracoes
+## Solucao
 
-### 1. Menu lateral (`src/components/layout/AppSidebar.tsx`)
-- Remover a linha `{ title: 'Clientes', icon: Contact, url: '/clientes', permKey: 'crm_clientes' }` do array `mainMenuItems`
+Usar `useNavigate` com `navigate(-1)` (equivalente ao botao "voltar" do navegador) no lugar do `Link` fixo. Isso faz o usuario retornar sempre para a tela de onde veio -- seja Pipeline, Carteira, ou qualquer outra.
 
-### 2. Home (`src/pages/Home.tsx`)
-- Remover o item "Clientes" (`/clientes`) do array `allMainMenuItems`
-- Adicionar "CRM Carteira" (`/crm/carteira`) no lugar, com icone `Briefcase` e cores apropriadas
+## Detalhes tecnicos
 
-### 3. Rotas (`src/App.tsx`)
-- Alterar a rota `/clientes` para redirecionar para `/crm/carteira` em vez de renderizar `ClientesList`
-- Manter a rota `/clientes/:id` que ja redireciona para `/crm/:id`
+**Arquivo**: `src/pages/crm/CrmCliente360.tsx`
+
+1. Importar `useNavigate` de `react-router-dom` (remover ou manter `Link` se usado em outro lugar)
+2. Substituir o `<Link to="/crm/carteira">` do botao de voltar por um `<Button onClick={() => navigate(-1)}>`
+3. Isso cobre todos os pontos de entrada (Carteira, Pipeline, Visitas, etc.)
 
