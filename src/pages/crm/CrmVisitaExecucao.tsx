@@ -17,7 +17,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { ArrowLeft, MapPin, Clock, Navigation, Loader2, CheckCircle2, LogOut, Plus, ClipboardList } from 'lucide-react';
 import { format } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
-import { useGeolocation } from '@/hooks/useGeolocation';
+import { CheckinDialog } from '@/components/preventivas/CheckinDialog';
 import { cn } from '@/lib/utils';
 
 const STATUS_LABELS: Record<string, string> = {
@@ -33,8 +33,8 @@ export default function CrmVisitaExecucao() {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const geo = useGeolocation();
 
+  const [checkinOpen, setCheckinOpen] = useState(false);
   const [finalizarOpen, setFinalizarOpen] = useState(false);
 
   // Modals
@@ -85,15 +85,7 @@ export default function CrmVisitaExecucao() {
   // Check-in mutation
   // @ts-ignore
   const checkinMutation = useMutation({
-    mutationFn: async () => {
-      let lat: number | null = null;
-      let lon: number | null = null;
-      try {
-        await geo.getLocation();
-        lat = geo.latitude;
-        lon = geo.longitude;
-      } catch { /* proceed without geo */ }
-
+    mutationFn: async ({ lat, lon }: { lat: number | null; lon: number | null }) => {
       const { error } = await supabase
         .from('crm_visits')
         .update({
@@ -128,6 +120,7 @@ export default function CrmVisitaExecucao() {
       }
     },
     onSuccess: () => {
+      setCheckinOpen(false);
       queryClient.invalidateQueries({ queryKey: ['crm-visit', id] });
       refetchChecklists();
       toast({ title: 'Check-in realizado!' });
@@ -137,8 +130,8 @@ export default function CrmVisitaExecucao() {
     },
   });
 
-  const handleCheckin = () => {
-    checkinMutation.mutate();
+  const handleCheckinConfirm = (lat: number | null, lon: number | null) => {
+    checkinMutation.mutate({ lat, lon });
   };
 
   if (loadingVisit) {
@@ -192,8 +185,8 @@ export default function CrmVisitaExecucao() {
 
       {/* Action Buttons */}
       {isPlanned && (
-        <Button size="lg" className="w-full" onClick={handleCheckin} disabled={checkinMutation.isPending}>
-          {checkinMutation.isPending ? <Loader2 className="mr-2 h-5 w-5 animate-spin" /> : <Navigation className="mr-2 h-5 w-5" />}
+        <Button size="lg" className="w-full" onClick={() => setCheckinOpen(true)}>
+          <Navigation className="mr-2 h-5 w-5" />
           Fazer Check-in
         </Button>
       )}
@@ -307,6 +300,14 @@ export default function CrmVisitaExecucao() {
           queryClient.invalidateQueries({ queryKey: ['crm-visit', id] });
           navigate('/crm/visitas');
         }}
+      />
+      <CheckinDialog
+        open={checkinOpen}
+        onOpenChange={setCheckinOpen}
+        farmName={visit.clientes?.nome || ''}
+        farmFazenda={visit.clientes?.fazenda}
+        onConfirm={handleCheckinConfirm}
+        isLoading={checkinMutation.isPending}
       />
     </div>
   );
