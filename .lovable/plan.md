@@ -1,41 +1,63 @@
 
-# Unificar ClienteDetail no CrmCliente360 (sem aba Dados)
+# Tela Admin: Métricas de Saúde por Cliente
 
-## Resumo
-Migrar a aba **Historico** (timeline unificada de chamados, preventivas e corretivas) do `ClienteDetail.tsx` para o `CrmCliente360.tsx`, usando duas abas: **Produtos** e **Historico**. A rota `/clientes/:id` passara a redirecionar para `/crm/:id`. A aba "Dados Gerais" fica de fora por enquanto.
+## Objetivo
+Criar uma nova tela dentro do menu Administracao que exiba uma tabela flat com todos os clientes e seus valores de metricas de saude, organizados por produto. O admin podera visualizar rapidamente a saude de toda a base de clientes.
 
-## Estrutura final
+## Layout da Tela
+
+A tabela tera o seguinte formato:
 
 ```text
-+---------------------------------------------------+
-| <- Voltar    Nome do Cliente / Fazenda    [+ Acao] |
-| Cidade/UF  |  Telefone  |  Email  |  Consultor    |
-+---------------------------------------------------+
-| [Produtos]  [Historico]                            |
-+---------------------------------------------------+
-|  (conteudo da aba selecionada)                     |
-+---------------------------------------------------+
++----------------+----------+--------+--------+-----------+--------+-----------+
+| Cliente        | Fazenda  | Prod.  | Saude  | Motivos   | Ultimo | Metricas  |
+|                |          |        |        |           | Snap   | (dinamico)|
++----------------+----------+--------+--------+-----------+--------+-----------+
+| Fazenda Silva  | Sta Rosa | Ideagri| Verde  | —         | 05/02  | CCS: 250  |
+| Fazenda Silva  | Sta Rosa | OnFarm | Verm.  | CCS alto  | 05/02  | CBT: 800  |
+| Fazenda Lima   | Boa Vist | Ideagri| Amar.  | Atraso pg | 04/02  | ...       |
++----------------+----------+--------+--------+-----------+--------+-----------+
 ```
 
-## Detalhes tecnicos
+## Funcionalidades
+- Filtro por produto (todos / produto especifico)
+- Filtro por status de saude (todos / verde / amarelo / vermelho)
+- Busca por nome de cliente ou fazenda
+- Exibicao dinamica das colunas de metricas baseada nas `crm_metric_definitions` ativas
+- Indicador visual de saude com cores (verde/amarelo/vermelho)
+- Exibicao dos motivos de saude
+- Link para o Cliente 360 ao clicar no nome
+- Mensagem informativa quando nao houver dados de snapshots ainda
 
-### 1. Alterar `CrmCliente360.tsx`
-- Envolver o conteudo atual (produtos, oportunidades, pendencias, propostas, visitas recentes) em `Tabs` com duas abas: **Produtos** (default) e **Historico**
-- Na aba **Historico**, migrar toda a logica do `ClienteDetail.tsx`:
-  - Queries de `technical_tickets`, `preventive_maintenance`, `ticket_visits` filtradas por `client_id`
-  - Hooks offline (`useOfflineChamados`, `useOfflinePreventivas`, `useOfflineCorretivas`)
-  - Cards de resumo clicaveis (Chamados/Preventivas/Corretivas) com filtro interativo
-  - Timeline unificada ordenada cronologicamente
-  - `TimelineEventModal` para detalhes via iframe
-  - Funcoes auxiliares `getStatusLabel` e `getStatusColor`
+## Detalhes Tecnicos
 
-### 2. Atualizar rotas em `App.tsx`
-- Substituir a rota `/clientes/:id` de `<ClienteDetail />` por `<Navigate to="/crm/:id" replace />` (usando um componente wrapper que le o param `id` e redireciona)
-- Manter a rota `/clientes` (lista) inalterada
+### 1. Nova pagina: `src/pages/admin/CrmMetricas.tsx`
+- Busca dados de `crm_client_product_snapshots` com join em `clientes` para nome/fazenda
+- Busca `crm_metric_definitions` ativas para montar colunas dinamicas
+- Extrai valores do campo JSONB `data` de cada snapshot
+- Filtros: produto, saude, busca textual
+- Tabela usando componentes `Table` existentes
 
-### 3. Atualizar links em `ClientesList.tsx`
-- Trocar `to={/clientes/${cliente.id}}` por `to={/crm/${cliente.id}}`
+### 2. Rota no `App.tsx`
+- Adicionar rota `/admin/crm/metricas` com layout `AppLayout`
 
-### 4. Limpeza
-- O arquivo `ClienteDetail.tsx` pode ser removido apos a migracao
-- Remover import de `ClienteDetail` do `App.tsx`
+### 3. Link no menu ou na pagina CrmConfig
+- Adicionar um botao/link na pagina `/admin/crm` que leva para `/admin/crm/metricas`
+- Ou adicionar como uma aba/secao na propria pagina de Config CRM
+
+### Queries principais
+```typescript
+// Snapshots com dados do cliente
+supabase.from('crm_client_product_snapshots')
+  .select('*, clientes!inner(nome, fazenda, cidade, estado)')
+  .order('snapshot_at', { ascending: false })
+
+// Metric definitions para colunas dinamicas
+supabase.from('crm_metric_definitions')
+  .select('*')
+  .eq('is_active', true)
+  .order('priority')
+```
+
+### Estado vazio
+Como os snapshots ainda nao tem dados (serao populados pela integracao iMilk), a tela exibira uma mensagem clara: "Nenhum dado de saude disponivel. Os dados serao populados automaticamente pela integracao iMilk."
