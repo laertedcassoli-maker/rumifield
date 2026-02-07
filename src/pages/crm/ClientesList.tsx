@@ -101,7 +101,7 @@ export default function ClientesList() {
           </Card>
         ) : (
           clientes?.map((cliente) => (
-            <Link key={cliente.id} to={`/clientes/${cliente.id}`}>
+            <Link key={cliente.id} to={`/crm/${cliente.id}`}>
               <Card className="hover:bg-accent/50 transition-colors cursor-pointer">
                 <CardContent className="py-3 px-4">
                   <div className="flex items-center justify-between">
