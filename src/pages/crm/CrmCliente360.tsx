@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useCliente360Data, PRODUCT_ORDER, STAGE_LABELS, PRODUCT_LABELS, type ProductCode, type CrmStage } from '@/hooks/useCrmData';
 import { ProductCard } from '@/components/crm/ProductCard';
@@ -10,13 +10,15 @@ import { CriarPropostaModal } from '@/components/crm/CriarPropostaModal';
 import { AtualizarNegociacaoModal } from '@/components/crm/AtualizarNegociacaoModal';
 import { CriarAcaoModal } from '@/components/crm/CriarAcaoModal';
 import { ClienteHistoricoTab } from '@/components/crm/ClienteHistoricoTab';
+import { EditarAcaoSheet } from '@/components/crm/EditarAcaoSheet';
+import type { UnifiedAction, ActionStatus } from '@/hooks/useCrmAcoesData';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ClienteAnaliseIA } from '@/components/crm/ClienteAnaliseIA';
-import { ArrowLeft, MapPin, Phone, Mail, Plus, Clock, Eye, User, ChevronRight } from 'lucide-react';
+import { ArrowLeft, MapPin, Phone, Mail, Plus, Clock, Eye, User, ChevronRight, CheckCircle2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -74,6 +76,9 @@ export default function CrmCliente360() {
   const [propModal, setPropModal] = useState<{ open: boolean; cpId: string; pc: ProductCode }>({ open: false, cpId: '', pc: 'ideagri' });
   const [negModal, setNegModal] = useState<{ open: boolean; cpId: string; pc: ProductCode; stage: CrmStage }>({ open: false, cpId: '', pc: 'ideagri', stage: 'nao_qualificado' });
   const [actionModal, setActionModal] = useState(false);
+  const [selectedAction, setSelectedAction] = useState<UnifiedAction | null>(null);
+  const [actionSheetOpen, setActionSheetOpen] = useState(false);
+  const queryClient = useQueryClient();
 
   if (loadingCliente || isLoading) {
     return <div className="space-y-4"><Skeleton className="h-8 w-48" /><Skeleton className="h-32 w-full" /><Skeleton className="h-64 w-full" /></div>;
@@ -84,7 +89,38 @@ export default function CrmCliente360() {
   }
 
   const openOpps = clientProducts.filter((p: any) => ['qualificado', 'proposta', 'negociacao'].includes(p.stage));
-  const openActions = actions.filter((a: any) => a.status !== 'concluida');
+
+  // Map actions to UnifiedAction format for EditarAcaoSheet
+  const mapToUnified = (a: any): UnifiedAction => ({
+    id: a.id,
+    title: a.title,
+    type: a.type,
+    status: a.status as ActionStatus,
+    due_at: a.due_at,
+    priority: a.priority,
+    description: a.description,
+    owner_user_id: a.owner_user_id,
+    owner_name: null,
+    clientes: cliente ? { id: cliente.id, nome: cliente.nome } : null,
+    _source: 'action',
+    product_code: null,
+  });
+
+  const activeActions = actions.filter((a: any) => a.status !== 'concluida').map(mapToUnified);
+  const doneActions = actions.filter((a: any) => a.status === 'concluida').map(mapToUnified);
+
+  const handleOpenAction = (ua: UnifiedAction) => {
+    setSelectedAction(ua);
+    setActionSheetOpen(true);
+  };
+
+  const handleActionSheetChange = (open: boolean) => {
+    setActionSheetOpen(open);
+    if (!open) {
+      // Refetch local data when sheet closes
+      refetchActions();
+    }
+  };
 
   return (
     <div className="space-y-4 animate-fade-in">
@@ -192,13 +228,13 @@ export default function CrmCliente360() {
 
           {/* Actions */}
           <div>
-            <h2 className="text-lg font-semibold mb-3">Pendências ({openActions.length})</h2>
-            {openActions.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Nenhuma pendência aberta</p>
+            <h2 className="text-lg font-semibold mb-3">Ações ({actions.length})</h2>
+            {actions.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Nenhuma ação registrada</p>
             ) : (
               <div className="space-y-2">
-                {openActions.map((a: any) => (
-                  <Card key={a.id}>
+                {activeActions.map((a) => (
+                  <Card key={a.id} className="cursor-pointer hover:border-primary/30 transition-colors" onClick={() => handleOpenAction(a)}>
                     <CardContent className="py-3 flex items-center justify-between gap-2">
                       <div className="min-w-0">
                         <p className="text-sm font-medium truncate">{a.title}</p>
@@ -206,12 +242,31 @@ export default function CrmCliente360() {
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
                         {a.due_at && (
-                          <span className={`text-xs flex items-center gap-1 ${new Date(a.due_at) < new Date() ? 'text-destructive' : 'text-muted-foreground'}`}>
+                          <span className={cn("text-xs flex items-center gap-1", new Date(a.due_at) < new Date() ? 'text-destructive' : 'text-muted-foreground')}>
                             <Clock className="h-3 w-3" />
                             {format(new Date(a.due_at), 'dd/MM')}
                           </span>
                         )}
-                        <Badge variant="outline" className="text-[10px]">{a.type}</Badge>
+                        <Badge variant="outline" className={cn("text-[10px]",
+                          a.status === 'aberta' ? 'bg-yellow-100 text-yellow-800 border-yellow-300' :
+                          a.status === 'em_execucao' ? 'bg-blue-100 text-blue-800 border-blue-300' : ''
+                        )}>
+                          {a.status === 'aberta' ? 'Pendente' : a.status === 'em_execucao' ? 'Em Execução' : a.status}
+                        </Badge>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+                {doneActions.length > 0 && doneActions.map((a) => (
+                  <Card key={a.id} className="cursor-pointer opacity-60 hover:opacity-80 transition-all" onClick={() => handleOpenAction(a)}>
+                    <CardContent className="py-3 flex items-center justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium truncate line-through">{a.title}</p>
+                      </div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <Badge variant="outline" className="text-[10px] bg-green-100 text-green-800 border-green-300">
+                          <CheckCircle2 className="h-3 w-3 mr-0.5" /> Concluída
+                        </Badge>
                       </div>
                     </CardContent>
                   </Card>
@@ -319,6 +374,11 @@ export default function CrmCliente360() {
         onOpenChange={setActionModal}
         clientId={id!}
         onCreated={() => refetchActions()}
+      />
+      <EditarAcaoSheet
+        action={selectedAction}
+        open={actionSheetOpen}
+        onOpenChange={handleActionSheetChange}
       />
     </div>
   );
