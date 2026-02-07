@@ -15,7 +15,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   Plus, Search, MapPin, Building2, ChevronRight,
-  CalendarDays, Loader2, CheckCircle2, CalendarIcon,
+  CalendarDays, Loader2, CheckCircle2, CalendarIcon, Navigation,
 } from 'lucide-react';
 import { format, isToday, isYesterday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -57,7 +57,7 @@ export default function CrmVisitas() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('crm_visits')
-        .select('*, clientes(nome, fazenda, cidade, estado)')
+        .select('*, clientes(nome, fazenda, cidade, estado, latitude, longitude, link_maps)')
         .order('created_at', { ascending: false })
         .limit(200);
       if (error) throw error;
@@ -272,6 +272,22 @@ export default function CrmVisitas() {
                             <p className="text-xs text-muted-foreground mt-0.5 line-clamp-1">{v.objective}</p>
                           )}
                         </div>
+
+                        {/* Navigation button */}
+                        {(v.clientes?.latitude && v.clientes?.longitude || v.clientes?.link_maps) && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const url = v.clientes?.latitude && v.clientes?.longitude
+                                ? `https://www.google.com/maps/dir/?api=1&destination=${v.clientes.latitude},${v.clientes.longitude}`
+                                : v.clientes?.link_maps;
+                              if (url) window.open(url, '_blank');
+                            }}
+                            className="shrink-0 p-1.5 rounded-md hover:bg-muted active:bg-muted/80 transition-colors"
+                          >
+                            <Navigation className="h-4 w-4 text-primary" />
+                          </button>
+                        )}
 
                         <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
                       </div>
