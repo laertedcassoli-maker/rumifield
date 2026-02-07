@@ -1,62 +1,41 @@
 
+# Unificar ClienteDetail no CrmCliente360 (sem aba Dados)
 
-# Auto-criar registros de produtos na Config. CRM
+## Resumo
+Migrar a aba **Historico** (timeline unificada de chamados, preventivas e corretivas) do `ClienteDetail.tsx` para o `CrmCliente360.tsx`, usando duas abas: **Produtos** e **Historico**. A rota `/clientes/:id` passara a redirecionar para `/crm/:id`. A aba "Dados Gerais" fica de fora por enquanto.
 
-## Problema atual
-Apenas o RumiFlow existe na tabela `produtos`. Os outros 4 produtos (Ideagri, OnFarm, RumiAction, Insights) nao mostram a secao de edicao (nome + cod_imilk) porque nao tem registro correspondente.
+## Estrutura final
 
-## Solucao
-Ao carregar a pagina de Config. CRM, verificar quais produtos do `PRODUCT_ORDER` ainda nao existem na tabela `produtos` e cria-los automaticamente (com o nome do `PRODUCT_LABELS`). Assim todos os 5 cards sempre mostram a secao de edicao.
+```text
++---------------------------------------------------+
+| <- Voltar    Nome do Cliente / Fazenda    [+ Acao] |
+| Cidade/UF  |  Telefone  |  Email  |  Consultor    |
++---------------------------------------------------+
+| [Produtos]  [Historico]                            |
++---------------------------------------------------+
+|  (conteudo da aba selecionada)                     |
++---------------------------------------------------+
+```
 
 ## Detalhes tecnicos
 
-### Alteracoes em `src/pages/admin/CrmConfig.tsx`
+### 1. Alterar `CrmCliente360.tsx`
+- Envolver o conteudo atual (produtos, oportunidades, pendencias, propostas, visitas recentes) em `Tabs` com duas abas: **Produtos** (default) e **Historico**
+- Na aba **Historico**, migrar toda a logica do `ClienteDetail.tsx`:
+  - Queries de `technical_tickets`, `preventive_maintenance`, `ticket_visits` filtradas por `client_id`
+  - Hooks offline (`useOfflineChamados`, `useOfflinePreventivas`, `useOfflineCorretivas`)
+  - Cards de resumo clicaveis (Chamados/Preventivas/Corretivas) com filtro interativo
+  - Timeline unificada ordenada cronologicamente
+  - `TimelineEventModal` para detalhes via iframe
+  - Funcoes auxiliares `getStatusLabel` e `getStatusColor`
 
-1. **Trocar o match por nome** por um match mais robusto: adicionar uma coluna `product_code` na tabela `produtos` para vincular diretamente ao enum do CRM, eliminando a dependencia de comparar nomes.
+### 2. Atualizar rotas em `App.tsx`
+- Substituir a rota `/clientes/:id` de `<ClienteDetail />` por `<Navigate to="/crm/:id" replace />` (usando um componente wrapper que le o param `id` e redireciona)
+- Manter a rota `/clientes` (lista) inalterada
 
-2. **Auto-provisioning**: Apos carregar os produtos, executar um `upsert` para os codigos faltantes:
-   - Para cada `ProductCode` em `PRODUCT_ORDER`, verificar se ja existe um registro com aquele `product_code`
-   - Se nao existir, inserir com `nome = PRODUCT_LABELS[code]` e `product_code = code`
-   - Invalidar a query de produtos apos a insercao
+### 3. Atualizar links em `ClientesList.tsx`
+- Trocar `to={/clientes/${cliente.id}}` por `to={/crm/${cliente.id}}`
 
-3. **Atualizar `getProductRecord`** para buscar por `product_code` em vez de comparar `nome.toLowerCase()`.
-
-### Migracao de banco de dados
-
-```sql
--- Adicionar coluna product_code na tabela produtos
-ALTER TABLE public.produtos ADD COLUMN product_code text;
-
--- Atualizar o registro existente do RumiFlow
-UPDATE public.produtos SET product_code = 'rumiflow' WHERE nome = 'RumiFlow';
-
--- Criar indice unico para evitar duplicatas
-CREATE UNIQUE INDEX idx_produtos_product_code ON public.produtos(product_code) WHERE product_code IS NOT NULL;
-```
-
-### Logica de auto-criacao (no componente)
-
-Apos o fetch dos produtos, um `useEffect` verifica os codigos faltantes e insere automaticamente:
-
-```typescript
-useEffect(() => {
-  if (!produtosComerciais || loadingProdutos) return;
-  const existingCodes = new Set(produtosComerciais.map(p => p.product_code));
-  const missing = PRODUCT_ORDER.filter(code => !existingCodes.has(code));
-  if (missing.length > 0) {
-    const inserts = missing.map(code => ({
-      nome: PRODUCT_LABELS[code],
-      product_code: code,
-    }));
-    supabase.from('produtos').insert(inserts).then(() => {
-      queryClient.invalidateQueries({ queryKey: ['produtos-comerciais-crm'] });
-    });
-  }
-}, [produtosComerciais, loadingProdutos]);
-```
-
-### Resultado
-- Todos os 5 produtos sempre visíveis com secao de edicao (nome + cod_imilk)
-- Nenhuma outra tela necessaria para cadastro de produtos
-- Vinculo direto via `product_code` em vez de comparacao por nome
-
+### 4. Limpeza
+- O arquivo `ClienteDetail.tsx` pode ser removido apos a migracao
+- Remover import de `ClienteDetail` do `App.tsx`
