@@ -84,16 +84,16 @@ export default function CrmPipeline() {
   }
 
   return (
-    <div className="space-y-4 animate-fade-in">
+    <div className="space-y-4 animate-fade-in pb-24">
       <div>
-        <h1 className="text-2xl font-bold">Pipeline CRM</h1>
-        <p className="text-muted-foreground">Gestão de oportunidades por produto</p>
+        <h1 className="text-xl font-bold">Pipeline CRM</h1>
+        <p className="text-sm text-muted-foreground">Gestão de oportunidades por produto</p>
       </div>
 
       {/* Filters */}
-      <div className="flex gap-2 flex-wrap">
+      <div className="flex flex-col sm:flex-row gap-2">
         <Select value={selectedProduct} onValueChange={(v) => setSelectedProduct(v as ProductCode)}>
-          <SelectTrigger className="w-[160px]"><SelectValue /></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-[160px]"><SelectValue /></SelectTrigger>
           <SelectContent>
             {PRODUCT_ORDER.map(p => (
               <SelectItem key={p} value={p}>{PRODUCT_LABELS[p]}</SelectItem>
@@ -102,7 +102,7 @@ export default function CrmPipeline() {
         </Select>
         {isAdmin && (
           <Select value={selectedConsultor} onValueChange={setSelectedConsultor}>
-            <SelectTrigger className="w-[180px]"><SelectValue placeholder="Consultor" /></SelectTrigger>
+            <SelectTrigger className="w-full sm:w-[180px]"><SelectValue placeholder="Consultor" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todos consultores</SelectItem>
               {consultores.map((c: any) => (
@@ -114,10 +114,10 @@ export default function CrmPipeline() {
       </div>
 
       <Tabs defaultValue="pipeline">
-        <TabsList>
-          <TabsTrigger value="pipeline">Pipeline</TabsTrigger>
-          {isAdmin && <TabsTrigger value="consultores">Por Consultor</TabsTrigger>}
-          <TabsTrigger value="stats">Resumo</TabsTrigger>
+        <TabsList className="w-full sm:w-auto">
+          <TabsTrigger value="pipeline" className="flex-1 sm:flex-initial">Pipeline</TabsTrigger>
+          {isAdmin && <TabsTrigger value="consultores" className="flex-1 sm:flex-initial">Consultores</TabsTrigger>}
+          <TabsTrigger value="stats" className="flex-1 sm:flex-initial">Resumo</TabsTrigger>
         </TabsList>
 
         <TabsContent value="pipeline" className="mt-4">
@@ -134,7 +134,7 @@ export default function CrmPipeline() {
           </div>
 
           {/* Kanban-style columns */}
-          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
             {PIPELINE_STAGES.map(stage => (
               <div key={stage} className="space-y-2">
                 <div className="flex items-center gap-1.5 mb-1">
@@ -169,9 +169,9 @@ export default function CrmPipeline() {
             <div className="space-y-2">
               {consultorSummary.map((c, i) => (
                 <Card key={i}>
-                  <CardContent className="py-3 flex items-center justify-between">
+                  <CardContent className="py-3 space-y-1">
                     <span className="font-medium text-sm">{c.nome}</span>
-                    <div className="flex gap-3 text-xs">
+                    <div className="flex flex-wrap gap-3 text-xs">
                       <span>{c.total} clientes</span>
                       <span className="text-amber-600">{c.opps} opps</span>
                       <span className="text-green-600">{c.ganho} ganhos</span>
