@@ -229,23 +229,8 @@ export default function CrmVisitaExecucao() {
               <span className="flex items-center gap-1 text-foreground font-medium"><Timer className="h-3.5 w-3.5" /> Duração: {durationLabel}</span>
             )}
           </div>
-          {/* Summary: inline for non-completed, highlighted card for completed */}
-          {visit.summary && !isCompleted && <p><span className="text-muted-foreground">Resumo:</span> {visit.summary}</p>}
         </CardContent>
       </Card>
-
-      {/* Highlighted summary for completed visits */}
-      {isCompleted && visit.summary && (
-        <Card className="border-green-200 bg-green-50 dark:bg-green-950/30 dark:border-green-900">
-          <CardContent className="py-4 flex gap-3">
-            <CheckCircle2 className="h-5 w-5 text-green-600 shrink-0 mt-0.5" />
-            <div>
-              <p className="text-sm font-semibold text-green-800 dark:text-green-300 mb-1">Resumo da Visita</p>
-              <p className="text-sm text-green-900 dark:text-green-200 whitespace-pre-line">{visit.summary}</p>
-            </div>
-          </CardContent>
-        </Card>
-      )}
 
       {/* Action Buttons */}
       {isPlanned && (

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { supabase } from '@/integrations/supabase/client';
@@ -7,11 +7,11 @@ import { useGeolocation } from '@/hooks/useGeolocation';
 import { offlineDb } from '@/lib/offline-db';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { Loader2, CheckCircle2, Plus, X, AlertTriangle } from 'lucide-react';
+import { Loader2, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { format } from 'date-fns';
 
 interface Props {
   open: boolean;
@@ -21,42 +21,24 @@ interface Props {
   onFinalized: () => void;
 }
 
-interface QuickAction {
-  title: string;
-  due_days: number;
-}
-
 export function FinalizarVisitaModal({ open, onOpenChange, visitId, clientId, onFinalized }: Props) {
   const { user } = useAuth();
   const { toast } = useToast();
   const geo = useGeolocation();
 
-  const [summary, setSummary] = useState('');
-  const [quickActions, setQuickActions] = useState<QuickAction[]>([]);
-  const [newActionTitle, setNewActionTitle] = useState('');
+  const now = new Date();
+  const [checkoutDate, setCheckoutDate] = useState(format(now, 'yyyy-MM-dd'));
+  const [checkoutTime, setCheckoutTime] = useState(format(now, 'HH:mm'));
 
-  // Check for pending audio uploads
   const pendingAudios = useLiveQuery(
     () => offlineDb.crm_visit_audios.where('visit_id').equals(visitId).count(),
     [visitId],
     0
   );
 
-  const addAction = () => {
-    if (!newActionTitle.trim()) return;
-    setQuickActions(prev => [...prev, { title: newActionTitle.trim(), due_days: 7 }]);
-    setNewActionTitle('');
-  };
-
-  const removeAction = (index: number) => {
-    setQuickActions(prev => prev.filter((_, i) => i !== index));
-  };
-
   // @ts-ignore
   const finalizeMutation = useMutation({
     mutationFn: async () => {
-      if (!summary.trim()) throw new Error('Resumo é obrigatório');
-
       let lat: number | null = null;
       let lon: number | null = null;
       try {
@@ -65,13 +47,13 @@ export function FinalizarVisitaModal({ open, onOpenChange, visitId, clientId, on
         lon = geo.longitude;
       } catch { /* proceed */ }
 
-      // Update visit
+      const checkoutAt = new Date(`${checkoutDate}T${checkoutTime}`).toISOString();
+
       const { error } = await supabase
         .from('crm_visits')
         .update({
           status: 'concluida',
-          summary: summary.trim(),
-          checkout_at: new Date().toISOString(),
+          checkout_at: checkoutAt,
           checkout_lat: lat,
           checkout_lon: lon,
         })
@@ -97,22 +79,6 @@ export function FinalizarVisitaModal({ open, onOpenChange, visitId, clientId, on
         }));
         await supabase.from('crm_visit_product_snapshots').insert(snapshotInserts);
       }
-
-      // Create batch actions
-      if (quickActions.length > 0) {
-        const actionInserts = quickActions.map(a => ({
-          client_id: clientId,
-          title: a.title,
-          type: 'tarefa' as const,
-          status: 'aberta' as const,
-          priority: 3,
-          due_at: new Date(Date.now() + a.due_days * 86400000).toISOString(),
-          owner_user_id: user!.id,
-          created_by: user!.id,
-        }));
-        const { error: actErr } = await supabase.from('crm_actions').insert(actionInserts);
-        if (actErr) throw actErr;
-      }
     },
     onSuccess: () => {
       toast({ title: 'Visita finalizada com sucesso!' });
@@ -126,63 +92,36 @@ export function FinalizarVisitaModal({ open, onOpenChange, visitId, clientId, on
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-sm">
         <DialogHeader>
           <DialogTitle>Finalizar Visita</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-4">
-          <div className="space-y-2">
-            <Label>Resumo da visita *</Label>
-            <Textarea
-              placeholder="O que foi realizado nesta visita..."
-              value={summary}
-              onChange={e => setSummary(e.target.value)}
-              rows={4}
-              className="resize-none"
-            />
-          </div>
-
-          {/* Quick actions */}
-          <div className="space-y-2">
-            <Label>Ações de follow-up (opcional)</Label>
-            {quickActions.map((a, i) => (
-              <div key={i} className="flex items-center gap-2 text-sm">
-                <span className="flex-1 truncate">{a.title}</span>
-                <span className="text-muted-foreground shrink-0">{a.due_days}d</span>
-                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => removeAction(i)}>
-                  <X className="h-3 w-3" />
-                </Button>
-              </div>
-            ))}
-            <div className="flex gap-2">
-              <Input
-                placeholder="Título da ação..."
-                value={newActionTitle}
-                onChange={e => setNewActionTitle(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addAction())}
-                className="flex-1"
-              />
-              <Button variant="outline" size="icon" onClick={addAction} disabled={!newActionTitle.trim()}>
-                <Plus className="h-4 w-4" />
-              </Button>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>Data</Label>
+              <Input type="date" value={checkoutDate} onChange={e => setCheckoutDate(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Hora</Label>
+              <Input type="time" value={checkoutTime} onChange={e => setCheckoutTime(e.target.value)} />
             </div>
           </div>
-        </div>
 
-        {/* Pending audio warning */}
-        {pendingAudios > 0 && (
-          <div className="flex items-start gap-2 text-sm p-3 rounded bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-300">
-            <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
-            <span>{pendingAudios} áudio(s) pendente(s) de envio. Serão enviados quando houver conexão.</span>
-          </div>
-        )}
+          {pendingAudios > 0 && (
+            <div className="flex items-start gap-2 text-sm p-3 rounded bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-300">
+              <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0" />
+              <span>{pendingAudios} áudio(s) pendente(s) de envio. Serão enviados quando houver conexão.</span>
+            </div>
+          )}
+        </div>
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
-          <Button onClick={() => finalizeMutation.mutate()} disabled={finalizeMutation.isPending || !summary.trim()}>
+          <Button onClick={() => finalizeMutation.mutate()} disabled={finalizeMutation.isPending}>
             {finalizeMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
-            Finalizar
+            Confirmar
           </Button>
         </DialogFooter>
       </DialogContent>
