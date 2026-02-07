@@ -6,7 +6,9 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Button } from '@/components/ui/button';
 import { Building2, ChevronRight, Clock } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 const PIPELINE_STAGES: CrmStage[] = ['nao_qualificado', 'qualificado', 'proposta', 'negociacao', 'ganho', 'perdido'];
 
@@ -92,14 +94,19 @@ export default function CrmPipeline() {
 
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-2">
-        <Select value={selectedProduct} onValueChange={(v) => setSelectedProduct(v as ProductCode)}>
-          <SelectTrigger className="w-full sm:w-[160px]"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            {PRODUCT_ORDER.map(p => (
-              <SelectItem key={p} value={p}>{PRODUCT_LABELS[p]}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="flex flex-wrap gap-1.5">
+          {PRODUCT_ORDER.map(p => (
+            <Button
+              key={p}
+              size="sm"
+              variant={selectedProduct === p ? 'default' : 'outline'}
+              className="text-xs h-8"
+              onClick={() => setSelectedProduct(p)}
+            >
+              {PRODUCT_LABELS[p]}
+            </Button>
+          ))}
+        </div>
         {isAdmin && (
           <Select value={selectedConsultor} onValueChange={setSelectedConsultor}>
             <SelectTrigger className="w-full sm:w-[180px]"><SelectValue placeholder="Consultor" /></SelectTrigger>
