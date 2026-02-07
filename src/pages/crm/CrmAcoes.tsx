@@ -1,25 +1,14 @@
 import { useState, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
 import { Link } from 'react-router-dom';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Search, Calendar, User, AlertTriangle, CheckCircle2, XCircle, Clock } from 'lucide-react';
+import { Search, Calendar, User, AlertTriangle, CheckCircle2, Clock, DollarSign } from 'lucide-react';
 import { format, isPast, isToday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-
-type ActionStatus = 'aberta' | 'em_execucao' | 'concluida';
-type ActionType = 'tarefa' | 'pendencia' | 'oportunidade';
-
-const STATUS_LABELS: Record<ActionStatus, string> = {
-  aberta: 'Pendente',
-  em_execucao: 'Em execução',
-  concluida: 'Concluída',
-};
+import { useCrmAcoesData, type ActionStatus, type ActionType, type ProposalStatus, type UnifiedAction } from '@/hooks/useCrmAcoesData';
 
 const STATUS_FILTERS = [
   { value: 'aberta', label: 'Pendentes' },
@@ -28,12 +17,6 @@ const STATUS_FILTERS = [
   { value: 'todas', label: 'Todas' },
 ] as const;
 
-const TYPE_LABELS: Record<ActionType, string> = {
-  tarefa: 'Tarefa',
-  pendencia: 'Pendência',
-  oportunidade: 'Oportunidade',
-};
-
 const TYPE_FILTERS = [
   { value: 'todos', label: 'Todos' },
   { value: 'tarefa', label: 'Tarefa' },
@@ -41,77 +24,44 @@ const TYPE_FILTERS = [
   { value: 'oportunidade', label: 'Oportunidade' },
 ] as const;
 
-const PRIORITY_LABELS: Record<number, string> = {
-  1: 'Baixa',
-  2: 'Média',
-  3: 'Alta',
+const TYPE_LABELS: Record<ActionType, string> = {
+  tarefa: 'Tarefa',
+  pendencia: 'Pendência',
+  oportunidade: 'Oportunidade',
 };
 
 export default function CrmAcoes() {
-  const { user, role } = useAuth();
-  const isAdminOrCoord = role === 'admin' || role === 'coordenador_rplus' || role === 'coordenador_servicos';
+  const { actions, proposals, isLoading, isAdminOrCoord } = useCrmAcoesData();
 
   const [statusFilter, setStatusFilter] = useState<string>('aberta');
   const [typeFilter, setTypeFilter] = useState<string>('todos');
   const [search, setSearch] = useState('');
 
-  const { data: actions, isLoading } = useQuery({
-    queryKey: ['crm-actions-flat', user?.id, isAdminOrCoord],
-    queryFn: async () => {
-      let query = supabase
-        .from('crm_actions')
-        .select('*, clientes!inner(id, nome)')
-        .order('due_at', { ascending: true, nullsFirst: false });
-
-      if (!isAdminOrCoord && user?.id) {
-        query = query.eq('owner_user_id', user.id);
-      }
-
-      const { data, error } = await query;
-      if (error) throw error;
-
-      // Fetch owner names separately if admin/coord
-      if (isAdminOrCoord && data && data.length > 0) {
-        const ownerIds = [...new Set(data.map((a: any) => a.owner_user_id))];
-        const { data: profiles } = await supabase
-          .from('profiles')
-          .select('id, nome')
-          .in('id', ownerIds);
-
-        const profileMap = new Map((profiles || []).map((p: any) => [p.id, p.nome]));
-        return data.map((a: any) => ({ ...a, owner_name: profileMap.get(a.owner_user_id) || '—' }));
-      }
-
-      return data?.map((a: any) => ({ ...a, owner_name: null })) || [];
-    },
-    enabled: !!user?.id,
-  });
-
   const filtered = useMemo(() => {
-    if (!actions) return [];
-    let result = actions;
+    // Merge actions + proposals
+    let result: UnifiedAction[] = [...actions, ...proposals];
 
     // Status filter
     if (statusFilter !== 'todas') {
-      result = result.filter((a: any) => a.status === statusFilter);
+      result = result.filter((a) => a.status === statusFilter);
     }
 
     // Type filter
     if (typeFilter !== 'todos') {
-      result = result.filter((a: any) => a.type === typeFilter);
+      result = result.filter((a) => a.type === typeFilter);
     }
 
     // Search
     if (search.trim()) {
       const q = search.toLowerCase();
-      result = result.filter((a: any) =>
+      result = result.filter((a) =>
         a.title?.toLowerCase().includes(q) ||
-        (a.clientes as any)?.nome?.toLowerCase().includes(q)
+        a.clientes?.nome?.toLowerCase().includes(q)
       );
     }
 
     // Sort: overdue first, then by due_at ascending
-    return result.sort((a: any, b: any) => {
+    return result.sort((a, b) => {
       const aOverdue = a.due_at && a.status !== 'concluida' && isPast(new Date(a.due_at)) && !isToday(new Date(a.due_at));
       const bOverdue = b.due_at && b.status !== 'concluida' && isPast(new Date(b.due_at)) && !isToday(new Date(b.due_at));
       if (aOverdue && !bOverdue) return -1;
@@ -121,9 +71,9 @@ export default function CrmAcoes() {
       if (!b.due_at) return -1;
       return new Date(a.due_at).getTime() - new Date(b.due_at).getTime();
     });
-  }, [actions, statusFilter, typeFilter, search]);
+  }, [actions, proposals, statusFilter, typeFilter, search]);
 
-  const isOverdue = (action: any) =>
+  const isOverdue = (action: UnifiedAction) =>
     action.due_at && action.status !== 'concluida' && isPast(new Date(action.due_at)) && !isToday(new Date(action.due_at));
 
   return (
@@ -191,12 +141,11 @@ export default function CrmAcoes() {
         </div>
       ) : (
         <div className="space-y-3">
-          {filtered.map((action: any) => {
+          {filtered.map((action) => {
             const overdue = isOverdue(action);
-            const cliente = action.clientes as any;
             return (
               <Card
-                key={action.id}
+                key={`${action._source}-${action.id}`}
                 className={`transition-colors ${overdue ? 'border-destructive/60 bg-destructive/5' : ''}`}
               >
                 <CardContent className="p-4 space-y-2">
@@ -207,22 +156,34 @@ export default function CrmAcoes() {
                         {action.title}
                       </p>
                       <Link
-                        to={`/crm/${cliente?.id}`}
+                        to={`/crm/${action.clientes?.id}`}
                         state={{ from: '/crm/acoes', fromLabel: 'Ações' }}
                         className="text-xs text-primary hover:underline"
                       >
-                        {cliente?.nome}
+                        {action.clientes?.nome}
                       </Link>
                     </div>
-                    <StatusBadge status={action.status} />
+                    {action._source === 'proposal' ? (
+                      <ProposalStatusBadge status={action.proposal_status!} />
+                    ) : (
+                      <ActionStatusBadge status={action.status} />
+                    )}
                   </div>
 
                   {/* Meta row */}
                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
                     <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-                      {TYPE_LABELS[action.type as ActionType] || action.type}
+                      {TYPE_LABELS[action.type] || action.type}
                     </Badge>
-                    <PriorityBadge priority={action.priority} />
+
+                    {action._source === 'action' && <PriorityBadge priority={action.priority} />}
+
+                    {action._source === 'proposal' && action.proposed_value != null && (
+                      <span className="inline-flex items-center gap-1 font-semibold text-foreground">
+                        <DollarSign className="h-3 w-3" />
+                        {action.proposed_value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                      </span>
+                    )}
 
                     {action.due_at && (
                       <span className={`inline-flex items-center gap-1 ${overdue ? 'text-destructive font-semibold' : ''}`}>
@@ -252,7 +213,7 @@ export default function CrmAcoes() {
   );
 }
 
-function StatusBadge({ status }: { status: ActionStatus }) {
+function ActionStatusBadge({ status }: { status: ActionStatus }) {
   const config: Record<ActionStatus, { label: string; className: string; icon: React.ElementType }> = {
     aberta: { label: 'Pendente', className: 'bg-yellow-100 text-yellow-800 border-yellow-200', icon: Clock },
     em_execucao: { label: 'Em execução', className: 'bg-blue-100 text-blue-800 border-blue-200', icon: Clock },
@@ -263,6 +224,21 @@ function StatusBadge({ status }: { status: ActionStatus }) {
   return (
     <Badge variant="outline" className={`text-[10px] px-1.5 py-0 gap-1 ${c.className}`}>
       <Icon className="h-3 w-3" />
+      {c.label}
+    </Badge>
+  );
+}
+
+function ProposalStatusBadge({ status }: { status: ProposalStatus }) {
+  const config: Record<ProposalStatus, { label: string; className: string }> = {
+    ativa: { label: 'Ativa', className: 'bg-amber-100 text-amber-800 border-amber-200' },
+    aceita: { label: 'Aceita', className: 'bg-green-100 text-green-800 border-green-200' },
+    recusada: { label: 'Recusada', className: 'bg-red-100 text-red-800 border-red-200' },
+    expirada: { label: 'Expirada', className: 'bg-muted text-muted-foreground' },
+  };
+  const c = config[status] || config.ativa;
+  return (
+    <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${c.className}`}>
       {c.label}
     </Badge>
   );
