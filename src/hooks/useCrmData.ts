@@ -111,9 +111,7 @@ export function useCarteiraData() {
       const { data, error } = await (supabase as any)
         .from('crm_visits')
         .select('id, client_id, planned_start_at, status')
-        .in('status', ['planejada'])
-        .gte('planned_start_at', new Date().toISOString())
-      if (error) throw error;
+        .in('status', ['planejada']);
       if (error) throw error;
       return data;
     },

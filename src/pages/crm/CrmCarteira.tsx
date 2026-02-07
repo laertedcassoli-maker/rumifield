@@ -63,6 +63,7 @@ export default function CrmCarteira() {
       // Next visit
       const nextVisit = visits.find((v: any) => v.client_id === c.id);
       const nextVisitDate = nextVisit?.planned_start_at ? new Date(nextVisit.planned_start_at) : null;
+      const hasPlannedVisit = !!nextVisit;
 
       // Top alerts from snapshots
       const alerts: string[] = [];
@@ -82,6 +83,7 @@ export default function CrmCarteira() {
         openActions,
         overdueActions,
         nextVisitDate,
+        hasPlannedVisit,
         alerts,
       };
     });
@@ -203,10 +205,12 @@ export default function CrmCarteira() {
 
                     {/* Row 4: icon indicators */}
                     <div className="flex items-center gap-2 mt-1">
-                      {c.nextVisitDate && (
-                        <span className="flex items-center gap-0.5 text-primary" title={`Visita ${format(c.nextVisitDate, "dd/MM", { locale: ptBR })}`}>
+                      {c.hasPlannedVisit && (
+                        <span className="flex items-center gap-0.5 text-primary" title={c.nextVisitDate ? `Visita ${format(c.nextVisitDate, "dd/MM", { locale: ptBR })}` : 'Visita planejada'}>
                           <CalendarDays className="h-3.5 w-3.5" />
-                          <span className="text-[10px] font-medium">{format(c.nextVisitDate, "dd/MM", { locale: ptBR })}</span>
+                          {c.nextVisitDate && (
+                            <span className="text-[10px] font-medium">{format(c.nextVisitDate, "dd/MM", { locale: ptBR })}</span>
+                          )}
                         </span>
                       )}
                       {c.openOpps > 0 && (
