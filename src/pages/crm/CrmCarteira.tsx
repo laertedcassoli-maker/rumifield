@@ -163,21 +163,24 @@ export default function CrmCarteira() {
                       </p>
                     )}
 
-                    {/* Row 3: active products */}
-                    {c.activeProducts.length > 0 && (
-                      <div className="flex items-center gap-1 mt-1 flex-wrap">
-                        {PRODUCT_ORDER
-                          .filter(code => c.activeProducts.includes(code))
-                          .map(code => (
-                            <span
-                              key={code}
-                              className="text-[10px] font-medium text-green-700 dark:text-green-400 bg-green-100 dark:bg-green-900/30 rounded px-1.5 py-0.5"
-                            >
-                              {PRODUCT_LABELS[code]}
-                            </span>
-                          ))}
-                      </div>
-                    )}
+                    {/* Row 3: product badges */}
+                    <div className="flex items-center gap-1 mt-1">
+                      {PRODUCT_ORDER.map(code => {
+                        const isActive = c.activeProducts.includes(code);
+                        return (
+                          <span
+                            key={code}
+                            className={`text-[10px] font-medium rounded px-1.5 py-0.5 ${
+                              isActive
+                                ? 'text-green-700 dark:text-green-400 bg-green-100 dark:bg-green-900/30'
+                                : 'text-muted-foreground/50 bg-muted/50'
+                            }`}
+                          >
+                            {PRODUCT_LABELS[code]}
+                          </span>
+                        );
+                      })}
+                    </div>
 
                     {/* Row 4: inline badges */}
                     <div className="flex items-center gap-1.5 mt-1 flex-wrap">
