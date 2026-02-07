@@ -128,15 +128,27 @@ export function VisitAudioList({ visitId }: Props) {
     setProcessingAction('transcribe');
 
     try {
-      // 1. Upload to storage
+      // 1. Convert to base64 and call transcribe FIRST (before upload to avoid timeout)
+      const base64 = btoa(
+        item.audioData.reduce((data, byte) => data + String.fromCharCode(byte), '')
+      );
+
+      const { data: fnData, error: fnError } = await supabase.functions.invoke('transcribe-audio', {
+        body: { audio: base64, mode: 'transcribe', skipClientMatch: true },
+      });
+      if (fnError) throw fnError;
+
+      const transcription = fnData?.transcription || '';
+
+      // 2. Upload to storage (background, non-blocking for UX)
       const storagePath = `${user!.id}/${item.id}.webm`;
       const blob = new Blob([item.audioData.slice().buffer as ArrayBuffer], { type: 'audio/webm' });
-      const { error: uploadError } = await supabase.storage
+      supabase.storage
         .from('crm-visit-audios')
-        .upload(storagePath, blob, { contentType: 'audio/webm', upsert: true });
-      if (uploadError) throw uploadError;
+        .upload(storagePath, blob, { contentType: 'audio/webm', upsert: true })
+        .then(({ error }) => { if (error) console.warn('Storage upload failed (non-critical):', error); });
 
-      // 2. Upsert record in DB
+      // 3. Upsert record in DB with transcription
       const { error: upsertError } = await (supabase as any)
         .from('crm_visit_audios')
         .upsert({
@@ -147,31 +159,13 @@ export function VisitAudioList({ visitId }: Props) {
           storage_path: storagePath,
           file_size_bytes: item.file_size_bytes,
           duration_seconds: item.duration_seconds,
-          status: 'uploaded',
+          transcription,
+          status: 'transcribed',
           created_at: item.created_at,
         });
       if (upsertError) throw upsertError;
 
-      // 3. Convert to base64 and call transcribe
-      const base64 = btoa(
-        item.audioData.reduce((data, byte) => data + String.fromCharCode(byte), '')
-      );
-
-      const { data: fnData, error: fnError } = await supabase.functions.invoke('transcribe-audio', {
-        body: { audio: base64, mode: 'transcribe' },
-      });
-      if (fnError) throw fnError;
-
-      const transcription = fnData?.transcription || '';
-
-      // 4. Save transcription
-      const { error: updateError } = await (supabase as any)
-        .from('crm_visit_audios')
-        .update({ transcription, status: 'transcribed' })
-        .eq('id', item.id);
-      if (updateError) throw updateError;
-
-      // 5. Remove local blob
+      // 4. Remove local blob
       await offlineDb.crm_visit_audios.delete(item.id);
 
       refetchRemote();
