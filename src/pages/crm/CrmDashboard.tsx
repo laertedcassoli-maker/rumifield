@@ -3,8 +3,8 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCarteiraData, PRODUCT_ORDER, PRODUCT_LABELS, type ProductCode, type CrmStage } from '@/hooks/useCrmData';
+import { useProductBadgeColors } from '@/components/crm/ProductBadge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Users, CalendarCheck, Clock, AlertTriangle } from 'lucide-react';
@@ -16,6 +16,7 @@ export default function CrmDashboard() {
   const { user, role } = useAuth();
   const isAdmin = role === 'admin' || role === 'coordenador_rplus';
   const { clientes, clientProducts, actions, isLoading } = useCarteiraData();
+  const { data: badgeColors } = useProductBadgeColors();
   const [selectedConsultor, setSelectedConsultor] = useState<string>('all');
 
   // Fetch consultores for admin filter
@@ -156,7 +157,7 @@ export default function CrmDashboard() {
           </CardHeader>
           <CardContent className="space-y-4">
             {productMetrics.map(m => (
-              <ProductBar key={m.code} label={m.label} pct={m.activationPct} count={m.activationCount} total={m.total} />
+              <ProductBar key={m.code} label={m.label} pct={m.activationPct} count={m.activationCount} total={m.total} color={badgeColors?.[m.code]} />
             ))}
           </CardContent>
         </Card>
@@ -172,7 +173,7 @@ export default function CrmDashboard() {
           </CardHeader>
           <CardContent className="space-y-4">
             {productMetrics.map(m => (
-              <ProductBar key={m.code} label={m.label} pct={m.qualificationPct} count={m.qualificationCount} total={m.total} variant="qualification" />
+              <ProductBar key={m.code} label={m.label} pct={m.qualificationPct} count={m.qualificationCount} total={m.total} color={badgeColors?.[m.code]} />
             ))}
           </CardContent>
         </Card>
@@ -198,16 +199,26 @@ function SummaryCard({ icon: Icon, label, value, sub, variant = 'default' }: {
   );
 }
 
-function ProductBar({ label, pct, count, total, variant = 'activation' }: {
-  label: string; pct: number; count: number; total: number; variant?: 'activation' | 'qualification';
+const FALLBACK_COLORS: Record<string, string> = {
+  ideagri: '#10b981', rumiflow: '#0ea5e9', onfarm: '#f59e0b', rumiaction: '#8b5cf6', insights: '#f43f5e',
+};
+
+function ProductBar({ label, pct, count, total, color }: {
+  label: string; pct: number; count: number; total: number; color?: string;
 }) {
+  const barColor = color || FALLBACK_COLORS[label.toLowerCase()] || '#6b7280';
   return (
     <div className="space-y-1">
       <div className="flex items-center justify-between text-sm">
         <span className="font-medium text-foreground">{label}</span>
         <span className="text-muted-foreground">{count}/{total} ({pct}%)</span>
       </div>
-      <Progress value={pct} className={`h-2.5 ${variant === 'qualification' ? '[&>div]:bg-blue-500' : ''}`} />
+      <div className="relative h-2.5 w-full overflow-hidden rounded-full bg-muted">
+        <div
+          className="h-full rounded-full transition-all"
+          style={{ width: `${pct}%`, backgroundColor: barColor }}
+        />
+      </div>
     </div>
   );
 }
