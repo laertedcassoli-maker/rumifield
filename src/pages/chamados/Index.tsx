@@ -360,8 +360,8 @@ export default function ChamadosIndex() {
         </div>
       ) : paginatedTickets.length > 0 ? (
         <>
-          <Card>
-            <Table>
+          <Card className="overflow-auto">
+            <Table className="min-w-[900px]">
               <TableHeader>
                 <TableRow>
                   <TableHead>Código</TableHead>
