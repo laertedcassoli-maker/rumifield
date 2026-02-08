@@ -24,8 +24,10 @@ import {
   BookOpen,
   Calendar,
   User,
-  Shield
+  Shield,
+  RefreshCw
 } from 'lucide-react';
+import { useState } from 'react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
@@ -43,10 +45,11 @@ export default function DocView() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { role, user } = useAuth();
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   const canEdit = role === 'admin' || role === 'coordenador_servicos';
 
-  const { data: doc, isLoading, error } = useQuery({
+  const { data: doc, isLoading, error, refetch } = useQuery({
     queryKey: ['system-documentation', slug],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -60,6 +63,23 @@ export default function DocView() {
     },
     enabled: !!slug,
   });
+
+  const isAutoRefreshable = doc?.slug === 'api-docs-ai-layer' || (doc as any)?.ai_metadata?.auto_refreshable === true;
+
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      const { error } = await supabase.functions.invoke('refresh-ai-docs');
+      if (error) throw error;
+      toast.success('Documentação atualizada com sucesso!');
+      await refetch();
+    } catch (e) {
+      console.error('Refresh error:', e);
+      toast.error('Erro ao atualizar documentação');
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   const deleteMutation = useMutation({
     mutationFn: async () => {
@@ -209,6 +229,12 @@ export default function DocView() {
             </div>
             {canEdit && (
               <div className="flex gap-2">
+                {isAutoRefreshable && (
+                  <Button variant="outline" size="sm" onClick={handleRefresh} disabled={isRefreshing}>
+                    <RefreshCw className={`mr-2 h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+                    {isRefreshing ? 'Atualizando...' : 'Atualizar'}
+                  </Button>
+                )}
                 <Link to={`/docs/${doc.slug}/editar`}>
                   <Button variant="outline" size="sm">
                     <Edit className="mr-2 h-4 w-4" />
