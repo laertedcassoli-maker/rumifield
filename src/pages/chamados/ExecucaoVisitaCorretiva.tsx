@@ -17,7 +17,8 @@ import {
   LogOut,
   AlertTriangle,
   Play,
-  Wrench
+  Wrench,
+  Share2
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -644,6 +645,49 @@ export default function ExecucaoVisitaCorretiva() {
                   </div>
                 </div>
                 
+                {visit.publicToken && (
+                  <div className="flex gap-2 pt-2">
+                    <Button
+                      variant="outline"
+                      className="flex-1"
+                      onClick={async () => {
+                        const origin = window.location.hostname.includes('lovableproject.com')
+                          ? 'https://rumifield.lovable.app'
+                          : window.location.origin;
+                        const url = `${origin}/relatorio-corretivo/${visit.publicToken}`;
+                        if (navigator.share) {
+                          try { await navigator.share({ title: 'Relatório de Visita', url }); } catch {}
+                        } else {
+                          await navigator.clipboard.writeText(url);
+                          toast({ title: 'Link copiado!' });
+                        }
+                      }}
+                    >
+                      <Share2 className="h-4 w-4 mr-2" />
+                      Produtor
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="flex-1"
+                      onClick={async () => {
+                        const origin = window.location.hostname.includes('lovableproject.com')
+                          ? 'https://rumifield.lovable.app'
+                          : window.location.origin;
+                        const url = `${origin}/relatorio-corretivo/${visit.publicToken}/interno`;
+                        if (navigator.share) {
+                          try { await navigator.share({ title: 'Relatório Interno', url }); } catch {}
+                        } else {
+                          await navigator.clipboard.writeText(url);
+                          toast({ title: 'Link copiado!' });
+                        }
+                      }}
+                    >
+                      <Share2 className="h-4 w-4 mr-2" />
+                      Time Interno
+                    </Button>
+                  </div>
+                )}
+
                 <div className="flex gap-2 pt-2">
                   <Button 
                     variant="outline" 
