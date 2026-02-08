@@ -85,7 +85,8 @@ export function useOfflineChecklist() {
                 action_label_snapshot: data.action_label_snapshot
               } as never);
 
-            if (error) throw error;
+            // Treat duplicate key as success (already synced)
+            if (error && error.code !== '23505') throw error;
           } else if (table === "preventive_checklist_item_nonconformities") {
             const { error } = await supabase
               .from("preventive_checklist_item_nonconformities")
@@ -95,7 +96,8 @@ export function useOfflineChecklist() {
                 nonconformity_label_snapshot: data.nonconformity_label_snapshot
               } as never);
 
-            if (error) throw error;
+            // Treat duplicate key as success (already synced)
+            if (error && error.code !== '23505') throw error;
           }
           break;
         }
