@@ -353,6 +353,12 @@ export default function CrmVisitaExecucao() {
           <h2 className="text-lg font-semibold">Produtos</h2>
           <Link to={`/crm/${clientId}`} className="text-xs text-primary hover:underline">Ver 360°</Link>
         </div>
+        {isPlanned && (
+          <div className="flex items-center gap-2 text-sm text-amber-600 bg-amber-50 dark:bg-amber-900/20 rounded-lg p-3 mb-3">
+            <MapPin className="h-4 w-4 shrink-0" />
+            <span>Faça o check-in para liberar a edição dos produtos.</span>
+          </div>
+        )}
         <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
           {PRODUCT_ORDER.map(pc => {
             const cp = clientProducts.find((p: any) => p.product_code === pc);
@@ -375,7 +381,7 @@ export default function CrmVisitaExecucao() {
                 lossReasons={lossReasons}
                 lossReasonId={displayLossReasonId}
                 lossNotes={displayLossNotes}
-                readOnly={isCompleted}
+                readOnly={!isActive}
                 onQualify={() => setQualModal({ open: true, cpId: cp.id, pc })}
                 onCreateProposal={() => setPropModal({ open: true, cpId: cp.id, pc })}
                 onUpdateNegotiation={() => setNegModal({ open: true, cpId: cp.id, pc, stage: cp.stage as CrmStage })}
