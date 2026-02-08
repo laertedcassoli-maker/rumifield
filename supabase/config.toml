@@ -30,6 +30,9 @@ verify_jwt = false
 [functions.docs-ai-schema]
 verify_jwt = false
 
+[functions.docs-ai-full]
+verify_jwt = false
+
 [functions.detect-code-changes]
 verify_jwt = false
 
