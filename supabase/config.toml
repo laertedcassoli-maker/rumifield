@@ -38,3 +38,6 @@ verify_jwt = false
 
 [functions.crm-client-analysis]
 verify_jwt = false
+
+[functions.refresh-ai-docs]
+verify_jwt = false
