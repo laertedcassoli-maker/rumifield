@@ -277,8 +277,8 @@ export default function CrmVisitaExecucao() {
             <Navigation className="mr-2 h-5 w-5" />
             Fazer Check-in
           </Button>
-          <Button size="lg" variant="outline" className="shrink-0" onClick={() => setCancelOpen(true)}>
-            <XCircle className="h-5 w-5" />
+          <Button size="lg" variant="outline" className="shrink-0 gap-1" onClick={() => setCancelOpen(true)}>
+            <XCircle className="h-5 w-5" /> Cancelar
           </Button>
         </div>
       )}
