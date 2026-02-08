@@ -1,28 +1,40 @@
 
-## Corrigir visualizacao de visitas corretivas sem relatorio publico na tela 360
 
-### Problema
-Quando uma visita corretiva nao possui `public_token` (ex: visitas antigas finalizadas antes da funcionalidade de relatorio), o sistema usa como fallback o link `/chamados/visita/:id`, que e uma pagina completa do app (com sidebar e menu). Ao ser carregada dentro do iframe do modal `TimelineEventModal`, mostra toda a interface duplicada.
+## Atualizar pagina "API Docs (IA)" com botao de atualizacao
 
-### Solucao
+### Situacao atual
+O documento `api-docs-ai-layer` foi atualizado pela ultima vez em **25/01/2026** (cerca de 2 semanas atras). Ele e um documento estatico na tabela `system_documentation` que descreve os 3 endpoints da camada IA (`docs-ai-index`, `docs-ai-item`, `docs-ai-schema`). Nao existe mecanismo para atualizar automaticamente seu conteudo.
 
-**Arquivo: `src/components/crm/ClienteHistoricoTab.tsx`** (unica alteracao)
+Os endpoints em si estao funcionando, mas o conteudo do documento pode estar desatualizado se houve mudancas nos edge functions ou na estrutura de dados retornada.
 
-Na construcao do timeline para corretivas (linha ~196), alterar o fallback:
-- Se tem `publicToken`: manter link `/relatorio-corretivo/{token}` (abre no iframe do modal)
-- Se NAO tem `publicToken`: definir `link: undefined` para que o modal exiba apenas as informacoes basicas (tipo, status, data) sem iframe
+### Plano
 
-Isso evita carregar uma pagina completa da aplicacao dentro do iframe do modal. O botao "Abrir pagina completa" (Maximize2) no modal so aparece quando ha link, entao o usuario ainda pode navegar ao chamado pela timeline do chamado correspondente.
+**1. Criar edge function `refresh-ai-docs` que:**
+- Chama os 3 endpoints existentes (`docs-ai-index`, `docs-ai-schema`, `docs-ai-item`) para coletar dados reais
+- Gera o conteudo Markdown atualizado automaticamente com base na resposta real dos endpoints (quantidade de documentos, tabelas, campos retornados, exemplos reais)
+- Atualiza o registro `api-docs-ai-layer` na tabela `system_documentation` com o novo conteudo e `updated_at`
 
-### Alteracao de codigo
+**2. Adicionar botao "Atualizar" na pagina `DocView.tsx`:**
+- Visivel apenas para o slug `api-docs-ai-layer` (ou docs com flag `auto_generated` no `ai_metadata`)
+- Botao com icone `RefreshCw` ao lado do botao "Editar"
+- Ao clicar, chama a edge function `refresh-ai-docs`
+- Exibe loading e toast de sucesso/erro
+- Recarrega o conteudo apos atualizacao
 
-```typescript
-// Antes (linha 196):
-link: publicToken ? `/relatorio-corretivo/${publicToken}` : `/chamados/visita/${v.id}`,
+### Detalhes tecnicos
 
-// Depois:
-link: publicToken ? `/relatorio-corretivo/${publicToken}` : undefined,
-```
+**Novo arquivo:** `supabase/functions/refresh-ai-docs/index.ts`
+- Requer autenticacao (admin/coordenador)
+- Faz fetch interno aos endpoints `docs-ai-index` e `docs-ai-schema` usando `SUPABASE_URL`
+- Monta o Markdown com dados reais: total de documentos, total de tabelas, exemplos de resposta
+- Faz `UPDATE` no registro com slug `api-docs-ai-layer`
 
-### Nota sobre dados historicos
-A visita CORR-2026-00002 nao possui registro em `corrective_maintenance`, por isso o `public_token` e nulo. Para visitas futuras, o token e gerado automaticamente no checkout. Nao sera necessario criar migracao para gerar tokens retroativos, mas isso pode ser considerado futuramente se desejado.
+**Arquivo editado:** `src/pages/docs/DocView.tsx`
+- Adicionar botao "Atualizar" condicional (quando `doc.ai_metadata?.auto_refreshable === true` ou slug === `api-docs-ai-layer`)
+- Estado de loading para o botao
+- Chamar `supabase.functions.invoke('refresh-ai-docs')` no clique
+- Invalidar query apos sucesso
+
+**Arquivo editado:** `supabase/config.toml`
+- Adicionar entrada para `refresh-ai-docs` com `verify_jwt = false`
+
