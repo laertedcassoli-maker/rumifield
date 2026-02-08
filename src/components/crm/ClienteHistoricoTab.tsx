@@ -193,7 +193,7 @@ export function ClienteHistoricoTab({ clientId }: ClienteHistoricoTabProps) {
         date: new Date(v.checkin_at || v.planned_start_date || new Date()),
         status: getStatusLabel(v.status, 'corretiva'),
         statusColor: getStatusColor(v.status),
-        link: publicToken ? `/relatorio-corretivo/${publicToken}` : `/chamados/visita/${v.id}`,
+        link: publicToken ? `/relatorio-corretivo/${publicToken}` : undefined,
       };
     }),
   ].sort((a, b) => b.date.getTime() - a.date.getTime());
