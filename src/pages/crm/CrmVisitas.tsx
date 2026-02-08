@@ -236,7 +236,7 @@ export default function CrmVisitas() {
             <Card
               key={v.id}
               className="overflow-hidden cursor-pointer hover:border-primary/30 active:bg-muted/50 transition-colors"
-              onClick={() => navigate(`/crm/visitas/${v.id}`)}
+              onClick={() => navigate(`/crm/visitas/${v.id}`, { state: { from: '/crm/visitas', fromLabel: 'Visitas' } })}
             >
               <CardContent className="p-3">
                 <div className="flex items-start gap-2.5">

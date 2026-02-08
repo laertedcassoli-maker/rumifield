@@ -281,7 +281,7 @@ export default function CrmCliente360() {
               </div>
               <div className="space-y-2">
                 {visits.map((v: any) => (
-                  <Link to={`/crm/visitas/${v.id}`} key={v.id}>
+                  <Link to={`/crm/visitas/${v.id}`} key={v.id} state={{ from: `/crm/${id}`, fromLabel: cliente.nome }}>
                     <Card className="hover:border-primary/30 transition-colors">
                       <CardContent className="py-3 flex items-center justify-between gap-2">
                         <div className="min-w-0">
