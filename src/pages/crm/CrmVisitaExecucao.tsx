@@ -18,12 +18,13 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, MapPin, Clock, Navigation, Loader2, CheckCircle2, LogOut, Plus, ClipboardList, FileText, Timer, ExternalLink } from 'lucide-react';
+import { ArrowLeft, MapPin, Clock, Navigation, Loader2, CheckCircle2, LogOut, Plus, ClipboardList, FileText, Timer, ExternalLink, XCircle } from 'lucide-react';
 import { format, differenceInMinutes } from 'date-fns';
 import { useToast } from '@/hooks/use-toast';
 import { CheckinDialog } from '@/components/preventivas/CheckinDialog';
 import { cn } from '@/lib/utils';
 import { offlineDb } from '@/lib/offline-db';
+import { CancelarVisitaCrmDialog } from '@/components/crm/CancelarVisitaCrmDialog';
 
 const STATUS_LABELS: Record<string, string> = {
   planejada: 'Planejada',
@@ -41,6 +42,7 @@ export default function CrmVisitaExecucao() {
 
   const [checkinOpen, setCheckinOpen] = useState(false);
   const [finalizarOpen, setFinalizarOpen] = useState(false);
+  const [cancelOpen, setCancelOpen] = useState(false);
 
   // Modals
   const [qualModal, setQualModal] = useState<{ open: boolean; cpId: string; pc: ProductCode }>({ open: false, cpId: '', pc: 'ideagri' });
@@ -171,6 +173,26 @@ export default function CrmVisitaExecucao() {
     checkinMutation.mutate({ lat, lon });
   };
 
+  // Cancel visit mutation
+  // @ts-ignore
+  const cancelMutation = useMutation({
+    mutationFn: async (reason: string) => {
+      const { error } = await supabase
+        .from('crm_visits')
+        .update({ status: 'cancelada', cancellation_reason: reason })
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      setCancelOpen(false);
+      toast({ title: 'Visita cancelada.' });
+      navigate('/crm/visitas');
+    },
+    onError: (e: Error) => {
+      toast({ variant: 'destructive', title: 'Erro', description: e.message });
+    },
+  });
+
   if (loadingVisit) {
     return <div className="space-y-4"><Skeleton className="h-8 w-48" /><Skeleton className="h-32 w-full" /><Skeleton className="h-64 w-full" /></div>;
   }
@@ -193,6 +215,8 @@ export default function CrmVisitaExecucao() {
       ? `${Math.floor(durationMinutes / 60)}h ${durationMinutes % 60}min`
       : `${durationMinutes}min`
     : null;
+
+  const isCancelled = visit.status === 'cancelada';
 
   return (
     <div className="space-y-6 animate-fade-in pb-24">
@@ -248,10 +272,15 @@ export default function CrmVisitaExecucao() {
 
       {/* Action Buttons */}
       {isPlanned && (
-        <Button size="lg" className="w-full" onClick={() => setCheckinOpen(true)}>
-          <Navigation className="mr-2 h-5 w-5" />
-          Fazer Check-in
-        </Button>
+        <div className="flex gap-2">
+          <Button size="lg" className="flex-1" onClick={() => setCheckinOpen(true)}>
+            <Navigation className="mr-2 h-5 w-5" />
+            Fazer Check-in
+          </Button>
+          <Button size="lg" variant="outline" className="shrink-0" onClick={() => setCancelOpen(true)}>
+            <XCircle className="h-5 w-5" />
+          </Button>
+        </div>
       )}
 
       {isActive && (
@@ -262,7 +291,22 @@ export default function CrmVisitaExecucao() {
           <Button size="lg" className="flex-1 gap-1" onClick={() => setFinalizarOpen(true)}>
             <CheckCircle2 className="h-4 w-4" /> Finalizar
           </Button>
+          <Button size="lg" variant="ghost" className="shrink-0 text-destructive" onClick={() => setCancelOpen(true)}>
+            <XCircle className="h-5 w-5" />
+          </Button>
         </div>
+      )}
+
+      {/* Cancellation reason card */}
+      {isCancelled && visit.cancellation_reason && (
+        <Card className="border-destructive/30 bg-destructive/5">
+          <CardContent className="py-3">
+            <p className="text-sm font-medium text-destructive flex items-center gap-1.5 mb-1">
+              <XCircle className="h-4 w-4" /> Visita Cancelada
+            </p>
+            <p className="text-sm text-muted-foreground">{visit.cancellation_reason}</p>
+          </CardContent>
+        </Card>
       )}
 
       {/* Proposals section (for completed visits, show before products) */}
@@ -438,6 +482,14 @@ export default function CrmVisitaExecucao() {
         farmFazenda={visit.clientes?.fazenda}
         onConfirm={handleCheckinConfirm}
         isLoading={checkinMutation.isPending}
+      />
+      <CancelarVisitaCrmDialog
+        open={cancelOpen}
+        onOpenChange={setCancelOpen}
+        clientName={visit.clientes?.nome || ''}
+        farmName={visit.clientes?.fazenda}
+        onConfirm={(reason) => cancelMutation.mutate(reason)}
+        isLoading={cancelMutation.isPending}
       />
     </div>
   );

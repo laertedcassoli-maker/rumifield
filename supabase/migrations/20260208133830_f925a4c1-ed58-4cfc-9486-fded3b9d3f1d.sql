@@ -1,0 +1,1 @@
+ALTER TABLE public.crm_visits ADD COLUMN cancellation_reason TEXT;

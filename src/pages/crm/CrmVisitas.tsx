@@ -24,6 +24,7 @@ import { cn } from '@/lib/utils';
 
 const STATUS_LABELS: Record<string, string> = {
   planejada: 'Planejada',
+  atrasada: 'Atrasada',
   em_andamento: 'Em Andamento',
   concluida: 'Concluída',
   cancelada: 'Cancelada',
@@ -31,6 +32,7 @@ const STATUS_LABELS: Record<string, string> = {
 
 const STATUS_COLORS: Record<string, string> = {
   planejada: 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300',
+  atrasada: 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300',
   em_andamento: 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300',
   concluida: 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300',
   cancelada: 'bg-muted text-muted-foreground',
@@ -134,11 +136,21 @@ export default function CrmVisitas() {
     );
   }, [clientes, clienteSearch]);
 
+  const getDisplayStatus = (v: any) => {
+    if (v.status === 'planejada' && v.planned_start_at && new Date(v.planned_start_at) < new Date()) {
+      return 'atrasada';
+    }
+    return v.status;
+  };
+
   const filteredVisitas = useMemo(() => {
     if (!visitas) return [];
     let result = visitas;
     if (statusFilter !== 'all') {
-      result = result.filter(v => v.status === statusFilter);
+      result = result.filter(v => {
+        const ds = getDisplayStatus(v);
+        return ds === statusFilter;
+      });
     }
     if (search.trim()) {
       const s = search.toLowerCase();
@@ -151,11 +163,11 @@ export default function CrmVisitas() {
     return result;
   }, [visitas, statusFilter, search]);
 
-
   const counts = useMemo(() => {
-    if (!visitas) return { planejada: 0, em_andamento: 0, concluida: 0 };
+    if (!visitas) return { planejada: 0, atrasada: 0, em_andamento: 0, concluida: 0 };
     return {
-      planejada: visitas.filter(v => v.status === 'planejada').length,
+      planejada: visitas.filter(v => getDisplayStatus(v) === 'planejada').length,
+      atrasada: visitas.filter(v => getDisplayStatus(v) === 'atrasada').length,
       em_andamento: visitas.filter(v => v.status === 'em_andamento').length,
       concluida: visitas.filter(v => v.status === 'concluida').length,
     };
@@ -170,9 +182,10 @@ export default function CrmVisitas() {
       </div>
 
       {/* Status counts - compact on mobile */}
-      <div className="grid grid-cols-3 gap-1.5">
+      <div className="grid grid-cols-4 gap-1.5">
         {[
           { key: 'planejada', label: 'Planejadas', count: counts.planejada, color: 'text-blue-600' },
+          { key: 'atrasada', label: 'Atrasadas', count: counts.atrasada, color: 'text-red-600' },
           { key: 'em_andamento', label: 'Andamento', count: counts.em_andamento, color: 'text-amber-600' },
           { key: 'concluida', label: 'Concluídas', count: counts.concluida, color: 'text-green-600' },
         ].map(s => (
@@ -241,8 +254,8 @@ export default function CrmVisitas() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <p className="font-medium text-sm truncate max-w-[60%]">{v.clientes?.nome}</p>
-                      <Badge className={cn("text-[10px] shrink-0 px-1.5 py-0", STATUS_COLORS[v.status])}>
-                        {STATUS_LABELS[v.status]}
+                      <Badge className={cn("text-[10px] shrink-0 px-1.5 py-0", STATUS_COLORS[getDisplayStatus(v)])}>
+                        {STATUS_LABELS[getDisplayStatus(v)]}
                       </Badge>
                       {v.checkin_at && <MapPin className="h-3 w-3 text-green-600 shrink-0" />}
                     </div>
