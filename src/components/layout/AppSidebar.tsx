@@ -86,36 +86,45 @@ export function AppSidebar() {
   const showOficinaMenu = canAccess('oficina') && oficinaItems.length > 0;
   const isOficinaActive = location.pathname.startsWith('/oficina') && !location.pathname.includes('/atividades');
 
-  // Admin Oficina submenu (configuration items)
-  const adminOficinaItems = [
-    { title: 'Atividades', icon: ListChecks, url: '/oficina/atividades', permKey: 'oficina_atividades' },
-  ].filter(item => canAccess(item.permKey));
-
-  const showAdminOficinaMenu = adminOficinaItems.length > 0;
-  const isAdminOficinaActive = location.pathname === '/oficina/atividades';
-
-  // Admin Manutenção submenu (preventive maintenance configuration)
-  const adminManutencaoItems = [
-    { title: 'Templates Checklist', icon: ClipboardList, url: '/preventivas/checklists', permKey: 'admin_cadastros' },
-  ].filter(item => canAccess(item.permKey));
-
-  const showAdminManutencaoMenu = adminManutencaoItems.length > 0;
-  const isAdminManutencaoActive = location.pathname.startsWith('/preventivas/checklists');
-
-  // Admin menu items
-  const adminMenuItems = [
+  // Admin top-level items (flat)
+  const adminTopItems = [
     { title: 'Clientes', icon: Building2, url: '/admin/clientes', permKey: 'admin_clientes' },
     { title: 'Usuários', icon: Users, url: '/admin/usuarios', permKey: 'admin_usuarios' },
-    { title: 'Envios', icon: Truck, url: '/admin/envios', permKey: 'admin_envios' },
-    { title: 'Cadastros', icon: Settings, url: '/admin/config', permKey: 'admin_cadastros' },
-    { title: 'Config. CRM', icon: Briefcase, url: '/admin/crm', permKey: 'admin_cadastros' },
     { title: 'Permissões', icon: Shield, url: '/admin/permissoes', permKey: 'admin_permissoes' },
-    { title: 'Documentação', icon: BookOpen, url: '/docs', permKey: 'admin_permissoes' },
+    { title: 'Envios', icon: Truck, url: '/admin/envios', permKey: 'admin_envios' },
+  ].filter(item => canAccess(item.permKey));
+
+  // Admin > Cadastros submenu
+  const adminCadastrosItems = [
+    { title: 'Produtos Químicos', icon: FlaskConical, url: '/admin/config?tab=quimicos', permKey: 'admin_cadastros' },
+    { title: 'Catálogo de Peças', icon: Box, url: '/admin/config?tab=pecas', permKey: 'admin_cadastros' },
+    { title: 'Config. CRM', icon: Briefcase, url: '/admin/crm', permKey: 'admin_cadastros' },
+    { title: 'Templates Checklist', icon: ClipboardList, url: '/preventivas/checklists', permKey: 'admin_cadastros' },
+    { title: 'Atividades Oficina', icon: ListChecks, url: '/oficina/atividades', permKey: 'oficina_atividades' },
+  ].filter(item => canAccess(item.permKey));
+
+  const isAdminCadastrosActive = ['/admin/config', '/admin/crm', '/preventivas/checklists', '/oficina/atividades'].some(
+    p => location.pathname === p || location.pathname.startsWith(p + '/')
+  ) || location.search.includes('tab=quimicos') || location.search.includes('tab=pecas');
+
+  // Admin > Configurações submenu
+  const adminConfigItems = [
+    { title: 'Geral', icon: Settings, url: '/admin/config?tab=config', permKey: 'admin_cadastros' },
+    { title: 'Integrações', icon: Truck, url: '/admin/config?tab=integracoes', permKey: 'admin_cadastros' },
+  ].filter(item => canAccess(item.permKey));
+
+  const isAdminConfigActive = location.search.includes('tab=config') || location.search.includes('tab=integracoes');
+
+  // Admin > Documentação submenu
+  const adminDocsItems = [
+    { title: 'Documentos', icon: BookOpen, url: '/docs', permKey: 'admin_permissoes' },
     { title: 'API Docs (IA)', icon: Bot, url: '/docs/api-docs-ai-layer', permKey: 'admin_permissoes' },
     { title: 'Teste Transcrição', icon: FlaskConical, url: '/teste', permKey: 'admin_cadastros' },
   ].filter(item => canAccess(item.permKey));
 
-  const showAdminMenu = adminMenuItems.length > 0 || showAdminOficinaMenu || showAdminManutencaoMenu;
+  const isAdminDocsActive = location.pathname.startsWith('/docs') || location.pathname === '/teste';
+
+  const showAdminMenu = adminTopItems.length > 0 || adminCadastrosItems.length > 0 || adminConfigItems.length > 0 || adminDocsItems.length > 0;
 
   return (
     <Sidebar>
@@ -242,7 +251,7 @@ export function AppSidebar() {
             <SidebarGroupLabel>Administração</SidebarGroupLabel>
             <SidebarGroupContent>
               <SidebarMenu>
-                {adminMenuItems.map(item => (
+                {adminTopItems.map(item => (
                   <SidebarMenuItem key={item.title}>
                     <SidebarMenuButton asChild isActive={location.pathname === item.url}>
                       <Link to={item.url} onClick={handleMenuClick}>
@@ -253,22 +262,22 @@ export function AppSidebar() {
                   </SidebarMenuItem>
                 ))}
 
-                {/* Manutenção submenu dentro de Administração */}
-                {showAdminManutencaoMenu && (
-                  <Collapsible defaultOpen={isAdminManutencaoActive} className="group/collapsible">
+                {/* Cadastros submenu */}
+                {adminCadastrosItems.length > 0 && (
+                  <Collapsible defaultOpen={isAdminCadastrosActive} className="group/collapsible">
                     <SidebarMenuItem>
                       <CollapsibleTrigger asChild>
-                        <SidebarMenuButton isActive={isAdminManutencaoActive}>
-                          <Calendar className="h-4 w-4" />
-                          <span>Manutenção</span>
+                        <SidebarMenuButton isActive={isAdminCadastrosActive}>
+                          <ClipboardList className="h-4 w-4" />
+                          <span>Cadastros</span>
                           <ChevronDown className="ml-auto h-4 w-4 transition-transform group-data-[state=open]/collapsible:rotate-180" />
                         </SidebarMenuButton>
                       </CollapsibleTrigger>
                       <CollapsibleContent>
                         <SidebarMenuSub>
-                          {adminManutencaoItems.map(item => (
+                          {adminCadastrosItems.map(item => (
                             <SidebarMenuSubItem key={item.title}>
-                              <SidebarMenuSubButton asChild isActive={location.pathname === item.url || location.pathname.startsWith(item.url + '/')}>
+                              <SidebarMenuSubButton asChild isActive={location.pathname + location.search === item.url || location.pathname === item.url}>
                                 <Link to={item.url} onClick={handleMenuClick}>
                                   <item.icon className="h-4 w-4" />
                                   <span>{item.title}</span>
@@ -282,22 +291,51 @@ export function AppSidebar() {
                   </Collapsible>
                 )}
 
-                {/* Oficina submenu dentro de Administração */}
-                {showAdminOficinaMenu && (
-                  <Collapsible defaultOpen={isAdminOficinaActive} className="group/collapsible">
+                {/* Configurações submenu */}
+                {adminConfigItems.length > 0 && (
+                  <Collapsible defaultOpen={isAdminConfigActive} className="group/collapsible">
                     <SidebarMenuItem>
                       <CollapsibleTrigger asChild>
-                        <SidebarMenuButton isActive={isAdminOficinaActive}>
-                          <Wrench className="h-4 w-4" />
-                          <span>Oficina</span>
+                        <SidebarMenuButton isActive={isAdminConfigActive}>
+                          <Settings className="h-4 w-4" />
+                          <span>Configurações</span>
                           <ChevronDown className="ml-auto h-4 w-4 transition-transform group-data-[state=open]/collapsible:rotate-180" />
                         </SidebarMenuButton>
                       </CollapsibleTrigger>
                       <CollapsibleContent>
                         <SidebarMenuSub>
-                          {adminOficinaItems.map(item => (
+                          {adminConfigItems.map(item => (
                             <SidebarMenuSubItem key={item.title}>
-                              <SidebarMenuSubButton asChild isActive={location.pathname === item.url}>
+                              <SidebarMenuSubButton asChild isActive={location.pathname + location.search === item.url}>
+                                <Link to={item.url} onClick={handleMenuClick}>
+                                  <item.icon className="h-4 w-4" />
+                                  <span>{item.title}</span>
+                                </Link>
+                              </SidebarMenuSubButton>
+                            </SidebarMenuSubItem>
+                          ))}
+                        </SidebarMenuSub>
+                      </CollapsibleContent>
+                    </SidebarMenuItem>
+                  </Collapsible>
+                )}
+
+                {/* Documentação submenu */}
+                {adminDocsItems.length > 0 && (
+                  <Collapsible defaultOpen={isAdminDocsActive} className="group/collapsible">
+                    <SidebarMenuItem>
+                      <CollapsibleTrigger asChild>
+                        <SidebarMenuButton isActive={isAdminDocsActive}>
+                          <BookOpen className="h-4 w-4" />
+                          <span>Documentação</span>
+                          <ChevronDown className="ml-auto h-4 w-4 transition-transform group-data-[state=open]/collapsible:rotate-180" />
+                        </SidebarMenuButton>
+                      </CollapsibleTrigger>
+                      <CollapsibleContent>
+                        <SidebarMenuSub>
+                          {adminDocsItems.map(item => (
+                            <SidebarMenuSubItem key={item.title}>
+                              <SidebarMenuSubButton asChild isActive={location.pathname === item.url || location.pathname.startsWith(item.url + '/')}>
                                 <Link to={item.url} onClick={handleMenuClick}>
                                   <item.icon className="h-4 w-4" />
                                   <span>{item.title}</span>
