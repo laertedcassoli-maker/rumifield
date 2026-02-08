@@ -1,44 +1,77 @@
 
-## Navegacao contextual no botao Voltar da Visita CRM
+## Dashboard "Minha Carteira" - Indicadores CRM
 
-### Problema
+### Objetivo
+Criar uma pagina de dashboard com KPIs consolidados da carteira do consultor logado, oferecendo visao rapida de cobertura de visitas, qualificacao e ativacao por produto. Admins e Coordenadores R+ veem dados globais com filtro por consultor.
 
-Hoje, o botao "Voltar" na tela de execucao de visita sempre redireciona para `/crm/visitas`. Quando o usuario acessa a visita a partir da tela do Cliente 360, ele espera voltar para la -- nao para a lista de visitas.
+### Indicadores planejados
 
-### Solucao
+1. **Cobertura de Visitas (30d)** - % de clientes ativos que receberam ao menos 1 visita concluida nos ultimos 30 dias (baseado em `crm_visits.status = 'concluida'` e `checkout_at` nos ultimos 30 dias)
 
-Usar o mesmo padrao ja implementado no `CrmCliente360.tsx`: passar o caminho de origem via `location.state` e usar esse valor no botao Voltar.
+2. **Qualificacao por Produto** - Para cada um dos 5 produtos, % de clientes cujo estagio e `qualificado` ou superior (qualificado, proposta, negociacao, ganho) vs total de clientes
 
-### Alteracoes
+3. **Ativacao por Produto** - Para cada um dos 5 produtos, % de clientes com estagio `ganho` vs total de clientes
 
-**1. `src/pages/crm/CrmCliente360.tsx`**
+4. **Resumo geral** - Total de clientes, total de acoes pendentes, total de acoes vencidas
 
-No `<Link>` que leva para a visita (linha ~284), passar o state com a rota de origem:
+### Layout da pagina
 
-```tsx
-<Link 
-  to={`/crm/visitas/${v.id}`} 
-  state={{ from: `/crm/${clientId}`, fromLabel: 'Cliente' }}
->
+```text
++------------------------------------------+
+| Minha Carteira          [Filtro Consultor]|  <- filtro so para admin/coord
++------------------------------------------+
+| [Card] Clientes  [Card] Visitas 30d      |
+| [Card] Pendencias [Card] Vencidas        |
++------------------------------------------+
+| Ativacao por Produto                     |
+| [===== barra Ideagri 40% ============]  |
+| [===== barra RumiFlow 25% ===========]  |
+| [===== barra OnFarm 60% =============]  |
+| [===== barra RumiAction 15% =========]  |
+| [===== barra RumiProcare 30% ========]  |
++------------------------------------------+
+| Qualificacao por Produto                 |
+| (mesma estrutura de barras)              |
++------------------------------------------+
 ```
 
-**2. `src/pages/crm/CrmVisitaExecucao.tsx`**
+### Alteracoes tecnicas
 
-- Importar `useLocation` do react-router-dom
-- Ler `location.state` para obter `from` (fallback: `/crm/visitas`)
-- Usar esse valor no botao Voltar, no cancelamento e na finalizacao
+**1. Nova pagina: `src/pages/crm/CrmDashboard.tsx`**
 
-Tres pontos de navegacao serao atualizados:
-- Botao Voltar (seta no header)
-- Callback de cancelamento (`cancelMutation.onSuccess`)
-- Callback de finalizacao (`onFinalized`)
+- Reutiliza o hook `useCarteiraData()` que ja busca clientes, `crm_client_products`, snapshots, actions e visits
+- Adiciona query para visitas concluidas nos ultimos 30 dias (`crm_visits` com `status = 'concluida'` e `checkout_at >= now() - 30 days`)
+- Para admin/coord: busca lista de consultores (`profiles`) e exibe Select de filtro
+- Calcula todos os KPIs no `useMemo` filtrando pelo consultor selecionado (ou todos se nenhum filtro)
+- Usa componentes existentes: `Card`, `Progress`, `Select`, `Skeleton`
+- Barras de progresso com o componente `Progress` existente e labels de percentual
 
-**3. `src/pages/crm/CrmVisitas.tsx`**
+**2. Rota no `src/App.tsx`**
 
-No card clicavel da lista de visitas, passar state indicando origem "Visitas":
+- Adicionar rota `/crm/dashboard` com `CrmDashboard` dentro de `AppLayout`
 
-```tsx
-onClick={() => navigate(`/crm/visitas/${v.id}`, { state: { from: '/crm/visitas', fromLabel: 'Visitas' } })}
-```
+**3. Menu lateral: `src/components/layout/AppSidebar.tsx`**
 
-Isso garante consistencia: independente de onde o usuario veio, o botao Voltar sempre retorna ao ponto de origem correto.
+- Adicionar item "Dashboard CRM" com icone `BarChart3` (ou `PieChart`) na posicao antes de "CRM Carteira", usando `permKey: 'crm_clientes'`
+
+**4. Hook de dados (sem alteracao no hook existente)**
+
+- O `useCarteiraData()` ja retorna todos os dados necessarios (clientes com `consultor_rplus_id`, `clientProducts` com `stage`, visits planejadas)
+- Apenas uma query adicional sera feita diretamente na pagina para buscar visitas concluidas nos ultimos 30 dias (a query atual so busca planejadas)
+- Lista de consultores: reutiliza o mesmo padrao de `usePipelineData` (query em `profiles`)
+
+**5. Logica de filtro por consultor**
+
+- Admin/Coord: Select com todos os consultores + opcao "Todos"
+- Consultor: sem filtro, ve apenas sua carteira (filtragem pelo `consultor_rplus_id` do cliente, mesmo padrao da Carteira)
+
+### Calculo dos KPIs
+
+- **Cobertura Visitas 30d**: clientes com pelo menos 1 visita concluida (checkout_at >= 30d atras) / total clientes ativos
+- **Qualificacao produto X**: clientes com estagio in (qualificado, proposta, negociacao, ganho) para produto X / total clientes
+- **Ativacao produto X**: clientes com estagio = ganho para produto X / total clientes
+- **Pendencias**: soma de acoes com status != concluida
+- **Vencidas**: soma de acoes com status != concluida e due_at < now()
+
+### Nao requer alteracoes no banco de dados
+Todos os dados necessarios ja existem nas tabelas `clientes`, `crm_client_products`, `crm_visits` e `crm_actions`.
