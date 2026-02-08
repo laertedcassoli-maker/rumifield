@@ -89,7 +89,10 @@ export default function DocsIndex() {
   const [selectedTables, setSelectedTables] = useState<Set<string>>(new Set());
   const [selectedModules, setSelectedModules] = useState<Set<string>>(new Set());
   const [copiedLink, setCopiedLink] = useState(false);
+  const [isCopyingAI, setIsCopyingAI] = useState(false);
   const [detectionMode, setDetectionMode] = useState<'schema' | 'code' | null>(null);
+
+  const docsAiFullUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/docs-ai-full`;
 
   const publicDocsUrl = 'https://rumifield.lovable.app/docs/public';
 
@@ -354,6 +357,33 @@ export default function DocsIndex() {
               <Copy className="mr-2 h-4 w-4" />
             )}
             Copiar Link
+          </Button>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            disabled={isCopyingAI}
+            onClick={async () => {
+              setIsCopyingAI(true);
+              try {
+                const response = await fetch(docsAiFullUrl);
+                if (!response.ok) throw new Error('Erro');
+                const markdown = await response.text();
+                await navigator.clipboard.writeText(markdown);
+                toast.success('Documentação completa copiada para o clipboard!');
+              } catch {
+                await navigator.clipboard.writeText(docsAiFullUrl);
+                toast.success('Link do endpoint copiado!');
+              } finally {
+                setIsCopyingAI(false);
+              }
+            }}
+          >
+            {isCopyingAI ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Sparkles className="mr-2 h-4 w-4" />
+            )}
+            {isCopyingAI ? 'Copiando...' : 'Copiar para IA'}
           </Button>
           {canEdit && (
             <div className="flex gap-1">

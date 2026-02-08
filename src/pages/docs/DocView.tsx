@@ -25,7 +25,9 @@ import {
   Calendar,
   User,
   Shield,
-  RefreshCw
+  RefreshCw,
+  Bot,
+  Loader2
 } from 'lucide-react';
 import { useState } from 'react';
 import { format } from 'date-fns';
@@ -46,6 +48,27 @@ export default function DocView() {
   const queryClient = useQueryClient();
   const { role, user } = useAuth();
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isCopyingAI, setIsCopyingAI] = useState(false);
+
+  const docsAiFullUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/docs-ai-full`;
+
+  const handleCopyForAI = async () => {
+    setIsCopyingAI(true);
+    try {
+      const response = await fetch(docsAiFullUrl);
+      if (!response.ok) throw new Error('Erro ao buscar documentação');
+      const markdown = await response.text();
+      await navigator.clipboard.writeText(markdown);
+      toast.success('Documentação completa copiada para o clipboard!');
+    } catch (e) {
+      console.error('Copy AI error:', e);
+      // Fallback: copy the URL
+      await navigator.clipboard.writeText(docsAiFullUrl);
+      toast.success('Link do endpoint copiado (não foi possível copiar o conteúdo completo)');
+    } finally {
+      setIsCopyingAI(false);
+    }
+  };
 
   const canEdit = role === 'admin' || role === 'coordenador_servicos';
 
@@ -227,8 +250,17 @@ export default function DocView() {
                 <p className="text-muted-foreground">{doc.summary}</p>
               )}
             </div>
-            {canEdit && (
-              <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
+              <Button variant="outline" size="sm" onClick={handleCopyForAI} disabled={isCopyingAI}>
+                {isCopyingAI ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Bot className="mr-2 h-4 w-4" />
+                )}
+                {isCopyingAI ? 'Copiando...' : 'Copiar para IA'}
+              </Button>
+              {canEdit && (
+                <>
                 {isAutoRefreshable && (
                   <Button variant="outline" size="sm" onClick={handleRefresh} disabled={isRefreshing}>
                     <RefreshCw className={`mr-2 h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
@@ -265,8 +297,9 @@ export default function DocView() {
                     </AlertDialogFooter>
                   </AlertDialogContent>
                 </AlertDialog>
-              </div>
+              </>
             )}
+            </div>
           </div>
           
           {/* Metadata */}
