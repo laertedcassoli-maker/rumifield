@@ -14,6 +14,7 @@ import { useToast } from '@/hooks/use-toast';
 
 interface Props {
   visitId: string;
+  visitStatus?: string;
 }
 
 interface AudioItem {
@@ -44,7 +45,8 @@ function formatSize(bytes: number | null): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-export function VisitAudioList({ visitId }: Props) {
+export function VisitAudioList({ visitId, visitStatus }: Props) {
+  const isReadOnly = visitStatus === 'concluida' || visitStatus === 'cancelada';
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -389,16 +391,18 @@ export function VisitAudioList({ visitId }: Props) {
                     </Button>
                   )}
 
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    onClick={() => handleDelete(item)}
-                    disabled={isProcessing}
-                    className="gap-1 text-destructive hover:text-destructive"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                    Apagar
-                  </Button>
+                  {!isReadOnly && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => handleDelete(item)}
+                      disabled={isProcessing}
+                      className="gap-1 text-destructive hover:text-destructive"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                      Apagar
+                    </Button>
+                  )}
                 </div>
               </CardContent>
             </Card>

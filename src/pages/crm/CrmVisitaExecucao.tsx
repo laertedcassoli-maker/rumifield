@@ -404,7 +404,7 @@ export default function CrmVisitaExecucao() {
       )}
 
       {/* Visit Audio List */}
-      {id && <VisitAudioList visitId={id} />}
+      {id && <VisitAudioList visitId={id} visitStatus={visit?.status} />}
 
       {/* Checklists attached to this visit */}
       {visitChecklists && visitChecklists.length > 0 && (
