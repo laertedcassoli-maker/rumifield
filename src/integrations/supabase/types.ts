@@ -1196,6 +1196,7 @@ export type Database = {
       }
       crm_visits: {
         Row: {
+          cancellation_reason: string | null
           checkin_at: string | null
           checkin_lat: number | null
           checkin_lon: number | null
@@ -1215,6 +1216,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          cancellation_reason?: string | null
           checkin_at?: string | null
           checkin_lat?: number | null
           checkin_lon?: number | null
@@ -1234,6 +1236,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          cancellation_reason?: string | null
           checkin_at?: string | null
           checkin_lat?: number | null
           checkin_lon?: number | null
