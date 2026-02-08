@@ -1,66 +1,89 @@
 
 
-## Criar endpoint unificado `docs-ai-full`
+## Reorganizar menus de Administracao
 
-### Objetivo
-Novo edge function que retorna TODA a documentacao publica em um unico Markdown, pronto para colar em uma conversa com IA externa (ChatGPT, Claude, etc).
+### Problema atual
+O menu de Administracao tem 9+ itens soltos no primeiro nivel, alem de 2 submenus (Manutencao, Oficina). Isso dificulta a navegacao:
+- "Cadastros" mistura configuracoes do sistema, catalogos de produtos e integracoes na mesma tela
+- "Permissoes" fica isolado quando e uma funcao de gestao de acesso junto com "Usuarios"
+- "Documentacao" e "API Docs (IA)" sao dois itens para o mesmo contexto
+- "Teste Transcricao" e um item de desenvolvimento misturado com itens operacionais
 
-### Como funciona
-O endpoint busca todos os documentos publicos da tabela `system_documentation`, agrupa por categoria e gera um Markdown completo com:
-- Cabecalho com nome do sistema, data de geracao e totais
-- Indice (table of contents) com links internos
-- Secoes por categoria: Visao Geral, Modulos, Tabelas, Regras, Permissoes
-- Conteudo completo de cada documento (titulo, resumo, conteudo, metadados relevantes)
-- Separadores claros entre documentos
+### Proposta de reorganizacao
 
-### Endpoint publico resultante
+**Estrutura atual do menu Administracao:**
+```text
+Administracao
+  Clientes
+  Usuarios
+  Envios
+  Cadastros          (tabs: Config, Prod. Quimicos, Pecas, Integracoes)
+  Config. CRM
+  Permissoes
+  Documentacao
+  API Docs (IA)
+  Teste Transcricao
+  > Manutencao
+      Templates Checklist
+  > Oficina
+      Atividades
 ```
-GET https://gperaijwlecreqxoygjy.supabase.co/functions/v1/docs-ai-full
+
+**Nova estrutura proposta:**
+```text
+Administracao
+  Clientes
+  Usuarios
+  Permissoes
+  Envios
+  > Cadastros
+      Produtos Quimicos
+      Catalogo de Pecas
+      Config. CRM
+      Templates Checklist
+      Atividades Oficina
+  > Configuracoes
+      Geral              (garantia motor, configs do sistema)
+      Integracoes        (Omie, iMilk)
+  > Documentacao
+      Documentos
+      API Docs (IA)
+      Teste Transcricao
 ```
-Retorna `text/markdown` diretamente -- basta abrir no navegador e copiar.
 
-### Arquivos
+### Mudancas principais
 
-**Novo:** `supabase/functions/docs-ai-full/index.ts`
-- Busca todos os docs publicos com `select('slug, title, category, summary, content, ai_metadata, related_modules, updated_at')`
-- Agrupa por categoria usando a mesma logica do `docs-ai-index`
-- Gera Markdown unico com indice e conteudo completo
-- Sem autenticacao (publico, como os demais endpoints AI)
+1. **Agrupar "Permissoes" junto com "Usuarios"** -- ambos tratam de gestao de acesso/pessoas, entao ficam proximos no menu (nao dentro de submenu, apenas reposicionados)
 
-**Editado:** `supabase/config.toml`
-- Adicionar entrada `[functions.docs-ai-full]` com `verify_jwt = false`
+2. **Transformar "Cadastros" em submenu com subitens reais** -- cada aba atual vira uma rota propria ou submenu. Isso tira o peso da pagina Config.tsx (1559 linhas!) e facilita o acesso direto:
+   - Produtos Quimicos (`/admin/cadastros/produtos`)
+   - Catalogo de Pecas (`/admin/cadastros/pecas`)
+   - Config. CRM (ja existe em `/admin/crm`)
+   - Templates Checklist (ja existe em `/preventivas/checklists`)
+   - Atividades Oficina (ja existe em `/oficina/atividades`)
 
-### Estrutura do Markdown gerado
+3. **Criar submenu "Configuracoes"** com:
+   - Geral: garantia motor e outras configs do sistema (a aba "Configuracao" atual)
+   - Integracoes: Omie e iMilk (a aba "Integracoes" atual)
 
-```markdown
-# Documentacao Completa do Sistema - RumiField
-> Gerado em: 2026-02-08T...
-> Total: X documentos
-
-## Indice
-- Visao Geral
-  - Doc 1
-  - Doc 2
-- Modulos
-  - ...
-
----
-
-## Visao Geral
-
-### Doc Title
-> Summary
-
-Content...
-
----
-
-## Modulos
-...
-```
+4. **Agrupar Documentacao** em submenu unico:
+   - Documentos (`/docs`)
+   - API Docs IA (`/docs/api-docs-ai-layer`)
+   - Teste Transcricao (`/teste`)
 
 ### Detalhes tecnicos
-- Reutiliza o padrao dos demais endpoints (cors headers, createClient com SERVICE_ROLE_KEY)
-- Ordena categorias na sequencia logica: visao_geral > modulo > tabela > regra_transversal > permissao
-- Inclui metadados relevantes (tabelas relacionadas, status possiveis, regras de negocio) inline no Markdown de cada doc
-- Content-Type: `text/markdown; charset=utf-8` para facilitar visualizacao direta no navegador
+
+**Arquivos editados:**
+
+- `src/components/layout/AppSidebar.tsx` -- reestruturar os arrays de menu admin para usar submenus `Collapsible` ao inves de itens soltos
+- `src/pages/admin/Config.tsx` -- remover as tabs e dividir em paginas separadas OU simplificar para manter apenas "Geral" e "Integracoes"
+- `src/pages/Home.tsx` -- atualizar o array `allAdminMenuItems` para refletir a nova organizacao
+- `src/hooks/useMenuPermissions.ts` -- possivelmente adicionar novas permKeys se necessario para os novos subitens
+
+**Abordagem de implementacao:**
+
+Fase 1 (minima): Reorganizar apenas o `AppSidebar.tsx` agrupando os itens existentes em submenus colapsaveis, sem criar novas paginas. As rotas permanecem as mesmas, muda apenas a hierarquia visual do menu.
+
+Fase 2 (opcional, futura): Separar Config.tsx em paginas independentes para cada aba.
+
+Vou implementar a **Fase 1** -- reorganizar o sidebar e a Home para refletir a nova hierarquia, mantendo as mesmas rotas/paginas existentes.
