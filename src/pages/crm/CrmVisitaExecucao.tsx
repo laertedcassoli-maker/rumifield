@@ -1,5 +1,5 @@
 import { useState, useMemo, useCallback } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
+import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { supabase } from '@/integrations/supabase/client';
@@ -36,6 +36,9 @@ const STATUS_LABELS: Record<string, string> = {
 export default function CrmVisitaExecucao() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
+  const fromState = location.state as { from?: string; fromLabel?: string } | null;
+  const backPath = fromState?.from || '/crm/visitas';
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -186,7 +189,7 @@ export default function CrmVisitaExecucao() {
     onSuccess: () => {
       setCancelOpen(false);
       toast({ title: 'Visita cancelada.' });
-      navigate('/crm/visitas');
+      navigate(backPath);
     },
     onError: (e: Error) => {
       toast({ variant: 'destructive', title: 'Erro', description: e.message });
@@ -222,7 +225,7 @@ export default function CrmVisitaExecucao() {
     <div className="space-y-6 animate-fade-in pb-24">
       {/* Header */}
       <div className="flex items-center gap-3">
-        <Button variant="ghost" size="icon" onClick={() => navigate('/crm/visitas')}>
+        <Button variant="ghost" size="icon" onClick={() => navigate(backPath)}>
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <div className="flex-1">
@@ -478,7 +481,7 @@ export default function CrmVisitaExecucao() {
         clientId={clientId || ''}
         onFinalized={() => {
           queryClient.invalidateQueries({ queryKey: ['crm-visit', id] });
-          navigate('/crm/visitas');
+          navigate(backPath);
         }}
       />
       <CheckinDialog
