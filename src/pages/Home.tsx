@@ -162,6 +162,14 @@ export default function Home() {
       permKey: 'admin_usuarios',
     },
     {
+      title: 'Permissões',
+      icon: Shield,
+      url: '/admin/permissoes',
+      color: 'text-red-600',
+      bgColor: 'bg-red-100 dark:bg-red-900/30',
+      permKey: 'admin_permissoes',
+    },
+    {
       title: 'Envios',
       icon: Truck,
       url: '/admin/envios',
@@ -178,12 +186,12 @@ export default function Home() {
       permKey: 'admin_cadastros',
     },
     {
-      title: 'Permissões',
-      icon: Shield,
-      url: '/admin/permissoes',
-      color: 'text-red-600',
-      bgColor: 'bg-red-100 dark:bg-red-900/30',
-      permKey: 'admin_permissoes',
+      title: 'Configurações',
+      icon: Settings,
+      url: '/admin/config?tab=config',
+      color: 'text-slate-600',
+      bgColor: 'bg-slate-100 dark:bg-slate-900/30',
+      permKey: 'admin_cadastros',
     },
     {
       title: 'Documentação',
@@ -192,14 +200,6 @@ export default function Home() {
       color: 'text-sky-600',
       bgColor: 'bg-sky-100 dark:bg-sky-900/30',
       permKey: 'admin_permissoes',
-    },
-    {
-      title: 'Atividades Oficina',
-      icon: ListChecks,
-      url: '/oficina/atividades',
-      color: 'text-pink-600',
-      bgColor: 'bg-pink-100 dark:bg-pink-900/30',
-      permKey: 'oficina_atividades',
     },
   ];
 
