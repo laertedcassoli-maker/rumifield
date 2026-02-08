@@ -1,25 +1,28 @@
 
-## Adicionar botoes de compartilhamento no encerramento da visita corretiva
+## Corrigir visualizacao de visitas corretivas sem relatorio publico na tela 360
 
 ### Problema
-O `public_token` ja e gerado no checkout da visita corretiva e a pagina de relatorio publico (`/relatorio-corretivo/:token`) ja existe, mas a tela de execucao da visita corretiva nao exibe botoes de compartilhamento apos o encerramento -- apenas "Ver Chamado" e "Minhas Rotas".
+Quando uma visita corretiva nao possui `public_token` (ex: visitas antigas finalizadas antes da funcionalidade de relatorio), o sistema usa como fallback o link `/chamados/visita/:id`, que e uma pagina completa do app (com sidebar e menu). Ao ser carregada dentro do iframe do modal `TimelineEventModal`, mostra toda a interface duplicada.
 
 ### Solucao
-Adicionar botoes "Produtor" e "Time Interno" na secao de visita encerrada, replicando o mesmo padrao ja usado nas preventivas (`AtendimentoPreventivo.tsx`).
 
-### Alteracao
+**Arquivo: `src/components/crm/ClienteHistoricoTab.tsx`** (unica alteracao)
 
-**`src/pages/chamados/ExecucaoVisitaCorretiva.tsx`** (unico arquivo)
+Na construcao do timeline para corretivas (linha ~196), alterar o fallback:
+- Se tem `publicToken`: manter link `/relatorio-corretivo/{token}` (abre no iframe do modal)
+- Se NAO tem `publicToken`: definir `link: undefined` para que o modal exiba apenas as informacoes basicas (tipo, status, data) sem iframe
 
-Na secao "Share Section" (linhas ~629-671), adicionar:
+Isso evita carregar uma pagina completa da aplicacao dentro do iframe do modal. O botao "Abrir pagina completa" (Maximize2) no modal so aparece quando ha link, entao o usuario ainda pode navegar ao chamado pela timeline do chamado correspondente.
 
-1. Importar `Share2` do lucide-react (ja importado parcialmente)
-2. Quando `visit.publicToken` existir, exibir dois botoes de compartilhamento:
-   - **Produtor**: link para `/relatorio-corretivo/{token}` com Web Share API ou fallback clipboard
-   - **Time Interno**: link para `/relatorio-corretivo/{token}/interno` com mesmo comportamento
-3. Manter os botoes existentes "Ver Chamado" e "Minhas Rotas" abaixo
+### Alteracao de codigo
 
-A logica de compartilhamento segue o padrao existente:
-- Detecta hostname `lovableproject.com` para usar dominio de producao (`rumifield.lovable.app`)
-- Usa `navigator.share()` quando disponivel
-- Fallback para `navigator.clipboard.writeText()` com toast de confirmacao
+```typescript
+// Antes (linha 196):
+link: publicToken ? `/relatorio-corretivo/${publicToken}` : `/chamados/visita/${v.id}`,
+
+// Depois:
+link: publicToken ? `/relatorio-corretivo/${publicToken}` : undefined,
+```
+
+### Nota sobre dados historicos
+A visita CORR-2026-00002 nao possui registro em `corrective_maintenance`, por isso o `public_token` e nulo. Para visitas futuras, o token e gerado automaticamente no checkout. Nao sera necessario criar migracao para gerar tokens retroativos, mas isso pode ser considerado futuramente se desejado.
