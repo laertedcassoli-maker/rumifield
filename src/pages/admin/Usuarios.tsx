@@ -9,7 +9,9 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Users, Loader2, Shield, Search, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Plus, Copy, Check, Link2, Trash2 } from 'lucide-react';
+import { Users, Loader2, Shield, Search, ArrowUpDown, ArrowUp, ArrowDown, ChevronLeft, ChevronRight, Plus, Copy, Check, Link2, Trash2, Ban, UserCheck, MoreHorizontal } from 'lucide-react';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useToast } from '@/hooks/use-toast';
 import { z } from 'zod';
 import {
@@ -78,6 +80,8 @@ export default function AdminUsuarios() {
   const [editingCidadeBase, setEditingCidadeBase] = useState<{ userId: string; value: string } | null>(null);
   const [generatedLink, setGeneratedLink] = useState<string | null>(null);
   const [copiedLink, setCopiedLink] = useState(false);
+  const [confirmAction, setConfirmAction] = useState<{ type: 'deactivate' | 'activate' | 'delete'; userId: string; userName: string } | null>(null);
+  const [actionLoading, setActionLoading] = useState(false);
 
   const { data: usuarios, isLoading } = useQuery({
     queryKey: ['usuarios-admin'],
@@ -309,6 +313,26 @@ export default function AdminUsuarios() {
     toast({ title: 'Link copiado!' });
   };
 
+  const handleUserAction = async () => {
+    if (!confirmAction) return;
+    setActionLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('manage-user', {
+        body: { action: confirmAction.type, userId: confirmAction.userId },
+      });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      toast({ title: data.message || 'Ação realizada com sucesso!' });
+      queryClient.invalidateQueries({ queryKey: ['usuarios-admin'] });
+    } catch (error: any) {
+      toast({ variant: 'destructive', title: 'Erro', description: error.message });
+    } finally {
+      setActionLoading(false);
+      setConfirmAction(null);
+    }
+  };
+
   const isAdmin = currentUserRole === 'admin';
 
   return (
@@ -460,6 +484,7 @@ export default function AdminUsuarios() {
                         </Button>
                       </TableHead>
                       <TableHead>Cidade Base</TableHead>
+                      {isAdmin && <TableHead className="w-[60px]">Ações</TableHead>}
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -468,12 +493,15 @@ export default function AdminUsuarios() {
                       const isCurrentUser = usuario.id === currentUser?.id;
 
                       return (
-                        <TableRow key={usuario.id}>
+                        <TableRow key={usuario.id} className={usuario.is_active === false ? 'opacity-50' : ''}>
                           <TableCell className="font-medium">
                             <div className="flex items-center gap-2">
                               {usuario.nome}
                               {isCurrentUser && (
                                 <Badge variant="outline" className="text-xs">Você</Badge>
+                              )}
+                              {usuario.is_active === false && (
+                                <Badge variant="secondary" className="text-xs bg-muted text-muted-foreground">Inativo</Badge>
                               )}
                             </div>
                           </TableCell>
@@ -546,6 +574,44 @@ export default function AdminUsuarios() {
                               </span>
                             )}
                           </TableCell>
+                          {isAdmin && !isCurrentUser && (
+                            <TableCell>
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="h-8 w-8">
+                                    <MoreHorizontal className="h-4 w-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  {usuario.is_active !== false ? (
+                                    <DropdownMenuItem
+                                      onClick={() => setConfirmAction({ type: 'deactivate', userId: usuario.id, userName: usuario.nome })}
+                                      className="text-orange-600"
+                                    >
+                                      <Ban className="mr-2 h-4 w-4" />
+                                      Desativar
+                                    </DropdownMenuItem>
+                                  ) : (
+                                    <DropdownMenuItem
+                                      onClick={() => setConfirmAction({ type: 'activate', userId: usuario.id, userName: usuario.nome })}
+                                      className="text-green-600"
+                                    >
+                                      <UserCheck className="mr-2 h-4 w-4" />
+                                      Reativar
+                                    </DropdownMenuItem>
+                                  )}
+                                  <DropdownMenuItem
+                                    onClick={() => setConfirmAction({ type: 'delete', userId: usuario.id, userName: usuario.nome })}
+                                    className="text-destructive"
+                                  >
+                                    <Trash2 className="mr-2 h-4 w-4" />
+                                    Excluir
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </TableCell>
+                          )}
+                          {isAdmin && isCurrentUser && <TableCell />}
                         </TableRow>
                       );
                     })}
@@ -662,6 +728,42 @@ export default function AdminUsuarios() {
           )}
         </TabsContent>
       </Tabs>
+
+      <AlertDialog open={!!confirmAction} onOpenChange={(open) => !open && setConfirmAction(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              {confirmAction?.type === 'delete' && 'Excluir usuário'}
+              {confirmAction?.type === 'deactivate' && 'Desativar usuário'}
+              {confirmAction?.type === 'activate' && 'Reativar usuário'}
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              {confirmAction?.type === 'delete' && (
+                <>Tem certeza que deseja excluir <strong>{confirmAction.userName}</strong>? Esta ação é irreversível e todos os dados do usuário serão removidos.</>
+              )}
+              {confirmAction?.type === 'deactivate' && (
+                <>Deseja desativar <strong>{confirmAction?.userName}</strong>? O usuário não conseguirá mais fazer login, mas seus dados serão mantidos.</>
+              )}
+              {confirmAction?.type === 'activate' && (
+                <>Deseja reativar <strong>{confirmAction?.userName}</strong>? O usuário poderá fazer login novamente.</>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={actionLoading}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleUserAction}
+              disabled={actionLoading}
+              className={confirmAction?.type === 'delete' ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90' : ''}
+            >
+              {actionLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
+              {confirmAction?.type === 'delete' && 'Excluir'}
+              {confirmAction?.type === 'deactivate' && 'Desativar'}
+              {confirmAction?.type === 'activate' && 'Reativar'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
