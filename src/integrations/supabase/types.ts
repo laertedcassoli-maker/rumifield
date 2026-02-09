@@ -3395,6 +3395,15 @@ export type Database = {
       }
     }
     Functions: {
+      accept_invite: {
+        Args: {
+          _cidade_base?: string
+          _invite_id: string
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: undefined
+      }
       can_delete_peca: { Args: { _peca_id: string }; Returns: boolean }
       generate_corrective_visit_code: { Args: never; Returns: string }
       generate_preventive_route_code: { Args: never; Returns: string }

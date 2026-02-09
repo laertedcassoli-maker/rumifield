@@ -109,34 +109,22 @@ export default function AceitarConvite() {
 
       if (signUpError) throw signUpError;
 
-      // 2. Aguardar o trigger criar o profile
+      // 2. Aguardar o trigger criar o profile e role padrão
       await new Promise(resolve => setTimeout(resolve, 1500));
 
-      // 3. Atualizar role para o valor do convite
+      // 3. Usar função segura para atualizar role, cidade_base e marcar convite como usado
       if (authData.user) {
-        const { error: roleError } = await supabase
-          .from('user_roles')
-          .update({ role: invite.role as any })
-          .eq('user_id', authData.user.id);
+        const { error: acceptError } = await supabase.rpc('accept_invite', {
+          _invite_id: invite.id,
+          _user_id: authData.user.id,
+          _role: invite.role as any,
+          _cidade_base: invite.cidade_base || null,
+        });
 
-        if (roleError) {
-          console.error('Erro ao atualizar role:', roleError);
-        }
-
-        // 4. Atualizar cidade_base se fornecida
-        if (invite.cidade_base) {
-          await supabase
-            .from('profiles')
-            .update({ cidade_base: invite.cidade_base })
-            .eq('id', authData.user.id);
+        if (acceptError) {
+          console.error('Erro ao aceitar convite:', acceptError);
         }
       }
-
-      // 5. Marcar convite como usado
-      await supabase
-        .from('user_invites')
-        .update({ used_at: new Date().toISOString() })
-        .eq('id', invite.id);
 
       setSuccess(true);
       toast({
