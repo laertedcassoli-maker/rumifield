@@ -1,33 +1,63 @@
 
 
-## Separar visualmente os blocos da OS
+## Melhorar Card de Cronometro - Tempo Total vs Sessao Atual
 
-### Problema encontrado
+### Situacao atual
+O card "Tempo Total" exibe um unico valor que mistura o total acumulado com o tempo da sessao corrente. O usuario precisa abrir o historico para ver o total real.
 
-Os blocos Item, Horimetro, Motor, Pecas Utilizadas e Observacoes estao todos dentro de um **wrapper div** (linha 889) que so tem classe de opacidade condicional mas **nenhum espacamento interno**. O `space-y-20` do container externo so separa esse wrapper inteiro dos outros blocos (Atividade, Tempo Total), mas nao separa os blocos **dentro** dele.
+### Proposta
+Redesenhar o card do cronometro para exibir **duas informacoes distintas**:
 
-### Solucao
+1. **Tempo da sessao atual** (destaque principal, fonte grande) - so aparece quando o cronometro esta rodando
+2. **Tempo total acumulado** (informacao secundaria, sempre visivel) - soma de todas as sessoes historicas + sessao atual
 
-Adicionar `space-y-10` (40px) ao wrapper div da linha 889, para que os blocos internos fiquem separados entre si.
+### Layout proposto
 
-### Detalhe tecnico
+```text
++------------------------------------------+
+| Clock  Cronometro                        |
+|                                          |
+|   00:01:23          [Parar]              |
+|   sessao atual                           |
+|                                          |
+|   Total acumulado: 00:04:51              |
++------------------------------------------+
+```
+
+Quando o cronometro **nao esta ativo**:
+
+```text
++------------------------------------------+
+| Clock  Cronometro                        |
+|                                          |
+|   Total: 00:03:28   [Iniciar]            |
+|                                          |
++------------------------------------------+
+```
+
+### Detalhes tecnicos
 
 **Arquivo:** `src/components/oficina/DetalheOSDialog.tsx`
 
-**Linha 889** - Alterar de:
-```typescript
-<div className={workOrder.status === 'aguardando' && !activeTimeEntry ? 'opacity-40 pointer-events-none select-none' : ''}>
-```
+1. **Renomear titulo** do card de "Tempo Total" para "Cronometro"
 
-Para:
-```typescript
-<div className={`space-y-10 ${workOrder.status === 'aguardando' && !activeTimeEntry ? 'opacity-40 pointer-events-none select-none' : ''}`}>
-```
+2. **Criar variavel `currentSessionTime`** que calcula apenas o tempo da sessao ativa:
+   - Se `activeTimeEntry` existe: `Math.floor((Date.now() - started_at) / 1000)`
+   - Se nao: `0`
 
-Tambem reverter o `space-y-20` do container externo (linha 839) para `space-y-10`, mantendo tudo uniforme.
+3. **Manter `elapsedTime`** como total acumulado (ja funciona assim: `localTotalSeconds + runningTime`)
 
-**Resumo das alteracoes:**
-- Linha 839: `space-y-20` para `space-y-10`
-- Linha 889: adicionar `space-y-10` ao wrapper interno
+4. **Alterar o CardContent** para exibir:
+   - Quando cronometro ativo: tempo da sessao atual em fonte grande + label "sessao atual" + linha com "Total acumulado: XX:XX:XX" usando `elapsedTime`
+   - Quando parado: apenas "Total: XX:XX:XX" usando `elapsedTime` (que sera = `localTotalSeconds`)
 
-Isso garante 40px de espacamento entre **todos** os 6 blocos de forma consistente.
+5. **Ajustar o useEffect do timer** (linhas ~345-355):
+   - Adicionar um novo state `currentSessionTime` com `useState(0)`
+   - No interval, calcular ambos: `setElapsedTime(localTotalSeconds + runningTime)` e `setCurrentSessionTime(runningTime)`
+   - Quando parado: `setCurrentSessionTime(0)`
+
+### Resumo das alteracoes
+- 1 arquivo: `src/components/oficina/DetalheOSDialog.tsx`
+- Novo state: `currentSessionTime`
+- Card redesenhado com duas linhas de informacao
+- Zero impacto em logica de persistencia ou historico
