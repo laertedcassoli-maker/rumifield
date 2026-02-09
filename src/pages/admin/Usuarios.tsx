@@ -274,7 +274,7 @@ export default function AdminUsuarios() {
 
       if (error) throw error;
 
-      const inviteLink = `${window.location.origin}/convite/${invite.token}`;
+      const inviteLink = `https://rumifield.lovable.app/convite/${invite.token}`;
       setGeneratedLink(inviteLink);
       queryClient.invalidateQueries({ queryKey: ['pending-invites'] });
       toast({ title: 'Convite criado com sucesso!' });
@@ -304,7 +304,7 @@ export default function AdminUsuarios() {
   };
 
   const copyInviteLink = async (token: string) => {
-    const link = `${window.location.origin}/convite/${token}`;
+    const link = `https://rumifield.lovable.app/convite/${token}`;
     await navigator.clipboard.writeText(link);
     toast({ title: 'Link copiado!' });
   };
