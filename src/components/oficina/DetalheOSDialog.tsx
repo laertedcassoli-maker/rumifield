@@ -1127,10 +1127,12 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
             )}
 
             {/* Observações - for completed OS */}
-            {workOrder.status === 'concluido' && workOrder.notes && (
+            {workOrder.status === 'concluido' && (
               <div className="space-y-1">
                 <p className="text-xs font-medium text-muted-foreground">Observações</p>
-                <p className="text-sm whitespace-pre-wrap">{workOrder.notes}</p>
+                <p className="text-sm whitespace-pre-wrap text-muted-foreground italic">
+                  {workOrder.notes || 'Nenhuma observação registrada'}
+                </p>
               </div>
             )}
 
