@@ -1067,11 +1067,14 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
             )}
 
             {/* Parts Used Section */}
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <p className="text-sm font-semibold flex items-center gap-1">
+            <div className="p-3 border rounded-lg bg-muted/30 space-y-3">
+              <div className="flex items-center justify-between">
+                <p className="text-sm font-semibold flex items-center gap-2">
                   <Package className="h-4 w-4" />
                   Peças Utilizadas
+                  {partsUsed.length > 0 && (
+                    <Badge variant="secondary" className="text-xs font-mono">{partsUsed.length}</Badge>
+                  )}
                 </p>
                 {workOrder.status !== 'concluido' && (
                   <Button 
@@ -1087,30 +1090,33 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
                 )}
               </div>
               {partsUsed.length === 0 ? (
-                <div className="text-center py-4 text-muted-foreground text-sm border rounded-lg">
+                <div className="text-center py-3 text-muted-foreground text-sm">
                   Nenhuma peça registrada
                 </div>
               ) : (
-                <div className="space-y-2">
+                <div className="space-y-1.5">
                   {partsUsed.map((part) => {
                     const isMotor = part.pecas?.nome?.toLowerCase().includes('motor');
                     return (
                       <div
                         key={part.id}
-                        className={`flex items-center justify-between p-2 border rounded-lg ${
-                          isMotor ? 'bg-amber-50 dark:bg-amber-950/30 border-amber-200 dark:border-amber-800' : ''
+                        className={`flex items-center justify-between p-2.5 border rounded-lg bg-background ${
+                          isMotor 
+                            ? 'border-amber-300 dark:border-amber-700 bg-amber-50/50 dark:bg-amber-950/20' 
+                            : 'border-border'
                         }`}
                       >
-                        <div className="flex items-center gap-2">
-                          {isMotor && (
-                            <Wrench className="h-4 w-4 text-amber-600 dark:text-amber-400" />
-                          )}
+                        <div className="flex items-center gap-2.5">
+                          <div className={`p-1.5 rounded ${isMotor ? 'bg-amber-100 dark:bg-amber-900/40' : 'bg-muted'}`}>
+                            {isMotor 
+                              ? <Wrench className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                              : <Package className="h-4 w-4 text-muted-foreground" />
+                            }
+                          </div>
                           <div>
-                            <p className={`font-medium text-sm ${isMotor ? 'text-amber-800 dark:text-amber-200' : ''}`}>
-                              {part.pecas?.nome}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {part.pecas?.codigo} • Qtd: {part.quantity}
+                            <p className="font-medium text-sm">{part.pecas?.nome}</p>
+                            <p className="text-xs text-muted-foreground font-mono">
+                              {part.pecas?.codigo} · Qtd: {part.quantity}
                             </p>
                           </div>
                         </div>
@@ -1118,9 +1124,10 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
                           <Button
                             size="sm"
                             variant="ghost"
+                            className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
                             onClick={() => removePartMutation.mutate(part.id)}
                           >
-                            <Trash2 className="h-4 w-4" />
+                            <Trash2 className="h-3.5 w-3.5" />
                           </Button>
                         )}
                       </div>
@@ -1128,22 +1135,25 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
                   })}
                 </div>
               )}
-            </div>
 
-            {/* Motor Replacement Highlight - for completed OS */}
-            {workOrder.status === 'concluido' && partsUsed.some(p => p.pecas?.nome?.toLowerCase().includes('motor')) && (
-              <div className="px-2.5 py-1.5 bg-muted/50 border border-border rounded flex items-center gap-2">
-                <Wrench className="h-3.5 w-3.5 text-muted-foreground" />
-                <span className="text-xs text-muted-foreground">
-                  Motor substituído · Horímetro reiniciado
-                </span>
-              </div>
-            )}
+              {/* Motor Replacement Highlight - for completed OS */}
+              {workOrder.status === 'concluido' && partsUsed.some(p => p.pecas?.nome?.toLowerCase().includes('motor')) && (
+                <div className="px-2.5 py-1.5 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded flex items-center gap-2">
+                  <Wrench className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+                  <span className="text-xs text-amber-700 dark:text-amber-300 font-medium">
+                    Motor substituído · Horímetro reiniciado
+                  </span>
+                </div>
+              )}
+            </div>
 
             {/* Observações - for completed OS */}
             {workOrder.status === 'concluido' && (
-              <div className="space-y-1">
-                <p className="text-xs font-medium text-muted-foreground">Observações</p>
+              <div className="p-3 border rounded-lg bg-muted/30 space-y-1">
+                <p className="text-sm font-semibold flex items-center gap-2">
+                  <Pencil className="h-4 w-4" />
+                  Observações
+                </p>
                 <p className="text-sm whitespace-pre-wrap text-muted-foreground italic">
                   {workOrder.notes || 'Nenhuma observação registrada'}
                 </p>
