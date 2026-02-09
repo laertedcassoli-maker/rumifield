@@ -1,63 +1,27 @@
 
 
-## Melhorar Card de Cronometro - Tempo Total vs Sessao Atual
+## Fundo branco nos blocos da OS
 
-### Situacao atual
-O card "Tempo Total" exibe um unico valor que mistura o total acumulado com o tempo da sessao corrente. O usuario precisa abrir o historico para ver o total real.
+### O que muda
+Atualmente os blocos Item, Horimetro, Motor, Pecas e Observacoes usam `bg-muted/30` (cinza claro) ou nenhum fundo. O card Cronometro ja usa o componente `Card` que tem fundo branco (`bg-card`). A ideia e unificar todos para terem o mesmo fundo branco.
 
-### Proposta
-Redesenhar o card do cronometro para exibir **duas informacoes distintas**:
-
-1. **Tempo da sessao atual** (destaque principal, fonte grande) - so aparece quando o cronometro esta rodando
-2. **Tempo total acumulado** (informacao secundaria, sempre visivel) - soma de todas as sessoes historicas + sessao atual
-
-### Layout proposto
-
-```text
-+------------------------------------------+
-| Clock  Cronometro                        |
-|                                          |
-|   00:01:23          [Parar]              |
-|   sessao atual                           |
-|                                          |
-|   Total acumulado: 00:04:51              |
-+------------------------------------------+
-```
-
-Quando o cronometro **nao esta ativo**:
-
-```text
-+------------------------------------------+
-| Clock  Cronometro                        |
-|                                          |
-|   Total: 00:03:28   [Iniciar]            |
-|                                          |
-+------------------------------------------+
-```
-
-### Detalhes tecnicos
+### Alteracoes
 
 **Arquivo:** `src/components/oficina/DetalheOSDialog.tsx`
 
-1. **Renomear titulo** do card de "Tempo Total" para "Cronometro"
+1. **Item** (linha 910): Adicionar `bg-card` ao `div` com classe `p-3 border rounded-lg`
+2. **Horimetro** (linha 962): Trocar `bg-muted/30` por `bg-card`
+3. **Pecas Utilizadas** (linha 1087): Trocar `bg-muted/30` por `bg-card`
+4. **Observacoes (concluido)** (linha 1169): Trocar `bg-muted/30` por `bg-card`
+5. **Observacoes (textarea)** (linha 1184): Envolver em div com `p-3 border rounded-lg bg-card` para manter consistencia
 
-2. **Criar variavel `currentSessionTime`** que calcula apenas o tempo da sessao ativa:
-   - Se `activeTimeEntry` existe: `Math.floor((Date.now() - started_at) / 1000)`
-   - Se nao: `0`
+**Arquivo:** `src/components/oficina/MotorSection.tsx`
 
-3. **Manter `elapsedTime`** como total acumulado (ja funciona assim: `localTotalSeconds + runningTime`)
+6. **MotorSection** (linha do container principal): Trocar `bg-muted/30` por `bg-card`
 
-4. **Alterar o CardContent** para exibir:
-   - Quando cronometro ativo: tempo da sessao atual em fonte grande + label "sessao atual" + linha com "Total acumulado: XX:XX:XX" usando `elapsedTime`
-   - Quando parado: apenas "Total: XX:XX:XX" usando `elapsedTime` (que sera = `localTotalSeconds`)
+### Resultado
+Todos os 6 blocos terao fundo branco uniforme com borda, igual ao card do Cronometro, criando uma interface mais limpa e consistente.
 
-5. **Ajustar o useEffect do timer** (linhas ~345-355):
-   - Adicionar um novo state `currentSessionTime` com `useState(0)`
-   - No interval, calcular ambos: `setElapsedTime(localTotalSeconds + runningTime)` e `setCurrentSessionTime(runningTime)`
-   - Quando parado: `setCurrentSessionTime(0)`
-
-### Resumo das alteracoes
-- 1 arquivo: `src/components/oficina/DetalheOSDialog.tsx`
-- Novo state: `currentSessionTime`
-- Card redesenhado com duas linhas de informacao
-- Zero impacto em logica de persistencia ou historico
+### Detalhes tecnicos
+- Usa a variavel CSS `bg-card` que ja e definida pelo tema e funciona corretamente em dark mode
+- Sao 6 trocas simples de classe CSS, sem mudanca de logica
