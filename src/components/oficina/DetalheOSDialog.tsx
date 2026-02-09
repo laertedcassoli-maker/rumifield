@@ -114,6 +114,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
   const [meterHoursCurrent, setMeterHoursCurrent] = useState('');
   const [isMotorReplacement, setIsMotorReplacement] = useState(false);
   const [timeHistoryOpen, setTimeHistoryOpen] = useState(false);
+  const [meterHoursError, setMeterHoursError] = useState(false);
 
   // Keep local total in sync when the workOrder prop updates
   useEffect(() => {
@@ -926,18 +927,25 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
                   
                   {/* Current reading */}
                   <div>
-                    <span className="text-muted-foreground">
+                    <span className={`text-muted-foreground ${meterHoursError ? 'text-destructive font-medium' : ''}`}>
                       Atual: <span className="text-destructive">*</span>
                     </span>
                     {workOrder.status !== 'concluido' ? (
                       <Input
+                        id="meter-hours-input"
                         type="number"
                         min={univocaItem.workshop_items?.meter_hours_last ?? 0}
                         step="0.1"
                         value={meterHoursCurrent}
-                        onChange={(e) => setMeterHoursCurrent(e.target.value)}
+                        onChange={(e) => {
+                          setMeterHoursCurrent(e.target.value);
+                          setMeterHoursError(false);
+                        }}
                         placeholder={`${univocaItem.workshop_items?.meter_hours_last ?? 0}`}
-                        className="font-mono h-8 mt-1 border-primary/50 bg-primary/5 focus:border-primary"
+                        className={`font-mono h-8 mt-1 ${meterHoursError 
+                          ? 'border-destructive bg-destructive/10 focus:border-destructive ring-2 ring-destructive/30' 
+                          : 'border-primary/50 bg-primary/5 focus:border-primary'
+                        }`}
                         required
                       />
                     ) : (
@@ -1077,13 +1085,21 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
                       const lastValue = univocaItem?.workshop_items?.meter_hours_last ?? 0;
                       
                       if (!meterHoursCurrent || isNaN(currentValue)) {
-                        toast.error('Informe o horímetro atual no card acima');
+                        setMeterHoursError(true);
+                        toast.error('Informe o horímetro atual antes de concluir');
+                        // Scroll to the meter hours input
+                        setTimeout(() => {
+                          document.getElementById('meter-hours-input')?.focus();
+                          document.getElementById('meter-hours-input')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        }, 100);
                         return;
                       }
                       if (currentValue < lastValue) {
+                        setMeterHoursError(true);
                         toast.error(`Horímetro não pode ser menor que a última medição (${lastValue}h)`);
                         return;
                       }
+                      setMeterHoursError(false);
                     }
                     completeOSMutation.mutate();
                   }}
