@@ -7,6 +7,7 @@ import { Loader2, Home, RefreshCw } from 'lucide-react';
 import { OfflineBanner } from '@/components/OfflineBanner';
 import { useOffline } from '@/contexts/OfflineContext';
 import { Button } from '@/components/ui/button';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface AppLayoutProps {
   children: ReactNode;
@@ -27,6 +28,7 @@ export function AppLayout({ children }: AppLayoutProps) {
   const { user, loading } = useAuth();
   const location = useLocation();
   const { isOnline, pendingCount, syncStatus } = useOffline();
+  const queryClient = useQueryClient();
   
   const [isRefreshing, setIsRefreshing] = useState(false);
   
@@ -81,6 +83,9 @@ export function AppLayout({ children }: AppLayoutProps) {
   const handleForceRefresh = async () => {
     setIsRefreshing(true);
     try {
+      // Invalidate all React Query cache to force fresh data fetch
+      queryClient.clear();
+
       // Only clear data caches, NOT the PWA workbox caches (preserves offline functionality)
       if ('caches' in window) {
         const cacheNames = await caches.keys();

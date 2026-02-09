@@ -104,6 +104,7 @@ export default function AdminUsuarios() {
         user_roles: rolesMap.has(profile.id) ? [{ role: rolesMap.get(profile.id) }] : []
       })) || [];
     },
+    refetchOnWindowFocus: true,
   });
 
   const { data: pendingInvites } = useQuery({
