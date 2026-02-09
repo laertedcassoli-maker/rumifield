@@ -66,7 +66,14 @@ const ClienteRedirect = () => {
   return <Navigate to={`/crm/${id}`} replace />;
 };
 
-const queryClient = new QueryClient();
+export const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      staleTime: 1000 * 60, // 1 minuto
+      refetchOnWindowFocus: true,
+    },
+  },
+});
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
