@@ -104,6 +104,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
   const isAdmin = role === 'admin';
   const queryClient = useQueryClient();
   const [elapsedTime, setElapsedTime] = useState(workOrder.total_time_seconds);
+  const [currentSessionTime, setCurrentSessionTime] = useState(0);
   // Local snapshot of total time to avoid UI “reset” while server props/refetch catch up
   const [localTotalSeconds, setLocalTotalSeconds] = useState(workOrder.total_time_seconds);
   const [addPartDialogOpen, setAddPartDialogOpen] = useState(false);
@@ -347,11 +348,13 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
       const interval = setInterval(() => {
         const runningTime = Math.floor((Date.now() - new Date(currentEntry.started_at).getTime()) / 1000);
         setElapsedTime(localTotalSeconds + runningTime);
+        setCurrentSessionTime(runningTime);
       }, 1000);
       return () => clearInterval(interval);
     } else {
       // No active entry - show saved total
       setElapsedTime(localTotalSeconds);
+      setCurrentSessionTime(0);
     }
   }, [activeTimeEntry, localTotalSeconds]);
 
@@ -848,24 +851,18 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm flex items-center gap-2">
                   <Clock className="h-4 w-4" />
-                  Tempo Total
+                  Cronômetro
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="font-mono text-3xl">{formatTime(elapsedTime)}</span>
-                  {workOrder.status !== 'concluido' && (
-                    <div className="flex gap-2">
-                      {!activeTimeEntry ? (
-                        <Button
-                          size="sm"
-                          onClick={() => startTimerMutation.mutate(undefined)}
-                          disabled={startTimerMutation.isPending}
-                        >
-                          <Play className="h-4 w-4 mr-1" />
-                          Iniciar
-                        </Button>
-                      ) : (
+                {activeTimeEntry ? (
+                  <>
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="font-mono text-3xl">{formatTime(currentSessionTime)}</span>
+                        <p className="text-xs text-muted-foreground mt-0.5">sessão atual</p>
+                      </div>
+                      {workOrder.status !== 'concluido' && (
                         <Button
                           size="sm"
                           variant="destructive"
@@ -877,8 +874,28 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
                         </Button>
                       )}
                     </div>
-                  )}
-                </div>
+                    <div className="text-sm text-muted-foreground">
+                      Total acumulado: <span className="font-mono font-medium">{formatTime(elapsedTime)}</span>
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <span className="font-mono text-3xl">{formatTime(elapsedTime)}</span>
+                      <p className="text-xs text-muted-foreground mt-0.5">total</p>
+                    </div>
+                    {workOrder.status !== 'concluido' && (
+                      <Button
+                        size="sm"
+                        onClick={() => startTimerMutation.mutate(undefined)}
+                        disabled={startTimerMutation.isPending}
+                      >
+                        <Play className="h-4 w-4 mr-1" />
+                        Iniciar
+                      </Button>
+                    )}
+                  </div>
+                )}
               </CardContent>
             </Card>
             {workOrder.status === 'aguardando' && !activeTimeEntry && (
