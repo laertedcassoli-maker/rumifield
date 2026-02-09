@@ -497,11 +497,14 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
       // Validate motor codes if it's a motor part
       if (isMotorPart) {
         const codePattern = /^DD-\d{5}$/;
+        if (!motorCodeInstalled.trim()) {
+          throw new Error('Informe o código do motor novo (formato DD-XXXXX)');
+        }
+        if (!codePattern.test(motorCodeInstalled)) {
+          throw new Error('Código do motor novo deve seguir o formato DD-XXXXX (5 dígitos)');
+        }
         if (motorCodeRemoved && !codePattern.test(motorCodeRemoved)) {
           throw new Error('Código do motor retirado deve seguir o formato DD-XXXXX (5 dígitos)');
-        }
-        if (motorCodeInstalled && !codePattern.test(motorCodeInstalled)) {
-          throw new Error('Código do motor novo deve seguir o formato DD-XXXXX (5 dígitos)');
         }
       }
 
@@ -1438,18 +1441,20 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
                           />
                         </div>
                         <div>
-                          <Label className="text-xs">Motor Novo</Label>
+                          <Label className="text-xs font-semibold">Motor Novo <span className="text-destructive">*</span></Label>
                           <Input
                             placeholder="DD-00000"
                             value={motorCodeInstalled}
                             onChange={(e) => setMotorCodeInstalled(e.target.value.toUpperCase())}
                             maxLength={8}
-                            className="font-mono"
+                            className={`font-mono border-amber-400 bg-amber-50 dark:bg-amber-950/40 focus:border-amber-500 ring-1 ring-amber-300 dark:ring-amber-700 ${
+                              !motorCodeInstalled ? 'animate-pulse' : ''
+                            }`}
                           />
                         </div>
                       </div>
                       <p className="text-xs text-muted-foreground">
-                        Formato: DD-XXXXX (5 dígitos). Opcional, pode preencher depois.
+                        Formato: DD-XXXXX (5 dígitos). Motor Novo é obrigatório.
                       </p>
                     </div>
                   )}
