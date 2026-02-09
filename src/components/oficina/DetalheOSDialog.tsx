@@ -836,7 +836,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
             </DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-20">
+          <div className="space-y-10">
             {/* Activity Info */}
             <div>
               <p className="text-sm text-muted-foreground">Atividade</p>
@@ -886,7 +886,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
                 Inicie o cronômetro para habilitar os campos abaixo
               </div>
             )}
-            <div className={workOrder.status === 'aguardando' && !activeTimeEntry ? 'opacity-40 pointer-events-none select-none' : ''}>
+            <div className={`space-y-10 ${workOrder.status === 'aguardando' && !activeTimeEntry ? 'opacity-40 pointer-events-none select-none' : ''}`}>
             {univocaItem && (
               <div>
                 <p className="text-sm font-semibold mb-2">Item</p>
