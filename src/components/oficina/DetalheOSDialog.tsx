@@ -836,7 +836,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
             </DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-8">
+          <div className="space-y-10">
             {/* Activity Info */}
             <div>
               <p className="text-sm text-muted-foreground">Atividade</p>
@@ -1055,7 +1055,6 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
               </div>
             )}
 
-            <Separator />
             {/* Motor Section - between Item and Parts */}
             {univocaItem?.workshop_item_id && (
               <MotorSection 
@@ -1067,7 +1066,6 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
               />
             )}
 
-            <Separator />
             {/* Parts Used Section */}
             <div className="p-3 border rounded-lg bg-muted/30 space-y-3">
               <div className="flex items-center justify-between">
@@ -1149,7 +1147,6 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
               )}
             </div>
 
-            <Separator />
             {/* Observações - for completed OS */}
             {workOrder.status === 'concluido' && (
               <div className="p-3 border rounded-lg bg-muted/30 space-y-1">
