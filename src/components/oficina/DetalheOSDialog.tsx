@@ -540,6 +540,11 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
         toast.success(`Peça "${result.partName}" adicionada!${codeInfo}`, {
           duration: 5000,
         });
+        // Auto-activate motor replacement flag
+        setIsMotorReplacement(true);
+        if (result.motorCodeInstalled) {
+          setMotorCodeInstalled(result.motorCodeInstalled);
+        }
       } else {
         toast.success('Peça adicionada!');
       }
@@ -986,7 +991,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
                 </div>
 
                 {/* Motor code confirmation - required */}
-                {workOrder.status !== 'concluido' && univocaItem?.workshop_item_id && (
+                {workOrder.status !== 'concluido' && univocaItem?.workshop_item_id && !currentMotorCode && (
                   <div className="pt-2 border-t space-y-1">
                     <span className={`text-sm ${motorCodeConfirmError ? 'text-destructive font-medium' : 'text-muted-foreground'}`}>
                       Nº Motor Atual: <span className="text-destructive">*</span>
@@ -1158,7 +1163,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
                   className="w-full"
                   onClick={() => {
                     // Validate motor code if univoca item exists
-                    if (requiresMeterHours && univocaItem?.workshop_item_id) {
+                    if (requiresMeterHours && univocaItem?.workshop_item_id && !currentMotorCode) {
                       const codePattern = /^DD-\d{5}$/;
                       if (!motorCodeConfirm.trim()) {
                         setMotorCodeConfirmError(true);
