@@ -80,7 +80,7 @@ export default function AdminUsuarios() {
   const [editingCidadeBase, setEditingCidadeBase] = useState<{ userId: string; value: string } | null>(null);
   const [generatedLink, setGeneratedLink] = useState<string | null>(null);
   const [copiedLink, setCopiedLink] = useState(false);
-  const [confirmAction, setConfirmAction] = useState<{ type: 'deactivate' | 'activate' | 'delete'; userId: string; userName: string } | null>(null);
+  const [confirmAction, setConfirmAction] = useState<{ type: 'deactivate' | 'activate'; userId: string; userName: string } | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
 
   const { data: usuarios, isLoading } = useQuery({
@@ -600,13 +600,6 @@ export default function AdminUsuarios() {
                                       Reativar
                                     </DropdownMenuItem>
                                   )}
-                                  <DropdownMenuItem
-                                    onClick={() => setConfirmAction({ type: 'delete', userId: usuario.id, userName: usuario.nome })}
-                                    className="text-destructive"
-                                  >
-                                    <Trash2 className="mr-2 h-4 w-4" />
-                                    Excluir
-                                  </DropdownMenuItem>
                                 </DropdownMenuContent>
                               </DropdownMenu>
                             </TableCell>
@@ -733,33 +726,21 @@ export default function AdminUsuarios() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {confirmAction?.type === 'delete' && 'Excluir usuário'}
-              {confirmAction?.type === 'deactivate' && 'Desativar usuário'}
-              {confirmAction?.type === 'activate' && 'Reativar usuário'}
+              {confirmAction?.type === 'deactivate' ? 'Desativar usuário' : 'Reativar usuário'}
             </AlertDialogTitle>
             <AlertDialogDescription>
-              {confirmAction?.type === 'delete' && (
-                <>Tem certeza que deseja excluir <strong>{confirmAction.userName}</strong>? Esta ação é irreversível e todos os dados do usuário serão removidos.</>
-              )}
-              {confirmAction?.type === 'deactivate' && (
+              {confirmAction?.type === 'deactivate' ? (
                 <>Deseja desativar <strong>{confirmAction?.userName}</strong>? O usuário não conseguirá mais fazer login, mas seus dados serão mantidos.</>
-              )}
-              {confirmAction?.type === 'activate' && (
+              ) : (
                 <>Deseja reativar <strong>{confirmAction?.userName}</strong>? O usuário poderá fazer login novamente.</>
               )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={actionLoading}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleUserAction}
-              disabled={actionLoading}
-              className={confirmAction?.type === 'delete' ? 'bg-destructive text-destructive-foreground hover:bg-destructive/90' : ''}
-            >
+            <AlertDialogAction onClick={handleUserAction} disabled={actionLoading}>
               {actionLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-              {confirmAction?.type === 'delete' && 'Excluir'}
-              {confirmAction?.type === 'deactivate' && 'Desativar'}
-              {confirmAction?.type === 'activate' && 'Reativar'}
+              {confirmAction?.type === 'deactivate' ? 'Desativar' : 'Reativar'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
