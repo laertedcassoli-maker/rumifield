@@ -878,12 +878,12 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
                 </div>
               </CardContent>
             </Card>
-            {workOrder.status === 'aguardando' && (
+            {workOrder.status === 'aguardando' && !activeTimeEntry && (
               <div className="text-center py-3 px-4 border border-dashed rounded-lg text-sm text-muted-foreground">
                 Inicie o cronômetro para habilitar os campos abaixo
               </div>
             )}
-            <div className={workOrder.status === 'aguardando' ? 'opacity-40 pointer-events-none select-none' : ''}>
+            <div className={workOrder.status === 'aguardando' && !activeTimeEntry ? 'opacity-40 pointer-events-none select-none' : ''}>
             {univocaItem && (
               <div>
                 <p className="text-sm font-semibold mb-2">Item</p>
