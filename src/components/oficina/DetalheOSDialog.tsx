@@ -1223,13 +1223,6 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
             )}
             </div>
 
-            {/* Notes */}
-            {workOrder.notes && (
-              <div>
-                <p className="text-sm text-muted-foreground">Observações</p>
-                <p className="text-sm">{workOrder.notes}</p>
-              </div>
-            )}
 
             {/* Metadata */}
             <div className="text-xs text-muted-foreground">
