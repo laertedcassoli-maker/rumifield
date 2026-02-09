@@ -973,7 +973,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
                           setMeterHoursCurrent(e.target.value);
                           setMeterHoursError(false);
                         }}
-                        placeholder={`${univocaItem.workshop_items?.meter_hours_last ?? 0}`}
+                        placeholder=""
                         className={`font-mono h-8 mt-1 ${meterHoursError 
                           ? 'border-destructive bg-destructive/10 focus:border-destructive ring-2 ring-destructive/30' 
                           : 'border-primary/50 bg-primary/5 focus:border-primary'
