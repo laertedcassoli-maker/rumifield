@@ -115,6 +115,8 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
   const [isMotorReplacement, setIsMotorReplacement] = useState(false);
   const [timeHistoryOpen, setTimeHistoryOpen] = useState(false);
   const [meterHoursError, setMeterHoursError] = useState(false);
+  const [motorCodeConfirm, setMotorCodeConfirm] = useState('');
+  const [motorCodeConfirmError, setMotorCodeConfirmError] = useState(false);
 
   // Keep local total in sync when the workOrder prop updates
   useEffect(() => {
@@ -692,13 +694,17 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
               .eq('id', univocaItem.workshop_item_id);
             if (workshopError) throw workshopError;
           } else {
-            // No motor replacement - just update meter hours
+            // No motor replacement - update meter hours and confirm motor code
+            const workshopUpdateNoReplacement: Record<string, unknown> = {
+              meter_hours_last: meterValue,
+              status: 'disponivel',
+            };
+            if (motorCodeConfirm.trim()) {
+              workshopUpdateNoReplacement.current_motor_code = motorCodeConfirm.trim();
+            }
             const { error: workshopError } = await supabase
               .from('workshop_items')
-              .update({
-                meter_hours_last: meterValue,
-                status: 'disponivel',
-              })
+              .update(workshopUpdateNoReplacement as never)
               .eq('id', univocaItem.workshop_item_id);
             if (workshopError) throw workshopError;
           }
@@ -958,6 +964,34 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
                   </div>
                 </div>
 
+                {/* Motor code confirmation - required */}
+                {workOrder.status !== 'concluido' && univocaItem?.workshop_item_id && (
+                  <div className="pt-2 border-t space-y-1">
+                    <span className={`text-sm ${motorCodeConfirmError ? 'text-destructive font-medium' : 'text-muted-foreground'}`}>
+                      Nº Motor Atual: <span className="text-destructive">*</span>
+                    </span>
+                    <Input
+                      id="motor-code-confirm-input"
+                      placeholder="DD-00000"
+                      value={motorCodeConfirm}
+                      onChange={(e) => {
+                        setMotorCodeConfirm(e.target.value.toUpperCase());
+                        setMotorCodeConfirmError(false);
+                      }}
+                      maxLength={8}
+                      className={`font-mono h-8 ${motorCodeConfirmError 
+                        ? 'border-destructive bg-destructive/10 focus:border-destructive ring-2 ring-destructive/30' 
+                        : ''
+                      }`}
+                    />
+                    {currentMotorCode && (
+                      <p className="text-xs text-muted-foreground">
+                        Último registrado: <span className="font-mono">{currentMotorCode}</span>
+                      </p>
+                    )}
+                  </div>
+                )}
+
                 {/* Motor replacement toggle - only when not completed */}
                 {workOrder.status !== 'concluido' && (
                   <div 
@@ -1079,6 +1113,26 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
                 <Button
                   className="w-full"
                   onClick={() => {
+                    // Validate motor code if univoca item exists
+                    if (requiresMeterHours && univocaItem?.workshop_item_id) {
+                      const codePattern = /^DD-\d{5}$/;
+                      if (!motorCodeConfirm.trim()) {
+                        setMotorCodeConfirmError(true);
+                        toast.error('Informe o número atual do motor antes de concluir');
+                        setTimeout(() => {
+                          document.getElementById('motor-code-confirm-input')?.focus();
+                          document.getElementById('motor-code-confirm-input')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        }, 100);
+                        return;
+                      }
+                      if (!codePattern.test(motorCodeConfirm.trim())) {
+                        setMotorCodeConfirmError(true);
+                        toast.error('Código do motor deve seguir o formato DD-XXXXX (5 dígitos)');
+                        return;
+                      }
+                      setMotorCodeConfirmError(false);
+                    }
+
                     // Validate meter hours if required
                     if (requiresMeterHours) {
                       const currentValue = parseFloat(meterHoursCurrent);
@@ -1087,7 +1141,6 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
                       if (!meterHoursCurrent || isNaN(currentValue)) {
                         setMeterHoursError(true);
                         toast.error('Informe o horímetro atual antes de concluir');
-                        // Scroll to the meter hours input
                         setTimeout(() => {
                           document.getElementById('meter-hours-input')?.focus();
                           document.getElementById('meter-hours-input')?.scrollIntoView({ behavior: 'smooth', block: 'center' });
