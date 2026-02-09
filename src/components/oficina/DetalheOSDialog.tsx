@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { Play, Square, Plus, Trash2, Clock, Package, CheckCircle, Wrench, ChevronDown, ChevronRight, History, Search, Pencil } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
@@ -117,6 +118,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
   const [meterHoursError, setMeterHoursError] = useState(false);
   const [motorCodeConfirm, setMotorCodeConfirm] = useState('');
   const [motorCodeConfirmError, setMotorCodeConfirmError] = useState(false);
+  const [completionNotes, setCompletionNotes] = useState('');
 
   // Keep local total in sync when the workOrder prop updates
   useEffect(() => {
@@ -736,6 +738,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
         .update({
           status: 'concluido',
           end_time: new Date().toISOString(),
+          notes: completionNotes.trim() || null,
         })
         .eq('id', workOrder.id);
       if (error) throw error;
@@ -1110,6 +1113,19 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
             {/* Complete Section */}
             {workOrder.status !== 'concluido' && (
               <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="completion-notes" className="text-sm text-muted-foreground">
+                    Observações (opcional)
+                  </Label>
+                  <Textarea
+                    id="completion-notes"
+                    placeholder="Observações sobre a manutenção..."
+                    value={completionNotes}
+                    onChange={(e) => setCompletionNotes(e.target.value)}
+                    className="min-h-[60px] text-sm"
+                    rows={2}
+                  />
+                </div>
                 <Button
                   className="w-full"
                   onClick={() => {
