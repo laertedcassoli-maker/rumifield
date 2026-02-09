@@ -836,7 +836,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
             </DialogTitle>
           </DialogHeader>
 
-          <div className="space-y-14">
+          <div className="space-y-20">
             {/* Activity Info */}
             <div>
               <p className="text-sm text-muted-foreground">Atividade</p>
