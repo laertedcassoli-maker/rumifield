@@ -165,7 +165,7 @@ export function MotorSection({
     : motorHistory;
 
   return (
-    <div className="p-3 border rounded-lg bg-muted/30 space-y-3">
+    <div className="p-3 border rounded-lg bg-card space-y-3">
       <div className="flex items-center justify-between">
         <p className="text-sm font-semibold flex items-center gap-2">
           <Wrench className="h-4 w-4" />
