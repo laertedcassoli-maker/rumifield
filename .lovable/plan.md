@@ -1,65 +1,65 @@
 
 
-## Problema
+## Ajustes no fluxo de conclusao de OS - Motor e Troca automatica
 
-O botao de refresh no header faz uma atualizacao pesada de Service Worker e cache do PWA, mas nao invalida o cache do React Query (que e o que realmente controla os dados exibidos na tela). Alem disso, respostas HTTP podem estar sendo cacheadas pelo runtime cache do Service Worker, servindo dados antigos mesmo apos o refetch.
+### Resumo das 3 mudancas
 
-## Solucao
+1. **Campo "N Motor Atual" condicional**: so exibir quando o item NAO tem motor cadastrado (`current_motor_code` vazio/null). Se ja tem motor, pular esse campo e sua validacao.
 
-Duas mudancas principais:
+2. **Ativar "Troca de Motor" automaticamente**: quando uma peca de motor for adicionada nas pecas utilizadas, ativar `isMotorReplacement = true` e pre-preencher o codigo do motor instalado.
 
-### 1. Tornar o botao de refresh mais inteligente
-
-Alterar o botao de refresh no header para **invalidar todo o cache do React Query** antes de recarregar. Isso forca todas as queries a buscarem dados frescos do servidor.
-
-- Exportar o `queryClient` do `App.tsx` para que possa ser importado no `AppLayout.tsx`
-- No `handleForceRefresh`, chamar `queryClient.invalidateQueries()` antes da recarga
-- Alternativamente, adicionar `queryClient.clear()` para limpar completamente o cache
-
-### 2. Adicionar refetch automatico ao focar a janela
-
-Configurar o `QueryClient` com `refetchOnWindowFocus: true` (ja e o default) e um `staleTime` curto para garantir que os dados sejam revalidados quando o usuario volta para a aba.
+3. **Manter logica de conclusao coerente**: na mutation de conclusao, so atualizar `current_motor_code` via `motorCodeConfirm` quando o campo foi exibido (motor nao existia).
 
 ---
 
-## Detalhes tecnicos
+### Detalhes tecnicos
 
-### Arquivo: `src/App.tsx`
-- Mover a criacao do `queryClient` para fora do arquivo ou exporta-lo
-- Configurar defaults globais:
+**Arquivo:** `src/components/oficina/DetalheOSDialog.tsx`
 
+#### Mudanca 1 - Campo "N Motor Atual" condicional (linhas 988-1013)
+
+- Adicionar condicao: so exibir o bloco do campo `motorCodeConfirm` se `!currentMotorCode` (motor nao cadastrado)
+- De: `{workOrder.status !== 'concluido' && univocaItem?.workshop_item_id && (`
+- Para: `{workOrder.status !== 'concluido' && univocaItem?.workshop_item_id && !currentMotorCode && (`
+
+#### Mudanca 2 - Validacao condicional (linhas 1161-1178)
+
+- Envolver a validacao de `motorCodeConfirm` com `if (!currentMotorCode)` para so validar quando o campo esta visivel
+- De:
+```
+if (requiresMeterHours && univocaItem?.workshop_item_id) {
+  const codePattern = ...
+  if (!motorCodeConfirm.trim()) { ... }
+  if (!codePattern.test(...)) { ... }
+}
+```
+- Para:
+```
+if (requiresMeterHours && univocaItem?.workshop_item_id && !currentMotorCode) {
+  // mesma validacao
+}
+```
+
+#### Mudanca 3 - Ativar troca automaticamente (linhas 530-545)
+
+- No `onSuccess` da `addPartMutation`, apos o toast, adicionar:
 ```typescript
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 1000 * 60, // 1 minuto
-      refetchOnWindowFocus: true,
-    },
-  },
-});
+if (result?.isMotorPart) {
+  setIsMotorReplacement(true);
+  if (result.motorCodeInstalled) {
+    setMotorCodeInstalled(result.motorCodeInstalled);
+  }
+}
 ```
+- Isso garante que ao adicionar uma peca de motor, a flag de troca e ativada automaticamente e o campo "Motor Instalado" na secao de conclusao ja vem preenchido.
 
-### Arquivo: `src/components/layout/AppLayout.tsx`
-- Importar `useQueryClient` do `@tanstack/react-query`
-- No `handleForceRefresh`:
-  1. Chamar `queryClient.invalidateQueries()` para forcar refetch de todas as queries
-  2. Manter o reload da pagina como fallback, mas com opcao de apenas invalidar sem recarregar
+#### Mudanca 4 - Logica de conclusao sem troca (linhas 717-724)
 
-A logica ficara assim:
-
-```text
-Clique no botao refresh
-  -> queryClient.invalidateQueries()  (forca refetch de dados)
-  -> limpa caches HTTP do SW (runtime)
-  -> forceServiceWorkerUpdateAndReload()
-  -> reload com cache-buster
-```
-
-### Arquivo: `src/pages/admin/Usuarios.tsx`
-- Adicionar `refetchOnWindowFocus: true` na query de usuarios como reforco local
+- No bloco que atualiza `current_motor_code` sem troca de motor, manter como esta -- o `if (motorCodeConfirm.trim())` ja protege contra gravar vazio quando o campo nao foi exibido.
 
 ### Resultado esperado
-- Ao clicar no botao de refresh, os dados serao buscados novamente do banco
-- Ao voltar para a aba do navegador, dados com mais de 1 minuto serao revalidados automaticamente
-- O fluxo pesado de SW update continua funcionando para atualizar a versao do app
+
+- Item **com** motor cadastrado: campo "N Motor Atual" nao aparece, sem validacao extra. Usuario so precisa informar horimetro.
+- Item **sem** motor cadastrado: campo "N Motor Atual" aparece obrigatorio (comportamento atual).
+- Ao adicionar peca de motor: "Troca de Motor" e ativada automaticamente.
 
