@@ -907,7 +907,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
             {univocaItem && (
               <div>
                 <p className="text-sm font-semibold mb-2">Item</p>
-                <div className="p-3 border rounded-lg space-y-3">
+                <div className="p-3 border rounded-lg bg-card space-y-3">
                   <div>
                     <Badge variant="secondary" className="font-mono text-sm">
                       {univocaItem.workshop_items?.unique_code}
@@ -959,7 +959,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
 
             {/* Horímetro Card - compact version */}
             {requiresMeterHours && univocaItem && (
-              <div className="p-3 border rounded-lg bg-muted/30 space-y-3">
+              <div className="p-3 border rounded-lg bg-card space-y-3">
                 <div className="flex items-center justify-between">
                   <p className="text-sm font-semibold flex items-center gap-2">
                     <Clock className="h-4 w-4" />
@@ -1084,7 +1084,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
             )}
 
             {/* Parts Used Section */}
-            <div className="p-3 border rounded-lg bg-muted/30 space-y-3">
+            <div className="p-3 border rounded-lg bg-card space-y-3">
               <div className="flex items-center justify-between">
                 <p className="text-sm font-semibold flex items-center gap-2">
                   <Package className="h-4 w-4" />
@@ -1166,7 +1166,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
 
             {/* Observações - for completed OS */}
             {workOrder.status === 'concluido' && (
-              <div className="p-3 border rounded-lg bg-muted/30 space-y-1">
+              <div className="p-3 border rounded-lg bg-card space-y-1">
                 <p className="text-sm font-semibold flex items-center gap-2">
                   <Pencil className="h-4 w-4" />
                   Observações
