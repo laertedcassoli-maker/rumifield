@@ -120,6 +120,24 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
   const [motorCodeConfirmError, setMotorCodeConfirmError] = useState(false);
   const [completionNotes, setCompletionNotes] = useState('');
 
+  // Reset all form state when a different work order is opened
+  useEffect(() => {
+    setLocalTotalSeconds(workOrder.total_time_seconds);
+    setMeterHoursCurrent('');
+    setMotorCodeConfirm('');
+    setMotorCodeRemoved('');
+    setMotorCodeInstalled('');
+    setIsMotorReplacement(false);
+    setMeterHoursError(false);
+    setMotorCodeConfirmError(false);
+    setCompletionNotes('');
+    setAddPartDialogOpen(false);
+    setSelectedPecaId('');
+    setPartQuantity(1);
+    setPartSearchQuery('');
+    setTimeHistoryOpen(false);
+  }, [workOrder.id]);
+
   // Keep local total in sync when the workOrder prop updates
   useEffect(() => {
     setLocalTotalSeconds(workOrder.total_time_seconds);
