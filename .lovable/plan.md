@@ -1,19 +1,18 @@
 
 
-## Aumentar espaçamento entre blocos na OS concluída
-
-Ajuste simples de espaçamento entre as seções (Peças Utilizadas, Observações, etc.) no diálogo de detalhe da OS.
+## Melhorar espaçamento entre blocos na OS
 
 ### O que muda
 
-- Aumentar o `gap` do container que agrupa os blocos de `space-y-4` (16px) para `space-y-6` (24px), dando mais "respiro" visual entre cada seção.
-- Adicionar um `Separator` sutil entre os blocos principais para reforçar a divisão visual.
+- Remover as 3 linhas divisórias (`<Separator />`) que foram adicionadas entre os blocos (Item/Motor, Motor/Peças, Peças/Observações).
+- Aumentar o espaçamento do container principal de `space-y-8` (32px) para `space-y-10` (40px), criando mais respiro visual sem linhas.
 
 ### Detalhe técnico
 
 **Arquivo:** `src/components/oficina/DetalheOSDialog.tsx`
 
-- Localizar o container que envolve os blocos de Peças Utilizadas, Observações e Conclusão na view de OS concluída.
-- Trocar `space-y-4` por `space-y-6` nesse container.
-- Opcionalmente inserir um componente `<Separator />` entre os blocos para separação adicional.
+1. Linha 839: trocar `space-y-8` por `space-y-10`
+2. Linha 1058: remover `<Separator />`
+3. Linha 1070: remover `<Separator />`
+4. Linha 1152: remover `<Separator />`
 
