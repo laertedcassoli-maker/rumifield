@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -9,9 +9,9 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
-import { Loader2, CheckCircle2, AlertTriangle } from 'lucide-react';
+import { Loader2, CheckCircle2, AlertTriangle, Clock } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { format } from 'date-fns';
+import { format, differenceInMinutes } from 'date-fns';
 
 interface Props {
   open: boolean;
@@ -19,6 +19,14 @@ interface Props {
   visitId: string;
   clientId: string;
   onFinalized: () => void;
+}
+
+function formatDuration(minutes: number): string {
+  if (minutes < 0) return '—';
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (h > 0) return `${h}h ${m.toString().padStart(2, '0')}min`;
+  return `${m}min`;
 }
 
 export function FinalizarVisitaModal({ open, onOpenChange, visitId, clientId, onFinalized }: Props) {
@@ -30,11 +38,30 @@ export function FinalizarVisitaModal({ open, onOpenChange, visitId, clientId, on
   const [checkoutDate, setCheckoutDate] = useState(format(now, 'yyyy-MM-dd'));
   const [checkoutTime, setCheckoutTime] = useState(format(now, 'HH:mm'));
 
+  const { data: visit } = useQuery({
+    queryKey: ['crm-visit-checkin', visitId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('crm_visits')
+        .select('checkin_at')
+        .eq('id', visitId)
+        .single();
+      if (error) throw error;
+      return data;
+    },
+    enabled: open,
+  });
+
   const pendingAudios = useLiveQuery(
     () => offlineDb.crm_visit_audios.where('visit_id').equals(visitId).count(),
     [visitId],
     0
   );
+
+  const checkoutAt = new Date(`${checkoutDate}T${checkoutTime}`);
+  const durationMinutes = visit?.checkin_at
+    ? differenceInMinutes(checkoutAt, new Date(visit.checkin_at))
+    : null;
 
   // @ts-ignore
   const finalizeMutation = useMutation({
@@ -47,13 +74,13 @@ export function FinalizarVisitaModal({ open, onOpenChange, visitId, clientId, on
         lon = geo.longitude;
       } catch { /* proceed */ }
 
-      const checkoutAt = new Date(`${checkoutDate}T${checkoutTime}`).toISOString();
+      const checkoutIso = checkoutAt.toISOString();
 
       const { error } = await supabase
         .from('crm_visits')
         .update({
           status: 'concluida',
-          checkout_at: checkoutAt,
+          checkout_at: checkoutIso,
           checkout_lat: lat,
           checkout_lon: lon,
         })
@@ -108,6 +135,19 @@ export function FinalizarVisitaModal({ open, onOpenChange, visitId, clientId, on
               <Input type="time" value={checkoutTime} onChange={e => setCheckoutTime(e.target.value)} />
             </div>
           </div>
+
+          {visit?.checkin_at && durationMinutes != null && (
+            <div className="flex items-center gap-2 text-sm p-3 rounded bg-muted/50">
+              <Clock className="h-4 w-4 text-muted-foreground shrink-0" />
+              <div>
+                <span className="text-muted-foreground">Check-in: </span>
+                <span className="font-medium">{format(new Date(visit.checkin_at), 'dd/MM HH:mm')}</span>
+                <span className="mx-2 text-muted-foreground">·</span>
+                <span className="text-muted-foreground">Duração: </span>
+                <span className="font-medium">{durationMinutes > 0 ? formatDuration(durationMinutes) : '—'}</span>
+              </div>
+            </div>
+          )}
 
           {pendingAudios > 0 && (
             <div className="flex items-start gap-2 text-sm p-3 rounded bg-amber-50 dark:bg-amber-900/20 text-amber-800 dark:text-amber-300">
