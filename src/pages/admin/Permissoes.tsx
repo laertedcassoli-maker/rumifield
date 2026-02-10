@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Shield, Loader2, ChevronDown, Home, Beaker, Wrench, Settings, AlertTriangle, BookOpen } from 'lucide-react';
+import { Shield, Loader2, ChevronDown, Home, Beaker, Wrench, Settings, AlertTriangle, BookOpen, Briefcase } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
@@ -38,10 +38,11 @@ const roleColors: Record<string, string> = {
 
 const menuGroupConfig: Record<string, { label: string; icon: typeof Home; order: number }> = {
   principal: { label: 'Menu Principal', icon: Home, order: 1 },
-  estoque: { label: 'Estoque Químicos', icon: Beaker, order: 2 },
-  oficina: { label: 'Oficina', icon: Wrench, order: 3 },
-  chamados: { label: 'Chamados Técnicos', icon: AlertTriangle, order: 4 },
-  admin: { label: 'Administração', icon: Settings, order: 5 },
+  crm: { label: 'CRM', icon: Briefcase, order: 2 },
+  estoque: { label: 'Estoque Químicos', icon: Beaker, order: 3 },
+  oficina: { label: 'Oficina', icon: Wrench, order: 4 },
+  chamados: { label: 'Chamados Técnicos', icon: AlertTriangle, order: 5 },
+  admin: { label: 'Administração', icon: Settings, order: 6 },
 };
 
 const roles = [
