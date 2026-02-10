@@ -1,69 +1,33 @@
 
 
-## Revisao e Correcao do Menu de Permissoes
+## Fix: Text Disappearing in Observations Block
 
-### Problemas identificados
+### Problem
+When typing in the internal/public observations fields, text intermittently disappears or gets partially deleted.
 
-1. **Bug: `crm_clientes` com grupo "Principal" (P maiusculo)** - deveria ser "principal" (minusculo). Isso impede que o item apareca corretamente na tela de Permissoes dentro do grupo "Menu Principal".
+### Root Cause
+A race condition between three mechanisms:
 
-2. **Registro orfao: `visitas`** - a tela de Visitas foi removida da navegacao, mas o registro permanece na tabela de permissoes.
+1. User types → state updates locally → debounced save triggers after 800ms
+2. Save succeeds → `queryClient.invalidateQueries` refetches data from server
+3. `useEffect` watches `initialInternalNotes`/`initialPublicNotes` and resets local state from server response
 
-3. **CRM sem controle granular** - 5 telas CRM (Dashboard, Carteira, Visitas, Pipeline, Acoes) compartilham a mesma chave `crm_clientes`. Nao ha como habilitar/desabilitar individualmente.
+The server response can arrive while the user is still typing, overwriting their current input with a stale value.
 
-4. **Tela sem permissao: `/admin/crm/metricas`** - Metricas CRM nao tem chave de permissao associada.
+### Solution
+Remove the `useEffect` that syncs external props into local state. Since this component already manages its own local state and saves via debounce, the external sync is unnecessary and harmful. The component should treat `initialInternalNotes`/`initialPublicNotes` as initial values only (already handled by `useState` initializer).
 
-5. **`oficina_atividades` no grupo errado** - esta em "oficina" no DB, mas no sidebar e exibido sob "Admin > Cadastros".
+Additionally, stop invalidating queries on save success -- the local state is already correct, so a refetch only causes conflicts.
 
-6. **Grupo CRM ausente na UI de Permissoes** - o `menuGroupConfig` nao inclui um grupo para CRM, entao se criarmos chaves CRM elas ficariam sem icone/label.
+### Technical Details
 
-### Proposta de correcao
+**File:** `src/components/preventivas/ObservationsBlock.tsx`
 
-#### 1. Migracoes no banco de dados
+1. **Remove the `useEffect`** (lines ~48-53) that resets `internalLines`/`publicLines` from props -- this is the direct cause of the overwrite.
 
-- **Corrigir** o menu_group de `crm_clientes`: de "Principal" para "crm"
-- **Remover** registros de `visitas` (tela removida)
-- **Criar novo grupo "crm"** com chaves individuais:
-  - `crm_dashboard` - Dashboard CRM
-  - `crm_carteira` - Carteira
-  - `crm_visitas` - Visitas CRM
-  - `crm_pipeline` - Pipeline
-  - `crm_acoes` - Acoes CRM
-- **Renomear** `crm_clientes` para `crm_carteira` (ou manter `crm_clientes` como "acesso geral CRM")
-- **Mover** `oficina_atividades` do grupo "oficina" para "admin"
-- **Criar** `admin_crm_metricas` no grupo "admin" para a tela de Metricas
+2. **Remove `queryClient.invalidateQueries`** from `onSuccess` -- the local state already reflects the saved value, so refetching is unnecessary and triggers the race condition in parent components.
 
-#### 2. Tela de Permissoes (`src/pages/admin/Permissoes.tsx`)
+3. Keep the `setSaveStatus` feedback logic intact.
 
-- Adicionar grupo "crm" ao `menuGroupConfig` com icone `Briefcase` e label "CRM"
-
-#### 3. Sidebar (`src/components/layout/AppSidebar.tsx`)
-
-- Atualizar os `permKey` dos itens CRM para usar as novas chaves individuais
-
-#### 4. Home (`src/pages/Home.tsx`)
-
-- Atualizar o `permKey` do card CRM Carteira para `crm_carteira`
-
-### Decisao necessaria
-
-Antes de implementar, preciso saber:
-
-- **Opcao A**: Criar chaves individuais para cada tela CRM (controle granular - dashboard, carteira, visitas, pipeline, acoes separados)
-- **Opcao B**: Manter uma unica chave `crm_clientes` para todo o modulo CRM (mais simples, liga/desliga tudo junto)
-
-As demais correcoes (bug do P maiusculo, remocao de `visitas`, oficina_atividades, metricas) serao feitas independente da opcao escolhida.
-
-### Detalhes tecnicos
-
-**Arquivos a editar:**
-- `src/pages/admin/Permissoes.tsx` - adicionar grupo CRM ao menuGroupConfig
-- `src/components/layout/AppSidebar.tsx` - atualizar permKeys dos itens CRM
-- `src/pages/Home.tsx` - atualizar permKey do card CRM
-
-**Migracoes SQL:**
-- UPDATE para corrigir menu_group de "Principal" para "crm" (ou "principal")
-- DELETE para remover registros de `visitas`
-- INSERT para novas chaves CRM (se opcao A)
-- UPDATE para mover `oficina_atividades` para grupo "admin"
-- INSERT para `admin_crm_metricas`
+These are minimal, targeted changes that preserve all existing functionality while eliminating the race condition.
 
