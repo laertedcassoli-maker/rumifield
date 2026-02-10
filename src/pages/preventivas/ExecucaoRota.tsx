@@ -49,6 +49,8 @@ interface RouteItem {
   client_cidade: string | null;
   client_estado: string | null;
   client_link_maps: string | null;
+  client_latitude: number | null;
+  client_longitude: number | null;
   status: string;
   checkin_at: string | null;
   checkin_lat: number | null;
@@ -104,7 +106,7 @@ export default function ExecucaoRota() {
       const clientIds = data.map(i => i.client_id);
       const { data: clients } = await supabase
         .from('clientes')
-        .select('id, nome, fazenda, cidade, estado, link_maps')
+        .select('id, nome, fazenda, cidade, estado, link_maps, latitude, longitude')
         .in('id', clientIds);
 
       // Fetch public tokens for completed items
@@ -126,6 +128,8 @@ export default function ExecucaoRota() {
           client_cidade: client?.cidade || null,
           client_estado: client?.estado || null,
           client_link_maps: client?.link_maps || null,
+          client_latitude: client?.latitude ?? null,
+          client_longitude: client?.longitude ?? null,
           public_token: tokenMap.get(item.client_id) || null,
         };
       });
@@ -414,17 +418,23 @@ export default function ExecucaoRota() {
 
                 {/* Action buttons - Full width for touch */}
                 <div className="flex border-t divide-x">
-                  {item.client_link_maps && (
-                    <a
-                      href={item.client_link_maps}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex-1 flex items-center justify-center gap-2 py-3 text-sm text-muted-foreground hover:bg-muted/50 active:bg-muted transition-colors"
-                    >
-                      <Navigation className="h-4 w-4" />
-                      Navegar
-                    </a>
-                  )}
+                  {(() => {
+                    const mapsUrl = item.client_link_maps
+                      || (item.client_latitude != null && item.client_longitude != null
+                        ? `https://www.google.com/maps?q=${item.client_latitude},${item.client_longitude}`
+                        : null);
+                    return mapsUrl ? (
+                      <a
+                        href={mapsUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex-1 flex items-center justify-center gap-2 py-3 text-sm text-muted-foreground hover:bg-muted/50 active:bg-muted transition-colors"
+                      >
+                        <Navigation className="h-4 w-4" />
+                        Navegar
+                      </a>
+                    ) : null;
+                  })()}
 
                   {attendanceStatus === 'nao_iniciada' && (
                     <>
