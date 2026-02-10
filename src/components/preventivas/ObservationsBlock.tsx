@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
+import { useMutation } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -40,17 +40,7 @@ export default function ObservationsBlock({
   const [internalLines, setInternalLines] = useState<string[]>(() => parseNotes(initialInternalNotes));
   const [publicLines, setPublicLines] = useState<string[]>(() => parseNotes(initialPublicNotes));
   const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved'>('idle');
-  const queryClient = useQueryClient();
-
-  // Sync with external value changes
-  useEffect(() => {
-    if (initialInternalNotes !== undefined) {
-      setInternalLines(parseNotes(initialInternalNotes));
-    }
-    if (initialPublicNotes !== undefined) {
-      setPublicLines(parseNotes(initialPublicNotes));
-    }
-  }, [initialInternalNotes, initialPublicNotes]);
+  
 
   const updateNotesMutation = useMutation({
     mutationFn: async ({ internalNotes, publicNotes }: { internalNotes: string; publicNotes: string }) => {
@@ -65,7 +55,6 @@ export default function ObservationsBlock({
       if (error) throw error;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['route-item-attendance'] });
       setSaveStatus('saved');
       setTimeout(() => setSaveStatus('idle'), 2000);
     },
