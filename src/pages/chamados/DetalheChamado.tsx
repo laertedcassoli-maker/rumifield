@@ -9,6 +9,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
+import { Textarea } from '@/components/ui/textarea';
+import { Checkbox } from '@/components/ui/checkbox';
 import { 
   ArrowLeft, 
   Loader2, 
@@ -27,7 +29,10 @@ import {
   FileText,
   Settings,
   Package,
-  CheckCircle2
+  CheckCircle2,
+  Pencil,
+  Check,
+  X
 } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -88,10 +93,16 @@ export default function DetalheChamado() {
   const [showNovaInteracao, setShowNovaInteracao] = useState(false);
   const [showFinalizar, setShowFinalizar] = useState(false);
 
+  // Inline editing states
+  const [editingDescription, setEditingDescription] = useState(false);
+  const [editDescription, setEditDescription] = useState('');
+  const [editingPriority, setEditingPriority] = useState(false);
+  const [editingTags, setEditingTags] = useState(false);
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+
   useEffect(() => {
     if (location.state?.openVisita) {
       setShowNovaVisita(true);
-      // Limpa o estado para não reabrir ao atualizar a página
       window.history.replaceState({}, document.title);
     }
   }, [location.state]);
@@ -114,7 +125,79 @@ export default function DetalheChamado() {
     enabled: !!id,
   });
 
-  // Fetch client
+  const isEditable = ticket?.status === 'aberto' || ticket?.status === 'em_atendimento';
+
+  // Fetch all active tags for editing
+  const { data: allActiveTags } = useQuery({
+    queryKey: ['ticket-tags-active'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('ticket_tags')
+        .select('*')
+        .eq('is_active', true)
+        .order('order_index')
+        .order('name');
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: editingTags,
+  });
+
+  // Update description mutation
+  const updateDescription = useMutation({
+    mutationFn: async (newDescription: string) => {
+      const { error } = await supabase
+        .from('technical_tickets')
+        .update({ description: newDescription })
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ticket-detail', id] });
+      setEditingDescription(false);
+      toast({ title: 'Descrição atualizada!' });
+    },
+  });
+
+  // Update priority mutation
+  const updatePriority = useMutation({
+    mutationFn: async (newPriority: string) => {
+      const { error } = await supabase
+        .from('technical_tickets')
+        .update({ priority: newPriority as any })
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ticket-detail', id] });
+      setEditingPriority(false);
+      toast({ title: 'Prioridade atualizada!' });
+    },
+  });
+
+  // Update tags mutation
+  const updateTags = useMutation({
+    mutationFn: async (tagIds: string[]) => {
+      // Delete existing links
+      const { error: delError } = await supabase
+        .from('ticket_tag_links')
+        .delete()
+        .eq('ticket_id', id!);
+      if (delError) throw delError;
+      // Insert new links
+      if (tagIds.length > 0) {
+        const { error: insError } = await supabase
+          .from('ticket_tag_links')
+          .insert(tagIds.map(tag_id => ({ ticket_id: id!, tag_id })));
+        if (insError) throw insError;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ticket-tags', id] });
+      setEditingTags(false);
+      toast({ title: 'Tags atualizadas!' });
+    },
+  });
   const { data: client } = useQuery({
     queryKey: ['ticket-client', ticket?.client_id],
     queryFn: async () => {
@@ -421,12 +504,37 @@ export default function DetalheChamado() {
         <div className="lg:col-span-2 space-y-6">
           {/* Problem Description */}
           <Card>
-            <CardHeader className="pb-3">
+            <CardHeader className="pb-3 flex flex-row items-center justify-between">
               <CardTitle>Descrição do Problema</CardTitle>
+              {isEditable && !editingDescription && (
+                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => {
+                  setEditDescription(ticket.description || '');
+                  setEditingDescription(true);
+                }}>
+                  <Pencil className="h-4 w-4" />
+                </Button>
+              )}
             </CardHeader>
             <CardContent className="space-y-3">
               <p className="text-base font-medium text-foreground">{ticket.title}</p>
-              {ticket.description ? (
+              {editingDescription ? (
+                <div className="space-y-2">
+                  <Textarea
+                    value={editDescription}
+                    onChange={(e) => setEditDescription(e.target.value)}
+                    rows={4}
+                  />
+                  <div className="flex gap-2 justify-end">
+                    <Button variant="ghost" size="sm" onClick={() => setEditingDescription(false)}>
+                      <X className="mr-1 h-3.5 w-3.5" /> Cancelar
+                    </Button>
+                    <Button size="sm" onClick={() => updateDescription.mutate(editDescription)} disabled={updateDescription.isPending}>
+                      {updateDescription.isPending ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <Check className="mr-1 h-3.5 w-3.5" />}
+                      Salvar
+                    </Button>
+                  </div>
+                </div>
+              ) : ticket.description ? (
                 <p className="text-muted-foreground whitespace-pre-wrap">{ticket.description}</p>
               ) : (
                 <p className="text-sm text-muted-foreground italic">Sem descrição detalhada.</p>
@@ -690,33 +798,94 @@ export default function DetalheChamado() {
               )}
 
               {/* Tags */}
-              {ticketTags && ticketTags.length > 0 && (
-                <div>
-                  <div className="text-sm font-medium mb-2">Tags</div>
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium">Tags</span>
+                  {isEditable && !editingTags && (
+                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => {
+                      setSelectedTagIds(ticketTags?.map((t: any) => t.id) || []);
+                      setEditingTags(true);
+                    }}>
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                </div>
+                {editingTags ? (
+                  <div className="space-y-2">
+                    <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                      {allActiveTags?.map(tag => (
+                        <label key={tag.id} className="flex items-center gap-2 cursor-pointer">
+                          <Checkbox
+                            checked={selectedTagIds.includes(tag.id)}
+                            onCheckedChange={(checked) => {
+                              setSelectedTagIds(prev =>
+                                checked ? [...prev, tag.id] : prev.filter(id => id !== tag.id)
+                              );
+                            }}
+                          />
+                          <Badge variant="outline" className="text-xs" style={{ borderColor: tag.color, color: tag.color }}>
+                            {tag.name}
+                          </Badge>
+                        </label>
+                      ))}
+                      {!allActiveTags?.length && <p className="text-xs text-muted-foreground">Nenhuma tag ativa.</p>}
+                    </div>
+                    <div className="flex gap-2 justify-end">
+                      <Button variant="ghost" size="sm" onClick={() => setEditingTags(false)}>
+                        <X className="mr-1 h-3.5 w-3.5" /> Cancelar
+                      </Button>
+                      <Button size="sm" onClick={() => updateTags.mutate(selectedTagIds)} disabled={updateTags.isPending}>
+                        {updateTags.isPending ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <Check className="mr-1 h-3.5 w-3.5" />}
+                        Salvar
+                      </Button>
+                    </div>
+                  </div>
+                ) : ticketTags && ticketTags.length > 0 ? (
                   <div className="flex flex-wrap gap-1">
                     {ticketTags.map((tag: any) => (
-                      <Badge
-                        key={tag.id}
-                        variant="outline"
-                        className="text-xs"
-                        style={{ borderColor: tag.color, color: tag.color }}
-                      >
+                      <Badge key={tag.id} variant="outline" className="text-xs" style={{ borderColor: tag.color, color: tag.color }}>
                         {tag.name}
                       </Badge>
                     ))}
                   </div>
-                </div>
-              )}
+                ) : (
+                  <p className="text-xs text-muted-foreground italic">Nenhuma tag.</p>
+                )}
+              </div>
 
               {/* Priority */}
               <div>
-                <div className="text-sm font-medium mb-2">Prioridade</div>
-                <Badge 
-                  variant="outline" 
-                  className={priorityConfig[ticket.priority as keyof typeof priorityConfig]?.color}
-                >
-                  {priorityConfig[ticket.priority as keyof typeof priorityConfig]?.label}
-                </Badge>
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm font-medium">Prioridade</span>
+                  {isEditable && !editingPriority && (
+                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setEditingPriority(true)}>
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                </div>
+                {editingPriority ? (
+                  <Select
+                    value={ticket.priority}
+                    onValueChange={(v) => updatePriority.mutate(v)}
+                  >
+                    <SelectTrigger className="h-8">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="baixa">Baixa</SelectItem>
+                      <SelectItem value="media">Média</SelectItem>
+                      <SelectItem value="alta">Alta</SelectItem>
+                      <SelectItem value="urgente">Urgente</SelectItem>
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Badge 
+                    variant="outline" 
+                    className={priorityConfig[ticket.priority as keyof typeof priorityConfig]?.color}
+                  >
+                    {priorityConfig[ticket.priority as keyof typeof priorityConfig]?.label}
+                  </Badge>
+                )}
               </div>
 
               <Separator />
