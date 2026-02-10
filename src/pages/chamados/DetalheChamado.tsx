@@ -26,7 +26,8 @@ import {
   Phone,
   FileText,
   Settings,
-  Package
+  Package,
+  CheckCircle2
 } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -41,6 +42,7 @@ import TicketPartsRequestPanel from '@/components/chamados/TicketPartsRequestPan
 import NovaVisitaDialog from '@/components/chamados/NovaVisitaDialog';
 import NovaInteracaoDialog from '@/components/chamados/NovaInteracaoDialog';
 import TicketStatusStepper from '@/components/chamados/TicketStatusStepper';
+import FinalizarChamadoDialog from '@/components/chamados/FinalizarChamadoDialog';
 
 // Interaction type config
 const interactionTypeConfig = {
@@ -84,6 +86,7 @@ export default function DetalheChamado() {
   const [showPartsPanel, setShowPartsPanel] = useState(false);
   const [showNovaVisita, setShowNovaVisita] = useState(false);
   const [showNovaInteracao, setShowNovaInteracao] = useState(false);
+  const [showFinalizar, setShowFinalizar] = useState(false);
 
   useEffect(() => {
     if (location.state?.openVisita) {
@@ -372,6 +375,12 @@ export default function DetalheChamado() {
         </div>
         
         <div className="flex gap-2">
+          {ticket.status !== 'resolvido' && ticket.status !== 'cancelado' && (
+            <Button variant="default" className="bg-green-600 hover:bg-green-700 text-white" onClick={() => setShowFinalizar(true)}>
+              <CheckCircle2 className="mr-2 h-4 w-4" />
+              Finalizar Chamado
+            </Button>
+          )}
           <Button variant="outline" onClick={() => setShowPartsPanel(true)}>
             <ShoppingCart className="mr-2 h-4 w-4" />
             Solicitar Peças
@@ -767,6 +776,13 @@ export default function DetalheChamado() {
       <NovaInteracaoDialog
         open={showNovaInteracao}
         onOpenChange={setShowNovaInteracao}
+        ticketId={id!}
+      />
+
+      {/* Finalizar Chamado Dialog */}
+      <FinalizarChamadoDialog
+        open={showFinalizar}
+        onOpenChange={setShowFinalizar}
         ticketId={id!}
       />
     </div>
