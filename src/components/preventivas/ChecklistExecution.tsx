@@ -455,6 +455,79 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
     }
   });
 
+  // Helper: check if an item has a selected action containing "Troca" (case-insensitive)
+  const itemHasTrocaAction = (itemId: string): boolean => {
+    if (!existingChecklist?.blocks) return false;
+    for (const block of existingChecklist.blocks) {
+      for (const item of block.items || []) {
+        if (item.id === itemId) {
+          return (item.selected_actions || []).some(
+            (a: any) => a.action_label_snapshot?.toLowerCase().includes('troca')
+          );
+        }
+      }
+    }
+    return false;
+  };
+
+  // Helper: create part consumption records for all selected NCs of an item
+  const createPartConsumptionForItemNCs = async (itemId: string) => {
+    // Get all selected NCs for this item
+    const { data: selectedNCs } = await supabase
+      .from('preventive_checklist_item_nonconformities')
+      .select('id, template_nonconformity_id')
+      .eq('exec_item_id', itemId);
+
+    if (!selectedNCs || selectedNCs.length === 0) return;
+
+    for (const nc of selectedNCs) {
+      if (!nc.template_nonconformity_id) continue;
+
+      const { data: ncParts } = await (supabase as any)
+        .from('checklist_nonconformity_parts')
+        .select(`id, part_id, default_quantity, part:pecas(codigo, nome)`)
+        .eq('nonconformity_id', nc.template_nonconformity_id);
+
+      if (ncParts && ncParts.length > 0) {
+        for (const np of ncParts) {
+          const { error } = await (supabase as any)
+            .from('preventive_part_consumption')
+            .upsert({
+              preventive_id: preventiveId,
+              exec_item_id: itemId,
+              exec_nonconformity_id: nc.id,
+              part_id: np.part_id,
+              part_code_snapshot: np.part?.codigo || '',
+              part_name_snapshot: np.part?.nome || '',
+              quantity: np.default_quantity,
+              stock_source: null
+            }, {
+              onConflict: 'exec_nonconformity_id,part_id',
+              ignoreDuplicates: true
+            });
+          if (error) console.error('Erro ao registrar consumo de peça:', error);
+        }
+      }
+    }
+  };
+
+  // Helper: remove all automatic part consumption for NCs of an item
+  const removePartConsumptionForItemNCs = async (itemId: string) => {
+    const { data: selectedNCs } = await supabase
+      .from('preventive_checklist_item_nonconformities')
+      .select('id')
+      .eq('exec_item_id', itemId);
+
+    if (selectedNCs && selectedNCs.length > 0) {
+      const ncIds = selectedNCs.map(nc => nc.id);
+      await (supabase as any)
+        .from('preventive_part_consumption')
+        .delete()
+        .in('exec_nonconformity_id', ncIds)
+        .or('is_manual.is.null,is_manual.eq.false');
+    }
+  };
+
   // Toggle corrective action with offline support and double-click protection
   const toggleActionMutation = useMutation({
     mutationFn: async ({ 
@@ -485,6 +558,8 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
 
         // If online, sync to server immediately
         if (navigator.onLine) {
+          const isTrocaAction = actionLabel.toLowerCase().includes('troca');
+
           if (isSelected) {
             // Remove action
             const { error } = await supabase
@@ -494,9 +569,28 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
               .eq('template_action_id', actionId);
 
             if (error) throw error;
+
+            // If removing a "Troca" action, check if there are other "Troca" actions remaining
+            if (isTrocaAction) {
+              // Check remaining actions in memory (excluding the one being removed)
+              let hasOtherTroca = false;
+              if (existingChecklist?.blocks) {
+                for (const block of existingChecklist.blocks) {
+                  for (const item of block.items || []) {
+                    if (item.id === itemId) {
+                      hasOtherTroca = (item.selected_actions || []).some(
+                        (a: any) => a.template_action_id !== actionId && a.action_label_snapshot?.toLowerCase().includes('troca')
+                      );
+                    }
+                  }
+                }
+              }
+              if (!hasOtherTroca) {
+                await removePartConsumptionForItemNCs(itemId);
+              }
+            }
           } else {
             // Use upsert with ON CONFLICT to prevent duplicates atomically
-            // The unique index idx_unique_item_action handles conflicts
             const { error } = await supabase
               .from('preventive_checklist_item_actions')
               .upsert({
@@ -509,6 +603,11 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
               });
 
             if (error) throw error;
+
+            // If adding a "Troca" action, create part consumption for existing NCs
+            if (isTrocaAction) {
+              await createPartConsumptionForItemNCs(itemId);
+            }
           }
         }
       } finally {
@@ -522,6 +621,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['preventive-checklist', preventiveId] });
+      queryClient.invalidateQueries({ queryKey: ['preventive-consumed-parts', preventiveId] });
       setLastSavedAt(new Date());
     },
     onError: (error) => {
@@ -605,41 +705,46 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
 
             if (error) throw error;
             
-            // Get associated parts for this nonconformity
-            const { data: ncParts } = await (supabase as any)
-              .from('checklist_nonconformity_parts')
-              .select(`
-                id,
-                part_id,
-                default_quantity,
-                part:pecas(codigo, nome)
-              `)
-              .eq('nonconformity_id', nonconformityId);
+            // Only create part consumption if item has a "Troca" action selected
+            const hasTrocaAction = itemHasTrocaAction(itemId);
             
-            // Create part consumption records using upsert to prevent duplicates
-            if (ncParts && ncParts.length > 0 && newNc) {
-              for (const np of ncParts) {
-                const consumptionRecord = {
-                  preventive_id: preventiveId,
-                  exec_item_id: itemId,
-                  exec_nonconformity_id: newNc.id,
-                  part_id: np.part_id,
-                  part_code_snapshot: np.part?.codigo || '',
-                  part_name_snapshot: np.part?.nome || '',
-                  quantity: np.default_quantity,
-                  stock_source: null // Force user to select origin
-                };
-                
-                // Use upsert to prevent duplicates - the unique index handles conflicts
-                const { error: consumptionError } = await (supabase as any)
-                  .from('preventive_part_consumption')
-                  .upsert(consumptionRecord, {
-                    onConflict: 'exec_nonconformity_id,part_id',
-                    ignoreDuplicates: true
-                  });
-                
-                if (consumptionError) {
-                  console.error('Erro ao registrar consumo de peça:', consumptionError);
+            if (hasTrocaAction) {
+              // Get associated parts for this nonconformity
+              const { data: ncParts } = await (supabase as any)
+                .from('checklist_nonconformity_parts')
+                .select(`
+                  id,
+                  part_id,
+                  default_quantity,
+                  part:pecas(codigo, nome)
+                `)
+                .eq('nonconformity_id', nonconformityId);
+              
+              // Create part consumption records using upsert to prevent duplicates
+              if (ncParts && ncParts.length > 0 && newNc) {
+                for (const np of ncParts) {
+                  const consumptionRecord = {
+                    preventive_id: preventiveId,
+                    exec_item_id: itemId,
+                    exec_nonconformity_id: newNc.id,
+                    part_id: np.part_id,
+                    part_code_snapshot: np.part?.codigo || '',
+                    part_name_snapshot: np.part?.nome || '',
+                    quantity: np.default_quantity,
+                    stock_source: null // Force user to select origin
+                  };
+                  
+                  // Use upsert to prevent duplicates - the unique index handles conflicts
+                  const { error: consumptionError } = await (supabase as any)
+                    .from('preventive_part_consumption')
+                    .upsert(consumptionRecord, {
+                      onConflict: 'exec_nonconformity_id,part_id',
+                      ignoreDuplicates: true
+                    });
+                  
+                  if (consumptionError) {
+                    console.error('Erro ao registrar consumo de peça:', consumptionError);
+                  }
                 }
               }
             }
