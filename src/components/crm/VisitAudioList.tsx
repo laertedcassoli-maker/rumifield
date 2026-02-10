@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { Textarea } from '@/components/ui/textarea';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -9,7 +10,7 @@ import { ProductBadge } from '@/components/crm/ProductBadge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, Trash2, FileAudio, Type, ListChecks, Play, Square } from 'lucide-react';
+import { Loader2, Trash2, FileAudio, Type, ListChecks, Play, Square, Pencil, Check, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface Props {
@@ -53,6 +54,9 @@ export function VisitAudioList({ visitId, visitStatus }: Props) {
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [processingAction, setProcessingAction] = useState<'transcribe' | 'summarize' | null>(null);
   const [playingId, setPlayingId] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editText, setEditText] = useState('');
+  const [savingEdit, setSavingEdit] = useState(false);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const audioUrlRef = useRef<string | null>(null);
 
@@ -267,6 +271,35 @@ export function VisitAudioList({ visitId, visitStatus }: Props) {
     }
   }, [refetchRemote, toast]);
 
+  const handleStartEdit = useCallback((item: AudioItem) => {
+    setEditingId(item.id);
+    setEditText(item.transcription || '');
+  }, []);
+
+  const handleCancelEdit = useCallback(() => {
+    setEditingId(null);
+    setEditText('');
+  }, []);
+
+  const handleSaveEdit = useCallback(async (itemId: string) => {
+    setSavingEdit(true);
+    try {
+      const { error } = await (supabase as any)
+        .from('crm_visit_audios')
+        .update({ transcription: editText })
+        .eq('id', itemId);
+      if (error) throw error;
+      refetchRemote();
+      setEditingId(null);
+      setEditText('');
+      toast({ title: 'Transcrição atualizada!' });
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: 'Erro ao salvar', description: err.message });
+    } finally {
+      setSavingEdit(false);
+    }
+  }, [editText, refetchRemote, toast]);
+
   const handleDelete = useCallback(async (item: AudioItem) => {
     try {
       // Delete local
@@ -318,11 +351,36 @@ export function VisitAudioList({ visitId, visitStatus }: Props) {
                 </div>
 
                 {/* Transcription text */}
-                {item.transcription && (
-                  <div className="text-sm bg-muted/50 rounded p-2 whitespace-pre-line">
-                    {item.transcription}
+                {item.transcription && editingId === item.id ? (
+                  <div className="space-y-2">
+                    <Textarea
+                      value={editText}
+                      onChange={e => setEditText(e.target.value)}
+                      rows={5}
+                      className="text-sm"
+                    />
+                    <div className="flex justify-end gap-2">
+                      <Button size="sm" variant="ghost" onClick={handleCancelEdit} disabled={savingEdit}>
+                        <X className="h-3.5 w-3.5 mr-1" /> Cancelar
+                      </Button>
+                      <Button size="sm" onClick={() => handleSaveEdit(item.id)} disabled={savingEdit}>
+                        {savingEdit ? <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> : <Check className="h-3.5 w-3.5 mr-1" />}
+                        Salvar
+                      </Button>
+                    </div>
                   </div>
-                )}
+                ) : item.transcription ? (
+                  <div
+                    className="text-sm bg-muted/50 rounded p-2 whitespace-pre-line cursor-pointer hover:bg-muted/70 transition-colors group relative"
+                    onClick={() => !isReadOnly && handleStartEdit(item)}
+                    title={isReadOnly ? undefined : 'Clique para editar'}
+                  >
+                    {item.transcription}
+                    {!isReadOnly && (
+                      <Pencil className="h-3.5 w-3.5 text-muted-foreground absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    )}
+                  </div>
+                ) : null}
 
                 {/* Summary bullets */}
                 {item.summary && item.summary.length > 0 && (
