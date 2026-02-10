@@ -32,7 +32,7 @@ export function CriarAcaoModal({ open, onOpenChange, clientId: externalClientId,
   const [type, setType] = useState('tarefa');
   const [priority, setPriority] = useState('3');
   const [dueAt, setDueAt] = useState('');
-  const [status, setStatus] = useState<string>('pendente');
+  const [status, setStatus] = useState<string>('aberta');
 
   const needsClientSelector = !externalClientId;
   const clientId = externalClientId || selectedClientId;
@@ -79,7 +79,7 @@ export function CriarAcaoModal({ open, onOpenChange, clientId: externalClientId,
       queryClient.invalidateQueries({ queryKey: ['crm-'] });
       queryClient.invalidateQueries({ queryKey: ['crm-360-actions'] });
       onOpenChange(false);
-      setTitle(''); setDescription(''); setType('tarefa'); setPriority('3'); setDueAt(''); setStatus('pendente'); setSelectedClientId('');
+      setTitle(''); setDescription(''); setType('tarefa'); setPriority('3'); setDueAt(''); setStatus('aberta'); setSelectedClientId('');
       onCreated?.();
     },
     onError: () => toast.error('Erro ao criar ação'),
@@ -172,9 +172,9 @@ export function CriarAcaoModal({ open, onOpenChange, clientId: externalClientId,
             <Label>Status</Label>
             <div className="flex gap-2 mt-1.5">
               {([
-                { value: 'pendente', label: 'Pendente', style: 'border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100' },
+                { value: 'aberta', label: 'Aberta', style: 'border-amber-300 bg-amber-50 text-amber-700 hover:bg-amber-100' },
+                { value: 'em_execucao', label: 'Em Execução', style: 'border-blue-300 bg-blue-50 text-blue-700 hover:bg-blue-100' },
                 { value: 'concluida', label: 'Concluída', style: 'border-green-300 bg-green-50 text-green-700 hover:bg-green-100' },
-                { value: 'cancelada', label: 'Cancelada', style: 'border-gray-300 bg-gray-50 text-gray-500 hover:bg-gray-100' },
               ] as const).map(opt => (
                 <Button
                   key={opt.value}
