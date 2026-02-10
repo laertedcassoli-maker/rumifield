@@ -143,6 +143,20 @@ export default function DetalheChamado() {
     enabled: !!(ticket as any)?.category_id,
   });
 
+  // Fetch ticket tags
+  const { data: ticketTags } = useQuery({
+    queryKey: ['ticket-tags', id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('ticket_tag_links')
+        .select('tag_id, ticket_tags(id, name, color)')
+        .eq('ticket_id', id!);
+      if (error) throw error;
+      return data?.map(d => (d as any).ticket_tags).filter(Boolean) || [];
+    },
+    enabled: !!id,
+  });
+
   // Fetch assigned technician
   const { data: technician } = useQuery({
     queryKey: ['ticket-technician', ticket?.assigned_technician_id],
@@ -672,6 +686,25 @@ export default function DetalheChamado() {
                   >
                     {category.name}
                   </Badge>
+                </div>
+              )}
+
+              {/* Tags */}
+              {ticketTags && ticketTags.length > 0 && (
+                <div>
+                  <div className="text-sm font-medium mb-2">Tags</div>
+                  <div className="flex flex-wrap gap-1">
+                    {ticketTags.map((tag: any) => (
+                      <Badge
+                        key={tag.id}
+                        variant="outline"
+                        className="text-xs"
+                        style={{ borderColor: tag.color, color: tag.color }}
+                      >
+                        {tag.name}
+                      </Badge>
+                    ))}
+                  </div>
                 </div>
               )}
 
