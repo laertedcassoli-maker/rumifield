@@ -56,6 +56,7 @@ import CrmPipeline from "./pages/crm/CrmPipeline";
 import CrmVisitas from "./pages/crm/CrmVisitas";
 import CrmVisitaExecucao from "./pages/crm/CrmVisitaExecucao";
 import AdminCrmConfig from "./pages/admin/CrmConfig";
+import AdminTicketTags from "./pages/admin/TicketTags";
 import AdminCrmMetricas from "./pages/admin/CrmMetricas";
 import AceitarConvite from "./pages/AceitarConvite";
 import CrmAcoes from "./pages/crm/CrmAcoes";
@@ -397,6 +398,14 @@ const App = () => (
               element={
                 <AppLayout>
                   <AdminCrmConfig />
+                </AppLayout>
+              }
+            />
+            <Route
+              path="/admin/ticket-tags"
+              element={
+                <AppLayout>
+                  <AdminTicketTags />
                 </AppLayout>
               }
             />

@@ -2642,6 +2642,69 @@ export type Database = {
           },
         ]
       }
+      ticket_tag_links: {
+        Row: {
+          created_at: string
+          id: string
+          tag_id: string
+          ticket_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          tag_id: string
+          ticket_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          tag_id?: string
+          ticket_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ticket_tag_links_tag_id_fkey"
+            columns: ["tag_id"]
+            isOneToOne: false
+            referencedRelation: "ticket_tags"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ticket_tag_links_ticket_id_fkey"
+            columns: ["ticket_id"]
+            isOneToOne: false
+            referencedRelation: "technical_tickets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ticket_tags: {
+        Row: {
+          color: string
+          created_at: string
+          id: string
+          is_active: boolean
+          name: string
+          order_index: number
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          order_index?: number
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          order_index?: number
+        }
+        Relationships: []
+      }
       ticket_timeline: {
         Row: {
           created_at: string

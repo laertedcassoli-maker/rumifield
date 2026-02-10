@@ -99,11 +99,12 @@ export function AppSidebar() {
     { title: 'Produtos Químicos', icon: FlaskConical, url: '/admin/config?tab=quimicos', permKey: 'admin_cadastros' },
     { title: 'Catálogo de Peças', icon: Box, url: '/admin/config?tab=pecas', permKey: 'admin_cadastros' },
     { title: 'Config. CRM', icon: Briefcase, url: '/admin/crm', permKey: 'admin_cadastros' },
+    { title: 'Tags Chamados', icon: AlertTriangle, url: '/admin/ticket-tags', permKey: 'admin_cadastros' },
     { title: 'Templates Checklist', icon: ClipboardList, url: '/preventivas/checklists', permKey: 'admin_cadastros' },
     { title: 'Atividades Oficina', icon: ListChecks, url: '/oficina/atividades', permKey: 'oficina_atividades' },
   ].filter(item => canAccess(item.permKey));
 
-  const isAdminCadastrosActive = ['/admin/config', '/admin/crm', '/preventivas/checklists', '/oficina/atividades'].some(
+  const isAdminCadastrosActive = ['/admin/config', '/admin/crm', '/admin/ticket-tags', '/preventivas/checklists', '/oficina/atividades'].some(
     p => location.pathname === p || location.pathname.startsWith(p + '/')
   ) || location.search.includes('tab=quimicos') || location.search.includes('tab=pecas');
 

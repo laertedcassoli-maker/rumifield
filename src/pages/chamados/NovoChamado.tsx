@@ -45,6 +45,12 @@ interface TicketCategory {
   icon: string;
 }
 
+interface TicketTag {
+  id: string;
+  name: string;
+  color: string;
+}
+
 // Produtos fixos no código
 const PRODUCTS = [
   { key: 'rumiflow', label: 'RumiFlow', color: 'bg-blue-500' },
@@ -67,6 +73,7 @@ export default function NovoChamado() {
   const [clientPopoverOpen, setClientPopoverOpen] = useState(false);
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
   const [categoryId, setCategoryId] = useState<string>('');
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
   const [shouldScheduleVisit, setShouldScheduleVisit] = useState(false);
 
   // Fetch active clients
@@ -118,6 +125,21 @@ export default function NovoChamado() {
     },
   });
 
+  // Fetch active ticket tags
+  const { data: ticketTags } = useQuery<TicketTag[]>({
+    queryKey: ['ticket-tags-active'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('ticket_tags')
+        .select('id, name, color')
+        .eq('is_active', true)
+        .order('order_index')
+        .order('name');
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
   // Filter clients by search
   const filteredClients = clients?.filter(client => {
     if (!clientSearch) return true;
@@ -132,10 +154,18 @@ export default function NovoChamado() {
   const selectedClient = clients?.find(c => c.id === clientId);
 
   const toggleProduct = (productKey: string) => {
-    setSelectedProducts(prev => 
-      prev.includes(productKey) 
+    setSelectedProducts(prev =>
+      prev.includes(productKey)
         ? prev.filter(p => p !== productKey)
         : [...prev, productKey]
+    );
+  };
+
+  const toggleTag = (tagId: string) => {
+    setSelectedTagIds(prev =>
+      prev.includes(tagId)
+        ? prev.filter(t => t !== tagId)
+        : [...prev, tagId]
     );
   };
 
@@ -173,6 +203,13 @@ export default function NovoChamado() {
         event_type: 'ticket_created',
         event_description: `Chamado criado: ${ticketCode}`,
       });
+
+      // Save tag links
+      if (selectedTagIds.length > 0) {
+        await supabase.from('ticket_tag_links').insert(
+          selectedTagIds.map(tagId => ({ ticket_id: ticket.id, tag_id: tagId }))
+        );
+      }
 
       return ticket;
     },
@@ -418,6 +455,38 @@ export default function NovoChamado() {
                   </SelectContent>
                 </Select>
               </div>
+
+              {/* Tags multi-select */}
+              {ticketTags && ticketTags.length > 0 && (
+                <div className="space-y-2 mt-4">
+                  <Label>Tags</Label>
+                  <div className="flex flex-wrap gap-2">
+                    {ticketTags.map(tag => (
+                      <Button
+                        key={tag.id}
+                        type="button"
+                        variant={selectedTagIds.includes(tag.id) ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => toggleTag(tag.id)}
+                        style={
+                          selectedTagIds.includes(tag.id)
+                            ? { backgroundColor: tag.color, borderColor: tag.color, color: '#fff' }
+                            : { borderColor: tag.color, color: tag.color }
+                        }
+                        className="transition-all"
+                      >
+                        {selectedTagIds.includes(tag.id) && (
+                          <Check className="mr-1 h-3 w-3" />
+                        )}
+                        {tag.name}
+                      </Button>
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Selecione uma ou mais tags para categorizar o chamado
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
 
