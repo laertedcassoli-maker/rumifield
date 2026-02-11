@@ -39,7 +39,6 @@ export function AppSidebar() {
     { title: 'Visitas CRM', icon: Eye, url: '/crm/visitas', permKey: 'crm_clientes' },
     { title: 'Pipeline', icon: BarChart3, url: '/crm/pipeline', permKey: 'crm_clientes' },
     { title: 'Ações CRM', icon: ListChecks, url: '/crm/acoes', permKey: 'crm_clientes' },
-    { title: 'Inteligência', icon: Brain, url: '/crm/inteligencia', permKey: 'crm_inteligencia' },
     { title: 'Solicitação Peças', icon: ShoppingCart, url: '/pedidos', permKey: 'pedidos' },
   ].filter(item => canAccess(item.permKey));
 
@@ -93,6 +92,7 @@ export function AppSidebar() {
     { title: 'Usuários', icon: Users, url: '/admin/usuarios', permKey: 'admin_usuarios' },
     { title: 'Permissões', icon: Shield, url: '/admin/permissoes', permKey: 'admin_permissoes' },
     { title: 'Envios', icon: Truck, url: '/admin/envios', permKey: 'admin_envios' },
+    { title: 'Inteligência', icon: Brain, url: '/crm/inteligencia', permKey: 'crm_inteligencia' },
   ].filter(item => canAccess(item.permKey));
 
   // Admin > Cadastros submenu
