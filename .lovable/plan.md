@@ -1,53 +1,43 @@
 
-
-## Melhorar visual do botao de cancelar visita
+## Simplificar modal de finalização — somente leitura + confirmação
 
 ### O que muda
 
-O botao de cancelar aparece em dois estados da visita: **Planejada** e **Em Andamento**. Atualmente ele esta discreto demais e inconsistente entre os dois estados. A melhoria vai tornar o botao mais claro e visualmente coerente.
+O modal de finalizar visita deixará de ter campos editáveis de data e hora. Em vez disso, exibirá as informações de término e duração como **somente leitura** e pedirá confirmação do encerramento.
 
-### Mudancas visuais
+### Layout do modal
 
-**Estado "Planejada" (linha 283-285):**
-- Trocar de `variant="outline"` para `variant="outline"` com bordas e texto em vermelho sutil (`border-destructive/40 text-destructive hover:bg-destructive/10`)
-- Manter texto "Cancelar" e icone XCircle
-
-**Estado "Em Andamento" (linha 297-299):**
-- Trocar de `variant="ghost"` (so icone) para `variant="outline"` com estilo destrutivo sutil (`border-destructive/40 text-destructive hover:bg-destructive/10`)
-- Adicionar texto "Cancelar" ao lado do icone para ficar mais claro
-- Manter `shrink-0` para nao comprimir
-
-Ambos os botoes ficam com aparencia identica: borda vermelha suave, texto vermelho, e hover com fundo vermelho leve. Visualmente distintos dos botoes de acao principal sem serem agressivos.
-
-### Detalhe Tecnico
-
-**Arquivo:** `src/pages/crm/CrmVisitaExecucao.tsx`
-
-Linha 283-285 (estado planejada):
-```tsx
-// Antes
-<Button size="lg" variant="outline" className="shrink-0 gap-1" onClick={() => setCancelOpen(true)}>
-  <XCircle className="h-5 w-5" /> Cancelar
-</Button>
-
-// Depois
-<Button size="lg" variant="outline" className="shrink-0 gap-1.5 border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={() => setCancelOpen(true)}>
-  <XCircle className="h-4 w-4" /> Cancelar
-</Button>
+```text
++-----------------------------------+
+|       Finalizar Visita            |
++-----------------------------------+
+|                                   |
+|  Deseja encerrar esta visita?     |
+|                                   |
+|  +-----------------------------+  |
+|  | Check-in:  12/02 09:30      |  |
+|  | Término:   12/02 11:45      |  |
+|  | Duração:   2h 15min         |  |
+|  +-----------------------------+  |
+|                                   |
+|  [aviso áudios pendentes]         |
+|                                   |
+|       [Cancelar]  [Confirmar]     |
++-----------------------------------+
 ```
 
-Linha 297-299 (estado em andamento):
-```tsx
-// Antes
-<Button size="lg" variant="ghost" className="shrink-0 text-destructive" onClick={() => setCancelOpen(true)}>
-  <XCircle className="h-5 w-5" />
-</Button>
+### Mudanças técnicas
 
-// Depois
-<Button size="lg" variant="outline" className="shrink-0 gap-1.5 border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={() => setCancelOpen(true)}>
-  <XCircle className="h-4 w-4" /> Cancelar
-</Button>
-```
+**Arquivo:** `src/components/crm/FinalizarVisitaModal.tsx`
 
-Uma unica alteracao em cada bloco de botoes.
-
+1. **Remover** os states `checkoutDate` e `checkoutTime` (linhas 38-39)
+2. **Remover** a variável `checkoutAt` derivada (linha 61)
+3. **Remover** imports de `Input`, `Label`, `useState` (não mais necessários)
+4. **Remover** o grid com inputs de data e hora (linhas 128-137)
+5. **Adicionar** texto de confirmação: "Deseja encerrar esta visita?"
+6. **Reformular** o card informativo para mostrar 3 linhas:
+   - Check-in: data/hora do check-in
+   - Término: `now` (horário atual, atualizado ao abrir o modal)
+   - Duração: diferença entre check-in e agora
+7. **Na mutation** (linha 77): trocar `checkoutAt.toISOString()` por `new Date().toISOString()` — o horário real do clique é registrado
+8. O cálculo de duração exibido usa `new Date()` capturado ao abrir o modal (variável `now` já existente na linha 37), apenas para dar uma estimativa visual ao usuário
