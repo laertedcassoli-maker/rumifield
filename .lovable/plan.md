@@ -1,59 +1,41 @@
 
 
-## Trocar Campo de Digitacao por Lista de Selecao de Ativos
+## Ajuste nos pedidos automaticos ao finalizar visita preventiva
 
-### Contexto
+### Situacao atual
+- Pecas com `stock_source = 'novo_pedido'` geram um pedido com `tipo_envio: 'apenas_nf'` (incorreto)
+- Pecas com `stock_source = 'tecnico'` nao geram pedido nenhum (incompleto)
 
-Hoje existem apenas ~10 ativos cadastrados, com no maximo 3 por tipo de peca. Nao ha risco de performance em carregar a lista completa filtrada por peca. Mesmo com crescimento futuro (centenas de ativos), a query filtrada por `omie_product_id` continua leve.
+### O que sera feito
 
-### Mudanca Proposta
+**1. Pecas "novo_pedido" -- corrigir para envio fisico**
+- Alterar o `tipo_envio` de `'apenas_nf'` para `'envio_fisico'` no pedido gerado automaticamente
+- Essas pecas precisam ser enviadas fisicamente ao tecnico, portanto o pedido deve refletir isso
 
-Substituir o `AssetCodeInput` (campo de texto com autocomplete) por um **Select** (dropdown) que carrega automaticamente todos os ativos daquela peca, com uma opcao para digitar um codigo novo caso o ativo nao exista ainda.
+**2. Pecas "tecnico" -- criar pedido apenas para NF**
+- Adicionar um novo bloco apos o bloco de `novo_pedido` (apos linha 212)
+- Buscar pecas consumidas com `stock_source = 'tecnico'`
+- Criar um pedido separado com:
+  - `origem: 'preventiva'`
+  - `tipo_envio: 'apenas_nf'` (apenas emissao de nota fiscal, sem envio fisico)
+  - `observacoes`: indicando que sao pecas do estoque do tecnico, apenas para faturamento
+- Inserir os itens agrupados em `pedido_itens`
 
-### Fluxo do Usuario
+### Detalhes tecnicos
 
-```text
-Tecnico seleciona peca "Pistola DeLaval" (is_asset = true)
-Tecnico seleciona origem "Tecnico"
-    |
-Campo "Cod. Univoco do Ativo" aparece como SELECT
-    |
-Opcoes carregadas automaticamente:
-  - PIST-00123 (disponivel)
-  - PIST-00456 (em_uso)
-  - PIST-00789 (disponivel)
-  - [+ Novo codigo...]
-    |
-Tecnico seleciona um existente -> campo preenchido
-    OU
-Tecnico clica "Novo codigo" -> abre input para digitar manualmente
-```
+**Arquivo**: `src/pages/preventivas/AtendimentoPreventivo.tsx`
 
-### Detalhes Tecnicos
+- Linha 193: alterar `tipo_envio: 'apenas_nf'` para `tipo_envio: 'envio_fisico'`
+- Apos linha 212: inserir novo bloco que:
+  1. Busca pecas com `stock_source = 'tecnico'` na tabela `preventive_part_consumption`
+  2. Cria registro em `pedidos` com `tipo_envio: 'apenas_nf'` e observacao especifica
+  3. Agrupa por `part_id` e insere em `pedido_itens`
 
-**Alteracoes em `src/components/preventivas/ConsumedPartsBlock.tsx`:**
+### Resumo do comportamento final
 
-1. **Refatorar `AssetCodeInput`** para novo componente `AssetCodeSelect`:
-   - Props: `value`, `onChange`, `partId`
-   - Ao montar, busca todos `workshop_items` com `omie_product_id = partId` (sem limite, sem debounce)
-   - Renderiza um `Select` (Radix) com as opcoes
-   - Cada opcao mostra `unique_code` e status entre parenteses
-   - Ultima opcao fixa: "+ Novo codigo..." que ao ser selecionada mostra um `Input` para digitacao livre
-   - Se `partId` nao for fornecido, mostra apenas o input de digitacao livre (fallback)
+| Fonte de estoque | Gera pedido? | Tipo envio | Objetivo |
+|---|---|---|---|
+| Tecnico | Sim | apenas_nf | Emissao de NF para regularizar consumo |
+| Novo pedido | Sim | envio_fisico | Envio real de pecas ao tecnico |
+| Fazenda | Nao | -- | Sem acao automatica |
 
-2. **Estado interno**:
-   - `mode`: "select" | "manual"
-   - Quando usuario escolhe "+ Novo codigo", muda para mode "manual" e exibe input
-   - Botao "Voltar para lista" para retornar ao select
-
-3. **Chamadas do componente** permanecem iguais:
-   - No dialog de adicao manual: `partId={selectedPartId}`
-   - Na lista de pecas consumidas (PartItem): `partId={part.part_id}`
-
-### Arquivos Afetados
-
-| Arquivo | Alteracao |
-|---|---|
-| `src/components/preventivas/ConsumedPartsBlock.tsx` | Substituir `AssetCodeInput` por `AssetCodeSelect` com lista carregada e opcao de codigo novo |
-
-Nenhuma alteracao de banco de dados necessaria.
