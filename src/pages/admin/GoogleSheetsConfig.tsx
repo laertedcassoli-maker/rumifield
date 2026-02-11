@@ -47,6 +47,7 @@ export default function GoogleSheetsConfig() {
 
   const [boardRuminaStatus, setBoardRuminaStatus] = useState<"idle" | "loading" | "loaded" | "error">("idle");
   const [boardRuminaData, setBoardRuminaData] = useState<BoardRuminaData | null>(null);
+  const [boardRuminaSearch, setBoardRuminaSearch] = useState("");
 
   const addLog = useCallback((action: string, success: boolean, message: string, range?: string) => {
     setLogs((prev) => [
@@ -293,32 +294,52 @@ export default function GoogleSheetsConfig() {
           <CardDescription>Dados da aba "contratosativos" via edge function board-rumina.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex items-center gap-3 flex-wrap">
-            <Button onClick={handleLoadBoardRumina} disabled={boardRuminaStatus === "loading"} size="sm">
-              {boardRuminaStatus === "loading" ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
-              Carregar Contratos Ativos
-            </Button>
-            {boardRuminaData && (
-              <Button onClick={handleCopyBoardRumina} variant="outline" size="sm">
-                <Copy className="h-4 w-4 mr-2" /> Copiar
-              </Button>
-            )}
-            {boardRuminaStatus === "loaded" && boardRuminaData && (
-              <>
-                <Badge variant={boardRuminaData.cached ? "secondary" : "default"}>
-                  {boardRuminaData.cached ? "Cache" : "Fresh"}
-                </Badge>
-                <span className="text-sm text-muted-foreground">
-                  {boardRuminaData.rows_count} linhas · {boardRuminaData.timestamp}
-                </span>
-              </>
-            )}
-            {boardRuminaStatus === "error" && (
-              <Badge variant="destructive" className="gap-1"><XCircle className="h-3 w-3" /> Erro</Badge>
-            )}
-          </div>
+          {(() => {
+            const filteredRows = boardRuminaData
+              ? boardRuminaData.rows.filter(row =>
+                  !boardRuminaSearch.trim() || row.some(cell => String(cell).toLowerCase().includes(boardRuminaSearch.toLowerCase()))
+                )
+              : [];
+            const isFiltered = boardRuminaSearch.trim().length > 0 && boardRuminaData;
 
-          {boardRuminaData && boardRuminaData.rows.length > 0 && (
+            return (<>
+              <div className="flex items-center gap-3 flex-wrap">
+                <Button onClick={handleLoadBoardRumina} disabled={boardRuminaStatus === "loading"} size="sm">
+                  {boardRuminaStatus === "loading" ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
+                  Carregar Contratos Ativos
+                </Button>
+                {boardRuminaData && (
+                  <Button onClick={handleCopyBoardRumina} variant="outline" size="sm">
+                    <Copy className="h-4 w-4 mr-2" /> Copiar
+                  </Button>
+                )}
+                {boardRuminaData && (
+                  <div className="relative">
+                    <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      value={boardRuminaSearch}
+                      onChange={(e) => setBoardRuminaSearch(e.target.value)}
+                      placeholder="Buscar..."
+                      className="pl-8 h-9 w-48"
+                    />
+                  </div>
+                )}
+                {boardRuminaStatus === "loaded" && boardRuminaData && (
+                  <>
+                    <Badge variant={boardRuminaData.cached ? "secondary" : "default"}>
+                      {boardRuminaData.cached ? "Cache" : "Fresh"}
+                    </Badge>
+                    <span className="text-sm text-muted-foreground">
+                      {isFiltered ? `${filteredRows.length} de ${boardRuminaData.rows_count}` : boardRuminaData.rows_count} linhas · {boardRuminaData.timestamp}
+                    </span>
+                  </>
+                )}
+                {boardRuminaStatus === "error" && (
+                  <Badge variant="destructive" className="gap-1"><XCircle className="h-3 w-3" /> Erro</Badge>
+                )}
+              </div>
+
+          {filteredRows.length > 0 && boardRuminaData && (
             <div className="border rounded-lg overflow-auto max-h-96">
               <Table>
                 <TableHeader>
@@ -330,7 +351,7 @@ export default function GoogleSheetsConfig() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {boardRuminaData.rows.map((row, ri) => (
+                {filteredRows.map((row, ri) => (
                     <TableRow key={ri}>
                       <TableCell className="text-xs text-muted-foreground">{ri + 1}</TableCell>
                       {row.map((cell, ci) => (
@@ -343,9 +364,13 @@ export default function GoogleSheetsConfig() {
             </div>
           )}
 
-          {boardRuminaData && boardRuminaData.rows.length === 0 && boardRuminaStatus === "loaded" && (
-            <p className="text-sm text-muted-foreground">Nenhum contrato ativo encontrado.</p>
+          {boardRuminaData && filteredRows.length === 0 && boardRuminaStatus === "loaded" && (
+            <p className="text-sm text-muted-foreground">
+              {isFiltered ? `Nenhum resultado para "${boardRuminaSearch}".` : "Nenhum contrato ativo encontrado."}
+            </p>
           )}
+            </>);
+          })()}
         </CardContent>
       </Card>
 
