@@ -1347,14 +1347,7 @@ export default function AdminConfig() {
                           </TableCell>
                           <TableCell className="font-medium">{peca.codigo}</TableCell>
                           <TableCell>
-                            <div className="flex items-center gap-2">
-                              {peca.nome}
-                              {(peca as any).is_asset && (
-                                <Badge variant="outline" className="text-xs bg-blue-500/10 text-blue-600 border-blue-500/30">
-                                  Ativo
-                                </Badge>
-                              )}
-                            </div>
+                            {peca.nome}
                           </TableCell>
                           <TableCell>
                             {peca.familia ? (
