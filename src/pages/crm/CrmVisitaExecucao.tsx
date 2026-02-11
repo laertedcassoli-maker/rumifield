@@ -222,7 +222,7 @@ export default function CrmVisitaExecucao() {
   const isCancelled = visit.status === 'cancelada';
 
   return (
-    <div className="space-y-6 animate-fade-in pb-24 min-w-0 overflow-hidden">
+    <div className="space-y-6 animate-fade-in pb-24 min-w-0">
       {/* Header */}
       <div className="flex items-center gap-3 min-w-0">
         <Button variant="ghost" size="icon" onClick={() => navigate(backPath)}>

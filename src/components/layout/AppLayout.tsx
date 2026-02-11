@@ -4,6 +4,7 @@ import { AppSidebar } from './AppSidebar';
 import { useAuth } from '@/contexts/AuthContext';
 import { Navigate, useLocation, Link } from 'react-router-dom';
 import { Loader2, Home, RefreshCw } from 'lucide-react';
+import { cn } from '@/lib/utils';
 import { OfflineBanner } from '@/components/OfflineBanner';
 import { useOffline } from '@/contexts/OfflineContext';
 import { Button } from '@/components/ui/button';
@@ -128,7 +129,7 @@ export function AppLayout({ children }: AppLayoutProps) {
     <SidebarProvider>
       <OfflineBanner />
       <AppSidebar />
-      <SidebarInset className={showBanner ? "pt-10" : ""}>
+      <SidebarInset className={cn(showBanner ? "pt-10" : "", "min-w-0")}>
         <header className="sticky top-0 z-40 flex h-14 items-center gap-3 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 px-4 md:px-6">
           <SidebarTrigger className="h-9 w-9 md:h-7 md:w-7 [&>svg]:h-5 [&>svg]:w-5 md:[&>svg]:h-4 md:[&>svg]:w-4" />
           <span className="font-semibold md:hidden flex-1">{pageTitle}</span>
@@ -143,7 +144,7 @@ export function AppLayout({ children }: AppLayoutProps) {
             <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
           </Button>
         </header>
-        <main className="flex-1 overflow-x-hidden overflow-y-auto p-4 md:p-6 max-w-full">
+        <main className="flex-1 min-w-0 overflow-x-hidden overflow-y-auto p-4 md:p-6 max-w-full">
           <div className="w-full max-w-full overflow-x-hidden">
             {children}
           </div>
