@@ -536,7 +536,6 @@ function AssetCodeSelect({ value, onChange, onBlurSave, partId }: { value: strin
         onChange={(e) => onChange(e.target.value)}
         onBlur={() => onBlurSave?.(value)}
         placeholder="Digite o código unívoco..."
-        className="font-mono text-sm"
       />
     );
   }
@@ -552,7 +551,6 @@ function AssetCodeSelect({ value, onChange, onBlurSave, partId }: { value: strin
           onChange={(e) => onChange(e.target.value)}
           onBlur={() => onBlurSave?.(value)}
           placeholder="Digite o código unívoco..."
-          className="font-mono text-sm"
         />
         {assets && assets.length > 0 && (
           <Button
@@ -599,14 +597,14 @@ function AssetCodeSelect({ value, onChange, onBlurSave, partId }: { value: strin
             }
           }}
         >
-          <SelectTrigger className="font-mono text-sm">
+          <SelectTrigger>
             <SelectValue placeholder="Selecione um ativo..." />
           </SelectTrigger>
           <SelectContent>
             {assets && assets.length > 0 ? (
               <>
                 {assets.map((asset) => (
-                  <SelectItem key={asset.id} value={asset.unique_code} className="font-mono">
+                  <SelectItem key={asset.id} value={asset.unique_code}>
                     {asset.unique_code} ({asset.status || 'disponível'})
                   </SelectItem>
                 ))}
