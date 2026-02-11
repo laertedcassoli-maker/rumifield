@@ -1,51 +1,53 @@
 
 
-## Otimizacao Mobile da Pagina de Visita CRM
+## Adicionar Filtro por CSM na pagina Visitas CRM
 
-### Problemas Identificados
+### Contexto
 
-Com base na captura de tela em 390px (iPhone), identifiquei os seguintes problemas:
+A pagina `CrmVisitas` ja busca o nome do consultor (CSM) via join `profiles:owner_user_id(nome)` e exibe "por {nome}" em cada card. O filtro por CSM sera visivel apenas para admins e coordenadores, pois consultores ja veem apenas seus proprios clientes/visitas.
 
-1. **Botoes de acao cortados** - Os botoes "+ Acao", "Finalizar" e "Cancelar" ficam em uma unica linha e nao cabem na tela, com "Finalizar" e "Cancelar" cortados
-2. **Metricas dos produtos cortadas** - O grid de metricas dentro dos ProductCards usa `grid-cols-2` com `gap-x-4`, fazendo o texto ultrapassar a largura do card
-3. **Titulo do cliente muito longo** - O nome "Agro Pecuaria Gato Do Mato Ltda" nao quebra linha e ultrapassa a tela
+### Alteracoes
 
-### Solucao
+**Arquivo: `src/pages/crm/CrmVisitas.tsx`**
 
-#### 1. Botoes de acao - empilhar em mobile (CrmVisitaExecucao.tsx)
+1. **Nova query para listar consultores** (apenas quando `isAdmin`):
+   - Buscar `profiles` com `id` e `nome` para popular o Select
+   - Reutilizar o mesmo padrao do `usePipelineData`
 
-**Quando `isActive`**: Os 3 botoes ("+ Acao", "Finalizar", "Cancelar") serao reorganizados:
-- "Finalizar" e "+ Acao" ficam em uma linha (flex, cada um `flex-1`)
-- "Cancelar" vai para uma segunda linha menor, centralizado
+2. **Novo estado `csmFilter`**:
+   - Estado `useState<string>('all')` para armazenar o user_id selecionado
 
-**Quando `isPlanned`**: Os 2 botoes ("Fazer Check-in" e "Cancelar") ja cabem, mas vou garantir que usem `flex-wrap` como seguranca.
+3. **Componente Select de filtro**:
+   - Posicionado entre os cards de status e o campo de busca
+   - Usando o componente `Select` do shadcn/ui ja existente no projeto
+   - Opcoes: "Todos os CSMs" + lista de nomes
+   - Visivel somente para admins/coordenadores
 
-#### 2. Metricas dos produtos - layout responsivo (ProductCard.tsx)
-
-- Trocar o grid de metricas de `grid-cols-2` para `grid-cols-1` em mobile (`grid-cols-1 sm:grid-cols-2`)
-- Reduzir `gap-x-4` para `gap-x-2`
-- Isso garante que cada metrica ocupe a largura total no celular
-
-#### 3. Titulo do cliente - truncar com ellipsis (CrmVisitaExecucao.tsx)
-
-- Adicionar `truncate` ao `h1` do nome do cliente para evitar overflow horizontal
-
-#### 4. Botoes de acao cortados na visita ativa - reorganizar layout
-
-- Usar `flex-wrap gap-2` nos botoes para que quebrem naturalmente em telas pequenas
-- Botoes principais terao `min-w-0` para permitir compressao
+4. **Logica de filtragem**:
+   - No `filteredVisitas`, adicionar filtro por `owner_user_id === csmFilter` quando nao for "all"
 
 ### Detalhes Tecnicos
 
-**Arquivos a modificar:**
+```text
+Fluxo de dados:
+  profiles (query) --> Select options
+  csmFilter state --> filteredVisitas (useMemo)
+```
 
-1. `src/pages/crm/CrmVisitaExecucao.tsx`
-   - Linha 232: adicionar `truncate` ao h1
-   - Linhas 289-301: reorganizar botoes `isActive` com `flex-wrap`
-   - Linhas 277-287: adicionar `flex-wrap` nos botoes `isPlanned`
+**Mudancas no codigo:**
 
-2. `src/components/crm/ProductCard.tsx`
-   - Linha 108: mudar grid de metricas para `grid-cols-1 sm:grid-cols-2 gap-x-2 gap-y-1.5`
+- Importar `Select, SelectContent, SelectItem, SelectTrigger, SelectValue` de `@/components/ui/select`
+- Nova query:
+  ```
+  useQuery(['crm-consultores'], profiles.select('id, nome').order('nome'), enabled: isAdmin)
+  ```
+- No `filteredVisitas` useMemo, adicionar:
+  ```
+  if (csmFilter !== 'all') {
+    result = result.filter(v => v.owner_user_id === csmFilter);
+  }
+  ```
+- Renderizar o Select entre os status cards e o campo de busca, condicional a `isAdmin`
 
-Todas as mudancas sao apenas classes Tailwind CSS, sem alteracao de logica.
+Nenhuma alteracao no banco de dados e necessaria.
 
