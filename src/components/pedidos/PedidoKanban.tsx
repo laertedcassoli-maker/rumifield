@@ -26,16 +26,11 @@ const origemConfig: Record<string, { label: string; className: string }> = {
   chamado: { label: 'Chamado', className: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' },
 };
 
-const tipoEnvioIcons: Record<string, React.ReactNode> = {
-  correio: <Truck className="h-3.5 w-3.5" />,
-  entrega: <HandHelping className="h-3.5 w-3.5" />,
-  apenas_nf: <FileText className="h-3.5 w-3.5" />,
-};
-
-const tipoEnvioLabels: Record<string, string> = {
-  correio: 'Correio',
-  entrega: 'Entrega',
-  apenas_nf: 'Apenas NF',
+const tipoEnvioConfig: Record<string, { label: string; icon: React.ReactNode; className: string }> = {
+  envio_fisico: { label: 'Envio Físico', icon: <Truck className="h-3 w-3" />, className: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' },
+  correio: { label: 'Correio', icon: <Truck className="h-3 w-3" />, className: 'bg-muted text-muted-foreground' },
+  entrega: { label: 'Entrega', icon: <HandHelping className="h-3 w-3" />, className: 'bg-muted text-muted-foreground' },
+  apenas_nf: { label: 'Apenas NF', icon: <FileText className="h-3 w-3" />, className: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' },
 };
 
 interface PedidoKanbanProps {
@@ -72,10 +67,11 @@ function PedidoCard({
               {origem.label}
             </Badge>
           )}
-          {pedido.tipo_envio && (
-            <span className="inline-flex items-center gap-1 text-[10px] text-muted-foreground" title={tipoEnvioLabels[pedido.tipo_envio]}>
-              {tipoEnvioIcons[pedido.tipo_envio]}
-            </span>
+          {pedido.tipo_envio && tipoEnvioConfig[pedido.tipo_envio] && (
+            <Badge variant="outline" className={cn('text-[10px] h-5 border-0 gap-0.5', tipoEnvioConfig[pedido.tipo_envio].className)}>
+              {tipoEnvioConfig[pedido.tipo_envio].icon}
+              {tipoEnvioConfig[pedido.tipo_envio].label}
+            </Badge>
           )}
         </div>
 
