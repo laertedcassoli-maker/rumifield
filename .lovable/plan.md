@@ -1,116 +1,143 @@
 
 
-## 1. Nova opcao "Novo Pedido" na origem de estoque de pecas
+## Melhorias no Sistema de Solicitacao de Pecas
 
-### 2. Campo "Codigo Univoco do Ativo" ao selecionar estoque do tecnico
+### Contexto
 
----
+Atualmente o sistema de pedidos (solicitacoes) e uma lista/tabela simples com status lineares. O usuario quer:
 
-### Resumo das mudancas
-
-Duas melhorias no bloco de pecas consumidas durante visitas preventivas:
-
-**Recurso A** -- Adicionar terceira opcao de origem "Novo Pedido" no toggle de stock_source. Pecas marcadas com essa origem geram automaticamente uma solicitacao de pecas (tabela `pedidos` + `pedido_itens`) no momento do encerramento da visita.
-
-**Recurso B** -- Ao selecionar "Tecnico" como origem, exibir campo para digitar/buscar o codigo univoco do ativo (`workshop_items.unique_code`). Se o codigo nao existir no cadastro, sera criado automaticamente ao sincronizar.
+1. Pedidos de origem "tecnico" gerarem solicitacao apenas para emissao de NF (sem envio fisico)
+2. Novos campos de metadados nos pedidos
+3. Campo de urgencia nos modais de criacao
+4. Novo layout Kanban com 3 colunas
 
 ---
 
-### Alteracoes no banco de dados
+### 1. Alteracoes no Banco de Dados
 
-1. **Adicionar coluna `asset_unique_code`** na tabela `preventive_part_consumption`:
-   - Tipo: `text`, nullable
-   - Armazena o codigo univoco do ativo quando a origem e "tecnico"
+Adicionar colunas na tabela `pedidos`:
 
-2. **Nenhuma alteracao na coluna `stock_source`**: atualmente e `text` sem enum/check constraint, entao aceita o novo valor `'novo_pedido'` sem migracao adicional.
+| Coluna | Tipo | Descricao |
+|---|---|---|
+| `origem` | text, nullable | Origem do pedido: `manual`, `preventiva`, `corretiva`, `chamado` |
+| `tipo_envio` | text, nullable | Tipo de envio: `correio`, `entrega`, `apenas_nf` |
+| `urgencia` | text, default `'normal'` | Grau de urgencia: `baixa`, `normal`, `alta`, `critica` |
 
-3. **Adicionar coluna `preventive_id`** na tabela `pedidos` (opcional, para rastreabilidade):
-   - Tipo: `uuid`, nullable, FK para `preventive_maintenance(id)`
-   - Permite identificar que o pedido foi gerado a partir de uma visita preventiva
+Os campos `solicitante_id` (usuario que criou) e `cliente_id` (de onde se extrai o `consultor_rplus_id`) ja existem, nao precisam de novas colunas.
 
----
+O enum `pedido_status` atual tem: `rascunho`, `solicitado`, `processamento`, `faturado`, `enviado`, `entregue`. Para o Kanban simplificado de 3 colunas, vamos mapear:
+- **Aberto** = `solicitado`
+- **Em Processamento** = `processamento`
+- **Concluido** = `faturado` (quando o financeiro registra a NF)
 
-### Alteracoes em `src/components/preventivas/ConsumedPartsBlock.tsx`
-
-**PartItem (toggle de origem):**
-- Converter o `ToggleGroup` de 2 para 3 opcoes: `tecnico`, `fazenda`, `novo_pedido`
-- Opcao "Novo Pedido" com icone `ShoppingCart` e cor distinta (ex: roxo/violet)
-- Ao selecionar `tecnico`, exibir campo `Input` para "Cod. Univoco do Ativo"
-  - Busca em tempo real na tabela `workshop_items` pelo `unique_code`
-  - Se encontrado, exibe confirmacao (nome da peca vinculada)
-  - Se nao encontrado, salva o codigo digitado para criacao posterior
-- Ao selecionar `novo_pedido`, esconder o campo de codigo univoco
-
-**Dialog "Adicionar Peca Manual":**
-- Adicionar mesma terceira opcao no ToggleGroup do dialog
-- Campo de codigo univoco condicional ao selecionar "Tecnico"
-
-**Mutations:**
-- `updateStockSourceMutation`: ja atualiza stock_source com qualquer valor texto
-- Nova mutation para salvar `asset_unique_code` na `preventive_part_consumption`
+Nao precisa alterar o enum, apenas a UI agrupa os status existentes.
 
 ---
 
-### Alteracoes em `src/pages/preventivas/AtendimentoPreventivo.tsx`
+### 2. Preencher Origem Automaticamente
 
-**Na funcao `completeMutation` (encerramento da visita):**
-- Apos marcar a visita como concluida, verificar se existem pecas com `stock_source = 'novo_pedido'`
-- Se existirem, criar automaticamente:
-  1. Um registro em `pedidos` (status `solicitado`, vinculado ao `cliente_id` da visita, `preventive_id` para rastreio)
-  2. Registros em `pedido_itens` para cada peca com `stock_source = 'novo_pedido'`, agrupando quantidades por `part_id`
+Nos locais onde pedidos sao criados automaticamente, preencher o campo `origem`:
 
-**Na funcao `validateBeforeComplete`:**
-- Manter validacao existente de `stock_source IS NULL` (pecas sem origem)
-- Nao bloquear pecas com `novo_pedido` (e uma opcao valida)
+- `src/pages/preventivas/AtendimentoPreventivo.tsx` (completeMutation): `origem: 'preventiva'`, e para pecas de origem "tecnico" usar `tipo_envio: 'apenas_nf'`
+- `src/components/chamados/TicketPartsRequestPanel.tsx`: `origem: 'chamado'`
+- `src/pages/Pedidos.tsx` (criacao manual): `origem: 'manual'`
 
 ---
 
-### Alteracoes em `src/pages/preventivas/AtendimentoPreventivo.tsx` e `src/pages/chamados/ExecucaoVisitaCorretiva.tsx`
+### 3. Campo de Urgencia nos Modais de Criacao
 
-**Criacao de ativo ao sincronizar (campo codigo univoco):**
-- No encerramento, para pecas com `stock_source = 'tecnico'` e `asset_unique_code` preenchido:
-  - Buscar em `workshop_items` se `unique_code` ja existe
-  - Se nao existir, criar novo registro em `workshop_items` com:
-    - `unique_code`: o codigo digitado
-    - `omie_product_id`: o `part_id` da peca consumida
-    - `status`: 'disponivel'
+Adicionar seletor de urgencia (ToggleGroup com 4 opcoes) em:
+
+- `src/pages/Pedidos.tsx` -- no formulario de novo pedido
+- `src/components/chamados/TicketPartsRequestPanel.tsx` -- no painel lateral de chamados
+- Formularios futuros de criacao
+
+Opcoes visuais:
+- Baixa (cinza)
+- Normal (azul, default)
+- Alta (laranja)
+- Critica (vermelho)
 
 ---
 
-### Fluxo do usuario
+### 4. Campo Tipo de Envio nos Modais
+
+Adicionar seletor de tipo de envio:
+- Correio (icone de caminhao)
+- Entrega (icone de pacote/mao)
+- Apenas NF (icone de nota fiscal) -- pre-selecionado quando origem e "tecnico" em preventivas
+
+---
+
+### 5. Nova Pagina Kanban de Solicitacoes
+
+Substituir a view atual de tabela/cards na aba "Transmitidos" por um **Kanban de 3 colunas**:
 
 ```text
-Tecnico executa checklist preventivo
-  |
-  v
-Seleciona falha / adiciona peca manualmente
-  |
-  v
-Escolhe origem da peca:
-  [Tecnico]  --> campo "Cod. Univoco" aparece (busca/cria ativo)
-  [Fazenda]  --> sem campo adicional
-  [Novo Pedido] --> sem campo adicional, peca sera solicitada
-  |
-  v
-Encerra visita
-  |
-  v
-Se houver pecas "Novo Pedido":
-  --> Cria pedido automatico para o cliente
-  --> Vincula ao preventive_id
-  |
-Se houver pecas "Tecnico" com cod. univoco novo:
-  --> Cria ativo no cadastro (workshop_items)
++------------------+------------------+------------------+
+|     ABERTO       | EM PROCESSAMENTO |    CONCLUIDO     |
+|   (solicitado)   |  (processamento) |    (faturado)    |
+|                  |                  |                  |
+|  [Card pedido]   |  [Card pedido]   |  [Card pedido]   |
+|  [Card pedido]   |                  |  [Card pedido]   |
++------------------+------------------+------------------+
 ```
+
+Cada card exibe:
+- Cliente / Fazenda
+- Badge de urgencia (cor)
+- Badge de origem (preventiva/chamado/manual)
+- Tipo de envio (icone)
+- Consultor R+ do cliente
+- Solicitante
+- Data de criacao
+- Quantidade de pecas
+- Botao "Ver detalhes"
+
+**Acoes por coluna:**
+- Aberto: botao "Processar" para mover para "Em Processamento"
+- Em Processamento: botao "Concluir" que abre dialog para registrar numero da NF
+- Concluido: apenas visualizacao
+
+A aba "Rascunhos" permanece como esta (lista com botoes de transmitir).
 
 ---
 
-### Arquivos afetados
+### 6. Dialog de Conclusao (Registro de NF)
 
-| Arquivo | Tipo de alteracao |
+Ao clicar "Concluir" em um pedido "Em Processamento":
+- Abre dialog solicitando o numero da NF (`omie_nf_numero`)
+- Data de faturamento (default: hoje)
+- Ao confirmar: atualiza status para `faturado`, grava `omie_nf_numero` e `omie_data_faturamento`
+
+---
+
+### 7. Exibir Consultor R+ do Cliente
+
+Na listagem/Kanban, buscar `consultor_rplus_id` do cliente e exibir o nome do consultor. Isso requer um join adicional na query:
+- `pedidos -> clientes -> profiles (via consultor_rplus_id)`
+
+---
+
+### Detalhes Tecnicos
+
+**Migracao SQL:**
+```sql
+ALTER TABLE pedidos ADD COLUMN origem text;
+ALTER TABLE pedidos ADD COLUMN tipo_envio text;
+ALTER TABLE pedidos ADD COLUMN urgencia text NOT NULL DEFAULT 'normal';
+```
+
+**Arquivos modificados:**
+
+| Arquivo | Alteracao |
 |---|---|
-| Migracao SQL | Adicionar `asset_unique_code` em `preventive_part_consumption`, `preventive_id` em `pedidos` |
-| `src/components/preventivas/ConsumedPartsBlock.tsx` | Terceira opcao no toggle, campo cod. univoco, mutations |
-| `src/pages/preventivas/AtendimentoPreventivo.tsx` | Criacao automatica de pedido e ativo no encerramento |
-| `src/pages/chamados/ExecucaoVisitaCorretiva.tsx` | Mesmas mudancas de encerramento (se visitas corretivas usam o mesmo bloco) |
+| Migracao SQL | 3 novas colunas |
+| `src/pages/Pedidos.tsx` | Kanban na aba Transmitidos, campos urgencia/tipo_envio no form, dialog de NF, exibir origem/consultor |
+| `src/hooks/useOfflinePedidos.ts` | Incluir novos campos no createPedido e syncFromServer |
+| `src/lib/offline-db.ts` | Atualizar interface OfflinePedido com novos campos |
+| `src/components/chamados/TicketPartsRequestPanel.tsx` | Campos urgencia e tipo_envio, preencher origem='chamado' |
+| `src/pages/preventivas/AtendimentoPreventivo.tsx` | Preencher origem='preventiva' e tipo_envio='apenas_nf' para pecas de tecnico |
+
+**RLS:** Nenhuma alteracao necessaria -- as policies existentes de pedidos ja cobrem os novos campos (sao colunas da mesma tabela).
 
