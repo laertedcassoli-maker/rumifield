@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { toast } from "@/hooks/use-toast";
-import { CheckCircle2, XCircle, Loader2, Search, Copy, Trash2, RefreshCw } from "lucide-react";
+import { CheckCircle2, XCircle, Loader2, Search, Copy, Trash2, RefreshCw, Download, Database } from "lucide-react";
 
 interface LogEntry {
   timestamp: string;
@@ -23,6 +23,14 @@ interface ReadResult {
   rows_count: number;
 }
 
+interface BoardRuminaData {
+  headers: string[];
+  rows: string[][];
+  rows_count: number;
+  cached: boolean;
+  timestamp: string;
+}
+
 export default function GoogleSheetsConfig() {
   const [connectionStatus, setConnectionStatus] = useState<"idle" | "connected" | "error">("idle");
   const [spreadsheetTitle, setSpreadsheetTitle] = useState("");
@@ -36,6 +44,9 @@ export default function GoogleSheetsConfig() {
   const [currentRange, setCurrentRange] = useState("");
 
   const [logs, setLogs] = useState<LogEntry[]>([]);
+
+  const [boardRuminaStatus, setBoardRuminaStatus] = useState<"idle" | "loading" | "loaded" | "error">("idle");
+  const [boardRuminaData, setBoardRuminaData] = useState<BoardRuminaData | null>(null);
 
   const addLog = useCallback((action: string, success: boolean, message: string, range?: string) => {
     setLogs((prev) => [
@@ -102,6 +113,41 @@ export default function GoogleSheetsConfig() {
     } finally {
       setReading(false);
     }
+  };
+
+  const handleLoadBoardRumina = async () => {
+    setBoardRuminaStatus("loading");
+    try {
+      const { data, error } = await supabase.functions.invoke("board-rumina", {
+        body: { action: "clientes-ativos" },
+      });
+      if (error) throw error;
+      if (!data.success) throw new Error(data.error);
+
+      const result: BoardRuminaData = {
+        headers: data.headers || [],
+        rows: data.rows || [],
+        rows_count: data.rows_count || 0,
+        cached: data.cached || false,
+        timestamp: new Date().toLocaleString("pt-BR"),
+      };
+      setBoardRuminaData(result);
+      setBoardRuminaStatus("loaded");
+      addLog("board-rumina", true, `${result.rows_count} linhas carregadas${result.cached ? " (cache)" : ""}`, "contratosativos");
+      toast({ title: "Board Rumina", description: `${result.rows_count} contratos ativos carregados.` });
+    } catch (err: any) {
+      setBoardRuminaStatus("error");
+      const msg = err?.message || "Erro desconhecido";
+      addLog("board-rumina", false, msg, "contratosativos");
+      toast({ title: "Erro Board Rumina", description: msg, variant: "destructive" });
+    }
+  };
+
+  const handleCopyBoardRumina = () => {
+    if (!boardRuminaData) return;
+    const tsv = [boardRuminaData.headers.join("\t"), ...boardRuminaData.rows.map((r) => r.join("\t"))].join("\n");
+    navigator.clipboard.writeText(tsv);
+    toast({ title: "Copiado!", description: "Dados do Board Rumina copiados." });
   };
 
   const handleCopyData = () => {
@@ -234,6 +280,71 @@ export default function GoogleSheetsConfig() {
                 ))}
               </div>
             </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Board Rumina */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg flex items-center gap-2">
+            <Database className="h-5 w-5" /> Board Rumina - Contratos Ativos
+          </CardTitle>
+          <CardDescription>Dados da aba "contratosativos" via edge function board-rumina.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center gap-3 flex-wrap">
+            <Button onClick={handleLoadBoardRumina} disabled={boardRuminaStatus === "loading"} size="sm">
+              {boardRuminaStatus === "loading" ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Download className="h-4 w-4 mr-2" />}
+              Carregar Contratos Ativos
+            </Button>
+            {boardRuminaData && (
+              <Button onClick={handleCopyBoardRumina} variant="outline" size="sm">
+                <Copy className="h-4 w-4 mr-2" /> Copiar
+              </Button>
+            )}
+            {boardRuminaStatus === "loaded" && boardRuminaData && (
+              <>
+                <Badge variant={boardRuminaData.cached ? "secondary" : "default"}>
+                  {boardRuminaData.cached ? "Cache" : "Fresh"}
+                </Badge>
+                <span className="text-sm text-muted-foreground">
+                  {boardRuminaData.rows_count} linhas · {boardRuminaData.timestamp}
+                </span>
+              </>
+            )}
+            {boardRuminaStatus === "error" && (
+              <Badge variant="destructive" className="gap-1"><XCircle className="h-3 w-3" /> Erro</Badge>
+            )}
+          </div>
+
+          {boardRuminaData && boardRuminaData.rows.length > 0 && (
+            <div className="border rounded-lg overflow-auto max-h-96">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="w-12 text-xs">#</TableHead>
+                    {boardRuminaData.headers.map((h, i) => (
+                      <TableHead key={i} className="text-xs min-w-[100px]">{h}</TableHead>
+                    ))}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {boardRuminaData.rows.map((row, ri) => (
+                    <TableRow key={ri}>
+                      <TableCell className="text-xs text-muted-foreground">{ri + 1}</TableCell>
+                      {row.map((cell, ci) => (
+                        <TableCell key={ci} className="text-xs">{cell}</TableCell>
+                      ))}
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )}
+
+          {boardRuminaData && boardRuminaData.rows.length === 0 && boardRuminaStatus === "loaded" && (
+            <p className="text-sm text-muted-foreground">Nenhum contrato ativo encontrado.</p>
           )}
         </CardContent>
       </Card>
