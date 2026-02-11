@@ -10,8 +10,9 @@ function generateId(): string {
 
 export interface PedidoComItens extends OfflinePedido {
   pedido_itens: (OfflinePedidoItem & { pecas?: { nome: string; codigo: string; familia?: string | null } })[];
-  clientes?: { nome: string; fazenda?: string | null };
+  clientes?: { nome: string; fazenda?: string | null; consultor_rplus_id?: string | null };
   solicitante?: { nome: string; email: string } | null;
+  consultor_nome?: string | null;
 }
 
 export function useOfflinePedidos(userId?: string, viewAll = false, isAdmin = false) {
@@ -71,6 +72,9 @@ export function useOfflinePedidos(userId?: string, viewAll = false, isAdmin = fa
       solicitante_id: string;
       cliente_id: string;
       observacoes?: string;
+      origem?: string;
+      tipo_envio?: string;
+      urgencia?: string;
       itens: { peca_id: string; quantidade: number }[];
     }
   ) => {
@@ -84,6 +88,9 @@ export function useOfflinePedidos(userId?: string, viewAll = false, isAdmin = fa
       cliente_id: data.cliente_id,
       status: "rascunho",
       observacoes: data.observacoes || null,
+      origem: data.origem || 'manual',
+      tipo_envio: data.tipo_envio || null,
+      urgencia: data.urgencia || 'normal',
       created_at: now,
       updated_at: now,
       _pendingSync: true,
@@ -110,6 +117,9 @@ export function useOfflinePedidos(userId?: string, viewAll = false, isAdmin = fa
       cliente_id: pedido.cliente_id,
       status: pedido.status,
       observacoes: pedido.observacoes,
+      origem: pedido.origem,
+      tipo_envio: pedido.tipo_envio,
+      urgencia: pedido.urgencia,
     } as unknown as Record<string, unknown>);
 
     for (const item of itens) {
@@ -309,6 +319,10 @@ export async function syncPedidosFromServer(userId?: string, isAdmin = false): P
           omie_pedido_id: pedido.omie_pedido_id,
           omie_nf_numero: pedido.omie_nf_numero,
           omie_data_faturamento: pedido.omie_data_faturamento,
+          origem: (pedido as any).origem,
+          tipo_envio: (pedido as any).tipo_envio,
+          urgencia: (pedido as any).urgencia || 'normal',
+          preventive_id: pedido.preventive_id,
           created_at: pedido.created_at,
           updated_at: pedido.updated_at,
           clientes: pedido.clientes,

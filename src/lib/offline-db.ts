@@ -199,13 +199,18 @@ export interface OfflinePedido {
   omie_pedido_id?: string | null;
   omie_nf_numero?: string | null;
   omie_data_faturamento?: string | null;
+  origem?: string | null;
+  tipo_envio?: string | null;
+  urgencia?: string;
+  preventive_id?: string | null;
   created_at: string;
   updated_at: string;
   // Offline-specific fields
   _pendingSync?: boolean;
   // Nested data for display (not synced)
-  clientes?: { nome: string; fazenda?: string | null };
+  clientes?: { nome: string; fazenda?: string | null; consultor_rplus_id?: string | null };
   pedido_itens?: OfflinePedidoItem[];
+  solicitante?: { nome: string; email: string } | null;
 }
 
 export interface OfflinePedidoItem {

@@ -141,7 +141,9 @@ export default function TicketPartsRequestPanel({
           cliente_id: clientId,
           status: 'solicitado',
           observacoes: observacoes || null,
-        })
+          origem: 'chamado',
+          urgencia: 'normal',
+        } as any)
         .select('id')
         .single();
 

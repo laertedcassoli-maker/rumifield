@@ -1637,10 +1637,13 @@ export type Database = {
           omie_data_faturamento: string | null
           omie_nf_numero: string | null
           omie_pedido_id: string | null
+          origem: string | null
           preventive_id: string | null
           solicitante_id: string
           status: Database["public"]["Enums"]["pedido_status"]
+          tipo_envio: string | null
           updated_at: string
+          urgencia: string
         }
         Insert: {
           cliente_id: string
@@ -1650,10 +1653,13 @@ export type Database = {
           omie_data_faturamento?: string | null
           omie_nf_numero?: string | null
           omie_pedido_id?: string | null
+          origem?: string | null
           preventive_id?: string | null
           solicitante_id: string
           status?: Database["public"]["Enums"]["pedido_status"]
+          tipo_envio?: string | null
           updated_at?: string
+          urgencia?: string
         }
         Update: {
           cliente_id?: string
@@ -1663,10 +1669,13 @@ export type Database = {
           omie_data_faturamento?: string | null
           omie_nf_numero?: string | null
           omie_pedido_id?: string | null
+          origem?: string | null
           preventive_id?: string | null
           solicitante_id?: string
           status?: Database["public"]["Enums"]["pedido_status"]
+          tipo_envio?: string | null
           updated_at?: string
+          urgencia?: string
         }
         Relationships: [
           {
