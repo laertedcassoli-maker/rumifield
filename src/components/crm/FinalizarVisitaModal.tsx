@@ -1,4 +1,3 @@
-import { useState } from 'react';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { supabase } from '@/integrations/supabase/client';
@@ -7,9 +6,7 @@ import { useGeolocation } from '@/hooks/useGeolocation';
 import { offlineDb } from '@/lib/offline-db';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
-import { Loader2, CheckCircle2, AlertTriangle, Clock } from 'lucide-react';
+import { Loader2, CheckCircle2, AlertTriangle, Clock, LogOut, CalendarDays } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { format, differenceInMinutes } from 'date-fns';
 
@@ -35,8 +32,6 @@ export function FinalizarVisitaModal({ open, onOpenChange, visitId, clientId, on
   const geo = useGeolocation();
 
   const now = new Date();
-  const [checkoutDate, setCheckoutDate] = useState(format(now, 'yyyy-MM-dd'));
-  const [checkoutTime, setCheckoutTime] = useState(format(now, 'HH:mm'));
 
   const { data: visit } = useQuery({
     queryKey: ['crm-visit-checkin', visitId],
@@ -58,9 +53,8 @@ export function FinalizarVisitaModal({ open, onOpenChange, visitId, clientId, on
     0
   );
 
-  const checkoutAt = new Date(`${checkoutDate}T${checkoutTime}`);
   const durationMinutes = visit?.checkin_at
-    ? differenceInMinutes(checkoutAt, new Date(visit.checkin_at))
+    ? differenceInMinutes(now, new Date(visit.checkin_at))
     : null;
 
   // @ts-ignore
@@ -74,13 +68,11 @@ export function FinalizarVisitaModal({ open, onOpenChange, visitId, clientId, on
         lon = geo.longitude;
       } catch { /* proceed */ }
 
-      const checkoutIso = checkoutAt.toISOString();
-
       const { error } = await supabase
         .from('crm_visits')
         .update({
           status: 'concluida',
-          checkout_at: checkoutIso,
+          checkout_at: new Date().toISOString(),
           checkout_lat: lat,
           checkout_lon: lon,
         })
@@ -125,27 +117,27 @@ export function FinalizarVisitaModal({ open, onOpenChange, visitId, clientId, on
         </DialogHeader>
 
         <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label>Data</Label>
-              <Input type="date" value={checkoutDate} onChange={e => setCheckoutDate(e.target.value)} />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Hora</Label>
-              <Input type="time" value={checkoutTime} onChange={e => setCheckoutTime(e.target.value)} />
-            </div>
-          </div>
+          <p className="text-sm text-muted-foreground">Deseja encerrar esta visita?</p>
 
-          {visit?.checkin_at && durationMinutes != null && (
-            <div className="flex items-center gap-2 text-sm p-3 rounded bg-muted/50">
-              <Clock className="h-4 w-4 text-muted-foreground shrink-0" />
-              <div>
-                <span className="text-muted-foreground">Check-in: </span>
+          {visit?.checkin_at && (
+            <div className="rounded-lg border bg-muted/30 p-3 space-y-2">
+              <div className="flex items-center gap-2 text-sm">
+                <CalendarDays className="h-4 w-4 text-muted-foreground shrink-0" />
+                <span className="text-muted-foreground">Check-in:</span>
                 <span className="font-medium">{format(new Date(visit.checkin_at), 'dd/MM HH:mm')}</span>
-                <span className="mx-2 text-muted-foreground">·</span>
-                <span className="text-muted-foreground">Duração: </span>
-                <span className="font-medium">{durationMinutes > 0 ? formatDuration(durationMinutes) : '—'}</span>
               </div>
+              <div className="flex items-center gap-2 text-sm">
+                <LogOut className="h-4 w-4 text-muted-foreground shrink-0" />
+                <span className="text-muted-foreground">Término:</span>
+                <span className="font-medium">{format(now, 'dd/MM HH:mm')}</span>
+              </div>
+              {durationMinutes != null && durationMinutes > 0 && (
+                <div className="flex items-center gap-2 text-sm">
+                  <Clock className="h-4 w-4 text-muted-foreground shrink-0" />
+                  <span className="text-muted-foreground">Duração:</span>
+                  <span className="font-medium">{formatDuration(durationMinutes)}</span>
+                </div>
+              )}
             </div>
           )}
 
