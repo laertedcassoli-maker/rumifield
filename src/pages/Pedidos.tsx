@@ -1086,7 +1086,7 @@ export default function Pedidos() {
           </Card>
         ) : (
           <PedidoKanban
-            pedidos={pedidosTransmitidos}
+            pedidos={filteredAndSortedPedidos}
             onViewPedido={setViewingPedido}
             onProcessar={handleProcessar}
             onConcluir={handleConcluir}
