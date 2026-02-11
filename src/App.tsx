@@ -62,6 +62,7 @@ import AceitarConvite from "./pages/AceitarConvite";
 import CrmAcoes from "./pages/crm/CrmAcoes";
 import CrmDashboard from "./pages/crm/CrmDashboard";
 import CrmInteligencia from "./pages/crm/CrmInteligencia";
+import GoogleSheetsConfig from "./pages/admin/GoogleSheetsConfig";
 
 const ClienteRedirect = () => {
   const { id } = useParams();
@@ -407,6 +408,14 @@ const App = () => (
               element={
                 <AppLayout>
                   <AdminCrmConfig />
+                </AppLayout>
+              }
+            />
+            <Route
+              path="/admin/config/google-sheets"
+              element={
+                <AppLayout>
+                  <GoogleSheetsConfig />
                 </AppLayout>
               }
             />
