@@ -1,51 +1,85 @@
 
 
-## Destacar tipo de envio nos pedidos de pecas
+## Numero sequencial para pedidos (SP-00000001) - apenas no servidor
 
-### Problema
-Os pedidos gerados automaticamente (ex: "Gato do Mato") nao possuem destaque visual que diferencie entre envio fisico e apenas emissao de NF. O tipo de envio aparece apenas como um icone pequeno, sem texto.
+### Problema de concorrencia offline
 
-### Solucao escolhida: Tags visuais + Filtro
+Se o codigo fosse gerado localmente, dois tecnicos offline poderiam gerar o mesmo numero. Por isso, o `pedido_code` sera gerado **exclusivamente pelo banco de dados** no momento do INSERT, via trigger + sequence.
 
-Combinar duas melhorias: (1) badges/tags visualmente claras no card e (2) filtro na listagem.
+Pedidos criados offline simplesmente nao terao codigo ate serem sincronizados. Ao sincronizar, o servidor gera o codigo automaticamente.
 
 ---
 
-### 1. Tags visuais no PedidoCard (Kanban e Lista)
+### 1. Migracao no banco de dados
 
-Adicionar badges coloridas e explicitas para `tipo_envio`:
+- Criar sequence `pedido_code_seq`
+- Adicionar coluna `pedido_code` (nullable, pois pedidos offline ainda nao tem)
+- Trigger `BEFORE INSERT` gera o codigo no formato `SP-` + 8 digitos
+- Constraint `UNIQUE` no campo
+- Preencher retroativamente os pedidos existentes que ja estao no banco
 
-| tipo_envio | Badge | Cor |
-|---|---|---|
-| envio_fisico | "Envio Fisico" com icone Truck | Azul (destaque normal) |
-| apenas_nf | "Apenas NF" com icone FileText | Amarelo/Amber (destaque de atencao) |
-| correio | "Correio" com icone Truck | Cinza |
-| entrega | "Entrega" com icone HandHelping | Cinza |
+### 2. Offline DB (`src/lib/offline-db.ts`)
 
-A badge de "Apenas NF" tera cor amarela para chamar atencao de que nao ha envio fisico.
+- Adicionar campo opcional `pedido_code?: string | null` na interface `OfflinePedido`
+- Pedidos criados offline terao `pedido_code = null`
 
-### 2. Filtro por tipo de envio na aba "Pedidos"
+### 3. Sync de pedidos (`src/hooks/useOfflinePedidos.ts`)
 
-Adicionar um filtro com as opcoes:
-- **Todos** (padrao)
-- **Envio Fisico** (correio, entrega, envio_fisico)
-- **Apenas NF** (apenas_nf)
+- Incluir `pedido_code` no mapeamento ao baixar dados do servidor
+- Na criacao offline, **nao gerar** codigo nenhum (campo fica null)
+- Apos sincronizar, o servidor atribui o codigo e ele vem no proximo sync
 
-Isso permite ao admin rapidamente separar o que precisa ser despachado do que e so faturamento.
+### 4. Card do Kanban (`src/components/pedidos/PedidoKanban.tsx`)
+
+- Exibir `pedido_code` no topo do card quando disponivel (fonte mono, cor neutra)
+- Se `pedido_code` for null (pedido offline nao sincronizado), exibir badge "Pendente sync" ou nada
+
+### 5. Listagem/Tabela (`src/pages/Pedidos.tsx`)
+
+- Exibir `pedido_code` na tabela e nos detalhes do pedido
+- Tratar null como "-" ou "Pendente"
 
 ---
 
 ### Detalhes tecnicos
 
-**Arquivo `src/components/pedidos/PedidoKanban.tsx`**:
-- Adicionar `envio_fisico` no `tipoEnvioIcons` e `tipoEnvioLabels`
-- Criar config de cores para tipo_envio (similar ao `urgenciaConfig`)
-- Substituir o `<span>` do tipo_envio por um `<Badge>` colorido com texto visivel
+**Migracao SQL:**
+```text
+CREATE SEQUENCE IF NOT EXISTS pedido_code_seq START 1;
 
-**Arquivo `src/pages/Pedidos.tsx`**:
-- Adicionar `envio_fisico` nos mapeamentos de tipo_envio existentes
-- Adicionar estado `tipoEnvioFilter` com opcoes 'all' | 'envio' | 'apenas_nf'
-- Aplicar filtro no `filteredAndSortedPedidos`
-- Renderizar botoes/select de filtro na area de filtros existente
-- Na tabela de listagem, exibir a badge de tipo_envio na coluna existente
+ALTER TABLE pedidos ADD COLUMN pedido_code text;
+
+-- Preencher pedidos existentes em ordem cronologica
+WITH ordered AS (
+  SELECT id, ROW_NUMBER() OVER (ORDER BY created_at) as rn
+  FROM pedidos WHERE pedido_code IS NULL
+)
+UPDATE pedidos SET pedido_code = 'SP-' || LPAD(
+  (SELECT nextval('pedido_code_seq'))::text, 8, '0')
+WHERE id IN (SELECT id FROM ordered);
+
+ALTER TABLE pedidos ADD CONSTRAINT pedidos_pedido_code_unique UNIQUE (pedido_code);
+
+CREATE OR REPLACE FUNCTION generate_pedido_code()
+RETURNS TRIGGER AS $$
+BEGIN
+  IF NEW.pedido_code IS NULL OR NEW.pedido_code = '' THEN
+    NEW.pedido_code := 'SP-' || LPAD(nextval('pedido_code_seq')::text, 8, '0');
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SET search_path TO 'public';
+
+CREATE TRIGGER set_pedido_code
+  BEFORE INSERT ON pedidos
+  FOR EACH ROW
+  EXECUTE FUNCTION generate_pedido_code();
+```
+
+**Arquivos modificados:**
+- Nova migracao SQL
+- `src/lib/offline-db.ts` -- campo `pedido_code` opcional
+- `src/hooks/useOfflinePedidos.ts` -- sincronizar campo, nao gerar offline
+- `src/components/pedidos/PedidoKanban.tsx` -- exibir codigo no card
+- `src/pages/Pedidos.tsx` -- exibir na tabela e detalhes
 
