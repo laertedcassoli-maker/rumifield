@@ -1,65 +1,80 @@
 
 
-## Correcao do overflow mobile - causa raiz no AppLayout
+## Integração Google Sheets - Board Rúmina (aba contratosativos)
 
-### Problema
+### Resumo
 
-A pagina de visita CRM continua cortando conteudo na lateral direita em mobile (390px):
-- Nome do cliente nao trunca (sem ellipsis)
-- Badge "Concluida" fica invisivel
-- Texto de acoes cortado
+Criar uma edge function dedicada para ler dados da planilha Board Rumina, reutilizando a mesma lógica de autenticação JWT/RS256 já implementada em `google-sheets`, mas com credenciais e planilha próprias. Inclui cache em memória de 60 segundos para evitar excesso de chamadas à API do Google.
 
-### Causa Raiz
+### 1. Novos Secrets
 
-O problema NAO esta na pagina `CrmVisitaExecucao.tsx`. A cadeia de constraints CSS esta quebrada no `AppLayout.tsx`:
+Dois novos secrets precisam ser criados:
+
+- **GOOGLE_SHEET_KEY** - Chave da planilha Board Rumina (`1qJ1zZKPMdh24Rro7wKY9Mw6Cny3unaQgenr53EenwxI`)
+- **GOOGLE_SERVICE_ACCOUNT_JSON** - JSON completo da service account `cs-sheet-rumina-data-board@rumina-data-board.iam.gserviceaccount.com` (já fornecido pelo usuário)
+
+### 2. Nova Edge Function: `board-rumina`
+
+**Arquivo:** `supabase/functions/board-rumina/index.ts`
+
+Funcionalidades:
+- Ação `clientes-ativos`: lê a aba `contratosativos` (range `contratosativos!A:ZZ`)
+- Cache em memória de 60 segundos para evitar quota
+- Tratamento de erros específicos (credencial inválida, aba inexistente, planilha não compartilhada)
+- Retorno padronizado:
 
 ```text
-SidebarProvider (flex container)
-  -> AppSidebar
-  -> SidebarInset (flex-1, SEM min-w-0)  <-- QUEBRA AQUI
-    -> main (flex-1, overflow-x-hidden)  <-- tambem falta min-w-0
-      -> div (w-full, overflow-x-hidden)
-        -> CrmVisitaExecucao (min-w-0, overflow-hidden)
-          -> header flex (truncate nao funciona)
+{
+  "success": true,
+  "spreadsheetKey": "1qJ1z...",
+  "sheet": "contratosativos",
+  "headers": ["col1", "col2", ...],   // primeira linha
+  "rows": [["val1", "val2", ...], ...], // demais linhas
+  "rows_count": 150,
+  "cached": false,
+  "timestamp": "2026-02-11T..."
+}
 ```
 
-`SidebarInset` usa `flex-1` mas sem `min-w-0`. Em flexbox, `flex-1` respeita a largura minima do conteudo. Sem `min-w-0`, o conteudo pode empurrar o elemento alem do viewport. Isso impede que `truncate` funcione em qualquer descendente, porque nenhum ancestral tem uma largura determinada e restrita.
+A lógica de JWT (base64url, importPrivateKey, createSignedJWT, getAccessToken) será copiada do `google-sheets/index.ts` existente, garantindo consistência.
 
-### Solucao
+### 3. Configuração
 
-**Arquivo: `src/components/layout/AppLayout.tsx`**
+**Arquivo:** `supabase/config.toml` - adicionar:
 
-1. **SidebarInset** (linha 131): Adicionar `min-w-0` ao className
-
-```
-Antes:  <SidebarInset className={showBanner ? "pt-10" : ""}>
-Depois: <SidebarInset className={cn(showBanner ? "pt-10" : "", "min-w-0")}>
+```text
+[functions.board-rumina]
+verify_jwt = false
 ```
 
-2. **main interno** (linha 146): Adicionar `min-w-0`
+### 4. Detalhes Técnicos
 
+```text
+Fluxo:
+  Request POST { action: "clientes-ativos" }
+    -> Verificar cache (60s TTL)
+    -> Se cache válido, retornar dados cacheados
+    -> Senão:
+      -> Ler GOOGLE_SERVICE_ACCOUNT_JSON (secret)
+      -> Ler GOOGLE_SHEET_KEY (secret)
+      -> Gerar JWT RS256 com service account
+      -> Trocar JWT por access_token OAuth2
+      -> GET sheets API v4: contratosativos!A:ZZ
+      -> Separar headers (linha 1) dos dados
+      -> Armazenar em cache
+      -> Retornar JSON
 ```
-Antes:  <main className="flex-1 overflow-x-hidden overflow-y-auto p-4 md:p-6 max-w-full">
-Depois: <main className="flex-1 min-w-0 overflow-x-hidden overflow-y-auto p-4 md:p-6 max-w-full">
-```
 
-3. **CrmVisitaExecucao.tsx** (linha 225): Remover `overflow-hidden` redundante do root div, pois o AppLayout ja faz o clipping. Manter apenas `min-w-0`.
+**Tratamento de erros:**
+- Secret não configurado -> 400 com mensagem clara
+- Credencial inválida / OAuth falhou -> 500 "Erro de autenticação com Google"
+- Planilha não compartilhada -> 403 com instrução para compartilhar
+- Aba inexistente -> 404 "Aba 'contratosativos' não encontrada"
 
-```
-Antes:  <div className="space-y-6 animate-fade-in pb-24 min-w-0 overflow-hidden">
-Depois: <div className="space-y-6 animate-fade-in pb-24 min-w-0">
-```
+### 5. Arquivos Criados/Modificados
 
-### Impacto
+- `supabase/functions/board-rumina/index.ts` (novo)
+- `supabase/config.toml` (adicionar entrada - automático)
 
-- Corrige o overflow em TODAS as paginas do app, nao apenas na visita CRM
-- `truncate` passara a funcionar corretamente em qualquer pagina com textos longos
-- Zero alteracao de logica, apenas classes Tailwind CSS
-- Sera necessario importar `cn` em AppLayout (ja disponivel no projeto)
-
-### Detalhes Tecnicos
-
-Arquivos modificados:
-- `src/components/layout/AppLayout.tsx` (linhas 131 e 146)
-- `src/pages/crm/CrmVisitaExecucao.tsx` (linha 225, limpeza)
+Nenhuma alteração no banco de dados é necessária.
 
