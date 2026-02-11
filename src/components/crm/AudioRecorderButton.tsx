@@ -172,7 +172,6 @@ export function AudioRecorderButton({ visitId, productCode, onRecorded }: Props)
           ref={fileInputRef}
           type="file"
           accept="audio/*"
-          capture="environment"
           className="hidden"
           onChange={handleFileCapture}
         />
