@@ -151,7 +151,10 @@ export function VisitAudioList({ visitId, visitStatus }: Props) {
     }
 
     try {
-      const blob = new Blob([audioData.slice().buffer as ArrayBuffer], { type: 'audio/webm' });
+      // Determine mime type: check local record for mime_type, fallback to audio/webm
+      const localRecord = await offlineDb.crm_visit_audios.get(item.id);
+      const mimeType = localRecord?.mime_type || 'audio/webm';
+      const blob = new Blob([audioData.slice().buffer as ArrayBuffer], { type: mimeType });
       const url = URL.createObjectURL(blob);
       audioUrlRef.current = url;
       const audio = new Audio(url);
@@ -202,11 +205,15 @@ export function VisitAudioList({ visitId, visitStatus }: Props) {
       const transcription = fnData?.transcription || '';
 
       // 2. Upload to storage (background, non-blocking for UX)
-      const storagePath = `${user!.id}/${item.id}.webm`;
-      const blob = new Blob([item.audioData.slice().buffer as ArrayBuffer], { type: 'audio/webm' });
+      // Determine mime type and extension from local record
+      const localRec = await offlineDb.crm_visit_audios.get(item.id);
+      const audioMime = localRec?.mime_type || 'audio/webm';
+      const ext = audioMime.includes('m4a') ? 'm4a' : audioMime.includes('caf') ? 'caf' : audioMime.includes('mp4') ? 'm4a' : 'webm';
+      const storagePath = `${user!.id}/${item.id}.${ext}`;
+      const blob = new Blob([item.audioData.slice().buffer as ArrayBuffer], { type: audioMime });
       supabase.storage
         .from('crm-visit-audios')
-        .upload(storagePath, blob, { contentType: 'audio/webm', upsert: true })
+        .upload(storagePath, blob, { contentType: audioMime, upsert: true })
         .then(({ error }) => { if (error) console.warn('Storage upload failed (non-critical):', error); });
 
       // 3. Upsert record in DB with transcription
