@@ -141,6 +141,7 @@ export interface OfflinePeca {
   ativo?: boolean | null;
   omie_codigo?: string | null;
   imagem_url?: string | null;
+  is_asset?: boolean;
   created_at: string;
 }
 

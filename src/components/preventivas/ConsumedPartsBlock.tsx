@@ -48,7 +48,7 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Fetch consumed parts
+  // Fetch consumed parts with is_asset from pecas
   const { data: parts, isLoading } = useQuery({
     queryKey: ['preventive-consumed-parts', preventiveId],
     queryFn: async () => {
@@ -59,7 +59,20 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
         .order('consumed_at', { ascending: true });
 
       if (error) throw error;
-      return (data || []) as ConsumedPart[];
+      const items = (data || []) as ConsumedPart[];
+
+      // Fetch is_asset for each unique part_id
+      const partIds = [...new Set(items.map(i => i.part_id))];
+      if (partIds.length > 0) {
+        const { data: pecasData } = await supabase
+          .from('pecas')
+          .select('id, is_asset')
+          .in('id', partIds);
+        const assetMap = new Map((pecasData || []).map((p: any) => [p.id, p.is_asset ?? false]));
+        return items.map(i => ({ ...i, is_asset: assetMap.get(i.part_id) ?? false }));
+      }
+
+      return items.map(i => ({ ...i, is_asset: false }));
     },
     enabled: !!preventiveId,
   });
@@ -70,19 +83,19 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
     queryFn: async () => {
       const { data, error } = await supabase
         .from('pecas')
-        .select('id, codigo, nome, familia')
+        .select('id, codigo, nome, familia, is_asset')
         .eq('ativo', true)
         .order('familia')
         .order('nome');
 
       if (error) throw error;
-      return data;
+      return data as { id: string; codigo: string; nome: string; familia: string | null; is_asset?: boolean }[];
     },
     enabled: isAddDialogOpen,
   });
 
   // Group parts by family for display
-  type PartType = { id: string; codigo: string; nome: string; familia: string | null };
+  type PartType = { id: string; codigo: string; nome: string; familia: string | null; is_asset?: boolean };
   const groupedParts = availableParts?.reduce<Record<string, PartType[]>>((acc, part) => {
     const family = part.familia || 'Sem família';
     if (!acc[family]) acc[family] = [];
@@ -450,8 +463,8 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
                       </ToggleGroup>
                     </div>
 
-                    {/* Asset Unique Code - only when tecnico */}
-                    {stockSource === 'tecnico' && (
+                    {/* Asset Unique Code - only when tecnico AND is_asset */}
+                    {stockSource === 'tecnico' && selectedPart && (selectedPart as any).is_asset && (
                       <div className="space-y-2">
                         <Label>Cód. Unívoco do Ativo</Label>
                         <AssetCodeInput
@@ -553,7 +566,7 @@ function AssetCodeInput({ value, onChange, onBlurSave }: { value: string; onChan
 
 // Part item component
 interface PartItemProps {
-  part: ConsumedPart;
+  part: ConsumedPart & { is_asset?: boolean };
   isCompleted: boolean;
   onStockSourceChange: (partId: string, value: string) => void;
   onAssetCodeChange: (partId: string, code: string) => void;
@@ -663,8 +676,8 @@ function PartItem({ part, isCompleted, onStockSourceChange, onAssetCodeChange, o
         )}
       </div>
 
-      {/* Asset Unique Code - only when tecnico */}
-      {part.stock_source === 'tecnico' && !isCompleted && (
+      {/* Asset Unique Code - only when tecnico AND is_asset */}
+      {part.stock_source === 'tecnico' && part.is_asset && !isCompleted && (
         <div className="pt-1">
           <AssetCodeInput
             value={localAssetCode}
@@ -673,7 +686,7 @@ function PartItem({ part, isCompleted, onStockSourceChange, onAssetCodeChange, o
           />
         </div>
       )}
-      {part.stock_source === 'tecnico' && isCompleted && part.asset_unique_code && (
+      {part.stock_source === 'tecnico' && part.is_asset && isCompleted && part.asset_unique_code && (
         <div className="text-xs text-muted-foreground bg-muted/50 rounded p-2 font-mono">
           Ativo: {part.asset_unique_code}
         </div>

@@ -37,6 +37,7 @@ interface PecaFormData {
   nome: string;
   descricao: string;
   omie_codigo: string;
+  is_asset: boolean;
 }
 
 interface ProdutoComercialFormData {
@@ -64,7 +65,7 @@ export default function AdminConfig() {
   const [imagePreviewOpen, setImagePreviewOpen] = useState(false);
   const [previewImage, setPreviewImage] = useState<{ url: string; nome: string } | null>(null);
   const [produtoForm, setProdutoForm] = useState<ProdutoFormData>({ nome: '', unidade: 'litros', descricao: '', litros_por_vaca_2x: 0, litros_por_vaca_3x: 0 });
-  const [pecaForm, setPecaForm] = useState<PecaFormData>({ codigo: '', nome: '', descricao: '', omie_codigo: '' });
+  const [pecaForm, setPecaForm] = useState<PecaFormData>({ codigo: '', nome: '', descricao: '', omie_codigo: '', is_asset: false });
   const [produtoComercialForm, setProdutoComercialForm] = useState<ProdutoComercialFormData>({ nome: '', descricao: '' });
   const [indicadorForm, setIndicadorForm] = useState<IndicadorFormData>({ produto_id: '', nome: '', descricao: '', unidade: '' });
   const [isEditingProduto, setIsEditingProduto] = useState(false);
@@ -333,7 +334,8 @@ export default function AdminConfig() {
         nome: data.nome,
         descricao: data.descricao,
         omie_codigo: data.omie_codigo,
-      });
+        is_asset: data.is_asset,
+      } as any);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -355,7 +357,8 @@ export default function AdminConfig() {
         nome: data.nome,
         descricao: data.descricao,
         omie_codigo: data.omie_codigo,
-      }).eq('id', data.id);
+        is_asset: data.is_asset,
+      } as any).eq('id', data.id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -486,7 +489,7 @@ export default function AdminConfig() {
   };
 
   const openNewPeca = () => {
-    setPecaForm({ codigo: '', nome: '', descricao: '', omie_codigo: '' });
+    setPecaForm({ codigo: '', nome: '', descricao: '', omie_codigo: '', is_asset: false });
     setIsEditingPeca(false);
     setPecaOpen(true);
   };
@@ -498,6 +501,7 @@ export default function AdminConfig() {
       nome: peca.nome,
       descricao: peca.descricao || '',
       omie_codigo: peca.omie_codigo || '',
+      is_asset: (peca as any).is_asset ?? false,
     });
     setIsEditingPeca(true);
     setPecaOpen(true);
@@ -505,7 +509,7 @@ export default function AdminConfig() {
 
   const closePecaDialog = () => {
     setPecaOpen(false);
-    setPecaForm({ codigo: '', nome: '', descricao: '', omie_codigo: '' });
+    setPecaForm({ codigo: '', nome: '', descricao: '', omie_codigo: '', is_asset: false });
     setIsEditingPeca(false);
   };
 
@@ -1244,6 +1248,18 @@ export default function AdminConfig() {
                     placeholder="Descrição da peça"
                   />
                 </div>
+                <div className="flex items-center justify-between rounded-lg border p-3">
+                  <div className="space-y-0.5">
+                    <Label>Controle de ativo</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Exige código unívoco ao registrar troca com estoque do técnico
+                    </p>
+                  </div>
+                  <Switch
+                    checked={pecaForm.is_asset}
+                    onCheckedChange={(checked) => setPecaForm({ ...pecaForm, is_asset: checked })}
+                  />
+                </div>
                 <Button type="submit" className="w-full" disabled={isPecaSaving}>
                   {isPecaSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : isEditingPeca ? 'Salvar Alterações' : 'Cadastrar'}
                 </Button>
@@ -1329,7 +1345,16 @@ export default function AdminConfig() {
                             )}
                           </TableCell>
                           <TableCell className="font-medium">{peca.codigo}</TableCell>
-                          <TableCell>{peca.nome}</TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              {peca.nome}
+                              {(peca as any).is_asset && (
+                                <Badge variant="outline" className="text-xs bg-blue-500/10 text-blue-600 border-blue-500/30">
+                                  Ativo
+                                </Badge>
+                              )}
+                            </div>
+                          </TableCell>
                           <TableCell>
                             {peca.familia ? (
                               <Badge variant="secondary">{peca.familia}</Badge>
