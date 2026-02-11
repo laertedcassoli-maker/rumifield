@@ -1,54 +1,68 @@
 
 
-## Adicionar flag "Controle de Ativo" no Catalogo de Pecas
+## Melhorar Busca de Codigo Univoco com Filtro por Peca
 
-### Objetivo
+### Problema Atual
 
-Nem toda peca trocada precisa de controle de ativo (codigo univoco). Adicionar um campo booleano `is_asset` na tabela `pecas` para marcar quais pecas sao controladas como ativo. No fluxo de consumo (preventiva/corretiva), o campo "Cod. Univoco do Ativo" so aparece se a peca estiver marcada como ativo E a origem for "tecnico".
+O campo "Cod. Univoco do Ativo" busca em **todos** os ativos da tabela `workshop_items`, sem considerar qual peca foi selecionada. Se o tecnico esta trocando uma Pistola, ele ve codigos de DDs e vice-versa.
 
----
+### Solucao
 
-### Alteracoes no Banco de Dados
+Refatorar o `AssetCodeInput` para:
 
-Adicionar coluna na tabela `pecas`:
+1. **Receber o `partId`** da peca consumida como prop
+2. **Filtrar a busca** por `omie_product_id = partId` na tabela `workshop_items`
+3. **Busca parcial** com `ILIKE '%codigo%'` a partir de 3 caracteres
+4. **Exibir lista de sugestoes** em um dropdown quando ha multiplos resultados
+5. Ao selecionar uma sugestao, preencher o campo automaticamente
+
+### Fluxo do Usuario
 
 ```text
-is_asset | boolean | NOT NULL | DEFAULT false
+Tecnico seleciona peca "Pistola DeLaval" (is_asset = true)
+Tecnico seleciona origem "Tecnico"
+    |
+Campo de codigo aparece
+Digita "12"  -> nada acontece (< 3 chars)
+Digita "123" -> busca: workshop_items WHERE omie_product_id = [pistola_id] AND unique_code ILIKE '%123%'
+    |
+Encontra 3 ativos:
+  - PIST-00123
+  - PIST-01234
+  - PIST-12300
+    |
+Mostra dropdown com opcoes
+Tecnico seleciona "PIST-00123"
+    |
+Campo preenchido + info do ativo exibida
 ```
 
----
+Se nenhum resultado: mostra "Codigo novo -- sera criado ao encerrar"
 
-### Alteracoes em `src/pages/admin/Config.tsx`
+### Detalhes Tecnicos
 
-1. Adicionar `is_asset: boolean` na interface `PecaFormData` (default `false`)
-2. No formulario de criacao/edicao de peca (Dialog), adicionar um `Switch` com label "Controle de ativo" e descricao "Exige codigo univoco ao registrar troca com estoque do tecnico"
-3. Incluir `is_asset` nas mutations `createPeca` e `updatePeca`
-4. Exibir badge "Ativo" na tabela de listagem para pecas com `is_asset = true`
+**Alteracoes em `src/components/preventivas/ConsumedPartsBlock.tsx`:**
 
----
+1. **`AssetCodeInput`** -- adicionar prop `partId: string`
+   - Mudar query de `.eq('unique_code', code)` para `.ilike('unique_code', '%code%').eq('omie_product_id', partId).limit(10)`
+   - Retornar array em vez de single
+   - Threshold de busca: 3 caracteres
 
-### Alteracoes em `src/components/preventivas/ConsumedPartsBlock.tsx`
+2. **UI do `AssetCodeInput`**:
+   - Abaixo do input, mostrar lista de resultados como botoes clicaveis (estilo Command/lista simples)
+   - Cada item mostra o `unique_code` e status do ativo
+   - Ao clicar, preenche o input
+   - Se nenhum resultado e 3+ chars: "Codigo novo"
+   - Se 1 resultado exato: "Ativo encontrado" (comportamento atual)
 
-1. Incluir `is_asset` no tipo `ConsumedPart` (vindo de um join com `pecas` ou snapshot no registro)
-2. Buscar `is_asset` da peca ao carregar os itens consumidos (join com `pecas` via `part_id`)
-3. Condicionar a exibicao do `AssetCodeInput` e do dialog de codigo univoco:
-   - Exibir **apenas** quando `stock_source === 'tecnico'` **E** a peca tem `is_asset === true`
-4. No dialog "Adicionar Peca Manual", condicionar o campo de codigo univoco da mesma forma
+3. **Chamadas do `AssetCodeInput`** -- passar `partId`:
+   - Na lista de pecas consumidas (PartItem, linha 682): `partId={part.part_id}`
+   - No dialog de adicao manual (linha ~460): `partId={selectedPartId}`
 
----
-
-### Alteracoes em `src/pages/preventivas/AtendimentoPreventivo.tsx`
-
-Na logica de encerramento (`completeMutation`), ao criar ativos em `workshop_items`:
-- Filtrar apenas pecas que tem `is_asset = true` (buscar da tabela `pecas`) alem de ter `asset_unique_code` preenchido
-
----
-
-### Arquivos afetados
+### Arquivos Afetados
 
 | Arquivo | Alteracao |
 |---|---|
-| Migracao SQL | Adicionar `is_asset boolean NOT NULL DEFAULT false` em `pecas` |
-| `src/pages/admin/Config.tsx` | Switch no form, badge na listagem, mutations |
-| `src/components/preventivas/ConsumedPartsBlock.tsx` | Condicionar campo de codigo univoco a `is_asset` |
-| `src/pages/preventivas/AtendimentoPreventivo.tsx` | Filtrar criacao de ativo por `is_asset` |
+| `src/components/preventivas/ConsumedPartsBlock.tsx` | Refatorar `AssetCodeInput` para receber `partId`, busca parcial filtrada, dropdown de sugestoes |
+
+Nenhuma alteracao de banco de dados ou RLS necessaria.
