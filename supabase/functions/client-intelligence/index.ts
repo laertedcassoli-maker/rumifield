@@ -47,7 +47,7 @@ serve(async (req) => {
   }
 
   try {
-    const { clientId, question } = await req.json();
+    const { clientId, question, model } = await req.json();
     if (!clientId) {
       return new Response(
         JSON.stringify({ error: "clientId é obrigatório" }),
@@ -467,7 +467,7 @@ REGRAS:
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
+        model: model || "google/gemini-3-flash-preview",
         messages: [
           { role: "system", content: systemPrompt },
           {

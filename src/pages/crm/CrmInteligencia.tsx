@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Brain, ClipboardCheck, AlertTriangle, Eye, FileText, AudioLines, Package, Sparkles, ChevronDown, ChevronUp, Loader2, Search } from "lucide-react";
+import { Brain, ClipboardCheck, AlertTriangle, Eye, FileText, AudioLines, Package, Sparkles, ChevronDown, ChevronUp, Loader2, Search, Cpu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -7,12 +7,23 @@ import { Badge } from "@/components/ui/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useMenuPermissions } from "@/hooks/useMenuPermissions";
 import ReactMarkdown from "react-markdown";
+
+const AI_MODELS = [
+  { value: "google/gemini-3-flash-preview", label: "Gemini 3 Flash", description: "Rápido e eficiente" },
+  { value: "google/gemini-3-pro-preview", label: "Gemini 3 Pro", description: "Próxima geração" },
+  { value: "google/gemini-2.5-pro", label: "Gemini 2.5 Pro", description: "Raciocínio complexo" },
+  { value: "google/gemini-2.5-flash", label: "Gemini 2.5 Flash", description: "Equilibrado" },
+  { value: "openai/gpt-5", label: "GPT-5", description: "Alta precisão" },
+  { value: "openai/gpt-5-mini", label: "GPT-5 Mini", description: "Custo-benefício" },
+  { value: "openai/gpt-5.2", label: "GPT-5.2", description: "Mais recente OpenAI" },
+];
 
 const SUGGESTIONS = [
   { icon: "📋", label: "Resumo completo", question: "Faça um resumo completo deste cliente" },
@@ -75,6 +86,7 @@ export default function CrmInteligencia() {
   const [analysis, setAnalysis] = useState<string | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [cachedClientId, setCachedClientId] = useState<string | null>(null);
+  const [selectedModel, setSelectedModel] = useState("google/gemini-3-flash-preview");
 
   // Check permissions
   const allowed =
@@ -120,7 +132,7 @@ export default function CrmInteligencia() {
 
     try {
       const { data, error } = await supabase.functions.invoke("client-intelligence", {
-        body: { clientId: selectedClient.id, question: question.trim() },
+        body: { clientId: selectedClient.id, question: question.trim(), model: selectedModel },
       });
 
       if (error) throw error;
@@ -134,7 +146,7 @@ export default function CrmInteligencia() {
     } finally {
       setLoadingPhase("idle");
     }
-  }, [selectedClient, question, cachedClientId, stats, toast]);
+  }, [selectedClient, question, cachedClientId, stats, toast, selectedModel]);
 
   if (!allowed) {
     return (
@@ -212,7 +224,26 @@ export default function CrmInteligencia() {
           onChange={(e) => setQuestion(e.target.value)}
           className="min-h-[80px] resize-none"
         />
-        <div className="flex justify-end">
+        <div className="flex items-center justify-between gap-3">
+          {/* Model Selector */}
+          <div className="flex items-center gap-2">
+            <Cpu className="h-4 w-4 text-muted-foreground" />
+            <Select value={selectedModel} onValueChange={setSelectedModel}>
+              <SelectTrigger className="w-[200px] h-9 text-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {AI_MODELS.map((m) => (
+                  <SelectItem key={m.value} value={m.value}>
+                    <div className="flex flex-col">
+                      <span>{m.label}</span>
+                      <span className="text-[10px] text-muted-foreground">{m.description}</span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           <Button onClick={handleGenerate} disabled={isLoading || !selectedClient} className="gap-2">
             {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
             Gerar
