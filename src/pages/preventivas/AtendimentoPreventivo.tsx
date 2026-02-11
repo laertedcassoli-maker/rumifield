@@ -211,7 +211,7 @@ export default function AtendimentoPreventivo() {
           }
         }
 
-        // --- Auto-create workshop_items for new asset codes ---
+        // --- Auto-create workshop_items for new asset codes (only for is_asset parts) ---
         const { data: tecnicoParts } = await supabase
           .from('preventive_part_consumption')
           .select('part_id, asset_unique_code')
@@ -220,8 +220,17 @@ export default function AtendimentoPreventivo() {
           .not('asset_unique_code', 'is', null);
 
         if (tecnicoParts && tecnicoParts.length > 0) {
+          // Fetch which parts are actually assets
+          const partIds = [...new Set(tecnicoParts.map(tp => tp.part_id))];
+          const { data: assetParts } = await supabase
+            .from('pecas')
+            .select('id, is_asset')
+            .in('id', partIds);
+          const assetSet = new Set((assetParts || []).filter((p: any) => p.is_asset).map((p: any) => p.id));
+
           for (const tp of tecnicoParts) {
             if (!tp.asset_unique_code?.trim()) continue;
+            if (!assetSet.has(tp.part_id)) continue; // Skip non-asset parts
             // Check if already exists
             const { data: existing } = await supabase
               .from('workshop_items')

@@ -1559,6 +1559,7 @@ export type Database = {
           familia: string | null
           id: string
           imagem_url: string | null
+          is_asset: boolean
           nome: string
           omie_codigo: string | null
           quantidade_estoque: number | null
@@ -1571,6 +1572,7 @@ export type Database = {
           familia?: string | null
           id?: string
           imagem_url?: string | null
+          is_asset?: boolean
           nome: string
           omie_codigo?: string | null
           quantidade_estoque?: number | null
@@ -1583,6 +1585,7 @@ export type Database = {
           familia?: string | null
           id?: string
           imagem_url?: string | null
+          is_asset?: boolean
           nome?: string
           omie_codigo?: string | null
           quantidade_estoque?: number | null
