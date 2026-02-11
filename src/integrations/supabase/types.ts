@@ -1637,6 +1637,7 @@ export type Database = {
           omie_data_faturamento: string | null
           omie_nf_numero: string | null
           omie_pedido_id: string | null
+          preventive_id: string | null
           solicitante_id: string
           status: Database["public"]["Enums"]["pedido_status"]
           updated_at: string
@@ -1649,6 +1650,7 @@ export type Database = {
           omie_data_faturamento?: string | null
           omie_nf_numero?: string | null
           omie_pedido_id?: string | null
+          preventive_id?: string | null
           solicitante_id: string
           status?: Database["public"]["Enums"]["pedido_status"]
           updated_at?: string
@@ -1661,6 +1663,7 @@ export type Database = {
           omie_data_faturamento?: string | null
           omie_nf_numero?: string | null
           omie_pedido_id?: string | null
+          preventive_id?: string | null
           solicitante_id?: string
           status?: Database["public"]["Enums"]["pedido_status"]
           updated_at?: string
@@ -1678,6 +1681,13 @@ export type Database = {
             columns: ["cliente_id"]
             isOneToOne: false
             referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pedidos_preventive_id_fkey"
+            columns: ["preventive_id"]
+            isOneToOne: false
+            referencedRelation: "preventive_maintenance"
             referencedColumns: ["id"]
           },
         ]
@@ -1976,6 +1986,7 @@ export type Database = {
       }
       preventive_part_consumption: {
         Row: {
+          asset_unique_code: string | null
           consumed_at: string
           created_at: string
           exec_item_id: string | null
@@ -1992,6 +2003,7 @@ export type Database = {
           unit_cost_snapshot: number | null
         }
         Insert: {
+          asset_unique_code?: string | null
           consumed_at?: string
           created_at?: string
           exec_item_id?: string | null
@@ -2008,6 +2020,7 @@ export type Database = {
           unit_cost_snapshot?: number | null
         }
         Update: {
+          asset_unique_code?: string | null
           consumed_at?: string
           created_at?: string
           exec_item_id?: string | null

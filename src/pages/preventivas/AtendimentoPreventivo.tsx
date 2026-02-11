@@ -173,6 +173,68 @@ export default function AtendimentoPreventivo() {
           .eq('id', routeItem.preventiveId);
 
         if (pmError) throw pmError;
+
+        // --- Auto-create pedido for parts with stock_source = 'novo_pedido' ---
+        const { data: novoPedidoParts } = await supabase
+          .from('preventive_part_consumption')
+          .select('part_id, part_name_snapshot, quantity')
+          .eq('preventive_id', routeItem.preventiveId)
+          .eq('stock_source', 'novo_pedido');
+
+        if (novoPedidoParts && novoPedidoParts.length > 0 && user) {
+          const { data: pedido, error: pedidoError } = await supabase
+            .from('pedidos')
+            .insert({
+              cliente_id: routeItem.client_id,
+              solicitante_id: user.id,
+              preventive_id: routeItem.preventiveId,
+              observacoes: `Gerado automaticamente na visita preventiva (rota ${routeItem.route?.route_code})`,
+            })
+            .select('id')
+            .single();
+
+          if (!pedidoError && pedido) {
+            // Group parts by part_id summing quantities
+            const grouped: Record<string, number> = {};
+            for (const p of novoPedidoParts) {
+              grouped[p.part_id] = (grouped[p.part_id] || 0) + (p.quantity || 1);
+            }
+            const pedidoItens = Object.entries(grouped).map(([peca_id, quantidade]) => ({
+              pedido_id: pedido.id,
+              peca_id,
+              quantidade,
+            }));
+            await supabase.from('pedido_itens').insert(pedidoItens);
+          }
+        }
+
+        // --- Auto-create workshop_items for new asset codes ---
+        const { data: tecnicoParts } = await supabase
+          .from('preventive_part_consumption')
+          .select('part_id, asset_unique_code')
+          .eq('preventive_id', routeItem.preventiveId)
+          .eq('stock_source', 'tecnico')
+          .not('asset_unique_code', 'is', null);
+
+        if (tecnicoParts && tecnicoParts.length > 0) {
+          for (const tp of tecnicoParts) {
+            if (!tp.asset_unique_code?.trim()) continue;
+            // Check if already exists
+            const { data: existing } = await supabase
+              .from('workshop_items')
+              .select('id')
+              .eq('unique_code', tp.asset_unique_code.trim())
+              .maybeSingle();
+
+            if (!existing) {
+              await supabase.from('workshop_items').insert({
+                unique_code: tp.asset_unique_code.trim(),
+                omie_product_id: tp.part_id,
+                status: 'disponivel',
+              });
+            }
+          }
+        }
       }
 
       // Check if all route items are now executado - if so, complete the route
