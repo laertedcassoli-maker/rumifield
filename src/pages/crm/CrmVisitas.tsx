@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
@@ -52,6 +53,7 @@ export default function CrmVisitas() {
   const [objective, setObjective] = useState('');
   const [plannedDate, setPlannedDate] = useState<Date | undefined>(undefined);
   const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [csmFilter, setCsmFilter] = useState<string>('all');
 
   // @ts-ignore - crm_visits not in types yet
   const { data: visitas, isLoading } = useQuery({
@@ -84,6 +86,21 @@ export default function CrmVisitas() {
       return data;
     },
     enabled: !!user && sheetOpen,
+  });
+
+  // @ts-ignore
+  const { data: consultores } = useQuery({
+    queryKey: ['crm-consultores'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, nome')
+        .eq('is_active', true)
+        .order('nome');
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user && isAdmin,
   });
 
   // @ts-ignore
@@ -146,6 +163,9 @@ export default function CrmVisitas() {
   const filteredVisitas = useMemo(() => {
     if (!visitas) return [];
     let result = visitas;
+    if (csmFilter !== 'all') {
+      result = result.filter(v => v.owner_user_id === csmFilter);
+    }
     if (statusFilter !== 'all') {
       result = result.filter(v => {
         const ds = getDisplayStatus(v);
@@ -161,7 +181,7 @@ export default function CrmVisitas() {
       );
     }
     return result;
-  }, [visitas, statusFilter, search]);
+  }, [visitas, statusFilter, search, csmFilter]);
 
   const counts = useMemo(() => {
     if (!visitas) return { planejada: 0, atrasada: 0, em_andamento: 0, concluida: 0 };
@@ -202,6 +222,21 @@ export default function CrmVisitas() {
           </button>
         ))}
       </div>
+
+      {/* CSM Filter - admin only */}
+      {isAdmin && (
+        <Select value={csmFilter} onValueChange={setCsmFilter}>
+          <SelectTrigger className="h-9 text-sm">
+            <SelectValue placeholder="Todos os CSMs" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos os CSMs</SelectItem>
+            {consultores?.map((c: any) => (
+              <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
 
       {/* Search */}
       <div className="relative">
