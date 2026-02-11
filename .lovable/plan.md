@@ -1,41 +1,51 @@
 
 
-## Ajuste nos pedidos automaticos ao finalizar visita preventiva
+## Destacar tipo de envio nos pedidos de pecas
 
-### Situacao atual
-- Pecas com `stock_source = 'novo_pedido'` geram um pedido com `tipo_envio: 'apenas_nf'` (incorreto)
-- Pecas com `stock_source = 'tecnico'` nao geram pedido nenhum (incompleto)
+### Problema
+Os pedidos gerados automaticamente (ex: "Gato do Mato") nao possuem destaque visual que diferencie entre envio fisico e apenas emissao de NF. O tipo de envio aparece apenas como um icone pequeno, sem texto.
 
-### O que sera feito
+### Solucao escolhida: Tags visuais + Filtro
 
-**1. Pecas "novo_pedido" -- corrigir para envio fisico**
-- Alterar o `tipo_envio` de `'apenas_nf'` para `'envio_fisico'` no pedido gerado automaticamente
-- Essas pecas precisam ser enviadas fisicamente ao tecnico, portanto o pedido deve refletir isso
+Combinar duas melhorias: (1) badges/tags visualmente claras no card e (2) filtro na listagem.
 
-**2. Pecas "tecnico" -- criar pedido apenas para NF**
-- Adicionar um novo bloco apos o bloco de `novo_pedido` (apos linha 212)
-- Buscar pecas consumidas com `stock_source = 'tecnico'`
-- Criar um pedido separado com:
-  - `origem: 'preventiva'`
-  - `tipo_envio: 'apenas_nf'` (apenas emissao de nota fiscal, sem envio fisico)
-  - `observacoes`: indicando que sao pecas do estoque do tecnico, apenas para faturamento
-- Inserir os itens agrupados em `pedido_itens`
+---
+
+### 1. Tags visuais no PedidoCard (Kanban e Lista)
+
+Adicionar badges coloridas e explicitas para `tipo_envio`:
+
+| tipo_envio | Badge | Cor |
+|---|---|---|
+| envio_fisico | "Envio Fisico" com icone Truck | Azul (destaque normal) |
+| apenas_nf | "Apenas NF" com icone FileText | Amarelo/Amber (destaque de atencao) |
+| correio | "Correio" com icone Truck | Cinza |
+| entrega | "Entrega" com icone HandHelping | Cinza |
+
+A badge de "Apenas NF" tera cor amarela para chamar atencao de que nao ha envio fisico.
+
+### 2. Filtro por tipo de envio na aba "Pedidos"
+
+Adicionar um filtro com as opcoes:
+- **Todos** (padrao)
+- **Envio Fisico** (correio, entrega, envio_fisico)
+- **Apenas NF** (apenas_nf)
+
+Isso permite ao admin rapidamente separar o que precisa ser despachado do que e so faturamento.
+
+---
 
 ### Detalhes tecnicos
 
-**Arquivo**: `src/pages/preventivas/AtendimentoPreventivo.tsx`
+**Arquivo `src/components/pedidos/PedidoKanban.tsx`**:
+- Adicionar `envio_fisico` no `tipoEnvioIcons` e `tipoEnvioLabels`
+- Criar config de cores para tipo_envio (similar ao `urgenciaConfig`)
+- Substituir o `<span>` do tipo_envio por um `<Badge>` colorido com texto visivel
 
-- Linha 193: alterar `tipo_envio: 'apenas_nf'` para `tipo_envio: 'envio_fisico'`
-- Apos linha 212: inserir novo bloco que:
-  1. Busca pecas com `stock_source = 'tecnico'` na tabela `preventive_part_consumption`
-  2. Cria registro em `pedidos` com `tipo_envio: 'apenas_nf'` e observacao especifica
-  3. Agrupa por `part_id` e insere em `pedido_itens`
-
-### Resumo do comportamento final
-
-| Fonte de estoque | Gera pedido? | Tipo envio | Objetivo |
-|---|---|---|---|
-| Tecnico | Sim | apenas_nf | Emissao de NF para regularizar consumo |
-| Novo pedido | Sim | envio_fisico | Envio real de pecas ao tecnico |
-| Fazenda | Nao | -- | Sem acao automatica |
+**Arquivo `src/pages/Pedidos.tsx`**:
+- Adicionar `envio_fisico` nos mapeamentos de tipo_envio existentes
+- Adicionar estado `tipoEnvioFilter` com opcoes 'all' | 'envio' | 'apenas_nf'
+- Aplicar filtro no `filteredAndSortedPedidos`
+- Renderizar botoes/select de filtro na area de filtros existente
+- Na tabela de listagem, exibir a badge de tipo_envio na coluna existente
 
