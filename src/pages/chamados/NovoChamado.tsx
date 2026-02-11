@@ -490,24 +490,13 @@ export default function NovoChamado() {
             </CardContent>
           </Card>
 
-          {/* Detalhes do Problema */}
+          {/* Relato da Fazenda */}
           <Card className="md:col-span-2">
             <CardHeader>
-              <CardTitle>Detalhes do Problema</CardTitle>
+              <CardTitle>Relato da Fazenda</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-4">
+            <CardContent>
               <div className="space-y-2">
-                <Label>Título *</Label>
-                <Input
-                  value={title}
-                  onChange={(e) => setTitle(e.target.value)}
-                  placeholder="Resumo do problema"
-                  maxLength={200}
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label>Descrição</Label>
                 <Textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
