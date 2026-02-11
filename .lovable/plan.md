@@ -1,35 +1,26 @@
 
 
-## Adicionar campo de busca na tabela Board Rumina
+## Tornar "Relato da Fazenda" o unico campo de texto e obrigatorio
 
-### O que sera feito
+### Arquivo: `src/pages/chamados/NovoChamado.tsx`
 
-Adicionar um campo de busca (Input) na secao "Board Rumina - Contratos Ativos" que filtra as linhas da tabela em tempo real conforme o usuario digita. A busca sera case-insensitive e procurara em todas as colunas de cada linha.
+### Alteracoes
 
-### Alteracoes em `src/pages/admin/GoogleSheetsConfig.tsx`
+1. **Remover estado `title`** (linha 67): apagar `const [title, setTitle] = useState('');` -- nao ha mais campo de titulo na interface.
 
-1. **Novo estado**: `boardRuminaSearch` (string) para armazenar o termo de busca.
+2. **Validacao no `handleSubmit`** (linha ~234): trocar `!title.trim()` por `!description.trim()` e atualizar a mensagem de erro para "Selecione um cliente e preencha o relato da fazenda."
 
-2. **Logica de filtro**: Criar uma variavel `filteredRows` que filtra `boardRuminaData.rows` verificando se alguma celula da linha contem o termo de busca (case-insensitive).
+3. **Insert no banco** (linha ~188): como a coluna `title` no banco e NOT NULL, gerar automaticamente a partir do relato:
+   ```
+   title: description.trim().substring(0, 80)
+   ```
 
-3. **Campo de busca**: Adicionar um `Input` com icone de lupa ao lado dos botoes existentes ("Carregar" e "Copiar"), visivel apenas quando ha dados carregados.
+4. **Marcar campo como obrigatorio na UI** (linha ~296): trocar o titulo do card de "Relato da Fazenda" para "Relato da Fazenda *" para indicar visualmente que e obrigatorio.
 
-4. **Tabela**: Renderizar `filteredRows` em vez de `boardRuminaData.rows`. Exibir contador mostrando "X de Y linhas" quando o filtro estiver ativo.
+### Resumo
 
-### Detalhes tecnicos
+- Nenhum campo "Titulo" existe mais na interface
+- "Relato da Fazenda" (description) passa a ser o unico campo de texto e obrigatorio
+- O titulo do chamado no banco e gerado automaticamente (primeiros 80 caracteres do relato)
+- Nenhuma alteracao em banco de dados ou edge functions
 
-```text
-Estado: boardRuminaSearch = ""
-
-Filtro:
-  filteredRows = boardRuminaData.rows.filter(row =>
-    row.some(cell => cell.toLowerCase().includes(search.toLowerCase()))
-  )
-
-Layout:
-  [Carregar] [Copiar] [Input busca com icone Search]
-  Badge cache | "X de Y linhas"
-  Tabela com filteredRows
-```
-
-Nenhuma alteracao em banco de dados ou edge functions.
