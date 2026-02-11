@@ -1,46 +1,35 @@
 
 
-## Atualizar tela Google Sheets Config para incluir Board Rumina
+## Adicionar campo de busca na tabela Board Rumina
 
-### Problema
+### O que sera feito
 
-A pagina `/admin/config/google-sheets` ainda chama apenas a edge function `google-sheets` (que usa os secrets `CREDENCIAL_GOOGLE` e `CHAVE_GOOGLE_SHEET_TABELA_BOARD`). Nao inclui nenhuma interacao com a nova edge function `board-rumina` (que usa `GOOGLE_SERVICE_ACCOUNT_JSON` e `GOOGLE_SHEET_KEY`).
+Adicionar um campo de busca (Input) na secao "Board Rumina - Contratos Ativos" que filtra as linhas da tabela em tempo real conforme o usuario digita. A busca sera case-insensitive e procurara em todas as colunas de cada linha.
 
-### Solucao
+### Alteracoes em `src/pages/admin/GoogleSheetsConfig.tsx`
 
-Adicionar uma nova secao na pagina para testar e visualizar dados do Board Rumina, chamando a edge function `board-rumina` com `action: "clientes-ativos"`.
+1. **Novo estado**: `boardRuminaSearch` (string) para armazenar o termo de busca.
 
-### Alteracoes no arquivo `src/pages/admin/GoogleSheetsConfig.tsx`
+2. **Logica de filtro**: Criar uma variavel `filteredRows` que filtra `boardRuminaData.rows` verificando se alguma celula da linha contem o termo de busca (case-insensitive).
 
-1. **Nova secao "Board Rumina - Contratos Ativos"** apos o card de conexao existente:
-   - Botao "Carregar Contratos Ativos" que chama `supabase.functions.invoke("board-rumina", { body: { action: "clientes-ativos" } })`
-   - Exibicao dos headers retornados como cabecalho da tabela
-   - Tabela com os dados retornados (rows)
-   - Badge indicando se veio do cache ou nao
-   - Contador de linhas
-   - Botao para copiar dados
+3. **Campo de busca**: Adicionar um `Input` com icone de lupa ao lado dos botoes existentes ("Carregar" e "Copiar"), visivel apenas quando ha dados carregados.
 
-2. **Novos estados**:
-   - `boardRuminaStatus`: "idle" | "loading" | "loaded" | "error"
-   - `boardRuminaData`: { headers, rows, rows_count, cached, timestamp }
-   - Logs integrados ao mesmo sistema de logs existente
+4. **Tabela**: Renderizar `filteredRows` em vez de `boardRuminaData.rows`. Exibir contador mostrando "X de Y linhas" quando o filtro estiver ativo.
 
-3. **Layout**: Card separado com titulo "Board Rumina - Contratos Ativos", descricao explicando que le a aba `contratosativos`, e tabela responsiva com scroll horizontal.
-
-4. **Manter a secao existente** da integracao `google-sheets` intacta (conexao genérica e leitor de range).
-
-### Detalhes Tecnicos
-
-Nenhuma alteracao de banco de dados ou edge functions. Apenas o frontend `GoogleSheetsConfig.tsx` sera modificado para adicionar o novo card que chama `board-rumina`.
-
-Estrutura do card:
+### Detalhes tecnicos
 
 ```text
-Card "Board Rumina - Contratos Ativos"
-  -> Botao "Carregar Contratos Ativos"
-  -> Badge com status (cache/fresh)
-  -> Info: X linhas, timestamp
-  -> Tabela com headers dinamicos + rows
-  -> Botao Copiar
+Estado: boardRuminaSearch = ""
+
+Filtro:
+  filteredRows = boardRuminaData.rows.filter(row =>
+    row.some(cell => cell.toLowerCase().includes(search.toLowerCase()))
+  )
+
+Layout:
+  [Carregar] [Copiar] [Input busca com icone Search]
+  Badge cache | "X de Y linhas"
+  Tabela com filteredRows
 ```
 
+Nenhuma alteracao em banco de dados ou edge functions.
