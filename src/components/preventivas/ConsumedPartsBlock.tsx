@@ -746,7 +746,12 @@ function PartItem({ part, isCompleted, onStockSourceChange, onAssetCodeChange, o
         <ToggleGroup
           type="single"
           value={part.stock_source || ''}
-          onValueChange={(value) => onStockSourceChange(part.id, value)}
+          onValueChange={(value) => {
+            onStockSourceChange(part.id, value);
+            if (value !== 'tecnico') {
+              setLocalAssetCode('');
+            }
+          }}
           disabled={isCompleted}
           className="gap-1"
         >
