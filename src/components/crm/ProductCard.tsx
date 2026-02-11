@@ -105,7 +105,7 @@ export function ProductCard({
 
         {/* Metrics */}
         {productMetrics.length > 0 && (
-          <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-2 gap-y-1.5 text-xs">
             {productMetrics.map(m => (
               <div key={m.id} className="flex justify-between gap-1">
                 <span className="text-muted-foreground truncate">{m.label}</span>

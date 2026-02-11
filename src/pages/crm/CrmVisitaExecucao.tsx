@@ -229,7 +229,7 @@ export default function CrmVisitaExecucao() {
           <ArrowLeft className="h-5 w-5" />
         </Button>
         <div className="flex-1">
-          <h1 className="text-xl font-bold">{visit.clientes?.nome}</h1>
+          <h1 className="text-xl font-bold truncate">{visit.clientes?.nome}</h1>
           {visit.clientes?.fazenda && <p className="text-muted-foreground text-sm">{visit.clientes.fazenda}</p>}
         </div>
         <Badge className={`text-xs ${
@@ -275,8 +275,8 @@ export default function CrmVisitaExecucao() {
 
       {/* Action Buttons */}
       {isPlanned && (
-        <div className="flex gap-2">
-          <Button size="lg" className="flex-1" onClick={() => setCheckinOpen(true)}>
+        <div className="flex flex-wrap gap-2">
+          <Button size="lg" className="flex-1 min-w-0" onClick={() => setCheckinOpen(true)}>
             <Navigation className="mr-2 h-5 w-5" />
             Fazer Check-in
           </Button>
@@ -287,14 +287,16 @@ export default function CrmVisitaExecucao() {
       )}
 
       {isActive && (
-        <div className="flex gap-2">
-          <Button size="lg" variant="outline" className="flex-1 gap-1" onClick={() => setActionModal(true)}>
-            <Plus className="h-4 w-4" /> Ação
-          </Button>
-          <Button size="lg" className="flex-1 gap-1" onClick={() => setFinalizarOpen(true)}>
-            <CheckCircle2 className="h-4 w-4" /> Finalizar
-          </Button>
-          <Button size="lg" variant="outline" className="shrink-0 gap-1.5 border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={() => setCancelOpen(true)}>
+        <div className="space-y-2">
+          <div className="flex gap-2">
+            <Button size="lg" variant="outline" className="flex-1 min-w-0 gap-1" onClick={() => setActionModal(true)}>
+              <Plus className="h-4 w-4" /> Ação
+            </Button>
+            <Button size="lg" className="flex-1 min-w-0 gap-1" onClick={() => setFinalizarOpen(true)}>
+              <CheckCircle2 className="h-4 w-4" /> Finalizar
+            </Button>
+          </div>
+          <Button size="lg" variant="outline" className="w-full gap-1.5 border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={() => setCancelOpen(true)}>
             <XCircle className="h-4 w-4" /> Cancelar
           </Button>
         </div>
