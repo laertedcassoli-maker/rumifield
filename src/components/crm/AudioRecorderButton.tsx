@@ -11,6 +11,27 @@ interface Props {
   onRecorded: () => void;
 }
 
+function isIOS(): boolean {
+  if (typeof navigator === 'undefined') return false;
+  const ua = navigator.userAgent;
+  if (/iPad|iPhone|iPod/.test(ua)) return true;
+  // iPad on iOS 13+ reports as MacIntel with touch
+  if (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1) return true;
+  return false;
+}
+
+async function estimateDuration(arrayBuffer: ArrayBuffer): Promise<number | null> {
+  try {
+    const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const decoded = await ctx.decodeAudioData(arrayBuffer.slice(0));
+    const dur = Math.round(decoded.duration);
+    ctx.close();
+    return dur;
+  } catch {
+    return null;
+  }
+}
+
 export function AudioRecorderButton({ visitId, productCode, onRecorded }: Props) {
   const { toast } = useToast();
   const [recording, setRecording] = useState(false);
@@ -18,7 +39,53 @@ export function AudioRecorderButton({ visitId, productCode, onRecorded }: Props)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<Blob[]>([]);
   const startTimeRef = useRef<number>(0);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
+  const useNativeCapture = isIOS();
+
+  // ── iOS: native file input capture ──
+  const handleFileCapture = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    // Reset input so the same file can be re-selected
+    if (fileInputRef.current) fileInputRef.current.value = '';
+    if (!file) return;
+
+    setSaving(true);
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const audioData = new Uint8Array(arrayBuffer);
+
+      if (audioData.byteLength === 0) {
+        toast({ variant: 'destructive', title: 'Gravação vazia', description: 'Nenhum dado de áudio capturado.' });
+        return;
+      }
+
+      const durationSeconds = await estimateDuration(arrayBuffer);
+      const mimeType = file.type || 'audio/m4a';
+
+      await offlineDb.crm_visit_audios.add({
+        id: crypto.randomUUID(),
+        visit_id: visitId,
+        product_code: productCode,
+        audioData,
+        duration_seconds: durationSeconds ?? 0,
+        file_size_bytes: audioData.byteLength,
+        mime_type: mimeType,
+        status: 'pending_upload',
+        created_at: new Date().toISOString(),
+      });
+
+      onRecorded();
+      toast({ title: 'Áudio gravado com sucesso!' });
+    } catch (err) {
+      console.error('Error saving iOS audio:', err);
+      toast({ variant: 'destructive', title: 'Erro ao salvar áudio' });
+    } finally {
+      setSaving(false);
+    }
+  }, [visitId, productCode, onRecorded, toast]);
+
+  // ── Android/Desktop: MediaRecorder ──
   const startRecording = useCallback(async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -31,16 +98,13 @@ export function AudioRecorderButton({ visitId, productCode, onRecorded }: Props)
       startTimeRef.current = Date.now();
 
       mediaRecorder.ondataavailable = (e) => {
-        console.log('[AudioRecorder] ondataavailable, size:', e.data.size);
         if (e.data.size > 0) chunksRef.current.push(e.data);
       };
 
       mediaRecorder.onstop = async () => {
-        console.log('[AudioRecorder] onstop, chunks:', chunksRef.current.length, 'total size:', chunksRef.current.reduce((s, c) => s + c.size, 0));
         setSaving(true);
         try {
           const blob = new Blob(chunksRef.current, { type: mimeType });
-          console.log('[AudioRecorder] blob size:', blob.size);
           const arrayBuffer = await blob.arrayBuffer();
           const audioData = new Uint8Array(arrayBuffer);
           const durationSeconds = Math.round((Date.now() - startTimeRef.current) / 1000);
@@ -57,6 +121,7 @@ export function AudioRecorderButton({ visitId, productCode, onRecorded }: Props)
             audioData,
             duration_seconds: durationSeconds,
             file_size_bytes: audioData.byteLength,
+            mime_type: mimeType,
             status: 'pending_upload',
             created_at: new Date().toISOString(),
           });
@@ -70,11 +135,10 @@ export function AudioRecorderButton({ visitId, productCode, onRecorded }: Props)
           setSaving(false);
         }
 
-        // Stop all tracks
         stream.getTracks().forEach(t => t.stop());
       };
 
-      mediaRecorder.start(); // No timeslice — all data comes on stop
+      mediaRecorder.start();
       setRecording(true);
     } catch (err) {
       console.error('Error accessing microphone:', err);
@@ -84,7 +148,6 @@ export function AudioRecorderButton({ visitId, productCode, onRecorded }: Props)
 
   const stopRecording = useCallback(() => {
     if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
-      // Flush any buffered data before stopping
       if (mediaRecorderRef.current.state === 'recording') {
         mediaRecorderRef.current.requestData();
       }
@@ -101,6 +164,32 @@ export function AudioRecorderButton({ visitId, productCode, onRecorded }: Props)
     );
   }
 
+  // ── iOS: render hidden file input + mic button ──
+  if (useNativeCapture) {
+    return (
+      <>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="audio/*"
+          capture="environment"
+          className="hidden"
+          onChange={handleFileCapture}
+        />
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8"
+          onClick={() => fileInputRef.current?.click()}
+          title="Gravar áudio"
+        >
+          <Mic className="h-4 w-4" />
+        </Button>
+      </>
+    );
+  }
+
+  // ── Android/Desktop: MediaRecorder controls ──
   if (recording) {
     return (
       <Button

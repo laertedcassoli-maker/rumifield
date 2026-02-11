@@ -227,6 +227,7 @@ export interface OfflineCrmVisitAudio {
   audioData: Uint8Array;
   duration_seconds: number;
   file_size_bytes: number;
+  mime_type?: string;
   status: string;
   created_at: string;
 }
