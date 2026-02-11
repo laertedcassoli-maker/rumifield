@@ -109,27 +109,30 @@ export default function Pedidos() {
     if (!source.length) return [];
     
     let filtered = source.filter(pedido => {
-      const searchLower = searchTerm.toLowerCase().trim();
-      const searchWords = searchLower.split(/\s+/).filter(w => w.length > 0);
-      
-      const matchesSearch = searchTerm === '' || (() => {
-        // Check if client/farm matches all words
-        const clienteNome = pedido.clientes?.nome?.toLowerCase() || '';
-        const clienteFazenda = pedido.clientes?.fazenda?.toLowerCase() || '';
-        const clienteMatch = searchWords.every(word => 
-          clienteNome.includes(word) || clienteFazenda.includes(word)
-        );
-        if (clienteMatch) return true;
+        const searchLower = searchTerm.toLowerCase().trim();
+        const searchWords = searchLower.split(/\s+/).filter(w => w.length > 0);
         
-        // Check if any part matches all words
-        return pedido.pedido_itens?.some((item: any) => {
-          const pecaCodigo = item.pecas?.codigo?.toLowerCase() || '';
-          const pecaNome = item.pecas?.nome?.toLowerCase() || '';
-          return searchWords.every(word => 
-            pecaCodigo.includes(word) || pecaNome.includes(word)
+        const matchesSearch = searchTerm === '' || (() => {
+          // Check pedido_code
+          if (pedido.pedido_code?.toLowerCase().includes(searchLower)) return true;
+          
+          // Check if client/farm matches all words
+          const clienteNome = pedido.clientes?.nome?.toLowerCase() || '';
+          const clienteFazenda = pedido.clientes?.fazenda?.toLowerCase() || '';
+          const clienteMatch = searchWords.every(word => 
+            clienteNome.includes(word) || clienteFazenda.includes(word)
           );
-        });
-      })();
+          if (clienteMatch) return true;
+          
+          // Check if any part matches all words
+          return pedido.pedido_itens?.some((item: any) => {
+            const pecaCodigo = item.pecas?.codigo?.toLowerCase() || '';
+            const pecaNome = item.pecas?.nome?.toLowerCase() || '';
+            return searchWords.every(word => 
+              pecaCodigo.includes(word) || pecaNome.includes(word)
+            );
+          });
+        })();
       
       // Status filter only applies to transmitted orders tab
       const matchesStatus = activeTab === 'rascunhos' || statusFilter === 'all' || pedido.status === statusFilter;
@@ -1158,6 +1161,9 @@ export default function Pedidos() {
             <DialogTitle className="flex items-center gap-2">
               <Eye className="h-5 w-5" />
               Detalhes do Pedido
+              {viewingPedido?.pedido_code && (
+                <span className="font-mono text-sm font-normal text-muted-foreground">{viewingPedido.pedido_code}</span>
+              )}
             </DialogTitle>
           </DialogHeader>
           

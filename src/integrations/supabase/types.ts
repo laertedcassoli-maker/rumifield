@@ -1641,6 +1641,7 @@ export type Database = {
           omie_nf_numero: string | null
           omie_pedido_id: string | null
           origem: string | null
+          pedido_code: string | null
           preventive_id: string | null
           solicitante_id: string
           status: Database["public"]["Enums"]["pedido_status"]
@@ -1657,6 +1658,7 @@ export type Database = {
           omie_nf_numero?: string | null
           omie_pedido_id?: string | null
           origem?: string | null
+          pedido_code?: string | null
           preventive_id?: string | null
           solicitante_id: string
           status?: Database["public"]["Enums"]["pedido_status"]
@@ -1673,6 +1675,7 @@ export type Database = {
           omie_nf_numero?: string | null
           omie_pedido_id?: string | null
           origem?: string | null
+          pedido_code?: string | null
           preventive_id?: string | null
           solicitante_id?: string
           status?: Database["public"]["Enums"]["pedido_status"]

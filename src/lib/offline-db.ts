@@ -203,6 +203,7 @@ export interface OfflinePedido {
   origem?: string | null;
   tipo_envio?: string | null;
   urgencia?: string;
+  pedido_code?: string | null;
   preventive_id?: string | null;
   created_at: string;
   updated_at: string;
