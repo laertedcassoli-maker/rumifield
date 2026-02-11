@@ -50,3 +50,6 @@ verify_jwt = false
 
 [functions.google-sheets]
 verify_jwt = false
+
+[functions.board-rumina]
+verify_jwt = false
