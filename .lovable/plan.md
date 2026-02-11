@@ -1,121 +1,119 @@
 
-## Inteligencia do Cliente -- Pagina completa com IA
+## Integração com Google Sheets - Apenas Leitura + Interface de Teste
 
-### Visao geral
-Nova pagina `/crm/inteligencia` que permite selecionar um cliente, fazer perguntas livres ou usar sugestoes rapidas, e receber um resumo gerado por IA baseado em dados reais de todas as areas do sistema (preventivas, chamados, CRM, estoque, pedidos).
+### Resumo Executivo
+Criar uma integração de **leitura** com Google Sheets que permite consultar dados da planilha sem modificá-los. Incluirá uma interface de administração para testar e gerenciar a conexão com feedback visual em tempo real.
 
-### Arquivos a criar
+### Arquivos a Criar
 
-**1. `supabase/functions/client-intelligence/index.ts`** -- Edge Function principal
+#### 1. Edge Function (`supabase/functions/google-sheets/index.ts`)
+A função será responsável por:
+- Ler os secrets `CREDENCIAL_GOOGLE` (JSON da service account) e `CHAVE_GOOGLE_SHEET_TABELA_BOARD` (ID da planilha)
+- Gerar um JWT assinado com RSA usando a chave privada da service account
+- Trocar o JWT por um access token na API OAuth do Google
+- Fazer chamadas apenas de **leitura** à Google Sheets API v4
+- Suportar dois parâmetros na requisição:
+  - `action: "read"` — lê dados de um range específico
+  - `range: "Sheet1!A1:Z100"` — define qual parte da planilha ler
 
-A funcao sera dividida em 3 etapas:
-
-- **Etapa A -- Coleta**: Queries paralelas (Promise.all) em todas as tabelas mencionadas no prompt: clientes, tecnico_clientes, preventive_maintenance (com checklists/items), preventive_part_consumption, preventive_checklist_item_nonconformities, preventive_checklist_item_actions, technical_tickets (com timeline, tags, categories), ticket_visits, crm_visits (com audios, checklists, product_snapshots), crm_client_products (com snapshots), crm_proposals, crm_actions, crm_client_product_qualification_answers, product_health_indicators, pedidos (com itens/pecas), estoque_cliente, envios_produtos. Usa `SUPABASE_SERVICE_ROLE_KEY` para bypass RLS.
-
-- **Etapa B -- Stats**: Calculo server-side de contagens, agrupamentos por status/frequencia, top NCs, top pecas, tempo medio resolucao chamados, etc. Retorna objeto `stats` estruturado para exibir nos cards do frontend SEM depender da IA.
-
-- **Etapa C -- IA**: Monta contexto markdown com os dados coletados + stats e envia para Lovable AI Gateway (`https://ai.gateway.lovable.dev/v1/chat/completions`) usando modelo `google/gemini-3-flash-preview` (ja configurado com `LOVABLE_API_KEY`). Retorna `{ stats, analysis, client }`.
-
-Nota: Usara Lovable AI em vez de Anthropic -- ja esta configurado no projeto, sem necessidade de nova API key.
-
-**2. `src/pages/crm/CrmInteligencia.tsx`** -- Pagina frontend
-
-Componentes na pagina:
-- **Header**: Titulo "Inteligencia do Cliente" com icone Brain
-- **Seletor de Cliente**: Popover + Command (padrao Shadcn Combobox) buscando na tabela `clientes` por nome ou fazenda
-- **Campo de pergunta**: Textarea + botao "Gerar"
-- **Chips de sugestao rapida**: 8 botoes que preenchem a textarea com perguntas pre-definidas (resumo completo, pendencias, problemas recorrentes, saude CRM, historico comercial, pecas+frequencia, transcricoes, propostas)
-- **Painel de stats** (exibido apos coleta, antes da IA): Grid de 6 cards com contagens (Preventivas, Chamados, Visitas CRM, Propostas, Audios, Pecas) + secao colapsavel com detalhes por area
-- **Resposta da IA**: Container com borda left azul, renderizado com `react-markdown`
-- **Loading bifasico**: "Coletando dados do cliente..." -> "Analisando com IA..."
-- **Permissoes**: Verifica via `useMenuPermissions` (perm key `crm_inteligencia`) + fallback para roles admin/coordenador_servicos/coordenador_rplus
-
-### Arquivos a modificar
-
-**3. `src/App.tsx`** -- Adicionar rota
+**Fluxo de autenticação**:
 ```
-/crm/inteligencia -> CrmInteligencia
+1. Parse service account JSON (email, private_key)
+2. Create JWT claim (iss, scope, aud, exp)
+3. Sign JWT with RSA private key (Web Crypto API do Deno)
+4. POST jwt para https://oauth2.googleapis.com/token
+5. Recebe access_token
+6. Use token para GET https://sheets.googleapis.com/v4/spreadsheets/{id}/values/{range}
 ```
-Posicionar ANTES da rota `/crm/:id` para evitar conflito de matching.
 
-**4. `src/components/layout/AppSidebar.tsx`** -- Adicionar item no menu
-Adicionar "Inteligencia" no array `mainMenuItems` junto dos itens CRM, com icone `Brain` e permKey `crm_inteligencia`.
+#### 2. Nova Página Admin (`src/pages/admin/GoogleSheetsConfig.tsx`)
+Interface de administração com:
+- **Seção 1: Status da Conexão**
+  - Exibe se a conexão está ativa (verde/vermelho)
+  - Mostra última data de sincronização
+  - Botão "Testar Conexão" que valida a autenticação
 
-**5. `supabase/config.toml`** -- Registrar funcao
+- **Seção 2: Gerenciador de Ranges**
+  - Campo de entrada para especificar o range (ex: "Sheet1!A1:Z100")
+  - Preview dos dados lidos (tabela)
+  - Botão para copiar dados para clipboard
+  - Histórico de últimas 5 leituras com timestamp
+
+- **Seção 3: Logs & Debug**
+  - Exibe últimas 10 tentativas (sucesso/erro)
+  - Mostra mensagens de erro da API Google
+
+#### 3. Atualizar Config de Rotas (`src/App.tsx`)
+- Adicionar rota `/admin/config/google-sheets` apontando para a nova página
+
+#### 4. Atualizar Sidebar (`src/components/layout/AppSidebar.tsx`)
+- Adicionar item "Google Sheets" no menu Admin > Cadastros
+- Usar ícone Sheet/Table
+- Executar apenas para usuários com permissão `admin_cadastros`
+
+#### 5. Atualizar config.toml (`supabase/config.toml`)
 ```toml
-[functions.client-intelligence]
+[functions.google-sheets]
 verify_jwt = false
 ```
 
-### Detalhes tecnicos da Edge Function
+### Secrets a Adicionar
+1. **CREDENCIAL_GOOGLE** — JSON completo da service account
+2. **CHAVE_GOOGLE_SHEET_TABELA_BOARD** — ID da planilha
 
-Queries paralelas (agrupadas no Promise.all):
+**Nota importante**: Como a chave privada foi compartilhada, recomenda-se rotacioná-la na Google Cloud Console após configuração.
 
-```text
-1.  clientes: SELECT * WHERE id = clientId
-2.  tecnico_clientes: SELECT *, profiles(nome) WHERE cliente_id = clientId
-3.  preventive_maintenance: WHERE client_id = clientId, limit 12, order desc
-4.  preventive_part_consumption: WHERE preventive_id IN (...), limit 100
-5.  preventive_checklist_item_nonconformities: via checklists do cliente, limit 50
-6.  preventive_checklist_item_actions: via checklists do cliente, limit 50
-7.  technical_tickets: WHERE client_id = clientId, limit 20
-    + ticket_timeline, ticket_tag_links > ticket_tags, ticket_categories
-8.  ticket_visits: WHERE client_id = clientId, limit 15
-9.  crm_visits: WHERE client_id = clientId, limit 15
-    + crm_visit_audios, crm_visit_checklists
-10. crm_visit_product_snapshots: via visit_ids
-11. crm_client_products: WHERE client_id = clientId
-    + crm_client_product_snapshots
-12. crm_proposals: via client_product_ids
-13. crm_actions: WHERE client_id = clientId, limit 20
-14. crm_client_product_qualification_answers: via client_product_ids
-    + crm_product_qualification_items
-15. product_health_indicators: WHERE produto_id in (...)
-16. pedidos: WHERE cliente_id = clientId, limit 15
-    + pedido_itens > pecas
-17. estoque_cliente: WHERE cliente_id = clientId, limit 10
-    + produtos_quimicos
-18. envios_produtos: WHERE cliente_id = clientId, limit 15
+### Fluxo de Implementação
+
+```mermaid
+graph TD
+    A["Usuário acessa /admin/config/google-sheets"] --> B["Interface carrega"]
+    B --> C["Exibe status da conexão"]
+    C --> D{Usuário clica em 'Testar'?}
+    D -->|Sim| E["Invoca edge function"]
+    E --> F["Edge function autentica com Google"]
+    F --> G{Autenticação OK?}
+    G -->|Sim| H["Retorna status SUCESSO"]
+    G -->|Não| I["Retorna erro"]
+    H --> J["Interface mostra 'Conectado'"]
+    I --> K["Interface mostra erro"]
+    D -->|Não| L["Usuário insere range"]
+    L --> M["Clica 'Ler Dados'"]
+    M --> N["Invoca edge function com range"]
+    N --> O["Lê valores da planilha"]
+    O --> P["Exibe tabela com dados"]
 ```
 
-Algumas queries sao dependentes (precisam de IDs da primeira query), entao serao feitas em 2 ondas de Promise.all.
+### Detalhes Técnicos
 
-Stats calculados server-side:
-```text
-- total_preventivas, por_status, ultima_data, ultima_concluida
-- top_nao_conformidades (agrupadas por label, ordenadas por frequencia)
-- top_acoes_corretivas (agrupadas por label)
-- top_pecas (agrupadas por nome, somando qty)
-- total_chamados, abertos_agora (com codigo+titulo), por_status, por_prioridade
-- tempo_medio_resolucao (dias)
-- tags_frequentes
-- total_visitas_crm, audios_gravados, audios_transcritos
-- transcricoes_recentes (ultimas 3)
-- ultimo_checklist_score
-- produtos_por_stage
-- propostas_por_status
-- acoes_crm_recentes (ultimas 10)
-- pedidos_por_status, pedidos_pendentes
-```
+**Autenticação JWT (RS256)**:
+- Header: `{"alg": "RS256", "typ": "JWT"}`
+- Payload: 
+  ```json
+  {
+    "iss": "email@projeto.iam.gserviceaccount.com",
+    "scope": "https://www.googleapis.com/auth/spreadsheets.readonly",
+    "aud": "https://oauth2.googleapis.com/token",
+    "exp": now + 3600,
+    "iat": now
+  }
+  ```
+- Signature: assinado com private key da service account
 
-### Cores e estilo
+**Endpoints Google usados**:
+- `POST https://oauth2.googleapis.com/token` — obter access token
+- `GET https://sheets.googleapis.com/v4/spreadsheets/{id}/values/{range}` — ler dados
 
-- Preventivas: emerald (green)
-- Chamados: orange/red
-- CRM/Visitas: blue
-- Propostas: amber
-- Audios: violet
-- Pecas: purple
-- Resposta IA: `border-l-4 border-blue-500 bg-blue-50/30 dark:bg-blue-950/20`
-- Cards de contagem: icones Lucide (ClipboardCheck, AlertTriangle, Eye, FileText, AudioLines, Package)
+**Tratamento de erros**:
+- Credenciais inválidas → status 401
+- Sheet não encontrado → status 404
+- Range inválido → status 400
+- Timeout → retry com backoff
 
-### Fluxo do usuario
+### Próximo Passo
 
-1. Abre /crm/inteligencia
-2. Seleciona cliente no combobox
-3. Digita pergunta ou clica numa sugestao rapida
-4. Clica "Gerar"
-5. Ve loading bifasico (coletando dados -> analisando com IA)
-6. Painel de stats aparece primeiro (cards + detalhes colapsaveis)
-7. Resposta da IA aparece abaixo em markdown formatado
-8. Pode fazer nova pergunta sem reselecionar o cliente (stats ja cacheados)
+Após implementação, será possível:
+1. Validar a conexão com a planilha
+2. Consultar dados de qualquer range
+3. Usar esses dados em outras funcionalidades (importar clientes, sincronizar preços, etc.)
+
