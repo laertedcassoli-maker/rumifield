@@ -140,8 +140,7 @@ serve(async (req) => {
       throw new Error("CHAVE_GOOGLE_SHEET_TABELA_BOARD secret not configured");
     }
 
-    // Clean the credential JSON - handle cases where it might have surrounding quotes
-    // or escaped characters from secret storage
+    // Clean the credential JSON - handle literal newlines that break JSON parsing
     let cleanedJson = credentialJson.trim();
     // Remove surrounding single quotes if present
     if (cleanedJson.startsWith("'") && cleanedJson.endsWith("'")) {
@@ -151,10 +150,22 @@ serve(async (req) => {
     let credential;
     try {
       credential = JSON.parse(cleanedJson);
-    } catch (parseErr) {
-      // If direct parse fails, try replacing literal \n with actual newlines in the private key area
-      // This handles cases where the JSON was stored with escaped newlines
-      throw new Error(`Failed to parse CREDENCIAL_GOOGLE as JSON: ${(parseErr as Error).message}`);
+    } catch (_parseErr) {
+      // If direct parse fails, the \n in private_key became real newlines.
+      // Replace actual newlines inside string values with \\n so JSON can parse.
+      // Strategy: find content between -----BEGIN and -----END and fix newlines there.
+      try {
+        const fixed = cleanedJson.replace(
+          /(-----BEGIN [A-Z ]+-----)([\s\S]*?)(-----END [A-Z ]+-----)/g,
+          (_match, begin, middle, end) => {
+            const cleaned = middle.replace(/\n/g, "\\n");
+            return begin + cleaned + end;
+          }
+        );
+        credential = JSON.parse(fixed);
+      } catch (parseErr2) {
+        throw new Error(`Failed to parse CREDENCIAL_GOOGLE as JSON. First 100 chars: ${cleanedJson.substring(0, 100)}`);
+      }
     }
     
     const { client_email, private_key } = credential;
