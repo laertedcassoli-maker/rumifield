@@ -64,7 +64,6 @@ export default function NovoChamado() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState<string>('media');
   const [clientId, setClientId] = useState<string>('');
@@ -184,7 +183,7 @@ export default function NovoChamado() {
           client_id: clientId,
           created_by_user_id: user!.id,
           assigned_technician_id: technicianId || null,
-          title,
+          title: description.trim().substring(0, 80),
           description: description || null,
           priority: priority as any,
           status: 'aberto',
@@ -231,11 +230,11 @@ export default function NovoChamado() {
 
   const handleSubmit = (e: React.FormEvent, scheduleVisit = false) => {
     e.preventDefault();
-    if (!clientId || !title.trim()) {
+    if (!clientId || !description.trim()) {
       toast({
         variant: 'destructive',
         title: 'Campos obrigatórios',
-        description: 'Selecione um cliente e informe o título do chamado.',
+        description: 'Selecione um cliente e preencha o relato da fazenda.',
       });
       return;
     }
@@ -493,7 +492,7 @@ export default function NovoChamado() {
           {/* Relato da Fazenda */}
           <Card className="md:col-span-2">
             <CardHeader>
-              <CardTitle>Relato da Fazenda</CardTitle>
+              <CardTitle>Relato da Fazenda *</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="space-y-2">
