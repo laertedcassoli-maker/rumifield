@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Loader2, Package, ChevronUp, ChevronDown, Warehouse, Truck, Plus, Trash2, Check, ChevronsUpDown, PenLine } from 'lucide-react';
+import { Loader2, Package, ChevronUp, ChevronDown, Warehouse, Truck, Plus, Trash2, Check, ChevronsUpDown, PenLine, ShoppingCart } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
@@ -15,6 +15,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { useDebounce } from '@/hooks/useDebounce';
 
 interface ConsumedPart {
   id: string;
@@ -23,7 +24,8 @@ interface ConsumedPart {
   part_name_snapshot: string;
   quantity: number;
   unit_cost_snapshot: number | null;
-  stock_source: 'fazenda' | 'tecnico' | null;
+  stock_source: 'fazenda' | 'tecnico' | 'novo_pedido' | null;
+  asset_unique_code: string | null;
   notes: string | null;
   is_manual: boolean;
   consumed_at: string;
@@ -41,7 +43,8 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
   const [selectedPartId, setSelectedPartId] = useState<string | null>(null);
   const [quantity, setQuantity] = useState('1');
   const [notes, setNotes] = useState('');
-  const [stockSource, setStockSource] = useState<'tecnico' | 'fazenda'>('tecnico');
+  const [stockSource, setStockSource] = useState<'tecnico' | 'fazenda' | 'novo_pedido'>('tecnico');
+  const [dialogAssetCode, setDialogAssetCode] = useState('');
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -51,7 +54,7 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
     queryFn: async () => {
       const { data, error } = await supabase
         .from('preventive_part_consumption')
-        .select('id, part_id, part_code_snapshot, part_name_snapshot, quantity, unit_cost_snapshot, stock_source, notes, is_manual, consumed_at')
+        .select('id, part_id, part_code_snapshot, part_name_snapshot, quantity, unit_cost_snapshot, stock_source, asset_unique_code, notes, is_manual, consumed_at')
         .eq('preventive_id', preventiveId)
         .order('consumed_at', { ascending: true });
 
@@ -91,10 +94,15 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
 
   // Update stock source mutation
   const updateStockSourceMutation = useMutation({
-    mutationFn: async ({ partId, stockSource }: { partId: string; stockSource: 'fazenda' | 'tecnico' }) => {
+    mutationFn: async ({ partId, stockSource }: { partId: string; stockSource: string }) => {
+      const updateData: Record<string, unknown> = { stock_source: stockSource };
+      // Clear asset_unique_code if not tecnico
+      if (stockSource !== 'tecnico') {
+        updateData.asset_unique_code = null;
+      }
       const { error } = await supabase
         .from('preventive_part_consumption')
-        .update({ stock_source: stockSource })
+        .update(updateData)
         .eq('id', partId);
 
       if (error) throw error;
@@ -105,6 +113,28 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
     onError: (error: Error) => {
       toast({
         title: 'Erro ao atualizar',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+
+  // Update asset unique code mutation
+  const updateAssetCodeMutation = useMutation({
+    mutationFn: async ({ partId, assetCode }: { partId: string; assetCode: string }) => {
+      const { error } = await supabase
+        .from('preventive_part_consumption')
+        .update({ asset_unique_code: assetCode || null })
+        .eq('id', partId);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['preventive-consumed-parts', preventiveId] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: 'Erro ao salvar código',
         description: error.message,
         variant: 'destructive',
       });
@@ -147,6 +177,7 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
           part_name_snapshot: selectedPart.nome,
           quantity: parseFloat(quantity) || 1,
           stock_source: stockSource,
+          asset_unique_code: stockSource === 'tecnico' && dialogAssetCode.trim() ? dialogAssetCode.trim() : null,
           notes: notes || null,
           is_manual: true,
         });
@@ -197,13 +228,18 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
     setQuantity('1');
     setNotes('');
     setStockSource('tecnico');
+    setDialogAssetCode('');
     setIsPartSelectorOpen(false);
   };
 
   const handleStockSourceChange = (partId: string, value: string) => {
-    if (value && (value === 'fazenda' || value === 'tecnico')) {
+    if (value && (value === 'fazenda' || value === 'tecnico' || value === 'novo_pedido')) {
       updateStockSourceMutation.mutate({ partId, stockSource: value });
     }
+  };
+
+  const handleAssetCodeChange = (partId: string, code: string) => {
+    updateAssetCodeMutation.mutate({ partId, assetCode: code });
   };
 
   // Calculate totals
@@ -263,6 +299,7 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
                       part={part}
                       isCompleted={isCompleted}
                       onStockSourceChange={handleStockSourceChange}
+                      onAssetCodeChange={handleAssetCodeChange}
                       onNotesChange={(partId, notes) => updateNotesMutation.mutate({ partId, notes })}
                       onDelete={(partId) => deleteManualPartMutation.mutate(partId)}
                     />
@@ -383,7 +420,7 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
                       <ToggleGroup
                         type="single"
                         value={stockSource}
-                        onValueChange={(value) => value && setStockSource(value as 'tecnico' | 'fazenda')}
+                        onValueChange={(value) => value && setStockSource(value as 'tecnico' | 'fazenda' | 'novo_pedido')}
                         className="justify-start"
                       >
                         <ToggleGroupItem
@@ -402,8 +439,27 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
                           <Warehouse className="h-3 w-3" />
                           Fazenda
                         </ToggleGroupItem>
+                        <ToggleGroupItem
+                          value="novo_pedido"
+                          size="sm"
+                          className="gap-1 data-[state=on]:bg-violet-500/10 data-[state=on]:text-violet-600"
+                        >
+                          <ShoppingCart className="h-3 w-3" />
+                          Novo Pedido
+                        </ToggleGroupItem>
                       </ToggleGroup>
                     </div>
+
+                    {/* Asset Unique Code - only when tecnico */}
+                    {stockSource === 'tecnico' && (
+                      <div className="space-y-2">
+                        <Label>Cód. Unívoco do Ativo</Label>
+                        <AssetCodeInput
+                          value={dialogAssetCode}
+                          onChange={setDialogAssetCode}
+                        />
+                      </div>
+                    )}
 
                     {/* Notes */}
                     <div className="space-y-2">
@@ -438,18 +494,77 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
   );
 }
 
+// Asset code input with search
+function AssetCodeInput({ value, onChange, onBlurSave }: { value: string; onChange: (v: string) => void; onBlurSave?: (v: string) => void }) {
+  const debouncedCode = useDebounce(value, 500);
+
+  const { data: matchedAsset } = useQuery({
+    queryKey: ['workshop-item-by-code', debouncedCode],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('workshop_items')
+        .select('id, unique_code, omie_product_id, status')
+        .eq('unique_code', debouncedCode.trim())
+        .maybeSingle();
+
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!debouncedCode.trim() && debouncedCode.trim().length >= 2,
+  });
+
+  // Fetch product name if matched
+  const { data: matchedProduct } = useQuery({
+    queryKey: ['peca-name', matchedAsset?.omie_product_id],
+    queryFn: async () => {
+      const { data } = await supabase
+        .from('pecas')
+        .select('nome, codigo')
+        .eq('id', matchedAsset!.omie_product_id)
+        .maybeSingle();
+      return data;
+    },
+    enabled: !!matchedAsset?.omie_product_id,
+  });
+
+  return (
+    <div className="space-y-1">
+      <Input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onBlur={() => onBlurSave?.(value)}
+        placeholder="Digite o código unívoco..."
+        className="font-mono text-sm"
+      />
+      {debouncedCode.trim() && matchedAsset && (
+        <p className="text-xs text-green-600 flex items-center gap-1">
+          <Check className="h-3 w-3" />
+          Ativo encontrado{matchedProduct ? `: ${matchedProduct.codigo} - ${matchedProduct.nome}` : ''}
+        </p>
+      )}
+      {debouncedCode.trim() && debouncedCode.trim().length >= 2 && !matchedAsset && (
+        <p className="text-xs text-muted-foreground">
+          Código novo — será criado ao encerrar a visita
+        </p>
+      )}
+    </div>
+  );
+}
+
 // Part item component
 interface PartItemProps {
   part: ConsumedPart;
   isCompleted: boolean;
   onStockSourceChange: (partId: string, value: string) => void;
+  onAssetCodeChange: (partId: string, code: string) => void;
   onNotesChange: (partId: string, notes: string) => void;
   onDelete: (partId: string) => void;
 }
 
-function PartItem({ part, isCompleted, onStockSourceChange, onNotesChange, onDelete }: PartItemProps) {
+function PartItem({ part, isCompleted, onStockSourceChange, onAssetCodeChange, onNotesChange, onDelete }: PartItemProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [localNotes, setLocalNotes] = useState(part.notes || '');
+  const [localAssetCode, setLocalAssetCode] = useState(part.asset_unique_code || '');
 
   const handleSaveNotes = () => {
     onNotesChange(part.id, localNotes);
@@ -492,7 +607,7 @@ function PartItem({ part, isCompleted, onStockSourceChange, onNotesChange, onDel
       </div>
 
       {/* Stock Source Toggle */}
-      <div className="flex items-center gap-2 pt-1">
+      <div className="flex items-center gap-2 pt-1 flex-wrap">
         <span className="text-xs text-muted-foreground shrink-0">Origem:</span>
         <ToggleGroup
           type="single"
@@ -527,6 +642,19 @@ function PartItem({ part, isCompleted, onStockSourceChange, onNotesChange, onDel
             <Warehouse className="h-3 w-3" />
             Fazenda
           </ToggleGroupItem>
+          <ToggleGroupItem
+            value="novo_pedido"
+            aria-label="Novo pedido"
+            size="sm"
+            className={cn(
+              "h-7 px-2 text-xs gap-1",
+              !part.stock_source && "border-amber-400 animate-pulse",
+              "data-[state=on]:bg-violet-500/10 data-[state=on]:text-violet-600 data-[state=on]:border-violet-500/30"
+            )}
+          >
+            <ShoppingCart className="h-3 w-3" />
+            Pedido
+          </ToggleGroupItem>
         </ToggleGroup>
         {!part.stock_source && !isCompleted && (
           <Badge variant="outline" className="text-xs border-amber-400 text-amber-600 bg-amber-500/10">
@@ -534,6 +662,22 @@ function PartItem({ part, isCompleted, onStockSourceChange, onNotesChange, onDel
           </Badge>
         )}
       </div>
+
+      {/* Asset Unique Code - only when tecnico */}
+      {part.stock_source === 'tecnico' && !isCompleted && (
+        <div className="pt-1">
+          <AssetCodeInput
+            value={localAssetCode}
+            onChange={setLocalAssetCode}
+            onBlurSave={(code) => onAssetCodeChange(part.id, code)}
+          />
+        </div>
+      )}
+      {part.stock_source === 'tecnico' && isCompleted && part.asset_unique_code && (
+        <div className="text-xs text-muted-foreground bg-muted/50 rounded p-2 font-mono">
+          Ativo: {part.asset_unique_code}
+        </div>
+      )}
 
       {/* Notes Section */}
       {!isCompleted && !isEditing && !part.notes && (
