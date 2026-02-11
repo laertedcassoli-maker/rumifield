@@ -88,6 +88,7 @@ export default function Pedidos() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [dateFilter, setDateFilter] = useState<'7' | '30' | 'all'>('all');
+  const [tipoEnvioFilter, setTipoEnvioFilter] = useState<'all' | 'envio' | 'apenas_nf'>('all');
   const [sortField, setSortField] = useState<'created_at' | 'cliente' | 'status'>('created_at');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
@@ -142,7 +143,15 @@ export default function Pedidos() {
         matchesDate = new Date(pedido.created_at) >= cutoffDate;
       }
       
-      return matchesSearch && matchesStatus && matchesDate;
+      // Tipo envio filter
+      let matchesTipoEnvio = true;
+      if (tipoEnvioFilter === 'envio') {
+        matchesTipoEnvio = ['envio_fisico', 'correio', 'entrega'].includes(pedido.tipo_envio || '');
+      } else if (tipoEnvioFilter === 'apenas_nf') {
+        matchesTipoEnvio = pedido.tipo_envio === 'apenas_nf';
+      }
+
+      return matchesSearch && matchesStatus && matchesDate && matchesTipoEnvio;
     });
     
     filtered.sort((a, b) => {
@@ -161,7 +170,7 @@ export default function Pedidos() {
     });
     
     return filtered;
-  }, [pedidos, rascunhos, pedidosTransmitidos, activeTab, searchTerm, statusFilter, dateFilter, sortField, sortOrder]);
+  }, [pedidos, rascunhos, pedidosTransmitidos, activeTab, searchTerm, statusFilter, dateFilter, tipoEnvioFilter, sortField, sortOrder]);
 
   // Paginated data (only for Transmitidos tab)
   const paginatedPedidos = useMemo(() => {
@@ -178,7 +187,7 @@ export default function Pedidos() {
   // Reset page when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, statusFilter, dateFilter, activeTab]);
+  }, [searchTerm, statusFilter, dateFilter, tipoEnvioFilter, activeTab]);
 
   const toggleSort = (field: 'created_at' | 'cliente' | 'status') => {
     if (sortField === field) {
@@ -193,6 +202,7 @@ export default function Pedidos() {
     setSearchTerm('');
     setStatusFilter('all');
     setDateFilter('all');
+    setTipoEnvioFilter('all');
   };
 
   const handleTransmitir = async (pedidoId: string) => {
@@ -838,6 +848,10 @@ export default function Pedidos() {
                         <HandHelping className="h-3 w-3" />
                         Entrega
                       </ToggleGroupItem>
+                      <ToggleGroupItem value="envio_fisico" className="text-xs gap-1">
+                        <Truck className="h-3 w-3" />
+                        Envio Físico
+                      </ToggleGroupItem>
                       <ToggleGroupItem value="apenas_nf" className="text-xs gap-1">
                         <FileText className="h-3 w-3" />
                         Apenas NF
@@ -967,7 +981,7 @@ export default function Pedidos() {
                   </SelectContent>
                 </Select>
               )}
-              {(searchTerm || statusFilter !== 'all' || dateFilter !== 'all') && (
+              {(searchTerm || statusFilter !== 'all' || dateFilter !== 'all' || tipoEnvioFilter !== 'all') && (
                 <Button variant="ghost" size="icon" onClick={clearFilters}>
                   <X className="h-4 w-4" />
                 </Button>
@@ -1003,6 +1017,42 @@ export default function Pedidos() {
                   Todos
                 </Button>
               </div>
+              
+              {/* Tipo envio filter */}
+              {activeTab === 'pedidos' && (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-sm text-muted-foreground">Envio:</span>
+                  <div className="flex gap-1">
+                    <Button
+                      variant={tipoEnvioFilter === 'all' ? 'secondary' : 'outline'}
+                      size="sm"
+                      onClick={() => setTipoEnvioFilter('all')}
+                      className="h-7 text-xs"
+                    >
+                      Todos
+                    </Button>
+                    <Button
+                      variant={tipoEnvioFilter === 'envio' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setTipoEnvioFilter(tipoEnvioFilter === 'envio' ? 'all' : 'envio')}
+                      className="h-7 text-xs gap-1"
+                    >
+                      <Truck className="h-3 w-3" />
+                      Envio Físico
+                    </Button>
+                    <Button
+                      variant={tipoEnvioFilter === 'apenas_nf' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setTipoEnvioFilter(tipoEnvioFilter === 'apenas_nf' ? 'all' : 'apenas_nf')}
+                      className="h-7 text-xs gap-1"
+                    >
+                      <FileText className="h-3 w-3" />
+                      Apenas NF
+                    </Button>
+                  </div>
+                </div>
+              )}
+
               {filteredAndSortedPedidos.length > 0 && (
                 <Badge variant="outline" className="ml-2 h-6 px-2">
                   {filteredAndSortedPedidos.length} {filteredAndSortedPedidos.length === 1 ? 'pedido' : 'pedidos'}
