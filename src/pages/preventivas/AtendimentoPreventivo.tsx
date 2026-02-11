@@ -190,7 +190,7 @@ export default function AtendimentoPreventivo() {
               preventive_id: routeItem.preventiveId,
               observacoes: `Gerado automaticamente na visita preventiva (rota ${routeItem.route?.route_code})`,
               origem: 'preventiva',
-              tipo_envio: 'apenas_nf',
+              tipo_envio: 'envio_fisico',
               urgencia: 'normal',
             } as any)
             .select('id')
@@ -208,6 +208,42 @@ export default function AtendimentoPreventivo() {
               quantidade,
             }));
             await supabase.from('pedido_itens').insert(pedidoItens);
+          }
+        }
+
+        // --- Auto-create pedido (apenas NF) for parts with stock_source = 'tecnico' ---
+        const { data: tecnicoPartsForNF } = await supabase
+          .from('preventive_part_consumption')
+          .select('part_id, part_name_snapshot, quantity')
+          .eq('preventive_id', routeItem.preventiveId)
+          .eq('stock_source', 'tecnico');
+
+        if (tecnicoPartsForNF && tecnicoPartsForNF.length > 0 && user) {
+          const { data: pedidoNF, error: pedidoNFError } = await supabase
+            .from('pedidos')
+            .insert({
+              cliente_id: routeItem.client_id,
+              solicitante_id: user.id,
+              preventive_id: routeItem.preventiveId,
+              observacoes: `Peças do estoque do técnico consumidas na preventiva (rota ${routeItem.route?.route_code}) — apenas para emissão de NF/faturamento`,
+              origem: 'preventiva',
+              tipo_envio: 'apenas_nf',
+              urgencia: 'normal',
+            } as any)
+            .select('id')
+            .single();
+
+          if (!pedidoNFError && pedidoNF) {
+            const groupedNF: Record<string, number> = {};
+            for (const p of tecnicoPartsForNF) {
+              groupedNF[p.part_id] = (groupedNF[p.part_id] || 0) + (p.quantity || 1);
+            }
+            const pedidoItensNF = Object.entries(groupedNF).map(([peca_id, quantidade]) => ({
+              pedido_id: pedidoNF.id,
+              peca_id,
+              quantidade,
+            }));
+            await supabase.from('pedido_itens').insert(pedidoItensNF);
           }
         }
 
