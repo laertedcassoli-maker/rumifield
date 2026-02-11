@@ -1,143 +1,54 @@
 
 
-## Melhorias no Sistema de Solicitacao de Pecas
+## Adicionar flag "Controle de Ativo" no Catalogo de Pecas
 
-### Contexto
+### Objetivo
 
-Atualmente o sistema de pedidos (solicitacoes) e uma lista/tabela simples com status lineares. O usuario quer:
-
-1. Pedidos de origem "tecnico" gerarem solicitacao apenas para emissao de NF (sem envio fisico)
-2. Novos campos de metadados nos pedidos
-3. Campo de urgencia nos modais de criacao
-4. Novo layout Kanban com 3 colunas
+Nem toda peca trocada precisa de controle de ativo (codigo univoco). Adicionar um campo booleano `is_asset` na tabela `pecas` para marcar quais pecas sao controladas como ativo. No fluxo de consumo (preventiva/corretiva), o campo "Cod. Univoco do Ativo" so aparece se a peca estiver marcada como ativo E a origem for "tecnico".
 
 ---
 
-### 1. Alteracoes no Banco de Dados
+### Alteracoes no Banco de Dados
 
-Adicionar colunas na tabela `pedidos`:
-
-| Coluna | Tipo | Descricao |
-|---|---|---|
-| `origem` | text, nullable | Origem do pedido: `manual`, `preventiva`, `corretiva`, `chamado` |
-| `tipo_envio` | text, nullable | Tipo de envio: `correio`, `entrega`, `apenas_nf` |
-| `urgencia` | text, default `'normal'` | Grau de urgencia: `baixa`, `normal`, `alta`, `critica` |
-
-Os campos `solicitante_id` (usuario que criou) e `cliente_id` (de onde se extrai o `consultor_rplus_id`) ja existem, nao precisam de novas colunas.
-
-O enum `pedido_status` atual tem: `rascunho`, `solicitado`, `processamento`, `faturado`, `enviado`, `entregue`. Para o Kanban simplificado de 3 colunas, vamos mapear:
-- **Aberto** = `solicitado`
-- **Em Processamento** = `processamento`
-- **Concluido** = `faturado` (quando o financeiro registra a NF)
-
-Nao precisa alterar o enum, apenas a UI agrupa os status existentes.
-
----
-
-### 2. Preencher Origem Automaticamente
-
-Nos locais onde pedidos sao criados automaticamente, preencher o campo `origem`:
-
-- `src/pages/preventivas/AtendimentoPreventivo.tsx` (completeMutation): `origem: 'preventiva'`, e para pecas de origem "tecnico" usar `tipo_envio: 'apenas_nf'`
-- `src/components/chamados/TicketPartsRequestPanel.tsx`: `origem: 'chamado'`
-- `src/pages/Pedidos.tsx` (criacao manual): `origem: 'manual'`
-
----
-
-### 3. Campo de Urgencia nos Modais de Criacao
-
-Adicionar seletor de urgencia (ToggleGroup com 4 opcoes) em:
-
-- `src/pages/Pedidos.tsx` -- no formulario de novo pedido
-- `src/components/chamados/TicketPartsRequestPanel.tsx` -- no painel lateral de chamados
-- Formularios futuros de criacao
-
-Opcoes visuais:
-- Baixa (cinza)
-- Normal (azul, default)
-- Alta (laranja)
-- Critica (vermelho)
-
----
-
-### 4. Campo Tipo de Envio nos Modais
-
-Adicionar seletor de tipo de envio:
-- Correio (icone de caminhao)
-- Entrega (icone de pacote/mao)
-- Apenas NF (icone de nota fiscal) -- pre-selecionado quando origem e "tecnico" em preventivas
-
----
-
-### 5. Nova Pagina Kanban de Solicitacoes
-
-Substituir a view atual de tabela/cards na aba "Transmitidos" por um **Kanban de 3 colunas**:
+Adicionar coluna na tabela `pecas`:
 
 ```text
-+------------------+------------------+------------------+
-|     ABERTO       | EM PROCESSAMENTO |    CONCLUIDO     |
-|   (solicitado)   |  (processamento) |    (faturado)    |
-|                  |                  |                  |
-|  [Card pedido]   |  [Card pedido]   |  [Card pedido]   |
-|  [Card pedido]   |                  |  [Card pedido]   |
-+------------------+------------------+------------------+
+is_asset | boolean | NOT NULL | DEFAULT false
 ```
 
-Cada card exibe:
-- Cliente / Fazenda
-- Badge de urgencia (cor)
-- Badge de origem (preventiva/chamado/manual)
-- Tipo de envio (icone)
-- Consultor R+ do cliente
-- Solicitante
-- Data de criacao
-- Quantidade de pecas
-- Botao "Ver detalhes"
+---
 
-**Acoes por coluna:**
-- Aberto: botao "Processar" para mover para "Em Processamento"
-- Em Processamento: botao "Concluir" que abre dialog para registrar numero da NF
-- Concluido: apenas visualizacao
+### Alteracoes em `src/pages/admin/Config.tsx`
 
-A aba "Rascunhos" permanece como esta (lista com botoes de transmitir).
+1. Adicionar `is_asset: boolean` na interface `PecaFormData` (default `false`)
+2. No formulario de criacao/edicao de peca (Dialog), adicionar um `Switch` com label "Controle de ativo" e descricao "Exige codigo univoco ao registrar troca com estoque do tecnico"
+3. Incluir `is_asset` nas mutations `createPeca` e `updatePeca`
+4. Exibir badge "Ativo" na tabela de listagem para pecas com `is_asset = true`
 
 ---
 
-### 6. Dialog de Conclusao (Registro de NF)
+### Alteracoes em `src/components/preventivas/ConsumedPartsBlock.tsx`
 
-Ao clicar "Concluir" em um pedido "Em Processamento":
-- Abre dialog solicitando o numero da NF (`omie_nf_numero`)
-- Data de faturamento (default: hoje)
-- Ao confirmar: atualiza status para `faturado`, grava `omie_nf_numero` e `omie_data_faturamento`
-
----
-
-### 7. Exibir Consultor R+ do Cliente
-
-Na listagem/Kanban, buscar `consultor_rplus_id` do cliente e exibir o nome do consultor. Isso requer um join adicional na query:
-- `pedidos -> clientes -> profiles (via consultor_rplus_id)`
+1. Incluir `is_asset` no tipo `ConsumedPart` (vindo de um join com `pecas` ou snapshot no registro)
+2. Buscar `is_asset` da peca ao carregar os itens consumidos (join com `pecas` via `part_id`)
+3. Condicionar a exibicao do `AssetCodeInput` e do dialog de codigo univoco:
+   - Exibir **apenas** quando `stock_source === 'tecnico'` **E** a peca tem `is_asset === true`
+4. No dialog "Adicionar Peca Manual", condicionar o campo de codigo univoco da mesma forma
 
 ---
 
-### Detalhes Tecnicos
+### Alteracoes em `src/pages/preventivas/AtendimentoPreventivo.tsx`
 
-**Migracao SQL:**
-```sql
-ALTER TABLE pedidos ADD COLUMN origem text;
-ALTER TABLE pedidos ADD COLUMN tipo_envio text;
-ALTER TABLE pedidos ADD COLUMN urgencia text NOT NULL DEFAULT 'normal';
-```
+Na logica de encerramento (`completeMutation`), ao criar ativos em `workshop_items`:
+- Filtrar apenas pecas que tem `is_asset = true` (buscar da tabela `pecas`) alem de ter `asset_unique_code` preenchido
 
-**Arquivos modificados:**
+---
+
+### Arquivos afetados
 
 | Arquivo | Alteracao |
 |---|---|
-| Migracao SQL | 3 novas colunas |
-| `src/pages/Pedidos.tsx` | Kanban na aba Transmitidos, campos urgencia/tipo_envio no form, dialog de NF, exibir origem/consultor |
-| `src/hooks/useOfflinePedidos.ts` | Incluir novos campos no createPedido e syncFromServer |
-| `src/lib/offline-db.ts` | Atualizar interface OfflinePedido com novos campos |
-| `src/components/chamados/TicketPartsRequestPanel.tsx` | Campos urgencia e tipo_envio, preencher origem='chamado' |
-| `src/pages/preventivas/AtendimentoPreventivo.tsx` | Preencher origem='preventiva' e tipo_envio='apenas_nf' para pecas de tecnico |
-
-**RLS:** Nenhuma alteracao necessaria -- as policies existentes de pedidos ja cobrem os novos campos (sao colunas da mesma tabela).
-
+| Migracao SQL | Adicionar `is_asset boolean NOT NULL DEFAULT false` em `pecas` |
+| `src/pages/admin/Config.tsx` | Switch no form, badge na listagem, mutations |
+| `src/components/preventivas/ConsumedPartsBlock.tsx` | Condicionar campo de codigo univoco a `is_asset` |
+| `src/pages/preventivas/AtendimentoPreventivo.tsx` | Filtrar criacao de ativo por `is_asset` |
