@@ -280,8 +280,8 @@ export default function CrmVisitaExecucao() {
             <Navigation className="mr-2 h-5 w-5" />
             Fazer Check-in
           </Button>
-          <Button size="lg" variant="outline" className="shrink-0 gap-1" onClick={() => setCancelOpen(true)}>
-            <XCircle className="h-5 w-5" /> Cancelar
+          <Button size="lg" variant="outline" className="shrink-0 gap-1.5 border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={() => setCancelOpen(true)}>
+            <XCircle className="h-4 w-4" /> Cancelar
           </Button>
         </div>
       )}
@@ -294,8 +294,8 @@ export default function CrmVisitaExecucao() {
           <Button size="lg" className="flex-1 gap-1" onClick={() => setFinalizarOpen(true)}>
             <CheckCircle2 className="h-4 w-4" /> Finalizar
           </Button>
-          <Button size="lg" variant="ghost" className="shrink-0 text-destructive" onClick={() => setCancelOpen(true)}>
-            <XCircle className="h-5 w-5" />
+          <Button size="lg" variant="outline" className="shrink-0 gap-1.5 border-destructive/40 text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={() => setCancelOpen(true)}>
+            <XCircle className="h-4 w-4" /> Cancelar
           </Button>
         </div>
       )}
