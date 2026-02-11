@@ -1,26 +1,25 @@
 
 
-## Correção: iOS abrindo câmera em vez do microfone
+## Correção: abrir microfone nativo no iOS
 
 ### Problema
-O atributo `capture="environment"` no `<input>` está instruindo o iOS a abrir a câmera traseira. Para gravação de áudio, esse atributo deve ser removido.
+- `capture="environment"` + `accept="audio/*"` = abre câmera
+- Sem `capture` + `accept="audio/*"` = mostra seletor genérico (foto, vídeo, arquivo)
+- `capture="user"` + `accept="audio/*"` = abre **microfone** nativo
 
 ### Solução
-Remover o atributo `capture="environment"` da linha 175 de `AudioRecorderButton.tsx`. O atributo `accept="audio/*"` já é suficiente para que o iOS apresente a opção de gravar áudio pelo gravador nativo.
+Adicionar `capture="user"` ao input de arquivo na linha 174 de `AudioRecorderButton.tsx`.
 
 ### Detalhe Técnico
 
-**Arquivo:** `src/components/crm/AudioRecorderButton.tsx` (linha 175)
+**Arquivo:** `src/components/crm/AudioRecorderButton.tsx`
 
-Antes:
 ```html
-<input type="file" accept="audio/*" capture="environment" ... />
+<!-- Antes -->
+<input type="file" accept="audio/*" className="hidden" ... />
+
+<!-- Depois -->
+<input type="file" accept="audio/*" capture="user" className="hidden" ... />
 ```
 
-Depois:
-```html
-<input type="file" accept="audio/*" ... />
-```
-
-Apenas uma linha precisa ser alterada.
-
+Uma única linha alterada. O atributo `capture="user"` indica ao iOS que deve usar o dispositivo de entrada voltado ao usuário (microfone para áudio, câmera frontal para vídeo/foto).
