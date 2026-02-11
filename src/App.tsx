@@ -61,6 +61,7 @@ import AdminCrmMetricas from "./pages/admin/CrmMetricas";
 import AceitarConvite from "./pages/AceitarConvite";
 import CrmAcoes from "./pages/crm/CrmAcoes";
 import CrmDashboard from "./pages/crm/CrmDashboard";
+import CrmInteligencia from "./pages/crm/CrmInteligencia";
 
 const ClienteRedirect = () => {
   const { id } = useParams();
@@ -341,6 +342,14 @@ const App = () => (
               element={
                 <AppLayout>
                   <CrmCarteira />
+                </AppLayout>
+              }
+            />
+            <Route
+              path="/crm/inteligencia"
+              element={
+                <AppLayout>
+                  <CrmInteligencia />
                 </AppLayout>
               }
             />

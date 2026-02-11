@@ -44,3 +44,6 @@ verify_jwt = false
 
 [functions.refresh-ai-docs]
 verify_jwt = false
+
+[functions.client-intelligence]
+verify_jwt = false
