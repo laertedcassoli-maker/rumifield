@@ -182,28 +182,31 @@ export function NovaOSDialog({ open, onOpenChange, onSuccess }: NovaOSDialogProp
 
       if (osError) throw osError;
 
-      // Create work order item
-      const itemData: Record<string, unknown> = {
-        work_order_id: osData.id,
-        quantity: selectedActivity?.execution_type === 'LOTE' ? quantity : 1,
-      };
-
+      // Create work order item (only when there's a valid item or product)
       if (selectedActivity?.execution_type === 'UNIVOCA' && selectedItem) {
-        itemData.workshop_item_id = selectedItem.id;
-        // Horímetro NÃO é pedido na criação - será informado pelo técnico durante a manutenção
-      } else {
-        // For LOTE, we need a product ID
+        const { error: itemError } = await supabase
+          .from('work_order_items')
+          .insert({
+            work_order_id: osData.id,
+            quantity: 1,
+            workshop_item_id: selectedItem.id,
+          });
+        if (itemError) throw itemError;
+      } else if (selectedActivity?.execution_type === 'LOTE') {
+        // For LOTE, try to find a linked product; skip item creation if none
         const firstProduct = activityProducts.find(ap => ap.activity_id === selectedActivityId);
         if (firstProduct) {
-          itemData.omie_product_id = firstProduct.omie_product_id;
+          const { error: itemError } = await supabase
+            .from('work_order_items')
+            .insert({
+              work_order_id: osData.id,
+              quantity,
+              omie_product_id: firstProduct.omie_product_id,
+            });
+          if (itemError) throw itemError;
         }
+        // If no activity_product linked, skip — OS is created without items
       }
-
-      const { error: itemError } = await supabase
-        .from('work_order_items')
-        .insert([itemData as { work_order_id: string; quantity: number; workshop_item_id?: string; meter_hours_entry?: number; omie_product_id?: string }]);
-
-      if (itemError) throw itemError;
 
       // Update workshop item status if UNIVOCA
       if (selectedActivity?.execution_type === 'UNIVOCA' && selectedItem) {
