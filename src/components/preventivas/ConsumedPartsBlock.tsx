@@ -513,6 +513,8 @@ const NEW_CODE_SENTINEL = '__NEW_CODE__';
 
 function AssetCodeSelect({ value, onChange, onBlurSave, partId }: { value: string; onChange: (v: string) => void; onBlurSave?: (v: string) => void; partId?: string }) {
   const [mode, setMode] = useState<'select' | 'manual'>(value ? 'manual' : 'select');
+  const [isOpen, setIsOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
 
   const { data: assets, isLoading } = useQuery({
     queryKey: ['workshop-items-by-part', partId],
@@ -527,6 +529,11 @@ function AssetCodeSelect({ value, onChange, onBlurSave, partId }: { value: strin
     },
     enabled: !!partId,
   });
+
+  // Filter assets based on search term
+  const filteredAssets = assets?.filter(asset =>
+    asset.unique_code.toLowerCase().includes(searchTerm.toLowerCase())
+  ) || [];
 
   // If no partId or no assets loaded, fallback to manual input
   if (!partId) {
@@ -585,40 +592,88 @@ function AssetCodeSelect({ value, onChange, onBlurSave, partId }: { value: strin
           Carregando ativos...
         </div>
       ) : (
-        <Select
-          value={existingAsset ? value : ''}
-          onValueChange={(val) => {
-            if (val === NEW_CODE_SENTINEL) {
-              setMode('manual');
-              onChange('');
-            } else {
-              onChange(val);
-              onBlurSave?.(val);
-            }
-          }}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="Selecione um ativo..." />
-          </SelectTrigger>
-          <SelectContent>
-            {assets && assets.length > 0 ? (
-              <>
-                {assets.map((asset) => (
-                  <SelectItem key={asset.id} value={asset.unique_code}>
-                    {asset.unique_code} ({asset.status || 'disponível'})
-                  </SelectItem>
-                ))}
-                <SelectItem value={NEW_CODE_SENTINEL} className="text-primary font-medium">
-                  + Novo código...
-                </SelectItem>
-              </>
-            ) : (
-              <SelectItem value={NEW_CODE_SENTINEL} className="text-primary font-medium">
-                + Novo código...
-              </SelectItem>
-            )}
-          </SelectContent>
-        </Select>
+        <Popover open={isOpen} onOpenChange={setIsOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              role="combobox"
+              aria-expanded={isOpen}
+              className="w-full justify-between"
+            >
+              {existingAsset ? (
+                <span>
+                  {existingAsset.unique_code} ({existingAsset.status || 'disponível'})
+                </span>
+              ) : (
+                <span className="text-muted-foreground">Selecione um ativo...</span>
+              )}
+              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-[200px] p-0" align="start">
+            <Command>
+              <CommandInput
+                placeholder="Buscar ativo..."
+                value={searchTerm}
+                onValueChange={setSearchTerm}
+              />
+              <CommandList className="max-h-64">
+                <CommandEmpty>Nenhum ativo encontrado.</CommandEmpty>
+                {filteredAssets.length > 0 ? (
+                  <>
+                    {filteredAssets.map((asset) => (
+                      <CommandItem
+                        key={asset.id}
+                        value={asset.unique_code}
+                        onSelect={(currentValue) => {
+                          onChange(currentValue);
+                          onBlurSave?.(currentValue);
+                          setIsOpen(false);
+                          setSearchTerm('');
+                        }}
+                      >
+                        <Check
+                          className={cn(
+                            "mr-2 h-4 w-4",
+                            value === asset.unique_code ? "opacity-100" : "opacity-0"
+                          )}
+                        />
+                        <span className="truncate">
+                          {asset.unique_code} ({asset.status || 'disponível'})
+                        </span>
+                      </CommandItem>
+                    ))}
+                    <CommandItem
+                      value={NEW_CODE_SENTINEL}
+                      onSelect={() => {
+                        setMode('manual');
+                        onChange('');
+                        setIsOpen(false);
+                        setSearchTerm('');
+                      }}
+                      className="text-primary font-medium"
+                    >
+                      + Novo código...
+                    </CommandItem>
+                  </>
+                ) : (
+                  <CommandItem
+                    value={NEW_CODE_SENTINEL}
+                    onSelect={() => {
+                      setMode('manual');
+                      onChange('');
+                      setIsOpen(false);
+                      setSearchTerm('');
+                    }}
+                    className="text-primary font-medium"
+                  >
+                    + Novo código...
+                  </CommandItem>
+                )}
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
       )}
       {existingAsset && (
         <p className="text-xs text-green-600 flex items-center gap-1">
