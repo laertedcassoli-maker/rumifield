@@ -470,6 +470,7 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
                         <AssetCodeInput
                           value={dialogAssetCode}
                           onChange={setDialogAssetCode}
+                          partId={selectedPartId || undefined}
                         />
                       </div>
                     )}
@@ -507,55 +508,104 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
   );
 }
 
-// Asset code input with search
-function AssetCodeInput({ value, onChange, onBlurSave }: { value: string; onChange: (v: string) => void; onBlurSave?: (v: string) => void }) {
+// Asset code input with search filtered by part type
+function AssetCodeInput({ value, onChange, onBlurSave, partId }: { value: string; onChange: (v: string) => void; onBlurSave?: (v: string) => void; partId?: string }) {
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const debouncedCode = useDebounce(value, 500);
 
-  const { data: matchedAsset } = useQuery({
-    queryKey: ['workshop-item-by-code', debouncedCode],
+  const { data: matchedAssets } = useQuery({
+    queryKey: ['workshop-items-search', debouncedCode, partId],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('workshop_items')
         .select('id, unique_code, omie_product_id, status')
-        .eq('unique_code', debouncedCode.trim())
-        .maybeSingle();
+        .ilike('unique_code', `%${debouncedCode.trim()}%`)
+        .limit(10);
 
+      if (partId) {
+        query = query.eq('omie_product_id', partId);
+      }
+
+      const { data, error } = await query;
       if (error) throw error;
-      return data;
+      return data || [];
     },
-    enabled: !!debouncedCode.trim() && debouncedCode.trim().length >= 2,
+    enabled: !!debouncedCode.trim() && debouncedCode.trim().length >= 3,
   });
 
-  // Fetch product name if matched
+  const exactMatch = matchedAssets?.find(a => a.unique_code === value.trim());
+
+  // Fetch product name for exact match
   const { data: matchedProduct } = useQuery({
-    queryKey: ['peca-name', matchedAsset?.omie_product_id],
+    queryKey: ['peca-name', exactMatch?.omie_product_id],
     queryFn: async () => {
       const { data } = await supabase
         .from('pecas')
         .select('nome, codigo')
-        .eq('id', matchedAsset!.omie_product_id)
+        .eq('id', exactMatch!.omie_product_id)
         .maybeSingle();
       return data;
     },
-    enabled: !!matchedAsset?.omie_product_id,
+    enabled: !!exactMatch?.omie_product_id,
   });
 
+  const handleSelect = (code: string) => {
+    onChange(code);
+    onBlurSave?.(code);
+    setShowSuggestions(false);
+  };
+
+  const hasResults = matchedAssets && matchedAssets.length > 0;
+  const showDropdown = showSuggestions && hasResults && !exactMatch && debouncedCode.trim().length >= 3;
+
   return (
-    <div className="space-y-1">
+    <div className="space-y-1 relative">
       <Input
         value={value}
-        onChange={(e) => onChange(e.target.value)}
-        onBlur={() => onBlurSave?.(value)}
+        onChange={(e) => {
+          onChange(e.target.value);
+          setShowSuggestions(true);
+        }}
+        onBlur={() => {
+          // Delay to allow click on suggestion
+          setTimeout(() => {
+            setShowSuggestions(false);
+            onBlurSave?.(value);
+          }, 200);
+        }}
+        onFocus={() => setShowSuggestions(true)}
         placeholder="Digite o código unívoco..."
         className="font-mono text-sm"
       />
-      {debouncedCode.trim() && matchedAsset && (
+      {/* Suggestions dropdown */}
+      {showDropdown && (
+        <div className="absolute z-50 w-full mt-1 bg-popover border rounded-md shadow-md max-h-48 overflow-y-auto">
+          {matchedAssets.map((asset) => (
+            <button
+              key={asset.id}
+              type="button"
+              className="w-full text-left px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground font-mono flex items-center justify-between"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                handleSelect(asset.unique_code);
+              }}
+            >
+              <span>{asset.unique_code}</span>
+              <Badge variant="outline" className="text-[10px] ml-2 shrink-0">
+                {asset.status || 'disponível'}
+              </Badge>
+            </button>
+          ))}
+        </div>
+      )}
+      {/* Status messages */}
+      {exactMatch && (
         <p className="text-xs text-green-600 flex items-center gap-1">
           <Check className="h-3 w-3" />
           Ativo encontrado{matchedProduct ? `: ${matchedProduct.codigo} - ${matchedProduct.nome}` : ''}
         </p>
       )}
-      {debouncedCode.trim() && debouncedCode.trim().length >= 2 && !matchedAsset && (
+      {debouncedCode.trim().length >= 3 && !hasResults && (
         <p className="text-xs text-muted-foreground">
           Código novo — será criado ao encerrar a visita
         </p>
@@ -683,6 +733,7 @@ function PartItem({ part, isCompleted, onStockSourceChange, onAssetCodeChange, o
             value={localAssetCode}
             onChange={setLocalAssetCode}
             onBlurSave={(code) => onAssetCodeChange(part.id, code)}
+            partId={part.part_id}
           />
         </div>
       )}
