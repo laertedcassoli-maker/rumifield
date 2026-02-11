@@ -222,17 +222,17 @@ export default function CrmVisitaExecucao() {
   const isCancelled = visit.status === 'cancelada';
 
   return (
-    <div className="space-y-6 animate-fade-in pb-24">
+    <div className="space-y-6 animate-fade-in pb-24 min-w-0 overflow-hidden">
       {/* Header */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-3 min-w-0">
         <Button variant="ghost" size="icon" onClick={() => navigate(backPath)}>
           <ArrowLeft className="h-5 w-5" />
         </Button>
-        <div className="flex-1">
+        <div className="flex-1 min-w-0">
           <h1 className="text-xl font-bold truncate">{visit.clientes?.nome}</h1>
           {visit.clientes?.fazenda && <p className="text-muted-foreground text-sm">{visit.clientes.fazenda}</p>}
         </div>
-        <Badge className={`text-xs ${
+        <Badge className={`text-xs shrink-0 ${
           isPlanned ? 'bg-blue-100 text-blue-800' :
           isActive ? 'bg-amber-100 text-amber-800' :
           isCompleted ? 'bg-green-100 text-green-800' :
@@ -244,7 +244,7 @@ export default function CrmVisitaExecucao() {
       <Card>
         <CardContent className="py-3 space-y-2 text-sm">
           {visit.objective && <p><span className="text-muted-foreground">Objetivo:</span> {visit.objective}</p>}
-          <div className="flex flex-wrap gap-4 text-muted-foreground">
+          <div className="flex flex-wrap gap-x-3 gap-y-1 text-muted-foreground">
             <span className="flex items-center gap-1"><Clock className="h-3.5 w-3.5" /> Criada: {format(new Date(visit.created_at), "dd/MM 'às' HH:mm")}</span>
             {visit.checkin_at && (
               <span className="flex items-center gap-1 text-green-600">
