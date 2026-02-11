@@ -47,3 +47,6 @@ verify_jwt = false
 
 [functions.client-intelligence]
 verify_jwt = false
+
+[functions.google-sheets]
+verify_jwt = false

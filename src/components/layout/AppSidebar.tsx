@@ -1,4 +1,4 @@
-import { Home, MapPin, ShoppingCart, Users, Settings, LogOut, Beaker, Truck, ChevronDown, ClipboardCheck, TrendingDown, Play, Building2, History, Package, FlaskConical, Shield, Wrench, ListChecks, Box, FileText, Calendar, Route, CalendarDays, ClipboardList, AlertTriangle, Navigation, BookOpen, Bot, Contact, Briefcase, BarChart3, Eye, Brain } from 'lucide-react';
+import { Home, MapPin, ShoppingCart, Users, Settings, LogOut, Beaker, Truck, ChevronDown, ClipboardCheck, TrendingDown, Play, Building2, History, Package, FlaskConical, Shield, Wrench, ListChecks, Box, FileText, Calendar, Route, CalendarDays, ClipboardList, AlertTriangle, Navigation, BookOpen, Bot, Contact, Briefcase, BarChart3, Eye, Brain, Sheet } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarMenuSub, SidebarMenuSubItem, SidebarMenuSubButton } from '@/components/ui/sidebar';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -103,9 +103,10 @@ export function AppSidebar() {
     { title: 'Tags Chamados', icon: AlertTriangle, url: '/admin/ticket-tags', permKey: 'admin_cadastros' },
     { title: 'Templates Checklist', icon: ClipboardList, url: '/preventivas/checklists', permKey: 'admin_cadastros' },
     { title: 'Atividades Oficina', icon: ListChecks, url: '/oficina/atividades', permKey: 'oficina_atividades' },
+    { title: 'Google Sheets', icon: Sheet, url: '/admin/config/google-sheets', permKey: 'admin_cadastros' },
   ].filter(item => canAccess(item.permKey));
 
-  const isAdminCadastrosActive = ['/admin/config', '/admin/crm', '/admin/ticket-tags', '/preventivas/checklists', '/oficina/atividades'].some(
+  const isAdminCadastrosActive = ['/admin/config', '/admin/crm', '/admin/ticket-tags', '/preventivas/checklists', '/oficina/atividades', '/admin/config/google-sheets'].some(
     p => location.pathname === p || location.pathname.startsWith(p + '/')
   ) || location.search.includes('tab=quimicos') || location.search.includes('tab=pecas');
 
