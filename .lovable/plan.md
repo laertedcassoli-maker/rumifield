@@ -1,52 +1,65 @@
 
 
-## Correcao do layout mobile na pagina de Visita CRM
+## Correcao do overflow mobile - causa raiz no AppLayout
 
 ### Problema
 
-Na tela mobile (390px), o conteudo da pagina de visita CRM esta sendo cortado na lateral direita. Os sintomas:
-- Badge de status ("Concluida") nao aparece no header
-- Informacoes de check-out cortadas na lateral
-- Texto de acoes ultrapassando o limite do card
+A pagina de visita CRM continua cortando conteudo na lateral direita em mobile (390px):
+- Nome do cliente nao trunca (sem ellipsis)
+- Badge "Concluida" fica invisivel
+- Texto de acoes cortado
 
 ### Causa Raiz
 
-O container principal (`div.space-y-6`) nao tem `min-w-0` nem `overflow-hidden`, o que permite que elementos internos com conteudo longo empurrem o layout para fora do viewport, mesmo com o wrapper pai tendo `overflow-x-hidden`.
+O problema NAO esta na pagina `CrmVisitaExecucao.tsx`. A cadeia de constraints CSS esta quebrada no `AppLayout.tsx`:
+
+```text
+SidebarProvider (flex container)
+  -> AppSidebar
+  -> SidebarInset (flex-1, SEM min-w-0)  <-- QUEBRA AQUI
+    -> main (flex-1, overflow-x-hidden)  <-- tambem falta min-w-0
+      -> div (w-full, overflow-x-hidden)
+        -> CrmVisitaExecucao (min-w-0, overflow-hidden)
+          -> header flex (truncate nao funciona)
+```
+
+`SidebarInset` usa `flex-1` mas sem `min-w-0`. Em flexbox, `flex-1` respeita a largura minima do conteudo. Sem `min-w-0`, o conteudo pode empurrar o elemento alem do viewport. Isso impede que `truncate` funcione em qualquer descendente, porque nenhum ancestral tem uma largura determinada e restrita.
 
 ### Solucao
 
-**Arquivo: `src/pages/crm/CrmVisitaExecucao.tsx`**
+**Arquivo: `src/components/layout/AppLayout.tsx`**
 
-1. **Container principal** (linha 225): Adicionar `min-w-0 overflow-hidden` ao div raiz para garantir que nenhum filho extrapole a largura disponivel
+1. **SidebarInset** (linha 131): Adicionar `min-w-0` ao className
 
-2. **Header com nome do cliente** (linha 227): Adicionar `min-w-0` ao flex container e ao div do nome para que o `truncate` funcione corretamente dentro do flex
+```
+Antes:  <SidebarInset className={showBanner ? "pt-10" : ""}>
+Depois: <SidebarInset className={cn(showBanner ? "pt-10" : "", "min-w-0")}>
+```
 
-3. **Badge de status no header** (linha 235): Adicionar `shrink-0` ao Badge para que ele nunca seja comprimido ou empurrado para fora
+2. **main interno** (linha 146): Adicionar `min-w-0`
 
-4. **Card de informacoes da visita** (linha 247): O `flex flex-wrap gap-4` ja esta correto, mas o `gap-4` pode ser reduzido para `gap-x-3 gap-y-1` para melhor aproveitamento em mobile
+```
+Antes:  <main className="flex-1 overflow-x-hidden overflow-y-auto p-4 md:p-6 max-w-full">
+Depois: <main className="flex-1 min-w-0 overflow-x-hidden overflow-y-auto p-4 md:p-6 max-w-full">
+```
 
-5. **Card de acoes** (linhas 452-467): Adicionar `overflow-hidden` ao Card e garantir que o container interno respeite os limites
+3. **CrmVisitaExecucao.tsx** (linha 225): Remover `overflow-hidden` redundante do root div, pois o AppLayout ja faz o clipping. Manter apenas `min-w-0`.
+
+```
+Antes:  <div className="space-y-6 animate-fade-in pb-24 min-w-0 overflow-hidden">
+Depois: <div className="space-y-6 animate-fade-in pb-24 min-w-0">
+```
+
+### Impacto
+
+- Corrige o overflow em TODAS as paginas do app, nao apenas na visita CRM
+- `truncate` passara a funcionar corretamente em qualquer pagina com textos longos
+- Zero alteracao de logica, apenas classes Tailwind CSS
+- Sera necessario importar `cn` em AppLayout (ja disponivel no projeto)
 
 ### Detalhes Tecnicos
 
-Mudancas exclusivamente em classes Tailwind CSS, sem alteracao de logica:
-
-```text
-Linha 225: "space-y-6 animate-fade-in pb-24"
-        -> "space-y-6 animate-fade-in pb-24 min-w-0 overflow-hidden"
-
-Linha 227: "flex items-center gap-3"
-        -> "flex items-center gap-3 min-w-0"
-
-Linha 231: "flex-1"
-        -> "flex-1 min-w-0"
-
-Linha 235: Badge sem shrink-0
-        -> Adicionar "shrink-0" ao className do Badge
-
-Linha 247: "flex flex-wrap gap-4"
-        -> "flex flex-wrap gap-x-3 gap-y-1"
-```
-
-Apenas o arquivo `src/pages/crm/CrmVisitaExecucao.tsx` sera modificado.
+Arquivos modificados:
+- `src/components/layout/AppLayout.tsx` (linhas 131 e 146)
+- `src/pages/crm/CrmVisitaExecucao.tsx` (linha 225, limpeza)
 
