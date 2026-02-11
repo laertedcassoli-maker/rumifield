@@ -1303,6 +1303,7 @@ export default function AdminConfig() {
                           Descrição {getSortIcon('descricao', pecaSortField, pecaSortDirection)}
                         </Button>
                       </TableHead>
+                      <TableHead className="text-center">Controlado</TableHead>
                       <TableHead className="text-right">
                         <Button variant="ghost" onClick={() => handlePecaSort('quantidade_estoque')} className="hover:bg-transparent p-0">
                           Estoque {getSortIcon('quantidade_estoque', pecaSortField, pecaSortDirection)}
@@ -1314,7 +1315,7 @@ export default function AdminConfig() {
                   <TableBody>
                     {paginatedPecas.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
+                        <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
                           Nenhuma peça encontrada
                         </TableCell>
                       </TableRow>
@@ -1364,6 +1365,15 @@ export default function AdminConfig() {
                           </TableCell>
                           <TableCell>{peca.omie_codigo || '-'}</TableCell>
                           <TableCell className="text-muted-foreground">{peca.descricao || '-'}</TableCell>
+                          <TableCell className="text-center">
+                            {(peca as any).is_asset ? (
+                              <Badge variant="outline" className="text-xs bg-blue-500/10 text-blue-600 border-blue-500/30">
+                                Sim
+                              </Badge>
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            )}
+                          </TableCell>
                           <TableCell className="text-right">
                             <span className={peca.quantidade_estoque && peca.quantidade_estoque > 0 ? 'text-green-600 font-medium' : 'text-muted-foreground'}>
                               {peca.quantidade_estoque ?? 0}
