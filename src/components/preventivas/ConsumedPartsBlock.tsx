@@ -7,15 +7,15 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { Loader2, Package, ChevronUp, ChevronDown, Warehouse, Truck, Plus, Trash2, Check, ChevronsUpDown, PenLine, ShoppingCart } from 'lucide-react';
+import { Loader2, Package, ChevronUp, ChevronDown, Warehouse, Truck, Plus, Trash2, Check, ChevronsUpDown, PenLine, ShoppingCart, ArrowLeft } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
-import { useDebounce } from '@/hooks/useDebounce';
 
 interface ConsumedPart {
   id: string;
@@ -467,7 +467,7 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
                     {stockSource === 'tecnico' && selectedPart && (selectedPart as any).is_asset && (
                       <div className="space-y-2">
                         <Label>Cód. Unívoco do Ativo</Label>
-                        <AssetCodeInput
+                        <AssetCodeSelect
                           value={dialogAssetCode}
                           onChange={setDialogAssetCode}
                           partId={selectedPartId || undefined}
@@ -508,106 +508,124 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
   );
 }
 
-// Asset code input with search filtered by part type
-function AssetCodeInput({ value, onChange, onBlurSave, partId }: { value: string; onChange: (v: string) => void; onBlurSave?: (v: string) => void; partId?: string }) {
-  const [showSuggestions, setShowSuggestions] = useState(false);
-  const debouncedCode = useDebounce(value, 500);
+// Asset code select with dropdown filtered by part type
+const NEW_CODE_SENTINEL = '__NEW_CODE__';
 
-  const { data: matchedAssets } = useQuery({
-    queryKey: ['workshop-items-search', debouncedCode, partId],
+function AssetCodeSelect({ value, onChange, onBlurSave, partId }: { value: string; onChange: (v: string) => void; onBlurSave?: (v: string) => void; partId?: string }) {
+  const [mode, setMode] = useState<'select' | 'manual'>(value ? 'manual' : 'select');
+
+  const { data: assets, isLoading } = useQuery({
+    queryKey: ['workshop-items-by-part', partId],
     queryFn: async () => {
-      let query = supabase
+      const { data, error } = await supabase
         .from('workshop_items')
-        .select('id, unique_code, omie_product_id, status')
-        .ilike('unique_code', `%${debouncedCode.trim()}%`)
-        .limit(10);
-
-      if (partId) {
-        query = query.eq('omie_product_id', partId);
-      }
-
-      const { data, error } = await query;
+        .select('id, unique_code, status')
+        .eq('omie_product_id', partId!)
+        .order('unique_code');
       if (error) throw error;
       return data || [];
     },
-    enabled: !!debouncedCode.trim() && debouncedCode.trim().length >= 3,
+    enabled: !!partId,
   });
 
-  const exactMatch = matchedAssets?.find(a => a.unique_code === value.trim());
-
-  // Fetch product name for exact match
-  const { data: matchedProduct } = useQuery({
-    queryKey: ['peca-name', exactMatch?.omie_product_id],
-    queryFn: async () => {
-      const { data } = await supabase
-        .from('pecas')
-        .select('nome, codigo')
-        .eq('id', exactMatch!.omie_product_id)
-        .maybeSingle();
-      return data;
-    },
-    enabled: !!exactMatch?.omie_product_id,
-  });
-
-  const handleSelect = (code: string) => {
-    onChange(code);
-    onBlurSave?.(code);
-    setShowSuggestions(false);
-  };
-
-  const hasResults = matchedAssets && matchedAssets.length > 0;
-  const showDropdown = showSuggestions && hasResults && !exactMatch && debouncedCode.trim().length >= 3;
-
-  return (
-    <div className="space-y-1 relative">
+  // If no partId or no assets loaded, fallback to manual input
+  if (!partId) {
+    return (
       <Input
         value={value}
-        onChange={(e) => {
-          onChange(e.target.value);
-          setShowSuggestions(true);
-        }}
-        onBlur={() => {
-          // Delay to allow click on suggestion
-          setTimeout(() => {
-            setShowSuggestions(false);
-            onBlurSave?.(value);
-          }, 200);
-        }}
-        onFocus={() => setShowSuggestions(true)}
+        onChange={(e) => onChange(e.target.value)}
+        onBlur={() => onBlurSave?.(value)}
         placeholder="Digite o código unívoco..."
         className="font-mono text-sm"
       />
-      {/* Suggestions dropdown */}
-      {showDropdown && (
-        <div className="absolute z-50 w-full mt-1 bg-popover border rounded-md shadow-md max-h-48 overflow-y-auto">
-          {matchedAssets.map((asset) => (
-            <button
-              key={asset.id}
-              type="button"
-              className="w-full text-left px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground font-mono flex items-center justify-between"
-              onMouseDown={(e) => {
-                e.preventDefault();
-                handleSelect(asset.unique_code);
-              }}
-            >
-              <span>{asset.unique_code}</span>
-              <Badge variant="outline" className="text-[10px] ml-2 shrink-0">
-                {asset.status || 'disponível'}
-              </Badge>
-            </button>
-          ))}
+    );
+  }
+
+  // Check if current value matches an existing asset
+  const existingAsset = assets?.find(a => a.unique_code === value);
+
+  if (mode === 'manual' || (value && !existingAsset && assets && assets.length > 0 && mode !== 'select')) {
+    return (
+      <div className="space-y-1">
+        <Input
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          onBlur={() => onBlurSave?.(value)}
+          placeholder="Digite o código unívoco..."
+          className="font-mono text-sm"
+        />
+        {assets && assets.length > 0 && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="h-6 px-2 text-xs text-muted-foreground"
+            onClick={() => {
+              setMode('select');
+              onChange('');
+              onBlurSave?.('');
+            }}
+          >
+            <ArrowLeft className="h-3 w-3 mr-1" />
+            Voltar para lista
+          </Button>
+        )}
+        {value.trim() && !existingAsset && (
+          <p className="text-xs text-muted-foreground">
+            Código novo — será criado ao encerrar a visita
+          </p>
+        )}
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-1">
+      {isLoading ? (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="h-3 w-3 animate-spin" />
+          Carregando ativos...
         </div>
+      ) : (
+        <Select
+          value={existingAsset ? value : ''}
+          onValueChange={(val) => {
+            if (val === NEW_CODE_SENTINEL) {
+              setMode('manual');
+              onChange('');
+            } else {
+              onChange(val);
+              onBlurSave?.(val);
+            }
+          }}
+        >
+          <SelectTrigger className="font-mono text-sm">
+            <SelectValue placeholder="Selecione um ativo..." />
+          </SelectTrigger>
+          <SelectContent>
+            {assets && assets.length > 0 ? (
+              <>
+                {assets.map((asset) => (
+                  <SelectItem key={asset.id} value={asset.unique_code} className="font-mono">
+                    {asset.unique_code} ({asset.status || 'disponível'})
+                  </SelectItem>
+                ))}
+                <SelectItem value={NEW_CODE_SENTINEL} className="text-primary font-medium">
+                  + Novo código...
+                </SelectItem>
+              </>
+            ) : (
+              <SelectItem value={NEW_CODE_SENTINEL} className="text-primary font-medium">
+                + Novo código...
+              </SelectItem>
+            )}
+          </SelectContent>
+        </Select>
       )}
-      {/* Status messages */}
-      {exactMatch && (
+      {existingAsset && (
         <p className="text-xs text-green-600 flex items-center gap-1">
           <Check className="h-3 w-3" />
-          Ativo encontrado{matchedProduct ? `: ${matchedProduct.codigo} - ${matchedProduct.nome}` : ''}
-        </p>
-      )}
-      {debouncedCode.trim().length >= 3 && !hasResults && (
-        <p className="text-xs text-muted-foreground">
-          Código novo — será criado ao encerrar a visita
+          Ativo encontrado — {existingAsset.status || 'disponível'}
         </p>
       )}
     </div>
@@ -729,7 +747,7 @@ function PartItem({ part, isCompleted, onStockSourceChange, onAssetCodeChange, o
       {/* Asset Unique Code - only when tecnico AND is_asset */}
       {part.stock_source === 'tecnico' && part.is_asset && !isCompleted && (
         <div className="pt-1">
-          <AssetCodeInput
+          <AssetCodeSelect
             value={localAssetCode}
             onChange={setLocalAssetCode}
             onBlurSave={(code) => onAssetCodeChange(part.id, code)}
