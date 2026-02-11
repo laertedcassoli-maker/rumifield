@@ -1,0 +1,2 @@
+ALTER TABLE preventive_part_consumption DROP CONSTRAINT preventive_part_consumption_stock_source_check;
+ALTER TABLE preventive_part_consumption ADD CONSTRAINT preventive_part_consumption_stock_source_check CHECK (stock_source = ANY (ARRAY['fazenda'::text, 'tecnico'::text, 'novo_pedido'::text]));
