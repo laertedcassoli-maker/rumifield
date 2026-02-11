@@ -1,0 +1,3 @@
+ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS origem text;
+ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS tipo_envio text;
+ALTER TABLE pedidos ADD COLUMN IF NOT EXISTS urgencia text NOT NULL DEFAULT 'normal';

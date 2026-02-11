@@ -189,7 +189,10 @@ export default function AtendimentoPreventivo() {
               solicitante_id: user.id,
               preventive_id: routeItem.preventiveId,
               observacoes: `Gerado automaticamente na visita preventiva (rota ${routeItem.route?.route_code})`,
-            })
+              origem: 'preventiva',
+              tipo_envio: 'apenas_nf',
+              urgencia: 'normal',
+            } as any)
             .select('id')
             .single();
 

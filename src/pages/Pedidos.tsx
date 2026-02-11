@@ -1,9 +1,10 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { useAuth } from '@/contexts/AuthContext';
 import { useOfflinePedidos } from '@/hooks/useOfflinePedidos';
 import { useOffline } from '@/contexts/OfflineContext';
 import { offlineDb } from '@/lib/offline-db';
+import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -15,11 +16,13 @@ import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus, Loader2, Trash2, Minus, ArrowUpDown, Search, X, Eye, Pencil, CloudOff, ShoppingCart, Package, ImageIcon, Send, FileText, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { Plus, Loader2, Trash2, Minus, ArrowUpDown, Search, X, Eye, Pencil, CloudOff, ShoppingCart, Package, ImageIcon, Send, FileText, ChevronLeft, ChevronRight, Truck, HandHelping, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
+import PedidoKanban from '@/components/pedidos/PedidoKanban';
 
 const statusColors: Record<string, string> = {
   rascunho: 'bg-muted text-muted-foreground border-muted-foreground/30',
@@ -46,12 +49,14 @@ export default function Pedidos() {
   const [open, setOpen] = useState(false);
   const [editingPedido, setEditingPedido] = useState<any>(null);
   const [viewingPedido, setViewingPedido] = useState<any>(null);
-  const [form, setForm] = useState({ cliente_id: '', observacoes: '' });
+  const [form, setForm] = useState({ cliente_id: '', observacoes: '', urgencia: 'normal', tipo_envio: '' });
   const [itens, setItens] = useState<{ peca_id: string; quantidade: number }[]>([]);
   const [viewAll, setViewAll] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [imagePreview, setImagePreview] = useState<{ url: string; nome: string } | null>(null);
+  const [isProcessingAction, setIsProcessingAction] = useState(false);
+  const [consultorNames, setConsultorNames] = useState<Record<string, string>>({});
   
   const isAdmin = role === 'admin' || role === 'coordenador_rplus' || role === 'coordenador_servicos';
 
@@ -233,7 +238,7 @@ export default function Pedidos() {
       toast({ title: 'Rascunho excluído!' });
       setOpen(false);
       setEditingPedido(null);
-      setForm({ cliente_id: '', observacoes: '' });
+      setForm({ cliente_id: '', observacoes: '', urgencia: 'normal', tipo_envio: '' });
       setItens([]);
       if (isOnline) {
         setTimeout(() => triggerSync(), 500);
@@ -283,6 +288,8 @@ export default function Pedidos() {
     setForm({
       cliente_id: pedido.cliente_id,
       observacoes: pedido.observacoes || '',
+      urgencia: pedido.urgencia || 'normal',
+      tipo_envio: pedido.tipo_envio || '',
     });
     setItens(
       pedido.pedido_itens?.map((item: any) => ({
@@ -297,7 +304,7 @@ export default function Pedidos() {
     setOpen(isOpen);
     if (!isOpen) {
       setEditingPedido(null);
-      setForm({ cliente_id: '', observacoes: '' });
+      setForm({ cliente_id: '', observacoes: '', urgencia: 'normal', tipo_envio: '' });
       setItens([]);
       setShowConfirmation(false);
       setClienteSearch('');
@@ -333,6 +340,9 @@ export default function Pedidos() {
           solicitante_id: user!.id,
           cliente_id: form.cliente_id,
           observacoes: form.observacoes,
+          origem: 'manual',
+          tipo_envio: form.tipo_envio || undefined,
+          urgencia: form.urgencia,
           itens,
         });
         toast({ title: 'Rascunho salvo!', description: 'Clique em "Transmitir" para enviar o pedido.' });
@@ -340,7 +350,7 @@ export default function Pedidos() {
       }
       setOpen(false);
       setEditingPedido(null);
-      setForm({ cliente_id: '', observacoes: '' });
+      setForm({ cliente_id: '', observacoes: '', urgencia: 'normal', tipo_envio: '' });
       setItens([]);
       setShowConfirmation(false);
       setClienteSearch('');
@@ -358,6 +368,53 @@ export default function Pedidos() {
       setIsSubmitting(false);
     }
   };
+
+  // Processar pedido (solicitado -> processamento)
+  const handleProcessar = useCallback(async (pedidoId: string) => {
+    setIsProcessingAction(true);
+    try {
+      const { error } = await supabase
+        .from('pedidos')
+        .update({ status: 'processamento' })
+        .eq('id', pedidoId);
+      if (error) throw error;
+      // Update local
+      await offlineDb.pedidos.update(pedidoId, { status: 'processamento' });
+      toast({ title: 'Pedido movido para processamento!' });
+      if (isOnline) setTimeout(() => triggerSync(), 500);
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: 'Erro', description: err.message });
+    } finally {
+      setIsProcessingAction(false);
+    }
+  }, [isOnline, toast, triggerSync]);
+
+  // Concluir pedido (processamento -> faturado + NF)
+  const handleConcluir = useCallback(async (pedidoId: string, nfNumero: string, dataFaturamento: string) => {
+    setIsProcessingAction(true);
+    try {
+      const { error } = await supabase
+        .from('pedidos')
+        .update({ 
+          status: 'faturado', 
+          omie_nf_numero: nfNumero,
+          omie_data_faturamento: dataFaturamento,
+        })
+        .eq('id', pedidoId);
+      if (error) throw error;
+      await offlineDb.pedidos.update(pedidoId, { 
+        status: 'faturado', 
+        omie_nf_numero: nfNumero,
+        omie_data_faturamento: dataFaturamento,
+      });
+      toast({ title: 'Pedido concluído!', description: `NF ${nfNumero} registrada.` });
+      if (isOnline) setTimeout(() => triggerSync(), 500);
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: 'Erro', description: err.message });
+    } finally {
+      setIsProcessingAction(false);
+    }
+  }, [isOnline, toast, triggerSync]);
 
   return (
     <div className="space-y-6 animate-fade-in w-full max-w-full overflow-x-hidden">
@@ -745,6 +802,49 @@ export default function Pedidos() {
                     </div>
                   </div>
 
+                  {/* Urgência */}
+                  <div className="space-y-2">
+                    <Label>Urgência</Label>
+                    <ToggleGroup 
+                      type="single" 
+                      value={form.urgencia} 
+                      onValueChange={(v) => v && setForm({ ...form, urgencia: v })}
+                      className="justify-start"
+                    >
+                      <ToggleGroupItem value="baixa" className="text-xs data-[state=on]:bg-muted">Baixa</ToggleGroupItem>
+                      <ToggleGroupItem value="normal" className="text-xs data-[state=on]:bg-blue-100 data-[state=on]:text-blue-700">Normal</ToggleGroupItem>
+                      <ToggleGroupItem value="alta" className="text-xs data-[state=on]:bg-orange-100 data-[state=on]:text-orange-700">Alta</ToggleGroupItem>
+                      <ToggleGroupItem value="critica" className="text-xs data-[state=on]:bg-red-100 data-[state=on]:text-red-700">
+                        <AlertTriangle className="h-3 w-3 mr-1" />
+                        Crítica
+                      </ToggleGroupItem>
+                    </ToggleGroup>
+                  </div>
+
+                  {/* Tipo de Envio */}
+                  <div className="space-y-2">
+                    <Label>Tipo de Envio</Label>
+                    <ToggleGroup 
+                      type="single" 
+                      value={form.tipo_envio} 
+                      onValueChange={(v) => setForm({ ...form, tipo_envio: v || '' })}
+                      className="justify-start"
+                    >
+                      <ToggleGroupItem value="correio" className="text-xs gap-1">
+                        <Truck className="h-3 w-3" />
+                        Correio
+                      </ToggleGroupItem>
+                      <ToggleGroupItem value="entrega" className="text-xs gap-1">
+                        <HandHelping className="h-3 w-3" />
+                        Entrega
+                      </ToggleGroupItem>
+                      <ToggleGroupItem value="apenas_nf" className="text-xs gap-1">
+                        <FileText className="h-3 w-3" />
+                        Apenas NF
+                      </ToggleGroupItem>
+                    </ToggleGroup>
+                  </div>
+
                   <div className="space-y-2">
                     <Label>Observações</Label>
                     <Textarea
@@ -924,299 +1024,80 @@ export default function Pedidos() {
             <p className="text-muted-foreground">Clique em "Novo Pedido" para solicitar peças.</p>
           </CardContent>
         </Card>
+      ) : activeTab === 'pedidos' ? (
+        /* Kanban for Transmitidos */
+        pedidosTransmitidos.length === 0 ? (
+          <Card>
+            <CardContent className="py-12 text-center">
+              <Send className="mx-auto h-12 w-12 text-muted-foreground/50" />
+              <h3 className="mt-4 font-semibold">Nenhum pedido transmitido</h3>
+              <p className="text-muted-foreground">Transmita um rascunho para começar.</p>
+            </CardContent>
+          </Card>
+        ) : (
+          <PedidoKanban
+            pedidos={pedidosTransmitidos}
+            onViewPedido={setViewingPedido}
+            onProcessar={handleProcessar}
+            onConcluir={handleConcluir}
+            isProcessing={isProcessingAction}
+            consultorNames={consultorNames}
+          />
+        )
       ) : filteredAndSortedPedidos.length === 0 ? (
         <Card>
           <CardContent className="py-12 text-center">
             <Search className="mx-auto h-12 w-12 text-muted-foreground/50" />
-            <h3 className="mt-4 font-semibold">Nenhum pedido encontrado</h3>
-            <p className="text-muted-foreground">Tente ajustar os filtros de busca.</p>
+            <h3 className="mt-4 font-semibold">Nenhum rascunho encontrado</h3>
           </CardContent>
         </Card>
       ) : (
-        <>
-          {/* Mobile: Cards */}
-          <div className="space-y-3 md:hidden">
-            {paginatedPedidos.map((pedido) => (
-              <Card key={pedido.id} className={cn(pedido._pendingSync && 'border-orange-300 border-dashed')}>
-                <CardContent className="p-4">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <Badge variant="outline" className={cn(statusColors[pedido.status], 'text-xs')}>
-                          {pedido._pendingSync && <CloudOff className="h-3 w-3 mr-1" />}
-                          {statusLabels[pedido.status]}
-                        </Badge>
-                        {pedido._pendingSync && (
-                          <span className="text-xs text-orange-600">Pendente sync</span>
-                        )}
-                      </div>
-                      <h3 className="font-medium mt-2 break-words">{pedido.clientes?.nome}</h3>
-                      {pedido.clientes?.fazenda && (
-                        <p className="text-sm text-muted-foreground break-words">{pedido.clientes.fazenda}</p>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-1 shrink-0">
-                      {pedido.status === 'rascunho' && (
-                        <>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-9 w-9"
-                            onClick={() => handleEditPedido(pedido)}
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            size="sm"
-                            className="bg-success hover:bg-success/90 text-success-foreground h-9 gap-1"
-                            onClick={() => handleTransmitir(pedido.id)}
-                            disabled={isTransmitting}
-                          >
-                            {isTransmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                            <span className="hidden sm:inline">Transmitir</span>
-                          </Button>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                  
-                  <div className="mt-3 pt-3 border-t text-sm space-y-2">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-1 text-muted-foreground">
-                        <span>{format(new Date(pedido.created_at), "dd/MM/yy HH:mm", { locale: ptBR })}</span>
-                      </div>
-                      <div className="flex items-center gap-1">
-                        <Button 
-                          variant="outline" 
-                          size="sm" 
-                          className="h-8 gap-1.5"
-                          onClick={() => setViewingPedido(pedido)}
-                        >
-                          <Eye className="h-4 w-4" />
-                          <span>Ver detalhes</span>
-                        </Button>
-                      </div>
-                    </div>
-                    {/* Família tags */}
-                    {(() => {
-                      const familias = [...new Set(pedido.pedido_itens?.map((item: any) => item.pecas?.familia).filter(Boolean))];
-                      return familias.length > 0 ? (
-                        <div className="flex flex-wrap gap-1">
-                          {familias.map((familia: string) => (
-                            <Badge key={familia} variant="secondary" className="text-[10px] h-5">{familia}</Badge>
-                          ))}
-                        </div>
-                      ) : null;
-                    })()}
-                  </div>
-                  
-                  {isAdmin && viewAll && pedido.solicitante && (
-                    <div className="mt-2 pt-2 border-t text-xs text-muted-foreground">
-                      Solicitado por: {pedido.solicitante?.nome}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-
-          {/* Desktop: Table */}
-          <Card className="hidden md:block">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>
-                    <Button 
-                      variant="ghost" 
-                      className="h-auto p-0 font-medium hover:bg-transparent"
-                      onClick={() => toggleSort('created_at')}
-                    >
-                      Data
-                      <ArrowUpDown className="ml-2 h-4 w-4" />
-                    </Button>
-                  </TableHead>
-                  {isAdmin && viewAll && (
-                    <TableHead>Solicitante</TableHead>
-                  )}
-                  <TableHead>
-                    <Button 
-                      variant="ghost" 
-                      className="h-auto p-0 font-medium hover:bg-transparent"
-                      onClick={() => toggleSort('cliente')}
-                    >
-                      Cliente / Fazenda
-                      <ArrowUpDown className="ml-2 h-4 w-4" />
-                    </Button>
-                  </TableHead>
-                  <TableHead>Peças</TableHead>
-                  <TableHead>
-                    <Button 
-                      variant="ghost" 
-                      className="h-auto p-0 font-medium hover:bg-transparent"
-                      onClick={() => toggleSort('status')}
-                    >
-                      Status
-                      <ArrowUpDown className="ml-2 h-4 w-4" />
-                    </Button>
-                  </TableHead>
-                  <TableHead>NF</TableHead>
-                  <TableHead className="w-[60px]"></TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {paginatedPedidos.map((pedido) => (
-                  <TableRow key={pedido.id} className={pedido._pendingSync ? 'bg-orange-50/50' : ''}>
-                    <TableCell className="whitespace-nowrap">
-                      <div className="flex items-center gap-1">
-                        {pedido._pendingSync && (
-                          <CloudOff className="h-3 w-3 text-orange-500" />
-                        )}
-                        <span>
-                          {format(new Date(pedido.created_at), "dd/MM/yyyy", { locale: ptBR })}
-                        </span>
-                      </div>
-                      <span className="block text-xs text-muted-foreground">
-                        {format(new Date(pedido.created_at), "HH:mm", { locale: ptBR })}
-                      </span>
-                    </TableCell>
-                    {isAdmin && viewAll && (
-                      <TableCell>
-                        <div className="font-medium">{pedido.solicitante?.nome || '-'}</div>
-                        <div className="text-xs text-muted-foreground">{pedido.solicitante?.email}</div>
-                      </TableCell>
-                    )}
-                    <TableCell>
-                      <div className="font-medium">{pedido.clientes?.nome}</div>
-                      {pedido.clientes?.fazenda && (
-                        <div className="text-sm text-muted-foreground">{pedido.clientes.fazenda}</div>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      <div className="space-y-1">
-                        <Button 
-                          variant="ghost" 
-                          size="sm" 
-                          className="h-auto p-1 gap-1.5"
-                          onClick={() => setViewingPedido(pedido)}
-                        >
-                          <Package className="h-4 w-4 text-muted-foreground" />
-                          <span>
-                            {pedido.pedido_itens?.length || 0} {pedido.pedido_itens?.length === 1 ? 'peça' : 'peças'}, {pedido.pedido_itens?.reduce((sum: number, item: any) => sum + item.quantidade, 0) || 0} un
-                          </span>
-                          <Eye className="h-3 w-3 text-muted-foreground" />
-                        </Button>
-                        {/* Família tags */}
-                        {(() => {
-                          const familias = [...new Set(pedido.pedido_itens?.map((item: any) => item.pecas?.familia).filter(Boolean))];
-                          return familias.length > 0 ? (
-                            <div className="flex flex-wrap gap-1">
-                              {familias.map((familia: string) => (
-                                <Badge key={familia} variant="secondary" className="text-[10px] h-5">{familia}</Badge>
-                              ))}
-                            </div>
-                          ) : null;
-                        })()}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className={cn(statusColors[pedido.status], pedido._pendingSync && 'border-dashed')}>
+        /* Rascunhos - keep card list */
+        <div className="space-y-3">
+          {filteredAndSortedPedidos.map((pedido) => (
+            <Card key={pedido.id} className={cn(pedido._pendingSync && 'border-orange-300 border-dashed')}>
+              <CardContent className="p-4">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <Badge variant="outline" className={cn(statusColors[pedido.status], 'text-xs')}>
                         {pedido._pendingSync && <CloudOff className="h-3 w-3 mr-1" />}
                         {statusLabels[pedido.status]}
                       </Badge>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {pedido.omie_nf_numero || '-'}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-1">
-                        {pedido.status === 'rascunho' && (
-                          <>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8"
-                              onClick={() => handleEditPedido(pedido)}
-                            >
-                              <Pencil className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              size="sm"
-                              className="bg-success hover:bg-success/90 text-success-foreground h-8 gap-1"
-                              onClick={() => handleTransmitir(pedido.id)}
-                              disabled={isTransmitting}
-                            >
-                              {isTransmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                              Transmitir
-                            </Button>
-                          </>
-                        )}
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </Card>
-          
-          {/* Pagination Controls */}
-          {activeTab === 'pedidos' && totalPages > 1 && (
-            <div className="flex items-center justify-between px-2 py-3">
-              <p className="text-sm text-muted-foreground">
-                Mostrando {((currentPage - 1) * ITEMS_PER_PAGE) + 1} a {Math.min(currentPage * ITEMS_PER_PAGE, filteredAndSortedPedidos.length)} de {filteredAndSortedPedidos.length}
-              </p>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                  disabled={currentPage === 1}
-                  className="h-8 gap-1"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                  <span className="hidden sm:inline">Anterior</span>
-                </Button>
-                <div className="flex items-center gap-1">
-                  {Array.from({ length: totalPages }, (_, i) => i + 1)
-                    .filter(page => {
-                      // Show first, last, current, and adjacent pages
-                      if (page === 1 || page === totalPages) return true;
-                      if (Math.abs(page - currentPage) <= 1) return true;
-                      return false;
-                    })
-                    .map((page, index, arr) => {
-                      // Check if we need ellipsis before this page
-                      const showEllipsisBefore = index > 0 && page - arr[index - 1] > 1;
-                      return (
-                        <div key={page} className="flex items-center gap-1">
-                          {showEllipsisBefore && (
-                            <span className="px-2 text-muted-foreground">...</span>
-                          )}
-                          <Button
-                            variant={currentPage === page ? 'default' : 'outline'}
-                            size="sm"
-                            onClick={() => setCurrentPage(page)}
-                            className="h-8 w-8 p-0"
-                          >
-                            {page}
-                          </Button>
-                        </div>
-                      );
-                    })}
+                    </div>
+                    <h3 className="font-medium mt-2 break-words">{pedido.clientes?.nome}</h3>
+                    {pedido.clientes?.fazenda && (
+                      <p className="text-sm text-muted-foreground break-words">{pedido.clientes.fazenda}</p>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <Button variant="ghost" size="icon" className="h-9 w-9" onClick={() => handleEditPedido(pedido)}>
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="bg-success hover:bg-success/90 text-success-foreground h-9 gap-1"
+                      onClick={() => handleTransmitir(pedido.id)}
+                      disabled={isTransmitting}
+                    >
+                      {isTransmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                      <span className="hidden sm:inline">Transmitir</span>
+                    </Button>
+                  </div>
                 </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                  disabled={currentPage === totalPages}
-                  className="h-8 gap-1"
-                >
-                  <span className="hidden sm:inline">Próximo</span>
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          )}
-        </>
+                <div className="mt-3 pt-3 border-t text-sm">
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">{format(new Date(pedido.created_at), "dd/MM/yy HH:mm", { locale: ptBR })}</span>
+                    <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={() => setViewingPedido(pedido)}>
+                      <Eye className="h-4 w-4" />
+                      Detalhes
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       )}
       </Tabs>
 
