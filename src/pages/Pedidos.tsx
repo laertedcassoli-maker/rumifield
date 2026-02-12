@@ -354,7 +354,7 @@ export default function Pedidos() {
           solicitante_id: user!.id,
           cliente_id: form.cliente_id,
           observacoes: form.observacoes,
-          origem: 'manual',
+          origem: 'chamado',
           tipo_envio: form.tipo_envio || undefined,
           urgencia: form.urgencia,
           itens,
