@@ -238,7 +238,7 @@ export default function EditarPedidoSolicitado({ pedido, onSaved, onCancel }: Ed
   };
 
   return (
-    <div className="space-y-4">
+    <div className="flex-1 min-h-0 flex flex-col space-y-3 overflow-y-auto">
       {/* Active Items */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
@@ -249,7 +249,7 @@ export default function EditarPedidoSolicitado({ pedido, onSaved, onCancel }: Ed
           </Button>
         </div>
 
-        <div className="space-y-2 max-h-[35vh] overflow-y-auto">
+        <div className="space-y-2 max-h-[40vh] overflow-y-auto">
           {activeItems.map((item) => {
             const peca = pecas?.find(p => p.id === item.peca_id) || item.pecas;
             const currentQty = qtyChanges[item.id] ?? item.quantidade;
@@ -453,7 +453,7 @@ export default function EditarPedidoSolicitado({ pedido, onSaved, onCancel }: Ed
       )}
 
       {/* Action buttons */}
-      <div className="flex gap-2 pt-2">
+      <div className="flex gap-2 pt-2 sticky bottom-0 bg-background pb-1">
         <Button type="button" variant="outline" className="flex-1" onClick={onCancel} disabled={isSaving}>
           Cancelar
         </Button>
