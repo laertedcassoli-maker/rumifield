@@ -88,7 +88,7 @@ export function useOfflinePedidos(userId?: string, viewAll = false, isAdmin = fa
       cliente_id: data.cliente_id,
       status: "rascunho",
       observacoes: data.observacoes || null,
-      origem: data.origem || 'manual',
+      origem: data.origem || 'chamado',
       tipo_envio: data.tipo_envio || null,
       urgencia: data.urgencia || 'normal',
       created_at: now,

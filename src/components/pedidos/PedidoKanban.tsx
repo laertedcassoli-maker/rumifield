@@ -21,10 +21,9 @@ const urgenciaConfig: Record<string, { label: string; className: string }> = {
 };
 
 const origemConfig: Record<string, { label: string; className: string }> = {
-  manual: { label: 'Manual', className: 'bg-muted text-muted-foreground' },
+  chamado: { label: 'Chamado', className: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' },
   preventiva: { label: 'Preventiva', className: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' },
   corretiva: { label: 'Corretiva', className: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' },
-  chamado: { label: 'Chamado', className: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400' },
 };
 
 const tipoEnvioConfig: Record<string, { label: string; icon: React.ReactNode; className: string }> = {
