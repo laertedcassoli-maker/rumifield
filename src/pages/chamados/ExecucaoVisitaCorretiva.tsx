@@ -294,7 +294,7 @@ export default function ExecucaoVisitaCorretiva() {
               solicitante_id: user.id,
               preventive_id: visit.preventiveId,
               observacoes: `Gerado automaticamente na visita corretiva ${visit.visit_code}`,
-              origem: 'chamado',
+              origem: 'corretiva',
               tipo_envio: 'envio_fisico',
               urgencia: 'normal',
             } as any)
@@ -337,7 +337,7 @@ export default function ExecucaoVisitaCorretiva() {
               solicitante_id: user.id,
               preventive_id: visit.preventiveId,
               observacoes: `Peças do estoque do técnico consumidas na corretiva ${visit.visit_code} — apenas para emissão de NF/faturamento`,
-              origem: 'chamado',
+              origem: 'corretiva',
               tipo_envio: 'apenas_nf',
               urgencia: 'normal',
             } as any)
