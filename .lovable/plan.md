@@ -1,65 +1,33 @@
 
-## Simplificar Etapas do CRM e Redesenhar Pipeline
 
-### Resumo
-1. Reduzir as etapas de oportunidade para 4 colunas no pipeline: **Nao Qualificado**, **Qualificado**, **Em Negociacao**, **Ganho**, **Perdido**
-2. Unificar "proposta" e "negociacao" em "em_negociacao"
-3. Remover "descartado" (sem dados existentes)
-4. Redesenhar cards do pipeline para mostrar a **oportunidade** (produto + cliente) em vez de apenas o cliente
+## Adicionar Filtro por Produto e Corrigir Filtro de Consultores
 
-### Dados existentes a migrar
-- 2 registros em "proposta" e 4 em "negociacao" serao migrados para "em_negociacao"
-- 0 registros em "descartado" (sem impacto)
+### O que sera feito
 
----
+**1. Adicionar filtro por produto no Pipeline**
+- Novo Select com opcoes: "Todos produtos", Ideagri, RumiFlow, OnFarm, RumiAction, RumiProcare
+- Aplicado sobre as oportunidades ja filtradas por consultor
+- Visivel para todos os usuarios (consultores e admins)
+
+**2. Corrigir lista de consultores no filtro**
+- Atualmente a query traz todos os profiles (`SELECT id, nome FROM profiles`)
+- Sera corrigida para trazer apenas usuarios com role `consultor_rplus` (via join com `user_roles`)
+- O filtro continua visivel apenas para admin e coordenador_rplus
 
 ### Detalhes Tecnicos
 
-**1. Migracao SQL**
-- Adicionar valor `em_negociacao` ao enum `crm_stage`
-- Migrar dados: `proposta` e `negociacao` para `em_negociacao` nas tabelas `crm_client_products` e `crm_visit_product_snapshots`
-- Remover valores antigos `proposta`, `negociacao` e `descartado` do enum
+**`src/pages/crm/CrmPipeline.tsx`**
+- Adicionar state `selectedProduct` (default: `'all'`)
+- Importar `PRODUCT_LABELS` e `PRODUCT_ORDER` do hook
+- Adicionar Select de produto na area de filtros (ao lado do filtro de consultor)
+- Aplicar filtro de produto no `useMemo` de `filtered`
 
-**2. Atualizar tipos e constantes (`src/hooks/useCrmData.ts`)**
-- `CrmStage`: remover `proposta`, `negociacao`, `descartado`; adicionar `em_negociacao`
-- `STAGE_LABELS`: atualizar para 5 etapas
-- `STAGE_COLORS`: atualizar para 5 etapas
+**`src/hooks/useCrmData.ts`** (funcao `usePipelineData`)
+- Alterar query de consultores para fazer join com `user_roles` e filtrar por `role = 'consultor_rplus'`
+- Exemplo: `supabase.from('user_roles').select('user_id, profiles!inner(id, nome)').eq('role', 'consultor_rplus')`
+- Ajustar o mapeamento do retorno para manter o formato `{ id, nome }`
 
-**3. Atualizar ProductCard (`src/components/crm/ProductCard.tsx`)**
-- Remover cases de `proposta`, `negociacao`, `descartado`
-- `qualificado`: CTA passa a ser "Iniciar Negociacao" (abre modal proposta integrado ou vai direto para em_negociacao)
-- `em_negociacao`: CTA "Atualizar" (ganho/perdido)
-- `perdido`: CTA "Reabrir"
+### Arquivos a modificar
+- `src/pages/crm/CrmPipeline.tsx` - adicionar filtro de produto
+- `src/hooks/useCrmData.ts` - corrigir query de consultores
 
-**4. Atualizar AtualizarNegociacaoModal**
-- Simplificar opcoes de transicao:
-  - `qualificado` -> `em_negociacao`
-  - `em_negociacao` -> `ganho` ou `perdido`
-  - `perdido` -> `nao_qualificado` (reabrir)
-
-**5. Atualizar CriarPropostaModal**
-- Ao criar proposta, o stage passa a ser `em_negociacao` (em vez de `proposta`)
-
-**6. Redesenhar CrmPipeline (`src/pages/crm/CrmPipeline.tsx`)**
-- `PIPELINE_STAGES` = `['nao_qualificado', 'qualificado', 'em_negociacao', 'ganho', 'perdido']`
-- Grid de 5 colunas em vez de 6
-- Cards agora mostram:
-  - ProductBadge do produto (ex: RumiFlow, Ideagri)
-  - Nome do cliente abaixo
-  - Valor estimado (se houver)
-  - Cidade
-- Remover filtro de produto (pois agora todos os produtos aparecem como cards individuais)
-- Manter filtro de consultor para admins
-
-**7. Atualizar CrmVisitaExecucao e CrmCliente360**
-- Remover referencias a `proposta`, `negociacao`, `descartado`
-- Ajustar logica de modais
-
-**Arquivos a modificar:**
-- `src/hooks/useCrmData.ts` - tipos e constantes
-- `src/components/crm/ProductCard.tsx` - CTAs
-- `src/components/crm/AtualizarNegociacaoModal.tsx` - opcoes de transicao
-- `src/components/crm/CriarPropostaModal.tsx` - stage target
-- `src/pages/crm/CrmPipeline.tsx` - layout e cards
-- `src/pages/crm/CrmCliente360.tsx` - ajustes menores
-- `src/pages/crm/CrmVisitaExecucao.tsx` - ajustes menores
