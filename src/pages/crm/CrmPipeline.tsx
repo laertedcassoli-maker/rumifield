@@ -2,17 +2,17 @@ import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { usePipelineData, STAGE_LABELS, STAGE_COLORS, PRODUCT_LABELS, PRODUCT_ORDER, type CrmStage, type ProductCode } from '@/hooks/useCrmData';
 import { ProductBadge } from '@/components/crm/ProductBadge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ChevronRight, MapPin, DollarSign } from 'lucide-react';
 
 const PIPELINE_STAGES: CrmStage[] = ['nao_qualificado', 'qualificado', 'em_negociacao', 'ganho', 'perdido'];
 
 export default function CrmPipeline() {
-  const { clientProducts, lossReasons, consultores, isLoading, isAdmin } = usePipelineData();
+  const { clientProducts, consultores, isLoading, isAdmin } = usePipelineData();
   const [selectedConsultor, setSelectedConsultor] = useState<string>('all');
   const [selectedProduct, setSelectedProduct] = useState<string>('all');
 
@@ -36,53 +36,6 @@ export default function CrmPipeline() {
     return groups;
   }, [filtered]);
 
-  // Stats
-  const avgDays = (stage: CrmStage) => {
-    const items = stageGroups[stage];
-    if (items.length === 0) return 0;
-    const now = Date.now();
-    const total = items.reduce((s: number, p: any) => {
-      return s + (now - new Date(p.stage_updated_at).getTime()) / (1000 * 60 * 60 * 24);
-    }, 0);
-    return Math.round(total / items.length);
-  };
-
-  // Top loss reasons
-  const topLoss = useMemo(() => {
-    const reasonCounts: Record<string, number> = {};
-    (stageGroups['perdido'] || []).forEach((p: any) => {
-      if (p.loss_reason_id) {
-        reasonCounts[p.loss_reason_id] = (reasonCounts[p.loss_reason_id] || 0) + 1;
-      }
-    });
-    return Object.entries(reasonCounts)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, 5)
-      .map(([id, count]) => ({
-        reason: lossReasons.find((r: any) => r.id === id)?.reason || 'Outro',
-        count,
-      }));
-  }, [stageGroups, lossReasons]);
-
-  // Consultor summary
-  const consultorSummary = useMemo(() => {
-    if (!isAdmin) return [];
-    const map: Record<string, { nome: string; total: number; opps: number; ganho: number; perdido: number }> = {};
-    clientProducts.forEach((p: any) => {
-      const cId = p.clientes?.consultor_rplus_id;
-      if (!cId) return;
-      if (!map[cId]) {
-        const c = consultores.find((c: any) => c.id === cId);
-        map[cId] = { nome: c?.nome || 'N/A', total: 0, opps: 0, ganho: 0, perdido: 0 };
-      }
-      map[cId].total++;
-      if (p.stage === 'em_negociacao') map[cId].opps++;
-      if (p.stage === 'ganho') map[cId].ganho++;
-      if (p.stage === 'perdido') map[cId].perdido++;
-    });
-    return Object.values(map).sort((a, b) => b.opps - a.opps);
-  }, [clientProducts, consultores, isAdmin]);
-
   if (isLoading) {
     return <div className="space-y-4"><Skeleton className="h-8 w-48" /><Skeleton className="h-64 w-full" /></div>;
   }
@@ -95,7 +48,7 @@ export default function CrmPipeline() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-2">
+      <div className="space-y-2">
         {isAdmin && (
           <Select value={selectedConsultor} onValueChange={setSelectedConsultor}>
             <SelectTrigger className="w-full sm:w-[200px]"><SelectValue placeholder="Consultor" /></SelectTrigger>
@@ -107,137 +60,77 @@ export default function CrmPipeline() {
             </SelectContent>
           </Select>
         )}
-        <Select value={selectedProduct} onValueChange={setSelectedProduct}>
-          <SelectTrigger className="w-full sm:w-[200px]"><SelectValue placeholder="Produto" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos produtos</SelectItem>
-            {PRODUCT_ORDER.map((code) => (
-              <SelectItem key={code} value={code}>{PRODUCT_LABELS[code]}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="flex flex-wrap gap-1.5">
+          <Button
+            size="sm"
+            variant={selectedProduct === 'all' ? 'default' : 'outline'}
+            onClick={() => setSelectedProduct('all')}
+          >
+            Todos
+          </Button>
+          {PRODUCT_ORDER.map(code => (
+            <Button
+              key={code}
+              size="sm"
+              variant={selectedProduct === code ? 'default' : 'outline'}
+              onClick={() => setSelectedProduct(code)}
+            >
+              {PRODUCT_LABELS[code]}
+            </Button>
+          ))}
+        </div>
       </div>
 
-      <Tabs defaultValue="pipeline">
-        <TabsList className="w-full sm:w-auto">
-          <TabsTrigger value="pipeline" className="flex-1 sm:flex-initial">Pipeline</TabsTrigger>
-          {isAdmin && <TabsTrigger value="consultores" className="flex-1 sm:flex-initial">Consultores</TabsTrigger>}
-          <TabsTrigger value="stats" className="flex-1 sm:flex-initial">Resumo</TabsTrigger>
-        </TabsList>
+      {/* Stage counts */}
+      <div className="grid grid-cols-5 gap-2">
+        {PIPELINE_STAGES.map(s => (
+          <Card key={s}>
+            <CardContent className="py-2 text-center">
+              <p className="text-xl font-bold">{stageGroups[s]?.length || 0}</p>
+              <p className="text-[10px] text-muted-foreground">{STAGE_LABELS[s]}</p>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
 
-        <TabsContent value="pipeline" className="mt-4">
-          {/* Stage counts */}
-          <div className="grid grid-cols-5 gap-2 mb-4">
-            {PIPELINE_STAGES.map(s => (
-              <Card key={s}>
-                <CardContent className="py-2 text-center">
-                  <p className="text-xl font-bold">{stageGroups[s]?.length || 0}</p>
-                  <p className="text-[10px] text-muted-foreground">{STAGE_LABELS[s]}</p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-
-          {/* Kanban-style columns */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-            {PIPELINE_STAGES.map(stage => (
-              <div key={stage} className="space-y-2">
-                <div className="flex items-center gap-1.5 mb-1">
-                  <Badge className={`text-[10px] ${STAGE_COLORS[stage]}`}>{STAGE_LABELS[stage]}</Badge>
-                  <span className="text-xs text-muted-foreground">({stageGroups[stage]?.length || 0})</span>
-                </div>
-                {(stageGroups[stage] || []).map((p: any) => (
-                  <Link key={p.id} to={`/crm/${p.client_id}`} state={{ from: '/crm/pipeline', fromLabel: 'Pipeline' }}>
-                    <Card className="hover:bg-accent/30 transition-colors cursor-pointer">
-                      <CardContent className="py-2.5 px-3 space-y-1.5">
-                        {/* Product badge */}
-                        <div className="flex items-center justify-between gap-1">
-                          <ProductBadge productCode={p.product_code} className="text-[10px] px-1.5 py-0" />
-                          <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />
-                        </div>
-                        {/* Client name */}
-                        <p className="text-xs font-medium truncate">{p.clientes?.nome}</p>
-                        {/* City + Value */}
-                        <div className="flex items-center justify-between gap-1 text-[10px] text-muted-foreground">
-                          {p.clientes?.cidade ? (
-                            <span className="flex items-center gap-0.5 truncate">
-                              <MapPin className="h-2.5 w-2.5 shrink-0" />
-                              {p.clientes.cidade}
-                            </span>
-                          ) : <span />}
-                          {p.value_estimated && (
-                            <span className="flex items-center gap-0.5 font-medium text-foreground shrink-0">
-                              <DollarSign className="h-2.5 w-2.5" />
-                              {Number(p.value_estimated).toLocaleString('pt-BR')}
-                            </span>
-                          )}
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </Link>
-                ))}
-              </div>
-            ))}
-          </div>
-        </TabsContent>
-
-        {isAdmin && (
-          <TabsContent value="consultores" className="mt-4">
-            <div className="space-y-2">
-              {consultorSummary.map((c, i) => (
-                <Card key={i}>
-                  <CardContent className="py-3 space-y-1">
-                    <span className="font-medium text-sm">{c.nome}</span>
-                    <div className="flex flex-wrap gap-3 text-xs">
-                      <span>{c.total} oportunidades</span>
-                      <span className="text-amber-600">{c.opps} em negociação</span>
-                      <span className="text-green-600">{c.ganho} ganhos</span>
-                      <span className="text-red-600">{c.perdido} perdidos</span>
+      {/* Kanban-style columns */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
+        {PIPELINE_STAGES.map(stage => (
+          <div key={stage} className="space-y-2">
+            <div className="flex items-center gap-1.5 mb-1">
+              <Badge className={`text-[10px] ${STAGE_COLORS[stage]}`}>{STAGE_LABELS[stage]}</Badge>
+              <span className="text-xs text-muted-foreground">({stageGroups[stage]?.length || 0})</span>
+            </div>
+            {(stageGroups[stage] || []).map((p: any) => (
+              <Link key={p.id} to={`/crm/${p.client_id}`} state={{ from: '/crm/pipeline', fromLabel: 'Pipeline' }}>
+                <Card className="hover:bg-accent/30 transition-colors cursor-pointer">
+                  <CardContent className="py-2.5 px-3 space-y-1.5">
+                    <div className="flex items-center justify-between gap-1">
+                      <ProductBadge productCode={p.product_code} className="text-[10px] px-1.5 py-0" />
+                      <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />
+                    </div>
+                    <p className="text-xs font-medium truncate">{p.clientes?.nome}</p>
+                    <div className="flex items-center justify-between gap-1 text-[10px] text-muted-foreground">
+                      {p.clientes?.cidade ? (
+                        <span className="flex items-center gap-0.5 truncate">
+                          <MapPin className="h-2.5 w-2.5 shrink-0" />
+                          {p.clientes.cidade}
+                        </span>
+                      ) : <span />}
+                      {p.value_estimated && (
+                        <span className="flex items-center gap-0.5 font-medium text-foreground shrink-0">
+                          <DollarSign className="h-2.5 w-2.5" />
+                          {Number(p.value_estimated).toLocaleString('pt-BR')}
+                        </span>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
-              ))}
-              {consultorSummary.length === 0 && (
-                <p className="text-sm text-muted-foreground text-center py-4">Nenhum dado disponível</p>
-              )}
-            </div>
-          </TabsContent>
-        )}
-
-        <TabsContent value="stats" className="mt-4 space-y-4">
-          {/* Aging */}
-          <Card>
-            <CardHeader className="pb-2"><CardTitle className="text-base">Aging Médio (dias)</CardTitle></CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-3 gap-4">
-                {(['nao_qualificado', 'qualificado', 'em_negociacao'] as CrmStage[]).map(s => (
-                  <div key={s} className="text-center">
-                    <p className="text-2xl font-bold">{avgDays(s)}</p>
-                    <p className="text-xs text-muted-foreground">{STAGE_LABELS[s]}</p>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Top loss reasons */}
-          {topLoss.length > 0 && (
-            <Card>
-              <CardHeader className="pb-2"><CardTitle className="text-base">Top Motivos de Perda</CardTitle></CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  {topLoss.map((l, i) => (
-                    <div key={i} className="flex items-center justify-between text-sm">
-                      <span>{l.reason}</span>
-                      <Badge variant="outline">{l.count}</Badge>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-        </TabsContent>
-      </Tabs>
+              </Link>
+            ))}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
