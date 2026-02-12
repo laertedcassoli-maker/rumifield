@@ -277,6 +277,130 @@ export default function ExecucaoVisitaCorretiva() {
         if (cmError) throw cmError;
       }
 
+      // --- Auto-create pedidos for consumed parts (same logic as preventive) ---
+      if (visit.preventiveId && user) {
+        // Pedido for parts with stock_source = 'novo_pedido' (envio_fisico)
+        const { data: novoPedidoParts } = await supabase
+          .from('preventive_part_consumption')
+          .select('part_id, part_name_snapshot, quantity')
+          .eq('preventive_id', visit.preventiveId)
+          .eq('stock_source', 'novo_pedido');
+
+        if (novoPedidoParts && novoPedidoParts.length > 0) {
+          const { data: pedido, error: pedidoError } = await supabase
+            .from('pedidos')
+            .insert({
+              cliente_id: visit.client_id,
+              solicitante_id: user.id,
+              preventive_id: visit.preventiveId,
+              observacoes: `Gerado automaticamente na visita corretiva ${visit.visit_code}`,
+              origem: 'chamado',
+              tipo_envio: 'envio_fisico',
+              urgencia: 'normal',
+            } as any)
+            .select('id')
+            .single();
+
+          if (!pedidoError && pedido) {
+            const grouped: Record<string, number> = {};
+            for (const p of novoPedidoParts) {
+              grouped[p.part_id] = (grouped[p.part_id] || 0) + (p.quantity || 1);
+            }
+            const pedidoItens = Object.entries(grouped).map(([peca_id, quantidade]) => ({
+              pedido_id: pedido.id,
+              peca_id,
+              quantidade,
+            }));
+            await supabase.from('pedido_itens').insert(pedidoItens);
+
+            // Link pedido to ticket
+            await supabase.from('ticket_parts_requests').insert({
+              ticket_id: visit.ticket_id,
+              pedido_id: pedido.id,
+              visit_id: visit.id,
+            });
+          }
+        }
+
+        // Pedido for parts with stock_source = 'tecnico' (apenas_nf)
+        const { data: tecnicoPartsForNF } = await supabase
+          .from('preventive_part_consumption')
+          .select('part_id, part_name_snapshot, quantity')
+          .eq('preventive_id', visit.preventiveId)
+          .eq('stock_source', 'tecnico');
+
+        if (tecnicoPartsForNF && tecnicoPartsForNF.length > 0) {
+          const { data: pedidoNF, error: pedidoNFError } = await supabase
+            .from('pedidos')
+            .insert({
+              cliente_id: visit.client_id,
+              solicitante_id: user.id,
+              preventive_id: visit.preventiveId,
+              observacoes: `Peças do estoque do técnico consumidas na corretiva ${visit.visit_code} — apenas para emissão de NF/faturamento`,
+              origem: 'chamado',
+              tipo_envio: 'apenas_nf',
+              urgencia: 'normal',
+            } as any)
+            .select('id')
+            .single();
+
+          if (!pedidoNFError && pedidoNF) {
+            const groupedNF: Record<string, number> = {};
+            for (const p of tecnicoPartsForNF) {
+              groupedNF[p.part_id] = (groupedNF[p.part_id] || 0) + (p.quantity || 1);
+            }
+            const pedidoItensNF = Object.entries(groupedNF).map(([peca_id, quantidade]) => ({
+              pedido_id: pedidoNF.id,
+              peca_id,
+              quantidade,
+            }));
+            await supabase.from('pedido_itens').insert(pedidoItensNF);
+
+            // Link pedido to ticket
+            await supabase.from('ticket_parts_requests').insert({
+              ticket_id: visit.ticket_id,
+              pedido_id: pedidoNF.id,
+              visit_id: visit.id,
+            });
+          }
+        }
+
+        // Auto-create workshop_items for new asset codes (is_asset parts)
+        const { data: tecnicoParts } = await supabase
+          .from('preventive_part_consumption')
+          .select('part_id, asset_unique_code')
+          .eq('preventive_id', visit.preventiveId)
+          .eq('stock_source', 'tecnico')
+          .not('asset_unique_code', 'is', null);
+
+        if (tecnicoParts && tecnicoParts.length > 0) {
+          const partIds = [...new Set(tecnicoParts.map(tp => tp.part_id))];
+          const { data: assetParts } = await supabase
+            .from('pecas')
+            .select('id, is_asset')
+            .in('id', partIds);
+          const assetSet = new Set((assetParts || []).filter((p: any) => p.is_asset).map((p: any) => p.id));
+
+          for (const tp of tecnicoParts) {
+            if (!tp.asset_unique_code?.trim()) continue;
+            if (!assetSet.has(tp.part_id)) continue;
+            const { data: existing } = await supabase
+              .from('workshop_items')
+              .select('id')
+              .eq('unique_code', tp.asset_unique_code.trim())
+              .maybeSingle();
+
+            if (!existing) {
+              await supabase.from('workshop_items').insert({
+                unique_code: tp.asset_unique_code.trim(),
+                omie_product_id: tp.part_id,
+                status: 'disponivel',
+              });
+            }
+          }
+        }
+      }
+
       // Build result label for timeline
       const resultLabels = {
         resolvido: 'Resolvido',
