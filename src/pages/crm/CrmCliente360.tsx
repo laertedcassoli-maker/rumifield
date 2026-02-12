@@ -286,22 +286,38 @@ export default function CrmCliente360() {
           {/* Proposals */}
           {proposals.length > 0 && (
             <div>
-              <h2 className="text-lg font-semibold mb-3">Propostas ({proposals.length})</h2>
+              <h2 className="text-lg font-semibold mb-3">Oportunidades ({proposals.length})</h2>
               <div className="space-y-2">
-                {proposals.map((p: any) => (
-                  <Card key={p.id}>
-                    <CardContent className="py-3 flex items-center justify-between gap-2">
-                      <div>
-                        <span className="text-sm font-medium">{PRODUCT_LABELS[(p.crm_client_products as any)?.product_code as ProductCode]}</span>
-                        <Badge className="ml-2 text-[10px]" variant="outline">{p.status}</Badge>
-                      </div>
-                      <div className="text-right text-sm">
-                        {p.proposed_value && <span className="font-medium">R$ {Number(p.proposed_value).toLocaleString('pt-BR')}</span>}
-                        {p.valid_until && <p className="text-[11px] text-muted-foreground">Validade: {format(new Date(p.valid_until), 'dd/MM/yyyy')}</p>}
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                {proposals.map((p: any) => {
+                  const cpId = p.client_product_id || (p.crm_client_products as any)?.id;
+                  const noteCount = (noteCounts as Record<string, number>)?.[cpId] || 0;
+                  return (
+                    <div key={p.id} className="space-y-0">
+                      <Card>
+                        <CardContent className="py-3 flex items-center justify-between gap-2">
+                          <div>
+                            <span className="text-sm font-medium">{PRODUCT_LABELS[(p.crm_client_products as any)?.product_code as ProductCode]}</span>
+                            <Badge className="ml-2 text-[10px]" variant="outline">{p.status}</Badge>
+                          </div>
+                          <div className="text-right text-sm">
+                            {p.proposed_value && <span className="font-medium">R$ {Number(p.proposed_value).toLocaleString('pt-BR')}</span>}
+                            {p.valid_until && <p className="text-[11px] text-muted-foreground">Validade: {format(new Date(p.valid_until), 'dd/MM/yyyy')}</p>}
+                          </div>
+                        </CardContent>
+                      </Card>
+                      <Collapsible>
+                        <CollapsibleTrigger className="w-full flex items-center justify-center gap-1.5 py-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
+                          <MessageSquare className="h-3 w-3" />
+                          {noteCount > 0 ? `${noteCount} interaç${noteCount === 1 ? 'ão' : 'ões'}` : 'Interações'}
+                          <ChevronDown className="h-3 w-3" />
+                        </CollapsibleTrigger>
+                        <CollapsibleContent className="px-1 pb-2">
+                          <OpportunityNotes clientProductId={cpId} clientId={id!} />
+                        </CollapsibleContent>
+                      </Collapsible>
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
