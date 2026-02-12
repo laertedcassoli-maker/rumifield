@@ -46,10 +46,16 @@ import { useOffline } from '@/contexts/OfflineContext';
 import PedidoKanban from '@/components/pedidos/PedidoKanban';
 
 const statusOptions = [
-  { value: 'solicitado', label: 'Solicitado' },
+  { value: 'rascunho', label: 'Rascunho' },
+  { value: 'solicitado', label: 'Transmitido' },
   { value: 'processamento', label: 'Em Processamento' },
   { value: 'faturado', label: 'Faturado' },
   { value: 'cancelado', label: 'Cancelado' },
+];
+
+const tipoEnvioOptions = [
+  { value: 'envio_fisico', label: 'Envio Físico' },
+  { value: 'apenas_nf', label: 'Apenas NF' },
 ];
 
 const urgenciaOptions = [
@@ -72,12 +78,13 @@ export default function Pedidos() {
   const { user, role } = useAuth();
   const { isOnline } = useOffline();
   const isAdmin = role === 'admin' || role === 'coordenador_logistica' || role === 'coordenador_servicos';
-  const { pedidos, isLoading } = useOfflinePedidos(user?.id, isAdmin, isAdmin);
+  const { pedidos, isLoading, transmitirPedido } = useOfflinePedidos(user?.id, isAdmin, isAdmin);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [urgenciaFilter, setUrgenciaFilter] = useState<string>('all');
   const [origemFilter, setOrigemFilter] = useState<string>('all');
+  const [tipoEnvioFilter, setTipoEnvioFilter] = useState<string>('all');
   const [showFilters, setShowFilters] = useState(false);
   const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban');
 
@@ -105,10 +112,11 @@ export default function Pedidos() {
       const matchesStatus = statusFilter === 'all' || pedido.status === statusFilter;
       const matchesUrgencia = urgenciaFilter === 'all' || pedido.urgencia === urgenciaFilter;
       const matchesOrigem = origemFilter === 'all' || pedido.origem === origemFilter;
+      const matchesTipoEnvio = tipoEnvioFilter === 'all' || pedido.tipo_envio === tipoEnvioFilter;
 
-      return matchesSearch && matchesStatus && matchesUrgencia && matchesOrigem;
+      return matchesSearch && matchesStatus && matchesUrgencia && matchesOrigem && matchesTipoEnvio;
     });
-  }, [pedidos, searchTerm, statusFilter, urgenciaFilter, origemFilter]);
+  }, [pedidos, searchTerm, statusFilter, urgenciaFilter, origemFilter, tipoEnvioFilter]);
 
   const handleViewPedido = useCallback((pedido: PedidoComItens) => {
     setSelectedPedido(pedido);
@@ -235,6 +243,7 @@ export default function Pedidos() {
     statusFilter !== 'all',
     urgenciaFilter !== 'all',
     origemFilter !== 'all',
+    tipoEnvioFilter !== 'all',
   ].filter(Boolean).length;
 
   const pendingSyncCount = pedidos.filter(p => p._pendingSync).length;
@@ -317,7 +326,7 @@ export default function Pedidos() {
             </div>
 
             {showFilters && (
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-4 border-t">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pt-4 border-t">
                 <div className="space-y-2">
                   <Label>Status</Label>
                   <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -366,6 +375,22 @@ export default function Pedidos() {
                     </SelectContent>
                   </Select>
                 </div>
+                <div className="space-y-2">
+                  <Label>Tipo Envio</Label>
+                  <Select value={tipoEnvioFilter} onValueChange={setTipoEnvioFilter}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      {tipoEnvioOptions.map(opt => (
+                        <SelectItem key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
             )}
           </div>
@@ -383,6 +408,7 @@ export default function Pedidos() {
           onViewPedido={handleViewPedido}
           onProcessar={handleProcessar}
           onConcluir={handleConcluir}
+          onTransmitir={async (id) => { await transmitirPedido(id); }}
           isProcessing={isProcessingAction}
           consultorNames={consultorNames}
         />
