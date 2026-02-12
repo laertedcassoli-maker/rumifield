@@ -18,7 +18,9 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ClienteAnaliseIA } from '@/components/crm/ClienteAnaliseIA';
-import { ArrowLeft, MapPin, Phone, Mail, Plus, Clock, Eye, User, ChevronRight, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, MapPin, Phone, Mail, Plus, Clock, Eye, User, ChevronRight, CheckCircle2, MessageSquare, ChevronDown } from 'lucide-react';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { OpportunityNotes } from '@/components/crm/OpportunityNotes';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -69,6 +71,26 @@ export default function CrmCliente360() {
       return data as any[];
     },
     enabled: !!id,
+  });
+
+  // Fetch note counts per opportunity
+  const { data: noteCounts } = useQuery({
+    queryKey: ['crm-opportunity-notes-counts', id],
+    queryFn: async () => {
+      const cpIds = clientProducts.map((cp: any) => cp.id);
+      if (cpIds.length === 0) return {};
+      const { data, error } = await (supabase as any)
+        .from('crm_opportunity_notes')
+        .select('client_product_id')
+        .in('client_product_id', cpIds);
+      if (error) throw error;
+      const counts: Record<string, number> = {};
+      (data || []).forEach((n: any) => {
+        counts[n.client_product_id] = (counts[n.client_product_id] || 0) + 1;
+      });
+      return counts;
+    },
+    enabled: !!id && clientProducts.length > 0,
   });
 
   // Modals state
@@ -180,20 +202,32 @@ export default function CrmCliente360() {
                 const cp = clientProducts.find((p: any) => p.product_code === pc);
                 if (!cp) return null;
                 const snap = snapshots.find((s: any) => s.product_code === pc);
+                const noteCount = (noteCounts as Record<string, number>)?.[cp.id] || 0;
                 return (
-                  <ProductCard
-                    key={pc}
-                    productCode={pc}
-                    stage={cp.stage as CrmStage}
-                    snapshot={snap}
-                    metricDefs={metricDefs}
-                    lossReasons={lossReasons}
-                    lossReasonId={cp.loss_reason_id}
-                    lossNotes={cp.loss_notes}
-                    onQualify={() => setQualModal({ open: true, cpId: cp.id, pc })}
-                    onCreateProposal={() => setPropModal({ open: true, cpId: cp.id, pc })}
-                    onUpdateNegotiation={() => setNegModal({ open: true, cpId: cp.id, pc, stage: cp.stage as CrmStage })}
-                  />
+                  <div key={pc} className="space-y-0">
+                    <ProductCard
+                      productCode={pc}
+                      stage={cp.stage as CrmStage}
+                      snapshot={snap}
+                      metricDefs={metricDefs}
+                      lossReasons={lossReasons}
+                      lossReasonId={cp.loss_reason_id}
+                      lossNotes={cp.loss_notes}
+                      onQualify={() => setQualModal({ open: true, cpId: cp.id, pc })}
+                      onCreateProposal={() => setPropModal({ open: true, cpId: cp.id, pc })}
+                      onUpdateNegotiation={() => setNegModal({ open: true, cpId: cp.id, pc, stage: cp.stage as CrmStage })}
+                    />
+                    <Collapsible>
+                      <CollapsibleTrigger className="w-full flex items-center justify-center gap-1.5 py-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
+                        <MessageSquare className="h-3 w-3" />
+                        {noteCount > 0 ? `${noteCount} interaç${noteCount === 1 ? 'ão' : 'ões'}` : 'Interações'}
+                        <ChevronDown className="h-3 w-3" />
+                      </CollapsibleTrigger>
+                      <CollapsibleContent className="px-1 pb-2">
+                        <OpportunityNotes clientProductId={cp.id} clientId={id!} />
+                      </CollapsibleContent>
+                    </Collapsible>
+                  </div>
                 );
               })}
             </div>

@@ -922,6 +922,45 @@ export type Database = {
         }
         Relationships: []
       }
+      crm_opportunity_notes: {
+        Row: {
+          client_product_id: string
+          content: string
+          created_at: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          client_product_id: string
+          content: string
+          created_at?: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          client_product_id?: string
+          content?: string
+          created_at?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "crm_opportunity_notes_client_product_id_fkey"
+            columns: ["client_product_id"]
+            isOneToOne: false
+            referencedRelation: "crm_client_products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "crm_opportunity_notes_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       crm_product_qualification_items: {
         Row: {
           answer_type: string
