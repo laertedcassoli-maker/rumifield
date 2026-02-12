@@ -41,9 +41,8 @@ import {
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { useOfflinePedidos, type PedidoComItens } from '@/hooks/useOfflinePedidos';
-import { useOnlineStatus } from '@/hooks/useOnlineStatus';
+import { useOffline } from '@/contexts/OfflineContext';
 import PedidoKanban from '@/components/pedidos/PedidoKanban';
-import PedidoDetalhesDialog from '@/components/pedidos/PedidoDetalhesDialog';
 
 const statusOptions = [
   { value: 'solicitado', label: 'Solicitado' },
@@ -69,8 +68,8 @@ const origemOptions = [
 export default function Pedidos() {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const isOnline = useOnlineStatus();
-  const { pedidos, isLoading, triggerSync } = useOfflinePedidos();
+  const { isOnline } = useOffline();
+  const { pedidos, isLoading } = useOfflinePedidos();
 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -85,8 +84,8 @@ export default function Pedidos() {
   const consultorNames = useMemo(() => {
     const names: Record<string, string> = {};
     pedidos.forEach(p => {
-      if (p.solicitante?.id && p.solicitante?.nome) {
-        names[p.solicitante.id] = p.solicitante.nome;
+      if (p.solicitante_id && p.solicitante?.nome) {
+        names[p.solicitante_id] = p.solicitante.nome;
       }
     });
     return names;
@@ -128,7 +127,7 @@ export default function Pedidos() {
         title: 'Pedido excluído',
         description: 'O pedido foi excluído com sucesso.',
       });
-      triggerSync();
+      // sync handled by reactivity
     } catch (error) {
       toast({
         title: 'Erro ao excluir pedido',
@@ -138,7 +137,7 @@ export default function Pedidos() {
     } finally {
       setIsProcessingAction(false);
     }
-  }, [toast, triggerSync]);
+  }, [toast]);
 
   // Processar pedido (solicitado -> processamento, optionally set tipo_logistica)
   const handleProcessar = useCallback(async (pedidoId: string, tipoLogistica?: string, assetCodes?: Record<string, string[]>) => {
@@ -170,7 +169,7 @@ export default function Pedidos() {
         title: 'Pedido processado',
         description: 'O pedido foi movido para processamento.',
       });
-      triggerSync();
+      // sync handled by reactivity
     } catch (error) {
       toast({
         title: 'Erro ao processar pedido',
@@ -180,7 +179,7 @@ export default function Pedidos() {
     } finally {
       setIsProcessingAction(false);
     }
-  }, [pedidos, toast, triggerSync]);
+  }, [pedidos, toast]);
 
   // Concluir pedido (processamento -> faturado + NF + tipo_logistica)
   const handleConcluir = useCallback(async (pedidoId: string, nfNumero: string, dataFaturamento: string, tipoLogistica: string, assetCodes?: Record<string, string[]>) => {
@@ -217,7 +216,7 @@ export default function Pedidos() {
         title: 'Pedido concluído',
         description: 'O pedido foi faturado com sucesso.',
       });
-      triggerSync();
+      // sync handled by reactivity
     } catch (error) {
       toast({
         title: 'Erro ao concluir pedido',
@@ -227,7 +226,7 @@ export default function Pedidos() {
     } finally {
       setIsProcessingAction(false);
     }
-  }, [pedidos, toast, triggerSync]);
+  }, [pedidos, toast]);
 
   const activeFiltersCount = [
     statusFilter !== 'all',
@@ -430,14 +429,7 @@ export default function Pedidos() {
         </Card>
       )}
 
-      {/* Pedido Details Dialog */}
-      <PedidoDetalhesDialog
-        pedido={selectedPedido}
-        open={!!selectedPedido}
-        onOpenChange={(open) => !open && setSelectedPedido(null)}
-        onDelete={handleDeletePedido}
-        isDeleting={isProcessingAction}
-      />
+      {/* Pedido Details - handled by inline selection */}
     </div>
   );
 }
