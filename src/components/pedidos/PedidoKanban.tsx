@@ -43,6 +43,7 @@ interface PedidoKanbanProps {
   onViewPedido: (pedido: PedidoComItens) => void;
   onProcessar: (pedidoId: string, tipoLogistica?: string, assetCodes?: Record<string, string[]>) => Promise<void>;
   onConcluir: (pedidoId: string, nfNumero: string, dataFaturamento: string, tipoLogistica: string, assetCodes?: Record<string, string[]>) => Promise<void>;
+  onTransmitir?: (pedidoId: string) => Promise<void>;
   isProcessing: boolean;
   consultorNames: Record<string, string>;
 }
@@ -151,22 +152,42 @@ function PedidoCard({
 }
 
 export default function PedidoKanban({ 
-  pedidos, onViewPedido, onProcessar, onConcluir, isProcessing, consultorNames 
+  pedidos, onViewPedido, onProcessar, onConcluir, isProcessing, consultorNames,
+  onTransmitir,
 }: PedidoKanbanProps) {
   const [concluirPedidoId, setConcluirPedidoId] = useState<string | null>(null);
   const [processarPedidoId, setProcessarPedidoId] = useState<string | null>(null);
 
-  const abertos = pedidos.filter(p => p.status === 'solicitado');
+  const rascunhos = pedidos.filter(p => p.status === 'rascunho');
+  const transmitidos = pedidos.filter(p => p.status === 'solicitado');
   const emProcessamento = pedidos.filter(p => p.status === 'processamento');
   const concluidos = pedidos.filter(p => p.status === 'faturado');
 
   const columns = [
     {
-      title: 'Aberto',
-      count: abertos.length,
+      title: 'Rascunho',
+      count: rascunhos.length,
+      color: 'text-muted-foreground',
+      bgColor: 'bg-muted/50',
+      items: rascunhos,
+      renderAction: (pedido: PedidoComItens) => (
+        <Button
+          size="sm"
+          className="h-7 text-xs flex-1 gap-1"
+          onClick={() => onTransmitir?.(pedido.id)}
+          disabled={isProcessing}
+        >
+          <ArrowRight className="h-3 w-3" />
+          Transmitir
+        </Button>
+      ),
+    },
+    {
+      title: 'Transmitidas',
+      count: transmitidos.length,
       color: 'text-blue-600',
       bgColor: 'bg-blue-50 dark:bg-blue-950/20',
-      items: abertos,
+      items: transmitidos,
       renderAction: (pedido: PedidoComItens) => (
         <Button
           size="sm"
@@ -210,7 +231,7 @@ export default function PedidoKanban({
 
   return (
     <>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {columns.map(col => (
           <div key={col.title} className="space-y-3">
             <div className={cn('rounded-lg p-3', col.bgColor)}>
