@@ -10,7 +10,7 @@ function generateId(): string {
 
 export interface PedidoComItens extends OfflinePedido {
   pedido_itens: (OfflinePedidoItem & { 
-    pecas?: { nome: string; codigo: string; familia?: string | null };
+    pecas?: { nome: string; codigo: string; familia?: string | null; is_asset?: boolean };
     workshop_item?: { id: string; unique_code: string } | null;
   })[];
   clientes?: { nome: string; fazenda?: string | null; consultor_rplus_id?: string | null };

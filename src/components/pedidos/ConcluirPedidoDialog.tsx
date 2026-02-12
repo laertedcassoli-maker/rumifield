@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -12,28 +12,40 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Loader2, FileText, Truck, HandHelping } from 'lucide-react';
+import AssetSearchField from './AssetSearchField';
+import type { PedidoComItens } from '@/hooks/useOfflinePedidos';
 
 interface ConcluirPedidoDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onConfirm: (nfNumero: string, dataFaturamento: string, tipoLogistica: string) => Promise<void>;
+  pedido?: PedidoComItens;
+  onConfirm: (nfNumero: string, dataFaturamento: string, tipoLogistica: string, itemsWithAssets?: Record<string, string>) => Promise<void>;
   currentTipoLogistica?: string | null;
 }
 
-export default function ConcluirPedidoDialog({ open, onOpenChange, onConfirm, currentTipoLogistica }: ConcluirPedidoDialogProps) {
+export default function ConcluirPedidoDialog({ open, onOpenChange, pedido, onConfirm, currentTipoLogistica }: ConcluirPedidoDialogProps) {
   const [nfNumero, setNfNumero] = useState('');
   const [dataFaturamento, setDataFaturamento] = useState(new Date().toISOString().split('T')[0]);
   const [tipoLogistica, setTipoLogistica] = useState(currentTipoLogistica || '');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [itemsWithAssets, setItemsWithAssets] = useState<Record<string, string>>({});
+
+  const itemsNeedingAssets = useMemo(() => {
+    if (!pedido?.pedido_itens) return [];
+    return pedido.pedido_itens.filter(item => 
+      item.pecas?.is_asset && !item.workshop_item
+    );
+  }, [pedido]);
 
   const handleConfirm = async () => {
     if (!nfNumero.trim() || !tipoLogistica) return;
     setIsSubmitting(true);
     try {
-      await onConfirm(nfNumero.trim(), dataFaturamento, tipoLogistica);
+      await onConfirm(nfNumero.trim(), dataFaturamento, tipoLogistica, itemsWithAssets);
       setNfNumero('');
       setDataFaturamento(new Date().toISOString().split('T')[0]);
       setTipoLogistica('');
+      setItemsWithAssets({});
     } finally {
       setIsSubmitting(false);
     }
@@ -41,7 +53,7 @@ export default function ConcluirPedidoDialog({ open, onOpenChange, onConfirm, cu
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-sm">
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <FileText className="h-5 w-5" />
@@ -90,6 +102,25 @@ export default function ConcluirPedidoDialog({ open, onOpenChange, onConfirm, cu
               </ToggleGroupItem>
             </ToggleGroup>
           </div>
+
+          {itemsNeedingAssets.length > 0 && (
+            <div className="space-y-3 pt-2 border-t">
+              <Label className="text-sm font-semibold">Vincular Ativos (Peças Controladas)</Label>
+              {itemsNeedingAssets.map(item => (
+                <AssetSearchField
+                  key={item.id}
+                  pecaId={item.peca_id}
+                  onAssetSelected={(workshopItemId) => {
+                    setItemsWithAssets(prev => ({
+                      ...prev,
+                      [item.id]: workshopItemId || '',
+                    }));
+                  }}
+                  currentAssetId={itemsWithAssets[item.id] || null}
+                />
+              ))}
+            </div>
+          )}
         </div>
 
         <DialogFooter>

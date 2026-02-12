@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -11,22 +11,34 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Loader2, ArrowRight, Truck, HandHelping } from 'lucide-react';
+import AssetSearchField from './AssetSearchField';
+import type { PedidoComItens } from '@/hooks/useOfflinePedidos';
 
 interface ProcessarPedidoDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onConfirm: (tipoLogistica?: string) => Promise<void>;
+  pedido?: PedidoComItens;
+  onConfirm: (tipoLogistica?: string, itemsWithAssets?: Record<string, string>) => Promise<void>;
 }
 
-export default function ProcessarPedidoDialog({ open, onOpenChange, onConfirm }: ProcessarPedidoDialogProps) {
+export default function ProcessarPedidoDialog({ open, onOpenChange, pedido, onConfirm }: ProcessarPedidoDialogProps) {
   const [tipoLogistica, setTipoLogistica] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [itemsWithAssets, setItemsWithAssets] = useState<Record<string, string>>({});
+
+  const itemsNeedingAssets = useMemo(() => {
+    if (!pedido?.pedido_itens) return [];
+    return pedido.pedido_itens.filter(item => 
+      item.pecas?.is_asset && !item.workshop_item
+    );
+  }, [pedido]);
 
   const handleConfirm = async () => {
     setIsSubmitting(true);
     try {
-      await onConfirm(tipoLogistica || undefined);
+      await onConfirm(tipoLogistica || undefined, itemsWithAssets);
       setTipoLogistica('');
+      setItemsWithAssets({});
     } finally {
       setIsSubmitting(false);
     }
@@ -34,7 +46,7 @@ export default function ProcessarPedidoDialog({ open, onOpenChange, onConfirm }:
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-sm">
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <ArrowRight className="h-5 w-5" />
@@ -64,6 +76,25 @@ export default function ProcessarPedidoDialog({ open, onOpenChange, onConfirm }:
               </ToggleGroupItem>
             </ToggleGroup>
           </div>
+
+          {itemsNeedingAssets.length > 0 && (
+            <div className="space-y-3 pt-2 border-t">
+              <Label className="text-sm font-semibold">Vincular Ativos (Peças Controladas)</Label>
+              {itemsNeedingAssets.map(item => (
+                <AssetSearchField
+                  key={item.id}
+                  pecaId={item.peca_id}
+                  onAssetSelected={(workshopItemId) => {
+                    setItemsWithAssets(prev => ({
+                      ...prev,
+                      [item.id]: workshopItemId || '',
+                    }));
+                  }}
+                  currentAssetId={itemsWithAssets[item.id] || null}
+                />
+              ))}
+            </div>
+          )}
         </div>
 
         <DialogFooter>
