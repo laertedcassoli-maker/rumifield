@@ -51,7 +51,9 @@ export function useOfflinePedidos(userId?: string, viewAll = false, isAdmin = fa
           return {
             ...item,
             pecas: peca ? { nome: peca.nome, codigo: peca.codigo, familia: peca.familia, is_asset: peca.is_asset } : undefined,
-            workshop_item: item.workshop_item_id ? { id: item.workshop_item_id, unique_code: '' } : null,
+            workshop_item: item.workshop_item_id 
+              ? { id: item.workshop_item_id, unique_code: (item as any)._workshopItemUniqueCode || item.workshop_item_id } 
+              : null,
           };
         });
 
@@ -345,6 +347,7 @@ export async function syncPedidosFromServer(userId?: string, isAdmin = false): P
         // Only add server items if pedido doesn't have pending items in queue
         if (pedido.pedido_itens && !pendingItemPedidoIds.has(pedido.id)) {
           for (const item of pedido.pedido_itens) {
+            const workshopItem = (item as any).workshop_items;
             await offlineDb.pedido_itens.put({
               id: item.id,
               pedido_id: item.pedido_id,
@@ -353,7 +356,9 @@ export async function syncPedidosFromServer(userId?: string, isAdmin = false): P
               workshop_item_id: (item as any).workshop_item_id || null,
               created_at: item.created_at,
               pecas: item.pecas ? { nome: item.pecas.nome, codigo: item.pecas.codigo, is_asset: (item.pecas as any).is_asset } : undefined,
-            });
+              // Store workshop_item unique_code in a nested display field
+              _workshopItemUniqueCode: workshopItem?.unique_code || null,
+            } as any);
           }
         }
       }
