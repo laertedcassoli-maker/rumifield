@@ -222,10 +222,15 @@ export default function PedidoKanban({
       <ConcluirPedidoDialog
         open={!!concluirPedidoId}
         onOpenChange={(open) => !open && setConcluirPedidoId(null)}
+        pedido={concluirPedidoId ? pedidos.find(p => p.id === concluirPedidoId) : undefined}
         currentTipoLogistica={concluirPedidoId ? pedidos.find(p => p.id === concluirPedidoId)?.tipo_logistica : undefined}
-        onConfirm={async (nfNumero, dataFaturamento, tipoLogistica) => {
+        onConfirm={async (nfNumero, dataFaturamento, tipoLogistica, itemsWithAssets) => {
           if (concluirPedidoId) {
             await onConcluir(concluirPedidoId, nfNumero, dataFaturamento, tipoLogistica);
+            if (itemsWithAssets) {
+              // Items with assets will be saved in the parent component
+              console.log('Assets to update:', itemsWithAssets);
+            }
             setConcluirPedidoId(null);
           }
         }}
@@ -234,9 +239,14 @@ export default function PedidoKanban({
       <ProcessarPedidoDialog
         open={!!processarPedidoId}
         onOpenChange={(open) => !open && setProcessarPedidoId(null)}
-        onConfirm={async (tipoLogistica) => {
+        pedido={processarPedidoId ? pedidos.find(p => p.id === processarPedidoId) : undefined}
+        onConfirm={async (tipoLogistica, itemsWithAssets) => {
           if (processarPedidoId) {
             await onProcessar(processarPedidoId, tipoLogistica);
+            if (itemsWithAssets) {
+              // Items with assets will be saved in the parent component
+              console.log('Assets to update:', itemsWithAssets);
+            }
             setProcessarPedidoId(null);
           }
         }}
