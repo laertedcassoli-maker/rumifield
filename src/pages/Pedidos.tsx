@@ -1338,9 +1338,11 @@ export default function Pedidos() {
                             )}
                           </div>
                           <p className="text-sm text-muted-foreground break-words whitespace-normal">{peca?.nome}</p>
-                          {item.workshop_item?.unique_code && (
-                            <p className="text-xs font-mono text-primary mt-0.5">ID: {item.workshop_item.unique_code}</p>
-                          )}
+                          {item.workshop_item?.unique_code ? (
+                            <p className="text-xs font-mono text-primary mt-0.5">Ativo: {item.workshop_item.unique_code}</p>
+                          ) : item.pecas?.is_asset ? (
+                            <p className="text-xs font-mono text-muted-foreground mt-0.5">Ativo: não vinculado</p>
+                          ) : null}
                         </div>
 
                         <div className="text-right shrink-0">
