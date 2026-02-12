@@ -1339,9 +1339,17 @@ export default function Pedidos() {
                           </div>
                           <p className="text-sm text-muted-foreground break-words whitespace-normal">{peca?.nome}</p>
                           {item.workshop_item?.unique_code ? (
-                            <p className="text-xs font-mono text-primary mt-0.5">Ativo: {item.workshop_item.unique_code}</p>
+                            <div className="flex items-center gap-1.5 mt-1">
+                              <Badge variant="outline" className="text-[10px] h-5 font-mono border-primary/40 text-primary bg-primary/5">
+                                🏷️ {item.workshop_item.unique_code}
+                              </Badge>
+                            </div>
                           ) : item.pecas?.is_asset ? (
-                            <p className="text-xs font-mono text-muted-foreground mt-0.5">Ativo: não vinculado</p>
+                            <div className="flex items-center gap-1.5 mt-1">
+                              <Badge variant="outline" className="text-[10px] h-5 font-mono border-destructive/40 text-destructive bg-destructive/5">
+                                ⚠️ Ativo não vinculado
+                              </Badge>
+                            </div>
                           ) : null}
                         </div>
 
