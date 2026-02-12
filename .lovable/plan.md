@@ -1,54 +1,41 @@
 
 
-## Replicar fluxo de criacao automatica de pedidos na visita corretiva
+## Correção: Ocultar "Tipo de Logística" quando tipo de envio for "Apenas NF"
 
 ### Problema
+Os diálogos de "Processar" e "Concluir" sempre exibem e exigem o campo "Tipo de Logística", mesmo quando o pedido tem `tipo_envio = 'apenas_nf'`. Nesse caso, não há envio físico, então logística não se aplica.
 
-Quando uma visita corretiva e encerrada, as pecas registradas no bloco "Pecas" (salvas em `preventive_part_consumption`) nao geram Solicitacoes de Pecas (pedidos) automaticamente. Na visita preventiva, ao encerrar, o sistema:
+### Solução
+Condicionar a exibição do campo de logística ao `tipo_envio` do pedido:
+- Se `tipo_envio === 'apenas_nf'`: ocultar o campo de logística e não exigir preenchimento
+- Se `tipo_envio === 'envio_fisico'` ou não definido: manter comportamento atual
 
-1. Cria um pedido do tipo `envio_fisico` para pecas com `stock_source = 'novo_pedido'`
-2. Cria um pedido do tipo `apenas_nf` para pecas com `stock_source = 'tecnico'`
-3. Registra ativos novos na `workshop_items` para pecas com `is_asset = true`
+### Alterações
 
-A visita corretiva nao faz nada disso -- apenas atualiza o status da `ticket_visits` e adiciona timeline.
+**1. `ProcessarPedidoDialog.tsx`**
+- Verificar `pedido?.tipo_envio` -- se for `apenas_nf`, não renderizar a seção de logística
 
-### Solucao
+**2. `ConcluirPedidoDialog.tsx`**
+- Verificar `pedido?.tipo_envio` -- se for `apenas_nf`:
+  - Ocultar o campo de logística
+  - Remover a validação obrigatória de `tipoLogistica` no botão "Confirmar"
+  - Passar string vazia ou `'nao_aplicavel'` como tipo de logística ao confirmar
 
-Adicionar a mesma logica de criacao automatica de pedidos ao `completeMutation` em `ExecucaoVisitaCorretiva.tsx`, adaptada para o contexto corretivo.
+**3. `PedidoKanban.tsx`**
+- Passar o `pedido` completo (já é passado) para os diálogos, garantindo que `tipo_envio` esteja acessível
 
----
+### Detalhes Técnicos
 
-### Mudancas
+No `ConcluirPedidoDialog`, a validação do botão muda de:
+```
+disabled={!nfNumero.trim() || !tipoLogistica || isSubmitting}
+```
+Para:
+```
+disabled={!nfNumero.trim() || (needsLogistica && !tipoLogistica) || isSubmitting}
+```
 
-#### 1. `src/pages/chamados/ExecucaoVisitaCorretiva.tsx` -- completeMutation (linhas 232-351)
+Onde `needsLogistica = pedido?.tipo_envio !== 'apenas_nf'`.
 
-Apos a atualizacao de status da visita e antes da insercao na timeline, adicionar a logica de auto-criacao de pedidos:
+Na chamada de `onConfirm`, quando logística não se aplica, enviar `'nao_aplicavel'` para manter o campo preenchido no banco.
 
-**a) Pedido para pecas com `stock_source = 'novo_pedido'`:**
-- Buscar pecas consumidas com `stock_source = 'novo_pedido'` em `preventive_part_consumption`
-- Criar um `pedido` com `origem = 'chamado'`, `tipo_envio = 'envio_fisico'`, vinculado ao `client_id` da visita
-- Inserir `pedido_itens` agrupados por `part_id`
-- Vincular o pedido ao chamado via `ticket_parts_requests`
-
-**b) Pedido para pecas com `stock_source = 'tecnico'`:**
-- Buscar pecas consumidas com `stock_source = 'tecnico'`
-- Criar um `pedido` com `origem = 'chamado'`, `tipo_envio = 'apenas_nf'`
-- Inserir `pedido_itens` agrupados
-- Vincular via `ticket_parts_requests`
-
-**c) Registro de ativos (workshop_items):**
-- Para pecas com `stock_source = 'tecnico'` que tenham `asset_unique_code` preenchido e `is_asset = true` na tabela `pecas`
-- Verificar se o `unique_code` ja existe em `workshop_items`
-- Se nao existir, criar o registro
-
-### Detalhes tecnicos
-
-A logica sera essencialmente uma copia da que ja existe em `AtendimentoPreventivo.tsx` (linhas 177-285), adaptando:
-
-- `origem` de `'preventiva'` para `'chamado'`
-- A mensagem de `observacoes` para referenciar o chamado (ex: `visit.visit_code`)
-- O campo `preventive_id` no pedido apontar para `visit.preventiveId`
-- Adicionalmente, registrar na tabela `ticket_parts_requests` com `ticket_id` e `visit_id`
-
-**Arquivos modificados:**
-- `src/pages/chamados/ExecucaoVisitaCorretiva.tsx` -- unico arquivo alterado
