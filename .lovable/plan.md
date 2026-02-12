@@ -1,35 +1,48 @@
 
 
-## Criar ativo direto pelo campo de busca
+## Correcao: Badge nao atualiza visualmente apos vincular ativo
 
-### O que muda
-Quando o usuario digita um codigo no campo de busca e nao encontra nenhum ativo, aparecera um botao "+ Criar ativo [codigo digitado]" na lista. Ao clicar, o sistema cria o registro na tabela `workshop_items` automaticamente e ja vincula ao item do pedido.
+### Problema
+Ao vincular o ativo 9089 na SP-00000033, o banco e atualizado corretamente (toast de sucesso), mas a tela continua mostrando "Ativo nao vinculado". Isso acontece porque o `handleAssetLinked` atualiza o estado `viewingPedido` com `workshop_item: undefined` em vez de incluir o `unique_code` do ativo selecionado.
 
-### Alteracoes
+### Causa raiz
+Linha 487 de `Pedidos.tsx`:
+```
+workshop_item: workshopItemId ? undefined : null
+```
+O `undefined` faz com que a condicao `item.workshop_item?.unique_code` seja falsa, e o badge verde nunca aparece.
 
-**`src/components/pedidos/AssetSearchField.tsx`**
+### Solucao
 
-1. Na area do `CommandEmpty`, substituir a mensagem estatica por um botao de criacao quando `searchValue` nao esta vazio e a lista esta vazia
-2. O botao exibe: `+ Criar ativo "CODIGO_DIGITADO"`
-3. Ao clicar, executa INSERT na tabela `workshop_items` com:
-   - `unique_code`: o texto digitado pelo usuario
-   - `omie_product_id`: o `pecaId` recebido via props
-   - `status`: "disponivel" (default)
-   - demais campos ficam null (motor code, meter hours, etc.)
-4. Apos criar, seleciona automaticamente o novo ativo (chama `handleSelect` com o registro recem-criado)
-5. Adicionar estado `isCreating` para feedback visual (loading no botao)
+**`src/pages/Pedidos.tsx` -- funcao `handleAssetLinked`**
 
-### Detalhes tecnicos
+1. Antes de atualizar o estado, buscar o `unique_code` do ativo vinculado com um SELECT rapido na tabela `workshop_items`
+2. Ao atualizar o `viewingPedido`, setar `workshop_item` com o objeto completo `{ id, unique_code }` em vez de `undefined`
 
-- Campos obrigatorios para INSERT em `workshop_items`: `unique_code` (text, NOT NULL) e `omie_product_id` (uuid, NOT NULL) -- ambos disponiveis no componente
-- RLS: apenas admin/coordenador pode inserir (`is_admin_or_coordinator`). Se o usuario nao tiver permissao, o INSERT vai falhar e exibiremos um toast de erro
-- O botao so aparece quando ha texto digitado e nenhum resultado encontrado (evita criacao acidental)
+Trecho corrigido:
+```tsx
+// Buscar unique_code do ativo
+let workshopItemData = null;
+if (workshopItemId) {
+  const { data } = await supabase
+    .from('workshop_items')
+    .select('id, unique_code')
+    .eq('id', workshopItemId)
+    .single();
+  workshopItemData = data;
+}
 
-### Fluxo do usuario
+// Atualizar estado com dados completos
+setViewingPedido((prev) => ({
+  ...prev,
+  pedido_itens: prev.pedido_itens?.map((it) =>
+    it.id === itemId
+      ? { ...it, workshop_item_id: workshopItemId, workshop_item: workshopItemData }
+      : it
+  ),
+}));
+```
 
-1. Abre o campo de ativo
-2. Digita um codigo (ex: "1234")
-3. Se nao encontrar, ve o botao "+ Criar ativo 1234"
-4. Clica no botao
-5. Ativo e criado e ja fica vinculado ao item do pedido
+### Resultado esperado
+Apos vincular o ativo 9089, o badge muda imediatamente de "Ativo nao vinculado" (vermelho) para o badge verde com o codigo do ativo.
 
