@@ -105,7 +105,7 @@ function PedidoCard({
         <div className="space-y-1 text-xs text-muted-foreground">
           <div className="flex items-center gap-1">
             <Package className="h-3 w-3" />
-            <span>{pedido.pedido_itens?.length || 0} peças, {pedido.pedido_itens?.reduce((s, i) => s + i.quantidade, 0) || 0} un</span>
+            <span>{pedido.pedido_itens?.filter((i: any) => !i.cancelled_at)?.length || 0} peças, {pedido.pedido_itens?.filter((i: any) => !i.cancelled_at)?.reduce((s: number, i: any) => s + i.quantidade, 0) || 0} un</span>
           </div>
           <div className="flex items-center gap-1">
             <Calendar className="h-3 w-3" />

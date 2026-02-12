@@ -1592,9 +1592,75 @@ export type Database = {
         }
         Relationships: []
       }
+      pedido_item_log: {
+        Row: {
+          action: string
+          created_at: string
+          id: string
+          new_quantity: number | null
+          old_quantity: number | null
+          peca_codigo: string | null
+          peca_id: string | null
+          peca_nome: string | null
+          pedido_id: string
+          pedido_item_id: string | null
+          user_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          id?: string
+          new_quantity?: number | null
+          old_quantity?: number | null
+          peca_codigo?: string | null
+          peca_id?: string | null
+          peca_nome?: string | null
+          pedido_id: string
+          pedido_item_id?: string | null
+          user_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          id?: string
+          new_quantity?: number | null
+          old_quantity?: number | null
+          peca_codigo?: string | null
+          peca_id?: string | null
+          peca_nome?: string | null
+          pedido_id?: string
+          pedido_item_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pedido_item_log_peca_id_fkey"
+            columns: ["peca_id"]
+            isOneToOne: false
+            referencedRelation: "pecas"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pedido_item_log_pedido_id_fkey"
+            columns: ["pedido_id"]
+            isOneToOne: false
+            referencedRelation: "pedidos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pedido_item_log_pedido_item_id_fkey"
+            columns: ["pedido_item_id"]
+            isOneToOne: false
+            referencedRelation: "pedido_itens"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pedido_itens: {
         Row: {
           asset_codes: string[] | null
+          cancelled_at: string | null
+          cancelled_by: string | null
           created_at: string
           id: string
           peca_id: string
@@ -1604,6 +1670,8 @@ export type Database = {
         }
         Insert: {
           asset_codes?: string[] | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
           created_at?: string
           id?: string
           peca_id: string
@@ -1613,6 +1681,8 @@ export type Database = {
         }
         Update: {
           asset_codes?: string[] | null
+          cancelled_at?: string | null
+          cancelled_by?: string | null
           created_at?: string
           id?: string
           peca_id?: string
