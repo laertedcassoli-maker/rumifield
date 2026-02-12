@@ -1,22 +1,24 @@
 
+## Vincular ativo direto no detalhe do pedido (botao de lapis)
 
-## Correção: Busca de ativos não carrega ao abrir o campo
+### O que muda
+Ao lado do badge "Ativo nao vinculado", sera adicionado um botao de lapis (Pencil) que abre um popover inline com o componente `AssetSearchField`. Ao selecionar um ativo, o sistema salva imediatamente no banco (`pedido_itens.workshop_item_id`) e atualiza a tela.
 
-### Problema
-O componente `AssetSearchField` só dispara a busca quando o usuário digita algo no campo de texto (`onValueChange`). Ao abrir o popover, a lista `assets` está vazia e a mensagem "Nenhum ativo encontrado para este tipo de peça" aparece imediatamente -- mesmo existindo ativos cadastrados.
+### Alteracoes
 
-### Causa raiz
-Linha 58-59 do componente: a função `searchAssets` nunca é chamada automaticamente ao abrir. Ela depende de `onValueChange` do `CommandInput`.
+**`src/pages/Pedidos.tsx`**
 
-### Solução
-Disparar a busca automaticamente quando o popover abre (`open` muda para `true`), passando string vazia como query para listar todos os ativos daquele tipo de peça.
+1. Importar o componente `AssetSearchField` e adicionar estado para controlar qual item esta sendo editado (`editingAssetItemId`)
+2. No trecho do badge "Ativo nao vinculado" (linha ~1348), adicionar um botao Pencil ao lado
+3. Ao clicar no lapis, exibir o `AssetSearchField` inline (abaixo do badge) para o item correspondente
+4. Criar funcao `handleAssetLinked(itemId, workshopItemId)` que:
+   - Faz `UPDATE pedido_itens SET workshop_item_id = ? WHERE id = ?` via Supabase
+   - Atualiza o `viewingPedido` no estado local para refletir a mudanca
+   - Exibe toast de sucesso
+5. Quando o ativo ja esta vinculado (badge verde), tambem permitir editar com o lapis
 
-### Alteração
+### Detalhes tecnicos
 
-**`src/components/pedidos/AssetSearchField.tsx`**
-- Adicionar `useEffect` que observa `open`: quando `open === true`, chamar `searchAssets('')` para carregar a lista inicial
-- Remover a condição `if (!query && !pecaId) return` e trocar por `if (!pecaId) return` -- permitindo busca com query vazia (lista todos)
-
-### Resultado esperado
-Ao abrir o campo de ativo na SP-00000039, os 2 ativos cadastrados (1234 e 987834) aparecerão imediatamente na lista, sem precisar digitar nada.
-
+- O `AssetSearchField` ja recebe `pecaId` e retorna o `workshopItemId` selecionado -- basta reutiliza-lo
+- A atualizacao vai direto no Supabase (online) e tambem atualiza o Dexie local para manter consistencia
+- O botao de lapis so aparece quando o pedido esta em status editavel (solicitado, processamento) -- nao em faturado/enviado/entregue
