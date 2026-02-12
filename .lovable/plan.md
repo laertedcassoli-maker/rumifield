@@ -1,42 +1,37 @@
 
+## Destacar Código da SP na Seção de Solicitações de Peças
 
-## Adicionar colunas de auditoria na tabela de Ativos
+### Problema
+Na seção "Solicitações de Peças" do detalhe do chamado, o código da SP (SP-00000038) não está visível. Apenas a data, status e itens são exibidos. O código é importante para referência rápida.
 
-### O que muda
-A tabela `workshop_items` ganhara duas novas colunas (`created_by_user_id` e `creation_source`) e a tela de Ativos exibira essas informacoes junto com a data/hora de criacao que ja existe.
+### Solução
+Adicionar o código da SP de forma destacada na renderização de cada solicitação.
 
-### Alteracoes no banco de dados (migracao SQL)
+**Implementação em `src/pages/chamados/DetalheChamado.tsx` (linhas 693-713)**
 
-Adicionar duas colunas a tabela `workshop_items`:
-- `created_by_user_id` (uuid, nullable) -- referencia ao usuario que criou
-- `creation_source` (text, default `'manual'`) -- valores: `manual` ou `automatico`
+Modificar o bloco de renderização das solicitações de peças para:
+1. Exibir o **código da SP** (propriedade `pedido_id`) de forma destacada em um badge/tag visível
+2. Posicionar junto à data ou em destaque separado
+3. Usar um estilo que chame atenção (ex: cor diferente, font-mono)
 
-Os registros existentes ficam com `created_by_user_id = null` e `creation_source = 'manual'`.
+**Estrutura proposta:**
+```
+[Data] [SP-CÓDIGO] [Status]
+├─ IMP0094 - VÁLVULA SOLENOIDE ×1
+```
 
-### Alteracoes no codigo
+Ou:
 
-**`src/pages/oficina/ItensOficina.tsx`**
+```
+[SP-CÓDIGO] [Status]
+Data: 11/02/2026 às 17:18
+├─ IMP0094 - VÁLVULA SOLENOIDE ×1
+```
 
-1. Atualizar a query de SELECT para incluir join com `profiles` via `created_by_user_id`:
-   ```
-   pecas:omie_product_id (...),
-   created_by:created_by_user_id (id, nome)
-   ```
-2. Adicionar 3 novas colunas na tabela:
-   - **Criado em**: formata `created_at` com `dd/MM/yyyy HH:mm`
-   - **Criado por**: nome do usuario (ou "-" se null)
-   - **Origem**: badge "Manual" ou "Automatico"
-3. No formulario de criacao (INSERT), enviar `created_by_user_id: userId` e `creation_source: 'manual'`
-4. Atualizar a interface `WorkshopItem` com os novos campos
+### Mudanças Específicas
+- Linha 694-700: Adicionar uma row com o código da SP em um badge/tag destacado (ex: bg-primary/10, font-bold)
+- Usar formato consistente com outros códigos do sistema (ex: "SP-00000038")
 
-**`src/components/pedidos/AssetSearchField.tsx`**
-
-1. No INSERT de criacao rapida pelo campo de busca, incluir `created_by_user_id: userId` e `creation_source: 'automatico'` (ja que e criacao inline a partir do pedido)
-
-### Detalhes tecnicos
-
-- A coluna `created_at` ja existe com default `now()`, entao basta exibi-la
-- `created_by_user_id` e nullable para nao quebrar registros antigos
-- `creation_source` tem default `'manual'` para registros antigos
-- O `userId` vem do hook `useAuth()` que ja esta importado em ambos os arquivos
+### Resultado Esperado
+O código da SP fica imediatamente visível e destacado, facilitando referência rápida e rastreabilidade.
 
