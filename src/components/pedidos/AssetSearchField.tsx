@@ -89,6 +89,9 @@ export default function AssetSearchField({
   };
 
   const handleSelect = (asset: WorkshopItem) => {
+    if (asset.status === 'em_manutencao') {
+      toast({ title: 'Atenção', description: 'Esse ativo ainda se encontra em manutenção.', variant: 'destructive' });
+    }
     setSelectedAsset(asset);
     onAssetSelected(asset.id);
     setOpen(false);
