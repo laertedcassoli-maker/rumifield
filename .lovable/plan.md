@@ -1,85 +1,105 @@
 
 
-## Numero sequencial para pedidos (SP-00000001) - apenas no servidor
+## Novo perfil "Coordenador Logistica" + restricao de acoes no Kanban
 
-### Problema de concorrencia offline
+### O que sera feito
 
-Se o codigo fosse gerado localmente, dois tecnicos offline poderiam gerar o mesmo numero. Por isso, o `pedido_code` sera gerado **exclusivamente pelo banco de dados** no momento do INSERT, via trigger + sequence.
-
-Pedidos criados offline simplesmente nao terao codigo ate serem sincronizados. Ao sincronizar, o servidor gera o codigo automaticamente.
+1. Criar o novo perfil `coordenador_logistica` no sistema
+2. Restringir as acoes de "Processar" e "Concluir" no Kanban de pedidos para apenas `admin` e `coordenador_logistica`
+3. Demais perfis verao uma tabela somente leitura na aba Transmitidos
 
 ---
 
 ### 1. Migracao no banco de dados
 
-- Criar sequence `pedido_code_seq`
-- Adicionar coluna `pedido_code` (nullable, pois pedidos offline ainda nao tem)
-- Trigger `BEFORE INSERT` gera o codigo no formato `SP-` + 8 digitos
-- Constraint `UNIQUE` no campo
-- Preencher retroativamente os pedidos existentes que ja estao no banco
+- Adicionar `'coordenador_logistica'` ao enum `app_role`
+- Atualizar a funcao `is_admin_or_coordinator` para incluir o novo perfil (ele precisa ter acesso de gestao como os demais coordenadores)
+- Inserir registros de `role_menu_permissions` para o novo perfil (copiando de um perfil base como `coordenador_servicos` e ajustando)
 
-### 2. Offline DB (`src/lib/offline-db.ts`)
+### 2. Contexto de autenticacao (`src/contexts/AuthContext.tsx`)
 
-- Adicionar campo opcional `pedido_code?: string | null` na interface `OfflinePedido`
-- Pedidos criados offline terao `pedido_code = null`
+- Adicionar `'coordenador_logistica'` ao tipo `AppRole`
 
-### 3. Sync de pedidos (`src/hooks/useOfflinePedidos.ts`)
+### 3. Labels e cores nos arquivos de UI
 
-- Incluir `pedido_code` no mapeamento ao baixar dados do servidor
-- Na criacao offline, **nao gerar** codigo nenhum (campo fica null)
-- Apos sincronizar, o servidor atribui o codigo e ele vem no proximo sync
+Atualizar os mapas `roleLabels` e `roleColors` em:
+- `src/pages/admin/Permissoes.tsx` -- adicionar na lista de `roles`, `roleLabels` e `roleColors`
+- `src/pages/admin/Usuarios.tsx` -- adicionar em `roleLabels` e `roleColors`
+- `src/components/layout/AppSidebar.tsx` -- adicionar em `roleLabels`
 
-### 4. Card do Kanban (`src/components/pedidos/PedidoKanban.tsx`)
+### 4. Pagina de Pedidos (`src/pages/Pedidos.tsx`)
 
-- Exibir `pedido_code` no topo do card quando disponivel (fonte mono, cor neutra)
-- Se `pedido_code` for null (pedido offline nao sincronizado), exibir badge "Pendente sync" ou nada
+- Criar variavel `canManagePedidos` que sera `true` apenas para `admin` e `coordenador_logistica`
+- Usar `canManagePedidos` para decidir:
+  - Se mostra o `<PedidoKanban>` com botoes de acao (Processar/Concluir)
+  - Ou se mostra uma tabela somente leitura com status, codigo e botao "Detalhes"
+- A variavel `isAdmin` existente continua sendo usada para outras funcionalidades (ver todos os pedidos, etc.)
 
-### 5. Listagem/Tabela (`src/pages/Pedidos.tsx`)
+### 5. Kanban (`src/components/pedidos/PedidoKanban.tsx`)
 
-- Exibir `pedido_code` na tabela e nos detalhes do pedido
-- Tratar null como "-" ou "Pendente"
+- Nenhuma alteracao necessaria no componente em si -- ele ja recebe as acoes via props. Simplesmente nao sera renderizado para perfis sem permissao.
+
+### 6. RLS de pedidos
+
+- Atualizar a policy de UPDATE em `pedidos` para permitir que `coordenador_logistica` tambem possa atualizar status (hoje so o `solicitante_id` pode fazer UPDATE). Adicionar uma policy:
+  - `is_admin_or_coordinator(auth.uid())` pode fazer UPDATE em pedidos (a funcao ja incluira o novo perfil)
+
+---
+
+### Resultado esperado
+
+| Perfil | Aba Rascunhos | Aba Transmitidos |
+|---|---|---|
+| Admin | Criar, editar, transmitir | Kanban com Processar e Concluir |
+| Coord Logistica | Criar, editar, transmitir | Kanban com Processar e Concluir |
+| Coord R+ / Coord Servicos | Criar, editar, transmitir | Tabela somente leitura |
+| Consultor / Tecnico | Criar, editar, transmitir | Tabela somente leitura |
 
 ---
 
 ### Detalhes tecnicos
 
 **Migracao SQL:**
+
 ```text
-CREATE SEQUENCE IF NOT EXISTS pedido_code_seq START 1;
+-- 1. Adicionar novo valor ao enum
+ALTER TYPE public.app_role ADD VALUE IF NOT EXISTS 'coordenador_logistica';
 
-ALTER TABLE pedidos ADD COLUMN pedido_code text;
+-- 2. Atualizar funcao is_admin_or_coordinator para incluir novo perfil
+CREATE OR REPLACE FUNCTION public.is_admin_or_coordinator(_user_id uuid)
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM public.user_roles
+    WHERE user_id = _user_id
+      AND role IN ('admin', 'coordenador_rplus', 'coordenador_servicos', 'coordenador_logistica')
+  )
+$$;
 
--- Preencher pedidos existentes em ordem cronologica
-WITH ordered AS (
-  SELECT id, ROW_NUMBER() OVER (ORDER BY created_at) as rn
-  FROM pedidos WHERE pedido_code IS NULL
-)
-UPDATE pedidos SET pedido_code = 'SP-' || LPAD(
-  (SELECT nextval('pedido_code_seq'))::text, 8, '0')
-WHERE id IN (SELECT id FROM ordered);
+-- 3. Adicionar policy para coordenadores/admin poderem atualizar pedidos
+CREATE POLICY "Admins and coordinators can update pedidos"
+ON public.pedidos FOR UPDATE TO authenticated
+USING (is_admin_or_coordinator(auth.uid()));
 
-ALTER TABLE pedidos ADD CONSTRAINT pedidos_pedido_code_unique UNIQUE (pedido_code);
-
-CREATE OR REPLACE FUNCTION generate_pedido_code()
-RETURNS TRIGGER AS $$
-BEGIN
-  IF NEW.pedido_code IS NULL OR NEW.pedido_code = '' THEN
-    NEW.pedido_code := 'SP-' || LPAD(nextval('pedido_code_seq')::text, 8, '0');
-  END IF;
-  RETURN NEW;
-END;
-$$ LANGUAGE plpgsql SET search_path TO 'public';
-
-CREATE TRIGGER set_pedido_code
-  BEFORE INSERT ON pedidos
-  FOR EACH ROW
-  EXECUTE FUNCTION generate_pedido_code();
+-- 4. Inserir permissoes de menu para o novo perfil
+-- (copiar menus relevantes de coordenador_servicos com can_access ajustado)
+INSERT INTO role_menu_permissions (role, menu_key, menu_label, menu_group, can_access)
+SELECT 'coordenador_logistica', menu_key, menu_label, menu_group, 
+  CASE WHEN menu_key IN ('pedidos', 'admin_envios', 'admin_permissoes', 'admin_config', 'admin_usuarios') THEN true ELSE false END
+FROM role_menu_permissions
+WHERE role = 'admin'
+ON CONFLICT DO NOTHING;
 ```
 
 **Arquivos modificados:**
 - Nova migracao SQL
-- `src/lib/offline-db.ts` -- campo `pedido_code` opcional
-- `src/hooks/useOfflinePedidos.ts` -- sincronizar campo, nao gerar offline
-- `src/components/pedidos/PedidoKanban.tsx` -- exibir codigo no card
-- `src/pages/Pedidos.tsx` -- exibir na tabela e detalhes
-
+- `src/contexts/AuthContext.tsx` -- tipo AppRole
+- `src/pages/admin/Permissoes.tsx` -- roleLabels, roleColors, roles array
+- `src/pages/admin/Usuarios.tsx` -- roleLabels, roleColors
+- `src/components/layout/AppSidebar.tsx` -- roleLabels
+- `src/pages/Pedidos.tsx` -- logica condicional canManagePedidos + tabela readonly
