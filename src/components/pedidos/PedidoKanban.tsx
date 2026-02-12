@@ -110,7 +110,7 @@ function PedidoCard({
           </div>
           <div className="flex items-center gap-1">
             <Calendar className="h-3 w-3" />
-            <span>{format(new Date(pedido.created_at), "dd/MM/yy", { locale: ptBR })}</span>
+            <span>{format(new Date(pedido.created_at), "dd/MM/yy HH:mm", { locale: ptBR })}</span>
           </div>
           {pedido.solicitante && (
             <div className="flex items-center gap-1">
