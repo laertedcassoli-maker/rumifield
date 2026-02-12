@@ -10,6 +10,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import ConcluirPedidoDialog from './ConcluirPedidoDialog';
+import ProcessarPedidoDialog from './ProcessarPedidoDialog';
 import type { PedidoComItens } from '@/hooks/useOfflinePedidos';
 
 const urgenciaConfig: Record<string, { label: string; className: string }> = {
@@ -28,16 +29,19 @@ const origemConfig: Record<string, { label: string; className: string }> = {
 
 const tipoEnvioConfig: Record<string, { label: string; icon: React.ReactNode; className: string }> = {
   envio_fisico: { label: 'Envio Físico', icon: <Truck className="h-3 w-3" />, className: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' },
-  correio: { label: 'Correio', icon: <Truck className="h-3 w-3" />, className: 'bg-muted text-muted-foreground' },
-  entrega: { label: 'Entrega', icon: <HandHelping className="h-3 w-3" />, className: 'bg-muted text-muted-foreground' },
   apenas_nf: { label: 'Apenas NF', icon: <FileText className="h-3 w-3" />, className: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' },
+};
+
+const tipoLogisticaConfig: Record<string, { label: string; icon: React.ReactNode; className: string }> = {
+  correios: { label: 'Correios', icon: <Truck className="h-3 w-3" />, className: 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400' },
+  entrega_propria: { label: 'Entrega Própria', icon: <HandHelping className="h-3 w-3" />, className: 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400' },
 };
 
 interface PedidoKanbanProps {
   pedidos: PedidoComItens[];
   onViewPedido: (pedido: PedidoComItens) => void;
-  onProcessar: (pedidoId: string) => Promise<void>;
-  onConcluir: (pedidoId: string, nfNumero: string, dataFaturamento: string) => Promise<void>;
+  onProcessar: (pedidoId: string, tipoLogistica?: string) => Promise<void>;
+  onConcluir: (pedidoId: string, nfNumero: string, dataFaturamento: string, tipoLogistica: string) => Promise<void>;
   isProcessing: boolean;
   consultorNames: Record<string, string>;
 }
@@ -80,6 +84,12 @@ function PedidoCard({
             <Badge variant="outline" className={cn('text-[10px] h-5 border-0 gap-0.5', tipoEnvioConfig[pedido.tipo_envio].className)}>
               {tipoEnvioConfig[pedido.tipo_envio].icon}
               {tipoEnvioConfig[pedido.tipo_envio].label}
+            </Badge>
+          )}
+          {pedido.tipo_logistica && tipoLogisticaConfig[pedido.tipo_logistica] && (
+            <Badge variant="outline" className={cn('text-[10px] h-5 border-0 gap-0.5', tipoLogisticaConfig[pedido.tipo_logistica].className)}>
+              {tipoLogisticaConfig[pedido.tipo_logistica].icon}
+              {tipoLogisticaConfig[pedido.tipo_logistica].label}
             </Badge>
           )}
         </div>
@@ -127,6 +137,7 @@ export default function PedidoKanban({
   pedidos, onViewPedido, onProcessar, onConcluir, isProcessing, consultorNames 
 }: PedidoKanbanProps) {
   const [concluirPedidoId, setConcluirPedidoId] = useState<string | null>(null);
+  const [processarPedidoId, setProcessarPedidoId] = useState<string | null>(null);
 
   const abertos = pedidos.filter(p => p.status === 'solicitado');
   const emProcessamento = pedidos.filter(p => p.status === 'processamento');
@@ -143,7 +154,7 @@ export default function PedidoKanban({
         <Button
           size="sm"
           className="h-7 text-xs flex-1 gap-1"
-          onClick={() => onProcessar(pedido.id)}
+          onClick={() => setProcessarPedidoId(pedido.id)}
           disabled={isProcessing}
         >
           <ArrowRight className="h-3 w-3" />
@@ -212,10 +223,22 @@ export default function PedidoKanban({
       <ConcluirPedidoDialog
         open={!!concluirPedidoId}
         onOpenChange={(open) => !open && setConcluirPedidoId(null)}
-        onConfirm={async (nfNumero, dataFaturamento) => {
+        currentTipoLogistica={concluirPedidoId ? pedidos.find(p => p.id === concluirPedidoId)?.tipo_logistica : undefined}
+        onConfirm={async (nfNumero, dataFaturamento, tipoLogistica) => {
           if (concluirPedidoId) {
-            await onConcluir(concluirPedidoId, nfNumero, dataFaturamento);
+            await onConcluir(concluirPedidoId, nfNumero, dataFaturamento, tipoLogistica);
             setConcluirPedidoId(null);
+          }
+        }}
+      />
+
+      <ProcessarPedidoDialog
+        open={!!processarPedidoId}
+        onOpenChange={(open) => !open && setProcessarPedidoId(null)}
+        onConfirm={async (tipoLogistica) => {
+          if (processarPedidoId) {
+            await onProcessar(processarPedidoId, tipoLogistica);
+            setProcessarPedidoId(null);
           }
         }}
       />

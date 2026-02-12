@@ -321,6 +321,7 @@ export async function syncPedidosFromServer(userId?: string, isAdmin = false): P
           omie_data_faturamento: pedido.omie_data_faturamento,
           origem: (pedido as any).origem,
           tipo_envio: (pedido as any).tipo_envio,
+          tipo_logistica: (pedido as any).tipo_logistica || null,
           urgencia: (pedido as any).urgencia || 'normal',
           pedido_code: (pedido as any).pedido_code || null,
           preventive_id: pedido.preventive_id,

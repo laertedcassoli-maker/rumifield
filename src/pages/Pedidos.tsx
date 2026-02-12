@@ -150,7 +150,7 @@ export default function Pedidos() {
       // Tipo envio filter
       let matchesTipoEnvio = true;
       if (tipoEnvioFilter === 'envio') {
-        matchesTipoEnvio = ['envio_fisico', 'correio', 'entrega'].includes(pedido.tipo_envio || '');
+        matchesTipoEnvio = pedido.tipo_envio === 'envio_fisico';
       } else if (tipoEnvioFilter === 'apenas_nf') {
         matchesTipoEnvio = pedido.tipo_envio === 'apenas_nf';
       }
@@ -383,17 +383,22 @@ export default function Pedidos() {
     }
   };
 
-  // Processar pedido (solicitado -> processamento)
-  const handleProcessar = useCallback(async (pedidoId: string) => {
+  // Processar pedido (solicitado -> processamento, optionally set tipo_logistica)
+  const handleProcessar = useCallback(async (pedidoId: string, tipoLogistica?: string) => {
     setIsProcessingAction(true);
     try {
+      const updateData: any = { status: 'processamento' };
+      if (tipoLogistica) updateData.tipo_logistica = tipoLogistica;
+      
       const { error } = await supabase
         .from('pedidos')
-        .update({ status: 'processamento' })
+        .update(updateData)
         .eq('id', pedidoId);
       if (error) throw error;
       // Update local
-      await offlineDb.pedidos.update(pedidoId, { status: 'processamento' });
+      const localUpdate: any = { status: 'processamento' };
+      if (tipoLogistica) localUpdate.tipo_logistica = tipoLogistica;
+      await offlineDb.pedidos.update(pedidoId, localUpdate);
       toast({ title: 'Pedido movido para processamento!' });
       if (isOnline) setTimeout(() => triggerSync(), 500);
     } catch (err: any) {
@@ -403,8 +408,8 @@ export default function Pedidos() {
     }
   }, [isOnline, toast, triggerSync]);
 
-  // Concluir pedido (processamento -> faturado + NF)
-  const handleConcluir = useCallback(async (pedidoId: string, nfNumero: string, dataFaturamento: string) => {
+  // Concluir pedido (processamento -> faturado + NF + tipo_logistica)
+  const handleConcluir = useCallback(async (pedidoId: string, nfNumero: string, dataFaturamento: string, tipoLogistica: string) => {
     setIsProcessingAction(true);
     try {
       const { error } = await supabase
@@ -413,13 +418,15 @@ export default function Pedidos() {
           status: 'faturado', 
           omie_nf_numero: nfNumero,
           omie_data_faturamento: dataFaturamento,
-        })
+          tipo_logistica: tipoLogistica,
+        } as any)
         .eq('id', pedidoId);
       if (error) throw error;
       await offlineDb.pedidos.update(pedidoId, { 
         status: 'faturado', 
         omie_nf_numero: nfNumero,
         omie_data_faturamento: dataFaturamento,
+        tipo_logistica: tipoLogistica,
       });
       toast({ title: 'Pedido concluído!', description: `NF ${nfNumero} registrada.` });
       if (isOnline) setTimeout(() => triggerSync(), 500);
@@ -835,7 +842,7 @@ export default function Pedidos() {
                     </ToggleGroup>
                   </div>
 
-                  {/* Tipo de Envio */}
+                   {/* Tipo de Envio */}
                   <div className="space-y-2">
                     <Label>Tipo de Envio</Label>
                     <ToggleGroup 
@@ -844,14 +851,6 @@ export default function Pedidos() {
                       onValueChange={(v) => setForm({ ...form, tipo_envio: v || '' })}
                       className="justify-start"
                     >
-                      <ToggleGroupItem value="correio" className="text-xs gap-1">
-                        <Truck className="h-3 w-3" />
-                        Correio
-                      </ToggleGroupItem>
-                      <ToggleGroupItem value="entrega" className="text-xs gap-1">
-                        <HandHelping className="h-3 w-3" />
-                        Entrega
-                      </ToggleGroupItem>
                       <ToggleGroupItem value="envio_fisico" className="text-xs gap-1">
                         <Truck className="h-3 w-3" />
                         Envio Físico
@@ -1121,7 +1120,19 @@ export default function Pedidos() {
                         {pedido.tipo_envio && pedido.tipo_envio !== 'apenas_nf' && (
                           <Badge variant="outline" className="text-xs gap-1">
                             <Truck className="h-3 w-3" />
-                            Envio
+                            Envio Físico
+                          </Badge>
+                        )}
+                        {pedido.tipo_logistica === 'correios' && (
+                          <Badge variant="outline" className="text-xs gap-1 bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400 border-0">
+                            <Truck className="h-3 w-3" />
+                            Correios
+                          </Badge>
+                        )}
+                        {pedido.tipo_logistica === 'entrega_propria' && (
+                          <Badge variant="outline" className="text-xs gap-1 bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400 border-0">
+                            <HandHelping className="h-3 w-3" />
+                            Entrega Própria
                           </Badge>
                         )}
                         {pedido.urgencia === 'urgente' && (
