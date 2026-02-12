@@ -42,7 +42,7 @@ export function CriarPropostaModal({ open, onOpenChange, clientProductId, produc
       // @ts-ignore
       const { error: stageErr } = await supabase
         .from('crm_client_products')
-        .update({ stage: 'proposta', stage_updated_at: new Date().toISOString() })
+        .update({ stage: 'em_negociacao', stage_updated_at: new Date().toISOString() })
         .eq('id', clientProductId);
       if (stageErr) throw stageErr;
     },

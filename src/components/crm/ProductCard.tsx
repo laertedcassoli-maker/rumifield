@@ -62,15 +62,12 @@ export function ProductCard({
       case 'nao_qualificado':
         return <Button size="sm" onClick={onQualify} className="gap-1"><ClipboardCheck className="h-3.5 w-3.5" /> Qualificar</Button>;
       case 'qualificado':
-        return <Button size="sm" onClick={onCreateProposal} className="gap-1"><FileText className="h-3.5 w-3.5" /> Criar proposta</Button>;
-      case 'proposta':
-        return <Button size="sm" variant="outline" onClick={onUpdateNegotiation} className="gap-1"><TrendingUp className="h-3.5 w-3.5" /> Atualizar negociação</Button>;
-      case 'negociacao':
+        return <Button size="sm" onClick={onCreateProposal} className="gap-1"><FileText className="h-3.5 w-3.5" /> Iniciar Negociação</Button>;
+      case 'em_negociacao':
         return <Button size="sm" variant="outline" onClick={onUpdateNegotiation} className="gap-1"><TrendingUp className="h-3.5 w-3.5" /> Ganho/Perdido</Button>;
       case 'ganho':
         return <Button size="sm" variant="ghost" onClick={onViewDetails} className="gap-1"><Eye className="h-3.5 w-3.5" /> Ver detalhes</Button>;
       case 'perdido':
-      case 'descartado':
         return <Button size="sm" variant="ghost" onClick={onUpdateNegotiation} className="gap-1"><RefreshCw className="h-3.5 w-3.5" /> Reabrir</Button>;
       default:
         return null;
@@ -116,7 +113,7 @@ export function ProductCard({
         )}
 
         {/* Loss reason */}
-        {(stage === 'perdido' || stage === 'descartado') && lossReason && (
+        {stage === 'perdido' && lossReason && (
           <div className="text-xs p-2 rounded bg-red-50 dark:bg-red-900/20 space-y-0.5">
             <span className="font-medium text-red-700 dark:text-red-400">Motivo: {lossReason.reason}</span>
             {lossNotes && <p className="text-muted-foreground">{lossNotes}</p>}
