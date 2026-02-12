@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Users, CalendarCheck, Clock, AlertTriangle } from 'lucide-react';
 import { subDays, parseISO } from 'date-fns';
 
-const QUALIFIED_STAGES: CrmStage[] = ['qualificado', 'proposta', 'negociacao', 'ganho'];
+const QUALIFIED_STAGES: CrmStage[] = ['qualificado', 'em_negociacao', 'ganho'];
 
 export default function CrmDashboard() {
   const { user, role } = useAuth();

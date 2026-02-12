@@ -60,18 +60,14 @@ export function AtualizarNegociacaoModal({ open, onOpenChange, clientProductId, 
 
   const stageOptions = (() => {
     switch (currentStage) {
-      case 'qualificado': return [{ value: 'proposta', label: 'Criar Proposta' }];
-      case 'proposta': return [
-        { value: 'negociacao', label: 'Iniciar Negociação' },
+      case 'qualificado': return [
+        { value: 'em_negociacao', label: 'Iniciar Negociação' },
+      ];
+      case 'em_negociacao': return [
         { value: 'ganho', label: 'Marcar Ganho' },
         { value: 'perdido', label: 'Marcar Perdido' },
       ];
-      case 'negociacao': return [
-        { value: 'ganho', label: 'Marcar Ganho' },
-        { value: 'perdido', label: 'Marcar Perdido' },
-      ];
-      case 'perdido':
-      case 'descartado': return [
+      case 'perdido': return [
         { value: 'nao_qualificado', label: 'Reabrir (Não Qualificado)' },
       ];
       default: return [];

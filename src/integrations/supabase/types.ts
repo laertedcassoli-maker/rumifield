@@ -3644,11 +3644,9 @@ export type Database = {
       crm_stage:
         | "nao_qualificado"
         | "qualificado"
-        | "proposta"
-        | "negociacao"
+        | "em_negociacao"
         | "ganho"
         | "perdido"
-        | "descartado"
       crm_visit_status: "planejada" | "em_andamento" | "concluida" | "cancelada"
       doc_category:
         | "visao_geral"
@@ -3842,11 +3840,9 @@ export const Constants = {
       crm_stage: [
         "nao_qualificado",
         "qualificado",
-        "proposta",
-        "negociacao",
+        "em_negociacao",
         "ganho",
         "perdido",
-        "descartado",
       ],
       crm_visit_status: ["planejada", "em_andamento", "concluida", "cancelada"],
       doc_category: [

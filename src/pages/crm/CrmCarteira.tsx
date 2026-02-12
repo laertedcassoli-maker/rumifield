@@ -36,7 +36,7 @@ export default function CrmCarteira() {
         healthStatuses.length > 0 ? 'verde' : null;
 
       // Counters
-      const openOpps = products.filter((p: any) => ['proposta', 'negociacao'].includes(p.stage)).length;
+      const openOpps = products.filter((p: any) => p.stage === 'em_negociacao').length;
       const activeProducts = products
         .filter((p: any) => p.stage === 'ganho')
         .map((p: any) => p.product_code as ProductCode);

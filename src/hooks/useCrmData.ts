@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 
 export type ProductCode = 'ideagri' | 'rumiflow' | 'onfarm' | 'rumiaction' | 'insights';
-export type CrmStage = 'nao_qualificado' | 'qualificado' | 'proposta' | 'negociacao' | 'ganho' | 'perdido' | 'descartado';
+export type CrmStage = 'nao_qualificado' | 'qualificado' | 'em_negociacao' | 'ganho' | 'perdido';
 
 export const PRODUCT_LABELS: Record<ProductCode, string> = {
   ideagri: 'Ideagri',
@@ -18,21 +18,17 @@ export const PRODUCT_ORDER: ProductCode[] = ['ideagri', 'rumiflow', 'onfarm', 'r
 export const STAGE_LABELS: Record<CrmStage, string> = {
   nao_qualificado: 'Não Qualificado',
   qualificado: 'Qualificado',
-  proposta: 'Proposta',
-  negociacao: 'Negociação',
+  em_negociacao: 'Em Negociação',
   ganho: 'Ganho',
   perdido: 'Perdido',
-  descartado: 'Descartado',
 };
 
 export const STAGE_COLORS: Record<CrmStage, string> = {
   nao_qualificado: 'bg-muted text-muted-foreground',
   qualificado: 'bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300',
-  proposta: 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300',
-  negociacao: 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300',
+  em_negociacao: 'bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300',
   ganho: 'bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300',
   perdido: 'bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300',
-  descartado: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400',
 };
 
 export const HEALTH_COLORS: Record<string, string> = {
