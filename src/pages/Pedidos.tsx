@@ -24,6 +24,7 @@ import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import PedidoKanban from '@/components/pedidos/PedidoKanban';
 import AssetSearchField from '@/components/pedidos/AssetSearchField';
+import EditarPedidoSolicitado from '@/components/pedidos/EditarPedidoSolicitado';
 
 const statusColors: Record<string, string> = {
   rascunho: 'bg-muted text-muted-foreground border-muted-foreground/30',
@@ -58,6 +59,7 @@ export default function Pedidos() {
   const [imagePreview, setImagePreview] = useState<{ url: string; nome: string } | null>(null);
   const [isProcessingAction, setIsProcessingAction] = useState(false);
   const [editingAssetItemId, setEditingAssetItemId] = useState<string | null>(null);
+  const [isEditingSolicitado, setIsEditingSolicitado] = useState(false);
   const [consultorNames, setConsultorNames] = useState<Record<string, string>>({});
   
   const isAdmin = role === 'admin' || role === 'coordenador_rplus' || role === 'coordenador_servicos' || role === 'coordenador_logistica';
@@ -1256,7 +1258,7 @@ export default function Pedidos() {
                         <p className="text-sm text-muted-foreground break-words">{pedido.clientes.fazenda}</p>
                       )}
                       <p className="text-xs text-muted-foreground mt-1">
-                        {pedido.pedido_itens?.length || 0} {(pedido.pedido_itens?.length || 0) === 1 ? 'item' : 'itens'} · {format(new Date(pedido.created_at), "dd/MM/yy", { locale: ptBR })}
+                        {(pedido.pedido_itens?.filter((i: any) => !i.cancelled_at)?.length || 0)} {(pedido.pedido_itens?.filter((i: any) => !i.cancelled_at)?.length || 0) === 1 ? 'item' : 'itens'} · {format(new Date(pedido.created_at), "dd/MM/yy", { locale: ptBR })}
                       </p>
                     </div>
                     <Button variant="outline" size="sm" className="h-8 gap-1.5 shrink-0" onClick={() => setViewingPedido(pedido)}>
@@ -1339,30 +1341,48 @@ export default function Pedidos() {
       </Tabs>
 
       {/* View Order Dialog (Read-Only) */}
-      <Dialog open={!!viewingPedido} onOpenChange={(open) => !open && setViewingPedido(null)}>
+      <Dialog open={!!viewingPedido} onOpenChange={(open) => { if (!open) { setViewingPedido(null); setIsEditingSolicitado(false); } }}>
         <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Eye className="h-5 w-5" />
-              Detalhes do Pedido
+              {isEditingSolicitado ? 'Editar Pedido' : 'Detalhes do Pedido'}
               {viewingPedido?.pedido_code && (
                 <span className="font-mono text-sm font-normal text-muted-foreground">{viewingPedido.pedido_code}</span>
               )}
             </DialogTitle>
           </DialogHeader>
           
-          {viewingPedido && (
+          {viewingPedido && isEditingSolicitado ? (
+            <EditarPedidoSolicitado
+              pedido={viewingPedido}
+              onSaved={(updated) => {
+                setViewingPedido(updated);
+                setIsEditingSolicitado(false);
+                triggerSync();
+              }}
+              onCancel={() => setIsEditingSolicitado(false)}
+            />
+          ) : viewingPedido && (
             <div className="space-y-4">
-              {/* Status Badge */}
-              <div className="flex items-center gap-2">
-                <Badge variant="outline" className={cn(statusColors[viewingPedido.status], 'text-sm')}>
-                  {statusLabels[viewingPedido.status]}
-                </Badge>
-                {viewingPedido._pendingSync && (
-                  <Badge variant="outline" className="text-orange-500 border-orange-300">
-                    <CloudOff className="h-3 w-3 mr-1" />
-                    Pendente sync
+              {/* Status Badge + Edit Button */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Badge variant="outline" className={cn(statusColors[viewingPedido.status], 'text-sm')}>
+                    {statusLabels[viewingPedido.status]}
                   </Badge>
+                  {viewingPedido._pendingSync && (
+                    <Badge variant="outline" className="text-orange-500 border-orange-300">
+                      <CloudOff className="h-3 w-3 mr-1" />
+                      Pendente sync
+                    </Badge>
+                  )}
+                </div>
+                {canManagePedidos && viewingPedido.status === 'solicitado' && (
+                  <Button variant="outline" size="sm" className="gap-1" onClick={() => setIsEditingSolicitado(true)}>
+                    <Pencil className="h-3 w-3" />
+                    Editar
+                  </Button>
                 )}
               </div>
 
@@ -1391,10 +1411,11 @@ export default function Pedidos() {
                 <div className="space-y-2 max-h-[40vh] overflow-y-auto">
                   {viewingPedido.pedido_itens?.map((item: any) => {
                     const peca = pecas?.find(p => p.id === item.peca_id) || item.pecas;
+                    const isCancelled = !!item.cancelled_at;
                     return (
                       <div
                         key={item.id}
-                        className="flex items-center gap-3 p-3 rounded-lg border bg-card"
+                        className={cn("flex items-center gap-3 p-3 rounded-lg border bg-card", isCancelled && "opacity-50")}
                       >
                         {/* Imagem da peça */}
                         <div 
@@ -1421,12 +1442,15 @@ export default function Pedidos() {
 
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-mono text-sm font-medium">{peca?.codigo}</span>
+                            <span className={cn("font-mono text-sm font-medium", isCancelled && "line-through")}>{peca?.codigo}</span>
                             {peca?.familia && (
                               <Badge variant="secondary" className="text-[10px] h-5">{peca.familia}</Badge>
                             )}
+                            {isCancelled && (
+                              <Badge variant="outline" className="text-[10px] h-5 text-destructive border-destructive/30">Cancelado</Badge>
+                            )}
                           </div>
-                          <p className="text-sm text-muted-foreground break-words whitespace-normal">{peca?.nome}</p>
+                          <p className={cn("text-sm text-muted-foreground break-words whitespace-normal", isCancelled && "line-through")}>{peca?.nome}</p>
                           {(() => {
                             const isEditable = ['solicitado', 'processamento'].includes(viewingPedido.status);
                             const isEditingThis = editingAssetItemId === item.id;
@@ -1512,13 +1536,28 @@ export default function Pedidos() {
                 </div>
               )}
 
-              {/* Total */}
-              <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50 border">
-                <span className="text-sm text-muted-foreground">Total</span>
-                <span className="font-bold text-lg">
-                  {viewingPedido.pedido_itens?.length || 0} {viewingPedido.pedido_itens?.length === 1 ? 'peça' : 'peças'}, {viewingPedido.pedido_itens?.reduce((sum: number, item: any) => sum + item.quantidade, 0) || 0} {viewingPedido.pedido_itens?.reduce((sum: number, item: any) => sum + item.quantidade, 0) === 1 ? 'unidade' : 'unidades'}
-                </span>
-              </div>
+              {/* Total (excluding cancelled items) */}
+              {(() => {
+                const activeItems = viewingPedido.pedido_itens?.filter((i: any) => !i.cancelled_at) || [];
+                const cancelledItems = viewingPedido.pedido_itens?.filter((i: any) => i.cancelled_at) || [];
+                const totalPecas = activeItems.length;
+                const totalUnidades = activeItems.reduce((sum: number, item: any) => sum + item.quantidade, 0);
+                return (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between p-3 rounded-lg bg-muted/50 border">
+                      <span className="text-sm text-muted-foreground">Total</span>
+                      <span className="font-bold text-lg">
+                        {totalPecas} {totalPecas === 1 ? 'peça' : 'peças'}, {totalUnidades} {totalUnidades === 1 ? 'unidade' : 'unidades'}
+                      </span>
+                    </div>
+                    {cancelledItems.length > 0 && (
+                      <p className="text-xs text-muted-foreground text-right">
+                        + {cancelledItems.length} item(ns) cancelado(s)
+                      </p>
+                    )}
+                  </div>
+                );
+              })()}
 
               {/* NF Info if exists */}
               {viewingPedido.omie_nf_numero && (
