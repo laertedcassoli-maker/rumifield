@@ -40,6 +40,13 @@ export default function AssetSearchField({
     }
   }, [currentAssetId]);
 
+  // Auto-load assets when popover opens
+  useEffect(() => {
+    if (open) {
+      searchAssets('');
+    }
+  }, [open]);
+
   const fetchAssetDetails = async (assetId: string) => {
     try {
       const { data } = await supabase
@@ -56,7 +63,7 @@ export default function AssetSearchField({
   };
 
   const searchAssets = async (query: string) => {
-    if (!query && !pecaId) return;
+    if (!pecaId) return;
     
     setIsLoading(true);
     try {
