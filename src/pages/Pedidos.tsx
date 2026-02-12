@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -1351,6 +1351,9 @@ export default function Pedidos() {
                 <span className="font-mono text-sm font-normal text-muted-foreground">{viewingPedido.pedido_code}</span>
               )}
             </DialogTitle>
+            <DialogDescription className="sr-only">
+              {isEditingSolicitado ? 'Editar itens do pedido' : 'Visualizar detalhes do pedido'}
+            </DialogDescription>
           </DialogHeader>
           
           {viewingPedido && isEditingSolicitado ? (
