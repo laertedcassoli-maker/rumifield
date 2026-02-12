@@ -257,15 +257,15 @@ export function usePipelineData() {
     },
   });
 
-  // @ts-ignore
   const { data: consultores } = useQuery({
     queryKey: ['crm-consultores'],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from('profiles')
-        .select('id, nome');
+        .from('user_roles')
+        .select('user_id, profiles!inner(id, nome)')
+        .eq('role', 'consultor_rplus');
       if (error) throw error;
-      return data;
+      return (data || []).map((r: any) => ({ id: r.profiles.id, nome: r.profiles.nome }));
     },
     enabled: isAdmin,
   });
