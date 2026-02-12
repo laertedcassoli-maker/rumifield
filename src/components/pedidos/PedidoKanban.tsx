@@ -39,8 +39,8 @@ const tipoLogisticaConfig: Record<string, { label: string; icon: React.ReactNode
 interface PedidoKanbanProps {
   pedidos: PedidoComItens[];
   onViewPedido: (pedido: PedidoComItens) => void;
-  onProcessar: (pedidoId: string, tipoLogistica?: string) => Promise<void>;
-  onConcluir: (pedidoId: string, nfNumero: string, dataFaturamento: string, tipoLogistica: string) => Promise<void>;
+  onProcessar: (pedidoId: string, tipoLogistica?: string, itemsWithAssets?: Record<string, string>) => Promise<void>;
+  onConcluir: (pedidoId: string, nfNumero: string, dataFaturamento: string, tipoLogistica: string, itemsWithAssets?: Record<string, string>) => Promise<void>;
   isProcessing: boolean;
   consultorNames: Record<string, string>;
 }
@@ -226,11 +226,7 @@ export default function PedidoKanban({
         currentTipoLogistica={concluirPedidoId ? pedidos.find(p => p.id === concluirPedidoId)?.tipo_logistica : undefined}
         onConfirm={async (nfNumero, dataFaturamento, tipoLogistica, itemsWithAssets) => {
           if (concluirPedidoId) {
-            await onConcluir(concluirPedidoId, nfNumero, dataFaturamento, tipoLogistica);
-            if (itemsWithAssets) {
-              // Items with assets will be saved in the parent component
-              console.log('Assets to update:', itemsWithAssets);
-            }
+            await onConcluir(concluirPedidoId, nfNumero, dataFaturamento, tipoLogistica, itemsWithAssets);
             setConcluirPedidoId(null);
           }
         }}
@@ -242,11 +238,7 @@ export default function PedidoKanban({
         pedido={processarPedidoId ? pedidos.find(p => p.id === processarPedidoId) : undefined}
         onConfirm={async (tipoLogistica, itemsWithAssets) => {
           if (processarPedidoId) {
-            await onProcessar(processarPedidoId, tipoLogistica);
-            if (itemsWithAssets) {
-              // Items with assets will be saved in the parent component
-              console.log('Assets to update:', itemsWithAssets);
-            }
+            await onProcessar(processarPedidoId, tipoLogistica, itemsWithAssets);
             setProcessarPedidoId(null);
           }
         }}

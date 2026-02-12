@@ -384,7 +384,7 @@ export default function Pedidos() {
   };
 
   // Processar pedido (solicitado -> processamento, optionally set tipo_logistica)
-  const handleProcessar = useCallback(async (pedidoId: string, tipoLogistica?: string) => {
+  const handleProcessar = useCallback(async (pedidoId: string, tipoLogistica?: string, itemsWithAssets?: Record<string, string>) => {
     setIsProcessingAction(true);
     try {
       const updateData: any = { status: 'processamento' };
@@ -395,6 +395,16 @@ export default function Pedidos() {
         .update(updateData)
         .eq('id', pedidoId);
       if (error) throw error;
+
+      // Save asset associations
+      if (itemsWithAssets) {
+        for (const [itemId, workshopItemId] of Object.entries(itemsWithAssets)) {
+          if (workshopItemId) {
+            await supabase.from('pedido_itens').update({ workshop_item_id: workshopItemId }).eq('id', itemId);
+          }
+        }
+      }
+
       // Update local
       const localUpdate: any = { status: 'processamento' };
       if (tipoLogistica) localUpdate.tipo_logistica = tipoLogistica;
@@ -409,7 +419,7 @@ export default function Pedidos() {
   }, [isOnline, toast, triggerSync]);
 
   // Concluir pedido (processamento -> faturado + NF + tipo_logistica)
-  const handleConcluir = useCallback(async (pedidoId: string, nfNumero: string, dataFaturamento: string, tipoLogistica: string) => {
+  const handleConcluir = useCallback(async (pedidoId: string, nfNumero: string, dataFaturamento: string, tipoLogistica: string, itemsWithAssets?: Record<string, string>) => {
     setIsProcessingAction(true);
     try {
       const { error } = await supabase
@@ -422,6 +432,16 @@ export default function Pedidos() {
         } as any)
         .eq('id', pedidoId);
       if (error) throw error;
+
+      // Save asset associations
+      if (itemsWithAssets) {
+        for (const [itemId, workshopItemId] of Object.entries(itemsWithAssets)) {
+          if (workshopItemId) {
+            await supabase.from('pedido_itens').update({ workshop_item_id: workshopItemId }).eq('id', itemId);
+          }
+        }
+      }
+
       await offlineDb.pedidos.update(pedidoId, { 
         status: 'faturado', 
         omie_nf_numero: nfNumero,
@@ -1318,6 +1338,9 @@ export default function Pedidos() {
                             )}
                           </div>
                           <p className="text-sm text-muted-foreground break-words whitespace-normal">{peca?.nome}</p>
+                          {item.workshop_item?.unique_code && (
+                            <p className="text-xs font-mono text-primary mt-0.5">ID: {item.workshop_item.unique_code}</p>
+                          )}
                         </div>
 
                         <div className="text-right shrink-0">
