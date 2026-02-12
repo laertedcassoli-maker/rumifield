@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Command, CommandEmpty, CommandGroup, CommandItem, CommandInput, CommandList } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
@@ -36,6 +37,8 @@ export default function AssetSearchField({
   const [isCreating, setIsCreating] = useState(false);
   const [selectedAsset, setSelectedAsset] = useState<WorkshopItem | null>(null);
   const [searchValue, setSearchValue] = useState('');
+  const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+  const [pendingAssetCode, setPendingAssetCode] = useState('');
 
   // Load current asset on mount
   useEffect(() => {
@@ -104,6 +107,33 @@ export default function AssetSearchField({
     setSearchValue('');
   };
 
+  const handleCreateAssetClick = () => {
+    setPendingAssetCode(searchValue.trim());
+    setConfirmDialogOpen(true);
+  };
+
+  const handleConfirmCreateAsset = async () => {
+    setConfirmDialogOpen(false);
+    setIsCreating(true);
+    try {
+      const { data, error } = await supabase
+        .from('workshop_items')
+        .insert({ unique_code: pendingAssetCode, omie_product_id: pecaId, created_by_user_id: user?.id || null, creation_source: 'automatico' })
+        .select('id, unique_code, current_motor_code, status')
+        .single();
+      if (error) throw error;
+      if (data) {
+        handleSelect(data);
+        toast({ title: `Ativo "${data.unique_code}" criado com sucesso!` });
+      }
+    } catch (err: any) {
+      console.error('Error creating asset:', err);
+      toast({ title: 'Erro ao criar ativo', description: err?.message || 'Sem permissão ou erro inesperado.', variant: 'destructive' });
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
   return (
     <div className="space-y-2">
       <Label>Código do Ativo (se aplicável)</Label>
@@ -145,26 +175,7 @@ export default function AssetSearchField({
                     size="sm"
                     variant="outline"
                     disabled={isCreating}
-                    onClick={async () => {
-                      setIsCreating(true);
-                      try {
-                        const { data, error } = await supabase
-                          .from('workshop_items')
-                          .insert({ unique_code: searchValue.trim(), omie_product_id: pecaId, created_by_user_id: user?.id || null, creation_source: 'automatico' })
-                          .select('id, unique_code, current_motor_code, status')
-                          .single();
-                        if (error) throw error;
-                        if (data) {
-                          handleSelect(data);
-                          toast({ title: `Ativo "${data.unique_code}" criado com sucesso!` });
-                        }
-                      } catch (err: any) {
-                        console.error('Error creating asset:', err);
-                        toast({ title: 'Erro ao criar ativo', description: err?.message || 'Sem permissão ou erro inesperado.', variant: 'destructive' });
-                      } finally {
-                        setIsCreating(false);
-                      }
-                    }}
+                    onClick={handleCreateAssetClick}
                   >
                     {isCreating ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Plus className="h-4 w-4 mr-1" />}
                     Criar ativo "{searchValue.trim()}"
@@ -202,6 +213,24 @@ export default function AssetSearchField({
           </Command>
         </PopoverContent>
       </Popover>
+      
+      <AlertDialog open={confirmDialogOpen} onOpenChange={setConfirmDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar criação de ativo</AlertDialogTitle>
+            <AlertDialogDescription>
+              Será criado um novo ativo com o código "{pendingAssetCode}". Confirma?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="flex gap-2 justify-end">
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmCreateAsset} disabled={isCreating}>
+              {isCreating ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : null}
+              Confirmar
+            </AlertDialogAction>
+          </div>
+        </AlertDialogContent>
+      </AlertDialog>
       
       {selectedAsset && (
         <div className="flex items-center gap-2 p-2 bg-muted rounded">
