@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -68,8 +69,10 @@ const origemOptions = [
 export default function Pedidos() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user, role } = useAuth();
   const { isOnline } = useOffline();
-  const { pedidos, isLoading } = useOfflinePedidos();
+  const isAdmin = role === 'admin' || role === 'coordenador_logistica' || role === 'coordenador_servicos';
+  const { pedidos, isLoading } = useOfflinePedidos(user?.id, isAdmin, isAdmin);
 
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
