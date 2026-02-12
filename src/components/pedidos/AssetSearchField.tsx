@@ -4,8 +4,9 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { X, Search } from 'lucide-react';
+import { X, Search, Plus, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from '@/hooks/use-toast';
 
 interface WorkshopItem {
   id: string;
@@ -30,6 +31,7 @@ export default function AssetSearchField({
   const [open, setOpen] = useState(false);
   const [assets, setAssets] = useState<WorkshopItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
   const [selectedAsset, setSelectedAsset] = useState<WorkshopItem | null>(null);
   const [searchValue, setSearchValue] = useState('');
 
@@ -131,7 +133,39 @@ export default function AssetSearchField({
               disabled={disabled}
             />
             <CommandEmpty>
-              {isLoading ? 'Buscando...' : 'Nenhum ativo encontrado para este tipo de peça.'}
+              {isLoading ? 'Buscando...' : searchValue.trim() ? (
+                <div className="flex flex-col items-center gap-2 py-2">
+                  <p className="text-sm text-muted-foreground">Nenhum ativo encontrado.</p>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={isCreating}
+                    onClick={async () => {
+                      setIsCreating(true);
+                      try {
+                        const { data, error } = await supabase
+                          .from('workshop_items')
+                          .insert({ unique_code: searchValue.trim(), omie_product_id: pecaId })
+                          .select('id, unique_code, current_motor_code, status')
+                          .single();
+                        if (error) throw error;
+                        if (data) {
+                          handleSelect(data);
+                          toast({ title: `Ativo "${data.unique_code}" criado com sucesso!` });
+                        }
+                      } catch (err: any) {
+                        console.error('Error creating asset:', err);
+                        toast({ title: 'Erro ao criar ativo', description: err?.message || 'Sem permissão ou erro inesperado.', variant: 'destructive' });
+                      } finally {
+                        setIsCreating(false);
+                      }
+                    }}
+                  >
+                    {isCreating ? <Loader2 className="h-4 w-4 animate-spin mr-1" /> : <Plus className="h-4 w-4 mr-1" />}
+                    Criar ativo "{searchValue.trim()}"
+                  </Button>
+                </div>
+              ) : 'Nenhum ativo encontrado para este tipo de peça.'}
             </CommandEmpty>
             <CommandList>
               <CommandGroup>
