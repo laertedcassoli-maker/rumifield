@@ -1600,6 +1600,7 @@ export type Database = {
           peca_id: string
           pedido_id: string
           quantidade: number
+          workshop_item_id: string | null
         }
         Insert: {
           asset_codes?: string[] | null
@@ -1608,6 +1609,7 @@ export type Database = {
           peca_id: string
           pedido_id: string
           quantidade?: number
+          workshop_item_id?: string | null
         }
         Update: {
           asset_codes?: string[] | null
@@ -1616,6 +1618,7 @@ export type Database = {
           peca_id?: string
           pedido_id?: string
           quantidade?: number
+          workshop_item_id?: string | null
         }
         Relationships: [
           {
@@ -1630,6 +1633,13 @@ export type Database = {
             columns: ["pedido_id"]
             isOneToOne: false
             referencedRelation: "pedidos"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pedido_itens_workshop_item_id_fkey"
+            columns: ["workshop_item_id"]
+            isOneToOne: false
+            referencedRelation: "workshop_items"
             referencedColumns: ["id"]
           },
         ]
