@@ -11,6 +11,7 @@ import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import ConcluirPedidoDialog from './ConcluirPedidoDialog';
 import ProcessarPedidoDialog from './ProcessarPedidoDialog';
+import AssetCodesBadges from './AssetCodesBadges';
 import type { PedidoComItens } from '@/hooks/useOfflinePedidos';
 
 const urgenciaConfig: Record<string, { label: string; className: string }> = {
@@ -40,8 +41,8 @@ const tipoLogisticaConfig: Record<string, { label: string; icon: React.ReactNode
 interface PedidoKanbanProps {
   pedidos: PedidoComItens[];
   onViewPedido: (pedido: PedidoComItens) => void;
-  onProcessar: (pedidoId: string, tipoLogistica?: string) => Promise<void>;
-  onConcluir: (pedidoId: string, nfNumero: string, dataFaturamento: string, tipoLogistica: string) => Promise<void>;
+  onProcessar: (pedidoId: string, tipoLogistica?: string, assetCodes?: Record<string, string[]>) => Promise<void>;
+  onConcluir: (pedidoId: string, nfNumero: string, dataFaturamento: string, tipoLogistica: string, assetCodes?: Record<string, string[]>) => Promise<void>;
   isProcessing: boolean;
   consultorNames: Record<string, string>;
 }
@@ -101,6 +102,22 @@ function PedidoCard({
             <p className="text-xs text-muted-foreground">{pedido.clientes.fazenda}</p>
           )}
         </div>
+
+        {/* Asset Codes */}
+        {pedido.pedido_itens?.some(i => i.is_asset) && (
+          <div className="space-y-2">
+            {pedido.pedido_itens
+              .filter(i => i.is_asset)
+              .map((item) => (
+                <AssetCodesBadges
+                  key={item.id}
+                  codes={item.asset_codes}
+                  isAsset={true}
+                  quantidade={item.quantidade}
+                />
+              ))}
+          </div>
+        )}
 
         {/* Meta */}
         <div className="space-y-1 text-xs text-muted-foreground">
@@ -223,10 +240,11 @@ export default function PedidoKanban({
       <ConcluirPedidoDialog
         open={!!concluirPedidoId}
         onOpenChange={(open) => !open && setConcluirPedidoId(null)}
+        pedido={concluirPedidoId ? pedidos.find(p => p.id === concluirPedidoId) : undefined}
         currentTipoLogistica={concluirPedidoId ? pedidos.find(p => p.id === concluirPedidoId)?.tipo_logistica : undefined}
-        onConfirm={async (nfNumero, dataFaturamento, tipoLogistica) => {
+        onConfirm={async (nfNumero, dataFaturamento, tipoLogistica, assetCodes) => {
           if (concluirPedidoId) {
-            await onConcluir(concluirPedidoId, nfNumero, dataFaturamento, tipoLogistica);
+            await onConcluir(concluirPedidoId, nfNumero, dataFaturamento, tipoLogistica, assetCodes);
             setConcluirPedidoId(null);
           }
         }}
@@ -235,9 +253,10 @@ export default function PedidoKanban({
       <ProcessarPedidoDialog
         open={!!processarPedidoId}
         onOpenChange={(open) => !open && setProcessarPedidoId(null)}
-        onConfirm={async (tipoLogistica) => {
+        pedido={processarPedidoId ? pedidos.find(p => p.id === processarPedidoId) : undefined}
+        onConfirm={async (tipoLogistica, assetCodes) => {
           if (processarPedidoId) {
-            await onProcessar(processarPedidoId, tipoLogistica);
+            await onProcessar(processarPedidoId, tipoLogistica, assetCodes);
             setProcessarPedidoId(null);
           }
         }}
