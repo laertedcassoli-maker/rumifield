@@ -1342,7 +1342,7 @@ export default function Pedidos() {
 
       {/* View Order Dialog (Read-Only) */}
       <Dialog open={!!viewingPedido} onOpenChange={(open) => { if (!open) { setViewingPedido(null); setIsEditingSolicitado(false); } }}>
-        <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Eye className="h-5 w-5" />
