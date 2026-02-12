@@ -1594,7 +1594,6 @@ export type Database = {
       }
       pedido_itens: {
         Row: {
-          asset_codes: string[] | null
           created_at: string
           id: string
           peca_id: string
@@ -1602,7 +1601,6 @@ export type Database = {
           quantidade: number
         }
         Insert: {
-          asset_codes?: string[] | null
           created_at?: string
           id?: string
           peca_id: string
@@ -1610,7 +1608,6 @@ export type Database = {
           quantidade?: number
         }
         Update: {
-          asset_codes?: string[] | null
           created_at?: string
           id?: string
           peca_id?: string

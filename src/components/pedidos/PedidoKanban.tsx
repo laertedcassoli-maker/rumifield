@@ -11,7 +11,6 @@ import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import ConcluirPedidoDialog from './ConcluirPedidoDialog';
 import ProcessarPedidoDialog from './ProcessarPedidoDialog';
-import AssetCodesBadges from './AssetCodesBadges';
 import type { PedidoComItens } from '@/hooks/useOfflinePedidos';
 
 const urgenciaConfig: Record<string, { label: string; className: string }> = {
@@ -41,9 +40,8 @@ const tipoLogisticaConfig: Record<string, { label: string; icon: React.ReactNode
 interface PedidoKanbanProps {
   pedidos: PedidoComItens[];
   onViewPedido: (pedido: PedidoComItens) => void;
-  onProcessar: (pedidoId: string, tipoLogistica?: string, assetCodes?: Record<string, string[]>) => Promise<void>;
-  onConcluir: (pedidoId: string, nfNumero: string, dataFaturamento: string, tipoLogistica: string, assetCodes?: Record<string, string[]>) => Promise<void>;
-  onTransmitir?: (pedidoId: string) => Promise<void>;
+  onProcessar: (pedidoId: string, tipoLogistica?: string) => Promise<void>;
+  onConcluir: (pedidoId: string, nfNumero: string, dataFaturamento: string, tipoLogistica: string) => Promise<void>;
   isProcessing: boolean;
   consultorNames: Record<string, string>;
 }
@@ -104,22 +102,6 @@ function PedidoCard({
           )}
         </div>
 
-        {/* Asset Codes */}
-        {pedido.pedido_itens?.some(i => i.is_asset) && (
-          <div className="space-y-2">
-            {pedido.pedido_itens
-              .filter(i => i.is_asset)
-              .map((item) => (
-                <AssetCodesBadges
-                  key={item.id}
-                  codes={item.asset_codes}
-                  isAsset={true}
-                  quantidade={item.quantidade}
-                />
-              ))}
-          </div>
-        )}
-
         {/* Meta */}
         <div className="space-y-1 text-xs text-muted-foreground">
           <div className="flex items-center gap-1">
@@ -152,42 +134,22 @@ function PedidoCard({
 }
 
 export default function PedidoKanban({ 
-  pedidos, onViewPedido, onProcessar, onConcluir, isProcessing, consultorNames,
-  onTransmitir,
+  pedidos, onViewPedido, onProcessar, onConcluir, isProcessing, consultorNames 
 }: PedidoKanbanProps) {
   const [concluirPedidoId, setConcluirPedidoId] = useState<string | null>(null);
   const [processarPedidoId, setProcessarPedidoId] = useState<string | null>(null);
 
-  const rascunhos = pedidos.filter(p => p.status === 'rascunho');
-  const transmitidos = pedidos.filter(p => p.status === 'solicitado');
+  const abertos = pedidos.filter(p => p.status === 'solicitado');
   const emProcessamento = pedidos.filter(p => p.status === 'processamento');
   const concluidos = pedidos.filter(p => p.status === 'faturado');
 
   const columns = [
     {
-      title: 'Rascunho',
-      count: rascunhos.length,
-      color: 'text-muted-foreground',
-      bgColor: 'bg-muted/50',
-      items: rascunhos,
-      renderAction: (pedido: PedidoComItens) => (
-        <Button
-          size="sm"
-          className="h-7 text-xs flex-1 gap-1"
-          onClick={() => onTransmitir?.(pedido.id)}
-          disabled={isProcessing}
-        >
-          <ArrowRight className="h-3 w-3" />
-          Transmitir
-        </Button>
-      ),
-    },
-    {
-      title: 'Transmitidas',
-      count: transmitidos.length,
+      title: 'Aberto',
+      count: abertos.length,
       color: 'text-blue-600',
       bgColor: 'bg-blue-50 dark:bg-blue-950/20',
-      items: transmitidos,
+      items: abertos,
       renderAction: (pedido: PedidoComItens) => (
         <Button
           size="sm"
@@ -231,7 +193,7 @@ export default function PedidoKanban({
 
   return (
     <>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {columns.map(col => (
           <div key={col.title} className="space-y-3">
             <div className={cn('rounded-lg p-3', col.bgColor)}>
@@ -261,11 +223,10 @@ export default function PedidoKanban({
       <ConcluirPedidoDialog
         open={!!concluirPedidoId}
         onOpenChange={(open) => !open && setConcluirPedidoId(null)}
-        pedido={concluirPedidoId ? pedidos.find(p => p.id === concluirPedidoId) : undefined}
         currentTipoLogistica={concluirPedidoId ? pedidos.find(p => p.id === concluirPedidoId)?.tipo_logistica : undefined}
-        onConfirm={async (nfNumero, dataFaturamento, tipoLogistica, assetCodes) => {
+        onConfirm={async (nfNumero, dataFaturamento, tipoLogistica) => {
           if (concluirPedidoId) {
-            await onConcluir(concluirPedidoId, nfNumero, dataFaturamento, tipoLogistica, assetCodes);
+            await onConcluir(concluirPedidoId, nfNumero, dataFaturamento, tipoLogistica);
             setConcluirPedidoId(null);
           }
         }}
@@ -274,10 +235,9 @@ export default function PedidoKanban({
       <ProcessarPedidoDialog
         open={!!processarPedidoId}
         onOpenChange={(open) => !open && setProcessarPedidoId(null)}
-        pedido={processarPedidoId ? pedidos.find(p => p.id === processarPedidoId) : undefined}
-        onConfirm={async (tipoLogistica, assetCodes) => {
+        onConfirm={async (tipoLogistica) => {
           if (processarPedidoId) {
-            await onProcessar(processarPedidoId, tipoLogistica, assetCodes);
+            await onProcessar(processarPedidoId, tipoLogistica);
             setProcessarPedidoId(null);
           }
         }}

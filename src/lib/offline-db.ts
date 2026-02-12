@@ -221,13 +221,11 @@ export interface OfflinePedidoItem {
   pedido_id: string;
   peca_id: string;
   quantidade: number;
-  asset_codes?: string[];
   created_at: string;
   // Offline-specific fields
   _pendingSync?: boolean;
   // Nested data for display
   pecas?: { nome: string; codigo: string };
-  is_asset?: boolean;
 }
 
 export interface OfflineCrmVisitAudio {
