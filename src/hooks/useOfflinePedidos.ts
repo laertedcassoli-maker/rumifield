@@ -270,11 +270,18 @@ export async function syncPedidosFromServer(userId?: string, isAdmin = false): P
     // Fetch pedidos from server
     const query = supabase
       .from("pedidos")
-      .select("*, clientes(nome, fazenda, consultor_rplus_id), pedido_itens(*, pecas(nome, codigo, familia)), solicitante:profiles!pedidos_solicitante_id_fkey(nome, email)")
+      .select("*, clientes(nome, fazenda, consultor_rplus_id), pedido_itens(*, pecas(nome, codigo, familia))")
       .order("created_at", { ascending: false });
 
     const { data, error } = await query;
     if (error) throw error;
+
+    // Fetch solicitante names for all pedidos
+    const solicitanteIds = [...new Set((data || []).map(p => p.solicitante_id))];
+    const { data: profiles } = solicitanteIds.length > 0
+      ? await supabase.from("profiles").select("id, nome, email").in("id", solicitanteIds)
+      : { data: [] };
+    const profileMap = new Map((profiles || []).map(p => [p.id, { nome: p.nome, email: p.email }]));
 
     // Check for items still in sync queue (not yet sent to server)
     const syncQueueItems = await offlineDb.getPendingSyncItems();
@@ -328,7 +335,7 @@ export async function syncPedidosFromServer(userId?: string, isAdmin = false): P
           created_at: pedido.created_at,
           updated_at: pedido.updated_at,
           clientes: pedido.clientes,
-          solicitante: (pedido as any).solicitante || null,
+          solicitante: profileMap.get(pedido.solicitante_id) || null,
         });
 
         // Only add server items if pedido doesn't have pending items in queue
