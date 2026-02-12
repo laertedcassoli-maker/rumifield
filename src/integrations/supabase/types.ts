@@ -1646,6 +1646,7 @@ export type Database = {
           solicitante_id: string
           status: Database["public"]["Enums"]["pedido_status"]
           tipo_envio: string | null
+          tipo_logistica: string | null
           updated_at: string
           urgencia: string
         }
@@ -1663,6 +1664,7 @@ export type Database = {
           solicitante_id: string
           status?: Database["public"]["Enums"]["pedido_status"]
           tipo_envio?: string | null
+          tipo_logistica?: string | null
           updated_at?: string
           urgencia?: string
         }
@@ -1680,6 +1682,7 @@ export type Database = {
           solicitante_id?: string
           status?: Database["public"]["Enums"]["pedido_status"]
           tipo_envio?: string | null
+          tipo_logistica?: string | null
           updated_at?: string
           urgencia?: string
         }

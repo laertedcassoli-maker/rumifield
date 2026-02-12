@@ -8,31 +8,24 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
-import { Loader2, FileText, Truck, HandHelping } from 'lucide-react';
+import { Loader2, ArrowRight, Truck, HandHelping } from 'lucide-react';
 
-interface ConcluirPedidoDialogProps {
+interface ProcessarPedidoDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onConfirm: (nfNumero: string, dataFaturamento: string, tipoLogistica: string) => Promise<void>;
-  currentTipoLogistica?: string | null;
+  onConfirm: (tipoLogistica?: string) => Promise<void>;
 }
 
-export default function ConcluirPedidoDialog({ open, onOpenChange, onConfirm, currentTipoLogistica }: ConcluirPedidoDialogProps) {
-  const [nfNumero, setNfNumero] = useState('');
-  const [dataFaturamento, setDataFaturamento] = useState(new Date().toISOString().split('T')[0]);
-  const [tipoLogistica, setTipoLogistica] = useState(currentTipoLogistica || '');
+export default function ProcessarPedidoDialog({ open, onOpenChange, onConfirm }: ProcessarPedidoDialogProps) {
+  const [tipoLogistica, setTipoLogistica] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleConfirm = async () => {
-    if (!nfNumero.trim() || !tipoLogistica) return;
     setIsSubmitting(true);
     try {
-      await onConfirm(nfNumero.trim(), dataFaturamento, tipoLogistica);
-      setNfNumero('');
-      setDataFaturamento(new Date().toISOString().split('T')[0]);
+      await onConfirm(tipoLogistica || undefined);
       setTipoLogistica('');
     } finally {
       setIsSubmitting(false);
@@ -44,36 +37,17 @@ export default function ConcluirPedidoDialog({ open, onOpenChange, onConfirm, cu
       <DialogContent className="max-w-sm">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <FileText className="h-5 w-5" />
-            Registrar Nota Fiscal
+            <ArrowRight className="h-5 w-5" />
+            Processar Pedido
           </DialogTitle>
           <DialogDescription>
-            Informe o número da NF e o tipo de logística para concluir este pedido.
+            Opcionalmente, defina o tipo de logística agora. Caso contrário, será obrigatório ao concluir.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="nf-numero">Número da NF *</Label>
-            <Input
-              id="nf-numero"
-              placeholder="Ex: 12345"
-              value={nfNumero}
-              onChange={(e) => setNfNumero(e.target.value)}
-              autoFocus
-            />
-          </div>
-          <div className="space-y-2">
-            <Label htmlFor="data-faturamento">Data de Faturamento</Label>
-            <Input
-              id="data-faturamento"
-              type="date"
-              value={dataFaturamento}
-              onChange={(e) => setDataFaturamento(e.target.value)}
-            />
-          </div>
-          <div className="space-y-2">
-            <Label>Tipo de Logística *</Label>
+            <Label>Tipo de Logística (opcional)</Label>
             <ToggleGroup 
               type="single" 
               value={tipoLogistica} 
@@ -96,9 +70,9 @@ export default function ConcluirPedidoDialog({ open, onOpenChange, onConfirm, cu
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
             Cancelar
           </Button>
-          <Button onClick={handleConfirm} disabled={!nfNumero.trim() || !tipoLogistica || isSubmitting}>
+          <Button onClick={handleConfirm} disabled={isSubmitting}>
             {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-            Confirmar
+            Processar
           </Button>
         </DialogFooter>
       </DialogContent>

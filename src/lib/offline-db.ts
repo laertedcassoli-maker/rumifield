@@ -202,6 +202,7 @@ export interface OfflinePedido {
   omie_data_faturamento?: string | null;
   origem?: string | null;
   tipo_envio?: string | null;
+  tipo_logistica?: string | null;
   urgencia?: string;
   pedido_code?: string | null;
   preventive_id?: string | null;
