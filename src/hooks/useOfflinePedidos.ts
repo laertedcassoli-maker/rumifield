@@ -50,7 +50,8 @@ export function useOfflinePedidos(userId?: string, viewAll = false, isAdmin = fa
           const peca = offlinePecas.find(p => p.id === item.peca_id);
           return {
             ...item,
-            pecas: peca ? { nome: peca.nome, codigo: peca.codigo, familia: peca.familia } : undefined,
+            pecas: peca ? { nome: peca.nome, codigo: peca.codigo, familia: peca.familia, is_asset: peca.is_asset } : undefined,
+            workshop_item: item.workshop_item_id ? { id: item.workshop_item_id, unique_code: '' } : null,
           };
         });
 
@@ -273,7 +274,7 @@ export async function syncPedidosFromServer(userId?: string, isAdmin = false): P
     // Fetch pedidos from server
     const query = supabase
       .from("pedidos")
-      .select("*, clientes(nome, fazenda, consultor_rplus_id), pedido_itens(*, pecas(nome, codigo, familia))")
+      .select("*, clientes(nome, fazenda, consultor_rplus_id), pedido_itens(*, pecas(nome, codigo, familia, is_asset), workshop_items:workshop_item_id(id, unique_code))")
       .order("created_at", { ascending: false });
 
     const { data, error } = await query;
@@ -349,8 +350,9 @@ export async function syncPedidosFromServer(userId?: string, isAdmin = false): P
               pedido_id: item.pedido_id,
               peca_id: item.peca_id,
               quantidade: item.quantidade,
+              workshop_item_id: (item as any).workshop_item_id || null,
               created_at: item.created_at,
-              pecas: item.pecas,
+              pecas: item.pecas ? { nome: item.pecas.nome, codigo: item.pecas.codigo, is_asset: (item.pecas as any).is_asset } : undefined,
             });
           }
         }
