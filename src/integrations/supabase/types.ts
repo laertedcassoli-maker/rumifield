@@ -3410,6 +3410,8 @@ export type Database = {
       workshop_items: {
         Row: {
           created_at: string
+          created_by_user_id: string | null
+          creation_source: string
           current_motor_code: string | null
           id: string
           meter_hours_last: number | null
@@ -3423,6 +3425,8 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          created_by_user_id?: string | null
+          creation_source?: string
           current_motor_code?: string | null
           id?: string
           meter_hours_last?: number | null
@@ -3436,6 +3440,8 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          created_by_user_id?: string | null
+          creation_source?: string
           current_motor_code?: string | null
           id?: string
           meter_hours_last?: number | null
@@ -3448,6 +3454,13 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "workshop_items_created_by_user_id_fkey"
+            columns: ["created_by_user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "workshop_items_omie_product_id_fkey"
             columns: ["omie_product_id"]

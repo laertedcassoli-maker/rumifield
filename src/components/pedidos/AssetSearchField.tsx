@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
 import { Command, CommandEmpty, CommandGroup, CommandItem, CommandInput, CommandList } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Button } from '@/components/ui/button';
@@ -28,6 +29,7 @@ export default function AssetSearchField({
   currentAssetId, 
   disabled = false 
 }: AssetSearchFieldProps) {
+  const { user } = useAuth();
   const [open, setOpen] = useState(false);
   const [assets, setAssets] = useState<WorkshopItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -145,7 +147,7 @@ export default function AssetSearchField({
                       try {
                         const { data, error } = await supabase
                           .from('workshop_items')
-                          .insert({ unique_code: searchValue.trim(), omie_product_id: pecaId })
+                          .insert({ unique_code: searchValue.trim(), omie_product_id: pecaId, created_by_user_id: user?.id || null, creation_source: 'automatico' })
                           .select('id, unique_code, current_motor_code, status')
                           .single();
                         if (error) throw error;

@@ -29,12 +29,17 @@ interface WorkshopItem {
   status: string;
   notes: string | null;
   created_at: string;
+  creation_source: string;
   pecas?: {
     id: string;
     nome: string;
     codigo: string;
     familia: string | null;
   };
+  created_by?: {
+    id: string;
+    nome: string;
+  } | null;
 }
 
 interface MeterReading {
@@ -62,7 +67,7 @@ interface Peca {
 }
 
 export default function ItensOficina() {
-  const { role } = useAuth();
+  const { role, user } = useAuth();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -88,7 +93,8 @@ export default function ItensOficina() {
         .from('workshop_items')
         .select(`
           *,
-          pecas:omie_product_id (id, nome, codigo, familia)
+          pecas:omie_product_id (id, nome, codigo, familia),
+          created_by:created_by_user_id (id, nome)
         `)
         .order('unique_code');
       if (error) throw error;
@@ -165,6 +171,8 @@ export default function ItensOficina() {
             omie_product_id: data.omie_product_id,
             status: data.status,
             notes: data.notes || null,
+            created_by_user_id: user?.id || null,
+            creation_source: 'manual',
           });
         if (error) throw error;
       }
@@ -382,13 +390,16 @@ export default function ItensOficina() {
           ) : (
             <Table>
               <TableHeader>
-                <TableRow>
-                  <TableHead>Código</TableHead>
-                  <TableHead>Produto</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Horímetro</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
-                </TableRow>
+                 <TableRow>
+                   <TableHead>Código</TableHead>
+                   <TableHead>Produto</TableHead>
+                   <TableHead>Status</TableHead>
+                   <TableHead>Horímetro</TableHead>
+                   <TableHead>Criado em</TableHead>
+                   <TableHead>Criado por</TableHead>
+                   <TableHead>Origem</TableHead>
+                   <TableHead className="text-right">Ações</TableHead>
+                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredItems.map((item) => (
@@ -414,8 +425,19 @@ export default function ItensOficina() {
                       ) : (
                         <span className="text-muted-foreground">-</span>
                       )}
-                    </TableCell>
-                    <TableCell className="text-right">
+                     </TableCell>
+                     <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
+                       {format(new Date(item.created_at), 'dd/MM/yyyy HH:mm', { locale: ptBR })}
+                     </TableCell>
+                     <TableCell className="text-sm">
+                       {item.created_by?.nome || '-'}
+                     </TableCell>
+                     <TableCell>
+                       <Badge variant={item.creation_source === 'automatico' ? 'secondary' : 'outline'} className="text-xs">
+                         {item.creation_source === 'automatico' ? 'Automático' : 'Manual'}
+                       </Badge>
+                     </TableCell>
+                     <TableCell className="text-right">
                       <div className="flex justify-end gap-2">
                         <Button
                           variant="ghost"
