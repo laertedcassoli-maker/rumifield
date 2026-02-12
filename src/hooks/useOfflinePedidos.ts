@@ -270,7 +270,7 @@ export async function syncPedidosFromServer(userId?: string, isAdmin = false): P
     // Fetch pedidos from server
     const query = supabase
       .from("pedidos")
-      .select("*, clientes(nome, fazenda), pedido_itens(*, pecas(nome, codigo, familia))")
+      .select("*, clientes(nome, fazenda, consultor_rplus_id), pedido_itens(*, pecas(nome, codigo, familia)), solicitante:profiles!pedidos_solicitante_id_fkey(nome, email)")
       .order("created_at", { ascending: false });
 
     const { data, error } = await query;
@@ -328,6 +328,7 @@ export async function syncPedidosFromServer(userId?: string, isAdmin = false): P
           created_at: pedido.created_at,
           updated_at: pedido.updated_at,
           clientes: pedido.clientes,
+          solicitante: (pedido as any).solicitante || null,
         });
 
         // Only add server items if pedido doesn't have pending items in queue
