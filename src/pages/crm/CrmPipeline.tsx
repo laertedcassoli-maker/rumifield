@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { usePipelineData, STAGE_LABELS, STAGE_COLORS, type CrmStage } from '@/hooks/useCrmData';
+import { usePipelineData, STAGE_LABELS, STAGE_COLORS, PRODUCT_LABELS, PRODUCT_ORDER, type CrmStage, type ProductCode } from '@/hooks/useCrmData';
 import { ProductBadge } from '@/components/crm/ProductBadge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -14,14 +14,18 @@ const PIPELINE_STAGES: CrmStage[] = ['nao_qualificado', 'qualificado', 'em_negoc
 export default function CrmPipeline() {
   const { clientProducts, lossReasons, consultores, isLoading, isAdmin } = usePipelineData();
   const [selectedConsultor, setSelectedConsultor] = useState<string>('all');
+  const [selectedProduct, setSelectedProduct] = useState<string>('all');
 
   const filtered = useMemo(() => {
     let list = clientProducts;
     if (selectedConsultor !== 'all') {
       list = list.filter((p: any) => p.clientes?.consultor_rplus_id === selectedConsultor);
     }
+    if (selectedProduct !== 'all') {
+      list = list.filter((p: any) => p.product_code === selectedProduct);
+    }
     return list;
-  }, [clientProducts, selectedConsultor]);
+  }, [clientProducts, selectedConsultor, selectedProduct]);
 
   const stageGroups = useMemo(() => {
     const groups: Record<string, any[]> = {};
@@ -103,6 +107,15 @@ export default function CrmPipeline() {
             </SelectContent>
           </Select>
         )}
+        <Select value={selectedProduct} onValueChange={setSelectedProduct}>
+          <SelectTrigger className="w-full sm:w-[200px]"><SelectValue placeholder="Produto" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos produtos</SelectItem>
+            {PRODUCT_ORDER.map((code) => (
+              <SelectItem key={code} value={code}>{PRODUCT_LABELS[code]}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
       <Tabs defaultValue="pipeline">
