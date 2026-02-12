@@ -97,10 +97,6 @@ export default function CrmPipeline() {
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
         {PIPELINE_STAGES.map(stage => (
           <div key={stage} className="space-y-2">
-            <div className="flex items-center gap-1.5 mb-1">
-              <Badge className={`text-[10px] ${STAGE_COLORS[stage]}`}>{STAGE_LABELS[stage]}</Badge>
-              <span className="text-xs text-muted-foreground">({stageGroups[stage]?.length || 0})</span>
-            </div>
             {(stageGroups[stage] || []).map((p: any) => (
               <Link key={p.id} to={`/crm/${p.client_id}`} state={{ from: '/crm/pipeline', fromLabel: 'Pipeline' }}>
                 <Card className="hover:bg-accent/30 transition-colors cursor-pointer">
