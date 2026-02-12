@@ -1,33 +1,34 @@
 
 
-## Adicionar Filtro por Produto e Corrigir Filtro de Consultores
+## Simplificar Pipeline: Remover Abas e Usar Botoes de Produto
 
 ### O que sera feito
 
-**1. Adicionar filtro por produto no Pipeline**
-- Novo Select com opcoes: "Todos produtos", Ideagri, RumiFlow, OnFarm, RumiAction, RumiProcare
-- Aplicado sobre as oportunidades ja filtradas por consultor
-- Visivel para todos os usuarios (consultores e admins)
+**1. Remover sistema de abas (Tabs)**
+- Eliminar as abas Pipeline, Consultores e Resumo
+- Manter apenas o conteudo do Pipeline (contadores por etapa + kanban)
+- Remover codigo morto: `consultorSummary`, `avgDays`, `topLoss` e imports nao utilizados (Tabs, CardHeader, CardTitle)
 
-**2. Corrigir lista de consultores no filtro**
-- Atualmente a query traz todos os profiles (`SELECT id, nome FROM profiles`)
-- Sera corrigida para trazer apenas usuarios com role `consultor_rplus` (via join com `user_roles`)
-- O filtro continua visivel apenas para admin e coordenador_rplus
+**2. Substituir Select de produto por botoes toggle**
+- Linha de botoes compactos: "Todos", "Ideagri", "RumiFlow", "OnFarm", etc.
+- Botao selecionado fica com destaque visual (variante `default`), os demais ficam `outline`
+- Manter filtro de consultor como Select (apenas para admins)
 
 ### Detalhes Tecnicos
 
 **`src/pages/crm/CrmPipeline.tsx`**
-- Adicionar state `selectedProduct` (default: `'all'`)
-- Importar `PRODUCT_LABELS` e `PRODUCT_ORDER` do hook
-- Adicionar Select de produto na area de filtros (ao lado do filtro de consultor)
-- Aplicar filtro de produto no `useMemo` de `filtered`
+- Remover imports: `Tabs`, `TabsContent`, `TabsList`, `TabsTrigger`, `CardHeader`, `CardTitle`
+- Adicionar import: `Button` de `@/components/ui/button`
+- Substituir o `Select` de produto por uma row de `Button` com `variant={selectedProduct === code ? 'default' : 'outline'}` e `size="sm"`
+- Remover todo o bloco `<Tabs>` e renderizar diretamente os contadores + kanban
+- Remover `useMemo` de `consultorSummary`, `topLoss` e funcao `avgDays`
+- Remover import de `lossReasons` do hook (se nao usado em mais nada)
 
-**`src/hooks/useCrmData.ts`** (funcao `usePipelineData`)
-- Alterar query de consultores para fazer join com `user_roles` e filtrar por `role = 'consultor_rplus'`
-- Exemplo: `supabase.from('user_roles').select('user_id, profiles!inner(id, nome)').eq('role', 'consultor_rplus')`
-- Ajustar o mapeamento do retorno para manter o formato `{ id, nome }`
+**Layout dos botoes de produto:**
+```text
+[Todos] [Ideagri] [RumiFlow] [OnFarm] [RumiAction] [RumiProcare]
+```
+Usando `flex flex-wrap gap-1.5` para responsividade em mobile.
 
 ### Arquivos a modificar
-- `src/pages/crm/CrmPipeline.tsx` - adicionar filtro de produto
-- `src/hooks/useCrmData.ts` - corrigir query de consultores
-
+- `src/pages/crm/CrmPipeline.tsx` - unico arquivo afetado
