@@ -90,8 +90,9 @@ export default function Pedidos() {
   // Filter and sort state
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [dateFilter, setDateFilter] = useState<'7' | '30' | 'all'>('all');
+  const [dateFilter, setDateFilter] = useState<'30' | 'all'>('all');
   const [tipoEnvioFilter, setTipoEnvioFilter] = useState<'all' | 'envio' | 'apenas_nf'>('all');
+  const [tipoLogisticaFilter, setTipoLogisticaFilter] = useState<'all' | 'correios' | 'entrega_propria'>('all');
   const [sortField, setSortField] = useState<'created_at' | 'cliente' | 'status'>('created_at');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
@@ -157,7 +158,15 @@ export default function Pedidos() {
         matchesTipoEnvio = pedido.tipo_envio === 'apenas_nf';
       }
 
-      return matchesSearch && matchesStatus && matchesDate && matchesTipoEnvio;
+      // Tipo logistica filter
+      let matchesTipoLogistica = true;
+      if (tipoLogisticaFilter === 'correios') {
+        matchesTipoLogistica = pedido.tipo_logistica === 'correios';
+      } else if (tipoLogisticaFilter === 'entrega_propria') {
+        matchesTipoLogistica = pedido.tipo_logistica === 'entrega_propria';
+      }
+
+      return matchesSearch && matchesStatus && matchesDate && matchesTipoEnvio && matchesTipoLogistica;
     });
     
     filtered.sort((a, b) => {
@@ -176,7 +185,7 @@ export default function Pedidos() {
     });
     
     return filtered;
-  }, [pedidos, rascunhos, pedidosTransmitidos, activeTab, searchTerm, statusFilter, dateFilter, tipoEnvioFilter, sortField, sortOrder]);
+  }, [pedidos, rascunhos, pedidosTransmitidos, activeTab, searchTerm, statusFilter, dateFilter, tipoEnvioFilter, tipoLogisticaFilter, sortField, sortOrder]);
 
   // Paginated data (only for Transmitidos tab)
   const paginatedPedidos = useMemo(() => {
@@ -193,7 +202,7 @@ export default function Pedidos() {
   // Reset page when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, statusFilter, dateFilter, tipoEnvioFilter, activeTab]);
+  }, [searchTerm, statusFilter, dateFilter, tipoEnvioFilter, tipoLogisticaFilter, activeTab]);
 
   const toggleSort = (field: 'created_at' | 'cliente' | 'status') => {
     if (sortField === field) {
@@ -209,6 +218,7 @@ export default function Pedidos() {
     setStatusFilter('all');
     setDateFilter('all');
     setTipoEnvioFilter('all');
+    setTipoLogisticaFilter('all');
   };
 
   const handleTransmitir = async (pedidoId: string) => {
@@ -1056,7 +1066,7 @@ export default function Pedidos() {
                   </SelectContent>
                 </Select>
               )}
-              {(searchTerm || statusFilter !== 'all' || dateFilter !== 'all' || tipoEnvioFilter !== 'all') && (
+              {(searchTerm || statusFilter !== 'all' || dateFilter !== 'all' || tipoEnvioFilter !== 'all' || tipoLogisticaFilter !== 'all') && (
                 <Button variant="ghost" size="icon" onClick={clearFilters}>
                   <X className="h-4 w-4" />
                 </Button>
@@ -1067,14 +1077,6 @@ export default function Pedidos() {
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-sm text-muted-foreground">Período:</span>
               <div className="flex gap-1">
-                <Button
-                  variant={dateFilter === '7' ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => setDateFilter(dateFilter === '7' ? 'all' : '7')}
-                  className="h-7 text-xs"
-                >
-                  7 dias
-                </Button>
                 <Button
                   variant={dateFilter === '30' ? 'default' : 'outline'}
                   size="sm"
@@ -1123,6 +1125,41 @@ export default function Pedidos() {
                     >
                       <FileText className="h-3 w-3" />
                       Apenas NF
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Tipo logistica filter */}
+              {activeTab === 'pedidos' && (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-sm text-muted-foreground">Logística:</span>
+                  <div className="flex gap-1">
+                    <Button
+                      variant={tipoLogisticaFilter === 'all' ? 'secondary' : 'outline'}
+                      size="sm"
+                      onClick={() => setTipoLogisticaFilter('all')}
+                      className="h-7 text-xs"
+                    >
+                      Todos
+                    </Button>
+                    <Button
+                      variant={tipoLogisticaFilter === 'correios' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setTipoLogisticaFilter(tipoLogisticaFilter === 'correios' ? 'all' : 'correios')}
+                      className="h-7 text-xs gap-1"
+                    >
+                      <Truck className="h-3 w-3" />
+                      Correios
+                    </Button>
+                    <Button
+                      variant={tipoLogisticaFilter === 'entrega_propria' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setTipoLogisticaFilter(tipoLogisticaFilter === 'entrega_propria' ? 'all' : 'entrega_propria')}
+                      className="h-7 text-xs gap-1"
+                    >
+                      <HandHelping className="h-3 w-3" />
+                      Entrega Própria
                     </Button>
                   </div>
                 </div>
