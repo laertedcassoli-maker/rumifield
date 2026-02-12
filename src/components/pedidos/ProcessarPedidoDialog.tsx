@@ -24,6 +24,7 @@ interface ProcessarPedidoDialogProps {
 export default function ProcessarPedidoDialog({ open, onOpenChange, pedido, onConfirm }: ProcessarPedidoDialogProps) {
   const [tipoLogistica, setTipoLogistica] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const needsLogistica = pedido?.tipo_envio !== 'apenas_nf';
   const [itemsWithAssets, setItemsWithAssets] = useState<Record<string, string>>({});
 
   const itemsNeedingAssets = useMemo(() => {
@@ -58,24 +59,26 @@ export default function ProcessarPedidoDialog({ open, onOpenChange, pedido, onCo
         </DialogHeader>
 
         <div className="space-y-4">
-          <div className="space-y-2">
-            <Label>Tipo de Logística (opcional)</Label>
-            <ToggleGroup 
-              type="single" 
-              value={tipoLogistica} 
-              onValueChange={(v) => setTipoLogistica(v || '')}
-              className="justify-start"
-            >
-              <ToggleGroupItem value="correios" className="text-xs gap-1">
-                <Truck className="h-3 w-3" />
-                Correios
-              </ToggleGroupItem>
-              <ToggleGroupItem value="entrega_propria" className="text-xs gap-1">
-                <HandHelping className="h-3 w-3" />
-                Entrega Própria
-              </ToggleGroupItem>
-            </ToggleGroup>
-          </div>
+          {needsLogistica && (
+            <div className="space-y-2">
+              <Label>Tipo de Logística (opcional)</Label>
+              <ToggleGroup 
+                type="single" 
+                value={tipoLogistica} 
+                onValueChange={(v) => setTipoLogistica(v || '')}
+                className="justify-start"
+              >
+                <ToggleGroupItem value="correios" className="text-xs gap-1">
+                  <Truck className="h-3 w-3" />
+                  Correios
+                </ToggleGroupItem>
+                <ToggleGroupItem value="entrega_propria" className="text-xs gap-1">
+                  <HandHelping className="h-3 w-3" />
+                  Entrega Própria
+                </ToggleGroupItem>
+              </ToggleGroup>
+            </div>
+          )}
 
           {itemsNeedingAssets.length > 0 && (
             <div className="space-y-3 pt-2 border-t">
