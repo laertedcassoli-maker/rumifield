@@ -23,6 +23,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import PedidoKanban from '@/components/pedidos/PedidoKanban';
+import AssetSearchField from '@/components/pedidos/AssetSearchField';
 
 const statusColors: Record<string, string> = {
   rascunho: 'bg-muted text-muted-foreground border-muted-foreground/30',
@@ -56,6 +57,7 @@ export default function Pedidos() {
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [imagePreview, setImagePreview] = useState<{ url: string; nome: string } | null>(null);
   const [isProcessingAction, setIsProcessingAction] = useState(false);
+  const [editingAssetItemId, setEditingAssetItemId] = useState<string | null>(null);
   const [consultorNames, setConsultorNames] = useState<Record<string, string>>({});
   
   const isAdmin = role === 'admin' || role === 'coordenador_rplus' || role === 'coordenador_servicos' || role === 'coordenador_logistica';
@@ -456,6 +458,45 @@ export default function Pedidos() {
       setIsProcessingAction(false);
     }
   }, [isOnline, toast, triggerSync]);
+
+  // Vincular ativo diretamente no detalhe do pedido
+  const handleAssetLinked = useCallback(async (itemId: string, workshopItemId: string | null) => {
+    try {
+      const { error } = await supabase
+        .from('pedido_itens')
+        .update({ workshop_item_id: workshopItemId })
+        .eq('id', itemId);
+      if (error) throw error;
+
+      // Update local Dexie
+      const localPedido = await offlineDb.pedidos.get(viewingPedido.id);
+      if (localPedido && localPedido.pedido_itens) {
+        const updatedItens = localPedido.pedido_itens.map((it: any) =>
+          it.id === itemId ? { ...it, workshop_item_id: workshopItemId } : it
+        );
+        await offlineDb.pedidos.update(viewingPedido.id, { pedido_itens: updatedItens });
+      }
+
+      // Update viewingPedido state
+      setViewingPedido((prev: any) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          pedido_itens: prev.pedido_itens?.map((it: any) =>
+            it.id === itemId
+              ? { ...it, workshop_item_id: workshopItemId, workshop_item: workshopItemId ? undefined : null }
+              : it
+          ),
+        };
+      });
+
+      setEditingAssetItemId(null);
+      toast({ title: 'Ativo vinculado com sucesso!' });
+      if (isOnline) setTimeout(() => triggerSync(), 500);
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: 'Erro ao vincular ativo', description: err.message });
+    }
+  }, [viewingPedido, isOnline, toast, triggerSync]);
 
   return (
     <div className="space-y-6 animate-fade-in w-full max-w-full overflow-x-hidden">
@@ -1338,19 +1379,70 @@ export default function Pedidos() {
                             )}
                           </div>
                           <p className="text-sm text-muted-foreground break-words whitespace-normal">{peca?.nome}</p>
-                          {item.workshop_item?.unique_code ? (
-                            <div className="flex items-center gap-1.5 mt-1">
-                              <Badge variant="outline" className="text-[10px] h-5 font-mono border-primary/40 text-primary bg-primary/5">
-                                🏷️ {item.workshop_item.unique_code}
-                              </Badge>
-                            </div>
-                          ) : item.pecas?.is_asset ? (
-                            <div className="flex items-center gap-1.5 mt-1">
-                              <Badge variant="outline" className="text-[10px] h-5 font-mono border-destructive/40 text-destructive bg-destructive/5">
-                                ⚠️ Ativo não vinculado
-                              </Badge>
-                            </div>
-                          ) : null}
+                          {(() => {
+                            const isEditable = ['solicitado', 'processamento'].includes(viewingPedido.status);
+                            const isEditingThis = editingAssetItemId === item.id;
+                            
+                            if (item.workshop_item?.unique_code) {
+                              return (
+                                <div className="mt-1">
+                                  <div className="flex items-center gap-1.5">
+                                    <Badge variant="outline" className="text-[10px] h-5 font-mono border-primary/40 text-primary bg-primary/5">
+                                      🏷️ {item.workshop_item.unique_code}
+                                    </Badge>
+                                    {isEditable && (
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-5 w-5"
+                                        onClick={() => setEditingAssetItemId(isEditingThis ? null : item.id)}
+                                      >
+                                        <Pencil className="h-3 w-3" />
+                                      </Button>
+                                    )}
+                                  </div>
+                                  {isEditingThis && (
+                                    <div className="mt-2">
+                                      <AssetSearchField
+                                        pecaId={item.peca_id}
+                                        currentAssetId={item.workshop_item_id}
+                                        onAssetSelected={(wsId) => handleAssetLinked(item.id, wsId)}
+                                      />
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            } else if (item.pecas?.is_asset) {
+                              return (
+                                <div className="mt-1">
+                                  <div className="flex items-center gap-1.5">
+                                    <Badge variant="outline" className="text-[10px] h-5 font-mono border-destructive/40 text-destructive bg-destructive/5">
+                                      ⚠️ Ativo não vinculado
+                                    </Badge>
+                                    {isEditable && (
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-5 w-5"
+                                        onClick={() => setEditingAssetItemId(isEditingThis ? null : item.id)}
+                                      >
+                                        <Pencil className="h-3 w-3" />
+                                      </Button>
+                                    )}
+                                  </div>
+                                  {isEditingThis && (
+                                    <div className="mt-2">
+                                      <AssetSearchField
+                                        pecaId={item.peca_id}
+                                        onAssetSelected={(wsId) => handleAssetLinked(item.id, wsId)}
+                                      />
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            }
+                            return null;
+                          })()}
                         </div>
 
                         <div className="text-right shrink-0">
