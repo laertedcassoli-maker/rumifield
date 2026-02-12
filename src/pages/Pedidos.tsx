@@ -468,6 +468,17 @@ export default function Pedidos() {
         .eq('id', itemId);
       if (error) throw error;
 
+      // Fetch the linked asset's unique_code for UI update
+      let workshopItemData: { id: string; unique_code: string } | null = null;
+      if (workshopItemId) {
+        const { data } = await supabase
+          .from('workshop_items')
+          .select('id, unique_code')
+          .eq('id', workshopItemId)
+          .single();
+        workshopItemData = data;
+      }
+
       // Update local Dexie
       const localPedido = await offlineDb.pedidos.get(viewingPedido.id);
       if (localPedido && localPedido.pedido_itens) {
@@ -477,14 +488,14 @@ export default function Pedidos() {
         await offlineDb.pedidos.update(viewingPedido.id, { pedido_itens: updatedItens });
       }
 
-      // Update viewingPedido state
+      // Update viewingPedido state with complete workshop_item object
       setViewingPedido((prev: any) => {
         if (!prev) return prev;
         return {
           ...prev,
           pedido_itens: prev.pedido_itens?.map((it: any) =>
             it.id === itemId
-              ? { ...it, workshop_item_id: workshopItemId, workshop_item: workshopItemId ? undefined : null }
+              ? { ...it, workshop_item_id: workshopItemId, workshop_item: workshopItemData }
               : it
           ),
         };
