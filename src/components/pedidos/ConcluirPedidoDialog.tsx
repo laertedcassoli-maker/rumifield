@@ -28,6 +28,7 @@ export default function ConcluirPedidoDialog({ open, onOpenChange, pedido, onCon
   const [dataFaturamento, setDataFaturamento] = useState(new Date().toISOString().split('T')[0]);
   const [tipoLogistica, setTipoLogistica] = useState(currentTipoLogistica || '');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const needsLogistica = pedido?.tipo_envio !== 'apenas_nf';
   const [itemsWithAssets, setItemsWithAssets] = useState<Record<string, string>>({});
 
   const itemsNeedingAssets = useMemo(() => {
@@ -38,10 +39,10 @@ export default function ConcluirPedidoDialog({ open, onOpenChange, pedido, onCon
   }, [pedido]);
 
   const handleConfirm = async () => {
-    if (!nfNumero.trim() || !tipoLogistica) return;
+    if (!nfNumero.trim() || (needsLogistica && !tipoLogistica)) return;
     setIsSubmitting(true);
     try {
-      await onConfirm(nfNumero.trim(), dataFaturamento, tipoLogistica, itemsWithAssets);
+      await onConfirm(nfNumero.trim(), dataFaturamento, needsLogistica ? tipoLogistica : 'nao_aplicavel', itemsWithAssets);
       setNfNumero('');
       setDataFaturamento(new Date().toISOString().split('T')[0]);
       setTipoLogistica('');
@@ -84,24 +85,26 @@ export default function ConcluirPedidoDialog({ open, onOpenChange, pedido, onCon
               onChange={(e) => setDataFaturamento(e.target.value)}
             />
           </div>
-          <div className="space-y-2">
-            <Label>Tipo de Logística *</Label>
-            <ToggleGroup 
-              type="single" 
-              value={tipoLogistica} 
-              onValueChange={(v) => setTipoLogistica(v || '')}
-              className="justify-start"
-            >
-              <ToggleGroupItem value="correios" className="text-xs gap-1">
-                <Truck className="h-3 w-3" />
-                Correios
-              </ToggleGroupItem>
-              <ToggleGroupItem value="entrega_propria" className="text-xs gap-1">
-                <HandHelping className="h-3 w-3" />
-                Entrega Própria
-              </ToggleGroupItem>
-            </ToggleGroup>
-          </div>
+          {needsLogistica && (
+            <div className="space-y-2">
+              <Label>Tipo de Logística *</Label>
+              <ToggleGroup 
+                type="single" 
+                value={tipoLogistica} 
+                onValueChange={(v) => setTipoLogistica(v || '')}
+                className="justify-start"
+              >
+                <ToggleGroupItem value="correios" className="text-xs gap-1">
+                  <Truck className="h-3 w-3" />
+                  Correios
+                </ToggleGroupItem>
+                <ToggleGroupItem value="entrega_propria" className="text-xs gap-1">
+                  <HandHelping className="h-3 w-3" />
+                  Entrega Própria
+                </ToggleGroupItem>
+              </ToggleGroup>
+            </div>
+          )}
 
           {itemsNeedingAssets.length > 0 && (
             <div className="space-y-3 pt-2 border-t">
@@ -127,7 +130,7 @@ export default function ConcluirPedidoDialog({ open, onOpenChange, pedido, onCon
           <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSubmitting}>
             Cancelar
           </Button>
-          <Button onClick={handleConfirm} disabled={!nfNumero.trim() || !tipoLogistica || isSubmitting}>
+          <Button onClick={handleConfirm} disabled={!nfNumero.trim() || (needsLogistica && !tipoLogistica) || isSubmitting}>
             {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
             Confirmar
           </Button>
