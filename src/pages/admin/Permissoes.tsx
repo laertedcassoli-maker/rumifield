@@ -23,6 +23,7 @@ const roleLabels: Record<string, string> = {
   coordenador_rplus: 'Coordenador R+',
   consultor_rplus: 'Consultor R+',
   coordenador_servicos: 'Coordenador de Serviços',
+  coordenador_logistica: 'Coordenador de Logística',
   tecnico_campo: 'Técnico de Campo',
   tecnico_oficina: 'Técnico de Oficina',
 };
@@ -31,6 +32,7 @@ const roleColors: Record<string, string> = {
   admin: 'bg-destructive/10 text-destructive border-destructive/20',
   coordenador_rplus: 'bg-warning/10 text-warning border-warning/20',
   coordenador_servicos: 'bg-orange-500/10 text-orange-600 border-orange-500/20',
+  coordenador_logistica: 'bg-purple-500/10 text-purple-600 border-purple-500/20',
   consultor_rplus: 'bg-primary/10 text-primary border-primary/20',
   tecnico_campo: 'bg-green-500/10 text-green-600 border-green-500/20',
   tecnico_oficina: 'bg-blue-500/10 text-blue-600 border-blue-500/20',
@@ -50,6 +52,7 @@ const roles = [
   'coordenador_rplus',
   'consultor_rplus',
   'coordenador_servicos',
+  'coordenador_logistica',
   'tecnico_campo',
   'tecnico_oficina',
 ] as const;

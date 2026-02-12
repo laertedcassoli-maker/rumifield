@@ -34,6 +34,7 @@ const roleLabels: Record<string, string> = {
   coordenador_rplus: 'Coordenador R+',
   consultor_rplus: 'Consultor R+',
   coordenador_servicos: 'Coordenador de Serviços',
+  coordenador_logistica: 'Coordenador de Logística',
   tecnico_campo: 'Técnico de Campo',
   tecnico_oficina: 'Técnico de Oficina',
 };
@@ -42,6 +43,7 @@ const roleColors: Record<string, string> = {
   admin: 'bg-destructive/10 text-destructive border-destructive/20',
   coordenador_rplus: 'bg-warning/10 text-warning border-warning/20',
   coordenador_servicos: 'bg-orange-500/10 text-orange-600 border-orange-500/20',
+  coordenador_logistica: 'bg-purple-500/10 text-purple-600 border-purple-500/20',
   consultor_rplus: 'bg-primary/10 text-primary border-primary/20',
   tecnico_campo: 'bg-green-500/10 text-green-600 border-green-500/20',
   tecnico_oficina: 'bg-blue-500/10 text-blue-600 border-blue-500/20',
@@ -55,11 +57,11 @@ const ITEMS_PER_PAGE = 10;
 const newUserSchema = z.object({
   nome: z.string().min(2, 'Nome deve ter no mínimo 2 caracteres'),
   email: z.string().email('Email inválido'),
-  role: z.enum(['admin', 'coordenador_rplus', 'consultor_rplus', 'coordenador_servicos', 'tecnico_campo', 'tecnico_oficina']),
+  role: z.enum(['admin', 'coordenador_rplus', 'consultor_rplus', 'coordenador_servicos', 'coordenador_logistica', 'tecnico_campo', 'tecnico_oficina']),
   cidade_base: z.string().optional(),
 });
 
-type AppRole = 'admin' | 'coordenador_rplus' | 'consultor_rplus' | 'coordenador_servicos' | 'tecnico_campo' | 'tecnico_oficina';
+type AppRole = 'admin' | 'coordenador_rplus' | 'consultor_rplus' | 'coordenador_servicos' | 'coordenador_logistica' | 'tecnico_campo' | 'tecnico_oficina';
 
 export default function AdminUsuarios() {
   const { role: currentUserRole, user: currentUser } = useAuth();
@@ -411,6 +413,7 @@ export default function AdminUsuarios() {
                         <SelectItem value="coordenador_rplus">Coordenador R+</SelectItem>
                         <SelectItem value="consultor_rplus">Consultor R+</SelectItem>
                         <SelectItem value="coordenador_servicos">Coordenador de Serviços</SelectItem>
+                        <SelectItem value="coordenador_logistica">Coordenador de Logística</SelectItem>
                         <SelectItem value="tecnico_campo">Técnico de Campo</SelectItem>
                         <SelectItem value="tecnico_oficina">Técnico de Oficina</SelectItem>
                       </SelectContent>
@@ -522,6 +525,7 @@ export default function AdminUsuarios() {
                                   <SelectItem value="coordenador_rplus">Coordenador R+</SelectItem>
                                   <SelectItem value="consultor_rplus">Consultor R+</SelectItem>
                                   <SelectItem value="coordenador_servicos">Coordenador de Serviços</SelectItem>
+                                  <SelectItem value="coordenador_logistica">Coordenador de Logística</SelectItem>
                                   <SelectItem value="tecnico_campo">Técnico de Campo</SelectItem>
                                   <SelectItem value="tecnico_oficina">Técnico de Oficina</SelectItem>
                                 </SelectContent>

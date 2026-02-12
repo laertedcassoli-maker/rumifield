@@ -13,6 +13,7 @@ const roleLabels: Record<string, string> = {
   coordenador_rplus: 'Coordenador R+',
   consultor_rplus: 'Consultor R+',
   coordenador_servicos: 'Coord. Serviços',
+  coordenador_logistica: 'Coord. Logística',
   tecnico_campo: 'Técnico Campo',
   tecnico_oficina: 'Técnico Oficina',
 };

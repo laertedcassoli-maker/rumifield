@@ -3539,6 +3539,7 @@ export type Database = {
         | "coordenador_servicos"
         | "tecnico_campo"
         | "tecnico_oficina"
+        | "coordenador_logistica"
       checklist_execution_status: "em_andamento" | "concluido"
       checklist_item_status: "S" | "N" | "NA"
       crm_stage:
@@ -3735,6 +3736,7 @@ export const Constants = {
         "coordenador_servicos",
         "tecnico_campo",
         "tecnico_oficina",
+        "coordenador_logistica",
       ],
       checklist_execution_status: ["em_andamento", "concluido"],
       checklist_item_status: ["S", "N", "NA"],

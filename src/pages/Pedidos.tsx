@@ -58,7 +58,8 @@ export default function Pedidos() {
   const [isProcessingAction, setIsProcessingAction] = useState(false);
   const [consultorNames, setConsultorNames] = useState<Record<string, string>>({});
   
-  const isAdmin = role === 'admin' || role === 'coordenador_rplus' || role === 'coordenador_servicos';
+  const isAdmin = role === 'admin' || role === 'coordenador_rplus' || role === 'coordenador_servicos' || role === 'coordenador_logistica';
+  const canManagePedidos = role === 'admin' || role === 'coordenador_logistica';
 
   // Use offline data
   const clientes = useLiveQuery(() => offlineDb.clientes.toArray(), []);
@@ -1078,7 +1079,7 @@ export default function Pedidos() {
           </CardContent>
         </Card>
       ) : activeTab === 'pedidos' ? (
-        /* Kanban for Transmitidos */
+        /* Transmitidos */
         pedidosTransmitidos.length === 0 ? (
           <Card>
             <CardContent className="py-12 text-center">
@@ -1087,7 +1088,7 @@ export default function Pedidos() {
               <p className="text-muted-foreground">Transmita um rascunho para começar.</p>
             </CardContent>
           </Card>
-        ) : (
+        ) : canManagePedidos ? (
           <PedidoKanban
             pedidos={filteredAndSortedPedidos}
             onViewPedido={setViewingPedido}
@@ -1096,6 +1097,69 @@ export default function Pedidos() {
             isProcessing={isProcessingAction}
             consultorNames={consultorNames}
           />
+        ) : (
+          /* Tabela somente leitura para perfis sem permissão de gestão */
+          <div className="space-y-3">
+            {paginatedPedidos.map((pedido) => (
+              <Card key={pedido.id}>
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {pedido.pedido_code && (
+                          <span className="font-mono text-xs text-muted-foreground">{pedido.pedido_code}</span>
+                        )}
+                        <Badge variant="outline" className={cn(statusColors[pedido.status], 'text-xs')}>
+                          {statusLabels[pedido.status]}
+                        </Badge>
+                        {pedido.tipo_envio === 'apenas_nf' && (
+                          <Badge variant="outline" className="text-xs gap-1">
+                            <FileText className="h-3 w-3" />
+                            Apenas NF
+                          </Badge>
+                        )}
+                        {pedido.tipo_envio && pedido.tipo_envio !== 'apenas_nf' && (
+                          <Badge variant="outline" className="text-xs gap-1">
+                            <Truck className="h-3 w-3" />
+                            Envio
+                          </Badge>
+                        )}
+                        {pedido.urgencia === 'urgente' && (
+                          <Badge variant="outline" className="text-xs text-destructive border-destructive/30 gap-1">
+                            <AlertTriangle className="h-3 w-3" />
+                            Urgente
+                          </Badge>
+                        )}
+                      </div>
+                      <h3 className="font-medium mt-2 break-words">{pedido.clientes?.nome}</h3>
+                      {pedido.clientes?.fazenda && (
+                        <p className="text-sm text-muted-foreground break-words">{pedido.clientes.fazenda}</p>
+                      )}
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {pedido.pedido_itens?.length || 0} {(pedido.pedido_itens?.length || 0) === 1 ? 'item' : 'itens'} · {format(new Date(pedido.created_at), "dd/MM/yy", { locale: ptBR })}
+                      </p>
+                    </div>
+                    <Button variant="outline" size="sm" className="h-8 gap-1.5 shrink-0" onClick={() => setViewingPedido(pedido)}>
+                      <Eye className="h-4 w-4" />
+                      Detalhes
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+            {/* Paginação */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-center gap-2 pt-2">
+                <Button variant="outline" size="icon" className="h-8 w-8" disabled={currentPage <= 1} onClick={() => setCurrentPage(p => p - 1)}>
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <span className="text-sm text-muted-foreground">{currentPage} / {totalPages}</span>
+                <Button variant="outline" size="icon" className="h-8 w-8" disabled={currentPage >= totalPages} onClick={() => setCurrentPage(p => p + 1)}>
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
+          </div>
         )
       ) : filteredAndSortedPedidos.length === 0 ? (
         <Card>
