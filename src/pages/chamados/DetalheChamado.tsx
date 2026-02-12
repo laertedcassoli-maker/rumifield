@@ -692,8 +692,15 @@ export default function DetalheChamado() {
                   {partsRequests.map(pr => (
                     <div key={pr.id} className="p-3 border rounded-lg">
                       <div className="flex items-center justify-between mb-2">
-                        <div className="text-sm text-muted-foreground">
-                          {format(new Date(pr.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                        <div className="flex items-center gap-2">
+                          {(pr.pedidos as any)?.pedido_code && (
+                            <span className="font-mono font-bold text-sm bg-primary/10 text-primary px-2 py-0.5 rounded">
+                              {(pr.pedidos as any).pedido_code}
+                            </span>
+                          )}
+                          <span className="text-sm text-muted-foreground">
+                            {format(new Date(pr.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                          </span>
                         </div>
                         <Badge variant="outline">
                           {(pr.pedidos as any)?.status || 'Pendente'}
