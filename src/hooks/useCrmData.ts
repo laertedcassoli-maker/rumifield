@@ -260,12 +260,22 @@ export function usePipelineData() {
   const { data: consultores } = useQuery({
     queryKey: ['crm-consultores'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      // First get user_ids with consultor_rplus role
+      const { data: roles, error: rolesError } = await supabase
         .from('user_roles')
-        .select('user_id, profiles!inner(id, nome)')
+        .select('user_id')
         .eq('role', 'consultor_rplus');
-      if (error) throw error;
-      return (data || []).map((r: any) => ({ id: r.profiles.id, nome: r.profiles.nome }));
+      if (rolesError) throw rolesError;
+      const userIds = (roles || []).map((r: any) => r.user_id);
+      if (userIds.length === 0) return [];
+      // Then fetch their profiles
+      const { data: profiles, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, nome')
+        .in('id', userIds)
+        .order('nome');
+      if (profilesError) throw profilesError;
+      return profiles || [];
     },
     enabled: isAdmin,
   });
