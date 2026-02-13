@@ -1,40 +1,37 @@
 
-## Redesign do Layout da Timeline de Oportunidades
 
-### Objetivo
-Reformular o componente `OpportunityTimeline` para seguir o mesmo estilo visual da timeline de Chamados Tecnicos, com:
-- Linha vertical conectando os eventos
-- Icones circulares coloridos na lateral
-- Layout mais espaçado e profissional
-- Botao "Nova Interação" no header (ao inves do textarea sempre visivel)
+## Melhorias na Timeline de Oportunidades
 
-### Mudancas Visuais
+### 1. Contador de registros no trigger do Collapsible
 
-**Layout atual**: Textarea sempre visivel no topo + itens compactos sem linha conectora
+Tanto nos cards de produto quanto nos cards de oportunidade, o botao "Interacoes & Tarefas" passara a mostrar a contagem de registros. Exemplo: **"Interacoes & Tarefas (5)"**.
 
-**Novo layout (inspirado em Chamados)**:
-- Header com titulo "Interações e Tarefas" + botao "+ Nova Interação"
-- Clicar no botao abre um campo de texto (toggle)
-- Cada item da timeline tem:
-  - Icone circular colorido na esquerda (MessageSquare para notas, CheckSquare para tarefas)
-  - Linha vertical (`w-px bg-border`) conectando os icones
-  - Conteudo a direita com titulo em negrito, detalhes abaixo
-  - Data e autor na mesma linha
+Para isso, usaremos os dados de `noteCounts` que ja sao buscados no `CrmCliente360.tsx`, combinados com as tarefas vinculadas. Precisaremos tambem buscar o count de tarefas por `client_product_id` para ter o total correto.
+
+### 2. Indicador de oportunidade "fria" (>15 dias sem interacao)
+
+No trigger do Collapsible, quando a ultima interacao tiver mais de 15 dias, exibiremos um badge/indicador vermelho (ex: icone de alerta ou badge "15d+") ao lado do contador. Isso ja e calculado parcialmente no bloco de Oportunidades; vamos replicar a mesma logica para os cards de produto `em_negociacao`.
+
+### 3. Timeline visivel para produtos com estagio "ganho"
+
+Atualmente a timeline so aparece para `em_negociacao`. Vamos expandir para mostrar tambem quando o estagio e `ganho`, permitindo consultar o historico de interacoes e tarefas que levaram ao fechamento. A timeline ficara em modo somente-leitura para `ganho` (sem botao "Nova Interacao").
+
+---
 
 ### Detalhes Tecnicos
 
-**Arquivo: `src/components/crm/OpportunityTimeline.tsx`** (unico arquivo modificado)
+**Arquivo: `src/pages/crm/CrmCliente360.tsx`**
 
-1. Adicionar estado `showInput` para controlar visibilidade do campo de nova interação
-2. Adicionar header com botao "+ Nova Interação" que alterna `showInput`
-3. Reformular a renderizacao dos itens:
-   - Cada item envolto em `flex gap-3`
-   - Coluna esquerda: icone circular (`h-8 w-8 rounded-full`) + linha vertical (`w-px flex-1 bg-border`)
-   - Coluna direita: conteudo com `pb-4` para espaçamento
-4. Notas: icone MessageSquare com fundo `bg-blue-100`, titulo "Interação" em negrito, conteudo abaixo, autor e data
-5. Tarefas: icone CheckSquare com fundo `bg-amber-100`, titulo da tarefa em negrito, checkbox de status mantido, data de vencimento
+1. Alterar a condicao `isNegociacao` para `isNegociacao || isGanho` (onde `isGanho = cp.stage === 'ganho'`), mostrando o Collapsible da timeline tambem para ganho
+2. Adicionar contagem no texto do `CollapsibleTrigger`: usar `noteCount` + count de tarefas do produto
+3. Buscar tambem o count de tarefas por `client_product_id` (nova query ou expandir a query existente `crm-opportunity-notes-counts` para incluir tasks)
+4. Calcular `daysSinceLastInteraction` por produto e mostrar badge vermelho no trigger quando > 15 dias
+5. Passar uma prop `readOnly` para `OpportunityTimeline` quando o estagio for `ganho`
 
-### Cores dos icones
-- Nota/Interação: `bg-blue-100 text-blue-600`
-- Tarefa aberta: `bg-amber-100 text-amber-600`
-- Tarefa concluida: `bg-green-100 text-green-600`
+**Arquivo: `src/components/crm/OpportunityTimeline.tsx`**
+
+1. Adicionar prop `readOnly?: boolean`
+2. Quando `readOnly=true`, ocultar o botao "Nova Interacao" e desabilitar toggle de status das tarefas
+
+**Query adicional ou expandida em `CrmCliente360.tsx`**:
+- Expandir a query `crm-opportunity-notes-counts` para tambem buscar `crm_actions` por `client_product_id` e contar, alem de pegar a data mais recente entre notas e tarefas para calcular dias sem interacao.
