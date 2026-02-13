@@ -160,9 +160,10 @@ export default function CrmPipeline() {
                               </button>
                             </PopoverTrigger>
                             <PopoverContent
-                              className="w-80 max-h-96 overflow-y-auto p-3"
+                              className="w-[min(320px,calc(100vw-32px))] max-h-96 overflow-y-auto p-3"
                               align="end"
-                              side="left"
+                              side="bottom"
+                              collisionPadding={16}
                               onClick={(e) => e.stopPropagation()}
                             >
                               <OpportunityTimeline
