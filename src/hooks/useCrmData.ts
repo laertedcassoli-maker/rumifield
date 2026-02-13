@@ -284,10 +284,43 @@ export function usePipelineData() {
     ? clientProducts || []
     : (clientProducts || []).filter((p: any) => p.clientes?.consultor_rplus_id === user?.id);
 
+  // Fetch last interaction dates per product (notes + actions)
+  // @ts-ignore
+  const { data: lastInteractionByProduct } = useQuery({
+    queryKey: ['crm-pipeline-last-interactions', user?.id],
+    queryFn: async () => {
+      const [notesRes, actionsRes] = await Promise.all([
+        (supabase as any)
+          .from('crm_opportunity_notes')
+          .select('client_product_id, created_at')
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('crm_actions')
+          .select('client_product_id, created_at')
+          .order('created_at', { ascending: false }),
+      ]);
+
+      const map: Record<string, string> = {};
+      (notesRes.data || []).forEach((n: any) => {
+        if (!map[n.client_product_id] || n.created_at > map[n.client_product_id]) {
+          map[n.client_product_id] = n.created_at;
+        }
+      });
+      (actionsRes.data || []).forEach((a: any) => {
+        if (!map[a.client_product_id] || a.created_at > map[a.client_product_id]) {
+          map[a.client_product_id] = a.created_at;
+        }
+      });
+      return map;
+    },
+    enabled: !!user,
+  });
+
   return {
     clientProducts: filteredProducts,
     lossReasons: lossReasons || [],
     consultores: consultores || [],
+    lastInteractionByProduct: lastInteractionByProduct || {},
     isLoading,
     isAdmin,
   };
