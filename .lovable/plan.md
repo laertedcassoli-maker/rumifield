@@ -1,45 +1,21 @@
 
 
-## Adicionar overlay escuro ao Popover do Pipeline
+## Melhorar cards de resumo do Pipeline no mobile
 
-### Objetivo
-Destacar o Popover de interacoes escurecendo o fundo atras dele, criando um efeito de foco visual.
+### Problema
+Os 5 cards de contagem por estagio estao em `grid-cols-5` fixo, o que no mobile comprime demais cada card, cortando os labels ("Qualifica...", "Negociai...", "Perdido...").
 
 ### Solucao
-Utilizar o componente `PopoverAnchor` nao e necessario. A abordagem mais simples e adicionar um overlay global via CSS usando o atributo `data-state` que o Radix Popover ja injeta automaticamente.
-
-### Detalhes Tecnicos
+Trocar o grid fixo por um layout com scroll horizontal no mobile, mantendo os 5 cards visiveis lado a lado sem cortar texto.
 
 **Arquivo: `src/pages/crm/CrmPipeline.tsx`**
 
-Envolver o `Popover` com um estado controlado (`open`) e renderizar um `div` de overlay condicional quando o popover estiver aberto:
-
-1. Converter o `Popover` para modo controlado com `open` e `onOpenChange`
-2. Renderizar um overlay fixo (`fixed inset-0 bg-black/40 z-40`) quando o popover estiver aberto
-3. O `PopoverContent` ja possui `z-50`, entao ficara acima do overlay
-
-```tsx
-const [openPopoverId, setOpenPopoverId] = useState<string | null>(null);
-
-// No JSX, dentro do map:
-<Popover
-  open={openPopoverId === p.id}
-  onOpenChange={(open) => setOpenPopoverId(open ? p.id : null)}
->
-  ...
-</Popover>
-
-// Overlay global (renderizado uma vez, fora do map):
-{openPopoverId && (
-  <div
-    className="fixed inset-0 bg-black/40 z-40"
-    onClick={() => setOpenPopoverId(null)}
-  />
-)}
-```
+1. Substituir `grid grid-cols-5 gap-2` por um container com scroll horizontal: `flex gap-2 overflow-x-auto pb-1`
+2. Cada card recebe `min-w-[72px] flex-shrink-0` para garantir largura minima legivel sem encolher
+3. Em telas maiores, os cards se expandem naturalmente com `flex-1`
+4. Adicionar `scrollbar-hide` ou estilo para esconder a barra de scroll no mobile
 
 ### Resultado
-- Ao abrir o popover, o fundo escurece com uma camada semi-transparente
-- Clicar no overlay fecha o popover
-- O popover fica em destaque acima do overlay
+- Mobile: cards com largura minima legivel, scroll horizontal suave se necessario
+- Desktop: layout distribuido uniformemente como antes
 
