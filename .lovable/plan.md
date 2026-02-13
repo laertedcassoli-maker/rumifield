@@ -1,44 +1,30 @@
 
-## Corrigir Popover no Pipeline (evitar navegacao ao clicar no balao)
+## Corrigir Popover deslocado no mobile
 
 ### Problema
-O card inteiro esta dentro de um `<Link to={...}>`, que renderiza uma tag `<a>`. Quando o usuario clica no botao do balao, o `stopPropagation()` impede a propagacao do evento React, mas a tag `<a>` nativa do browser ainda captura o clique e navega. Isso faz com que o Popover abra por um instante e imediatamente o usuario seja redirecionado.
+O `PopoverContent` esta configurado com `side="left"` e largura fixa de `w-80` (320px). No mobile, onde os cards ocupam a tela toda (`grid-cols-1`), o popover abre para a esquerda do botao e ultrapassa os limites da tela.
 
 ### Solucao
-Substituir o `<Link>` por um `<div>` com `onClick` programatico usando `useNavigate`. Dessa forma, o `stopPropagation()` no botao do Popover efetivamente impede que o click chegue ao `<div>` pai, e a navegacao nao acontece.
-
-### Detalhes Tecnicos
+Alterar o posicionamento do popover para funcionar melhor em todas as telas:
 
 **Arquivo: `src/pages/crm/CrmPipeline.tsx`**
 
-1. Adicionar `useNavigate` (importar de `react-router-dom`)
-2. Substituir o `<Link>` que envolve cada card por um `<div>`:
+1. Trocar `side="left"` para `side="bottom"` -- o popover abrira abaixo do botao, que funciona bem tanto em mobile quanto desktop
+2. Manter `align="end"` para alinhar a borda direita do popover com o botao
+3. Adicionar `collisionPadding={16}` para garantir que o Radix Popover respeite uma margem de 16px das bordas da tela (evita corte em qualquer direcao)
+4. Ajustar a largura para `w-[min(320px,calc(100vw-32px))]` para que nunca ultrapasse a tela no mobile
 
-Antes:
+### Alteracao especifica (linha 162-165)
 ```tsx
-<Link key={p.id} to={`/crm/${p.client_id}`} state={{ from: '/crm/pipeline', fromLabel: 'Pipeline' }}>
-  <Card ...>
-    ...
-  </Card>
-</Link>
-```
-
-Depois:
-```tsx
-<div
-  key={p.id}
-  onClick={() => navigate(`/crm/${p.client_id}`, { state: { from: '/crm/pipeline', fromLabel: 'Pipeline' } })}
-  className="cursor-pointer"
+<PopoverContent
+  className="w-[min(320px,calc(100vw-32px))] max-h-96 overflow-y-auto p-3"
+  align="end"
+  side="bottom"
+  collisionPadding={16}
+  onClick={(e) => e.stopPropagation()}
 >
-  <Card ...>
-    ...
-  </Card>
-</div>
 ```
 
-3. O `stopPropagation()` no botao do Popover ja existe e agora funcionara corretamente, pois o evento nao vai propagar ate o `<div>` pai
-4. O `stopPropagation()` no `PopoverContent` tambem continua, impedindo que cliques dentro do popover naveguem
-
-### Por que funciona
-- Com `<Link>` (tag `<a>`), o browser tem comportamento nativo de navegacao que nao e bloqueado por `stopPropagation` do React
-- Com `<div>` + `onClick` programatico, tudo e controlado pelo React, e `stopPropagation` funciona como esperado
+### Resultado
+- Mobile: popover abre abaixo do botao, respeitando os limites da tela
+- Desktop: mesmo comportamento, popover alinhado ao botao sem corte
