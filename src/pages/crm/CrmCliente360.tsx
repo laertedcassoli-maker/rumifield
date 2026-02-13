@@ -21,7 +21,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ClienteAnaliseIA } from '@/components/crm/ClienteAnaliseIA';
 import { ArrowLeft, MapPin, Phone, Mail, Plus, Clock, Eye, User, ChevronRight, CheckCircle2, MessageSquare, ChevronDown } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { OpportunityNotes } from '@/components/crm/OpportunityNotes';
+import { OpportunityTimeline } from '@/components/crm/OpportunityTimeline';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -229,14 +229,11 @@ export default function CrmCliente360() {
                       <Collapsible>
                         <CollapsibleTrigger className="w-full flex items-center justify-center gap-1.5 py-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
                           <MessageSquare className="h-3 w-3" />
-                          {noteCount > 0 ? `${noteCount} interaç${noteCount === 1 ? 'ão' : 'ões'}` : 'Interações'}
+                          Interações & Tarefas
                           <ChevronDown className="h-3 w-3" />
                         </CollapsibleTrigger>
                         <CollapsibleContent className="px-1 pb-2">
-                          <OpportunityNotes clientProductId={cp.id} clientId={id!} onCreateAction={(noteContent) => {
-                            setActionModalPreFill({ cpId: cp.id, title: noteContent.substring(0, 80), description: noteContent });
-                            setActionModal(true);
-                          }} />
+                          <OpportunityTimeline clientProductId={cp.id} clientId={id!} />
                         </CollapsibleContent>
                       </Collapsible>
                     )}
@@ -334,14 +331,11 @@ export default function CrmCliente360() {
                        <Collapsible>
                          <CollapsibleTrigger className="w-full flex items-center justify-center gap-1.5 py-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
                            <MessageSquare className="h-3 w-3" />
-                           {noteCount > 0 ? `${noteCount} interaç${noteCount === 1 ? 'ão' : 'ões'}` : 'Interações'}
+                           Interações & Tarefas
                            <ChevronDown className="h-3 w-3" />
                          </CollapsibleTrigger>
                          <CollapsibleContent className="px-1 pb-2">
-                           <OpportunityNotes clientProductId={cpId} clientId={id!} onCreateAction={(noteContent) => {
-                             setActionModalPreFill({ cpId, title: noteContent.substring(0, 80), description: noteContent });
-                             setActionModal(true);
-                           }} />
+                           <OpportunityTimeline clientProductId={cpId} clientId={id!} />
                          </CollapsibleContent>
                        </Collapsible>
                      </div>
