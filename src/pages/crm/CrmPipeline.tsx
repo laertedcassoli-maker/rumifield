@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { usePipelineData, STAGE_LABELS, STAGE_COLORS, PRODUCT_LABELS, PRODUCT_ORDER, type CrmStage, type ProductCode } from '@/hooks/useCrmData';
 import { ProductBadge } from '@/components/crm/ProductBadge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -7,6 +7,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
+import { OpportunityTimeline } from '@/components/crm/OpportunityTimeline';
 import { ChevronRight, MapPin, DollarSign, MessageSquare } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -16,7 +18,7 @@ export default function CrmPipeline() {
   const { clientProducts, consultores, isLoading, isAdmin, lastInteractionByProduct } = usePipelineData();
   const [selectedConsultor, setSelectedConsultor] = useState<string>('all');
   const [selectedProduct, setSelectedProduct] = useState<string>('all');
-  const navigate = useNavigate();
+  
 
   const filtered = useMemo(() => {
     let list = clientProducts;
@@ -144,19 +146,33 @@ export default function CrmPipeline() {
                               {daysSince !== null ? `${daysSince}d` : '!'}
                             </Badge>
                           )}
-                          <button
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              navigate(`/crm/${p.client_id}`, {
-                                state: { from: '/crm/pipeline', fromLabel: 'Pipeline', openTimeline: p.id }
-                              });
-                            }}
-                            className="p-0.5 rounded hover:bg-accent transition-colors"
-                            title="Ver interações"
-                          >
-                            <MessageSquare className="h-3 w-3 text-muted-foreground" />
-                          </button>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <button
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  e.stopPropagation();
+                                }}
+                                className="p-0.5 rounded hover:bg-accent transition-colors"
+                                title="Ver interações"
+                              >
+                                <MessageSquare className="h-3 w-3 text-muted-foreground" />
+                              </button>
+                            </PopoverTrigger>
+                            <PopoverContent
+                              className="w-80 max-h-96 overflow-y-auto p-3"
+                              align="end"
+                              side="left"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <OpportunityTimeline
+                                clientProductId={p.id}
+                                clientId={p.client_id}
+                                stage={p.stage}
+                                stageUpdatedAt={p.stage_updated_at}
+                              />
+                            </PopoverContent>
+                          </Popover>
                           <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />
                         </div>
                       </div>
