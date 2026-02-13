@@ -150,7 +150,6 @@ export default function CrmPipeline() {
                             <PopoverTrigger asChild>
                               <button
                                 onClick={(e) => {
-                                  e.preventDefault();
                                   e.stopPropagation();
                                 }}
                                 className="p-0.5 rounded hover:bg-accent transition-colors"
