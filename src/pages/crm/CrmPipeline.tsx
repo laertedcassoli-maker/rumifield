@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { usePipelineData, STAGE_LABELS, STAGE_COLORS, PRODUCT_LABELS, PRODUCT_ORDER, type CrmStage, type ProductCode } from '@/hooks/useCrmData';
 import { ProductBadge } from '@/components/crm/ProductBadge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -15,6 +15,7 @@ import { cn } from '@/lib/utils';
 const PIPELINE_STAGES: CrmStage[] = ['nao_qualificado', 'qualificado', 'em_negociacao', 'ganho', 'perdido'];
 
 export default function CrmPipeline() {
+  const navigate = useNavigate();
   const { clientProducts, consultores, isLoading, isAdmin, lastInteractionByProduct } = usePipelineData();
   const [selectedConsultor, setSelectedConsultor] = useState<string>('all');
   const [selectedProduct, setSelectedProduct] = useState<string>('all');
@@ -132,7 +133,7 @@ export default function CrmPipeline() {
               const noInteractions = daysSince === null && p.stage !== 'nao_qualificado';
 
               return (
-                <Link key={p.id} to={`/crm/${p.client_id}`} state={{ from: '/crm/pipeline', fromLabel: 'Pipeline' }}>
+                <div key={p.id} className="cursor-pointer" onClick={() => navigate(`/crm/${p.client_id}`, { state: { from: '/crm/pipeline', fromLabel: 'Pipeline' } })}>
                   <Card className={cn(
                     "hover:bg-accent/30 transition-colors cursor-pointer",
                     (isCold || noInteractions) && "border-destructive/40"
@@ -192,7 +193,7 @@ export default function CrmPipeline() {
                       </div>
                     </CardContent>
                   </Card>
-                </Link>
+                </div>
               );
             })}
           </div>
