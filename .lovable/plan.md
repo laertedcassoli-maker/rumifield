@@ -1,30 +1,45 @@
 
-## Corrigir Popover deslocado no mobile
 
-### Problema
-O `PopoverContent` esta configurado com `side="left"` e largura fixa de `w-80` (320px). No mobile, onde os cards ocupam a tela toda (`grid-cols-1`), o popover abre para a esquerda do botao e ultrapassa os limites da tela.
+## Adicionar overlay escuro ao Popover do Pipeline
+
+### Objetivo
+Destacar o Popover de interacoes escurecendo o fundo atras dele, criando um efeito de foco visual.
 
 ### Solucao
-Alterar o posicionamento do popover para funcionar melhor em todas as telas:
+Utilizar o componente `PopoverAnchor` nao e necessario. A abordagem mais simples e adicionar um overlay global via CSS usando o atributo `data-state` que o Radix Popover ja injeta automaticamente.
+
+### Detalhes Tecnicos
 
 **Arquivo: `src/pages/crm/CrmPipeline.tsx`**
 
-1. Trocar `side="left"` para `side="bottom"` -- o popover abrira abaixo do botao, que funciona bem tanto em mobile quanto desktop
-2. Manter `align="end"` para alinhar a borda direita do popover com o botao
-3. Adicionar `collisionPadding={16}` para garantir que o Radix Popover respeite uma margem de 16px das bordas da tela (evita corte em qualquer direcao)
-4. Ajustar a largura para `w-[min(320px,calc(100vw-32px))]` para que nunca ultrapasse a tela no mobile
+Envolver o `Popover` com um estado controlado (`open`) e renderizar um `div` de overlay condicional quando o popover estiver aberto:
 
-### Alteracao especifica (linha 162-165)
+1. Converter o `Popover` para modo controlado com `open` e `onOpenChange`
+2. Renderizar um overlay fixo (`fixed inset-0 bg-black/40 z-40`) quando o popover estiver aberto
+3. O `PopoverContent` ja possui `z-50`, entao ficara acima do overlay
+
 ```tsx
-<PopoverContent
-  className="w-[min(320px,calc(100vw-32px))] max-h-96 overflow-y-auto p-3"
-  align="end"
-  side="bottom"
-  collisionPadding={16}
-  onClick={(e) => e.stopPropagation()}
+const [openPopoverId, setOpenPopoverId] = useState<string | null>(null);
+
+// No JSX, dentro do map:
+<Popover
+  open={openPopoverId === p.id}
+  onOpenChange={(open) => setOpenPopoverId(open ? p.id : null)}
 >
+  ...
+</Popover>
+
+// Overlay global (renderizado uma vez, fora do map):
+{openPopoverId && (
+  <div
+    className="fixed inset-0 bg-black/40 z-40"
+    onClick={() => setOpenPopoverId(null)}
+  />
+)}
 ```
 
 ### Resultado
-- Mobile: popover abre abaixo do botao, respeitando os limites da tela
-- Desktop: mesmo comportamento, popover alinhado ao botao sem corte
+- Ao abrir o popover, o fundo escurece com uma camada semi-transparente
+- Clicar no overlay fecha o popover
+- O popover fica em destaque acima do overlay
+
