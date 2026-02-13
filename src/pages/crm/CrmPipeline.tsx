@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { usePipelineData, STAGE_LABELS, STAGE_COLORS, PRODUCT_LABELS, PRODUCT_ORDER, type CrmStage, type ProductCode } from '@/hooks/useCrmData';
 import { ProductBadge } from '@/components/crm/ProductBadge';
 import { Card, CardContent } from '@/components/ui/card';
@@ -7,14 +7,16 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ChevronRight, MapPin, DollarSign } from 'lucide-react';
+import { ChevronRight, MapPin, DollarSign, MessageSquare } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 const PIPELINE_STAGES: CrmStage[] = ['nao_qualificado', 'qualificado', 'em_negociacao', 'ganho', 'perdido'];
 
 export default function CrmPipeline() {
-  const { clientProducts, consultores, isLoading, isAdmin } = usePipelineData();
+  const { clientProducts, consultores, isLoading, isAdmin, lastInteractionByProduct } = usePipelineData();
   const [selectedConsultor, setSelectedConsultor] = useState<string>('all');
   const [selectedProduct, setSelectedProduct] = useState<string>('all');
+  const navigate = useNavigate();
 
   const filtered = useMemo(() => {
     let list = clientProducts;
@@ -35,6 +37,26 @@ export default function CrmPipeline() {
     });
     return groups;
   }, [filtered]);
+
+  const stageTotals = useMemo(() => {
+    const totals: Record<string, number> = {};
+    PIPELINE_STAGES.forEach(s => {
+      totals[s] = (stageGroups[s] || []).reduce((sum: number, p: any) => sum + (Number(p.value_estimated) || 0), 0);
+    });
+    return totals;
+  }, [stageGroups]);
+
+  const getDaysSince = (productId: string): number | null => {
+    const last = lastInteractionByProduct[productId];
+    if (!last) return null;
+    return Math.floor((Date.now() - new Date(last).getTime()) / (1000 * 60 * 60 * 24));
+  };
+
+  const formatCurrency = (value: number) => {
+    if (value >= 1000000) return `R$ ${(value / 1000000).toFixed(1)}M`;
+    if (value >= 1000) return `R$ ${(value / 1000).toFixed(0)}k`;
+    return `R$ ${value.toLocaleString('pt-BR')}`;
+  };
 
   if (isLoading) {
     return <div className="space-y-4"><Skeleton className="h-8 w-48" /><Skeleton className="h-64 w-full" /></div>;
@@ -81,13 +103,18 @@ export default function CrmPipeline() {
         </div>
       </div>
 
-      {/* Stage counts */}
+      {/* Stage counts + totals */}
       <div className="grid grid-cols-5 gap-2">
         {PIPELINE_STAGES.map(s => (
           <Card key={s}>
             <CardContent className="py-2 text-center">
               <p className="text-xl font-bold">{stageGroups[s]?.length || 0}</p>
               <p className="text-[10px] text-muted-foreground">{STAGE_LABELS[s]}</p>
+              {stageTotals[s] > 0 && (
+                <p className="text-[10px] font-medium text-muted-foreground mt-0.5">
+                  {formatCurrency(stageTotals[s])}
+                </p>
+              )}
             </CardContent>
           </Card>
         ))}
@@ -97,33 +124,62 @@ export default function CrmPipeline() {
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
         {PIPELINE_STAGES.map(stage => (
           <div key={stage} className="space-y-2">
-            {(stageGroups[stage] || []).map((p: any) => (
-              <Link key={p.id} to={`/crm/${p.client_id}`} state={{ from: '/crm/pipeline', fromLabel: 'Pipeline' }}>
-                <Card className="hover:bg-accent/30 transition-colors cursor-pointer">
-                  <CardContent className="py-2.5 px-3 space-y-1.5">
-                    <div className="flex items-center justify-between gap-1">
-                      <ProductBadge productCode={p.product_code} className="text-[10px] px-1.5 py-0" />
-                      <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />
-                    </div>
-                    <p className="text-xs font-medium truncate">{p.clientes?.nome}</p>
-                    <div className="flex items-center justify-between gap-1 text-[10px] text-muted-foreground">
-                      {p.clientes?.cidade ? (
-                        <span className="flex items-center gap-0.5 truncate">
-                          <MapPin className="h-2.5 w-2.5 shrink-0" />
-                          {p.clientes.cidade}
-                        </span>
-                      ) : <span />}
-                      {p.value_estimated && (
-                        <span className="flex items-center gap-0.5 font-medium text-foreground shrink-0">
-                          <DollarSign className="h-2.5 w-2.5" />
-                          {Number(p.value_estimated).toLocaleString('pt-BR')}
-                        </span>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              </Link>
-            ))}
+            {(stageGroups[stage] || []).map((p: any) => {
+              const daysSince = getDaysSince(p.id);
+              const isCold = daysSince !== null && daysSince > 15;
+              const noInteractions = daysSince === null && p.stage !== 'nao_qualificado';
+
+              return (
+                <Link key={p.id} to={`/crm/${p.client_id}`} state={{ from: '/crm/pipeline', fromLabel: 'Pipeline' }}>
+                  <Card className={cn(
+                    "hover:bg-accent/30 transition-colors cursor-pointer",
+                    (isCold || noInteractions) && "border-destructive/40"
+                  )}>
+                    <CardContent className="py-2.5 px-3 space-y-1.5">
+                      <div className="flex items-center justify-between gap-1">
+                        <ProductBadge productCode={p.product_code} className="text-[10px] px-1.5 py-0" />
+                        <div className="flex items-center gap-1">
+                          {(isCold || noInteractions) && (
+                            <Badge variant="destructive" className="text-[9px] px-1 py-0 h-4">
+                              {daysSince !== null ? `${daysSince}d` : '!'}
+                            </Badge>
+                          )}
+                          <button
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              navigate(`/crm/${p.client_id}`, {
+                                state: { from: '/crm/pipeline', fromLabel: 'Pipeline', openTimeline: p.id }
+                              });
+                            }}
+                            className="p-0.5 rounded hover:bg-accent transition-colors"
+                            title="Ver interações"
+                          >
+                            <MessageSquare className="h-3 w-3 text-muted-foreground" />
+                          </button>
+                          <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />
+                        </div>
+                      </div>
+                      <p className="text-xs font-medium truncate">{p.clientes?.nome}</p>
+                      <div className="flex items-center justify-between gap-1 text-[10px] text-muted-foreground">
+                        {p.clientes?.cidade ? (
+                          <span className="flex items-center gap-0.5 truncate">
+                            <MapPin className="h-2.5 w-2.5 shrink-0" />
+                            {p.clientes.cidade}
+                          </span>
+                        ) : <span />}
+                        {p.value_estimated && (
+                          <span className="flex items-center gap-0.5 font-medium text-foreground shrink-0">
+                            <DollarSign className="h-2.5 w-2.5" />
+                            {Number(p.value_estimated).toLocaleString('pt-BR')}
+                          </span>
+                        )}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </Link>
+              );
+            })}
           </div>
         ))}
       </div>

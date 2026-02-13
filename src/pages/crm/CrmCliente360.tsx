@@ -29,9 +29,12 @@ export default function CrmCliente360() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const location = useLocation();
-  const fromState = location.state as { from?: string; fromLabel?: string } | null;
+  const fromState = location.state as { from?: string; fromLabel?: string; openTimeline?: string } | null;
   const fromPath = fromState?.from || '/crm/carteira';
   const fromLabel = fromState?.fromLabel || 'Carteira';
+  const [openTimelineIds, setOpenTimelineIds] = useState<string[]>(
+    fromState?.openTimeline ? [fromState.openTimeline] : []
+  );
 
   const { data: cliente, isLoading: loadingCliente } = useQuery({
     queryKey: ['crm-cliente', id],
@@ -253,7 +256,7 @@ export default function CrmCliente360() {
                       onUpdateNegotiation={() => setNegModal({ open: true, cpId: cp.id, pc, stage: cp.stage as CrmStage })}
                     />
                     {showTimeline && (
-                      <Collapsible>
+                      <Collapsible open={openTimelineIds.includes(cp.id)} onOpenChange={(open) => setOpenTimelineIds(prev => open ? [...prev, cp.id] : prev.filter(x => x !== cp.id))}>
                         <CollapsibleTrigger className="w-full flex items-center justify-center gap-1.5 py-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
                           <MessageSquare className="h-3 w-3" />
                           Interações & Tarefas{totalCount > 0 ? ` (${totalCount})` : ''}
