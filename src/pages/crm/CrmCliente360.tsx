@@ -5,6 +5,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useCliente360Data, PRODUCT_ORDER, STAGE_LABELS, PRODUCT_LABELS, type ProductCode, type CrmStage } from '@/hooks/useCrmData';
 import { ProductCard } from '@/components/crm/ProductCard';
+import { ProductBadge } from '@/components/crm/ProductBadge';
 import { QualificarProdutoModal } from '@/components/crm/QualificarProdutoModal';
 import { CriarPropostaModal } from '@/components/crm/CriarPropostaModal';
 import { AtualizarNegociacaoModal } from '@/components/crm/AtualizarNegociacaoModal';
@@ -73,22 +74,27 @@ export default function CrmCliente360() {
     enabled: !!id,
   });
 
-  // Fetch note counts per opportunity
-  const { data: noteCounts } = useQuery({
+  // Fetch note counts and last interaction date per opportunity
+  const { data: noteCounts, data: lastInteractionDates } = useQuery({
     queryKey: ['crm-opportunity-notes-counts', id],
     queryFn: async () => {
       const cpIds = clientProducts.map((cp: any) => cp.id);
       if (cpIds.length === 0) return {};
       const { data, error } = await (supabase as any)
         .from('crm_opportunity_notes')
-        .select('client_product_id')
-        .in('client_product_id', cpIds);
+        .select('client_product_id, created_at')
+        .in('client_product_id', cpIds)
+        .order('created_at', { ascending: false });
       if (error) throw error;
       const counts: Record<string, number> = {};
+      const lastDates: Record<string, string> = {};
       (data || []).forEach((n: any) => {
         counts[n.client_product_id] = (counts[n.client_product_id] || 0) + 1;
+        if (!lastDates[n.client_product_id]) {
+          lastDates[n.client_product_id] = n.created_at;
+        }
       });
-      return counts;
+      return { counts, lastDates };
     },
     enabled: !!id && clientProducts.length > 0,
   });
@@ -288,46 +294,60 @@ export default function CrmCliente360() {
           </div>
 
           {/* Proposals */}
-          {proposals.length > 0 && (
-            <div>
-              <h2 className="text-lg font-semibold mb-3">Oportunidades ({proposals.length})</h2>
-              <div className="space-y-2">
-                {proposals.map((p: any) => {
-                  const cpId = p.client_product_id || (p.crm_client_products as any)?.id;
-                  const noteCount = (noteCounts as Record<string, number>)?.[cpId] || 0;
-                  return (
-                    <div key={p.id} className="space-y-0">
-                      <Card>
-                        <CardContent className="py-3 flex items-center justify-between gap-2">
-                          <div>
-                            <span className="text-sm font-medium">{PRODUCT_LABELS[(p.crm_client_products as any)?.product_code as ProductCode]}</span>
-                            <Badge className="ml-2 text-[10px]" variant="outline">{p.status}</Badge>
-                          </div>
-                          <div className="text-right text-sm">
-                            {p.proposed_value && <span className="font-medium">R$ {Number(p.proposed_value).toLocaleString('pt-BR')}</span>}
-                            {p.valid_until && <p className="text-[11px] text-muted-foreground">Validade: {format(new Date(p.valid_until), 'dd/MM/yyyy')}</p>}
-                          </div>
-                        </CardContent>
-                      </Card>
-                      <Collapsible>
-                        <CollapsibleTrigger className="w-full flex items-center justify-center gap-1.5 py-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
-                          <MessageSquare className="h-3 w-3" />
-                          {noteCount > 0 ? `${noteCount} interaç${noteCount === 1 ? 'ão' : 'ões'}` : 'Interações'}
-                          <ChevronDown className="h-3 w-3" />
-                        </CollapsibleTrigger>
-                        <CollapsibleContent className="px-1 pb-2">
-                          <OpportunityNotes clientProductId={cpId} clientId={id!} onCreateAction={(noteContent) => {
-                            setActionModalPreFill({ cpId, title: noteContent.substring(0, 80), description: noteContent });
-                            setActionModal(true);
-                          }} />
-                        </CollapsibleContent>
-                      </Collapsible>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
+           {proposals.length > 0 && (
+             <div>
+               <h2 className="text-lg font-semibold mb-3">Oportunidades ({proposals.length})</h2>
+               <div className="space-y-2">
+                 {proposals.map((p: any) => {
+                   const cpId = p.client_product_id || (p.crm_client_products as any)?.id;
+                   const productCode = (p.crm_client_products as any)?.product_code as ProductCode;
+                   const noteCount = (noteCounts as any)?.counts?.[cpId] || 0;
+                   const lastInteraction = (lastInteractionDates as any)?.lastDates?.[cpId];
+                   const daysSinceLastInteraction = lastInteraction 
+                     ? Math.floor((Date.now() - new Date(lastInteraction).getTime()) / (1000 * 60 * 60 * 24))
+                     : null;
+                   const isStale = daysSinceLastInteraction && daysSinceLastInteraction > 15;
+                   
+                   return (
+                     <div key={p.id} className="space-y-0">
+                       <Card>
+                         <CardContent className="py-3 flex items-center justify-between gap-2">
+                           <div className="flex items-center gap-2">
+                             <ProductBadge productCode={productCode} />
+                             <Badge className="text-[10px]" variant="outline">{p.status}</Badge>
+                           </div>
+                           <div className="flex items-center gap-3">
+                             {daysSinceLastInteraction !== null && (
+                               <div className={cn("text-xs font-medium px-2 py-1 rounded", isStale ? 'text-destructive' : 'text-muted-foreground')}>
+                                 {daysSinceLastInteraction}d ago
+                               </div>
+                             )}
+                             <div className="text-right text-sm">
+                               {p.proposed_value && <span className="font-medium">R$ {Number(p.proposed_value).toLocaleString('pt-BR')}</span>}
+                               {p.valid_until && <p className="text-[11px] text-muted-foreground">Validade: {format(new Date(p.valid_until), 'dd/MM/yyyy')}</p>}
+                             </div>
+                           </div>
+                         </CardContent>
+                       </Card>
+                       <Collapsible>
+                         <CollapsibleTrigger className="w-full flex items-center justify-center gap-1.5 py-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
+                           <MessageSquare className="h-3 w-3" />
+                           {noteCount > 0 ? `${noteCount} interaç${noteCount === 1 ? 'ão' : 'ões'}` : 'Interações'}
+                           <ChevronDown className="h-3 w-3" />
+                         </CollapsibleTrigger>
+                         <CollapsibleContent className="px-1 pb-2">
+                           <OpportunityNotes clientProductId={cpId} clientId={id!} onCreateAction={(noteContent) => {
+                             setActionModalPreFill({ cpId, title: noteContent.substring(0, 80), description: noteContent });
+                             setActionModal(true);
+                           }} />
+                         </CollapsibleContent>
+                       </Collapsible>
+                     </div>
+                   );
+                 })}
+               </div>
+             </div>
+           )}
 
           {/* Visitas CRM */}
           {visits && visits.length > 0 && (
