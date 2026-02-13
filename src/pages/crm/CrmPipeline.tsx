@@ -108,9 +108,9 @@ export default function CrmPipeline() {
       </div>
 
       {/* Stage counts + totals */}
-      <div className="grid grid-cols-5 gap-2">
+      <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
         {PIPELINE_STAGES.map(s => (
-          <Card key={s}>
+          <Card key={s} className="min-w-[72px] flex-shrink-0 flex-1">
             <CardContent className="py-2 text-center">
               <p className="text-xl font-bold">{stageGroups[s]?.length || 0}</p>
               <p className="text-[10px] text-muted-foreground">{STAGE_LABELS[s]}</p>
