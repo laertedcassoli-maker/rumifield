@@ -1,37 +1,117 @@
 
+## Adicionar Data de "Ganho" na Timeline de Oportunidades
 
-## Melhorias na Timeline de Oportunidades
+### Objetivo
+Quando um produto muda para o estágio "Ganho", exibir a data exata dessa transição na timeline como um item especial (ex: "Ganho em 13/02/2026") para contextualizar o histórico de interações.
 
-### 1. Contador de registros no trigger do Collapsible
+### Análise Atual
+- A data `stage_updated_at` já é registrada quando um produto muda de estágio (em `AtualizarNegociacaoModal.tsx`)
+- A timeline atualmente mostra apenas **notas** (crm_opportunity_notes) e **tarefas** (crm_actions)
+- O componente `OpportunityTimeline` recebe o `clientProductId` mas não tem acesso ao `stage` ou `stage_updated_at` do produto
+- Para produtos em estágio "ganho", a timeline já renderiza em modo `readOnly`
 
-Tanto nos cards de produto quanto nos cards de oportunidade, o botao "Interacoes & Tarefas" passara a mostrar a contagem de registros. Exemplo: **"Interacoes & Tarefas (5)"**.
+### Solução Proposta
 
-Para isso, usaremos os dados de `noteCounts` que ja sao buscados no `CrmCliente360.tsx`, combinados com as tarefas vinculadas. Precisaremos tambem buscar o count de tarefas por `client_product_id` para ter o total correto.
+**1. Passar informações do estágio para a timeline**
+- Modificar `OpportunityTimeline` para receber props adicionais:
+  - `stage`: o estágio atual do produto (ex: 'ganho', 'perdido')
+  - `stageUpdatedAt`: a data em que o estágio foi atualizado
+- Em `CrmCliente360.tsx`, passar esses dados ao renderizar `OpportunityTimeline`:
+  ```tsx
+  <OpportunityTimeline 
+    clientProductId={cp.id} 
+    clientId={id!} 
+    readOnly={isGanho}
+    stage={cp.stage}
+    stageUpdatedAt={cp.stage_updated_at}
+  />
+  ```
 
-### 2. Indicador de oportunidade "fria" (>15 dias sem interacao)
+**2. Adicionar item de transição de estágio na timeline**
+- Expandir a interface `TimelineItem` para incluir um tipo `'stage_change'`
+- Quando `stage === 'ganho'` e `stageUpdatedAt` existe, criar um item fictício representando o fechamento
+- Este item aparecerá no topo da timeline (mais recente) com:
+  - Ícone especial (ex: `Trophy` ou `Check` em verde)
+  - Rótulo "Ganho" em negrito
+  - Data formatada: "Ganho em dd/MM/yyyy"
+  - Fundo `bg-green-100 text-green-600`
 
-No trigger do Collapsible, quando a ultima interacao tiver mais de 15 dias, exibiremos um badge/indicador vermelho (ex: icone de alerta ou badge "15d+") ao lado do contador. Isso ja e calculado parcialmente no bloco de Oportunidades; vamos replicar a mesma logica para os cards de produto `em_negociacao`.
-
-### 3. Timeline visivel para produtos com estagio "ganho"
-
-Atualmente a timeline so aparece para `em_negociacao`. Vamos expandir para mostrar tambem quando o estagio e `ganho`, permitindo consultar o historico de interacoes e tarefas que levaram ao fechamento. A timeline ficara em modo somente-leitura para `ganho` (sem botao "Nova Interacao").
-
----
-
-### Detalhes Tecnicos
-
-**Arquivo: `src/pages/crm/CrmCliente360.tsx`**
-
-1. Alterar a condicao `isNegociacao` para `isNegociacao || isGanho` (onde `isGanho = cp.stage === 'ganho'`), mostrando o Collapsible da timeline tambem para ganho
-2. Adicionar contagem no texto do `CollapsibleTrigger`: usar `noteCount` + count de tarefas do produto
-3. Buscar tambem o count de tarefas por `client_product_id` (nova query ou expandir a query existente `crm-opportunity-notes-counts` para incluir tasks)
-4. Calcular `daysSinceLastInteraction` por produto e mostrar badge vermelho no trigger quando > 15 dias
-5. Passar uma prop `readOnly` para `OpportunityTimeline` quando o estagio for `ganho`
+**3. Implementação técnica**
 
 **Arquivo: `src/components/crm/OpportunityTimeline.tsx`**
+- Expandir `TimelineItem` interface:
+  ```tsx
+  interface TimelineItem {
+    id: string;
+    type: 'note' | 'task' | 'stage_change';
+    created_at: string;
+    content?: string;
+    user_name?: string;
+    title?: string;
+    description?: string;
+    status?: 'aberta' | 'concluida';
+    due_at?: string | null;
+    priority?: number;
+    stageLabel?: string;  // "Ganho", "Perdido", etc
+  }
+  ```
+- Adicionar props:
+  ```tsx
+  interface OpportunityTimelineProps {
+    clientProductId: string;
+    clientId: string;
+    readOnly?: boolean;
+    stage?: string;           // novo
+    stageUpdatedAt?: string;  // novo
+  }
+  ```
+- Antes de retornar a timeline, adicionar item de transição de estágio se aplicável:
+  ```tsx
+  const timeline: TimelineItem[] = [
+    // Se stage é ganho, adicionar item de fechamento no topo
+    ...(stage === 'ganho' && stageUpdatedAt ? [{
+      id: `${clientProductId}-ganho`,
+      type: 'stage_change',
+      created_at: stageUpdatedAt,
+      stageLabel: 'Ganho',
+    }] : []),
+    // Depois as notas e tarefas existentes
+    ...(notes || []).map(...),
+    ...(tasks || []).map(...),
+  ].sort((a, b) => ...);
+  ```
+- Na renderização, adicionar lógica para `type === 'stage_change'`:
+  ```tsx
+  const isDone = item.type === 'stage_change';
+  const iconBg = isDone 
+    ? 'bg-green-100 text-green-600'
+    : isNote 
+      ? 'bg-blue-100 text-blue-600'
+      : isDone 
+        ? 'bg-green-100 text-green-600'
+        : 'bg-amber-100 text-amber-600';
+  ```
+  - Usar ícone `Trophy` ou `CheckCircle2` em verde para stage_change
+  - Exibir: "Ganho em 13/02/2026"
 
-1. Adicionar prop `readOnly?: boolean`
-2. Quando `readOnly=true`, ocultar o botao "Nova Interacao" e desabilitar toggle de status das tarefas
+**Arquivo: `src/pages/crm/CrmCliente360.tsx`**
+- Passar `stage` e `stage_updated_at` ao componente:
+  ```tsx
+  <OpportunityTimeline 
+    clientProductId={cp.id} 
+    clientId={id!} 
+    readOnly={isGanho}
+    stage={cp.stage}
+    stageUpdatedAt={cp.stage_updated_at}
+  />
+  ```
 
-**Query adicional ou expandida em `CrmCliente360.tsx`**:
-- Expandir a query `crm-opportunity-notes-counts` para tambem buscar `crm_actions` por `client_product_id` e contar, alem de pegar a data mais recente entre notas e tarefas para calcular dias sem interacao.
+### Resultado Visual
+Para um produto em estágio "Ganho":
+1. Primeiro item: ✅ **Ganho em 13/02/2026** (verde)
+2. Depois: Todas as interações e tarefas históricas em ordem cronológica reversa
+
+### Benefícios
+- Contexto claro de quando o negócio foi fechado
+- Marca visual clara do ponto de conclusão
+- Facilita análise do ciclo de vendas (quanto tempo levou do primeiro contato ao fechamento)
