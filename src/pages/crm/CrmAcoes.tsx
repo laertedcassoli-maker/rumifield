@@ -6,12 +6,10 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Search, Calendar, User, AlertTriangle, CheckCircle2, Clock, DollarSign } from 'lucide-react';
+import { Search, Calendar, User, AlertTriangle, CheckCircle2, Clock } from 'lucide-react';
 import { format, isPast, isToday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { useCrmAcoesData, type ActionStatus, type ActionType, type ProposalStatus, type UnifiedAction } from '@/hooks/useCrmAcoesData';
-import { ProductBadge } from '@/components/crm/ProductBadge';
-import { type ProductCode } from '@/hooks/useCrmData';
+import { useCrmAcoesData, type ActionStatus, type UnifiedAction } from '@/hooks/useCrmAcoesData';
 
 const STATUS_FILTERS = [
   { value: 'aberta', label: 'Pendentes' },
@@ -20,39 +18,20 @@ const STATUS_FILTERS = [
   { value: 'todas', label: 'Todas' },
 ] as const;
 
-const TYPE_FILTERS = [
-  { value: 'todos', label: 'Todos' },
-  { value: 'tarefa', label: 'Tarefa' },
-  { value: 'pendencia', label: 'Pendência' },
-  { value: 'oportunidade', label: 'Oportunidade' },
-] as const;
-
-const TYPE_LABELS: Record<ActionType, string> = {
-  tarefa: 'Tarefa',
-  pendencia: 'Pendência',
-  oportunidade: 'Oportunidade',
-};
-
 export default function CrmAcoes() {
-  const { actions, proposals, isLoading, isAdminOrCoord } = useCrmAcoesData();
+  const { actions, isLoading, isAdminOrCoord } = useCrmAcoesData();
 
   const [statusFilter, setStatusFilter] = useState<string>('aberta');
-  const [typeFilter, setTypeFilter] = useState<string>('todos');
   const [search, setSearch] = useState('');
   const [selectedAction, setSelectedAction] = useState<UnifiedAction | null>(null);
 
   const filtered = useMemo(() => {
-    // Merge actions + proposals
-    let result: UnifiedAction[] = [...actions, ...proposals];
+    // Filter only tasks (actions, no proposals)
+    let result: UnifiedAction[] = actions.filter((a) => a.type === 'tarefa');
 
     // Status filter
     if (statusFilter !== 'todas') {
       result = result.filter((a) => a.status === statusFilter);
-    }
-
-    // Type filter
-    if (typeFilter !== 'todos') {
-      result = result.filter((a) => a.type === typeFilter);
     }
 
     // Search
@@ -75,7 +54,7 @@ export default function CrmAcoes() {
       if (!b.due_at) return -1;
       return new Date(a.due_at).getTime() - new Date(b.due_at).getTime();
     });
-  }, [actions, proposals, statusFilter, typeFilter, search]);
+  }, [actions, statusFilter, search]);
 
   const isOverdue = (action: UnifiedAction) =>
     action.due_at && action.status !== 'concluida' && isPast(new Date(action.due_at)) && !isToday(new Date(action.due_at));
@@ -83,8 +62,8 @@ export default function CrmAcoes() {
   return (
     <div className="space-y-4 p-4 md:p-6">
       <div>
-        <h1 className="text-xl font-bold text-foreground">Ações CRM</h1>
-        <p className="text-sm text-muted-foreground">Visão geral de todas as ações dos clientes</p>
+        <h1 className="text-xl font-bold text-foreground">Tarefas CRM</h1>
+        <p className="text-sm text-muted-foreground">Visão geral de todas as tarefas dos clientes</p>
       </div>
 
       {/* Search */}
@@ -106,20 +85,6 @@ export default function CrmAcoes() {
             variant={statusFilter === f.value ? 'default' : 'outline'}
             size="sm"
             onClick={() => setStatusFilter(f.value)}
-          >
-            {f.label}
-          </Button>
-        ))}
-      </div>
-
-      {/* Type filter */}
-      <div className="flex gap-2 flex-wrap">
-        {TYPE_FILTERS.map((f) => (
-          <Button
-            key={f.value}
-            variant={typeFilter === f.value ? 'secondary' : 'ghost'}
-            size="sm"
-            onClick={() => setTypeFilter(f.value)}
           >
             {f.label}
           </Button>
@@ -149,7 +114,7 @@ export default function CrmAcoes() {
             const overdue = isOverdue(action);
             return (
               <Card
-                key={`${action._source}-${action.id}`}
+                key={action.id}
                 className={`transition-colors cursor-pointer hover:shadow-md ${overdue ? 'border-destructive/60 bg-destructive/5' : ''}`}
                 onClick={() => setSelectedAction(action)}
               >
@@ -168,31 +133,12 @@ export default function CrmAcoes() {
                         {action.clientes?.nome}
                       </Link>
                     </div>
-                    {action._source === 'proposal' ? (
-                      <ProposalStatusBadge status={action.proposal_status!} />
-                    ) : (
-                      <ActionStatusBadge status={action.status} />
-                    )}
+                    <ActionStatusBadge status={action.status} />
                   </div>
 
                   {/* Meta row */}
-                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-                    {action._source === 'proposal' && action.product_code ? (
-                      <ProductBadge productCode={action.product_code} />
-                    ) : (
-                      <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-                        {TYPE_LABELS[action.type] || action.type}
-                      </Badge>
-                    )}
-
-                    {action._source === 'action' && <PriorityBadge priority={action.priority} />}
-
-                    {action._source === 'proposal' && action.proposed_value != null && (
-                      <span className="inline-flex items-center gap-1 font-semibold text-foreground">
-                        <DollarSign className="h-3 w-3" />
-                        {action.proposed_value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                      </span>
-                    )}
+                   <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                     <PriorityBadge priority={action.priority} />
 
                     {action.due_at && (
                       <span className={`inline-flex items-center gap-1 ${overdue ? 'text-destructive font-semibold' : ''}`}>
@@ -202,12 +148,12 @@ export default function CrmAcoes() {
                     )}
 
                     {isAdminOrCoord && action.owner_name && (
-                      <span className="inline-flex items-center gap-1">
-                        <User className="h-3 w-3" />
-                        {action.owner_name}
-                      </span>
-                    )}
-                  </div>
+                       <span className="inline-flex items-center gap-1">
+                         <User className="h-3 w-3" />
+                         {action.owner_name}
+                       </span>
+                     )}
+                   </div>
 
                   {action.description && (
                     <p className="text-xs text-muted-foreground line-clamp-2">{action.description}</p>
@@ -239,21 +185,6 @@ function ActionStatusBadge({ status }: { status: ActionStatus }) {
   return (
     <Badge variant="outline" className={`text-[10px] px-1.5 py-0 gap-1 ${c.className}`}>
       <Icon className="h-3 w-3" />
-      {c.label}
-    </Badge>
-  );
-}
-
-function ProposalStatusBadge({ status }: { status: ProposalStatus }) {
-  const config: Record<ProposalStatus, { label: string; className: string }> = {
-    ativa: { label: 'Ativa', className: 'bg-amber-100 text-amber-800 border-amber-200' },
-    aceita: { label: 'Aceita', className: 'bg-green-100 text-green-800 border-green-200' },
-    recusada: { label: 'Recusada', className: 'bg-red-100 text-red-800 border-red-200' },
-    expirada: { label: 'Expirada', className: 'bg-muted text-muted-foreground' },
-  };
-  const c = config[status] || config.ativa;
-  return (
-    <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${c.className}`}>
       {c.label}
     </Badge>
   );
