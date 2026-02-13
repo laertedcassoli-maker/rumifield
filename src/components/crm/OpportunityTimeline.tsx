@@ -14,6 +14,7 @@ import { cn } from '@/lib/utils';
 interface OpportunityTimelineProps {
   clientProductId: string;
   clientId: string;
+  readOnly?: boolean;
 }
 
 interface TimelineItem {
@@ -29,7 +30,7 @@ interface TimelineItem {
   priority?: number;
 }
 
-export function OpportunityTimeline({ clientProductId, clientId }: OpportunityTimelineProps) {
+export function OpportunityTimeline({ clientProductId, clientId, readOnly = false }: OpportunityTimelineProps) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [content, setContent] = useState('');
@@ -129,15 +130,17 @@ export function OpportunityTimeline({ clientProductId, clientId }: OpportunityTi
       {/* Header */}
       <div className="flex items-center justify-between">
         <span className="text-sm font-semibold text-foreground">Interações e Tarefas</span>
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-7 text-xs gap-1"
-          onClick={() => setShowInput(v => !v)}
-        >
-          <Plus className="h-3 w-3" />
-          Nova Interação
-        </Button>
+        {!readOnly && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 text-xs gap-1"
+            onClick={() => setShowInput(v => !v)}
+          >
+            <Plus className="h-3 w-3" />
+            Nova Interação
+          </Button>
+        )}
       </div>
 
       {/* Collapsible input */}
@@ -207,11 +210,11 @@ export function OpportunityTimeline({ clientProductId, clientId }: OpportunityTi
                       <div className="flex items-center gap-2">
                         <button
                           className="shrink-0"
-                          onClick={() => toggleTaskStatus.mutate({
+                          onClick={() => !readOnly && toggleTaskStatus.mutate({
                             taskId: item.id,
                             newStatus: isDone ? 'aberta' : 'concluida',
                           })}
-                          disabled={toggleTaskStatus.isPending}
+                          disabled={toggleTaskStatus.isPending || readOnly}
                         >
                           {isDone ? (
                             <CheckCircle2 className="h-4 w-4 text-green-600" />
