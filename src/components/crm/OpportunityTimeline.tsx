@@ -5,11 +5,12 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Send, MessageSquare, CheckSquare, Plus, Circle, CheckCircle2, Clock, Trophy } from 'lucide-react';
+import { Send, MessageSquare, CheckSquare, Plus, Circle, CheckCircle2, Clock, Trophy, ListTodo } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { CriarAcaoModal } from './CriarAcaoModal';
 
 interface OpportunityTimelineProps {
   clientProductId: string;
@@ -38,6 +39,7 @@ export function OpportunityTimeline({ clientProductId, clientId, readOnly = fals
   const queryClient = useQueryClient();
   const [content, setContent] = useState('');
   const [showInput, setShowInput] = useState(false);
+  const [showTaskModal, setShowTaskModal] = useState(false);
 
   const { data: notes, isLoading: loadingNotes } = useQuery({
     queryKey: ['crm-opportunity-notes', clientProductId],
@@ -142,15 +144,26 @@ export function OpportunityTimeline({ clientProductId, clientId, readOnly = fals
       <div className="flex items-center justify-between">
         <span className="text-sm font-semibold text-foreground">Interações e Tarefas</span>
         {!readOnly && (
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-7 text-xs gap-1"
-            onClick={() => setShowInput(v => !v)}
-          >
-            <Plus className="h-3 w-3" />
-            Nova Interação
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs gap-1"
+              onClick={() => setShowTaskModal(true)}
+            >
+              <ListTodo className="h-3 w-3" />
+              Tarefa
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 text-xs gap-1"
+              onClick={() => setShowInput(v => !v)}
+            >
+              <Plus className="h-3 w-3" />
+              Interação
+            </Button>
+          </div>
         )}
       </div>
 
@@ -270,6 +283,17 @@ export function OpportunityTimeline({ clientProductId, clientId, readOnly = fals
       ) : (
         <p className="text-xs text-muted-foreground text-center py-2">Nenhuma interação ou tarefa registrada</p>
       )}
+
+      {/* Modal Nova Tarefa */}
+      <CriarAcaoModal
+        open={showTaskModal}
+        onOpenChange={setShowTaskModal}
+        clientId={clientId}
+        clientProductId={clientProductId}
+        onCreated={() => {
+          queryClient.invalidateQueries({ queryKey: ['crm-actions-by-product', clientProductId] });
+        }}
+      />
     </div>
   );
 }
