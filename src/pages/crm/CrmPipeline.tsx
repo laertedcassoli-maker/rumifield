@@ -19,6 +19,7 @@ export default function CrmPipeline() {
   const { clientProducts, consultores, isLoading, isAdmin, lastInteractionByProduct } = usePipelineData();
   const [selectedConsultor, setSelectedConsultor] = useState<string>('all');
   const [selectedProduct, setSelectedProduct] = useState<string>('all');
+  const [openPopoverId, setOpenPopoverId] = useState<string | null>(null);
   
 
   const filtered = useMemo(() => {
@@ -147,7 +148,10 @@ export default function CrmPipeline() {
                               {daysSince !== null ? `${daysSince}d` : '!'}
                             </Badge>
                           )}
-                          <Popover>
+                          <Popover
+                            open={openPopoverId === p.id}
+                            onOpenChange={(open) => setOpenPopoverId(open ? p.id : null)}
+                          >
                             <PopoverTrigger asChild>
                               <button
                                 onClick={(e) => {
@@ -200,6 +204,12 @@ export default function CrmPipeline() {
           </div>
         ))}
       </div>
+      {openPopoverId && (
+        <div
+          className="fixed inset-0 bg-black/40 z-40"
+          onClick={() => setOpenPopoverId(null)}
+        />
+      )}
     </div>
   );
 }
