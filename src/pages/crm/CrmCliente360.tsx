@@ -19,7 +19,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ClienteAnaliseIA } from '@/components/crm/ClienteAnaliseIA';
-import { ArrowLeft, MapPin, Phone, Mail, Plus, Clock, Eye, User, ChevronRight, CheckCircle2, MessageSquare, ChevronDown } from 'lucide-react';
+import { ArrowLeft, MapPin, Phone, Mail, Plus, Clock, Eye, User, ChevronRight, CheckCircle2, MessageSquare, ChevronDown, AlertTriangle } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { OpportunityTimeline } from '@/components/crm/OpportunityTimeline';
 import { format } from 'date-fns';
@@ -74,27 +74,45 @@ export default function CrmCliente360() {
     enabled: !!id,
   });
 
-  // Fetch note counts and last interaction date per opportunity
-  const { data: noteCounts, data: lastInteractionDates } = useQuery({
-    queryKey: ['crm-opportunity-notes-counts', id],
+  // Fetch note counts, task counts, and last interaction date per opportunity
+  const { data: opportunityCounts } = useQuery({
+    queryKey: ['crm-opportunity-counts', id],
     queryFn: async () => {
       const cpIds = clientProducts.map((cp: any) => cp.id);
-      if (cpIds.length === 0) return {};
-      const { data, error } = await (supabase as any)
-        .from('crm_opportunity_notes')
-        .select('client_product_id, created_at')
-        .in('client_product_id', cpIds)
-        .order('created_at', { ascending: false });
-      if (error) throw error;
-      const counts: Record<string, number> = {};
+      if (cpIds.length === 0) return { noteCounts: {}, taskCounts: {}, lastDates: {} };
+
+      const [notesRes, tasksRes] = await Promise.all([
+        (supabase as any)
+          .from('crm_opportunity_notes')
+          .select('client_product_id, created_at')
+          .in('client_product_id', cpIds)
+          .order('created_at', { ascending: false }),
+        supabase
+          .from('crm_actions')
+          .select('client_product_id, created_at')
+          .in('client_product_id', cpIds)
+          .order('created_at', { ascending: false }),
+      ]);
+
+      const noteCounts: Record<string, number> = {};
+      const taskCounts: Record<string, number> = {};
       const lastDates: Record<string, string> = {};
-      (data || []).forEach((n: any) => {
-        counts[n.client_product_id] = (counts[n.client_product_id] || 0) + 1;
-        if (!lastDates[n.client_product_id]) {
+
+      (notesRes.data || []).forEach((n: any) => {
+        noteCounts[n.client_product_id] = (noteCounts[n.client_product_id] || 0) + 1;
+        if (!lastDates[n.client_product_id] || n.created_at > lastDates[n.client_product_id]) {
           lastDates[n.client_product_id] = n.created_at;
         }
       });
-      return { counts, lastDates };
+
+      (tasksRes.data || []).forEach((t: any) => {
+        taskCounts[t.client_product_id] = (taskCounts[t.client_product_id] || 0) + 1;
+        if (!lastDates[t.client_product_id] || t.created_at > lastDates[t.client_product_id]) {
+          lastDates[t.client_product_id] = t.created_at;
+        }
+      });
+
+      return { noteCounts, taskCounts, lastDates };
     },
     enabled: !!id && clientProducts.length > 0,
   });
@@ -209,8 +227,17 @@ export default function CrmCliente360() {
                 const cp = clientProducts.find((p: any) => p.product_code === pc);
                 if (!cp) return null;
                 const snap = snapshots.find((s: any) => s.product_code === pc);
-                const noteCount = (noteCounts as any)?.counts?.[cp.id] || 0;
+                const noteCount = opportunityCounts?.noteCounts?.[cp.id] || 0;
+                const taskCount = opportunityCounts?.taskCounts?.[cp.id] || 0;
+                const totalCount = noteCount + taskCount;
+                const lastInteraction = opportunityCounts?.lastDates?.[cp.id];
+                const daysSince = lastInteraction
+                  ? Math.floor((Date.now() - new Date(lastInteraction).getTime()) / (1000 * 60 * 60 * 24))
+                  : null;
+                const isStale = daysSince !== null && daysSince > 15;
                 const isNegociacao = cp.stage === 'em_negociacao';
+                const isGanho = cp.stage === 'ganho';
+                const showTimeline = isNegociacao || isGanho;
                 return (
                   <div key={pc} className="space-y-0">
                     <ProductCard
@@ -225,15 +252,21 @@ export default function CrmCliente360() {
                       onCreateProposal={() => setPropModal({ open: true, cpId: cp.id, pc })}
                       onUpdateNegotiation={() => setNegModal({ open: true, cpId: cp.id, pc, stage: cp.stage as CrmStage })}
                     />
-                    {isNegociacao && (
+                    {showTimeline && (
                       <Collapsible>
                         <CollapsibleTrigger className="w-full flex items-center justify-center gap-1.5 py-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
                           <MessageSquare className="h-3 w-3" />
-                          Interações & Tarefas
+                          Interações & Tarefas{totalCount > 0 ? ` (${totalCount})` : ''}
+                          {isStale && (
+                            <span className="flex items-center gap-0.5 text-destructive font-medium">
+                              <AlertTriangle className="h-3 w-3" />
+                              {daysSince}d
+                            </span>
+                          )}
                           <ChevronDown className="h-3 w-3" />
                         </CollapsibleTrigger>
                         <CollapsibleContent className="px-1 pb-2">
-                          <OpportunityTimeline clientProductId={cp.id} clientId={id!} />
+                          <OpportunityTimeline clientProductId={cp.id} clientId={id!} readOnly={isGanho} />
                         </CollapsibleContent>
                       </Collapsible>
                     )}
@@ -297,49 +330,57 @@ export default function CrmCliente360() {
              <div>
                <h2 className="text-lg font-semibold mb-3">Oportunidades ({proposals.length})</h2>
                <div className="space-y-2">
-                 {proposals.map((p: any) => {
-                   const cpId = p.client_product_id || (p.crm_client_products as any)?.id;
-                   const productCode = (p.crm_client_products as any)?.product_code as ProductCode;
-                   const noteCount = (noteCounts as any)?.counts?.[cpId] || 0;
-                   const lastInteraction = (lastInteractionDates as any)?.lastDates?.[cpId];
-                   const daysSinceLastInteraction = lastInteraction 
-                     ? Math.floor((Date.now() - new Date(lastInteraction).getTime()) / (1000 * 60 * 60 * 24))
-                     : null;
-                   const isStale = daysSinceLastInteraction && daysSinceLastInteraction > 15;
-                   
-                   return (
-                     <div key={p.id} className="space-y-0">
-                       <Card>
-                         <CardContent className="py-3 flex items-center justify-between gap-2">
-                           <div className="flex items-center gap-2">
-                             <ProductBadge productCode={productCode} />
-                             <Badge className="text-[10px]" variant="outline">{p.status}</Badge>
-                           </div>
-                           <div className="flex items-center gap-3">
-                             {daysSinceLastInteraction !== null && (
-                               <div className={cn("text-xs font-medium px-2 py-1 rounded", isStale ? 'text-destructive' : 'text-muted-foreground')}>
-                                 {daysSinceLastInteraction}d ago
-                               </div>
-                             )}
-                             <div className="text-right text-sm">
-                               {p.proposed_value && <span className="font-medium">R$ {Number(p.proposed_value).toLocaleString('pt-BR')}</span>}
-                               {p.valid_until && <p className="text-[11px] text-muted-foreground">Validade: {format(new Date(p.valid_until), 'dd/MM/yyyy')}</p>}
-                             </div>
-                           </div>
-                         </CardContent>
-                       </Card>
-                       <Collapsible>
-                         <CollapsibleTrigger className="w-full flex items-center justify-center gap-1.5 py-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
-                           <MessageSquare className="h-3 w-3" />
-                           Interações & Tarefas
-                           <ChevronDown className="h-3 w-3" />
-                         </CollapsibleTrigger>
-                         <CollapsibleContent className="px-1 pb-2">
-                           <OpportunityTimeline clientProductId={cpId} clientId={id!} />
-                         </CollapsibleContent>
-                       </Collapsible>
-                     </div>
-                   );
+                  {proposals.map((p: any) => {
+                    const cpId = p.client_product_id || (p.crm_client_products as any)?.id;
+                    const productCode = (p.crm_client_products as any)?.product_code as ProductCode;
+                    const pNoteCount = opportunityCounts?.noteCounts?.[cpId] || 0;
+                    const pTaskCount = opportunityCounts?.taskCounts?.[cpId] || 0;
+                    const pTotalCount = pNoteCount + pTaskCount;
+                    const lastInteraction = opportunityCounts?.lastDates?.[cpId];
+                    const daysSinceLastInteraction = lastInteraction 
+                      ? Math.floor((Date.now() - new Date(lastInteraction).getTime()) / (1000 * 60 * 60 * 24))
+                      : null;
+                    const isStale = daysSinceLastInteraction !== null && daysSinceLastInteraction > 15;
+                    
+                    return (
+                      <div key={p.id} className="space-y-0">
+                        <Card>
+                          <CardContent className="py-3 flex items-center justify-between gap-2">
+                            <div className="flex items-center gap-2">
+                              <ProductBadge productCode={productCode} />
+                              <Badge className="text-[10px]" variant="outline">{p.status}</Badge>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              {daysSinceLastInteraction !== null && (
+                                <div className={cn("text-xs font-medium px-2 py-1 rounded", isStale ? 'text-destructive' : 'text-muted-foreground')}>
+                                  {daysSinceLastInteraction}d
+                                </div>
+                              )}
+                              <div className="text-right text-sm">
+                                {p.proposed_value && <span className="font-medium">R$ {Number(p.proposed_value).toLocaleString('pt-BR')}</span>}
+                                {p.valid_until && <p className="text-[11px] text-muted-foreground">Validade: {format(new Date(p.valid_until), 'dd/MM/yyyy')}</p>}
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                        <Collapsible>
+                          <CollapsibleTrigger className="w-full flex items-center justify-center gap-1.5 py-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
+                            <MessageSquare className="h-3 w-3" />
+                            Interações & Tarefas{pTotalCount > 0 ? ` (${pTotalCount})` : ''}
+                            {isStale && (
+                              <span className="flex items-center gap-0.5 text-destructive font-medium">
+                                <AlertTriangle className="h-3 w-3" />
+                                {daysSinceLastInteraction}d
+                              </span>
+                            )}
+                            <ChevronDown className="h-3 w-3" />
+                          </CollapsibleTrigger>
+                          <CollapsibleContent className="px-1 pb-2">
+                            <OpportunityTimeline clientProductId={cpId} clientId={id!} />
+                          </CollapsibleContent>
+                        </Collapsible>
+                      </div>
+                    );
                  })}
                </div>
              </div>
