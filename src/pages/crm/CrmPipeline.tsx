@@ -9,7 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { OpportunityTimeline } from '@/components/crm/OpportunityTimeline';
-import { ChevronRight, MapPin, DollarSign, MessageSquare } from 'lucide-react';
+import { ChevronRight, MapPin, DollarSign, MessageSquare, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const PIPELINE_STAGES: CrmStage[] = ['nao_qualificado', 'qualificado', 'em_negociacao', 'ganho', 'perdido'];
@@ -170,6 +170,16 @@ export default function CrmPipeline() {
                               collisionPadding={16}
                               onClick={(e) => e.stopPropagation()}
                             >
+                              <div className="flex items-center justify-between gap-2 mb-2">
+                                <div className="flex-1" />
+                                <button
+                                  onClick={() => setOpenPopoverId(null)}
+                                  className="p-1 rounded hover:bg-accent transition-colors"
+                                  title="Fechar"
+                                >
+                                  <X className="h-4 w-4 text-muted-foreground" />
+                                </button>
+                              </div>
                               <OpportunityTimeline
                                 clientProductId={p.id}
                                 clientId={p.client_id}
