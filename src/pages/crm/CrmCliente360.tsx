@@ -266,7 +266,7 @@ export default function CrmCliente360() {
                           <ChevronDown className="h-3 w-3" />
                         </CollapsibleTrigger>
                         <CollapsibleContent className="px-1 pb-2">
-                          <OpportunityTimeline clientProductId={cp.id} clientId={id!} readOnly={isGanho} />
+                          <OpportunityTimeline clientProductId={cp.id} clientId={id!} readOnly={isGanho} stage={cp.stage} stageUpdatedAt={cp.stage_updated_at} />
                         </CollapsibleContent>
                       </Collapsible>
                     )}
