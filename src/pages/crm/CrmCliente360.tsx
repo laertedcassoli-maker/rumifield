@@ -209,7 +209,8 @@ export default function CrmCliente360() {
                 const cp = clientProducts.find((p: any) => p.product_code === pc);
                 if (!cp) return null;
                 const snap = snapshots.find((s: any) => s.product_code === pc);
-                const noteCount = (noteCounts as Record<string, number>)?.[cp.id] || 0;
+                const noteCount = (noteCounts as any)?.counts?.[cp.id] || 0;
+                const isNegociacao = cp.stage === 'em_negociacao';
                 return (
                   <div key={pc} className="space-y-0">
                     <ProductCard
@@ -224,19 +225,21 @@ export default function CrmCliente360() {
                       onCreateProposal={() => setPropModal({ open: true, cpId: cp.id, pc })}
                       onUpdateNegotiation={() => setNegModal({ open: true, cpId: cp.id, pc, stage: cp.stage as CrmStage })}
                     />
-                    <Collapsible>
-                      <CollapsibleTrigger className="w-full flex items-center justify-center gap-1.5 py-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
-                        <MessageSquare className="h-3 w-3" />
-                        {noteCount > 0 ? `${noteCount} interaç${noteCount === 1 ? 'ão' : 'ões'}` : 'Interações'}
-                        <ChevronDown className="h-3 w-3" />
-                      </CollapsibleTrigger>
-                      <CollapsibleContent className="px-1 pb-2">
-                        <OpportunityNotes clientProductId={cp.id} clientId={id!} onCreateAction={(noteContent) => {
-                          setActionModalPreFill({ cpId: cp.id, title: noteContent.substring(0, 80), description: noteContent });
-                          setActionModal(true);
-                        }} />
-                      </CollapsibleContent>
-                    </Collapsible>
+                    {isNegociacao && (
+                      <Collapsible>
+                        <CollapsibleTrigger className="w-full flex items-center justify-center gap-1.5 py-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
+                          <MessageSquare className="h-3 w-3" />
+                          {noteCount > 0 ? `${noteCount} interaç${noteCount === 1 ? 'ão' : 'ões'}` : 'Interações'}
+                          <ChevronDown className="h-3 w-3" />
+                        </CollapsibleTrigger>
+                        <CollapsibleContent className="px-1 pb-2">
+                          <OpportunityNotes clientProductId={cp.id} clientId={id!} onCreateAction={(noteContent) => {
+                            setActionModalPreFill({ cpId: cp.id, title: noteContent.substring(0, 80), description: noteContent });
+                            setActionModal(true);
+                          }} />
+                        </CollapsibleContent>
+                      </Collapsible>
+                    )}
                   </div>
                 );
               })}
