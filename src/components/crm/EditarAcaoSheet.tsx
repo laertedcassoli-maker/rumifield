@@ -43,7 +43,6 @@ interface EditarAcaoSheetProps {
 
 const ACTION_STATUS_OPTIONS: { value: ActionStatus; label: string; className: string; icon: React.ElementType }[] = [
   { value: 'aberta', label: 'Pendente', className: 'bg-yellow-100 text-yellow-800 border-yellow-300 hover:bg-yellow-200', icon: Clock },
-  { value: 'em_execucao', label: 'Em Execução', className: 'bg-blue-100 text-blue-800 border-blue-300 hover:bg-blue-200', icon: Clock },
   { value: 'concluida', label: 'Concluída', className: 'bg-green-100 text-green-800 border-green-300 hover:bg-green-200', icon: CheckCircle2 },
 ];
 

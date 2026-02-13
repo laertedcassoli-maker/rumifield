@@ -13,7 +13,6 @@ import { useCrmAcoesData, type ActionStatus, type UnifiedAction } from '@/hooks/
 
 const STATUS_FILTERS = [
   { value: 'aberta', label: 'Pendentes' },
-  { value: 'em_execucao', label: 'Em Execução' },
   { value: 'concluida', label: 'Concluídas' },
   { value: 'todas', label: 'Todas' },
 ] as const;
@@ -177,7 +176,6 @@ export default function CrmAcoes() {
 function ActionStatusBadge({ status }: { status: ActionStatus }) {
   const config: Record<ActionStatus, { label: string; className: string; icon: React.ElementType }> = {
     aberta: { label: 'Pendente', className: 'bg-yellow-100 text-yellow-800 border-yellow-200', icon: Clock },
-    em_execucao: { label: 'Em execução', className: 'bg-blue-100 text-blue-800 border-blue-200', icon: Clock },
     concluida: { label: 'Concluída', className: 'bg-green-100 text-green-800 border-green-200', icon: CheckCircle2 },
   };
   const c = config[status] || config.aberta;
