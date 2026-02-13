@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Send, MessageSquare, CheckSquare, Plus, Circle, CheckCircle2, Clock } from 'lucide-react';
+import { Send, MessageSquare, CheckSquare, Plus, Circle, CheckCircle2, Clock, Trophy } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
@@ -15,11 +15,13 @@ interface OpportunityTimelineProps {
   clientProductId: string;
   clientId: string;
   readOnly?: boolean;
+  stage?: string;
+  stageUpdatedAt?: string;
 }
 
 interface TimelineItem {
   id: string;
-  type: 'note' | 'task';
+  type: 'note' | 'task' | 'stage_change';
   created_at: string;
   content?: string;
   user_name?: string;
@@ -28,9 +30,10 @@ interface TimelineItem {
   status?: 'aberta' | 'concluida';
   due_at?: string | null;
   priority?: number;
+  stageLabel?: string;
 }
 
-export function OpportunityTimeline({ clientProductId, clientId, readOnly = false }: OpportunityTimelineProps) {
+export function OpportunityTimeline({ clientProductId, clientId, readOnly = false, stage, stageUpdatedAt }: OpportunityTimelineProps) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [content, setContent] = useState('');
@@ -70,7 +73,15 @@ export function OpportunityTimeline({ clientProductId, clientId, readOnly = fals
     enabled: !!clientProductId,
   });
 
+  const stageChangeItems: TimelineItem[] = (stage === 'ganho' && stageUpdatedAt) ? [{
+    id: `${clientProductId}-ganho`,
+    type: 'stage_change',
+    created_at: stageUpdatedAt,
+    stageLabel: 'Ganho',
+  }] : [];
+
   const timeline: TimelineItem[] = [
+    ...stageChangeItems,
     ...(notes || []).map((n): TimelineItem => ({
       id: n.id, type: 'note', created_at: n.created_at,
       content: n.content, user_name: n.profiles?.nome || 'Usuário',
@@ -171,20 +182,25 @@ export function OpportunityTimeline({ clientProductId, clientId, readOnly = fals
           {timeline.map((item, idx) => {
             const isLast = idx === timeline.length - 1;
             const isNote = item.type === 'note';
+            const isStageChange = item.type === 'stage_change';
             const isDone = item.status === 'concluida';
 
-            const iconBg = isNote
-              ? 'bg-blue-100 text-blue-600'
-              : isDone
-                ? 'bg-green-100 text-green-600'
-                : 'bg-amber-100 text-amber-600';
+            const iconBg = isStageChange
+              ? 'bg-green-100 text-green-600'
+              : isNote
+                ? 'bg-blue-100 text-blue-600'
+                : isDone
+                  ? 'bg-green-100 text-green-600'
+                  : 'bg-amber-100 text-amber-600';
 
             return (
               <div key={item.id} className="flex gap-3">
                 {/* Left: icon + line */}
                 <div className="flex flex-col items-center">
                   <div className={cn('h-8 w-8 rounded-full flex items-center justify-center shrink-0', iconBg)}>
-                    {isNote ? (
+                    {isStageChange ? (
+                      <Trophy className="h-4 w-4" />
+                    ) : isNote ? (
                       <MessageSquare className="h-4 w-4" />
                     ) : (
                       <CheckSquare className="h-4 w-4" />
@@ -195,7 +211,14 @@ export function OpportunityTimeline({ clientProductId, clientId, readOnly = fals
 
                 {/* Right: content */}
                 <div className={cn('flex-1 min-w-0', !isLast && 'pb-4')}>
-                  {isNote ? (
+                {isStageChange ? (
+                    <div className="flex items-baseline gap-2 pt-1">
+                      <span className="text-xs font-semibold text-green-700">{item.stageLabel}</span>
+                      <span className="text-[10px] text-muted-foreground">
+                        em {format(new Date(item.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
+                      </span>
+                    </div>
+                  ) : isNote ? (
                     <>
                       <div className="flex items-baseline gap-2">
                         <span className="text-xs font-semibold">Interação</span>
