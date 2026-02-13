@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { PRODUCT_LABELS, type ProductCode } from '@/hooks/useCrmData';
 
-export type ActionStatus = 'aberta' | 'em_execucao' | 'concluida';
+export type ActionStatus = 'aberta' | 'concluida';
 export type ActionType = 'tarefa' | 'pendencia' | 'oportunidade';
 export type ProposalStatus = 'ativa' | 'aceita' | 'recusada' | 'expirada';
 
