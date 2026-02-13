@@ -98,6 +98,7 @@ export default function CrmCliente360() {
   const [propModal, setPropModal] = useState<{ open: boolean; cpId: string; pc: ProductCode }>({ open: false, cpId: '', pc: 'ideagri' });
   const [negModal, setNegModal] = useState<{ open: boolean; cpId: string; pc: ProductCode; stage: CrmStage }>({ open: false, cpId: '', pc: 'ideagri', stage: 'nao_qualificado' });
   const [actionModal, setActionModal] = useState(false);
+  const [actionModalPreFill, setActionModalPreFill] = useState<{ cpId?: string; title?: string; description?: string }>({});
   const [selectedAction, setSelectedAction] = useState<UnifiedAction | null>(null);
   const [actionSheetOpen, setActionSheetOpen] = useState(false);
   const queryClient = useQueryClient();
@@ -224,7 +225,10 @@ export default function CrmCliente360() {
                         <ChevronDown className="h-3 w-3" />
                       </CollapsibleTrigger>
                       <CollapsibleContent className="px-1 pb-2">
-                        <OpportunityNotes clientProductId={cp.id} clientId={id!} />
+                        <OpportunityNotes clientProductId={cp.id} clientId={id!} onCreateAction={(noteContent) => {
+                          setActionModalPreFill({ cpId: cp.id, title: noteContent.substring(0, 80), description: noteContent });
+                          setActionModal(true);
+                        }} />
                       </CollapsibleContent>
                     </Collapsible>
                   </div>
@@ -312,7 +316,10 @@ export default function CrmCliente360() {
                           <ChevronDown className="h-3 w-3" />
                         </CollapsibleTrigger>
                         <CollapsibleContent className="px-1 pb-2">
-                          <OpportunityNotes clientProductId={cpId} clientId={id!} />
+                          <OpportunityNotes clientProductId={cpId} clientId={id!} onCreateAction={(noteContent) => {
+                            setActionModalPreFill({ cpId, title: noteContent.substring(0, 80), description: noteContent });
+                            setActionModal(true);
+                          }} />
                         </CollapsibleContent>
                       </Collapsible>
                     </div>
@@ -395,8 +402,14 @@ export default function CrmCliente360() {
       />
       <CriarAcaoModal
         open={actionModal}
-        onOpenChange={setActionModal}
+        onOpenChange={(o) => {
+          setActionModal(o);
+          if (!o) setActionModalPreFill({});
+        }}
         clientId={id!}
+        clientProductId={actionModalPreFill.cpId}
+        initialTitle={actionModalPreFill.title}
+        initialDescription={actionModalPreFill.description}
         onCreated={() => refetchActions()}
       />
       <EditarAcaoSheet

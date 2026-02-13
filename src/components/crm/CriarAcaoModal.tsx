@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -20,19 +20,29 @@ interface Props {
   clientId: string;
   clientProductId?: string | null;
   onCreated?: () => void;
+  initialTitle?: string;
+  initialDescription?: string;
 }
 
-export function CriarAcaoModal({ open, onOpenChange, clientId: externalClientId, clientProductId, onCreated }: Props) {
+export function CriarAcaoModal({ open, onOpenChange, clientId: externalClientId, clientProductId, onCreated, initialTitle, initialDescription }: Props) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
   const [selectedClientId, setSelectedClientId] = useState('');
   const [clientSearchOpen, setClientSearchOpen] = useState(false);
-  const [title, setTitle] = useState('');
-  const [description, setDescription] = useState('');
+  const [title, setTitle] = useState(initialTitle || '');
+  const [description, setDescription] = useState(initialDescription || '');
   const [type, setType] = useState('tarefa');
   const [priority, setPriority] = useState('3');
   const [dueAt, setDueAt] = useState('');
   const [status, setStatus] = useState<string>('aberta');
+
+  // Sync initial values when modal opens
+  useEffect(() => {
+    if (open) {
+      if (initialTitle) setTitle(initialTitle);
+      if (initialDescription) setDescription(initialDescription);
+    }
+  }, [open, initialTitle, initialDescription]);
 
   const needsClientSelector = !externalClientId;
   const clientId = externalClientId || selectedClientId;
