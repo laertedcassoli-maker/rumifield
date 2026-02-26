@@ -1,19 +1,27 @@
 
 
-## Corrigir alinhamento do conteudo nos cards de resumo
+## Substituir referências do usuário Lenilton antigo pelo novo
 
-### Problema
-O conteudo (numero + label) dentro dos cards de resumo esta visualmente deslocado para a direita. Isso ocorre porque o componente `CardContent` aplica `p-6` (24px) de padding horizontal por padrao, o que em cards estreitos empurra o conteudo para fora do centro visual.
+### Contexto
+O usuário antigo **lenilton@rumina.com.br** (`16073f9d...`) foi deletado e substituído por **lenilton.dantas@rumina.com.br** (`1cb8602e...`). Existem 91 registros em 4 tabelas que ainda referenciam o ID antigo.
 
-### Solucao
+### Migração SQL
 
-**Arquivo: `src/pages/crm/CrmPipeline.tsx`**
+Uma única migração que atualiza todas as referências:
 
-Adicionar `px-2` ao `CardContent` dos cards de resumo para reduzir o padding horizontal, centralizando melhor o conteudo:
+1. **preventive_maintenance** (63 registros) -- atualizar `technician_user_id`
+2. **technical_tickets** (10 registros) -- atualizar `assigned_technician_id`
+3. **preventive_routes** (10 registros) -- atualizar `field_technician_user_id`
+4. **ticket_visits** (8 registros) -- atualizar `field_technician_user_id`
 
-```tsx
-<CardContent className="py-2 px-2 text-center">
+Cada UPDATE filtra pelo ID antigo e substitui pelo novo. Nenhuma alteração de código é necessária.
+
+### Detalhes técnicos
+
+```sql
+-- Substituir Lenilton antigo pelo novo em todas as tabelas
+UPDATE preventive_maintenance SET technician_user_id = '1cb8602e-423a-4a09-ae04-98e0142d5316' WHERE technician_user_id = '16073f9d-eb55-44a7-8aab-ca1d362699c9';
+UPDATE technical_tickets SET assigned_technician_id = '1cb8602e-423a-4a09-ae04-98e0142d5316' WHERE assigned_technician_id = '16073f9d-eb55-44a7-8aab-ca1d362699c9';
+UPDATE preventive_routes SET field_technician_user_id = '1cb8602e-423a-4a09-ae04-98e0142d5316' WHERE field_technician_user_id = '16073f9d-eb55-44a7-8aab-ca1d362699c9';
+UPDATE ticket_visits SET field_technician_user_id = '1cb8602e-423a-4a09-ae04-98e0142d5316' WHERE field_technician_user_id = '16073f9d-eb55-44a7-8aab-ca1d362699c9';
 ```
-
-Isso substitui o `p-6` padrao do componente por um padding horizontal menor, mantendo o texto centralizado visualmente dentro do card.
-
