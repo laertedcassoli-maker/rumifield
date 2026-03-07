@@ -1,19 +1,33 @@
 
 
-## Corrigir alinhamento do conteudo nos cards de resumo
+## Problema identificado
 
-### Problema
-O conteudo (numero + label) dentro dos cards de resumo esta visualmente deslocado para a direita. Isso ocorre porque o componente `CardContent` aplica `p-6` (24px) de padding horizontal por padrao, o que em cards estreitos empurra o conteudo para fora do centro visual.
+Existem **dois bugs** causando o comportamento:
 
-### Solucao
+1. **Bypass de admin no código**: Em `useMenuPermissions.ts`, a função `canAccess` tem a linha `if (role === 'admin') return true;` que ignora completamente as permissões do banco para administradores. Mesmo desabilitando no banco, o menu continua visível.
 
-**Arquivo: `src/pages/crm/CrmPipeline.tsx`**
+2. **Permissões voltam ativas**: Provavelmente o toggle funciona (grava `false` no banco), mas como o admin bypass retorna `true` antes de consultar, o menu nunca some. Ao recarregar a página de Permissões, os dados do banco são lidos corretamente (mostram desabilitado), mas o sidebar ignora.
 
-Adicionar `px-2` ao `CardContent` dos cards de resumo para reduzir o padding horizontal, centralizando melhor o conteudo:
+Confirmei no banco: todas as permissões de estoque para admin estão `can_access: true` neste momento.
 
-```tsx
-<CardContent className="py-2 px-2 text-center">
+## Plano
+
+### 1. Remover o bypass incondicional de admin em `useMenuPermissions.ts`
+
+Alterar a função `canAccess` para respeitar as permissões do banco para **todos** os perfis, incluindo admin. O fallback quando não há permissão cadastrada continuará `true` para admin (para não quebrar menus novos que ainda não tenham registro na tabela), mas quando há um registro explícito com `can_access: false`, ele será respeitado.
+
+```typescript
+const canAccess = (menuKey: string): boolean => {
+  if (!permissions) return true; // Default while loading
+  const perm = permissions.find(p => p.menu_key === menuKey);
+  if (!perm) return role === 'admin'; // Admin: true for unconfigured menus
+  return perm.can_access;
+};
 ```
 
-Isso substitui o `p-6` padrao do componente por um padding horizontal menor, mantendo o texto centralizado visualmente dentro do card.
+### Detalhes técnicos
+- Arquivo: `src/hooks/useMenuPermissions.ts`
+- Apenas a função `canAccess` é alterada (3 linhas)
+- Nenhuma migração de banco necessária
+- A página de Permissões (`Permissoes.tsx`) já funciona corretamente para gravar/ler
 
