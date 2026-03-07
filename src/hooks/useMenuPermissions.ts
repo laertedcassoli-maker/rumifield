@@ -32,10 +32,10 @@ export function useMenuPermissions() {
   });
 
   const canAccess = (menuKey: string): boolean => {
-    if (role === 'admin') return true; // Admin always has full access
     if (!permissions) return true; // Default to true while loading
     const perm = permissions.find(p => p.menu_key === menuKey);
-    return perm?.can_access ?? false;
+    if (!perm) return role === 'admin'; // Admin: true for unconfigured menus
+    return perm.can_access;
   };
 
   const canAccessAny = (menuKeys: string[]): boolean => {
