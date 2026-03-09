@@ -245,14 +245,14 @@ export function useOfflineChecklist() {
     
     await updatePendingCount();
 
-    if (navigator.onLine) {
+    if (isOnline) {
       debouncedSync();
     } else {
       setSyncStatus("offline");
     }
 
     return true;
-  }, [debouncedSync, updatePendingCount]);
+  }, [isOnline, debouncedSync, updatePendingCount]);
 
   // Toggle nonconformity with offline support
   const toggleNonconformity = useCallback(async (
