@@ -81,8 +81,10 @@ export function useOfflineSync() {
           const result = await supabase.from("produtos_quimicos").select("*").eq("ativo", true);
           if (result.error) throw result.error;
           data = result.data;
-          await offlineDb.produtos_quimicos.clear();
-          await offlineDb.produtos_quimicos.bulkPut(data || []);
+          if (data?.length) {
+            await offlineDb.produtos_quimicos.clear();
+            await offlineDb.produtos_quimicos.bulkPut(data);
+          }
           break;
         }
         case "visitas": {
