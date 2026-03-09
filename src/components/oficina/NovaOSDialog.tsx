@@ -115,8 +115,7 @@ export function NovaOSDialog({ open, onOpenChange, onSuccess }: NovaOSDialogProp
     queryFn: async () => {
       const { data, error } = await supabase
         .from('clientes')
-        .select('id, nome, fazenda, cod_imilk')
-        .eq('status', 'ativo')
+        .select('id, nome, fazenda, cod_imilk, status')
         .order('nome');
       if (error) throw error;
       return data as Cliente[];
