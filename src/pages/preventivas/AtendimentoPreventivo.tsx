@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useOfflineQuery } from '@/hooks/useOfflineQuery';
+import { offlineDb } from '@/lib/offline-db';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -18,7 +20,8 @@ import {
   AlertTriangle,
   Share2,
   User,
-  FileText
+  FileText,
+  WifiOff
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -58,7 +61,7 @@ export default function AtendimentoPreventivo() {
   const isAdminOrCoordinator = role === 'admin' || role === 'coordenador_servicos';
 
   // Fetch route item details
-  const { data: routeItem, isLoading, refetch } = useQuery({
+  const { data: routeItem, isLoading, isOfflineData, refetchOffline } = useOfflineQuery({
     queryKey: ['route-item-attendance', itemId],
     queryFn: async () => {
       const { data: item, error } = await supabase
@@ -147,6 +150,48 @@ export default function AtendimentoPreventivo() {
       };
     },
     enabled: !!itemId,
+    offlineFn: async () => {
+      // Fallback: build data from Dexie cached tables
+      const item = await offlineDb.rota_items.get(itemId!);
+      if (!item) return null;
+
+      const route = await offlineDb.rotas.get(item.route_id);
+      const client = await offlineDb.clientes.get(item.client_id);
+
+      // Try to find preventive from Dexie
+      const allPreventivas = await offlineDb.preventivas
+        .filter(p => p.client_id === item.client_id && p.route_id === item.route_id)
+        .first();
+
+      return {
+        id: item.id,
+        client_id: item.client_id,
+        status: item.status,
+        checkin_at: item.checkin_at,
+        checkin_lat: item.checkin_lat,
+        checkin_lon: item.checkin_lon,
+        order_index: item.order_index,
+        route_id: item.route_id,
+        route: route ? {
+          id: route.id,
+          route_code: route.route_code,
+          start_date: route.start_date,
+          field_technician_user_id: route.field_technician_user_id,
+          checklist_template_id: route.checklist_template_id,
+        } : null,
+        client: client ? {
+          id: client.id,
+          nome: client.nome,
+          fazenda: client.fazenda,
+          cidade: client.cidade,
+          estado: client.estado,
+        } : null,
+        preventiveId: allPreventivas?.id || null,
+        internalNotes: allPreventivas?.internal_notes || null,
+        publicNotes: allPreventivas?.public_notes || null,
+        publicToken: allPreventivas?.public_token || null,
+      };
+    },
   });
 
   // Complete attendance mutation (Encerrar Visita)
@@ -453,6 +498,12 @@ export default function AtendimentoPreventivo() {
               Voltar
             </Link>
           </Button>
+          {isOfflineData && (
+            <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-500/20">
+              <WifiOff className="h-3 w-3 mr-1" />
+              Offline
+            </Badge>
+          )}
           {isVisitCompleted && (
             <Badge
               variant="outline"
@@ -501,7 +552,7 @@ export default function AtendimentoPreventivo() {
           onStatusChange={(status) => {
             setChecklistStatus(status);
             if (status === 'completed') {
-              refetch(); // Refresh data
+              refetchOffline(); // Refresh data
             }
           }}
         />
@@ -642,16 +693,21 @@ export default function AtendimentoPreventivo() {
           <div className="max-w-2xl mx-auto">
             <Button 
               onClick={handleEncerrarClick}
-              disabled={!canFinishVisit || completeMutation.isPending}
+              disabled={!canFinishVisit || completeMutation.isPending || isOfflineData}
               className="w-full"
               size="lg"
             >
               <LogOut className="h-4 w-4 mr-2" />
               Encerrar Visita
             </Button>
-            {!canFinishVisit && (
+            {!canFinishVisit && !isOfflineData && (
               <p className="text-xs text-muted-foreground text-center mt-2">
                 Conclua o checklist para encerrar a visita
+              </p>
+            )}
+            {isOfflineData && (
+              <p className="text-xs text-muted-foreground text-center mt-2">
+                Encerrar visita requer conexão com a internet
               </p>
             )}
           </div>

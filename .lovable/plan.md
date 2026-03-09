@@ -1,30 +1,19 @@
 
 
-## Corrigir "Atendimento não encontrado" offline
+## Corrigir alinhamento do conteudo nos cards de resumo
 
 ### Problema
-A página `AtendimentoPreventivo.tsx` usa `useQuery` padrão (Supabase) sem fallback offline. Quando o técnico clica "Continuar" offline, a query falha e exibe "Atendimento não encontrado".
+O conteudo (numero + label) dentro dos cards de resumo esta visualmente deslocado para a direita. Isso ocorre porque o componente `CardContent` aplica `p-6` (24px) de padding horizontal por padrao, o que em cards estreitos empurra o conteudo para fora do centro visual.
 
-### Causa raiz
-- `ExecucaoRota.tsx` já usa `useOfflineQuery` com fallback Dexie — funciona offline
-- `AtendimentoPreventivo.tsx` usa `useQuery` direto — falha offline
-- A query faz 4 chamadas Supabase (route_item, route, client, preventive_maintenance) — todas falham sem rede
+### Solucao
 
-### Solução
-Converter a query principal de `AtendimentoPreventivo.tsx` para usar `useOfflineQuery`, com fallback que monta os dados a partir do Dexie (tabelas `rota_items`, `rotas`, `clientes` já cacheadas pelo sync).
+**Arquivo: `src/pages/crm/CrmPipeline.tsx`**
 
-**Mudanças em `src/pages/preventivas/AtendimentoPreventivo.tsx`:**
+Adicionar `px-2` ao `CardContent` dos cards de resumo para reduzir o padding horizontal, centralizando melhor o conteudo:
 
-1. Importar `useOfflineQuery` e `offlineDb`
-2. Substituir `useQuery` por `useOfflineQuery` com `offlineFn` que:
-   - Busca o item no Dexie (`rota_items`)
-   - Busca a rota no Dexie (`rotas`)
-   - Busca o cliente no Dexie (`clientes`)
-   - Monta o objeto de retorno com os dados disponíveis localmente
-   - Para `preventiveId`, tenta buscar do Dexie ou retorna null (será criado quando voltar online)
-3. Adicionar badge "Offline" no header quando offline
-4. Desabilitar "Encerrar Visita" quando offline (requer múltiplas operações server-side)
+```tsx
+<CardContent className="py-2 px-2 text-center">
+```
 
-**Mudanças em `src/lib/offline-db.ts`** (se necessário):
-- Verificar se a tabela `clientes` já está cacheada no Dexie — provavelmente sim pelo sync existente
+Isso substitui o `p-6` padrao do componente por um padding horizontal menor, mantendo o texto centralizado visualmente dentro do card.
 
