@@ -361,6 +361,7 @@ export default function AdminConfig() {
         descricao: data.descricao,
         omie_codigo: data.omie_codigo,
         is_asset: data.is_asset,
+        familia: data.familia || 'RumiFlow',
       } as any).eq('id', data.id);
       if (error) throw error;
     },
