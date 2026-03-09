@@ -498,6 +498,12 @@ export default function AtendimentoPreventivo() {
               Voltar
             </Link>
           </Button>
+          {isOfflineData && (
+            <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-500/20">
+              <WifiOff className="h-3 w-3 mr-1" />
+              Offline
+            </Badge>
+          )}
           {isVisitCompleted && (
             <Badge
               variant="outline"
