@@ -809,7 +809,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
   });
 
   // Show loading while fetching or auto-creating checklist
-  if (loadingChecklist || (routeTemplateId && !existingChecklist && (autoStartState === 'pending' || createChecklistMutation.isPending))) {
+  if (loadingChecklist || (routeTemplateId && !existingChecklist && isChecklistOnline && (autoStartState === 'pending' || createChecklistMutation.isPending))) {
     return (
       <Card>
         <CardContent className="p-6">
@@ -817,6 +817,22 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
             <Loader2 className="h-6 w-6 animate-spin text-primary" />
             <p className="text-sm text-muted-foreground">
               {createChecklistMutation.isPending ? 'Iniciando checklist...' : 'Carregando...'}
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Offline and no cached checklist available
+  if (!isChecklistOnline && !existingChecklist && !loadingChecklist) {
+    return (
+      <Card>
+        <CardContent className="p-6">
+          <div className="flex flex-col items-center justify-center gap-3">
+            <WifiOff className="h-6 w-6 text-muted-foreground" />
+            <p className="text-sm text-muted-foreground">
+              Checklist não disponível offline. Conecte-se à internet para iniciar o checklist.
             </p>
           </div>
         </CardContent>
