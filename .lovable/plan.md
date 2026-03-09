@@ -1,38 +1,19 @@
 
 
-## Corrigir check-in travado quando offline
+## Corrigir alinhamento do conteudo nos cards de resumo
 
-### Causa raiz
-O `checkinMutation` usa `navigator.onLine` para decidir entre Supabase e Dexie. Porém, `navigator.onLine` pode retornar `true` mesmo sem conectividade real (ex: modo avião recente, Wi-Fi sem internet). Quando isso acontece, a requisição ao Supabase fica pendurada indefinidamente — sem timeout — e o botão fica travado em "Salvando...".
+### Problema
+O conteudo (numero + label) dentro dos cards de resumo esta visualmente deslocado para a direita. Isso ocorre porque o componente `CardContent` aplica `p-6` (24px) de padding horizontal por padrao, o que em cards estreitos empurra o conteudo para fora do centro visual.
 
-O mesmo problema existe no `cancelMutation`.
+### Solucao
 
-### Solução
-Envolver a chamada Supabase em um **timeout** (ex: 8 segundos). Se a requisição exceder o timeout, **fazer fallback automático para o caminho offline (Dexie)**, garantindo que o usuário nunca fique travado.
+**Arquivo: `src/pages/crm/CrmPipeline.tsx`**
 
-### Mudanças em `src/pages/preventivas/ExecucaoRota.tsx`
+Adicionar `px-2` ao `CardContent` dos cards de resumo para reduzir o padding horizontal, centralizando melhor o conteudo:
 
-1. Criar helper `withTimeout` que rejeita uma Promise após N segundos
-2. No `checkinMutation.mutationFn`:
-   - Tentar o caminho online com timeout
-   - No `catch`, se for erro de rede/timeout, executar o caminho offline (Dexie + sync queue) como fallback
-3. Aplicar a mesma lógica no `cancelMutation.mutationFn`
-4. Mostrar toast informando que os dados foram salvos localmente quando usar o fallback
-
-```text
-Fluxo atual:
-  navigator.onLine? ──yes──> Supabase (pode travar)
-                     ──no───> Dexie ✓
-
-Fluxo corrigido:
-  navigator.onLine? ──yes──> Supabase + timeout 8s
-                              ──success──> ✓
-                              ──timeout/err──> Dexie (fallback) ✓
-                     ──no───> Dexie ✓
+```tsx
+<CardContent className="py-2 px-2 text-center">
 ```
 
-Extrair a lógica Dexie em funções reutilizáveis (`checkinOffline`, `cancelOffline`) para evitar duplicação entre o caminho `!navigator.onLine` e o catch de fallback.
-
-### Arquivos
-- `src/pages/preventivas/ExecucaoRota.tsx` — refatorar `checkinMutation` e `cancelMutation`
+Isso substitui o `p-6` padrao do componente por um padding horizontal menor, mantendo o texto centralizado visualmente dentro do card.
 

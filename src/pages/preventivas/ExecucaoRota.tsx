@@ -29,6 +29,25 @@ import { CancelarVisitaDialog } from '@/components/preventivas/CancelarVisitaDia
 import { useOfflineQuery } from '@/hooks/useOfflineQuery';
 import { offlineDb } from '@/lib/offline-db';
 
+const ONLINE_TIMEOUT_MS = 8000;
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('__timeout__')), ms);
+    promise.then(
+      (v) => { clearTimeout(timer); resolve(v); },
+      (e) => { clearTimeout(timer); reject(e); },
+    );
+  });
+}
+
+function isNetworkError(err: unknown): boolean {
+  if (err instanceof Error) {
+    return err.message === '__timeout__' || err.message.includes('fetch') || err.message.includes('network') || err.message.includes('Failed to fetch');
+  }
+  return false;
+}
+
 const routeStatusConfig = {
   planejada: { label: 'Planejada', color: 'bg-blue-500/10 text-blue-600 border-blue-500/20' },
   em_execucao: { label: 'Em Execução', color: 'bg-warning/10 text-warning border-warning/20' },
@@ -186,49 +205,68 @@ export default function ExecucaoRota() {
 
   const isOffline = isRouteOffline || isItemsOffline;
 
+  // Offline helper for checkin
+  const checkinOffline = async (itemId: string, lat: number | null, lon: number | null, now: string) => {
+    await offlineDb.rota_items.update(itemId, {
+      checkin_at: now,
+      checkin_lat: lat,
+      checkin_lon: lon,
+    });
+    await offlineDb.addToSyncQueue('preventive_route_items', 'update', {
+      id: itemId,
+      checkin_at: now,
+      checkin_lat: lat,
+      checkin_lon: lon,
+    });
+    if (route?.status === 'planejada') {
+      await offlineDb.rotas.update(id!, { status: 'em_execucao' });
+      await offlineDb.addToSyncQueue('preventive_routes', 'update', {
+        id: id,
+        status: 'em_execucao',
+      });
+    }
+  };
+
   const checkinMutation = useMutation({
     mutationFn: async ({ itemId, lat, lon }: { itemId: string; lat: number | null; lon: number | null }) => {
       const now = new Date().toISOString();
 
       if (!navigator.onLine) {
-        // Offline: update Dexie locally and queue for sync
-        await offlineDb.rota_items.update(itemId, {
-          checkin_at: now,
-          checkin_lat: lat,
-          checkin_lon: lon,
-        });
-        await offlineDb.addToSyncQueue('preventive_route_items', 'update', {
-          id: itemId,
-          checkin_at: now,
-          checkin_lat: lat,
-          checkin_lon: lon,
-        });
-        if (route?.status === 'planejada') {
-          await offlineDb.rotas.update(id!, { status: 'em_execucao' });
-          await offlineDb.addToSyncQueue('preventive_routes', 'update', {
-            id: id,
-            status: 'em_execucao',
-          });
-        }
+        await checkinOffline(itemId, lat, lon, now);
         return;
       }
 
-      const { error } = await supabase
-        .from('preventive_route_items')
-        .update({
-          checkin_at: now,
-          checkin_lat: lat,
-          checkin_lon: lon,
-        } as any)
-        .eq('id', itemId);
+      try {
+        const updatePromise = (async () => {
+          const { error } = await supabase
+            .from('preventive_route_items')
+            .update({
+              checkin_at: now,
+              checkin_lat: lat,
+              checkin_lon: lon,
+            } as any)
+            .eq('id', itemId);
+          if (error) throw error;
 
-      if (error) throw error;
+          if (route?.status === 'planejada') {
+            await supabase
+              .from('preventive_routes')
+              .update({ status: 'em_execucao' })
+              .eq('id', id);
+          }
+        })();
 
-      if (route?.status === 'planejada') {
-        await supabase
-          .from('preventive_routes')
-          .update({ status: 'em_execucao' })
-          .eq('id', id);
+        await withTimeout(updatePromise, ONLINE_TIMEOUT_MS);
+      } catch (err) {
+        if (isNetworkError(err)) {
+          await checkinOffline(itemId, lat, lon, now);
+          toast({
+            title: 'Salvo localmente',
+            description: 'Sem conexão — o check-in será sincronizado automaticamente.',
+          });
+          return;
+        }
+        throw err;
       }
     },
     onSuccess: () => {
@@ -249,78 +287,93 @@ export default function ExecucaoRota() {
     },
   });
 
+  // Offline helper for cancel
+  const cancelOffline = async (itemId: string, clientId: string, justification: string) => {
+    await offlineDb.rota_items.update(itemId, { status: 'cancelado' });
+    await offlineDb.addToSyncQueue('preventive_route_items', 'update', {
+      id: itemId,
+      status: 'cancelado',
+    });
+    await offlineDb.addToSyncQueue('preventive_maintenance_cancel', 'insert', {
+      client_id: clientId,
+      route_id: id,
+      scheduled_date: route?.start_date || new Date().toISOString().split('T')[0],
+      status: 'cancelada',
+      notes: justification,
+      technician_user_id: route?.field_technician_user_id,
+    });
+  };
+
   // Cancel visit mutation
   const cancelMutation = useMutation({
     mutationFn: async ({ itemId, clientId, justification }: { itemId: string; clientId: string; justification: string }) => {
       if (!navigator.onLine) {
-        // Offline: update Dexie locally and queue for sync
-        await offlineDb.rota_items.update(itemId, { status: 'cancelado' });
-        await offlineDb.addToSyncQueue('preventive_route_items', 'update', {
-          id: itemId,
-          status: 'cancelado',
-        });
-        // Queue the preventive_maintenance cancellation for later sync
-        await offlineDb.addToSyncQueue('preventive_maintenance_cancel', 'insert', {
-          client_id: clientId,
-          route_id: id,
-          scheduled_date: route?.start_date || new Date().toISOString().split('T')[0],
-          status: 'cancelada',
-          notes: justification,
-          technician_user_id: route?.field_technician_user_id,
-        });
+        await cancelOffline(itemId, clientId, justification);
         return;
       }
 
-      // Update route item to cancelado
-      const { error: itemError } = await supabase
-        .from('preventive_route_items')
-        .update({ status: 'cancelado' } as any)
-        .eq('id', itemId);
+      try {
+        const cancelPromise = (async () => {
+          const { error: itemError } = await supabase
+            .from('preventive_route_items')
+            .update({ status: 'cancelado' } as any)
+            .eq('id', itemId);
+          if (itemError) throw itemError;
 
-      if (itemError) throw itemError;
+          const { data: existingMaint } = await supabase
+            .from('preventive_maintenance')
+            .select('id')
+            .eq('client_id', clientId)
+            .eq('route_id', id)
+            .maybeSingle();
 
-      // Update or create preventive_maintenance with status cancelada
-      const { data: existingMaint } = await supabase
-        .from('preventive_maintenance')
-        .select('id')
-        .eq('client_id', clientId)
-        .eq('route_id', id)
-        .maybeSingle();
+          if (existingMaint) {
+            await supabase
+              .from('preventive_maintenance')
+              .update({ 
+                status: 'cancelada',
+                notes: justification,
+                updated_at: new Date().toISOString()
+              })
+              .eq('id', existingMaint.id);
+          } else {
+            await supabase
+              .from('preventive_maintenance')
+              .insert({
+                client_id: clientId,
+                route_id: id,
+                scheduled_date: route?.start_date || new Date().toISOString().split('T')[0],
+                status: 'cancelada',
+                notes: justification,
+                technician_user_id: route?.field_technician_user_id
+              });
+          }
 
-      if (existingMaint) {
-        await supabase
-          .from('preventive_maintenance')
-          .update({ 
-            status: 'cancelada',
-            notes: justification,
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', existingMaint.id);
-      } else {
-        await supabase
-          .from('preventive_maintenance')
-          .insert({
-            client_id: clientId,
-            route_id: id,
-            scheduled_date: route?.start_date || new Date().toISOString().split('T')[0],
-            status: 'cancelada',
-            notes: justification,
-            technician_user_id: route?.field_technician_user_id
+          const { data: allItems } = await supabase
+            .from('preventive_route_items')
+            .select('status')
+            .eq('route_id', id);
+
+          const allDone = allItems?.every(i => i.status === 'executado' || i.status === 'cancelado');
+          if (allDone && allItems && allItems.length > 0) {
+            await supabase
+              .from('preventive_routes')
+              .update({ status: 'finalizada' })
+              .eq('id', id);
+          }
+        })();
+
+        await withTimeout(cancelPromise, ONLINE_TIMEOUT_MS);
+      } catch (err) {
+        if (isNetworkError(err)) {
+          await cancelOffline(itemId, clientId, justification);
+          toast({
+            title: 'Salvo localmente',
+            description: 'Sem conexão — o cancelamento será sincronizado automaticamente.',
           });
-      }
-
-      // Check if all items are completed or cancelled -> finalize route
-      const { data: allItems } = await supabase
-        .from('preventive_route_items')
-        .select('status')
-        .eq('route_id', id);
-
-      const allDone = allItems?.every(i => i.status === 'executado' || i.status === 'cancelado');
-      if (allDone && allItems && allItems.length > 0) {
-        await supabase
-          .from('preventive_routes')
-          .update({ status: 'finalizada' })
-          .eq('id', id);
+          return;
+        }
+        throw err;
       }
     },
     onSuccess: () => {
