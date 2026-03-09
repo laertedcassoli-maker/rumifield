@@ -114,6 +114,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
+    localStorage.removeItem('cached_profile');
+    localStorage.removeItem('cached_role');
     await supabase.auth.signOut();
   };
 
