@@ -181,8 +181,6 @@ export function useOfflineSync() {
             
             await offlineDb.preventivas.clear();
             await offlineDb.preventivas.bulkPut(enriched as any);
-          } else {
-            await offlineDb.preventivas.clear();
           }
           break;
         }
