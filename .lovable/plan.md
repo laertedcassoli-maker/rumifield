@@ -1,19 +1,29 @@
 
 
-## Corrigir alinhamento do conteudo nos cards de resumo
+## Permitir que qualquer usuário com acesso ao módulo de OS possa editar
 
 ### Problema
-O conteudo (numero + label) dentro dos cards de resumo esta visualmente deslocado para a direita. Isso ocorre porque o componente `CardContent` aplica `p-6` (24px) de padding horizontal por padrao, o que em cards estreitos empurra o conteudo para fora do centro visual.
+A política RLS de UPDATE em `work_orders` permite apenas `assigned_to_user_id` ou admin/coordenador. Técnicos de oficina (`tecnico_oficina`) não conseguem atualizar OS que não estejam atribuídas a eles — causando falhas silenciosas (como o caso da OS-2026-00014).
 
-### Solucao
+### Solução
+Atualizar a política RLS de UPDATE para incluir `created_by_user_id` e o role `tecnico_oficina`:
 
-**Arquivo: `src/pages/crm/CrmPipeline.tsx`**
-
-Adicionar `px-2` ao `CardContent` dos cards de resumo para reduzir o padding horizontal, centralizando melhor o conteudo:
-
-```tsx
-<CardContent className="py-2 px-2 text-center">
+```sql
+DROP POLICY "Users can update assigned work_orders" ON work_orders;
+CREATE POLICY "Users can update assigned work_orders" ON work_orders
+  FOR UPDATE TO authenticated
+  USING (
+    auth.uid() = assigned_to_user_id 
+    OR auth.uid() = created_by_user_id
+    OR is_admin_or_coordinator(auth.uid())
+    OR public.has_role(auth.uid(), 'tecnico_oficina')
+  );
 ```
 
-Isso substitui o `p-6` padrao do componente por um padding horizontal menor, mantendo o texto centralizado visualmente dentro do card.
+### Correção de dados — OS-2026-00014
+Atualizar status para `em_manutencao` e `total_time_seconds` para 1398 (sessão finalizada do Bruno).
+
+### Arquivos
+- Migration SQL (RLS policy)
+- Insert tool (correção de dados)
 
