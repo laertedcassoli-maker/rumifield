@@ -214,7 +214,7 @@ export function useOfflineChecklist() {
     await offlineChecklistDb.updateItemLocally(itemId, fullUpdates);
     await updatePendingCount();
 
-    if (navigator.onLine) {
+    if (isOnline) {
       // Try to sync immediately
       debouncedSync();
       return true;
