@@ -1,19 +1,34 @@
 
 
-## Corrigir alinhamento do conteudo nos cards de resumo
+## Limpeza de Dados de Teste
 
-### Problema
-O conteudo (numero + label) dentro dos cards de resumo esta visualmente deslocado para a direita. Isso ocorre porque o componente `CardContent` aplica `p-6` (24px) de padding horizontal por padrao, o que em cards estreitos empurra o conteudo para fora do centro visual.
+Dados encontrados para exclusão:
 
-### Solucao
+| Tabela | Registros |
+|--------|-----------|
+| workshop_items | 21 |
+| work_orders | 20 |
+| work_order_items | 18 |
+| work_order_parts_used | 20 |
+| work_order_time_entries | 37 |
+| motor_replacement_history | 7 |
+| asset_meter_readings | 19 |
+| warranty_batches | 2 |
+| warranty_requests | 3 |
 
-**Arquivo: `src/pages/crm/CrmPipeline.tsx`**
+## Plano
 
-Adicionar `px-2` ao `CardContent` dos cards de resumo para reduzir o padding horizontal, centralizando melhor o conteudo:
+Executar DELETEs na ordem correta (tabelas dependentes primeiro) usando a ferramenta de inserção de dados:
 
-```tsx
-<CardContent className="py-2 px-2 text-center">
-```
+1. `warranty_requests` (referencia warranty_batches, motor_replacement_history, work_orders, workshop_items)
+2. `motor_replacement_history` (referencia workshop_items, work_orders, warranty_batches)
+3. `warranty_batches`
+4. `work_order_time_entries` (referencia work_orders)
+5. `work_order_parts_used` (referencia work_orders)
+6. `work_order_items` (referencia work_orders, workshop_items)
+7. `asset_meter_readings` (referencia workshop_items)
+8. `work_orders`
+9. `workshop_items`
 
-Isso substitui o `p-6` padrao do componente por um padding horizontal menor, mantendo o texto centralizado visualmente dentro do card.
+Todos os registros serão removidos permanentemente. Nenhuma alteração de código necessária.
 
