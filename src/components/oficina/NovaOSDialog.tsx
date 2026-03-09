@@ -43,6 +43,7 @@ interface Cliente {
   nome: string;
   fazenda: string | null;
   cod_imilk: string | null;
+  status: string;
 }
 
 interface NovaOSDialogProps {
