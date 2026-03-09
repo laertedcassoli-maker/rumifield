@@ -18,13 +18,16 @@ import {
   Navigation,
   AlertCircle,
   Share2,
-  XCircle
+  XCircle,
+  WifiOff
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
 import { CheckinDialog } from '@/components/preventivas/CheckinDialog';
 import { CancelarVisitaDialog } from '@/components/preventivas/CancelarVisitaDialog';
+import { useOfflineQuery } from '@/hooks/useOfflineQuery';
+import { offlineDb } from '@/lib/offline-db';
 
 const routeStatusConfig = {
   planejada: { label: 'Planejada', color: 'bg-blue-500/10 text-blue-600 border-blue-500/20' },
@@ -76,7 +79,7 @@ export default function ExecucaoRota() {
 
   const isAdminOrCoordinator = role === 'admin' || role === 'coordenador_servicos';
 
-  const { data: route, isLoading: routeLoading } = useQuery({
+  const { data: route, isLoading: routeLoading, isOfflineData: isRouteOffline } = useOfflineQuery({
     queryKey: ['route-execution', id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -88,10 +91,23 @@ export default function ExecucaoRota() {
       if (error) throw error;
       return data;
     },
+    offlineFn: async () => {
+      const rota = await offlineDb.rotas.get(id!);
+      if (!rota) return null;
+      return {
+        id: rota.id,
+        route_code: rota.route_code,
+        start_date: rota.start_date,
+        end_date: rota.end_date,
+        status: rota.status,
+        field_technician_user_id: rota.field_technician_user_id,
+        notes: rota.notes,
+      };
+    },
     enabled: !!id,
   });
 
-  const { data: items, isLoading: itemsLoading } = useQuery<RouteItem[]>({
+  const { data: items, isLoading: itemsLoading, isOfflineData: isItemsOffline } = useOfflineQuery<RouteItem[]>({
     queryKey: ['route-execution-items', id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -134,15 +150,73 @@ export default function ExecucaoRota() {
         };
       });
     },
+    offlineFn: async () => {
+      const rotaItems = await offlineDb.rota_items
+        .filter(i => i.route_id === id!)
+        .sortBy('order_index');
+
+      if (!rotaItems.length) return [];
+
+      const allClients = await offlineDb.clientes.toArray();
+      const clientsMap = new Map(allClients.map(c => [c.id, c]));
+
+      return rotaItems.map(item => {
+        const client = clientsMap.get(item.client_id);
+        return {
+          id: item.id,
+          client_id: item.client_id,
+          client_name: client?.nome || item.client_name || 'Cliente desconhecido',
+          client_fazenda: client?.fazenda || item.client_fazenda || null,
+          client_cidade: client?.cidade || item.client_cidade || null,
+          client_estado: client?.estado || item.client_estado || null,
+          client_link_maps: client?.link_maps || item.client_link_maps || null,
+          client_latitude: client?.latitude ?? item.client_lat ?? null,
+          client_longitude: client?.longitude ?? item.client_lon ?? null,
+          status: item.status,
+          checkin_at: item.checkin_at || null,
+          checkin_lat: item.checkin_lat ?? null,
+          checkin_lon: item.checkin_lon ?? null,
+          order_index: item.order_index || 0,
+          public_token: null, // Not available offline
+        };
+      });
+    },
     enabled: !!id,
   });
 
+  const isOffline = isRouteOffline || isItemsOffline;
+
   const checkinMutation = useMutation({
     mutationFn: async ({ itemId, lat, lon }: { itemId: string; lat: number | null; lon: number | null }) => {
+      const now = new Date().toISOString();
+
+      if (!navigator.onLine) {
+        // Offline: update Dexie locally and queue for sync
+        await offlineDb.rota_items.update(itemId, {
+          checkin_at: now,
+          checkin_lat: lat,
+          checkin_lon: lon,
+        });
+        await offlineDb.addToSyncQueue('preventive_route_items', 'update', {
+          id: itemId,
+          checkin_at: now,
+          checkin_lat: lat,
+          checkin_lon: lon,
+        });
+        if (route?.status === 'planejada') {
+          await offlineDb.rotas.update(id!, { status: 'em_execucao' });
+          await offlineDb.addToSyncQueue('preventive_routes', 'update', {
+            id: id,
+            status: 'em_execucao',
+          });
+        }
+        return;
+      }
+
       const { error } = await supabase
         .from('preventive_route_items')
         .update({
-          checkin_at: new Date().toISOString(),
+          checkin_at: now,
           checkin_lat: lat,
           checkin_lon: lon,
         } as any)
@@ -178,6 +252,25 @@ export default function ExecucaoRota() {
   // Cancel visit mutation
   const cancelMutation = useMutation({
     mutationFn: async ({ itemId, clientId, justification }: { itemId: string; clientId: string; justification: string }) => {
+      if (!navigator.onLine) {
+        // Offline: update Dexie locally and queue for sync
+        await offlineDb.rota_items.update(itemId, { status: 'cancelado' });
+        await offlineDb.addToSyncQueue('preventive_route_items', 'update', {
+          id: itemId,
+          status: 'cancelado',
+        });
+        // Queue the preventive_maintenance cancellation for later sync
+        await offlineDb.addToSyncQueue('preventive_maintenance_cancel', 'insert', {
+          client_id: clientId,
+          route_id: id,
+          scheduled_date: route?.start_date || new Date().toISOString().split('T')[0],
+          status: 'cancelada',
+          notes: justification,
+          technician_user_id: route?.field_technician_user_id,
+        });
+        return;
+      }
+
       // Update route item to cancelado
       const { error: itemError } = await supabase
         .from('preventive_route_items')
@@ -317,6 +410,12 @@ export default function ExecucaoRota() {
               {statusConfig && (
                 <Badge variant="outline" className={`${statusConfig.color} shrink-0 text-xs`}>
                   {statusConfig.label}
+                </Badge>
+              )}
+              {isOffline && (
+                <Badge variant="outline" className="gap-1 text-xs bg-amber-500/10 text-amber-600 border-amber-500/20 shrink-0">
+                  <WifiOff className="h-3 w-3" />
+                  Offline
                 </Badge>
               )}
             </div>

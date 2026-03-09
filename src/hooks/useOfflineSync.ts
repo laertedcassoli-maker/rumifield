@@ -303,8 +303,8 @@ export function useOfflineSync() {
           if (result.data?.length) {
             const clientIds = [...new Set(result.data.map(i => i.client_id))];
             
-            const clientsRes = await supabase.from("clientes").select("id, nome, fazenda, latitude, longitude").in("id", clientIds);
-            const clientsMap = new Map<string, { id: string; nome: string; fazenda: string | null; latitude: number | null; longitude: number | null }>(
+            const clientsRes = await supabase.from("clientes").select("id, nome, fazenda, latitude, longitude, cidade, estado, link_maps").in("id", clientIds);
+            const clientsMap = new Map<string, { id: string; nome: string; fazenda: string | null; latitude: number | null; longitude: number | null; cidade: string | null; estado: string | null; link_maps: string | null }>(
               (clientsRes.data || []).map(c => [c.id, c])
             );
             
@@ -314,6 +314,9 @@ export function useOfflineSync() {
               client_fazenda: clientsMap.get(i.client_id)?.fazenda || null,
               client_lat: clientsMap.get(i.client_id)?.latitude || null,
               client_lon: clientsMap.get(i.client_id)?.longitude || null,
+              client_cidade: clientsMap.get(i.client_id)?.cidade || null,
+              client_estado: clientsMap.get(i.client_id)?.estado || null,
+              client_link_maps: clientsMap.get(i.client_id)?.link_maps || null,
             }));
             
             await offlineDb.rota_items.clear();
@@ -411,6 +414,17 @@ export function useOfflineSync() {
         } else if (tableName === "pedidos") {
           const result = await supabase.from("pedidos").update(cleanData as never).eq("id", id);
           if (result.error) throw result.error;
+        } else if (tableName === "preventive_route_items") {
+          const result = await supabase.from("preventive_route_items").update(cleanData as never).eq("id", id);
+          if (result.error) {
+            // Treat duplicate key as success
+            if ((result.error as any).code !== '23505') throw result.error;
+          }
+        } else if (tableName === "preventive_routes") {
+          const result = await supabase.from("preventive_routes").update(cleanData as never).eq("id", id);
+          if (result.error) {
+            if ((result.error as any).code !== '23505') throw result.error;
+          }
         }
         break;
       }
@@ -428,6 +442,39 @@ export function useOfflineSync() {
           if (result.error) throw result.error;
         }
         break;
+      }
+    }
+
+    // Handle special composite operations
+    if (table === "preventive_maintenance_cancel" && operation === "insert") {
+      const { client_id, route_id, scheduled_date, status, notes, technician_user_id } = data;
+      
+      const { data: existingMaint } = await supabase
+        .from("preventive_maintenance")
+        .select("id")
+        .eq("client_id", client_id as string)
+        .eq("route_id", route_id as string)
+        .maybeSingle();
+
+      if (existingMaint) {
+        await supabase
+          .from("preventive_maintenance")
+          .update({ status, notes, updated_at: new Date().toISOString() })
+          .eq("id", existingMaint.id);
+      } else {
+        const insertResult = await supabase
+          .from("preventive_maintenance")
+          .insert({
+            client_id,
+            route_id,
+            scheduled_date,
+            status,
+            notes,
+            technician_user_id,
+          } as never);
+        if (insertResult.error && (insertResult.error as any).code !== '23505') {
+          throw insertResult.error;
+        }
       }
     }
   };

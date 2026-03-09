@@ -130,6 +130,9 @@ export interface OfflineRotaItem {
   client_fazenda?: string | null;
   client_lat?: number | null;
   client_lon?: number | null;
+  client_cidade?: string | null;
+  client_estado?: string | null;
+  client_link_maps?: string | null;
 }
 
 export interface OfflinePeca {

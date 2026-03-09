@@ -18,13 +18,16 @@ import {
   Map as MapIcon,
   AlertTriangle,
   Wrench,
-  Plus
+  Plus,
+  WifiOff
 } from 'lucide-react';
 import NovaVisitaDiretaDialog from '@/components/chamados/NovaVisitaDiretaDialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { format, isToday, isThisWeek, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Link } from 'react-router-dom';
+import { useOfflineQuery } from '@/hooks/useOfflineQuery';
+import { offlineDb } from '@/lib/offline-db';
 
 // Preventive route statuses
 const preventiveStatusConfig = {
@@ -146,11 +149,9 @@ export default function MinhasRotas() {
     enabled: isAdminOrCoordinator,
   });
 
-  // Fetch preventive routes
-  const { data: preventiveRoutes, isLoading: isLoadingPreventive } = useQuery<PreventiveRoute[]>({
+  // Fetch preventive routes with offline fallback
+  const { data: preventiveRoutes, isLoading: isLoadingPreventive, isOfflineData: isPreventiveOffline } = useOfflineQuery<PreventiveRoute[]>({
     queryKey: ['my-preventive-routes', user?.id, isAdminOrCoordinator],
-    refetchInterval: 30000,
-    refetchOnWindowFocus: true,
     queryFn: async () => {
       if (!user?.id) return [];
 
@@ -243,11 +244,51 @@ export default function MinhasRotas() {
         farm_coordinates: countMap.get(route.id)?.coordinates || [],
       }));
     },
+    offlineFn: async () => {
+      // Load from Dexie
+      let rotas = await offlineDb.rotas.toArray();
+      if (!isAdminOrCoordinator && user?.id) {
+        rotas = rotas.filter(r => r.field_technician_user_id === user.id);
+      }
+      rotas = rotas.filter(r => ['planejada', 'em_execucao', 'finalizada'].includes(r.status));
+
+      const allItems = await offlineDb.rota_items.toArray();
+      const allClients = await offlineDb.clientes.toArray();
+      const clientsMap = new Map(allClients.map(c => [c.id, c]));
+
+      return rotas.map(r => {
+        const routeItems = allItems.filter(i => i.route_id === r.id).sort((a, b) => (a.order_index || 0) - (b.order_index || 0));
+        const executed = routeItems.filter(i => i.status === 'executado').length;
+        const coordinates: Array<{ lat: number; lon: number; name: string }> = [];
+        routeItems.forEach(i => {
+          const client = clientsMap.get(i.client_id);
+          if (client?.latitude && client?.longitude) {
+            coordinates.push({ lat: client.latitude, lon: client.longitude, name: client.nome });
+          } else if (i.client_lat && i.client_lon) {
+            coordinates.push({ lat: i.client_lat, lon: i.client_lon, name: i.client_name || 'Cliente' });
+          }
+        });
+
+        return {
+          type: 'preventive' as const,
+          id: r.id,
+          code: r.route_code,
+          start_date: r.start_date,
+          end_date: r.end_date,
+          status: r.status,
+          total_farms: routeItems.length,
+          executed_farms: executed,
+          field_technician_user_id: r.field_technician_user_id,
+          technician_name: r.technician_name || 'Não atribuído',
+          farm_coordinates: coordinates,
+        };
+      });
+    },
     enabled: !!user?.id,
   });
 
-  // Fetch corrective visits
-  const { data: correctiveVisits, isLoading: isLoadingCorrective } = useQuery<CorrectiveVisit[]>({
+  // Fetch corrective visits with offline fallback
+  const { data: correctiveVisits, isLoading: isLoadingCorrective, isOfflineData: isCorrectiveOffline } = useOfflineQuery<CorrectiveVisit[]>({
     queryKey: ['my-corrective-visits', user?.id, isAdminOrCoordinator],
     queryFn: async () => {
       if (!user?.id) return [];
@@ -323,8 +364,40 @@ export default function MinhasRotas() {
         };
       });
     },
+    offlineFn: async () => {
+      let corretivas = await offlineDb.corretivas.toArray();
+      if (!isAdminOrCoordinator && user?.id) {
+        corretivas = corretivas.filter(c => c.field_technician_user_id === user.id);
+      }
+      corretivas = corretivas.filter(c => ['planejada', 'em_elaboracao', 'em_execucao', 'finalizada'].includes(c.status));
+
+      const allClients = await offlineDb.clientes.toArray();
+      const clientsMap = new Map(allClients.map(c => [c.id, c]));
+
+      return corretivas.map(v => {
+        const client = clientsMap.get(v.client_id);
+        return {
+          type: 'corrective' as const,
+          id: v.id,
+          code: v.visit_code || 'CORR-????',
+          scheduled_date: v.planned_start_date || '',
+          status: v.status === 'em_execucao' ? 'em_andamento' : v.status === 'planejada' ? 'agendada' : v.status,
+          ticket_id: v.ticket_id,
+          ticket_code: v.ticket_code || '',
+          client_id: v.client_id,
+          client_name: client?.nome || v.client_name || 'Cliente não encontrado',
+          client_fazenda: client?.fazenda || v.client_fazenda || null,
+          field_technician_user_id: v.field_technician_user_id || '',
+          technician_name: v.technician_name || 'Não atribuído',
+          client_lat: client?.latitude || null,
+          client_lon: client?.longitude || null,
+        };
+      });
+    },
     enabled: !!user?.id,
   });
+
+  const isAnyOffline = isPreventiveOffline || isCorrectiveOffline;
 
   const isLoading = isLoadingPreventive || isLoadingCorrective;
 
@@ -605,9 +678,17 @@ export default function MinhasRotas() {
         {/* Header - Compact on mobile */}
         <div className="flex items-center justify-between gap-4">
           <div>
-            <h1 className="text-xl font-bold">
-              {isAdminOrCoordinator ? 'Rotas em Execução' : 'Minhas Rotas'}
-            </h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl font-bold">
+                {isAdminOrCoordinator ? 'Rotas em Execução' : 'Minhas Rotas'}
+              </h1>
+              {isAnyOffline && (
+                <Badge variant="outline" className="gap-1 text-xs bg-amber-500/10 text-amber-600 border-amber-500/20">
+                  <WifiOff className="h-3 w-3" />
+                  Offline
+                </Badge>
+              )}
+            </div>
             <p className="text-sm text-muted-foreground">
               {isAdminOrCoordinator 
                 ? 'Acompanhe rotas preventivas e visitas corretivas' 
