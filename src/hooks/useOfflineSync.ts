@@ -61,8 +61,10 @@ export function useOfflineSync() {
           const result = await supabase.from("clientes").select("*");
           if (result.error) throw result.error;
           data = result.data;
-          await offlineDb.clientes.clear();
-          await offlineDb.clientes.bulkPut(data || []);
+          if (data?.length) {
+            await offlineDb.clientes.clear();
+            await offlineDb.clientes.bulkPut(data);
+          }
           break;
         }
         case "pecas": {
