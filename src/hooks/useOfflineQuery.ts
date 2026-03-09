@@ -83,5 +83,6 @@ export function useOfflineQuery<TData>({
     isLoading: offlineLoading || (isOnline && query.isLoading),
     isOfflineData,
     isOnline,
+    refetchOffline,
   };
 }
