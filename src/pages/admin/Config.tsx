@@ -499,7 +499,17 @@ export default function AdminConfig() {
     setPecaOpen(true);
   };
 
+  const familias = useMemo(() => {
+    if (!pecas) return ['RumiFlow'];
+    const set = new Set<string>();
+    pecas.forEach(p => { if (p.familia) set.add(p.familia); });
+    if (!set.has('RumiFlow')) set.add('RumiFlow');
+    return Array.from(set).sort();
+  }, [pecas]);
+
   const openEditPeca = (peca: typeof pecas extends (infer T)[] ? T : never) => {
+    const fam = peca.familia || 'RumiFlow';
+    const isKnown = familias.includes(fam);
     setPecaForm({
       id: peca.id,
       codigo: peca.codigo,
@@ -507,7 +517,9 @@ export default function AdminConfig() {
       descricao: peca.descricao || '',
       omie_codigo: peca.omie_codigo || '',
       is_asset: (peca as any).is_asset ?? false,
+      familia: fam,
     });
+    setCustomFamilia(!isKnown);
     setIsEditingPeca(true);
     setPecaOpen(true);
   };
