@@ -1,34 +1,18 @@
 
 
-## Limpeza de Dados de Teste
+## Problema
 
-Dados encontrados para exclusão:
+A variável `isAdmin` em `src/pages/oficina/ItensOficina.tsx` (linha 86) controla a exibição do botão "Novo Ativo" e outras ações de gestão, mas não inclui `coordenador_logistica`. O banco de dados já permite via `is_admin_or_coordinator`, mas a UI esconde o botão.
 
-| Tabela | Registros |
-|--------|-----------|
-| workshop_items | 21 |
-| work_orders | 20 |
-| work_order_items | 18 |
-| work_order_parts_used | 20 |
-| work_order_time_entries | 37 |
-| motor_replacement_history | 7 |
-| asset_meter_readings | 19 |
-| warranty_batches | 2 |
-| warranty_requests | 3 |
+## Correção
 
-## Plano
+**Arquivo:** `src/pages/oficina/ItensOficina.tsx` (linha 86)
 
-Executar DELETEs na ordem correta (tabelas dependentes primeiro) usando a ferramenta de inserção de dados:
+Adicionar `coordenador_logistica` à verificação:
 
-1. `warranty_requests` (referencia warranty_batches, motor_replacement_history, work_orders, workshop_items)
-2. `motor_replacement_history` (referencia workshop_items, work_orders, warranty_batches)
-3. `warranty_batches`
-4. `work_order_time_entries` (referencia work_orders)
-5. `work_order_parts_used` (referencia work_orders)
-6. `work_order_items` (referencia work_orders, workshop_items)
-7. `asset_meter_readings` (referencia workshop_items)
-8. `work_orders`
-9. `workshop_items`
+```typescript
+const isAdmin = role === 'admin' || role === 'coordenador_rplus' || role === 'coordenador_servicos' || role === 'coordenador_logistica';
+```
 
-Todos os registros serão removidos permanentemente. Nenhuma alteração de código necessária.
+**Escopo:** 1 linha alterada em 1 arquivo.
 
