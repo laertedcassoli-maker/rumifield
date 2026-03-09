@@ -14,6 +14,7 @@ export function useOfflineSync() {
 
   // Ref to hold the latest syncAll function
   const syncAllRef = useRef<() => Promise<void>>();
+  const isOnlineRef = useRef(isOnline);
 
   // Update online status
   useEffect(() => {
