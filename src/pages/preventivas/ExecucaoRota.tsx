@@ -412,6 +412,12 @@ export default function ExecucaoRota() {
                   {statusConfig.label}
                 </Badge>
               )}
+              {isOffline && (
+                <Badge variant="outline" className="gap-1 text-xs bg-amber-500/10 text-amber-600 border-amber-500/20 shrink-0">
+                  <WifiOff className="h-3 w-3" />
+                  Offline
+                </Badge>
+              )}
             </div>
             <div className="flex items-center gap-3 text-xs text-muted-foreground mt-0.5">
               <span className="flex items-center gap-1">
