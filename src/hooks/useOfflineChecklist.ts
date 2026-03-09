@@ -12,6 +12,7 @@ export function useOfflineChecklist() {
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
   const syncInProgressRef = useRef(false);
   const syncTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
+  const isOnlineRef = useRef(isOnline);
 
   // Update online status
   useEffect(() => {
