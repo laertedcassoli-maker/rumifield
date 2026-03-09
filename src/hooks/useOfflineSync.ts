@@ -477,6 +477,7 @@ export function useOfflineSync() {
         }
       }
     }
+  };
 
   // Sync all tables
   const syncAll = useCallback(async () => {
