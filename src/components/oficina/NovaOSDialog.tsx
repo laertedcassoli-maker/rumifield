@@ -533,7 +533,12 @@ export function NovaOSDialog({ open, onOpenChange, onSuccess }: NovaOSDialogProp
                 <CardContent className="p-3">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="font-medium">{selectedCliente.nome}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium">{selectedCliente.nome}</p>
+                        {selectedCliente.status !== 'ativo' && (
+                          <Badge variant="outline" className="text-xs text-destructive border-destructive">inativo</Badge>
+                        )}
+                      </div>
                       {selectedCliente.fazenda && (
                         <p className="text-sm text-muted-foreground">{selectedCliente.fazenda}</p>
                       )}
