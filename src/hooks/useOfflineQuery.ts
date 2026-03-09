@@ -45,10 +45,10 @@ export function useOfflineQuery<TData>({
     staleTime: 30000,
   });
 
+  const shouldFallback = enabled && (!isOnline || (query.isError && !query.isLoading));
+
   // When offline or query fails, load from Dexie
   useEffect(() => {
-    const shouldFallback = enabled && (!isOnline || (query.isError && !query.isLoading));
-    
     if (shouldFallback) {
       setOfflineLoading(true);
       offlineFn()
@@ -81,7 +81,7 @@ export function useOfflineQuery<TData>({
   // Otherwise use offline data
   return {
     data: offlineData,
-    isLoading: offlineLoading || (isOnline && query.isLoading),
+    isLoading: offlineLoading || (shouldFallback && offlineData === undefined) || (isOnline && query.isLoading),
     isOfflineData,
     isOnline,
     refetchOffline,
