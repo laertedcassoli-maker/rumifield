@@ -61,24 +61,30 @@ export function useOfflineSync() {
           const result = await supabase.from("clientes").select("*");
           if (result.error) throw result.error;
           data = result.data;
-          await offlineDb.clientes.clear();
-          await offlineDb.clientes.bulkPut(data || []);
+          if (data?.length) {
+            await offlineDb.clientes.clear();
+            await offlineDb.clientes.bulkPut(data);
+          }
           break;
         }
         case "pecas": {
           const result = await supabase.from("pecas").select("*").eq("ativo", true);
           if (result.error) throw result.error;
           data = result.data;
-          await offlineDb.pecas.clear();
-          await offlineDb.pecas.bulkPut(data || []);
+          if (data?.length) {
+            await offlineDb.pecas.clear();
+            await offlineDb.pecas.bulkPut(data);
+          }
           break;
         }
         case "produtos_quimicos": {
           const result = await supabase.from("produtos_quimicos").select("*").eq("ativo", true);
           if (result.error) throw result.error;
           data = result.data;
-          await offlineDb.produtos_quimicos.clear();
-          await offlineDb.produtos_quimicos.bulkPut(data || []);
+          if (data?.length) {
+            await offlineDb.produtos_quimicos.clear();
+            await offlineDb.produtos_quimicos.bulkPut(data);
+          }
           break;
         }
         case "visitas": {
@@ -139,8 +145,6 @@ export function useOfflineSync() {
             
             await offlineDb.chamados.clear();
             await offlineDb.chamados.bulkPut(enriched as any);
-          } else {
-            await offlineDb.chamados.clear();
           }
           break;
         }
@@ -177,8 +181,6 @@ export function useOfflineSync() {
             
             await offlineDb.preventivas.clear();
             await offlineDb.preventivas.bulkPut(enriched as any);
-          } else {
-            await offlineDb.preventivas.clear();
           }
           break;
         }
@@ -244,8 +246,6 @@ export function useOfflineSync() {
             
             await offlineDb.corretivas.clear();
             await offlineDb.corretivas.bulkPut(enriched as any);
-          } else {
-            await offlineDb.corretivas.clear();
           }
           break;
         }
@@ -274,13 +274,15 @@ export function useOfflineSync() {
             // Count farms per route
             const countsMap = new Map<string, { total: number; executed: number }>();
             routeIds.forEach(id => countsMap.set(id, { total: 0, executed: 0 }));
-            itemsRes.data?.forEach(item => {
-              const counts = countsMap.get(item.route_id);
-              if (counts) {
-                counts.total += 1;
-                if (item.status === "executado") counts.executed += 1;
-              }
-            });
+            if (!itemsRes.error) {
+              itemsRes.data?.forEach(item => {
+                const counts = countsMap.get(item.route_id);
+                if (counts) {
+                  counts.total += 1;
+                  if (item.status === "executado") counts.executed += 1;
+                }
+              });
+            }
             
             const enriched = result.data.map(r => ({
               ...r,
@@ -291,8 +293,6 @@ export function useOfflineSync() {
             
             await offlineDb.rotas.clear();
             await offlineDb.rotas.bulkPut(enriched as any);
-          } else {
-            await offlineDb.rotas.clear();
           }
           break;
         }
@@ -324,8 +324,6 @@ export function useOfflineSync() {
             
             await offlineDb.rota_items.clear();
             await offlineDb.rota_items.bulkPut(enriched as any);
-          } else {
-            await offlineDb.rota_items.clear();
           }
           break;
         }

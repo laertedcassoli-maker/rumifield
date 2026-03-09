@@ -1,66 +1,19 @@
 
 
-## Corrigir "Nenhuma fazenda nesta rota" offline — dados não persistindo no Dexie
+## Corrigir alinhamento do conteudo nos cards de resumo
 
-### Diagnóstico
+### Problema
+O conteudo (numero + label) dentro dos cards de resumo esta visualmente deslocado para a direita. Isso ocorre porque o componente `CardContent` aplica `p-6` (24px) de padding horizontal por padrao, o que em cards estreitos empurra o conteudo para fora do centro visual.
 
-As rotas PREV-2026-00004 e PREV-2026-00007 têm 4 e 6 fazendas respectivamente no banco. Porém, offline mostram "0/0" na listagem e "Nenhuma fazenda" no detalhe. O problema está no sync, não no `useOfflineQuery`.
+### Solucao
 
-### Causa raiz
+**Arquivo: `src/pages/crm/CrmPipeline.tsx`**
 
-No `useOfflineSync.ts`, o sync de `rota_items` (e outras tabelas) faz `clear()` **antes** de verificar se novos dados chegaram:
+Adicionar `px-2` ao `CardContent` dos cards de resumo para reduzir o padding horizontal, centralizando melhor o conteudo:
 
-```typescript
-// rota_items sync (linha 325-328)
-await offlineDb.rota_items.clear();          // ← apaga tudo
-await offlineDb.rota_items.bulkPut(enriched); // ← insere novos
-
-// MAS se result.data?.length é falsy:
-await offlineDb.rota_items.clear();          // ← apaga tudo e não repõe
+```tsx
+<CardContent className="py-2 px-2 text-center">
 ```
 
-Cenários que causam perda de dados:
-1. Sync roda mas a query retorna erro (timeout, rede instável) → `throw` → catch → dados já foram apagados no sync anterior
-2. `Promise.all` executa todos os syncs em paralelo — `rotas` pode completar mas `rota_items` falhar
-3. A query inline de items dentro do sync de `rotas` (para contagem) não verifica `itemsRes.error`, resultando em "0/0"
-
-### Solução
-
-**Arquivo: `src/hooks/useOfflineSync.ts`**
-
-1. **Não limpar dados existentes se a nova busca falhar**: Mover o `clear()` para DEPOIS de confirmar que novos dados foram recebidos. Padrão: "só substitui se tem dados novos"
-
-2. **Verificar `itemsRes.error`** na contagem inline do sync de `rotas`
-
-Aplicar o padrão seguro em TODAS as tabelas do sync:
-
-```typescript
-// ANTES (perigoso):
-await offlineDb.rota_items.clear();
-await offlineDb.rota_items.bulkPut(enriched);
-// ...
-} else {
-  await offlineDb.rota_items.clear(); // apaga sem reposição
-}
-
-// DEPOIS (seguro):
-if (result.data?.length) {
-  const enriched = ...;
-  await offlineDb.rota_items.clear();
-  await offlineDb.rota_items.bulkPut(enriched);
-}
-// Se não tem dados novos, MANTÉM os dados existentes no Dexie
-```
-
-3. No sync de `rotas`, verificar erro da query de items:
-```typescript
-const [itemsRes, profilesRes] = await Promise.all([...]);
-// Adicionar: if (!itemsRes.error) { ... contar ... }
-```
-
-### Tabelas afetadas
-Aplicar o mesmo padrão seguro para: `clientes`, `pecas`, `produtos_quimicos`, `chamados`, `preventivas`, `corretivas`, `rotas`, `rota_items`
-
-### Arquivo alterado
-- `src/hooks/useOfflineSync.ts` — remover `clear()` no branch `else` de todas as tabelas + verificar erros na query inline de items
+Isso substitui o `p-6` padrao do componente por um padding horizontal menor, mantendo o texto centralizado visualmente dentro do card.
 
