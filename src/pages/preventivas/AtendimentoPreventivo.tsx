@@ -285,15 +285,14 @@ export default function AtendimentoPreventivo() {
         }
       }
 
-      // Check if all route items are now executado - if so, complete the route
-      const { data: remainingItems } = await supabase
+      // Check if all route items are done (executado or cancelado)
+      const { data: allItems } = await supabase
         .from('preventive_route_items')
-        .select('id, status')
-        .eq('route_id', routeId)
-        .neq('status', 'executado');
+        .select('status')
+        .eq('route_id', routeId);
 
-      // If no remaining items (all are executado), mark route as finalizada
-      if (!remainingItems || remainingItems.length === 0) {
+      const allDone = allItems?.every(i => i.status === 'executado' || i.status === 'cancelado');
+      if (allDone && allItems && allItems.length > 0) {
         const { error: routeError } = await supabase
           .from('preventive_routes')
           .update({ status: 'finalizada' })
