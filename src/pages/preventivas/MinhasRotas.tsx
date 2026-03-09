@@ -149,11 +149,9 @@ export default function MinhasRotas() {
     enabled: isAdminOrCoordinator,
   });
 
-  // Fetch preventive routes
-  const { data: preventiveRoutes, isLoading: isLoadingPreventive } = useQuery<PreventiveRoute[]>({
+  // Fetch preventive routes with offline fallback
+  const { data: preventiveRoutes, isLoading: isLoadingPreventive, isOfflineData: isPreventiveOffline } = useOfflineQuery<PreventiveRoute[]>({
     queryKey: ['my-preventive-routes', user?.id, isAdminOrCoordinator],
-    refetchInterval: 30000,
-    refetchOnWindowFocus: true,
     queryFn: async () => {
       if (!user?.id) return [];
 
@@ -245,6 +243,46 @@ export default function MinhasRotas() {
         technician_name: profilesMap.get(route.field_technician_user_id) || 'Não atribuído',
         farm_coordinates: countMap.get(route.id)?.coordinates || [],
       }));
+    },
+    offlineFn: async () => {
+      // Load from Dexie
+      let rotas = await offlineDb.rotas.toArray();
+      if (!isAdminOrCoordinator && user?.id) {
+        rotas = rotas.filter(r => r.field_technician_user_id === user.id);
+      }
+      rotas = rotas.filter(r => ['planejada', 'em_execucao', 'finalizada'].includes(r.status));
+
+      const allItems = await offlineDb.rota_items.toArray();
+      const allClients = await offlineDb.clientes.toArray();
+      const clientsMap = new Map(allClients.map(c => [c.id, c]));
+
+      return rotas.map(r => {
+        const routeItems = allItems.filter(i => i.route_id === r.id).sort((a, b) => (a.order_index || 0) - (b.order_index || 0));
+        const executed = routeItems.filter(i => i.status === 'executado').length;
+        const coordinates: Array<{ lat: number; lon: number; name: string }> = [];
+        routeItems.forEach(i => {
+          const client = clientsMap.get(i.client_id);
+          if (client?.latitude && client?.longitude) {
+            coordinates.push({ lat: client.latitude, lon: client.longitude, name: client.nome });
+          } else if (i.client_lat && i.client_lon) {
+            coordinates.push({ lat: i.client_lat, lon: i.client_lon, name: i.client_name || 'Cliente' });
+          }
+        });
+
+        return {
+          type: 'preventive' as const,
+          id: r.id,
+          code: r.route_code,
+          start_date: r.start_date,
+          end_date: r.end_date,
+          status: r.status,
+          total_farms: routeItems.length,
+          executed_farms: executed,
+          field_technician_user_id: r.field_technician_user_id,
+          technician_name: r.technician_name || 'Não atribuído',
+          farm_coordinates: coordinates,
+        };
+      });
     },
     enabled: !!user?.id,
   });
