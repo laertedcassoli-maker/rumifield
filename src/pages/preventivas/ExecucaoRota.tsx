@@ -18,13 +18,16 @@ import {
   Navigation,
   AlertCircle,
   Share2,
-  XCircle
+  XCircle,
+  WifiOff
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
 import { CheckinDialog } from '@/components/preventivas/CheckinDialog';
 import { CancelarVisitaDialog } from '@/components/preventivas/CancelarVisitaDialog';
+import { useOfflineQuery } from '@/hooks/useOfflineQuery';
+import { offlineDb } from '@/lib/offline-db';
 
 const routeStatusConfig = {
   planejada: { label: 'Planejada', color: 'bg-blue-500/10 text-blue-600 border-blue-500/20' },
