@@ -12,17 +12,20 @@ export function useOfflineChecklist() {
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
   const syncInProgressRef = useRef(false);
   const syncTimeoutRef = useRef<ReturnType<typeof setTimeout>>();
+  const isOnlineRef = useRef(isOnline);
 
   // Update online status
   useEffect(() => {
     const handleOnline = () => {
       setIsOnline(true);
+      isOnlineRef.current = true;
       // Auto-sync when coming back online
       syncPendingChanges();
     };
     
     const handleOffline = () => {
       setIsOnline(false);
+      isOnlineRef.current = false;
       setSyncStatus("offline");
     };
 
@@ -133,7 +136,7 @@ export function useOfflineChecklist() {
 
   // Sync pending changes to server
   const syncPendingChanges = useCallback(async () => {
-    if (!navigator.onLine || syncInProgressRef.current) {
+    if (!isOnlineRef.current || syncInProgressRef.current) {
       return;
     }
 
@@ -196,7 +199,7 @@ export function useOfflineChecklist() {
     }
     
     syncTimeoutRef.current = setTimeout(() => {
-      if (navigator.onLine) {
+      if (isOnlineRef.current) {
         syncPendingChanges();
       }
     }, 2000); // Wait 2 seconds before syncing
@@ -214,7 +217,7 @@ export function useOfflineChecklist() {
     await offlineChecklistDb.updateItemLocally(itemId, fullUpdates);
     await updatePendingCount();
 
-    if (navigator.onLine) {
+    if (isOnline) {
       // Try to sync immediately
       debouncedSync();
       return true;
@@ -245,14 +248,14 @@ export function useOfflineChecklist() {
     
     await updatePendingCount();
 
-    if (navigator.onLine) {
+    if (isOnline) {
       debouncedSync();
     } else {
       setSyncStatus("offline");
     }
 
     return true;
-  }, [debouncedSync, updatePendingCount]);
+  }, [isOnline, debouncedSync, updatePendingCount]);
 
   // Toggle nonconformity with offline support
   const toggleNonconformity = useCallback(async (
@@ -275,14 +278,14 @@ export function useOfflineChecklist() {
     
     await updatePendingCount();
 
-    if (navigator.onLine) {
+    if (isOnline) {
       debouncedSync();
     } else {
       setSyncStatus("offline");
     }
 
     return true;
-  }, [debouncedSync, updatePendingCount]);
+  }, [isOnline, debouncedSync, updatePendingCount]);
 
   // Cache checklist data locally
   const cacheChecklistData = useCallback(async (blocks: any[]) => {

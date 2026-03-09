@@ -393,7 +393,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
       await offlineChecklist.updateItem(itemId, { status, notes });
 
       // If online, also sync to server immediately
-      if (navigator.onLine) {
+      if (offlineChecklist.isOnline) {
         const updates: any = {
           answered_at: new Date().toISOString()
         };
@@ -447,7 +447,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
     },
     onError: (error) => {
       // If offline, the mutation still succeeds locally
-      if (!navigator.onLine) {
+      if (!offlineChecklist.isOnline) {
         setLastSavedAt(new Date());
         return;
       }
@@ -557,7 +557,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
         await offlineChecklist.toggleAction(itemId, actionId, actionLabel, isSelected);
 
         // If online, sync to server immediately
-        if (navigator.onLine) {
+        if (offlineChecklist.isOnline) {
           const isTrocaAction = actionLabel.toLowerCase().includes('troca');
 
           if (isSelected) {
@@ -625,7 +625,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
       setLastSavedAt(new Date());
     },
     onError: (error) => {
-      if (!navigator.onLine) {
+      if (!offlineChecklist.isOnline) {
         setLastSavedAt(new Date());
         return;
       }
@@ -662,7 +662,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
         await offlineChecklist.toggleNonconformity(itemId, nonconformityId, nonconformityLabel, isSelected);
 
         // If online, sync to server immediately
-        if (navigator.onLine) {
+        if (offlineChecklist.isOnline) {
           if (isSelected) {
             // Remove nonconformity - first get the exec_nonconformity_id
             const { data: execNc } = await supabase
@@ -765,7 +765,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
       setLastSavedAt(new Date());
     },
     onError: (error) => {
-      if (!navigator.onLine) {
+      if (!offlineChecklist.isOnline) {
         setLastSavedAt(new Date());
         return;
       }

@@ -14,11 +14,13 @@ export function useOfflineSync() {
 
   // Ref to hold the latest syncAll function
   const syncAllRef = useRef<() => Promise<void>>();
+  const isOnlineRef = useRef(isOnline);
 
   // Update online status
   useEffect(() => {
     const handleOnline = () => {
       setIsOnline(true);
+      isOnlineRef.current = true;
       // Auto-sync when coming back online
       if (syncAllRef.current) {
         syncAllRef.current();
@@ -26,6 +28,7 @@ export function useOfflineSync() {
     };
     const handleOffline = () => {
       setIsOnline(false);
+      isOnlineRef.current = false;
       setSyncStatus("offline");
     };
 
@@ -481,7 +484,7 @@ export function useOfflineSync() {
 
   // Sync all tables
   const syncAll = useCallback(async () => {
-    if (!navigator.onLine) {
+    if (!isOnlineRef.current) {
       setSyncStatus("offline");
       return;
     }
