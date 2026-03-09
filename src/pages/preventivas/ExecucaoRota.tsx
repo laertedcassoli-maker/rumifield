@@ -126,7 +126,7 @@ export default function ExecucaoRota() {
     enabled: !!id,
   });
 
-  const { data: items, isLoading: itemsLoading, isOfflineData: isItemsOffline } = useOfflineQuery<RouteItem[]>({
+  const { data: items, isLoading: itemsLoading, isOfflineData: isItemsOffline, refetchOffline: refetchItemsOffline } = useOfflineQuery<RouteItem[]>({
     queryKey: ['route-execution-items', id],
     queryFn: async () => {
       const { data, error } = await supabase
