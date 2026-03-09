@@ -572,7 +572,12 @@ export function NovaOSDialog({ open, onOpenChange, onSuccess }: NovaOSDialogProp
                       className="p-3 border-b last:border-b-0 cursor-pointer hover:bg-muted/50"
                       onClick={() => { setSelectedClienteId(cliente.id); setClienteSearch(cliente.nome); }}
                     >
-                      <p className="font-medium">{cliente.nome}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium">{cliente.nome}</p>
+                        {cliente.status !== 'ativo' && (
+                          <Badge variant="outline" className="text-xs text-destructive border-destructive">inativo</Badge>
+                        )}
+                      </div>
                       <p className="text-xs text-muted-foreground">
                         {cliente.fazenda}{cliente.cod_imilk ? ` • iMilk: ${cliente.cod_imilk}` : ''}
                       </p>
