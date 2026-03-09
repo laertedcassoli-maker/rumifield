@@ -149,6 +149,48 @@ export default function AtendimentoPreventivo() {
       };
     },
     enabled: !!itemId,
+    offlineFn: async () => {
+      // Fallback: build data from Dexie cached tables
+      const item = await offlineDb.rota_items.get(itemId!);
+      if (!item) return null;
+
+      const route = await offlineDb.rotas.get(item.route_id);
+      const client = await offlineDb.clientes.get(item.client_id);
+
+      // Try to find preventive from Dexie
+      const allPreventivas = await offlineDb.preventivas
+        .filter(p => p.client_id === item.client_id && p.route_id === item.route_id)
+        .first();
+
+      return {
+        id: item.id,
+        client_id: item.client_id,
+        status: item.status,
+        checkin_at: item.checkin_at,
+        checkin_lat: item.checkin_lat,
+        checkin_lon: item.checkin_lon,
+        order_index: item.order_index,
+        route_id: item.route_id,
+        route: route ? {
+          id: route.id,
+          route_code: route.route_code,
+          start_date: route.start_date,
+          field_technician_user_id: route.field_technician_user_id,
+          checklist_template_id: route.checklist_template_id,
+        } : null,
+        client: client ? {
+          id: client.id,
+          nome: client.nome,
+          fazenda: client.fazenda,
+          cidade: client.cidade,
+          estado: client.estado,
+        } : null,
+        preventiveId: allPreventivas?.id || null,
+        internalNotes: allPreventivas?.internal_notes || null,
+        publicNotes: allPreventivas?.public_notes || null,
+        publicToken: allPreventivas?.public_token || null,
+      };
+    },
   });
 
   // Complete attendance mutation (Encerrar Visita)
