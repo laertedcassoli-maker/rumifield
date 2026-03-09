@@ -693,7 +693,7 @@ export default function AtendimentoPreventivo() {
           <div className="max-w-2xl mx-auto">
             <Button 
               onClick={handleEncerrarClick}
-              disabled={!canFinishVisit || completeMutation.isPending}
+              disabled={!canFinishVisit || completeMutation.isPending || isOfflineData}
               className="w-full"
               size="lg"
             >
