@@ -258,15 +258,13 @@ export default function ExecucaoRota() {
 
         await withTimeout(updatePromise, ONLINE_TIMEOUT_MS);
       } catch (err) {
-        if (isNetworkError(err)) {
-          await checkinOffline(itemId, lat, lon, now);
-          toast({
-            title: 'Salvo localmente',
-            description: 'Sem conexão — o check-in será sincronizado automaticamente.',
-          });
-          return;
-        }
-        throw err;
+        console.warn('[checkin] Online attempt failed, falling back to offline:', err);
+        await checkinOffline(itemId, lat, lon, now);
+        toast({
+          title: 'Salvo localmente',
+          description: 'Sem conexão — o check-in será sincronizado automaticamente.',
+        });
+        return;
       }
     },
     onSuccess: () => {
@@ -365,15 +363,13 @@ export default function ExecucaoRota() {
 
         await withTimeout(cancelPromise, ONLINE_TIMEOUT_MS);
       } catch (err) {
-        if (isNetworkError(err)) {
-          await cancelOffline(itemId, clientId, justification);
-          toast({
-            title: 'Salvo localmente',
-            description: 'Sem conexão — o cancelamento será sincronizado automaticamente.',
-          });
-          return;
-        }
-        throw err;
+        console.warn('[cancel] Online attempt failed, falling back to offline:', err);
+        await cancelOffline(itemId, clientId, justification);
+        toast({
+          title: 'Salvo localmente',
+          description: 'Sem conexão — o cancelamento será sincronizado automaticamente.',
+        });
+        return;
       }
     },
     onSuccess: () => {
