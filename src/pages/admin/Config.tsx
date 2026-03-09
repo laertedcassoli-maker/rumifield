@@ -526,7 +526,8 @@ export default function AdminConfig() {
 
   const closePecaDialog = () => {
     setPecaOpen(false);
-    setPecaForm({ codigo: '', nome: '', descricao: '', omie_codigo: '', is_asset: false });
+    setPecaForm({ codigo: '', nome: '', descricao: '', omie_codigo: '', is_asset: false, familia: 'RumiFlow' });
+    setCustomFamilia(false);
     setIsEditingPeca(false);
   };
 
