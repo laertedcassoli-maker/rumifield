@@ -98,7 +98,7 @@ export default function ExecucaoRota() {
 
   const isAdminOrCoordinator = role === 'admin' || role === 'coordenador_servicos';
 
-  const { data: route, isLoading: routeLoading, isOfflineData: isRouteOffline } = useOfflineQuery({
+  const { data: route, isLoading: routeLoading, isOfflineData: isRouteOffline, refetchOffline: refetchRouteOffline } = useOfflineQuery({
     queryKey: ['route-execution', id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -126,7 +126,7 @@ export default function ExecucaoRota() {
     enabled: !!id,
   });
 
-  const { data: items, isLoading: itemsLoading, isOfflineData: isItemsOffline } = useOfflineQuery<RouteItem[]>({
+  const { data: items, isLoading: itemsLoading, isOfflineData: isItemsOffline, refetchOffline: refetchItemsOffline } = useOfflineQuery<RouteItem[]>({
     queryKey: ['route-execution-items', id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -268,8 +268,13 @@ export default function ExecucaoRota() {
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['route-execution', id] });
-      queryClient.invalidateQueries({ queryKey: ['route-execution-items', id] });
+      if (isOffline) {
+        refetchRouteOffline();
+        refetchItemsOffline();
+      } else {
+        queryClient.invalidateQueries({ queryKey: ['route-execution', id] });
+        queryClient.invalidateQueries({ queryKey: ['route-execution-items', id] });
+      }
       toast({
         title: 'Check-in realizado!',
         description: 'Registro salvo com sucesso.',
@@ -373,8 +378,13 @@ export default function ExecucaoRota() {
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['route-execution', id] });
-      queryClient.invalidateQueries({ queryKey: ['route-execution-items', id] });
+      if (isOffline) {
+        refetchRouteOffline();
+        refetchItemsOffline();
+      } else {
+        queryClient.invalidateQueries({ queryKey: ['route-execution', id] });
+        queryClient.invalidateQueries({ queryKey: ['route-execution-items', id] });
+      }
       toast({
         title: 'Visita cancelada',
         description: 'O cancelamento foi registrado.',

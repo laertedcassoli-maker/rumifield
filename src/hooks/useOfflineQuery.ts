@@ -22,6 +22,9 @@ export function useOfflineQuery<TData>({
   const [offlineData, setOfflineData] = useState<TData | undefined>(undefined);
   const [isOfflineData, setIsOfflineData] = useState(false);
   const [offlineLoading, setOfflineLoading] = useState(false);
+  const [offlineRefetchKey, setOfflineRefetchKey] = useState(0);
+
+  const refetchOffline = () => setOfflineRefetchKey(prev => prev + 1);
 
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
@@ -62,7 +65,7 @@ export function useOfflineQuery<TData>({
     } else if (isOnline && query.data !== undefined) {
       setIsOfflineData(false);
     }
-  }, [isOnline, query.isError, query.isLoading, enabled]);
+  }, [isOnline, query.isError, query.isLoading, enabled, offlineRefetchKey]);
 
   // If online and query succeeded, use that data
   if (isOnline && query.data !== undefined && !query.isError) {
@@ -71,6 +74,7 @@ export function useOfflineQuery<TData>({
       isLoading: query.isLoading,
       isOfflineData: false,
       isOnline,
+      refetchOffline,
     };
   }
 
@@ -80,5 +84,6 @@ export function useOfflineQuery<TData>({
     isLoading: offlineLoading || (isOnline && query.isLoading),
     isOfflineData,
     isOnline,
+    refetchOffline,
   };
 }
