@@ -493,7 +493,8 @@ export default function AdminConfig() {
   };
 
   const openNewPeca = () => {
-    setPecaForm({ codigo: '', nome: '', descricao: '', omie_codigo: '', is_asset: false });
+    setPecaForm({ codigo: '', nome: '', descricao: '', omie_codigo: '', is_asset: false, familia: 'RumiFlow' });
+    setCustomFamilia(false);
     setIsEditingPeca(false);
     setPecaOpen(true);
   };
