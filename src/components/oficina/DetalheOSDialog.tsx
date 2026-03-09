@@ -777,6 +777,8 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['work-orders'] });
       queryClient.invalidateQueries({ queryKey: ['workshop-items'] });
+      queryClient.invalidateQueries({ queryKey: ['workshop-item-motor'] });
+      queryClient.invalidateQueries({ queryKey: ['motor-history'] });
       queryClient.invalidateQueries({ queryKey: ['warranty-requests'] });
       onUpdate();
       onOpenChange(false);

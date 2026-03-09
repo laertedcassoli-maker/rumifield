@@ -1,24 +1,19 @@
 
 
-## Diagnóstico
+## Corrigir alinhamento do conteudo nos cards de resumo
 
-Verifiquei no banco de dados e o código do motor **DD-54321** está corretamente salvo no workshop_item da OS-2026-00021. O horímetro também está correto (200h).
+### Problema
+O conteudo (numero + label) dentro dos cards de resumo esta visualmente deslocado para a direita. Isso ocorre porque o componente `CardContent` aplica `p-6` (24px) de padding horizontal por padrao, o que em cards estreitos empurra o conteudo para fora do centro visual.
 
-O problema é de **invalidação de cache**: quando a OS é concluída, o `completeOSMutation` invalida a query `['workshop-items']`, mas a MotorSection usa uma query diferente: `['workshop-item-motor', workshopItemId]`. Essa query nunca é invalidada, então o componente continua exibindo dados antigos (de antes da conclusão, quando o motor ainda não tinha código).
+### Solucao
 
-## Correção
+**Arquivo: `src/pages/crm/CrmPipeline.tsx`**
 
-**Arquivo:** `src/components/oficina/DetalheOSDialog.tsx`
+Adicionar `px-2` ao `CardContent` dos cards de resumo para reduzir o padding horizontal, centralizando melhor o conteudo:
 
-Adicionar invalidação da query do MotorSection no `onSuccess` da mutation de conclusão:
-
-```typescript
-// Linha ~779, dentro do onSuccess do completeOSMutation
-queryClient.invalidateQueries({ queryKey: ['workshop-item-motor'] });
-queryClient.invalidateQueries({ queryKey: ['motor-history'] });
+```tsx
+<CardContent className="py-2 px-2 text-center">
 ```
 
-Isso garante que ao reabrir a OS concluída, o MotorSection busque dados atualizados do banco.
-
-**Nota:** um refresh da página (F5) deve resolver o problema imediatamente para a OS-2026-00021, pois o dado já está correto no banco.
+Isso substitui o `p-6` padrao do componente por um padding horizontal menor, mantendo o texto centralizado visualmente dentro do card.
 
