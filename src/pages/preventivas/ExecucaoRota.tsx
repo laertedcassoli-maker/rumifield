@@ -378,8 +378,13 @@ export default function ExecucaoRota() {
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['route-execution', id] });
-      queryClient.invalidateQueries({ queryKey: ['route-execution-items', id] });
+      if (isOffline) {
+        refetchRouteOffline();
+        refetchItemsOffline();
+      } else {
+        queryClient.invalidateQueries({ queryKey: ['route-execution', id] });
+        queryClient.invalidateQueries({ queryKey: ['route-execution-items', id] });
+      }
       toast({
         title: 'Visita cancelada',
         description: 'O cancelamento foi registrado.',
