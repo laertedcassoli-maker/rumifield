@@ -1,19 +1,19 @@
 
 
-## Corrigir alinhamento do conteudo nos cards de resumo
+## Corrigir check-in travado offline no iPhone
 
 ### Problema
-O conteudo (numero + label) dentro dos cards de resumo esta visualmente deslocado para a direita. Isso ocorre porque o componente `CardContent` aplica `p-6` (24px) de padding horizontal por padrao, o que em cards estreitos empurra o conteudo para fora do centro visual.
+O código na linha 234 usa `navigator.onLine` para decidir o caminho offline. No iPhone em modo avião, `navigator.onLine` retorna `true`, então o código tenta o Supabase. Embora exista um timeout de 8s e catch com fallback, o `fetch()` do Safari pode se comportar de forma inesperada — possivelmente ignorando o `setTimeout` ou travando antes do timeout disparar.
 
-### Solucao
+O componente já tem `isOffline` (linha 206) que **funciona corretamente** — o banner "Você está offline" aparece. Mas as mutations não usam essa variável.
 
-**Arquivo: `src/pages/crm/CrmPipeline.tsx`**
+### Solução
+Substituir `navigator.onLine` por `isOffline` nas duas mutations (checkin e cancel). Quando `isOffline` é `true`, ir direto para Dexie sem nem tentar o Supabase. Isso elimina completamente o problema do timeout/fetch no Safari.
 
-Adicionar `px-2` ao `CardContent` dos cards de resumo para reduzir o padding horizontal, centralizando melhor o conteudo:
+### Mudanças em `src/pages/preventivas/ExecucaoRota.tsx`
 
-```tsx
-<CardContent className="py-2 px-2 text-center">
-```
+1. **checkinMutation (linha 234)**: trocar `if (!navigator.onLine)` por `if (isOffline)`
+2. **cancelMutation (mesma lógica)**: trocar `if (!navigator.onLine)` por `if (isOffline)`
 
-Isso substitui o `p-6` padrao do componente por um padding horizontal menor, mantendo o texto centralizado visualmente dentro do card.
+Mudança mínima — apenas duas linhas.
 
