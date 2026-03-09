@@ -25,6 +25,7 @@ export function useOfflineChecklist() {
     
     const handleOffline = () => {
       setIsOnline(false);
+      isOnlineRef.current = false;
       setSyncStatus("offline");
     };
 
