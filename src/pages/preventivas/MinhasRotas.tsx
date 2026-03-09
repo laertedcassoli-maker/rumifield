@@ -678,9 +678,17 @@ export default function MinhasRotas() {
         {/* Header - Compact on mobile */}
         <div className="flex items-center justify-between gap-4">
           <div>
-            <h1 className="text-xl font-bold">
-              {isAdminOrCoordinator ? 'Rotas em Execução' : 'Minhas Rotas'}
-            </h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl font-bold">
+                {isAdminOrCoordinator ? 'Rotas em Execução' : 'Minhas Rotas'}
+              </h1>
+              {isAnyOffline && (
+                <Badge variant="outline" className="gap-1 text-xs bg-amber-500/10 text-amber-600 border-amber-500/20">
+                  <WifiOff className="h-3 w-3" />
+                  Offline
+                </Badge>
+              )}
+            </div>
             <p className="text-sm text-muted-foreground">
               {isAdminOrCoordinator 
                 ? 'Acompanhe rotas preventivas e visitas corretivas' 
