@@ -38,6 +38,7 @@ interface PecaFormData {
   descricao: string;
   omie_codigo: string;
   is_asset: boolean;
+  familia: string;
 }
 
 interface ProdutoComercialFormData {
