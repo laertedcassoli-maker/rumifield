@@ -274,13 +274,15 @@ export function useOfflineSync() {
             // Count farms per route
             const countsMap = new Map<string, { total: number; executed: number }>();
             routeIds.forEach(id => countsMap.set(id, { total: 0, executed: 0 }));
-            itemsRes.data?.forEach(item => {
-              const counts = countsMap.get(item.route_id);
-              if (counts) {
-                counts.total += 1;
-                if (item.status === "executado") counts.executed += 1;
-              }
-            });
+            if (!itemsRes.error) {
+              itemsRes.data?.forEach(item => {
+                const counts = countsMap.get(item.route_id);
+                if (counts) {
+                  counts.total += 1;
+                  if (item.status === "executado") counts.executed += 1;
+                }
+              });
+            }
             
             const enriched = result.data.map(r => ({
               ...r,
@@ -291,8 +293,6 @@ export function useOfflineSync() {
             
             await offlineDb.rotas.clear();
             await offlineDb.rotas.bulkPut(enriched as any);
-          } else {
-            await offlineDb.rotas.clear();
           }
           break;
         }
