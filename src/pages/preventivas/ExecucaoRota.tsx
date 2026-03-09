@@ -252,6 +252,25 @@ export default function ExecucaoRota() {
   // Cancel visit mutation
   const cancelMutation = useMutation({
     mutationFn: async ({ itemId, clientId, justification }: { itemId: string; clientId: string; justification: string }) => {
+      if (!navigator.onLine) {
+        // Offline: update Dexie locally and queue for sync
+        await offlineDb.rota_items.update(itemId, { status: 'cancelado' });
+        await offlineDb.addToSyncQueue('preventive_route_items', 'update', {
+          id: itemId,
+          status: 'cancelado',
+        });
+        // Queue the preventive_maintenance cancellation for later sync
+        await offlineDb.addToSyncQueue('preventive_maintenance_cancel', 'insert', {
+          client_id: clientId,
+          route_id: id,
+          scheduled_date: route?.start_date || new Date().toISOString().split('T')[0],
+          status: 'cancelada',
+          notes: justification,
+          technician_user_id: route?.field_technician_user_id,
+        });
+        return;
+      }
+
       // Update route item to cancelado
       const { error: itemError } = await supabase
         .from('preventive_route_items')
