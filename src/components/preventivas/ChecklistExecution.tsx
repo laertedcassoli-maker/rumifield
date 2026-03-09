@@ -557,7 +557,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
         await offlineChecklist.toggleAction(itemId, actionId, actionLabel, isSelected);
 
         // If online, sync to server immediately
-        if (navigator.onLine) {
+        if (offlineChecklist.isOnline) {
           const isTrocaAction = actionLabel.toLowerCase().includes('troca');
 
           if (isSelected) {
