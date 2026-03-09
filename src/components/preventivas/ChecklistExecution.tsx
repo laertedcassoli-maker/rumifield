@@ -3,6 +3,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useOfflineChecklist } from "@/hooks/useOfflineChecklist";
+import { useOfflineQuery } from "@/hooks/useOfflineQuery";
+import { offlineChecklistDb } from "@/lib/offline-checklist-db";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
