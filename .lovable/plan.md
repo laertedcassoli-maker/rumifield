@@ -1,16 +1,14 @@
 
 
-## Problema
+## Permitir vincular cliente inativo à OS
 
-Todos os 14 ativos no banco estão com `status = 'em_manutencao'`. Quando limpamos os registros de work_orders, não resetamos o status dos workshop_items. A query de busca na criação de OS filtra `.eq('status', 'disponivel')`, por isso nenhum ativo aparece.
+**Problema:** A query de clientes no `NovaOSDialog.tsx` (linha 112) filtra `.eq('status', 'ativo')`, impedindo que clientes inativos apareçam.
 
-## Correção
+**Solução:** Remover o filtro de status e adicionar um badge visual "(inativo)" para distinguir clientes inativos na busca.
 
-Executar um UPDATE direto no banco para resetar todos os workshop_items para `status = 'disponivel'`, já que não existem mais OSs ativas no sistema.
+**Arquivo:** `src/components/oficina/NovaOSDialog.tsx`
 
-```sql
-UPDATE workshop_items SET status = 'disponivel' WHERE status = 'em_manutencao';
-```
-
-Nenhuma alteração de código necessária.
+1. Remover `.eq('status', 'ativo')` da query de clientes (linha 112)
+2. Adicionar campo `status` ao select (linha 111)
+3. Exibir badge "(inativo)" ao lado do nome do cliente nos resultados de busca e no card selecionado
 
