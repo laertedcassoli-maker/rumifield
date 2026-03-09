@@ -3,6 +3,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useOfflineChecklist } from "@/hooks/useOfflineChecklist";
+import { useOfflineQuery } from "@/hooks/useOfflineQuery";
+import { offlineChecklistDb } from "@/lib/offline-checklist-db";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -90,7 +92,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
   const offlineChecklist = useOfflineChecklist();
 
   // Get existing checklist for this preventive
-  const { data: existingChecklist, isLoading: loadingChecklist } = useQuery({
+  const { data: existingChecklist, isLoading: loadingChecklist, isOnline: isChecklistOnline } = useOfflineQuery({
     queryKey: ['preventive-checklist', preventiveId],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -127,8 +129,15 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
         .maybeSingle();
       
       if (error) throw error;
+
+      // Cache full structure for offline use
+      if (data) {
+        await offlineChecklistDb.cacheFullChecklist(data);
+      }
+
       return data;
-    }
+    },
+    offlineFn: () => offlineChecklistDb.getCachedChecklist(preventiveId),
   });
 
   // Get available templates
@@ -331,16 +340,16 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
     }
   }, []);
 
-  // Auto-start checklist if routeTemplateId is provided and no checklist exists
+  // Auto-start checklist if routeTemplateId is provided and no checklist exists (online only)
   useEffect(() => {
-    if (!existingChecklist && routeTemplateId && !loadingChecklist && !autoStartAttempted.current && !createChecklistMutation.isPending) {
+    if (!existingChecklist && routeTemplateId && !loadingChecklist && !autoStartAttempted.current && !createChecklistMutation.isPending && isChecklistOnline) {
       console.log('[ChecklistExecution] Auto-starting with template:', routeTemplateId);
       autoStartAttempted.current = true;
       setAutoStartState('pending');
       setAutoStartError(null);
       createChecklistMutation.mutate(routeTemplateId);
     }
-  }, [existingChecklist, routeTemplateId, loadingChecklist, createChecklistMutation.isPending]);
+  }, [existingChecklist, routeTemplateId, loadingChecklist, createChecklistMutation.isPending, isChecklistOnline]);
 
   // Set initial active block when blocks data is available
   useEffect(() => {
@@ -800,7 +809,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
   });
 
   // Show loading while fetching or auto-creating checklist
-  if (loadingChecklist || (routeTemplateId && !existingChecklist && (autoStartState === 'pending' || createChecklistMutation.isPending))) {
+  if (loadingChecklist || (routeTemplateId && !existingChecklist && isChecklistOnline && (autoStartState === 'pending' || createChecklistMutation.isPending))) {
     return (
       <Card>
         <CardContent className="p-6">
@@ -808,6 +817,22 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
             <Loader2 className="h-6 w-6 animate-spin text-primary" />
             <p className="text-sm text-muted-foreground">
               {createChecklistMutation.isPending ? 'Iniciando checklist...' : 'Carregando...'}
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Offline and no cached checklist available
+  if (!isChecklistOnline && !existingChecklist && !loadingChecklist) {
+    return (
+      <Card>
+        <CardContent className="p-6">
+          <div className="flex flex-col items-center justify-center gap-3">
+            <WifiOff className="h-6 w-6 text-muted-foreground" />
+            <p className="text-sm text-muted-foreground">
+              Checklist não disponível offline. Conecte-se à internet para iniciar o checklist.
             </p>
           </div>
         </CardContent>
