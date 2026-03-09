@@ -145,8 +145,6 @@ export function useOfflineSync() {
             
             await offlineDb.chamados.clear();
             await offlineDb.chamados.bulkPut(enriched as any);
-          } else {
-            await offlineDb.chamados.clear();
           }
           break;
         }
