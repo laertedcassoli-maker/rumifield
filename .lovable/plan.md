@@ -1,18 +1,19 @@
 
 
-## Problema
+## Corrigir alinhamento do conteudo nos cards de resumo
 
-A variável `isAdmin` em `src/pages/oficina/ItensOficina.tsx` (linha 86) controla a exibição do botão "Novo Ativo" e outras ações de gestão, mas não inclui `coordenador_logistica`. O banco de dados já permite via `is_admin_or_coordinator`, mas a UI esconde o botão.
+### Problema
+O conteudo (numero + label) dentro dos cards de resumo esta visualmente deslocado para a direita. Isso ocorre porque o componente `CardContent` aplica `p-6` (24px) de padding horizontal por padrao, o que em cards estreitos empurra o conteudo para fora do centro visual.
 
-## Correção
+### Solucao
 
-**Arquivo:** `src/pages/oficina/ItensOficina.tsx` (linha 86)
+**Arquivo: `src/pages/crm/CrmPipeline.tsx`**
 
-Adicionar `coordenador_logistica` à verificação:
+Adicionar `px-2` ao `CardContent` dos cards de resumo para reduzir o padding horizontal, centralizando melhor o conteudo:
 
-```typescript
-const isAdmin = role === 'admin' || role === 'coordenador_rplus' || role === 'coordenador_servicos' || role === 'coordenador_logistica';
+```tsx
+<CardContent className="py-2 px-2 text-center">
 ```
 
-**Escopo:** 1 linha alterada em 1 arquivo.
+Isso substitui o `p-6` padrao do componente por um padding horizontal menor, mantendo o texto centralizado visualmente dentro do card.
 

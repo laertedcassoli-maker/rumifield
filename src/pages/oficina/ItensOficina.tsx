@@ -83,7 +83,7 @@ export default function ItensOficina() {
     notes: '',
   });
 
-  const isAdmin = role === 'admin' || role === 'coordenador_rplus' || role === 'coordenador_servicos';
+  const isAdmin = role === 'admin' || role === 'coordenador_rplus' || role === 'coordenador_servicos' || role === 'coordenador_logistica';
 
   // Fetch workshop items
   const { data: items = [], isLoading } = useQuery({
