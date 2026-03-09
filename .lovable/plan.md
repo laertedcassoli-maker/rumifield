@@ -1,19 +1,44 @@
 
 
-## Corrigir alinhamento do conteudo nos cards de resumo
+## Corrigir "Atendimento não encontrado" — race condition no useOfflineQuery
 
-### Problema
-O conteudo (numero + label) dentro dos cards de resumo esta visualmente deslocado para a direita. Isso ocorre porque o componente `CardContent` aplica `p-6` (24px) de padding horizontal por padrao, o que em cards estreitos empurra o conteudo para fora do centro visual.
+### Problema raiz
+Quando `navigator.onLine` é `true` mas não há conectividade real (comum em campo), ocorre uma **race condition**:
 
-### Solucao
+1. Query do Supabase inicia com `enabled: true` → `isLoading = true` → mostra spinner
+2. Após retry, query falha → `isError = true`, `isLoading = false`
+3. **Antes do `useEffect` rodar o `offlineFn`**, o componente renderiza com `data: undefined` e `isLoading: false`
+4. O componente vê `!routeItem` → mostra "Atendimento não encontrado"
+5. Depois o `useEffect` roda, carrega dados do Dexie, mas o usuário já viu a tela de erro
 
-**Arquivo: `src/pages/crm/CrmPipeline.tsx`**
-
-Adicionar `px-2` ao `CardContent` dos cards de resumo para reduzir o padding horizontal, centralizando melhor o conteudo:
-
-```tsx
-<CardContent className="py-2 px-2 text-center">
+```text
+Timeline:
+query loading ──► query error ──► render (data=undefined, loading=false) ──► effect runs offlineFn ──► data available
+                                  ↑ AQUI mostra "não encontrado"
 ```
 
-Isso substitui o `p-6` padrao do componente por um padding horizontal menor, mantendo o texto centralizado visualmente dentro do card.
+### Solução
+
+**Arquivo: `src/hooks/useOfflineQuery.ts`**
+
+Ajustar o cálculo de `isLoading` para considerar que quando o fallback **deveria** rodar mas ainda não rodou, é loading:
+
+```typescript
+// Calcular shouldFallback fora do useEffect para uso no return
+const shouldFallback = enabled && (!isOnline || (query.isError && !query.isLoading));
+
+// No return offline:
+return {
+  data: offlineData,
+  isLoading: offlineLoading || (shouldFallback && offlineData === undefined) || (isOnline && query.isLoading),
+  isOfflineData,
+  isOnline,
+  refetchOffline,
+};
+```
+
+A adição de `(shouldFallback && offlineData === undefined)` garante que enquanto o fallback precisa rodar mas os dados ainda não chegaram, `isLoading = true`, evitando o flash de "não encontrado".
+
+### Mudanças
+- **1 arquivo**: `src/hooks/useOfflineQuery.ts` — adicionar `shouldFallback` como variável e incluí-la no cálculo de `isLoading`
 
