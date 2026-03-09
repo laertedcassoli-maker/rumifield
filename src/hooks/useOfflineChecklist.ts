@@ -199,7 +199,7 @@ export function useOfflineChecklist() {
     }
     
     syncTimeoutRef.current = setTimeout(() => {
-      if (isOnline) {
+      if (isOnlineRef.current) {
         syncPendingChanges();
       }
     }, 2000); // Wait 2 seconds before syncing
