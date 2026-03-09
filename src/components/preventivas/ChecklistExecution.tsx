@@ -92,7 +92,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
   const offlineChecklist = useOfflineChecklist();
 
   // Get existing checklist for this preventive
-  const { data: existingChecklist, isLoading: loadingChecklist } = useQuery({
+  const { data: existingChecklist, isLoading: loadingChecklist, isOnline: isChecklistOnline } = useOfflineQuery({
     queryKey: ['preventive-checklist', preventiveId],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -129,8 +129,15 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
         .maybeSingle();
       
       if (error) throw error;
+
+      // Cache full structure for offline use
+      if (data) {
+        await offlineChecklistDb.cacheFullChecklist(data);
+      }
+
       return data;
-    }
+    },
+    offlineFn: () => offlineChecklistDb.getCachedChecklist(preventiveId),
   });
 
   // Get available templates
