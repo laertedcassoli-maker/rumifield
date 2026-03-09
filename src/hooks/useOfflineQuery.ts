@@ -74,6 +74,7 @@ export function useOfflineQuery<TData>({
       isLoading: query.isLoading,
       isOfflineData: false,
       isOnline,
+      refetchOffline,
     };
   }
 
