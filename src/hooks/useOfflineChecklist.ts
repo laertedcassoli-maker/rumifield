@@ -18,6 +18,7 @@ export function useOfflineChecklist() {
   useEffect(() => {
     const handleOnline = () => {
       setIsOnline(true);
+      isOnlineRef.current = true;
       // Auto-sync when coming back online
       syncPendingChanges();
     };
