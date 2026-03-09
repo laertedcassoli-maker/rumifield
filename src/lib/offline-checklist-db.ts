@@ -37,6 +37,21 @@ export interface OfflineChecklistNonconformity {
   _operation?: 'insert' | 'delete';
 }
 
+export interface OfflineChecklistRecord {
+  id: string;
+  preventive_id: string;
+  template_id: string;
+  status: string;
+  template_name: string;
+}
+
+export interface OfflineChecklistBlock {
+  id: string;
+  checklist_id: string;
+  block_name_snapshot: string;
+  order_index: number;
+}
+
 export interface ChecklistSyncQueueItem {
   id?: number;
   table: 'preventive_checklist_items' | 'preventive_checklist_item_actions' | 'preventive_checklist_item_nonconformities';
@@ -51,6 +66,8 @@ class OfflineChecklistDatabase extends Dexie {
   checklistActions!: Table<OfflineChecklistAction, string>;
   checklistNonconformities!: Table<OfflineChecklistNonconformity, string>;
   checklistSyncQueue!: Table<ChecklistSyncQueueItem, number>;
+  checklists!: Table<OfflineChecklistRecord, string>;
+  checklistBlocks!: Table<OfflineChecklistBlock, string>;
 
   constructor() {
     super("RumiFieldChecklistDB");
@@ -60,6 +77,15 @@ class OfflineChecklistDatabase extends Dexie {
       checklistActions: "id, exec_item_id, template_action_id, _pendingSync",
       checklistNonconformities: "id, exec_item_id, template_nonconformity_id, _pendingSync",
       checklistSyncQueue: "++id, table, operation, createdAt",
+    });
+
+    this.version(2).stores({
+      checklistItems: "id, exec_block_id, status, _pendingSync",
+      checklistActions: "id, exec_item_id, template_action_id, _pendingSync",
+      checklistNonconformities: "id, exec_item_id, template_nonconformity_id, _pendingSync",
+      checklistSyncQueue: "++id, table, operation, createdAt",
+      checklists: "id, preventive_id",
+      checklistBlocks: "id, checklist_id, order_index",
     });
   }
 
@@ -102,6 +128,8 @@ class OfflineChecklistDatabase extends Dexie {
     await this.checklistActions.clear();
     await this.checklistNonconformities.clear();
     await this.checklistSyncQueue.clear();
+    await this.checklists.clear();
+    await this.checklistBlocks.clear();
   }
 
   // Cache checklist items for a specific checklist
@@ -206,6 +234,138 @@ class OfflineChecklistDatabase extends Dexie {
   // Get pending items count
   async getPendingCount(): Promise<number> {
     return this.checklistSyncQueue.count();
+  }
+
+  // Cache full checklist structure (checklist + blocks + items + actions + nonconformities)
+  async cacheFullChecklist(checklist: any): Promise<void> {
+    if (!checklist) return;
+
+    // Save checklist record
+    await this.checklists.put({
+      id: checklist.id,
+      preventive_id: checklist.preventive_id,
+      template_id: checklist.template_id,
+      status: checklist.status,
+      template_name: checklist.template?.name || '',
+    });
+
+    // Save blocks, items, actions, nonconformities
+    for (const block of checklist.blocks || []) {
+      await this.checklistBlocks.put({
+        id: block.id,
+        checklist_id: checklist.id,
+        block_name_snapshot: block.block_name_snapshot,
+        order_index: block.order_index,
+      });
+
+      for (const item of block.items || []) {
+        const existing = await this.checklistItems.get(item.id);
+        if (!existing?._pendingSync) {
+          await this.checklistItems.put({
+            id: item.id,
+            exec_block_id: block.id,
+            template_item_id: item.template_item_id,
+            item_name_snapshot: item.item_name_snapshot,
+            order_index: item.order_index,
+            status: item.status,
+            notes: item.notes,
+            answered_at: item.answered_at,
+            _pendingSync: false,
+            _syncedAt: new Date().toISOString(),
+          });
+        }
+
+        // Cache selected actions
+        for (const action of item.selected_actions || []) {
+          await this.checklistActions.put({
+            id: action.id,
+            exec_item_id: item.id,
+            template_action_id: action.template_action_id,
+            action_label_snapshot: action.action_label_snapshot,
+            selected_at: action.selected_at || new Date().toISOString(),
+            _pendingSync: false,
+          });
+        }
+
+        // Cache selected nonconformities
+        for (const nc of item.selected_nonconformities || []) {
+          await this.checklistNonconformities.put({
+            id: nc.id,
+            exec_item_id: item.id,
+            template_nonconformity_id: nc.template_nonconformity_id,
+            nonconformity_label_snapshot: nc.nonconformity_label_snapshot,
+            selected_at: nc.selected_at || new Date().toISOString(),
+            _pendingSync: false,
+          });
+        }
+      }
+    }
+  }
+
+  // Get cached checklist by preventive_id, rebuilding full structure
+  async getCachedChecklist(preventiveId: string): Promise<any | null> {
+    const checklist = await this.checklists
+      .where('preventive_id')
+      .equals(preventiveId)
+      .first();
+
+    if (!checklist) return null;
+
+    const blocks = await this.checklistBlocks
+      .where('checklist_id')
+      .equals(checklist.id)
+      .sortBy('order_index');
+
+    const fullBlocks = await Promise.all(
+      blocks.map(async (block) => {
+        const items = await this.checklistItems
+          .where('exec_block_id')
+          .equals(block.id)
+          .sortBy('order_index');
+
+        const fullItems = await Promise.all(
+          items.map(async (item) => {
+            const selectedActions = await this.checklistActions
+              .where('exec_item_id')
+              .equals(item.id)
+              .toArray();
+
+            const selectedNonconformities = await this.checklistNonconformities
+              .where('exec_item_id')
+              .equals(item.id)
+              .toArray();
+
+            return {
+              ...item,
+              selected_actions: selectedActions.map(a => ({
+                id: a.id,
+                template_action_id: a.template_action_id,
+                action_label_snapshot: a.action_label_snapshot,
+              })),
+              selected_nonconformities: selectedNonconformities.map(nc => ({
+                id: nc.id,
+                template_nonconformity_id: nc.template_nonconformity_id,
+                nonconformity_label_snapshot: nc.nonconformity_label_snapshot,
+              })),
+            };
+          })
+        );
+
+        return {
+          ...block,
+          items: fullItems,
+        };
+      })
+    );
+
+    return {
+      id: checklist.id,
+      preventive_id: checklist.preventive_id,
+      template_id: checklist.template_id,
+      status: checklist.status,
+      template: { name: checklist.template_name },
+      blocks: fullBlocks,
+    };
   }
 }
 
