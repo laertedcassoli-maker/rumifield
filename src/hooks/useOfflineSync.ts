@@ -303,8 +303,8 @@ export function useOfflineSync() {
           if (result.data?.length) {
             const clientIds = [...new Set(result.data.map(i => i.client_id))];
             
-            const clientsRes = await supabase.from("clientes").select("id, nome, fazenda, latitude, longitude").in("id", clientIds);
-            const clientsMap = new Map<string, { id: string; nome: string; fazenda: string | null; latitude: number | null; longitude: number | null }>(
+            const clientsRes = await supabase.from("clientes").select("id, nome, fazenda, latitude, longitude, cidade, estado, link_maps").in("id", clientIds);
+            const clientsMap = new Map<string, { id: string; nome: string; fazenda: string | null; latitude: number | null; longitude: number | null; cidade: string | null; estado: string | null; link_maps: string | null }>(
               (clientsRes.data || []).map(c => [c.id, c])
             );
             
@@ -314,6 +314,9 @@ export function useOfflineSync() {
               client_fazenda: clientsMap.get(i.client_id)?.fazenda || null,
               client_lat: clientsMap.get(i.client_id)?.latitude || null,
               client_lon: clientsMap.get(i.client_id)?.longitude || null,
+              client_cidade: clientsMap.get(i.client_id)?.cidade || null,
+              client_estado: clientsMap.get(i.client_id)?.estado || null,
+              client_link_maps: clientsMap.get(i.client_id)?.link_maps || null,
             }));
             
             await offlineDb.rota_items.clear();
