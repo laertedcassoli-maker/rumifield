@@ -393,7 +393,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
       await offlineChecklist.updateItem(itemId, { status, notes });
 
       // If online, also sync to server immediately
-      if (navigator.onLine) {
+      if (offlineChecklist.isOnline) {
         const updates: any = {
           answered_at: new Date().toISOString()
         };
