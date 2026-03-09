@@ -340,16 +340,16 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
     }
   }, []);
 
-  // Auto-start checklist if routeTemplateId is provided and no checklist exists
+  // Auto-start checklist if routeTemplateId is provided and no checklist exists (online only)
   useEffect(() => {
-    if (!existingChecklist && routeTemplateId && !loadingChecklist && !autoStartAttempted.current && !createChecklistMutation.isPending) {
+    if (!existingChecklist && routeTemplateId && !loadingChecklist && !autoStartAttempted.current && !createChecklistMutation.isPending && isChecklistOnline) {
       console.log('[ChecklistExecution] Auto-starting with template:', routeTemplateId);
       autoStartAttempted.current = true;
       setAutoStartState('pending');
       setAutoStartError(null);
       createChecklistMutation.mutate(routeTemplateId);
     }
-  }, [existingChecklist, routeTemplateId, loadingChecklist, createChecklistMutation.isPending]);
+  }, [existingChecklist, routeTemplateId, loadingChecklist, createChecklistMutation.isPending, isChecklistOnline]);
 
   // Set initial active block when blocks data is available
   useEffect(() => {
