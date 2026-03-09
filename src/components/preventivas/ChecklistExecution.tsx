@@ -447,7 +447,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
     },
     onError: (error) => {
       // If offline, the mutation still succeeds locally
-      if (!navigator.onLine) {
+      if (!offlineChecklist.isOnline) {
         setLastSavedAt(new Date());
         return;
       }
