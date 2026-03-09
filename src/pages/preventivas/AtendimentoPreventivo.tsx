@@ -60,7 +60,7 @@ export default function AtendimentoPreventivo() {
   const isAdminOrCoordinator = role === 'admin' || role === 'coordenador_servicos';
 
   // Fetch route item details
-  const { data: routeItem, isLoading, refetch } = useQuery({
+  const { data: routeItem, isLoading, isOfflineData, refetchOffline } = useOfflineQuery({
     queryKey: ['route-item-attendance', itemId],
     queryFn: async () => {
       const { data: item, error } = await supabase
