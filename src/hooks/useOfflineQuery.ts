@@ -65,7 +65,7 @@ export function useOfflineQuery<TData>({
     } else if (isOnline && query.data !== undefined) {
       setIsOfflineData(false);
     }
-  }, [isOnline, query.isError, query.isLoading, enabled]);
+  }, [isOnline, query.isError, query.isLoading, enabled, offlineRefetchKey]);
 
   // If online and query succeeded, use that data
   if (isOnline && query.data !== undefined && !query.isError) {
