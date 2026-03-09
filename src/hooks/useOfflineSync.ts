@@ -481,7 +481,7 @@ export function useOfflineSync() {
 
   // Sync all tables
   const syncAll = useCallback(async () => {
-    if (!navigator.onLine) {
+    if (!isOnline) {
       setSyncStatus("offline");
       return;
     }

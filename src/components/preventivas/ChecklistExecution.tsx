@@ -765,7 +765,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
       setLastSavedAt(new Date());
     },
     onError: (error) => {
-      if (!navigator.onLine) {
+      if (!offlineChecklist.isOnline) {
         setLastSavedAt(new Date());
         return;
       }

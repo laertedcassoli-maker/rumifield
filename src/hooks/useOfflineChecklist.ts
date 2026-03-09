@@ -275,14 +275,14 @@ export function useOfflineChecklist() {
     
     await updatePendingCount();
 
-    if (navigator.onLine) {
+    if (isOnline) {
       debouncedSync();
     } else {
       setSyncStatus("offline");
     }
 
     return true;
-  }, [debouncedSync, updatePendingCount]);
+  }, [isOnline, debouncedSync, updatePendingCount]);
 
   // Cache checklist data locally
   const cacheChecklistData = useCallback(async (blocks: any[]) => {
