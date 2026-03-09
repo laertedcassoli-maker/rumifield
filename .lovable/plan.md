@@ -1,19 +1,31 @@
 
 
-## Corrigir alinhamento do conteudo nos cards de resumo
+## Corrigir permissões RLS nas tabelas relacionadas à OS
 
 ### Problema
-O conteudo (numero + label) dentro dos cards de resumo esta visualmente deslocado para a direita. Isso ocorre porque o componente `CardContent` aplica `p-6` (24px) de padding horizontal por padrao, o que em cards estreitos empurra o conteudo para fora do centro visual.
+A política de UPDATE na `work_orders` foi corrigida para incluir `tecnico_oficina`, mas as tabelas **filhas** (`work_order_items`, `work_order_parts_used`) ainda verificam apenas `created_by_user_id`, `assigned_to_user_id` ou admin/coordenador na work_order pai. Bruno consegue atualizar o status da OS, mas falha ao tentar atualizar horímetro (`work_order_items`) ou adicionar peças (`work_order_parts_used`), pois essas políticas não incluem `tecnico_oficina`.
 
-### Solucao
+### Correção — Migration SQL
 
-**Arquivo: `src/pages/crm/CrmPipeline.tsx`**
+Atualizar as políticas de INSERT, UPDATE e DELETE em `work_order_items` e `work_order_parts_used` para incluir `tecnico_oficina`:
 
-Adicionar `px-2` ao `CardContent` dos cards de resumo para reduzir o padding horizontal, centralizando melhor o conteudo:
+```sql
+-- work_order_items: INSERT, UPDATE, DELETE
+DROP POLICY "Users can insert work_order_items" ON work_order_items;
+CREATE POLICY "Users can insert work_order_items" ON work_order_items
+  FOR INSERT TO authenticated
+  WITH CHECK (
+    EXISTS (SELECT 1 FROM work_orders wo WHERE wo.id = work_order_items.work_order_id
+      AND (wo.created_by_user_id = auth.uid() OR wo.assigned_to_user_id = auth.uid()
+           OR is_admin_or_coordinator(auth.uid()) OR has_role(auth.uid(), 'tecnico_oficina')))
+  );
 
-```tsx
-<CardContent className="py-2 px-2 text-center">
+-- Repetir para UPDATE, DELETE em work_order_items
+-- Repetir para INSERT, UPDATE, DELETE em work_order_parts_used
 ```
 
-Isso substitui o `p-6` padrao do componente por um padding horizontal menor, mantendo o texto centralizado visualmente dentro do card.
+Mesma lógica: adicionar `OR has_role(auth.uid(), 'tecnico_oficina')` em todas as policies de escrita dessas duas tabelas.
+
+### Arquivos
+- Apenas migration SQL (6 políticas atualizadas)
 
