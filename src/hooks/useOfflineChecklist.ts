@@ -133,7 +133,7 @@ export function useOfflineChecklist() {
 
   // Sync pending changes to server
   const syncPendingChanges = useCallback(async () => {
-    if (!navigator.onLine || syncInProgressRef.current) {
+    if (!isOnline || syncInProgressRef.current) {
       return;
     }
 
