@@ -196,7 +196,7 @@ export function useOfflineChecklist() {
     }
     
     syncTimeoutRef.current = setTimeout(() => {
-      if (navigator.onLine) {
+      if (isOnline) {
         syncPendingChanges();
       }
     }, 2000); // Wait 2 seconds before syncing
