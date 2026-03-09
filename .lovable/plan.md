@@ -1,19 +1,16 @@
 
 
-## Corrigir alinhamento do conteudo nos cards de resumo
+## Problema
 
-### Problema
-O conteudo (numero + label) dentro dos cards de resumo esta visualmente deslocado para a direita. Isso ocorre porque o componente `CardContent` aplica `p-6` (24px) de padding horizontal por padrao, o que em cards estreitos empurra o conteudo para fora do centro visual.
+Todos os 14 ativos no banco estão com `status = 'em_manutencao'`. Quando limpamos os registros de work_orders, não resetamos o status dos workshop_items. A query de busca na criação de OS filtra `.eq('status', 'disponivel')`, por isso nenhum ativo aparece.
 
-### Solucao
+## Correção
 
-**Arquivo: `src/pages/crm/CrmPipeline.tsx`**
+Executar um UPDATE direto no banco para resetar todos os workshop_items para `status = 'disponivel'`, já que não existem mais OSs ativas no sistema.
 
-Adicionar `px-2` ao `CardContent` dos cards de resumo para reduzir o padding horizontal, centralizando melhor o conteudo:
-
-```tsx
-<CardContent className="py-2 px-2 text-center">
+```sql
+UPDATE workshop_items SET status = 'disponivel' WHERE status = 'em_manutencao';
 ```
 
-Isso substitui o `p-6` padrao do componente por um padding horizontal menor, mantendo o texto centralizado visualmente dentro do card.
+Nenhuma alteração de código necessária.
 
