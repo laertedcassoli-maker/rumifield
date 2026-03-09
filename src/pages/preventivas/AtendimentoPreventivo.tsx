@@ -700,9 +700,14 @@ export default function AtendimentoPreventivo() {
               <LogOut className="h-4 w-4 mr-2" />
               Encerrar Visita
             </Button>
-            {!canFinishVisit && (
+            {!canFinishVisit && !isOfflineData && (
               <p className="text-xs text-muted-foreground text-center mt-2">
                 Conclua o checklist para encerrar a visita
+              </p>
+            )}
+            {isOfflineData && (
+              <p className="text-xs text-muted-foreground text-center mt-2">
+                Encerrar visita requer conexão com a internet
               </p>
             )}
           </div>
