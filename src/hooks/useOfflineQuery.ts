@@ -1,5 +1,5 @@
-import { useQuery, UseQueryOptions } from "@tanstack/react-query";
-import { useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useState, useEffect, useRef } from "react";
 
 interface UseOfflineQueryOptions<TData> {
   queryKey: unknown[];
@@ -23,6 +23,10 @@ export function useOfflineQuery<TData>({
   const [isOfflineData, setIsOfflineData] = useState(false);
   const [offlineLoading, setOfflineLoading] = useState(false);
   const [offlineRefetchKey, setOfflineRefetchKey] = useState(0);
+
+  // Always keep the latest offlineFn in a ref to avoid stale closures
+  const offlineFnRef = useRef(offlineFn);
+  offlineFnRef.current = offlineFn;
 
   const refetchOffline = () => setOfflineRefetchKey(prev => prev + 1);
 
@@ -51,7 +55,7 @@ export function useOfflineQuery<TData>({
   useEffect(() => {
     if (shouldFallback) {
       setOfflineLoading(true);
-      offlineFn()
+      offlineFnRef.current()
         .then((data) => {
           setOfflineData(data);
           setIsOfflineData(true);
@@ -65,7 +69,7 @@ export function useOfflineQuery<TData>({
     } else if (isOnline && query.data !== undefined) {
       setIsOfflineData(false);
     }
-  }, [isOnline, query.isError, query.isLoading, enabled, offlineRefetchKey]);
+  }, [shouldFallback, offlineRefetchKey]);
 
   // If online and query succeeded, use that data
   if (isOnline && query.data !== undefined && !query.isError) {
