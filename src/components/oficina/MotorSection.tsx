@@ -116,6 +116,7 @@ export function MotorSection({
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['workshop-item-motor', workshopItemId] });
+      queryClient.invalidateQueries({ queryKey: ['work-order-items'] });
       setEditDialogOpen(false);
       setNewMotorCode('');
       toast.success('Código do motor atualizado!');
