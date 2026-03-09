@@ -71,13 +71,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       ]);
 
       if (profileRes.data) {
-        setProfile(profileRes.data as Profile);
+        const p = profileRes.data as Profile;
+        setProfile(p);
+        localStorage.setItem('cached_profile', JSON.stringify(p));
       }
       if (roleRes.data) {
-        setRole(roleRes.data.role as AppRole);
+        const r = roleRes.data.role as AppRole;
+        setRole(r);
+        localStorage.setItem('cached_role', r);
       }
     } catch (error) {
       console.error('Error fetching user data:', error);
+      // Fallback to cached values when offline
+      const cachedProfile = localStorage.getItem('cached_profile');
+      const cachedRole = localStorage.getItem('cached_role');
+      if (cachedProfile) {
+        try { setProfile(JSON.parse(cachedProfile)); } catch {}
+      }
+      if (cachedRole) {
+        setRole(cachedRole as AppRole);
+      }
     } finally {
       setLoading(false);
     }
@@ -101,6 +114,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
+    localStorage.removeItem('cached_profile');
+    localStorage.removeItem('cached_role');
     await supabase.auth.signOut();
   };
 
