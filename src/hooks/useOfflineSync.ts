@@ -20,6 +20,7 @@ export function useOfflineSync() {
   useEffect(() => {
     const handleOnline = () => {
       setIsOnline(true);
+      isOnlineRef.current = true;
       // Auto-sync when coming back online
       if (syncAllRef.current) {
         syncAllRef.current();
@@ -27,6 +28,7 @@ export function useOfflineSync() {
     };
     const handleOffline = () => {
       setIsOnline(false);
+      isOnlineRef.current = false;
       setSyncStatus("offline");
     };
 
