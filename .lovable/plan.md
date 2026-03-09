@@ -1,24 +1,19 @@
 
 
-## Adicionar campo Família ao formulário de peças + preencher registros em branco
+## Corrigir alinhamento do conteudo nos cards de resumo
 
 ### Problema
-O formulário de cadastro/edição de peças não possui o campo "Família". Além disso, peças com `familia` nula no banco precisam receber o valor padrão "RumiFlow".
+O conteudo (numero + label) dentro dos cards de resumo esta visualmente deslocado para a direita. Isso ocorre porque o componente `CardContent` aplica `p-6` (24px) de padding horizontal por padrao, o que em cards estreitos empurra o conteudo para fora do centro visual.
 
-### Mudanças
+### Solucao
 
-**1. Migration SQL** — Atualizar peças sem família:
-```sql
-UPDATE public.pecas SET familia = 'RumiFlow' WHERE familia IS NULL OR familia = '';
+**Arquivo: `src/pages/crm/CrmPipeline.tsx`**
+
+Adicionar `px-2` ao `CardContent` dos cards de resumo para reduzir o padding horizontal, centralizando melhor o conteudo:
+
+```tsx
+<CardContent className="py-2 px-2 text-center">
 ```
 
-**2. Editar `src/pages/admin/Config.tsx`**:
-- Adicionar `familia: string` ao `PecaFormData`
-- Buscar famílias distintas existentes na query de peças para popular um `Select`
-- Adicionar campo `Select` com as famílias existentes + opção de digitar nova família (combo select + input)
-- Incluir `familia` no `createPeca` e `updatePeca` mutations
-- Preencher `familia` ao abrir edição (`openEditPeca`)
-- Default "RumiFlow" ao criar nova peça
-
-O select listará dinamicamente as famílias já cadastradas no banco, e terá uma opção "Outra..." para digitar um valor customizado.
+Isso substitui o `p-6` padrao do componente por um padding horizontal menor, mantendo o texto centralizado visualmente dentro do card.
 

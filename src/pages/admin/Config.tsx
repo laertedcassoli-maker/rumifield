@@ -38,6 +38,7 @@ interface PecaFormData {
   descricao: string;
   omie_codigo: string;
   is_asset: boolean;
+  familia: string;
 }
 
 interface ProdutoComercialFormData {
@@ -65,7 +66,8 @@ export default function AdminConfig() {
   const [imagePreviewOpen, setImagePreviewOpen] = useState(false);
   const [previewImage, setPreviewImage] = useState<{ url: string; nome: string } | null>(null);
   const [produtoForm, setProdutoForm] = useState<ProdutoFormData>({ nome: '', unidade: 'litros', descricao: '', litros_por_vaca_2x: 0, litros_por_vaca_3x: 0 });
-  const [pecaForm, setPecaForm] = useState<PecaFormData>({ codigo: '', nome: '', descricao: '', omie_codigo: '', is_asset: false });
+  const [pecaForm, setPecaForm] = useState<PecaFormData>({ codigo: '', nome: '', descricao: '', omie_codigo: '', is_asset: false, familia: 'RumiFlow' });
+  const [customFamilia, setCustomFamilia] = useState(false);
   const [produtoComercialForm, setProdutoComercialForm] = useState<ProdutoComercialFormData>({ nome: '', descricao: '' });
   const [indicadorForm, setIndicadorForm] = useState<IndicadorFormData>({ produto_id: '', nome: '', descricao: '', unidade: '' });
   const [isEditingProduto, setIsEditingProduto] = useState(false);
@@ -335,6 +337,7 @@ export default function AdminConfig() {
         descricao: data.descricao,
         omie_codigo: data.omie_codigo,
         is_asset: data.is_asset,
+        familia: data.familia || 'RumiFlow',
       } as any);
       if (error) throw error;
     },
@@ -358,6 +361,7 @@ export default function AdminConfig() {
         descricao: data.descricao,
         omie_codigo: data.omie_codigo,
         is_asset: data.is_asset,
+        familia: data.familia || 'RumiFlow',
       } as any).eq('id', data.id);
       if (error) throw error;
     },
@@ -489,12 +493,23 @@ export default function AdminConfig() {
   };
 
   const openNewPeca = () => {
-    setPecaForm({ codigo: '', nome: '', descricao: '', omie_codigo: '', is_asset: false });
+    setPecaForm({ codigo: '', nome: '', descricao: '', omie_codigo: '', is_asset: false, familia: 'RumiFlow' });
+    setCustomFamilia(false);
     setIsEditingPeca(false);
     setPecaOpen(true);
   };
 
+  const familias = useMemo(() => {
+    if (!pecas) return ['RumiFlow'];
+    const set = new Set<string>();
+    pecas.forEach(p => { if (p.familia) set.add(p.familia); });
+    if (!set.has('RumiFlow')) set.add('RumiFlow');
+    return Array.from(set).sort();
+  }, [pecas]);
+
   const openEditPeca = (peca: typeof pecas extends (infer T)[] ? T : never) => {
+    const fam = peca.familia || 'RumiFlow';
+    const isKnown = familias.includes(fam);
     setPecaForm({
       id: peca.id,
       codigo: peca.codigo,
@@ -502,14 +517,17 @@ export default function AdminConfig() {
       descricao: peca.descricao || '',
       omie_codigo: peca.omie_codigo || '',
       is_asset: (peca as any).is_asset ?? false,
+      familia: fam,
     });
+    setCustomFamilia(!isKnown);
     setIsEditingPeca(true);
     setPecaOpen(true);
   };
 
   const closePecaDialog = () => {
     setPecaOpen(false);
-    setPecaForm({ codigo: '', nome: '', descricao: '', omie_codigo: '', is_asset: false });
+    setPecaForm({ codigo: '', nome: '', descricao: '', omie_codigo: '', is_asset: false, familia: 'RumiFlow' });
+    setCustomFamilia(false);
     setIsEditingPeca(false);
   };
 
@@ -1247,6 +1265,40 @@ export default function AdminConfig() {
                     onChange={(e) => setPecaForm({ ...pecaForm, descricao: e.target.value })}
                     placeholder="Descrição da peça"
                   />
+                </div>
+                <div className="space-y-2">
+                  <Label>Família</Label>
+                  {customFamilia ? (
+                    <div className="flex gap-2">
+                      <Input
+                        value={pecaForm.familia}
+                        onChange={(e) => setPecaForm({ ...pecaForm, familia: e.target.value })}
+                        placeholder="Nome da família"
+                      />
+                      <Button type="button" variant="outline" size="sm" onClick={() => {
+                        setCustomFamilia(false);
+                        setPecaForm({ ...pecaForm, familia: familias[0] || 'RumiFlow' });
+                      }}>Voltar</Button>
+                    </div>
+                  ) : (
+                    <select
+                      className="flex h-10 w-full items-center rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                      value={pecaForm.familia}
+                      onChange={(e) => {
+                        if (e.target.value === '__other__') {
+                          setCustomFamilia(true);
+                          setPecaForm({ ...pecaForm, familia: '' });
+                        } else {
+                          setPecaForm({ ...pecaForm, familia: e.target.value });
+                        }
+                      }}
+                    >
+                      {familias.map(f => (
+                        <option key={f} value={f}>{f}</option>
+                      ))}
+                      <option value="__other__">Outra...</option>
+                    </select>
+                  )}
                 </div>
                 <div className="flex items-center justify-between rounded-lg border p-3">
                   <div className="space-y-0.5">
