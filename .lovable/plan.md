@@ -1,14 +1,19 @@
 
 
-## Permitir vincular cliente inativo à OS
+## Corrigir alinhamento do conteudo nos cards de resumo
 
-**Problema:** A query de clientes no `NovaOSDialog.tsx` (linha 112) filtra `.eq('status', 'ativo')`, impedindo que clientes inativos apareçam.
+### Problema
+O conteudo (numero + label) dentro dos cards de resumo esta visualmente deslocado para a direita. Isso ocorre porque o componente `CardContent` aplica `p-6` (24px) de padding horizontal por padrao, o que em cards estreitos empurra o conteudo para fora do centro visual.
 
-**Solução:** Remover o filtro de status e adicionar um badge visual "(inativo)" para distinguir clientes inativos na busca.
+### Solucao
 
-**Arquivo:** `src/components/oficina/NovaOSDialog.tsx`
+**Arquivo: `src/pages/crm/CrmPipeline.tsx`**
 
-1. Remover `.eq('status', 'ativo')` da query de clientes (linha 112)
-2. Adicionar campo `status` ao select (linha 111)
-3. Exibir badge "(inativo)" ao lado do nome do cliente nos resultados de busca e no card selecionado
+Adicionar `px-2` ao `CardContent` dos cards de resumo para reduzir o padding horizontal, centralizando melhor o conteudo:
+
+```tsx
+<CardContent className="py-2 px-2 text-center">
+```
+
+Isso substitui o `p-6` padrao do componente por um padding horizontal menor, mantendo o texto centralizado visualmente dentro do card.
 

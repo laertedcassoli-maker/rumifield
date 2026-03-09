@@ -43,6 +43,7 @@ interface Cliente {
   nome: string;
   fazenda: string | null;
   cod_imilk: string | null;
+  status: string;
 }
 
 interface NovaOSDialogProps {
@@ -114,8 +115,7 @@ export function NovaOSDialog({ open, onOpenChange, onSuccess }: NovaOSDialogProp
     queryFn: async () => {
       const { data, error } = await supabase
         .from('clientes')
-        .select('id, nome, fazenda, cod_imilk')
-        .eq('status', 'ativo')
+        .select('id, nome, fazenda, cod_imilk, status')
         .order('nome');
       if (error) throw error;
       return data as Cliente[];
@@ -533,7 +533,12 @@ export function NovaOSDialog({ open, onOpenChange, onSuccess }: NovaOSDialogProp
                 <CardContent className="p-3">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="font-medium">{selectedCliente.nome}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium">{selectedCliente.nome}</p>
+                        {selectedCliente.status !== 'ativo' && (
+                          <Badge variant="outline" className="text-xs text-destructive border-destructive">inativo</Badge>
+                        )}
+                      </div>
                       {selectedCliente.fazenda && (
                         <p className="text-sm text-muted-foreground">{selectedCliente.fazenda}</p>
                       )}
@@ -567,7 +572,12 @@ export function NovaOSDialog({ open, onOpenChange, onSuccess }: NovaOSDialogProp
                       className="p-3 border-b last:border-b-0 cursor-pointer hover:bg-muted/50"
                       onClick={() => { setSelectedClienteId(cliente.id); setClienteSearch(cliente.nome); }}
                     >
-                      <p className="font-medium">{cliente.nome}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium">{cliente.nome}</p>
+                        {cliente.status !== 'ativo' && (
+                          <Badge variant="outline" className="text-xs text-destructive border-destructive">inativo</Badge>
+                        )}
+                      </div>
                       <p className="text-xs text-muted-foreground">
                         {cliente.fazenda}{cliente.cod_imilk ? ` • iMilk: ${cliente.cod_imilk}` : ''}
                       </p>
