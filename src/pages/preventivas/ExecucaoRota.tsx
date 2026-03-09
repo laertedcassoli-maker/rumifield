@@ -205,49 +205,68 @@ export default function ExecucaoRota() {
 
   const isOffline = isRouteOffline || isItemsOffline;
 
+  // Offline helper for checkin
+  const checkinOffline = async (itemId: string, lat: number | null, lon: number | null, now: string) => {
+    await offlineDb.rota_items.update(itemId, {
+      checkin_at: now,
+      checkin_lat: lat,
+      checkin_lon: lon,
+    });
+    await offlineDb.addToSyncQueue('preventive_route_items', 'update', {
+      id: itemId,
+      checkin_at: now,
+      checkin_lat: lat,
+      checkin_lon: lon,
+    });
+    if (route?.status === 'planejada') {
+      await offlineDb.rotas.update(id!, { status: 'em_execucao' });
+      await offlineDb.addToSyncQueue('preventive_routes', 'update', {
+        id: id,
+        status: 'em_execucao',
+      });
+    }
+  };
+
   const checkinMutation = useMutation({
     mutationFn: async ({ itemId, lat, lon }: { itemId: string; lat: number | null; lon: number | null }) => {
       const now = new Date().toISOString();
 
       if (!navigator.onLine) {
-        // Offline: update Dexie locally and queue for sync
-        await offlineDb.rota_items.update(itemId, {
-          checkin_at: now,
-          checkin_lat: lat,
-          checkin_lon: lon,
-        });
-        await offlineDb.addToSyncQueue('preventive_route_items', 'update', {
-          id: itemId,
-          checkin_at: now,
-          checkin_lat: lat,
-          checkin_lon: lon,
-        });
-        if (route?.status === 'planejada') {
-          await offlineDb.rotas.update(id!, { status: 'em_execucao' });
-          await offlineDb.addToSyncQueue('preventive_routes', 'update', {
-            id: id,
-            status: 'em_execucao',
-          });
-        }
+        await checkinOffline(itemId, lat, lon, now);
         return;
       }
 
-      const { error } = await supabase
-        .from('preventive_route_items')
-        .update({
-          checkin_at: now,
-          checkin_lat: lat,
-          checkin_lon: lon,
-        } as any)
-        .eq('id', itemId);
+      try {
+        const updatePromise = (async () => {
+          const { error } = await supabase
+            .from('preventive_route_items')
+            .update({
+              checkin_at: now,
+              checkin_lat: lat,
+              checkin_lon: lon,
+            } as any)
+            .eq('id', itemId);
+          if (error) throw error;
 
-      if (error) throw error;
+          if (route?.status === 'planejada') {
+            await supabase
+              .from('preventive_routes')
+              .update({ status: 'em_execucao' })
+              .eq('id', id);
+          }
+        })();
 
-      if (route?.status === 'planejada') {
-        await supabase
-          .from('preventive_routes')
-          .update({ status: 'em_execucao' })
-          .eq('id', id);
+        await withTimeout(updatePromise, ONLINE_TIMEOUT_MS);
+      } catch (err) {
+        if (isNetworkError(err)) {
+          await checkinOffline(itemId, lat, lon, now);
+          toast({
+            title: 'Salvo localmente',
+            description: 'Sem conexão — o check-in será sincronizado automaticamente.',
+          });
+          return;
+        }
+        throw err;
       }
     },
     onSuccess: () => {
