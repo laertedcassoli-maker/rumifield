@@ -22,6 +22,9 @@ export function useOfflineQuery<TData>({
   const [offlineData, setOfflineData] = useState<TData | undefined>(undefined);
   const [isOfflineData, setIsOfflineData] = useState(false);
   const [offlineLoading, setOfflineLoading] = useState(false);
+  const [offlineRefetchKey, setOfflineRefetchKey] = useState(0);
+
+  const refetchOffline = () => setOfflineRefetchKey(prev => prev + 1);
 
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
