@@ -79,7 +79,7 @@ export default function ExecucaoRota() {
 
   const isAdminOrCoordinator = role === 'admin' || role === 'coordenador_servicos';
 
-  const { data: route, isLoading: routeLoading } = useQuery({
+  const { data: route, isLoading: routeLoading, isOfflineData: isRouteOffline } = useOfflineQuery({
     queryKey: ['route-execution', id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -91,10 +91,23 @@ export default function ExecucaoRota() {
       if (error) throw error;
       return data;
     },
+    offlineFn: async () => {
+      const rota = await offlineDb.rotas.get(id!);
+      if (!rota) return null;
+      return {
+        id: rota.id,
+        route_code: rota.route_code,
+        start_date: rota.start_date,
+        end_date: rota.end_date,
+        status: rota.status,
+        field_technician_user_id: rota.field_technician_user_id,
+        notes: rota.notes,
+      };
+    },
     enabled: !!id,
   });
 
-  const { data: items, isLoading: itemsLoading } = useQuery<RouteItem[]>({
+  const { data: items, isLoading: itemsLoading, isOfflineData: isItemsOffline } = useOfflineQuery<RouteItem[]>({
     queryKey: ['route-execution-items', id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -137,8 +150,41 @@ export default function ExecucaoRota() {
         };
       });
     },
+    offlineFn: async () => {
+      const rotaItems = await offlineDb.rota_items
+        .filter(i => i.route_id === id!)
+        .sortBy('order_index');
+
+      if (!rotaItems.length) return [];
+
+      const allClients = await offlineDb.clientes.toArray();
+      const clientsMap = new Map(allClients.map(c => [c.id, c]));
+
+      return rotaItems.map(item => {
+        const client = clientsMap.get(item.client_id);
+        return {
+          id: item.id,
+          client_id: item.client_id,
+          client_name: client?.nome || item.client_name || 'Cliente desconhecido',
+          client_fazenda: client?.fazenda || item.client_fazenda || null,
+          client_cidade: client?.cidade || item.client_cidade || null,
+          client_estado: client?.estado || item.client_estado || null,
+          client_link_maps: client?.link_maps || item.client_link_maps || null,
+          client_latitude: client?.latitude ?? item.client_lat ?? null,
+          client_longitude: client?.longitude ?? item.client_lon ?? null,
+          status: item.status,
+          checkin_at: item.checkin_at || null,
+          checkin_lat: item.checkin_lat ?? null,
+          checkin_lon: item.checkin_lon ?? null,
+          order_index: item.order_index || 0,
+          public_token: null, // Not available offline
+        };
+      });
+    },
     enabled: !!id,
   });
+
+  const isOffline = isRouteOffline || isItemsOffline;
 
   const checkinMutation = useMutation({
     mutationFn: async ({ itemId, lat, lon }: { itemId: string; lat: number | null; lon: number | null }) => {
