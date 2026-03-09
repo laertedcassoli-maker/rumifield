@@ -334,8 +334,10 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
     setPartSearchQuery('');
     
     // If this is a motor part, pre-fill the "Motor Retirado" with current motor code
-    if (peca.nome?.toLowerCase().includes('motor') && currentMotorCode) {
-      setMotorCodeRemoved(currentMotorCode);
+    // Use motorCodeConfirm as fallback since currentMotorCode is only persisted on OS completion
+    const effectiveMotorCode = currentMotorCode || motorCodeConfirm;
+    if (peca.nome?.toLowerCase().includes('motor') && effectiveMotorCode) {
+      setMotorCodeRemoved(effectiveMotorCode);
     }
   };
 

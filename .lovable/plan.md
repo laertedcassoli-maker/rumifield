@@ -1,29 +1,19 @@
 
 
-## Problema
+## Corrigir alinhamento do conteudo nos cards de resumo
 
-O campo "Nº Motor Atual" (`motorCodeConfirm`) é um campo local que só é salvo no banco quando a OS é **concluída**. Antes disso, `current_motor_code` no banco continua `null`.
+### Problema
+O conteudo (numero + label) dentro dos cards de resumo esta visualmente deslocado para a direita. Isso ocorre porque o componente `CardContent` aplica `p-6` (24px) de padding horizontal por padrao, o que em cards estreitos empurra o conteudo para fora do centro visual.
 
-Quando o usuário clica "Adicionar Peça" e seleciona um motor, o código pré-preenchido em "Motor Retirado" vem de `currentMotorCode` (linha 329), que lê do banco via `workshop_items.current_motor_code`. Como o valor ainda não foi persistido, vem vazio.
+### Solucao
 
-## Correção
+**Arquivo: `src/pages/crm/CrmPipeline.tsx`**
 
-**Arquivo:** `src/components/oficina/DetalheOSDialog.tsx`
+Adicionar `px-2` ao `CardContent` dos cards de resumo para reduzir o padding horizontal, centralizando melhor o conteudo:
 
-Na linha 337, ao pré-preencher "Motor Retirado", usar também o valor digitado localmente (`motorCodeConfirm`) como fallback:
-
-```typescript
-// Linha 329 - adicionar fallback para o valor local
-const currentMotorCode = univocaItemForMotor?.workshop_items?.current_motor_code || '';
-
-// Linha 337 - usar motorCodeConfirm como fallback
-const effectiveMotorCode = currentMotorCode || motorCodeConfirm;
-if (peca.nome?.toLowerCase().includes('motor') && effectiveMotorCode) {
-  setMotorCodeRemoved(effectiveMotorCode);
-}
+```tsx
+<CardContent className="py-2 px-2 text-center">
 ```
 
-Também atualizar a referência em `!currentMotorCode` nas demais validações para manter consistência (linhas 1022, 1041, 1204) — essas já estão corretas pois controlam a exibição do campo de input, que só aparece quando não há valor no banco.
-
-**Escopo:** ~3 linhas alteradas em 1 arquivo.
+Isso substitui o `p-6` padrao do componente por um padding horizontal menor, mantendo o texto centralizado visualmente dentro do card.
 
