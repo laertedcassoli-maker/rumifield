@@ -324,8 +324,6 @@ export function useOfflineSync() {
             
             await offlineDb.rota_items.clear();
             await offlineDb.rota_items.bulkPut(enriched as any);
-          } else {
-            await offlineDb.rota_items.clear();
           }
           break;
         }
