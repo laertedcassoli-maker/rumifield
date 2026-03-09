@@ -29,6 +29,25 @@ import { CancelarVisitaDialog } from '@/components/preventivas/CancelarVisitaDia
 import { useOfflineQuery } from '@/hooks/useOfflineQuery';
 import { offlineDb } from '@/lib/offline-db';
 
+const ONLINE_TIMEOUT_MS = 8000;
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('__timeout__')), ms);
+    promise.then(
+      (v) => { clearTimeout(timer); resolve(v); },
+      (e) => { clearTimeout(timer); reject(e); },
+    );
+  });
+}
+
+function isNetworkError(err: unknown): boolean {
+  if (err instanceof Error) {
+    return err.message === '__timeout__' || err.message.includes('fetch') || err.message.includes('network') || err.message.includes('Failed to fetch');
+  }
+  return false;
+}
+
 const routeStatusConfig = {
   planejada: { label: 'Planejada', color: 'bg-blue-500/10 text-blue-600 border-blue-500/20' },
   em_execucao: { label: 'Em Execução', color: 'bg-warning/10 text-warning border-warning/20' },
