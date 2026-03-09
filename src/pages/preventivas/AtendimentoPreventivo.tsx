@@ -20,7 +20,8 @@ import {
   AlertTriangle,
   Share2,
   User,
-  FileText
+  FileText,
+  WifiOff
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
