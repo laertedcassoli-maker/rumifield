@@ -1,42 +1,19 @@
 
 
-## Problema
+## Corrigir alinhamento do conteudo nos cards de resumo
 
-A rota PREV-2026-00004 não finalizou automaticamente porque existe um bug na lógica de auto-finalização do arquivo `AtendimentoPreventivo.tsx`.
+### Problema
+O conteudo (numero + label) dentro dos cards de resumo esta visualmente deslocado para a direita. Isso ocorre porque o componente `CardContent` aplica `p-6` (24px) de padding horizontal por padrao, o que em cards estreitos empurra o conteudo para fora do centro visual.
 
-O sistema tem **duas** verificações de auto-finalização em arquivos diferentes, e elas são inconsistentes:
+### Solucao
 
-| Arquivo | Lógica | Resultado |
-|---|---|---|
-| `ExecucaoRota.tsx` (cancelamento) | Verifica se todos são `executado` **ou** `cancelado` | **Correto** |
-| `AtendimentoPreventivo.tsx` (conclusão de visita) | Verifica apenas se todos são `executado` (ignora `cancelado`) | **Bug** |
+**Arquivo: `src/pages/crm/CrmPipeline.tsx`**
 
-Quando a última visita foi concluída via `AtendimentoPreventivo`, a query buscou itens com status diferente de `executado` — encontrou os 2 cancelados — e **não finalizou a rota**.
+Adicionar `px-2` ao `CardContent` dos cards de resumo para reduzir o padding horizontal, centralizando melhor o conteudo:
 
-## Correção
-
-Alterar a verificação em `AtendimentoPreventivo.tsx` (linhas 288-303) para usar a mesma lógica do `ExecucaoRota.tsx`:
-
-```typescript
-// Check if all route items are done (executado or cancelado)
-const { data: allItems } = await supabase
-  .from('preventive_route_items')
-  .select('status')
-  .eq('route_id', routeId);
-
-const allDone = allItems?.every(i => i.status === 'executado' || i.status === 'cancelado');
-if (allDone && allItems && allItems.length > 0) {
-  await supabase
-    .from('preventive_routes')
-    .update({ status: 'finalizada' })
-    .eq('id', routeId);
-}
+```tsx
+<CardContent className="py-2 px-2 text-center">
 ```
 
-Adicionalmente, a rota PREV-2026-00004 precisará ser finalizada manualmente (botão "Finalizar Rota" na tela de detalhe) ou via correção direta no banco, já que o bug impediu a auto-finalização no momento correto.
-
-### Escopo
-- 1 arquivo alterado: `src/pages/preventivas/AtendimentoPreventivo.tsx`
-- ~6 linhas modificadas
-- Sem migração de banco
+Isso substitui o `p-6` padrao do componente por um padding horizontal menor, mantendo o texto centralizado visualmente dentro do card.
 
