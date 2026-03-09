@@ -188,10 +188,35 @@ export default function ExecucaoRota() {
 
   const checkinMutation = useMutation({
     mutationFn: async ({ itemId, lat, lon }: { itemId: string; lat: number | null; lon: number | null }) => {
+      const now = new Date().toISOString();
+
+      if (!navigator.onLine) {
+        // Offline: update Dexie locally and queue for sync
+        await offlineDb.rota_items.update(itemId, {
+          checkin_at: now,
+          checkin_lat: lat,
+          checkin_lon: lon,
+        });
+        await offlineDb.addToSyncQueue('preventive_route_items', 'update', {
+          id: itemId,
+          checkin_at: now,
+          checkin_lat: lat,
+          checkin_lon: lon,
+        });
+        if (route?.status === 'planejada') {
+          await offlineDb.rotas.update(id!, { status: 'em_execucao' });
+          await offlineDb.addToSyncQueue('preventive_routes', 'update', {
+            id: id,
+            status: 'em_execucao',
+          });
+        }
+        return;
+      }
+
       const { error } = await supabase
         .from('preventive_route_items')
         .update({
-          checkin_at: new Date().toISOString(),
+          checkin_at: now,
           checkin_lat: lat,
           checkin_lon: lon,
         } as any)
