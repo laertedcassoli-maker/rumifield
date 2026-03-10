@@ -44,6 +44,7 @@ interface WorkOrder {
     id: string;
     name: string;
     execution_type: string;
+    has_motor?: boolean;
   };
 }
 
@@ -1076,8 +1077,8 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
               </div>
             )}
 
-            {/* Motor Section - between Item and Parts */}
-            {univocaItem?.workshop_item_id && (
+            {/* Motor Section - only for activities with motor (e.g. Reparo de pistola) */}
+            {univocaItem?.workshop_item_id && workOrder.activities?.has_motor && (
               <MotorSection 
                 workshopItemId={univocaItem.workshop_item_id} 
                 isAdmin={isAdmin}

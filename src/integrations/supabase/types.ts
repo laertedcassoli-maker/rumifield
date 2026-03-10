@@ -19,6 +19,7 @@ export type Database = {
           allows_quantity: boolean
           created_at: string
           execution_type: Database["public"]["Enums"]["execution_type"]
+          has_motor: boolean
           id: string
           is_active: boolean
           name: string
@@ -29,6 +30,7 @@ export type Database = {
           allows_quantity?: boolean
           created_at?: string
           execution_type?: Database["public"]["Enums"]["execution_type"]
+          has_motor?: boolean
           id?: string
           is_active?: boolean
           name: string
@@ -39,6 +41,7 @@ export type Database = {
           allows_quantity?: boolean
           created_at?: string
           execution_type?: Database["public"]["Enums"]["execution_type"]
+          has_motor?: boolean
           id?: string
           is_active?: boolean
           name?: string

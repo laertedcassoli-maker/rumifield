@@ -33,6 +33,7 @@ interface WorkOrder {
     id: string;
     name: string;
     execution_type: string;
+    has_motor?: boolean;
   };
   profiles?: {
     nome: string;
@@ -66,7 +67,7 @@ export default function OrdensServico() {
         .from('work_orders')
         .select(`
           *,
-          activities:activity_id (id, name, execution_type)
+          activities:activity_id (id, name, execution_type, has_motor)
         `)
         .order('created_at', { ascending: false });
       if (error) throw error;
