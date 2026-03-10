@@ -500,6 +500,112 @@ export default function ChecklistEditor() {
     }
   });
 
+  // Reorder blocks mutation
+  const reorderBlocksMutation = useMutation({
+    mutationFn: async (reorderedBlocks: { id: string; order_index: number }[]) => {
+      const updates = reorderedBlocks.map(({ id: blockId, order_index }) =>
+        supabase
+          .from('checklist_template_blocks')
+          .update({ order_index })
+          .eq('id', blockId)
+      );
+      await Promise.all(updates);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['checklist-template', id] });
+    },
+    onError: (error) => {
+      toast.error('Erro ao reordenar blocos: ' + error.message);
+      queryClient.invalidateQueries({ queryKey: ['checklist-template', id] });
+    }
+  });
+
+  // Reorder items mutation
+  const reorderItemsMutation = useMutation({
+    mutationFn: async (reorderedItems: { id: string; order_index: number }[]) => {
+      const updates = reorderedItems.map(({ id: itemId, order_index }) =>
+        supabase
+          .from('checklist_template_items')
+          .update({ order_index })
+          .eq('id', itemId)
+      );
+      await Promise.all(updates);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['checklist-template', id] });
+    },
+    onError: (error) => {
+      toast.error('Erro ao reordenar itens: ' + error.message);
+      queryClient.invalidateQueries({ queryKey: ['checklist-template', id] });
+    }
+  });
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates })
+  );
+
+  const handleBlockDragEnd = useCallback((event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id || !template?.blocks) return;
+
+    const blocks = [...template.blocks];
+    const oldIndex = blocks.findIndex((b: ChecklistBlock) => b.id === active.id);
+    const newIndex = blocks.findIndex((b: ChecklistBlock) => b.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    const [moved] = blocks.splice(oldIndex, 1);
+    blocks.splice(newIndex, 0, moved);
+
+    const reordered = blocks.map((b: ChecklistBlock, i: number) => ({ id: b.id, order_index: i }));
+
+    // Optimistic update
+    queryClient.setQueryData(['checklist-template', id], (old: any) => {
+      if (!old) return old;
+      const updatedBlocks = [...old.blocks];
+      const [movedBlock] = updatedBlocks.splice(oldIndex, 1);
+      updatedBlocks.splice(newIndex, 0, movedBlock);
+      return { ...old, blocks: updatedBlocks.map((b: any, i: number) => ({ ...b, order_index: i })) };
+    });
+
+    reorderBlocksMutation.mutate(reordered);
+  }, [template?.blocks, id, queryClient, reorderBlocksMutation]);
+
+  const handleItemDragEnd = useCallback((blockId: string) => (event: DragEndEvent) => {
+    const { active, over } = event;
+    if (!over || active.id === over.id || !template?.blocks) return;
+
+    const block = template.blocks.find((b: ChecklistBlock) => b.id === blockId);
+    if (!block?.items) return;
+
+    const items = [...block.items];
+    const oldIndex = items.findIndex((i: ChecklistItem) => i.id === active.id);
+    const newIndex = items.findIndex((i: ChecklistItem) => i.id === over.id);
+    if (oldIndex === -1 || newIndex === -1) return;
+
+    const [moved] = items.splice(oldIndex, 1);
+    items.splice(newIndex, 0, moved);
+
+    const reordered = items.map((item: ChecklistItem, i: number) => ({ id: item.id, order_index: i }));
+
+    // Optimistic update
+    queryClient.setQueryData(['checklist-template', id], (old: any) => {
+      if (!old) return old;
+      return {
+        ...old,
+        blocks: old.blocks.map((b: any) => {
+          if (b.id !== blockId) return b;
+          const updatedItems = [...b.items];
+          const [movedItem] = updatedItems.splice(oldIndex, 1);
+          updatedItems.splice(newIndex, 0, movedItem);
+          return { ...b, items: updatedItems.map((it: any, i: number) => ({ ...it, order_index: i })) };
+        })
+      };
+    });
+
+    reorderItemsMutation.mutate(reordered);
+  }, [template?.blocks, id, queryClient, reorderItemsMutation]);
+
   const toggleBlock = (blockId: string) => {
     setExpandedBlocks(prev => {
       const next = new Set(prev);
