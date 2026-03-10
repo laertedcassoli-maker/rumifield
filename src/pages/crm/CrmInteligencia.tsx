@@ -209,6 +209,16 @@ export default function CrmInteligencia() {
             <CommandList>
               <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
               <CommandGroup>
+                <CommandItem
+                  value="todos os clientes"
+                  onSelect={() => {
+                    setSelectedClient(ALL_CLIENTS_OPTION);
+                    setOpenCombobox(false);
+                  }}
+                >
+                  <span className="font-medium">🌐 Todos os clientes</span>
+                  <span className="text-muted-foreground text-xs ml-auto">Visão geral</span>
+                </CommandItem>
                 {clients.map((c) => (
                   <CommandItem
                     key={c.id}
