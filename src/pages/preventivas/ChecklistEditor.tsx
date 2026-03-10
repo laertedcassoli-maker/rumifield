@@ -224,18 +224,14 @@ export default function ChecklistEditor() {
     }
   });
 
-  // Add item mutation
+  // Add item mutation (order_index auto-assigned by trigger)
   const addItemMutation = useMutation({
     mutationFn: async () => {
-      const block = template?.blocks?.find((b: ChecklistBlock) => b.id === addItemBlockId);
-      const maxOrder = block?.items?.length || 0;
-      
       const { error } = await supabase
         .from('checklist_template_items')
         .insert({
           block_id: addItemBlockId,
-          item_name: newItemName,
-          order_index: maxOrder
+          item_name: newItemName
         });
       
       if (error) throw error;
