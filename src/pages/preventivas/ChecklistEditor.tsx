@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -16,6 +16,10 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { toast } from "sonner";
 import { ArrowLeft, Plus, Trash2, GripVertical, ChevronDown, ChevronRight, Save, Wrench, Copy, AlertTriangle } from "lucide-react";
 import NonconformityPartsManager from "@/components/preventivas/NonconformityPartsManager";
+import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from "@dnd-kit/core";
+import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy, useSortable } from "@dnd-kit/sortable";
+import { restrictToVerticalAxis, restrictToParentElement } from "@dnd-kit/modifiers";
+import { CSS } from "@dnd-kit/utilities";
 
 interface CorrectiveAction {
   id: string;
