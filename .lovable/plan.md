@@ -1,19 +1,23 @@
 
 
-## Corrigir alinhamento do conteudo nos cards de resumo
+## Alterar constraint de código único de ativo para ser único por produto
 
 ### Problema
-O conteudo (numero + label) dentro dos cards de resumo esta visualmente deslocado para a direita. Isso ocorre porque o componente `CardContent` aplica `p-6` (24px) de padding horizontal por padrao, o que em cards estreitos empurra o conteudo para fora do centro visual.
+Hoje o `unique_code` do `workshop_items` é globalmente único. O legado do cliente possui o mesmo código de ativo para produtos diferentes (ex: código "001" para uma pistola e "001" para uma válvula solenoide). A unicidade deve ser por tipo de produto (`omie_product_id`), não global.
 
-### Solucao
+### Alteração
 
-**Arquivo: `src/pages/crm/CrmPipeline.tsx`**
+**Migração SQL**
+- Remover a constraint `UNIQUE` global em `unique_code`
+- Criar uma constraint `UNIQUE(unique_code, omie_product_id)` — o par (código, produto) é único
 
-Adicionar `px-2` ao `CardContent` dos cards de resumo para reduzir o padding horizontal, centralizando melhor o conteudo:
-
-```tsx
-<CardContent className="py-2 px-2 text-center">
+```sql
+ALTER TABLE public.workshop_items DROP CONSTRAINT workshop_items_unique_code_key;
+ALTER TABLE public.workshop_items ADD CONSTRAINT workshop_items_unique_code_product UNIQUE (unique_code, omie_product_id);
 ```
 
-Isso substitui o `p-6` padrao do componente por um padding horizontal menor, mantendo o texto centralizado visualmente dentro do card.
+**Frontend — `AssetSearchField.tsx`**
+- Já filtra por `omie_product_id` na busca, então nenhuma mudança necessária. A criação de ativo já passa o `omie_product_id`, então o par será validado pelo banco.
+
+**Nenhuma outra alteração de código é necessária** — as queries já filtram por produto.
 
