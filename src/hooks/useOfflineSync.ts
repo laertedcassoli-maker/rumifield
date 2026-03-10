@@ -460,7 +460,7 @@ export function useOfflineSync() {
       if (existingMaint) {
         await supabase
           .from("preventive_maintenance")
-          .update({ status: status as string, notes: notes as string, updated_at: new Date().toISOString() })
+          .update({ status: status as "cancelada" | "concluida" | "planejada", notes: notes as string, updated_at: new Date().toISOString() })
           .eq("id", existingMaint.id);
       } else {
         const insertResult = await supabase
