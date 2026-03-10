@@ -1,0 +1,2 @@
+ALTER TABLE public.workshop_items DROP CONSTRAINT workshop_items_unique_code_key;
+ALTER TABLE public.workshop_items ADD CONSTRAINT workshop_items_unique_code_product UNIQUE (unique_code, omie_product_id);
