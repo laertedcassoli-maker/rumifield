@@ -280,7 +280,7 @@ export default function CrmInteligencia() {
 
       {/* Suggestion Chips */}
       <div className="flex flex-wrap gap-2">
-        {SUGGESTIONS.map((s) => (
+        {(selectedClient?.id === "all" ? SUGGESTIONS_ALL : SUGGESTIONS_CLIENT).map((s) => (
           <Badge
             key={s.label}
             variant="outline"
