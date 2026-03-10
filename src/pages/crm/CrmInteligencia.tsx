@@ -25,7 +25,7 @@ const AI_MODELS = [
   { value: "openai/gpt-5.2", label: "GPT-5.2", description: "Mais recente OpenAI" },
 ];
 
-const SUGGESTIONS = [
+const SUGGESTIONS_CLIENT = [
   { icon: "📋", label: "Resumo completo", question: "Faça um resumo completo deste cliente" },
   { icon: "⚠️", label: "Pendências", question: "Quais são as pendências e alertas?" },
   { icon: "🔧", label: "Problemas recorrentes", question: "Quais os problemas recorrentes nas preventivas?" },
@@ -35,6 +35,23 @@ const SUGGESTIONS = [
   { icon: "🎙️", label: "Transcrições", question: "Resuma as transcrições de áudio das últimas visitas" },
   { icon: "📝", label: "Propostas", question: "Qual a situação das propostas comerciais?" },
 ];
+
+const SUGGESTIONS_ALL = [
+  { icon: "🚨", label: "Atenção urgente", question: "Quais clientes precisam de atenção urgente?" },
+  { icon: "🔧", label: "Chamados abertos", question: "Resumo de chamados abertos por cliente" },
+  { icon: "📅", label: "Preventivas atrasadas", question: "Quais clientes estão com preventivas atrasadas?" },
+  { icon: "📊", label: "Pipeline comercial", question: "Visão geral do pipeline comercial" },
+  { icon: "📦", label: "Pedidos pendentes", question: "Quais clientes têm pedidos pendentes?" },
+  { icon: "📋", label: "Resumo geral", question: "Faça um resumo geral de todos os clientes" },
+];
+
+const ALL_CLIENTS_OPTION: ClientOption = {
+  id: "all",
+  nome: "Todos os clientes",
+  fazenda: null,
+  cidade: null,
+  estado: null,
+};
 
 interface ClientOption {
   id: string;
@@ -192,6 +209,16 @@ export default function CrmInteligencia() {
             <CommandList>
               <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
               <CommandGroup>
+                <CommandItem
+                  value="todos os clientes"
+                  onSelect={() => {
+                    setSelectedClient(ALL_CLIENTS_OPTION);
+                    setOpenCombobox(false);
+                  }}
+                >
+                  <span className="font-medium">🌐 Todos os clientes</span>
+                  <span className="text-muted-foreground text-xs ml-auto">Visão geral</span>
+                </CommandItem>
                 {clients.map((c) => (
                   <CommandItem
                     key={c.id}
@@ -253,7 +280,7 @@ export default function CrmInteligencia() {
 
       {/* Suggestion Chips */}
       <div className="flex flex-wrap gap-2">
-        {SUGGESTIONS.map((s) => (
+        {(selectedClient?.id === "all" ? SUGGESTIONS_ALL : SUGGESTIONS_CLIENT).map((s) => (
           <Badge
             key={s.label}
             variant="outline"
@@ -284,7 +311,7 @@ export default function CrmInteligencia() {
       )}
 
       {/* Stats Panel */}
-      {stats && !isLoading && (
+      {stats && !isLoading && selectedClient?.id !== "all" && (
         <div className="space-y-4">
           <h3 className="text-sm font-semibold text-muted-foreground">
             Dados encontrados para: {selectedClient?.nome}
