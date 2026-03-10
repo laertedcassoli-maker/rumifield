@@ -863,255 +863,404 @@ export default function ChecklistEditor() {
             </CardContent>
           </Card>
         ) : (
-          template.blocks?.map((block: ChecklistBlock, blockIndex: number) => (
-            <Card key={block.id}>
-              <Collapsible 
-                open={expandedBlocks.has(block.id)} 
-                onOpenChange={() => toggleBlock(block.id)}
-              >
-                <CardHeader className="pb-3">
-                  <div className="flex items-center gap-3">
-                    <CollapsibleTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8">
-                        {expandedBlocks.has(block.id) ? (
-                          <ChevronDown className="h-4 w-4" />
-                        ) : (
-                          <ChevronRight className="h-4 w-4" />
-                        )}
-                      </Button>
-                    </CollapsibleTrigger>
-                    <GripVertical className="h-5 w-5 text-muted-foreground" />
-                    <EditableText
-                      value={block.block_name}
-                      onSave={(value) => updateBlockMutation.mutate({ blockId: block.id, blockName: value })}
-                      className="text-lg font-semibold flex-1"
-                    />
-                    <Badge variant="secondary">{block.items?.length || 0} itens</Badge>
-                    <AlertDialog>
-                      <AlertDialogTrigger asChild>
-                        <Button variant="ghost" size="icon" className="text-destructive">
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Excluir Bloco</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            Tem certeza que deseja excluir "{block.block_name}"? 
-                            Todos os itens, ações corretivas e não conformidades serão excluídos.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                          <AlertDialogAction
-                            onClick={() => deleteBlockMutation.mutate(block.id)}
-                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                          >
-                            Excluir
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  </div>
-                </CardHeader>
-                <CollapsibleContent>
-                  <CardContent className="pt-0">
-                    {/* Items */}
-                    <div className="space-y-2 mb-4">
-                      {block.items?.map((item: ChecklistItem) => (
-                        <div key={item.id} className="border rounded-lg">
-                          <Collapsible
-                            open={expandedItems.has(item.id)}
-                            onOpenChange={() => toggleItem(item.id)}
-                          >
-                            <div className="flex items-center gap-3 p-3">
-                              <CollapsibleTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-6 w-6">
-                                  {expandedItems.has(item.id) ? (
-                                    <ChevronDown className="h-3 w-3" />
-                                  ) : (
-                                    <ChevronRight className="h-3 w-3" />
-                                  )}
-                                </Button>
-                              </CollapsibleTrigger>
-                              <GripVertical className="h-4 w-4 text-muted-foreground" />
-                              <EditableText
-                                value={item.item_name}
-                                onSave={(value) => updateItemMutation.mutate({ itemId: item.id, itemName: value })}
-                                className="flex-1"
-                              />
-                              <Badge variant="outline" className="text-xs">
-                                {item.nonconformities?.length || 0} NC | {item.actions?.length || 0} ações
-                              </Badge>
-                              <div className="flex items-center gap-2">
-                                <span className="text-xs text-muted-foreground">Ativo</span>
-                                <Switch
-                                  checked={item.active}
-                                  onCheckedChange={(checked) => 
-                                    updateItemMutation.mutate({ itemId: item.id, active: checked })
-                                  }
-                                />
-                              </div>
-                              <Button 
-                                variant="ghost" 
-                                size="icon" 
-                                className="h-8 w-8"
-                                onClick={() => duplicateItemMutation.mutate(item)}
-                                disabled={duplicateItemMutation.isPending}
-                                title="Duplicar item"
-                              >
-                                <Copy className="h-3 w-3" />
-                              </Button>
-                              <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                  <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive">
-                                    <Trash2 className="h-3 w-3" />
-                                  </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                  <AlertDialogHeader>
-                                    <AlertDialogTitle>Excluir Item</AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                      Tem certeza que deseja excluir "{item.item_name}"?
-                                    </AlertDialogDescription>
-                                  </AlertDialogHeader>
-                                  <AlertDialogFooter>
-                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                    <AlertDialogAction
-                                      onClick={() => deleteItemMutation.mutate(item.id)}
-                                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-                                    >
-                                      Excluir
-                                    </AlertDialogAction>
-                                  </AlertDialogFooter>
-                                </AlertDialogContent>
-                              </AlertDialog>
-                            </div>
-                            <CollapsibleContent>
-                              <div className="px-3 pb-3 pl-12 space-y-4">
-                                {/* Nonconformities Section */}
-                                <div className="space-y-2">
-                                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                    <AlertTriangle className="h-4 w-4 text-amber-500" />
-                                    Não Conformidades (o que deu errado)
-                                  </div>
-                                  {item.nonconformities?.map((nc: Nonconformity) => (
-                                    <div key={nc.id} className="flex items-center gap-2 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded p-2">
-                                      <EditableText
-                                        value={nc.nonconformity_label}
-                                        onSave={(value) => updateNonconformityMutation.mutate({ ncId: nc.id, ncLabel: value })}
-                                        className="flex-1 text-sm"
-                                      />
-                                      <NonconformityPartsManager 
-                                        nonconformityId={nc.id} 
-                                        nonconformityLabel={nc.nonconformity_label} 
-                                      />
-                                      <div className="flex items-center gap-2">
-                                        <span className="text-xs text-muted-foreground">Ativo</span>
-                                        <Switch
-                                          checked={nc.active}
-                                          onCheckedChange={(checked) => 
-                                            updateNonconformityMutation.mutate({ ncId: nc.id, active: checked })
-                                          }
-                                        />
-                                      </div>
-                                      <Button 
-                                        variant="ghost" 
-                                        size="icon" 
-                                        className="h-6 w-6 text-destructive"
-                                        onClick={() => deleteNonconformityMutation.mutate(nc.id)}
-                                      >
-                                        <Trash2 className="h-3 w-3" />
-                                      </Button>
-                                    </div>
-                                  ))}
-                                  <Button 
-                                    variant="ghost" 
-                                    size="sm" 
-                                    className="w-full justify-start text-muted-foreground"
-                                    onClick={() => openAddNonconformity(item.id)}
-                                  >
-                                    <Plus className="h-3 w-3 mr-2" />
-                                    Adicionar não conformidade
-                                  </Button>
-                                </div>
-
-                                {/* Corrective Actions Section */}
-                                <div className="space-y-2">
-                                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                                    <Wrench className="h-4 w-4" />
-                                    Ações Corretivas (o que foi feito para corrigir)
-                                  </div>
-                                  {item.actions?.map((action: CorrectiveAction) => (
-                                    <div key={action.id} className="flex items-center gap-2 bg-muted/50 rounded p-2">
-                                      <EditableText
-                                        value={action.action_label}
-                                        onSave={(value) => updateActionMutation.mutate({ actionId: action.id, actionLabel: value })}
-                                        className="flex-1 text-sm"
-                                      />
-                                      <div className="flex items-center gap-2">
-                                        <span className="text-xs text-muted-foreground">Ativo</span>
-                                        <Switch
-                                          checked={action.active}
-                                          onCheckedChange={(checked) => 
-                                            updateActionMutation.mutate({ actionId: action.id, active: checked })
-                                          }
-                                        />
-                                      </div>
-                                      <Button 
-                                        variant="ghost" 
-                                        size="icon" 
-                                        className="h-6 w-6 text-destructive"
-                                        onClick={() => deleteActionMutation.mutate(action.id)}
-                                      >
-                                        <Trash2 className="h-3 w-3" />
-                                      </Button>
-                                    </div>
-                                  ))}
-                                  <Button 
-                                    variant="ghost" 
-                                    size="sm" 
-                                    className="w-full justify-start text-muted-foreground"
-                                    onClick={() => openAddAction(item.id)}
-                                  >
-                                    <Plus className="h-3 w-3 mr-2" />
-                                    Adicionar ação corretiva
-                                  </Button>
-                                </div>
-                              </div>
-                            </CollapsibleContent>
-                          </Collapsible>
-                        </div>
-                      ))}
-                    </div>
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      className="w-full justify-start text-muted-foreground"
-                      onClick={() => openAddItem(block.id)}
-                    >
-                      <Plus className="h-4 w-4 mr-2" />
-                      Adicionar item de verificação
-                    </Button>
-                  </CardContent>
-                </CollapsibleContent>
-              </Collapsible>
-            </Card>
-          ))
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCenter}
+            modifiers={[restrictToVerticalAxis]}
+            onDragEnd={handleBlockDragEnd}
+          >
+            <SortableContext
+              items={template.blocks?.map((b: ChecklistBlock) => b.id) || []}
+              strategy={verticalListSortingStrategy}
+            >
+              {template.blocks?.map((block: ChecklistBlock) => (
+                <SortableBlock
+                  key={block.id}
+                  block={block}
+                  expandedBlocks={expandedBlocks}
+                  expandedItems={expandedItems}
+                  toggleBlock={toggleBlock}
+                  toggleItem={toggleItem}
+                  updateBlockMutation={updateBlockMutation}
+                  deleteBlockMutation={deleteBlockMutation}
+                  updateItemMutation={updateItemMutation}
+                  deleteItemMutation={deleteItemMutation}
+                  duplicateItemMutation={duplicateItemMutation}
+                  updateActionMutation={updateActionMutation}
+                  deleteActionMutation={deleteActionMutation}
+                  updateNonconformityMutation={updateNonconformityMutation}
+                  deleteNonconformityMutation={deleteNonconformityMutation}
+                  openAddItem={openAddItem}
+                  openAddAction={openAddAction}
+                  openAddNonconformity={openAddNonconformity}
+                  sensors={sensors}
+                  handleItemDragEnd={handleItemDragEnd}
+                />
+              ))}
+            </SortableContext>
+          </DndContext>
         )}
       </div>
     </div>
   );
 }
 
+// Sortable Block wrapper
+function SortableBlock({
+  block,
+  expandedBlocks,
+  expandedItems,
+  toggleBlock,
+  toggleItem,
+  updateBlockMutation,
+  deleteBlockMutation,
+  updateItemMutation,
+  deleteItemMutation,
+  duplicateItemMutation,
+  updateActionMutation,
+  deleteActionMutation,
+  updateNonconformityMutation,
+  deleteNonconformityMutation,
+  openAddItem,
+  openAddAction,
+  openAddNonconformity,
+  sensors,
+  handleItemDragEnd,
+}: any) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: block.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 10 : undefined,
+  };
+
+  return (
+    <Card ref={setNodeRef} style={style}>
+      <Collapsible
+        open={expandedBlocks.has(block.id)}
+        onOpenChange={() => toggleBlock(block.id)}
+      >
+        <CardHeader className="pb-3">
+          <div className="flex items-center gap-3">
+            <CollapsibleTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8">
+                {expandedBlocks.has(block.id) ? (
+                  <ChevronDown className="h-4 w-4" />
+                ) : (
+                  <ChevronRight className="h-4 w-4" />
+                )}
+              </Button>
+            </CollapsibleTrigger>
+            <button
+              {...attributes}
+              {...listeners}
+              className="cursor-grab touch-none p-1 hover:bg-muted rounded"
+            >
+              <GripVertical className="h-5 w-5 text-muted-foreground" />
+            </button>
+            <EditableText
+              value={block.block_name}
+              onSave={(value: string) => updateBlockMutation.mutate({ blockId: block.id, blockName: value })}
+              className="text-lg font-semibold flex-1"
+            />
+            <Badge variant="secondary">{block.items?.length || 0} itens</Badge>
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button variant="ghost" size="icon" className="text-destructive">
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Excluir Bloco</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    Tem certeza que deseja excluir "{block.block_name}"?
+                    Todos os itens, ações corretivas e não conformidades serão excluídos.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={() => deleteBlockMutation.mutate(block.id)}
+                    className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  >
+                    Excluir
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          </div>
+        </CardHeader>
+        <CollapsibleContent>
+          <CardContent className="pt-0">
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              modifiers={[restrictToVerticalAxis, restrictToParentElement]}
+              onDragEnd={handleItemDragEnd(block.id)}
+            >
+              <SortableContext
+                items={block.items?.map((i: ChecklistItem) => i.id) || []}
+                strategy={verticalListSortingStrategy}
+              >
+                <div className="space-y-2 mb-4">
+                  {block.items?.map((item: ChecklistItem) => (
+                    <SortableItem
+                      key={item.id}
+                      item={item}
+                      expandedItems={expandedItems}
+                      toggleItem={toggleItem}
+                      updateItemMutation={updateItemMutation}
+                      deleteItemMutation={deleteItemMutation}
+                      duplicateItemMutation={duplicateItemMutation}
+                      updateActionMutation={updateActionMutation}
+                      deleteActionMutation={deleteActionMutation}
+                      updateNonconformityMutation={updateNonconformityMutation}
+                      deleteNonconformityMutation={deleteNonconformityMutation}
+                      openAddAction={openAddAction}
+                      openAddNonconformity={openAddNonconformity}
+                    />
+                  ))}
+                </div>
+              </SortableContext>
+            </DndContext>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full justify-start text-muted-foreground"
+              onClick={() => openAddItem(block.id)}
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Adicionar item de verificação
+            </Button>
+          </CardContent>
+        </CollapsibleContent>
+      </Collapsible>
+    </Card>
+  );
+}
+
+// Sortable Item wrapper
+function SortableItem({
+  item,
+  expandedItems,
+  toggleItem,
+  updateItemMutation,
+  deleteItemMutation,
+  duplicateItemMutation,
+  updateActionMutation,
+  deleteActionMutation,
+  updateNonconformityMutation,
+  deleteNonconformityMutation,
+  openAddAction,
+  openAddNonconformity,
+}: any) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: item.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : 1,
+    zIndex: isDragging ? 10 : undefined,
+  };
+
+  return (
+    <div ref={setNodeRef} style={style} className="border rounded-lg">
+      <Collapsible
+        open={expandedItems.has(item.id)}
+        onOpenChange={() => toggleItem(item.id)}
+      >
+        <div className="flex items-center gap-3 p-3">
+          <CollapsibleTrigger asChild>
+            <Button variant="ghost" size="icon" className="h-6 w-6">
+              {expandedItems.has(item.id) ? (
+                <ChevronDown className="h-3 w-3" />
+              ) : (
+                <ChevronRight className="h-3 w-3" />
+              )}
+            </Button>
+          </CollapsibleTrigger>
+          <button
+            {...attributes}
+            {...listeners}
+            className="cursor-grab touch-none p-1 hover:bg-muted rounded"
+          >
+            <GripVertical className="h-4 w-4 text-muted-foreground" />
+          </button>
+          <EditableText
+            value={item.item_name}
+            onSave={(value: string) => updateItemMutation.mutate({ itemId: item.id, itemName: value })}
+            className="flex-1"
+          />
+          <Badge variant="outline" className="text-xs">
+            {item.nonconformities?.length || 0} NC | {item.actions?.length || 0} ações
+          </Badge>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">Ativo</span>
+            <Switch
+              checked={item.active}
+              onCheckedChange={(checked: boolean) =>
+                updateItemMutation.mutate({ itemId: item.id, active: checked })
+              }
+            />
+          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8"
+            onClick={() => duplicateItemMutation.mutate(item)}
+            disabled={duplicateItemMutation.isPending}
+            title="Duplicar item"
+          >
+            <Copy className="h-3 w-3" />
+          </Button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive">
+                <Trash2 className="h-3 w-3" />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Excluir Item</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Tem certeza que deseja excluir "{item.item_name}"?
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={() => deleteItemMutation.mutate(item.id)}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  Excluir
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </div>
+        <CollapsibleContent>
+          <div className="px-3 pb-3 pl-12 space-y-4">
+            {/* Nonconformities Section */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <AlertTriangle className="h-4 w-4 text-amber-500" />
+                Não Conformidades (o que deu errado)
+              </div>
+              {item.nonconformities?.map((nc: Nonconformity) => (
+                <div key={nc.id} className="flex items-center gap-2 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 rounded p-2">
+                  <EditableText
+                    value={nc.nonconformity_label}
+                    onSave={(value: string) => updateNonconformityMutation.mutate({ ncId: nc.id, ncLabel: value })}
+                    className="flex-1 text-sm"
+                  />
+                  <NonconformityPartsManager
+                    nonconformityId={nc.id}
+                    nonconformityLabel={nc.nonconformity_label}
+                  />
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">Ativo</span>
+                    <Switch
+                      checked={nc.active}
+                      onCheckedChange={(checked: boolean) =>
+                        updateNonconformityMutation.mutate({ ncId: nc.id, active: checked })
+                      }
+                    />
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6 text-destructive"
+                    onClick={() => deleteNonconformityMutation.mutate(nc.id)}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </div>
+              ))}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full justify-start text-muted-foreground"
+                onClick={() => openAddNonconformity(item.id)}
+              >
+                <Plus className="h-3 w-3 mr-2" />
+                Adicionar não conformidade
+              </Button>
+            </div>
+
+            {/* Corrective Actions Section */}
+            <div className="space-y-2">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Wrench className="h-4 w-4" />
+                Ações Corretivas (o que foi feito para corrigir)
+              </div>
+              {item.actions?.map((action: CorrectiveAction) => (
+                <div key={action.id} className="flex items-center gap-2 bg-muted/50 rounded p-2">
+                  <EditableText
+                    value={action.action_label}
+                    onSave={(value: string) => updateActionMutation.mutate({ actionId: action.id, actionLabel: value })}
+                    className="flex-1 text-sm"
+                  />
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-muted-foreground">Ativo</span>
+                    <Switch
+                      checked={action.active}
+                      onCheckedChange={(checked: boolean) =>
+                        updateActionMutation.mutate({ actionId: action.id, active: checked })
+                      }
+                    />
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6 text-destructive"
+                    onClick={() => deleteActionMutation.mutate(action.id)}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </div>
+              ))}
+              <Button
+                variant="ghost"
+                size="sm"
+                className="w-full justify-start text-muted-foreground"
+                onClick={() => openAddAction(item.id)}
+              >
+                <Plus className="h-3 w-3 mr-2" />
+                Adicionar ação corretiva
+              </Button>
+            </div>
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
+    </div>
+  );
+}
+
 // Editable text component
-function EditableText({ 
-  value, 
-  onSave, 
-  className 
-}: { 
-  value: string; 
-  onSave: (value: string) => void; 
+function EditableText({
+  value,
+  onSave,
+  className
+}: {
+  value: string;
+  onSave: (value: string) => void;
   className?: string;
 }) {
   const [isEditing, setIsEditing] = useState(false);
@@ -1144,7 +1293,7 @@ function EditableText({
   }
 
   return (
-    <span 
+    <span
       className={`cursor-pointer hover:bg-muted/50 px-2 py-1 rounded ${className}`}
       onClick={() => {
         setEditValue(value);
