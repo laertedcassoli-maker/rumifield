@@ -547,18 +547,18 @@ export default function ChecklistEditor() {
     const [moved] = blocks.splice(oldIndex, 1);
     blocks.splice(newIndex, 0, moved);
 
-    const reordered = blocks.map((b: ChecklistBlock, i: number) => ({ id: b.id, order_index: i }));
+    const orderedIds = blocks.map((b: ChecklistBlock) => b.id);
 
-    // Optimistic update
+    // Optimistic update (1-based)
     queryClient.setQueryData(['checklist-template', id], (old: any) => {
       if (!old) return old;
       const updatedBlocks = [...old.blocks];
       const [movedBlock] = updatedBlocks.splice(oldIndex, 1);
       updatedBlocks.splice(newIndex, 0, movedBlock);
-      return { ...old, blocks: updatedBlocks.map((b: any, i: number) => ({ ...b, order_index: i })) };
+      return { ...old, blocks: updatedBlocks.map((b: any, i: number) => ({ ...b, order_index: i + 1 })) };
     });
 
-    reorderBlocksMutation.mutate(reordered);
+    reorderBlocksMutation.mutate(orderedIds);
   }, [template?.blocks, id, queryClient, reorderBlocksMutation]);
 
   const handleItemDragEnd = useCallback((blockId: string) => (event: DragEndEvent) => {
@@ -576,9 +576,9 @@ export default function ChecklistEditor() {
     const [moved] = items.splice(oldIndex, 1);
     items.splice(newIndex, 0, moved);
 
-    const reordered = items.map((item: ChecklistItem, i: number) => ({ id: item.id, order_index: i }));
+    const orderedIds = items.map((item: ChecklistItem) => item.id);
 
-    // Optimistic update
+    // Optimistic update (1-based)
     queryClient.setQueryData(['checklist-template', id], (old: any) => {
       if (!old) return old;
       return {
@@ -588,12 +588,12 @@ export default function ChecklistEditor() {
           const updatedItems = [...b.items];
           const [movedItem] = updatedItems.splice(oldIndex, 1);
           updatedItems.splice(newIndex, 0, movedItem);
-          return { ...b, items: updatedItems.map((it: any, i: number) => ({ ...it, order_index: i })) };
+          return { ...b, items: updatedItems.map((it: any, i: number) => ({ ...it, order_index: i + 1 })) };
         })
       };
     });
 
-    reorderItemsMutation.mutate(reordered);
+    reorderItemsMutation.mutate({ blockId, orderedIds });
   }, [template?.blocks, id, queryClient, reorderItemsMutation]);
 
   const toggleBlock = (blockId: string) => {
