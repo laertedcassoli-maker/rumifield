@@ -3666,6 +3666,14 @@ export type Database = {
         Args: { _client_id: string; _user_id: string }
         Returns: boolean
       }
+      reorder_checklist_blocks: {
+        Args: { p_ordered_ids: string[]; p_template_id: string }
+        Returns: undefined
+      }
+      reorder_checklist_items: {
+        Args: { p_block_id: string; p_ordered_ids: string[] }
+        Returns: undefined
+      }
     }
     Enums: {
       action_status: "aberta" | "em_execucao" | "concluida"

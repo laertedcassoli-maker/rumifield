@@ -167,16 +167,14 @@ export default function ChecklistEditor() {
     }
   });
 
-  // Add block mutation
+  // Add block mutation (order_index auto-assigned by trigger)
   const addBlockMutation = useMutation({
     mutationFn: async () => {
-      const maxOrder = template?.blocks?.length || 0;
       const { error } = await supabase
         .from('checklist_template_blocks')
         .insert({
           template_id: id,
-          block_name: newBlockName,
-          order_index: maxOrder
+          block_name: newBlockName
         });
       
       if (error) throw error;
@@ -226,18 +224,14 @@ export default function ChecklistEditor() {
     }
   });
 
-  // Add item mutation
+  // Add item mutation (order_index auto-assigned by trigger)
   const addItemMutation = useMutation({
     mutationFn: async () => {
-      const block = template?.blocks?.find((b: ChecklistBlock) => b.id === addItemBlockId);
-      const maxOrder = block?.items?.length || 0;
-      
       const { error } = await supabase
         .from('checklist_template_items')
         .insert({
           block_id: addItemBlockId,
-          item_name: newItemName,
-          order_index: maxOrder
+          item_name: newItemName
         });
       
       if (error) throw error;
@@ -299,15 +293,13 @@ export default function ChecklistEditor() {
       const block = template?.blocks?.find((b: ChecklistBlock) => 
         b.items?.some((i: ChecklistItem) => i.id === item.id)
       );
-      const maxOrder = block?.items?.length || 0;
       
-      // Create the duplicated item
+      // Create the duplicated item (order_index auto-assigned by trigger)
       const { data: newItem, error: itemError } = await supabase
         .from('checklist_template_items')
         .insert({
           block_id: block?.id,
           item_name: `${item.item_name} (cópia)`,
-          order_index: maxOrder,
           active: item.active
         })
         .select()
@@ -500,16 +492,14 @@ export default function ChecklistEditor() {
     }
   });
 
-  // Reorder blocks mutation
+  // Reorder blocks mutation (transactional RPC, 1-based)
   const reorderBlocksMutation = useMutation({
-    mutationFn: async (reorderedBlocks: { id: string; order_index: number }[]) => {
-      const updates = reorderedBlocks.map(({ id: blockId, order_index }) =>
-        supabase
-          .from('checklist_template_blocks')
-          .update({ order_index })
-          .eq('id', blockId)
-      );
-      await Promise.all(updates);
+    mutationFn: async (orderedIds: string[]) => {
+      const { error } = await supabase.rpc('reorder_checklist_blocks', {
+        p_template_id: id,
+        p_ordered_ids: orderedIds
+      });
+      if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['checklist-template', id] });
@@ -520,16 +510,14 @@ export default function ChecklistEditor() {
     }
   });
 
-  // Reorder items mutation
+  // Reorder items mutation (transactional RPC, 1-based)
   const reorderItemsMutation = useMutation({
-    mutationFn: async (reorderedItems: { id: string; order_index: number }[]) => {
-      const updates = reorderedItems.map(({ id: itemId, order_index }) =>
-        supabase
-          .from('checklist_template_items')
-          .update({ order_index })
-          .eq('id', itemId)
-      );
-      await Promise.all(updates);
+    mutationFn: async ({ blockId, orderedIds }: { blockId: string; orderedIds: string[] }) => {
+      const { error } = await supabase.rpc('reorder_checklist_items', {
+        p_block_id: blockId,
+        p_ordered_ids: orderedIds
+      });
+      if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['checklist-template', id] });
@@ -557,18 +545,18 @@ export default function ChecklistEditor() {
     const [moved] = blocks.splice(oldIndex, 1);
     blocks.splice(newIndex, 0, moved);
 
-    const reordered = blocks.map((b: ChecklistBlock, i: number) => ({ id: b.id, order_index: i }));
+    const orderedIds = blocks.map((b: ChecklistBlock) => b.id);
 
-    // Optimistic update
+    // Optimistic update (1-based)
     queryClient.setQueryData(['checklist-template', id], (old: any) => {
       if (!old) return old;
       const updatedBlocks = [...old.blocks];
       const [movedBlock] = updatedBlocks.splice(oldIndex, 1);
       updatedBlocks.splice(newIndex, 0, movedBlock);
-      return { ...old, blocks: updatedBlocks.map((b: any, i: number) => ({ ...b, order_index: i })) };
+      return { ...old, blocks: updatedBlocks.map((b: any, i: number) => ({ ...b, order_index: i + 1 })) };
     });
 
-    reorderBlocksMutation.mutate(reordered);
+    reorderBlocksMutation.mutate(orderedIds);
   }, [template?.blocks, id, queryClient, reorderBlocksMutation]);
 
   const handleItemDragEnd = useCallback((blockId: string) => (event: DragEndEvent) => {
@@ -586,9 +574,9 @@ export default function ChecklistEditor() {
     const [moved] = items.splice(oldIndex, 1);
     items.splice(newIndex, 0, moved);
 
-    const reordered = items.map((item: ChecklistItem, i: number) => ({ id: item.id, order_index: i }));
+    const orderedIds = items.map((item: ChecklistItem) => item.id);
 
-    // Optimistic update
+    // Optimistic update (1-based)
     queryClient.setQueryData(['checklist-template', id], (old: any) => {
       if (!old) return old;
       return {
@@ -598,12 +586,12 @@ export default function ChecklistEditor() {
           const updatedItems = [...b.items];
           const [movedItem] = updatedItems.splice(oldIndex, 1);
           updatedItems.splice(newIndex, 0, movedItem);
-          return { ...b, items: updatedItems.map((it: any, i: number) => ({ ...it, order_index: i })) };
+          return { ...b, items: updatedItems.map((it: any, i: number) => ({ ...it, order_index: i + 1 })) };
         })
       };
     });
 
-    reorderItemsMutation.mutate(reordered);
+    reorderItemsMutation.mutate({ blockId, orderedIds });
   }, [template?.blocks, id, queryClient, reorderItemsMutation]);
 
   const toggleBlock = (blockId: string) => {
