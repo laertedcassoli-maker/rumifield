@@ -44,6 +44,7 @@ interface WorkOrder {
     id: string;
     name: string;
     execution_type: string;
+    has_motor?: boolean;
   };
 }
 
