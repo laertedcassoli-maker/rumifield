@@ -293,15 +293,13 @@ export default function ChecklistEditor() {
       const block = template?.blocks?.find((b: ChecklistBlock) => 
         b.items?.some((i: ChecklistItem) => i.id === item.id)
       );
-      const maxOrder = block?.items?.length || 0;
       
-      // Create the duplicated item
+      // Create the duplicated item (order_index auto-assigned by trigger)
       const { data: newItem, error: itemError } = await supabase
         .from('checklist_template_items')
         .insert({
           block_id: block?.id,
           item_name: `${item.item_name} (cópia)`,
-          order_index: maxOrder,
           active: item.active
         })
         .select()
