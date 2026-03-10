@@ -494,16 +494,14 @@ export default function ChecklistEditor() {
     }
   });
 
-  // Reorder blocks mutation
+  // Reorder blocks mutation (transactional RPC, 1-based)
   const reorderBlocksMutation = useMutation({
-    mutationFn: async (reorderedBlocks: { id: string; order_index: number }[]) => {
-      const updates = reorderedBlocks.map(({ id: blockId, order_index }) =>
-        supabase
-          .from('checklist_template_blocks')
-          .update({ order_index })
-          .eq('id', blockId)
-      );
-      await Promise.all(updates);
+    mutationFn: async (orderedIds: string[]) => {
+      const { error } = await supabase.rpc('reorder_checklist_blocks', {
+        p_template_id: id,
+        p_ordered_ids: orderedIds
+      });
+      if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['checklist-template', id] });
@@ -514,16 +512,14 @@ export default function ChecklistEditor() {
     }
   });
 
-  // Reorder items mutation
+  // Reorder items mutation (transactional RPC, 1-based)
   const reorderItemsMutation = useMutation({
-    mutationFn: async (reorderedItems: { id: string; order_index: number }[]) => {
-      const updates = reorderedItems.map(({ id: itemId, order_index }) =>
-        supabase
-          .from('checklist_template_items')
-          .update({ order_index })
-          .eq('id', itemId)
-      );
-      await Promise.all(updates);
+    mutationFn: async ({ blockId, orderedIds }: { blockId: string; orderedIds: string[] }) => {
+      const { error } = await supabase.rpc('reorder_checklist_items', {
+        p_block_id: blockId,
+        p_ordered_ids: orderedIds
+      });
+      if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['checklist-template', id] });
