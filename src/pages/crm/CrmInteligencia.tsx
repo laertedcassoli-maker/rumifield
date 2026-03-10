@@ -311,7 +311,7 @@ export default function CrmInteligencia() {
       )}
 
       {/* Stats Panel */}
-      {stats && !isLoading && (
+      {stats && !isLoading && selectedClient?.id !== "all" && (
         <div className="space-y-4">
           <h3 className="text-sm font-semibold text-muted-foreground">
             Dados encontrados para: {selectedClient?.nome}
