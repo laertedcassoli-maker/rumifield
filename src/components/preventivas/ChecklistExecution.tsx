@@ -954,6 +954,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
     ...block,
     items: block.items?.map((item: any) => ({
       ...item,
+      status: optimisticStatuses[item.id] ?? item.status,
       selectedActions: item.selected_actions?.map((a: any) => a.template_action_id) || [],
       selectedNonconformities: item.selected_nonconformities?.map((nc: any) => nc.template_nonconformity_id) || [],
       availableActions: templateActions?.[item.template_item_id] || [],
