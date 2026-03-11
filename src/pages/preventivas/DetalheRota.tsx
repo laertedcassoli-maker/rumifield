@@ -191,27 +191,109 @@ export default function DetalheRota() {
   // Update route status
   const updateRouteStatus = useMutation({
     mutationFn: async (newStatus: 'em_elaboracao' | 'planejada' | 'em_execucao' | 'finalizada') => {
-      // If finalizing planning (em_elaboracao -> planejada), create preventive_maintenance records
+      // If finalizing planning (em_elaboracao -> planejada), create preventive_maintenance + checklist records
       if (newStatus === 'planejada' && route?.status === 'em_elaboracao') {
         // Validate checklist is set
         if (!route?.checklist_template_id) {
           throw new Error('Selecione um template de checklist antes de finalizar o planejamento.');
         }
 
-        // Create preventive_maintenance records for calendar visibility
+        // Fetch the checklist template structure
+        const { data: template, error: templateError } = await supabase
+          .from('checklist_templates')
+          .select(`
+            id,
+            name,
+            blocks:checklist_template_blocks(
+              id,
+              block_name,
+              order_index,
+              items:checklist_template_items(
+                id,
+                item_name,
+                order_index,
+                active
+              )
+            )
+          `)
+          .eq('id', route.checklist_template_id)
+          .single();
+
+        if (templateError) throw templateError;
+
+        // Create preventive_maintenance records with route_id
         const preventiveRecords = route.items.map((item: any) => ({
           client_id: item.client_id,
+          route_id: id,
           scheduled_date: route.start_date,
           status: 'planejada' as const,
           technician_user_id: route.field_technician_user_id,
           notes: `Planejada na rota ${route.route_code}`,
         }));
 
-        const { error: pmError } = await supabase
+        const { data: createdPms, error: pmError } = await supabase
           .from('preventive_maintenance')
-          .insert(preventiveRecords);
+          .insert(preventiveRecords)
+          .select('id, client_id');
 
         if (pmError) throw pmError;
+
+        // For each PM, create the checklist execution structure
+        if (createdPms && template) {
+          for (const pm of createdPms) {
+            // Create checklist record
+            const { data: checklist, error: checklistError } = await supabase
+              .from('preventive_checklists')
+              .insert({
+                preventive_id: pm.id,
+                template_id: template.id,
+              })
+              .select('id')
+              .single();
+
+            if (checklistError) {
+              console.error(`Error creating checklist for PM ${pm.id}:`, checklistError);
+              continue;
+            }
+
+            // Create snapshot blocks and items
+            for (const block of template.blocks || []) {
+              const { data: execBlock, error: blockError } = await supabase
+                .from('preventive_checklist_blocks')
+                .insert({
+                  checklist_id: checklist.id,
+                  template_block_id: block.id,
+                  block_name_snapshot: block.block_name,
+                  order_index: block.order_index,
+                })
+                .select('id')
+                .single();
+
+              if (blockError) {
+                console.error(`Error creating block for checklist ${checklist.id}:`, blockError);
+                continue;
+              }
+
+              const activeItems = block.items?.filter((item: any) => item.active) || [];
+              if (activeItems.length > 0) {
+                const { error: itemsError } = await supabase
+                  .from('preventive_checklist_items')
+                  .insert(
+                    activeItems.map((item: any) => ({
+                      exec_block_id: execBlock.id,
+                      template_item_id: item.id,
+                      item_name_snapshot: item.item_name,
+                      order_index: item.order_index,
+                    }))
+                  );
+
+                if (itemsError) {
+                  console.error(`Error creating items for block ${execBlock.id}:`, itemsError);
+                }
+              }
+            }
+          }
+        }
       }
 
       const { error } = await supabase
