@@ -455,13 +455,33 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
         }
       }
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['preventive-checklist', preventiveId] });
-      queryClient.invalidateQueries({ queryKey: ['preventive-consumed-parts', preventiveId] });
-      if (!offlineChecklist.isOnline) {
-        refetchOffline();
-      }
+    onSuccess: (_, variables) => {
+      // Update cache in-place instead of refetching (avoids scroll reset)
+      queryClient.setQueryData(['preventive-checklist', preventiveId], (old: any) => {
+        if (!old) return old;
+        return {
+          ...old,
+          blocks: old.blocks?.map((block: any) => ({
+            ...block,
+            items: block.items?.map((item: any) => {
+              if (item.id !== variables.itemId) return item;
+              return {
+                ...item,
+                ...(variables.status !== undefined ? { status: variables.status } : {}),
+                ...(variables.notes !== undefined ? { notes: variables.notes } : {}),
+                answered_at: new Date().toISOString(),
+                // Clear selections if changing away from N
+                ...(variables.status && variables.status !== 'N' ? {
+                  selected_actions: [],
+                  selected_nonconformities: []
+                } : {})
+              };
+            })
+          }))
+        };
+      });
       setLastSavedAt(new Date());
+      queryClient.invalidateQueries({ queryKey: ['preventive-consumed-parts', preventiveId] });
     },
     onError: (error) => {
       // If offline, the mutation still succeeds locally
