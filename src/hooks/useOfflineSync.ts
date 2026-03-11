@@ -99,9 +99,9 @@ export function useOfflineSync() {
           if (result.error) throw result.error;
           data = result.data;
           // Only replace synced estoque, keep pending ones
-          const pendingEstoque = await offlineDb.estoque.filter(e => e._pendingSync === true).toArray();
-          await offlineDb.estoque.clear();
-          await offlineDb.estoque.bulkPut([...(data || []), ...pendingEstoque]);
+          if (data?.length) {
+            await offlineDb.estoque.bulkPut(data);
+          }
           break;
         }
         case "pedidos": {
