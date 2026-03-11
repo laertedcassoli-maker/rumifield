@@ -1,19 +1,44 @@
 
 
-## Corrigir alinhamento do conteudo nos cards de resumo
+## Diagnóstico: Check-in trava no modo avião
 
-### Problema
-O conteudo (numero + label) dentro dos cards de resumo esta visualmente deslocado para a direita. Isso ocorre porque o componente `CardContent` aplica `p-6` (24px) de padding horizontal por padrao, o que em cards estreitos empurra o conteudo para fora do centro visual.
+### Causa raiz
 
-### Solucao
+O flag `isOffline` na mutation é derivado de `isRouteOffline || isItemsOffline` — que indica se os **dados foram carregados do Dexie**. Se o usuário carregou a página online e depois ativou o modo avião, `isOffline` permanece `false`.
 
-**Arquivo: `src/pages/crm/CrmPipeline.tsx`**
+Resultado: a mutation tenta o caminho online, o `fetch` fica pendurado (o service worker `NetworkFirst` também tenta a rede primeiro), e o timeout de 8 segundos pode não resolver porque o service worker não tem `networkTimeoutSeconds` configurado — ele espera indefinidamente pela rede antes de tentar o cache.
 
-Adicionar `px-2` ao `CardContent` dos cards de resumo para reduzir o padding horizontal, centralizando melhor o conteudo:
+### Correções (2 arquivos)
 
-```tsx
-<CardContent className="py-2 px-2 text-center">
+**1. `src/pages/preventivas/ExecucaoRota.tsx`**
+
+Nas mutations `checkinMutation` e `cancelMutation`, adicionar verificação de `navigator.onLine` junto com `isOffline`:
+
+```typescript
+// Linha 234 — de:
+if (isOffline) {
+// para:
+if (isOffline || !navigator.onLine) {
 ```
 
-Isso substitui o `p-6` padrao do componente por um padding horizontal menor, mantendo o texto centralizado visualmente dentro do card.
+Mesma alteração na `cancelMutation` (linha 313).
+
+Isso garante que, mesmo que os dados tenham sido carregados online, se o dispositivo estiver sem rede no momento da ação, vai direto para o caminho offline sem esperar 8 segundos.
+
+**2. `vite.config.ts`**
+
+Adicionar `networkTimeoutSeconds: 3` ao `runtimeCaching` do service worker para que requisições GET ao Supabase também falhem rápido quando offline:
+
+```typescript
+runtimeCaching: [{
+  urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
+  handler: "NetworkFirst",
+  options: {
+    cacheName: "supabase-cache",
+    networkTimeoutSeconds: 3, // <-- adicionar
+    expiration: { ... },
+    cacheableResponse: { ... },
+  },
+}],
+```
 
