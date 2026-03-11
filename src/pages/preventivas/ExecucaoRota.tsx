@@ -420,10 +420,9 @@ export default function ExecucaoRota() {
       }
     },
     onSuccess: () => {
-      if (isOffline || !isOnline) {
-        refetchRouteOffline();
-        refetchItemsOffline();
-      } else {
+      refetchRouteOffline();
+      refetchItemsOffline();
+      if (!isOffline && isOnline) {
         queryClient.invalidateQueries({ queryKey: ['route-execution', id] });
         queryClient.invalidateQueries({ queryKey: ['route-execution-items', id] });
       }
