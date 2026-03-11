@@ -89,9 +89,9 @@ export function useOfflineSync() {
           if (result.error) throw result.error;
           data = result.data;
           // Only replace synced visitas, keep pending ones
-          const pendingVisitas = await offlineDb.visitas.filter(v => v._pendingSync === true).toArray();
-          await offlineDb.visitas.clear();
-          await offlineDb.visitas.bulkPut([...(data || []), ...pendingVisitas]);
+          if (data?.length) {
+            await offlineDb.visitas.bulkPut(data);
+          }
           break;
         }
         case "estoque": {
