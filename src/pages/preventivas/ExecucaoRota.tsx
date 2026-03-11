@@ -310,7 +310,7 @@ export default function ExecucaoRota() {
   // Cancel visit mutation
   const cancelMutation = useMutation({
     mutationFn: async ({ itemId, clientId, justification }: { itemId: string; clientId: string; justification: string }) => {
-      if (isOffline || !navigator.onLine) {
+      if (isOffline || !isOnline) {
         await cancelOffline(itemId, clientId, justification);
         return;
       }
