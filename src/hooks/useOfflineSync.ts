@@ -62,7 +62,6 @@ export function useOfflineSync() {
           if (result.error) throw result.error;
           data = result.data;
           if (data?.length) {
-            await offlineDb.clientes.clear();
             await offlineDb.clientes.bulkPut(data);
           }
           break;
