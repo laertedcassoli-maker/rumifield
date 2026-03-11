@@ -225,6 +225,39 @@ export default function ExecucaoRota() {
         status: 'em_execucao',
       });
     }
+
+    // Create preventive_maintenance record in Dexie so AtendimentoPreventivo can find it
+    const item = await offlineDb.rota_items.get(itemId);
+    if (item) {
+      const existingPm = await offlineDb.preventivas
+        .filter(p => p.client_id === item.client_id && p.route_id === item.route_id)
+        .first();
+
+      if (!existingPm) {
+        const pmId = crypto.randomUUID();
+        const pmRecord = {
+          id: pmId,
+          client_id: item.client_id,
+          route_id: item.route_id,
+          scheduled_date: route?.start_date || new Date().toISOString().split('T')[0],
+          status: 'planejada',
+          technician_user_id: route?.field_technician_user_id || user?.id || null,
+          notes: `Atendimento via rota ${route?.route_code || ''}`,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        await offlineDb.preventivas.put(pmRecord);
+        await offlineDb.addToSyncQueue('preventive_maintenance', 'insert', {
+          id: pmId,
+          client_id: item.client_id,
+          route_id: item.route_id,
+          scheduled_date: route?.start_date || new Date().toISOString().split('T')[0],
+          status: 'planejada',
+          technician_user_id: route?.field_technician_user_id || user?.id,
+          notes: `Atendimento via rota ${route?.route_code || ''}`,
+        });
+      }
+    }
   };
 
   const checkinMutation = useMutation({
