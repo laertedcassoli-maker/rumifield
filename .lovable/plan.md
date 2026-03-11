@@ -1,19 +1,38 @@
 
 
-## Corrigir alinhamento do conteudo nos cards de resumo
+## Diagnóstico: Check-in ainda trava offline
 
-### Problema
-O conteudo (numero + label) dentro dos cards de resumo esta visualmente deslocado para a direita. Isso ocorre porque o componente `CardContent` aplica `p-6` (24px) de padding horizontal por padrao, o que em cards estreitos empurra o conteudo para fora do centro visual.
+### Causa raiz
 
-### Solucao
+`navigator.onLine` e **sabidamente nao confiavel** em muitos dispositivos Android — pode retornar `true` mesmo em modo aviao. O banner "Voce esta offline" aparece porque o `useOfflineQuery` usa event listeners (`online`/`offline`) reativos, mas a mutation usa `navigator.onLine` como snapshot — que pode estar errado.
 
-**Arquivo: `src/pages/crm/CrmPipeline.tsx`**
+O `useOfflineQuery` ja retorna um `isOnline` reativo, mas o componente **nao o desestrutura**. Resultado: a mutation tenta o caminho online, o fetch fica pendurado ate o timeout de 8s, e o usuario ve "Salvando..." travado.
 
-Adicionar `px-2` ao `CardContent` dos cards de resumo para reduzir o padding horizontal, centralizando melhor o conteudo:
+### Correcao (1 arquivo)
 
-```tsx
-<CardContent className="py-2 px-2 text-center">
+**`src/pages/preventivas/ExecucaoRota.tsx`**
+
+1. Desestruturar `isOnline` de um dos `useOfflineQuery` (ex: o da rota):
+```typescript
+const { data: route, isLoading: routeLoading, isOfflineData: isRouteOffline, 
+        refetchOffline: refetchRouteOffline, isOnline } = useOfflineQuery({...});
 ```
 
-Isso substitui o `p-6` padrao do componente por um padding horizontal menor, mantendo o texto centralizado visualmente dentro do card.
+2. Substituir `navigator.onLine` por `isOnline` nas duas mutations e no `onSuccess`:
+
+```typescript
+// checkinMutation (linha 234)
+if (isOffline || !isOnline) {
+
+// checkinMutation onSuccess (linha 271)
+if (isOffline || !isOnline) {
+
+// cancelMutation mutationFn (linha ~313)
+if (isOffline || !isOnline) {
+
+// cancelMutation onSuccess (linha ~392)
+if (isOffline || !isOnline) {
+```
+
+Isso usa o estado reativo (event-based) que ja detectou o modo aviao corretamente (o banner prova), em vez do snapshot nao confiavel do `navigator.onLine`.
 
