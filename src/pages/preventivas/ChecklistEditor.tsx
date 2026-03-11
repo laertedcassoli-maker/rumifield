@@ -316,11 +316,41 @@ export default function ChecklistEditor() {
           active: action.active
         }));
         
-        const { error: actionsError } = await supabase
+        const { data: newActions, error: actionsError } = await supabase
           .from('checklist_item_corrective_actions')
-          .insert(actionsToInsert);
+          .insert(actionsToInsert)
+          .select('id');
         
         if (actionsError) throw actionsError;
+
+        // Deep-clone: duplicate parts for each action
+        if (newActions && newActions.length > 0) {
+          for (let i = 0; i < item.actions.length; i++) {
+            const originalActionId = item.actions[i].id;
+            const newActionId = newActions[i].id;
+
+            const { data: actionParts, error: fetchPartsError } = await (supabase as any)
+              .from('checklist_action_parts')
+              .select('part_id, default_quantity')
+              .eq('action_id', originalActionId);
+
+            if (fetchPartsError) throw fetchPartsError;
+
+            if (actionParts && actionParts.length > 0) {
+              const partsToInsert = actionParts.map((p: any) => ({
+                action_id: newActionId,
+                part_id: p.part_id,
+                default_quantity: p.default_quantity
+              }));
+
+              const { error: insertPartsError } = await (supabase as any)
+                .from('checklist_action_parts')
+                .insert(partsToInsert);
+
+              if (insertPartsError) throw insertPartsError;
+            }
+          }
+        }
       }
 
       // Duplicate nonconformities if any exist
@@ -332,17 +362,48 @@ export default function ChecklistEditor() {
           active: nc.active
         }));
         
-        const { error: ncsError } = await supabase
+        const { data: newNcs, error: ncsError } = await supabase
           .from('checklist_item_nonconformities')
-          .insert(ncsToInsert);
+          .insert(ncsToInsert)
+          .select('id');
         
         if (ncsError) throw ncsError;
+
+        // Deep-clone: duplicate parts for each nonconformity
+        if (newNcs && newNcs.length > 0) {
+          for (let i = 0; i < item.nonconformities.length; i++) {
+            const originalNcId = item.nonconformities[i].id;
+            const newNcId = newNcs[i].id;
+
+            const { data: ncParts, error: fetchNcPartsError } = await (supabase as any)
+              .from('checklist_nonconformity_parts')
+              .select('part_id, default_quantity')
+              .eq('nonconformity_id', originalNcId);
+
+            if (fetchNcPartsError) throw fetchNcPartsError;
+
+            if (ncParts && ncParts.length > 0) {
+              const partsToInsert = ncParts.map((p: any) => ({
+                nonconformity_id: newNcId,
+                part_id: p.part_id,
+                default_quantity: p.default_quantity
+              }));
+
+              const { error: insertNcPartsError } = await (supabase as any)
+                .from('checklist_nonconformity_parts')
+                .insert(partsToInsert);
+
+              if (insertNcPartsError) throw insertNcPartsError;
+            }
+          }
+        }
       }
       
       return newItem;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['checklist-template', id] });
+      queryClient.invalidateQueries({ queryKey: ['nonconformity-parts-count'] });
       toast.success('Item duplicado com sucesso!');
     },
     onError: (error) => {
