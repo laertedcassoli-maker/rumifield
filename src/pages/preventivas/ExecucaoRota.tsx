@@ -304,84 +304,66 @@ export default function ExecucaoRota() {
   // Cancel visit mutation
   const cancelMutation = useMutation({
     mutationFn: async ({ itemId, clientId, justification }: { itemId: string; clientId: string; justification: string }) => {
-      // Fast path: known offline flags
-      if (isOffline || !isOnline) {
-        await cancelOffline(itemId, clientId, justification);
-        return;
-      }
+      // 1. ALWAYS save locally first (instant)
+      await cancelOffline(itemId, clientId, justification);
 
-      // Real connectivity probe (2s timeout)
-      const reallyOnline = await isReallyOnline();
-      if (!reallyOnline) {
-        console.log('[cancel] Probe detected offline, using local storage');
-        await cancelOffline(itemId, clientId, justification);
-        toast({
-          title: 'Salvo localmente',
-          description: 'Sem conexão — o cancelamento será sincronizado automaticamente.',
-        });
-        return;
-      }
+      // 2. Try background sync (best-effort, non-blocking)
+      if (!isOffline && isOnline) {
+        try {
+          const cancelPromise = (async () => {
+            const { error: itemError } = await supabase
+              .from('preventive_route_items')
+              .update({ status: 'cancelado' } as any)
+              .eq('id', itemId);
+            if (itemError) throw itemError;
 
-      try {
-        const cancelPromise = (async () => {
-          const { error: itemError } = await supabase
-            .from('preventive_route_items')
-            .update({ status: 'cancelado' } as any)
-            .eq('id', itemId);
-          if (itemError) throw itemError;
-
-          const { data: existingMaint } = await supabase
-            .from('preventive_maintenance')
-            .select('id')
-            .eq('client_id', clientId)
-            .eq('route_id', id)
-            .maybeSingle();
-
-          if (existingMaint) {
-            await supabase
+            const { data: existingMaint } = await supabase
               .from('preventive_maintenance')
-              .update({ 
-                status: 'cancelada',
-                notes: justification,
-                updated_at: new Date().toISOString()
-              })
-              .eq('id', existingMaint.id);
-          } else {
-            await supabase
-              .from('preventive_maintenance')
-              .insert({
-                client_id: clientId,
-                route_id: id,
-                scheduled_date: route?.start_date || new Date().toISOString().split('T')[0],
-                status: 'cancelada',
-                notes: justification,
-                technician_user_id: route?.field_technician_user_id
-              });
-          }
+              .select('id')
+              .eq('client_id', clientId)
+              .eq('route_id', id)
+              .maybeSingle();
 
-          const { data: allItems } = await supabase
-            .from('preventive_route_items')
-            .select('status')
-            .eq('route_id', id);
+            if (existingMaint) {
+              await supabase
+                .from('preventive_maintenance')
+                .update({ 
+                  status: 'cancelada',
+                  notes: justification,
+                  updated_at: new Date().toISOString()
+                })
+                .eq('id', existingMaint.id);
+            } else {
+              await supabase
+                .from('preventive_maintenance')
+                .insert({
+                  client_id: clientId,
+                  route_id: id,
+                  scheduled_date: route?.start_date || new Date().toISOString().split('T')[0],
+                  status: 'cancelada',
+                  notes: justification,
+                  technician_user_id: route?.field_technician_user_id
+                });
+            }
 
-          const allDone = allItems?.every(i => i.status === 'executado' || i.status === 'cancelado');
-          if (allDone && allItems && allItems.length > 0) {
-            await supabase
-              .from('preventive_routes')
-              .update({ status: 'finalizada' })
-              .eq('id', id);
-          }
-        })();
+            const { data: allItems } = await supabase
+              .from('preventive_route_items')
+              .select('status')
+              .eq('route_id', id);
 
-        await withTimeout(cancelPromise, ONLINE_TIMEOUT_MS);
-      } catch (err) {
-        console.warn('[cancel] Online attempt failed, falling back to offline:', err);
-        await cancelOffline(itemId, clientId, justification);
-        toast({
-          title: 'Salvo localmente',
-          description: 'Sem conexão — o cancelamento será sincronizado automaticamente.',
-        });
-        return;
+            const allDone = allItems?.every(i => i.status === 'executado' || i.status === 'cancelado');
+            if (allDone && allItems && allItems.length > 0) {
+              await supabase
+                .from('preventive_routes')
+                .update({ status: 'finalizada' })
+                .eq('id', id);
+            }
+          })();
+
+          await withTimeout(cancelPromise, ONLINE_TIMEOUT_MS);
+        } catch (err) {
+          console.log('[cancel] Background sync failed, queued for later:', err);
+        }
       }
     },
     onSuccess: () => {
