@@ -98,7 +98,7 @@ export default function ExecucaoRota() {
 
   const isAdminOrCoordinator = role === 'admin' || role === 'coordenador_servicos';
 
-  const { data: route, isLoading: routeLoading, isOfflineData: isRouteOffline, refetchOffline: refetchRouteOffline } = useOfflineQuery({
+  const { data: route, isLoading: routeLoading, isOfflineData: isRouteOffline, refetchOffline: refetchRouteOffline, isOnline } = useOfflineQuery({
     queryKey: ['route-execution', id],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -231,7 +231,7 @@ export default function ExecucaoRota() {
     mutationFn: async ({ itemId, lat, lon }: { itemId: string; lat: number | null; lon: number | null }) => {
       const now = new Date().toISOString();
 
-      if (isOffline || !navigator.onLine) {
+      if (isOffline || !isOnline) {
         await checkinOffline(itemId, lat, lon, now);
         return;
       }
@@ -268,7 +268,7 @@ export default function ExecucaoRota() {
       }
     },
     onSuccess: () => {
-      if (isOffline) {
+      if (isOffline || !isOnline) {
         refetchRouteOffline();
         refetchItemsOffline();
       } else {
@@ -310,7 +310,7 @@ export default function ExecucaoRota() {
   // Cancel visit mutation
   const cancelMutation = useMutation({
     mutationFn: async ({ itemId, clientId, justification }: { itemId: string; clientId: string; justification: string }) => {
-      if (isOffline || !navigator.onLine) {
+      if (isOffline || !isOnline) {
         await cancelOffline(itemId, clientId, justification);
         return;
       }
@@ -378,7 +378,7 @@ export default function ExecucaoRota() {
       }
     },
     onSuccess: () => {
-      if (isOffline) {
+      if (isOffline || !isOnline) {
         refetchRouteOffline();
         refetchItemsOffline();
       } else {
