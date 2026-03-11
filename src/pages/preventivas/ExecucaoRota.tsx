@@ -98,7 +98,7 @@ export default function ExecucaoRota() {
 
   const isAdminOrCoordinator = role === 'admin' || role === 'coordenador_servicos';
 
-  const { data: route, isLoading: routeLoading, isOfflineData: isRouteOffline, refetchOffline: refetchRouteOffline } = useOfflineQuery({
+  const { data: route, isLoading: routeLoading, isOfflineData: isRouteOffline, refetchOffline: refetchRouteOffline, isOnline } = useOfflineQuery({
     queryKey: ['route-execution', id],
     queryFn: async () => {
       const { data, error } = await supabase
