@@ -159,9 +159,36 @@ export default function AtendimentoPreventivo() {
       const client = await offlineDb.clientes.get(item.client_id);
 
       // Try to find preventive from Dexie
-      const allPreventivas = await offlineDb.preventivas
+      let preventiveRecord = await offlineDb.preventivas
         .filter(p => p.client_id === item.client_id && p.route_id === item.route_id)
         .first();
+
+      // If not found, create one locally (fallback for offline check-in)
+      if (!preventiveRecord && route) {
+        const pmId = crypto.randomUUID();
+        const newPm = {
+          id: pmId,
+          client_id: item.client_id,
+          route_id: item.route_id,
+          scheduled_date: route.start_date || new Date().toISOString().split('T')[0],
+          status: 'planejada',
+          technician_user_id: route.field_technician_user_id || null,
+          notes: `Atendimento via rota ${route.route_code || ''}`,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        };
+        await offlineDb.preventivas.put(newPm);
+        await offlineDb.addToSyncQueue('preventive_maintenance', 'insert', {
+          id: pmId,
+          client_id: item.client_id,
+          route_id: item.route_id,
+          scheduled_date: route.start_date || new Date().toISOString().split('T')[0],
+          status: 'planejada',
+          technician_user_id: route.field_technician_user_id,
+          notes: `Atendimento via rota ${route.route_code || ''}`,
+        });
+        preventiveRecord = newPm;
+      }
 
       return {
         id: item.id,
@@ -186,10 +213,10 @@ export default function AtendimentoPreventivo() {
           cidade: client.cidade,
           estado: client.estado,
         } : null,
-        preventiveId: allPreventivas?.id || null,
-        internalNotes: allPreventivas?.internal_notes || null,
-        publicNotes: allPreventivas?.public_notes || null,
-        publicToken: allPreventivas?.public_token || null,
+        preventiveId: preventiveRecord?.id || null,
+        internalNotes: preventiveRecord?.internal_notes || null,
+        publicNotes: preventiveRecord?.public_notes || null,
+        publicToken: preventiveRecord?.public_token || null,
       };
     },
   });
