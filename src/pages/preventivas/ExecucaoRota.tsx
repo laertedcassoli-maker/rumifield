@@ -231,7 +231,7 @@ export default function ExecucaoRota() {
     mutationFn: async ({ itemId, lat, lon }: { itemId: string; lat: number | null; lon: number | null }) => {
       const now = new Date().toISOString();
 
-      if (isOffline || !navigator.onLine) {
+      if (isOffline || !isOnline) {
         await checkinOffline(itemId, lat, lon, now);
         return;
       }
