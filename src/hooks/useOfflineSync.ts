@@ -291,7 +291,6 @@ export function useOfflineSync() {
               executed_farms: countsMap.get(r.id)?.executed || 0,
             }));
             
-            await offlineDb.rotas.clear();
             await offlineDb.rotas.bulkPut(enriched as any);
           }
           break;
