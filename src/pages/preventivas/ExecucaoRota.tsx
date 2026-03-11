@@ -29,7 +29,22 @@ import { CancelarVisitaDialog } from '@/components/preventivas/CancelarVisitaDia
 import { useOfflineQuery } from '@/hooks/useOfflineQuery';
 import { offlineDb } from '@/lib/offline-db';
 
-const ONLINE_TIMEOUT_MS = 8000;
+const ONLINE_TIMEOUT_MS = 3000;
+
+async function isReallyOnline(): Promise<boolean> {
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 2000);
+    await fetch(`${import.meta.env.VITE_SUPABASE_URL}/rest/v1/`, {
+      method: 'HEAD',
+      signal: controller.signal,
+    });
+    clearTimeout(timer);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -231,8 +246,21 @@ export default function ExecucaoRota() {
     mutationFn: async ({ itemId, lat, lon }: { itemId: string; lat: number | null; lon: number | null }) => {
       const now = new Date().toISOString();
 
+      // Fast path: known offline flags
       if (isOffline || !isOnline) {
         await checkinOffline(itemId, lat, lon, now);
+        return;
+      }
+
+      // Real connectivity probe (2s timeout)
+      const reallyOnline = await isReallyOnline();
+      if (!reallyOnline) {
+        console.log('[checkin] Probe detected offline, using local storage');
+        await checkinOffline(itemId, lat, lon, now);
+        toast({
+          title: 'Salvo localmente',
+          description: 'Sem conexão — o check-in será sincronizado automaticamente.',
+        });
         return;
       }
 
@@ -268,10 +296,11 @@ export default function ExecucaoRota() {
       }
     },
     onSuccess: () => {
-      if (isOffline || !isOnline) {
-        refetchRouteOffline();
-        refetchItemsOffline();
-      } else {
+      // Always refetch from offline DB to ensure UI updates immediately
+      refetchRouteOffline();
+      refetchItemsOffline();
+      // Also invalidate queries as bonus when online
+      if (!isOffline && isOnline) {
         queryClient.invalidateQueries({ queryKey: ['route-execution', id] });
         queryClient.invalidateQueries({ queryKey: ['route-execution-items', id] });
       }
@@ -310,8 +339,21 @@ export default function ExecucaoRota() {
   // Cancel visit mutation
   const cancelMutation = useMutation({
     mutationFn: async ({ itemId, clientId, justification }: { itemId: string; clientId: string; justification: string }) => {
+      // Fast path: known offline flags
       if (isOffline || !isOnline) {
         await cancelOffline(itemId, clientId, justification);
+        return;
+      }
+
+      // Real connectivity probe (2s timeout)
+      const reallyOnline = await isReallyOnline();
+      if (!reallyOnline) {
+        console.log('[cancel] Probe detected offline, using local storage');
+        await cancelOffline(itemId, clientId, justification);
+        toast({
+          title: 'Salvo localmente',
+          description: 'Sem conexão — o cancelamento será sincronizado automaticamente.',
+        });
         return;
       }
 
@@ -378,10 +420,9 @@ export default function ExecucaoRota() {
       }
     },
     onSuccess: () => {
-      if (isOffline || !isOnline) {
-        refetchRouteOffline();
-        refetchItemsOffline();
-      } else {
+      refetchRouteOffline();
+      refetchItemsOffline();
+      if (!isOffline && isOnline) {
         queryClient.invalidateQueries({ queryKey: ['route-execution', id] });
         queryClient.invalidateQueries({ queryKey: ['route-execution-items', id] });
       }
