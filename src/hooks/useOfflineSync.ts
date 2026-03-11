@@ -496,6 +496,7 @@ export function useOfflineSync() {
         "pedidos",
         "chamados",
         "preventivas",
+        "checklists",
         "corretivas",
         "rotas",
         "rota_items"
