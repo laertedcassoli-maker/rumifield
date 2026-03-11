@@ -80,7 +80,6 @@ export function useOfflineSync() {
           if (result.error) throw result.error;
           data = result.data;
           if (data?.length) {
-            await offlineDb.produtos_quimicos.clear();
             await offlineDb.produtos_quimicos.bulkPut(data);
           }
           break;
