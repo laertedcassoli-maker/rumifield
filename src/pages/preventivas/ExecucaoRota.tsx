@@ -246,8 +246,21 @@ export default function ExecucaoRota() {
     mutationFn: async ({ itemId, lat, lon }: { itemId: string; lat: number | null; lon: number | null }) => {
       const now = new Date().toISOString();
 
+      // Fast path: known offline flags
       if (isOffline || !isOnline) {
         await checkinOffline(itemId, lat, lon, now);
+        return;
+      }
+
+      // Real connectivity probe (2s timeout)
+      const reallyOnline = await isReallyOnline();
+      if (!reallyOnline) {
+        console.log('[checkin] Probe detected offline, using local storage');
+        await checkinOffline(itemId, lat, lon, now);
+        toast({
+          title: 'Salvo localmente',
+          description: 'Sem conexão — o check-in será sincronizado automaticamente.',
+        });
         return;
       }
 
