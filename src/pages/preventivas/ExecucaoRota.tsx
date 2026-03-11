@@ -231,60 +231,40 @@ export default function ExecucaoRota() {
     mutationFn: async ({ itemId, lat, lon }: { itemId: string; lat: number | null; lon: number | null }) => {
       const now = new Date().toISOString();
 
-      // Fast path: known offline flags
-      if (isOffline || !isOnline) {
-        await checkinOffline(itemId, lat, lon, now);
-        return;
-      }
+      // 1. ALWAYS save locally first (instant)
+      await checkinOffline(itemId, lat, lon, now);
 
-      // Real connectivity probe (2s timeout)
-      const reallyOnline = await isReallyOnline();
-      if (!reallyOnline) {
-        console.log('[checkin] Probe detected offline, using local storage');
-        await checkinOffline(itemId, lat, lon, now);
-        toast({
-          title: 'Salvo localmente',
-          description: 'Sem conexão — o check-in será sincronizado automaticamente.',
-        });
-        return;
-      }
+      // 2. Try background sync (best-effort, non-blocking)
+      if (!isOffline && isOnline) {
+        try {
+          const updatePromise = (async () => {
+            const { error } = await supabase
+              .from('preventive_route_items')
+              .update({
+                checkin_at: now,
+                checkin_lat: lat,
+                checkin_lon: lon,
+              } as any)
+              .eq('id', itemId);
+            if (error) throw error;
 
-      try {
-        const updatePromise = (async () => {
-          const { error } = await supabase
-            .from('preventive_route_items')
-            .update({
-              checkin_at: now,
-              checkin_lat: lat,
-              checkin_lon: lon,
-            } as any)
-            .eq('id', itemId);
-          if (error) throw error;
+            if (route?.status === 'planejada') {
+              await supabase
+                .from('preventive_routes')
+                .update({ status: 'em_execucao' })
+                .eq('id', id);
+            }
+          })();
 
-          if (route?.status === 'planejada') {
-            await supabase
-              .from('preventive_routes')
-              .update({ status: 'em_execucao' })
-              .eq('id', id);
-          }
-        })();
-
-        await withTimeout(updatePromise, ONLINE_TIMEOUT_MS);
-      } catch (err) {
-        console.warn('[checkin] Online attempt failed, falling back to offline:', err);
-        await checkinOffline(itemId, lat, lon, now);
-        toast({
-          title: 'Salvo localmente',
-          description: 'Sem conexão — o check-in será sincronizado automaticamente.',
-        });
-        return;
+          await withTimeout(updatePromise, ONLINE_TIMEOUT_MS);
+        } catch (err) {
+          console.log('[checkin] Background sync failed, queued for later:', err);
+        }
       }
     },
     onSuccess: () => {
-      // Always refetch from offline DB to ensure UI updates immediately
       refetchRouteOffline();
       refetchItemsOffline();
-      // Also invalidate queries as bonus when online
       if (!isOffline && isOnline) {
         queryClient.invalidateQueries({ queryKey: ['route-execution', id] });
         queryClient.invalidateQueries({ queryKey: ['route-execution-items', id] });
