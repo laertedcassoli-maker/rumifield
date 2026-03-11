@@ -78,6 +78,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
   const [isBlockExpanded, setIsBlockExpanded] = useState(false);
+  const [optimisticStatuses, setOptimisticStatuses] = useState<Record<string, 'S' | 'N' | 'NA'>>({});
   const [pendingStatusChange, setPendingStatusChange] = useState<{
     itemId: string;
     newStatus: 'S' | 'N' | 'NA';
@@ -398,6 +399,11 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
       status?: 'S' | 'N' | 'NA' | null;
       notes?: string;
     }) => {
+      // Optimistic UI update — reflect immediately
+      if (status) {
+        setOptimisticStatuses(prev => ({ ...prev, [itemId]: status }));
+      }
+
       // Save locally first for offline support
       await offlineChecklist.updateItem(itemId, { status, notes });
 
@@ -948,6 +954,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
     ...block,
     items: block.items?.map((item: any) => ({
       ...item,
+      status: optimisticStatuses[item.id] ?? item.status,
       selectedActions: item.selected_actions?.map((a: any) => a.template_action_id) || [],
       selectedNonconformities: item.selected_nonconformities?.map((nc: any) => nc.template_nonconformity_id) || [],
       availableActions: templateActions?.[item.template_item_id] || [],

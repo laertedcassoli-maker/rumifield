@@ -1,30 +1,19 @@
 
 
-## Implementar Estado Otimista no Checklist (Cenário A)
+## Corrigir alinhamento do conteudo nos cards de resumo
 
-### Alteração única: `src/components/preventivas/ChecklistExecution.tsx`
+### Problema
+O conteudo (numero + label) dentro dos cards de resumo esta visualmente deslocado para a direita. Isso ocorre porque o componente `CardContent` aplica `p-6` (24px) de padding horizontal por padrao, o que em cards estreitos empurra o conteudo para fora do centro visual.
 
-**3 pontos de mudança:**
+### Solucao
 
-1. **Declarar estado otimista** (após as declarações de state existentes, ~linha 70):
+**Arquivo: `src/pages/crm/CrmPipeline.tsx`**
+
+Adicionar `px-2` ao `CardContent` dos cards de resumo para reduzir o padding horizontal, centralizando melhor o conteudo:
+
 ```tsx
-const [optimisticStatuses, setOptimisticStatuses] = useState<Record<string, 'S' | 'N' | 'NA'>>({});
+<CardContent className="py-2 px-2 text-center">
 ```
 
-2. **Atualizar estado otimista na mutation** (linha 391, dentro do `mutationFn`, antes de `offlineChecklist.updateItem`):
-```tsx
-if (status) {
-  setOptimisticStatuses(prev => ({ ...prev, [itemId]: status }));
-}
-```
-
-3. **Aplicar merge no mapeamento de blocks** (linha 949-950):
-```tsx
-items: block.items?.map((item: any) => ({
-  ...item,
-  status: optimisticStatuses[item.id] ?? item.status,
-  // resto igual
-```
-
-Nenhum outro arquivo alterado. O `refetchOffline()` continua existindo como reconciliação em background.
+Isso substitui o `p-6` padrao do componente por um padding horizontal menor, mantendo o texto centralizado visualmente dentro do card.
 
