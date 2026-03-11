@@ -399,6 +399,11 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
       status?: 'S' | 'N' | 'NA' | null;
       notes?: string;
     }) => {
+      // Optimistic UI update — reflect immediately
+      if (status) {
+        setOptimisticStatuses(prev => ({ ...prev, [itemId]: status }));
+      }
+
       // Save locally first for offline support
       await offlineChecklist.updateItem(itemId, { status, notes });
 
