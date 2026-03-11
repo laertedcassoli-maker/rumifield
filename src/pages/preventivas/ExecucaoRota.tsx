@@ -31,21 +31,6 @@ import { offlineDb } from '@/lib/offline-db';
 
 const ONLINE_TIMEOUT_MS = 3000;
 
-async function isReallyOnline(): Promise<boolean> {
-  try {
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 2000);
-    await fetch(`${import.meta.env.VITE_SUPABASE_URL}/rest/v1/`, {
-      method: 'HEAD',
-      signal: controller.signal,
-    });
-    clearTimeout(timer);
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error('__timeout__')), ms);
