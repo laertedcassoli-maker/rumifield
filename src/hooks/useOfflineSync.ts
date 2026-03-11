@@ -175,7 +175,6 @@ export function useOfflineSync() {
               technician_name: p.technician_user_id ? (profilesMap.get(p.technician_user_id) || null) : null,
             }));
             
-            await offlineDb.preventivas.clear();
             await offlineDb.preventivas.bulkPut(enriched as any);
           }
           break;
