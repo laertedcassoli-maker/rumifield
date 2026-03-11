@@ -339,8 +339,21 @@ export default function ExecucaoRota() {
   // Cancel visit mutation
   const cancelMutation = useMutation({
     mutationFn: async ({ itemId, clientId, justification }: { itemId: string; clientId: string; justification: string }) => {
+      // Fast path: known offline flags
       if (isOffline || !isOnline) {
         await cancelOffline(itemId, clientId, justification);
+        return;
+      }
+
+      // Real connectivity probe (2s timeout)
+      const reallyOnline = await isReallyOnline();
+      if (!reallyOnline) {
+        console.log('[cancel] Probe detected offline, using local storage');
+        await cancelOffline(itemId, clientId, justification);
+        toast({
+          title: 'Salvo localmente',
+          description: 'Sem conexão — o cancelamento será sincronizado automaticamente.',
+        });
         return;
       }
 
