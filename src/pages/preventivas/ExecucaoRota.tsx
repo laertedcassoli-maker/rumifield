@@ -378,7 +378,7 @@ export default function ExecucaoRota() {
       }
     },
     onSuccess: () => {
-      if (isOffline) {
+      if (isOffline || !isOnline) {
         refetchRouteOffline();
         refetchItemsOffline();
       } else {
