@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { offlineDb, SyncQueueItem } from "@/lib/offline-db";
+import { offlineChecklistDb } from "@/lib/offline-checklist-db";
 import { syncPedidosFromServer } from "@/hooks/useOfflinePedidos";
 import { toast } from "sonner";
 
@@ -176,6 +177,40 @@ export function useOfflineSync() {
             }));
             
             await offlineDb.preventivas.bulkPut(enriched as any);
+          }
+          break;
+        }
+        case "checklists": {
+          const cachedPreventivas = await offlineDb.preventivas.toArray();
+          const preventiveIds = cachedPreventivas.map(p => p.id);
+          
+          if (preventiveIds.length === 0) break;
+
+          const batchSize = 50;
+          for (let i = 0; i < preventiveIds.length; i += batchSize) {
+            const batch = preventiveIds.slice(i, i + batchSize);
+            
+            const { data, error } = await supabase
+              .from('preventive_checklists')
+              .select(`
+                *,
+                template:checklist_templates(name),
+                blocks:preventive_checklist_blocks(
+                  id, block_name_snapshot, order_index,
+                  items:preventive_checklist_items(
+                    id, item_name_snapshot, order_index, status, notes, answered_at, template_item_id,
+                    selected_actions:preventive_checklist_item_actions(id, template_action_id, action_label_snapshot),
+                    selected_nonconformities:preventive_checklist_item_nonconformities(id, template_nonconformity_id, nonconformity_label_snapshot)
+                  )
+                )
+              `)
+              .in('preventive_id', batch);
+            
+            if (error) throw error;
+            
+            for (const checklist of data || []) {
+              await offlineChecklistDb.cacheFullChecklist(checklist);
+            }
           }
           break;
         }
@@ -495,6 +530,7 @@ export function useOfflineSync() {
         "pedidos",
         "chamados",
         "preventivas",
+        "checklists",
         "corretivas",
         "rotas",
         "rota_items"
