@@ -315,7 +315,6 @@ export function useOfflineSync() {
               client_link_maps: clientsMap.get(i.client_id)?.link_maps || null,
             }));
             
-            await offlineDb.rota_items.clear();
             await offlineDb.rota_items.bulkPut(enriched as any);
           }
           break;
