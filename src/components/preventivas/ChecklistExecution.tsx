@@ -92,7 +92,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
   const offlineChecklist = useOfflineChecklist();
 
   // Get existing checklist for this preventive
-  const { data: existingChecklist, isLoading: loadingChecklist, isOnline: isChecklistOnline } = useOfflineQuery({
+  const { data: existingChecklist, isLoading: loadingChecklist, isOnline: isChecklistOnline, refetchOffline } = useOfflineQuery({
     queryKey: ['preventive-checklist', preventiveId],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -452,6 +452,9 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['preventive-checklist', preventiveId] });
       queryClient.invalidateQueries({ queryKey: ['preventive-consumed-parts', preventiveId] });
+      if (!offlineChecklist.isOnline) {
+        refetchOffline();
+      }
       setLastSavedAt(new Date());
     },
     onError: (error) => {
@@ -631,6 +634,9 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['preventive-checklist', preventiveId] });
       queryClient.invalidateQueries({ queryKey: ['preventive-consumed-parts', preventiveId] });
+      if (!offlineChecklist.isOnline) {
+        refetchOffline();
+      }
       setLastSavedAt(new Date());
     },
     onError: (error) => {
@@ -771,6 +777,9 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['preventive-checklist', preventiveId] });
       queryClient.invalidateQueries({ queryKey: ['preventive-consumed-parts', preventiveId] });
+      if (!offlineChecklist.isOnline) {
+        refetchOffline();
+      }
       setLastSavedAt(new Date());
     },
     onError: (error) => {
