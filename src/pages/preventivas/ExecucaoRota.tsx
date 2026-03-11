@@ -296,10 +296,11 @@ export default function ExecucaoRota() {
       }
     },
     onSuccess: () => {
-      if (isOffline || !isOnline) {
-        refetchRouteOffline();
-        refetchItemsOffline();
-      } else {
+      // Always refetch from offline DB to ensure UI updates immediately
+      refetchRouteOffline();
+      refetchItemsOffline();
+      // Also invalidate queries as bonus when online
+      if (!isOffline && isOnline) {
         queryClient.invalidateQueries({ queryKey: ['route-execution', id] });
         queryClient.invalidateQueries({ queryKey: ['route-execution-items', id] });
       }
