@@ -62,7 +62,6 @@ export function useOfflineSync() {
           if (result.error) throw result.error;
           data = result.data;
           if (data?.length) {
-            await offlineDb.clientes.clear();
             await offlineDb.clientes.bulkPut(data);
           }
           break;
@@ -72,7 +71,6 @@ export function useOfflineSync() {
           if (result.error) throw result.error;
           data = result.data;
           if (data?.length) {
-            await offlineDb.pecas.clear();
             await offlineDb.pecas.bulkPut(data);
           }
           break;
@@ -82,7 +80,6 @@ export function useOfflineSync() {
           if (result.error) throw result.error;
           data = result.data;
           if (data?.length) {
-            await offlineDb.produtos_quimicos.clear();
             await offlineDb.produtos_quimicos.bulkPut(data);
           }
           break;
@@ -92,9 +89,9 @@ export function useOfflineSync() {
           if (result.error) throw result.error;
           data = result.data;
           // Only replace synced visitas, keep pending ones
-          const pendingVisitas = await offlineDb.visitas.filter(v => v._pendingSync === true).toArray();
-          await offlineDb.visitas.clear();
-          await offlineDb.visitas.bulkPut([...(data || []), ...pendingVisitas]);
+          if (data?.length) {
+            await offlineDb.visitas.bulkPut(data);
+          }
           break;
         }
         case "estoque": {
@@ -102,9 +99,9 @@ export function useOfflineSync() {
           if (result.error) throw result.error;
           data = result.data;
           // Only replace synced estoque, keep pending ones
-          const pendingEstoque = await offlineDb.estoque.filter(e => e._pendingSync === true).toArray();
-          await offlineDb.estoque.clear();
-          await offlineDb.estoque.bulkPut([...(data || []), ...pendingEstoque]);
+          if (data?.length) {
+            await offlineDb.estoque.bulkPut(data);
+          }
           break;
         }
         case "pedidos": {
@@ -143,7 +140,6 @@ export function useOfflineSync() {
               technician_name: ticket.assigned_technician_id ? (profilesMap.get(ticket.assigned_technician_id) || null) : null,
             }));
             
-            await offlineDb.chamados.clear();
             await offlineDb.chamados.bulkPut(enriched as any);
           }
           break;
@@ -179,7 +175,6 @@ export function useOfflineSync() {
               technician_name: p.technician_user_id ? (profilesMap.get(p.technician_user_id) || null) : null,
             }));
             
-            await offlineDb.preventivas.clear();
             await offlineDb.preventivas.bulkPut(enriched as any);
           }
           break;
@@ -244,7 +239,6 @@ export function useOfflineSync() {
               };
             });
             
-            await offlineDb.corretivas.clear();
             await offlineDb.corretivas.bulkPut(enriched as any);
           }
           break;
@@ -321,7 +315,6 @@ export function useOfflineSync() {
               client_link_maps: clientsMap.get(i.client_id)?.link_maps || null,
             }));
             
-            await offlineDb.rota_items.clear();
             await offlineDb.rota_items.bulkPut(enriched as any);
           }
           break;
