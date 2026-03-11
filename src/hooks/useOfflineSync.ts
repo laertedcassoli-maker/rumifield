@@ -239,7 +239,6 @@ export function useOfflineSync() {
               };
             });
             
-            await offlineDb.corretivas.clear();
             await offlineDb.corretivas.bulkPut(enriched as any);
           }
           break;
