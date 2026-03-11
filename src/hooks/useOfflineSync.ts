@@ -140,7 +140,6 @@ export function useOfflineSync() {
               technician_name: ticket.assigned_technician_id ? (profilesMap.get(ticket.assigned_technician_id) || null) : null,
             }));
             
-            await offlineDb.chamados.clear();
             await offlineDb.chamados.bulkPut(enriched as any);
           }
           break;
