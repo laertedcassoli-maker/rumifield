@@ -1,19 +1,32 @@
 
 
-## Corrigir alinhamento do conteudo nos cards de resumo
+## Correção: Flickering ao limpar estado otimista
 
-### Problema
-O conteudo (numero + label) dentro dos cards de resumo esta visualmente deslocado para a direita. Isso ocorre porque o componente `CardContent` aplica `p-6` (24px) de padding horizontal por padrao, o que em cards estreitos empurra o conteudo para fora do centro visual.
+### Alteração única em `ChecklistExecution.tsx` (linhas 387-391)
 
-### Solucao
+Substituir o `useEffect` que limpa tudo de uma vez por limpeza granular por item — só remove o estado otimista de um item quando os dados reais desse item já estão presentes no `existingChecklist`:
 
-**Arquivo: `src/pages/crm/CrmPipeline.tsx`**
-
-Adicionar `px-2` ao `CardContent` dos cards de resumo para reduzir o padding horizontal, centralizando melhor o conteudo:
-
-```tsx
-<CardContent className="py-2 px-2 text-center">
+```ts
+useEffect(() => {
+  if (!existingChecklist) return;
+  existingChecklist.blocks?.forEach((block: any) => {
+    block.items?.forEach((item: any) => {
+      setOptimisticNcSelections(prev => {
+        if (!prev[item.id]) return prev;
+        const next = { ...prev };
+        delete next[item.id];
+        return next;
+      });
+      setOptimisticActionSelections(prev => {
+        if (!prev[item.id]) return prev;
+        const next = { ...prev };
+        delete next[item.id];
+        return next;
+      });
+    });
+  });
+}, [existingChecklist]);
 ```
 
-Isso substitui o `p-6` padrao do componente por um padding horizontal menor, mantendo o texto centralizado visualmente dentro do card.
+Isso garante que o estado otimista de cada item só é removido quando os dados reais daquele item específico já estão no cache, eliminando o frame intermediário onde nem o otimista nem o real estão presentes.
 
