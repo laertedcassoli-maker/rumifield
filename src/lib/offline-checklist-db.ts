@@ -500,6 +500,68 @@ class OfflineChecklistDatabase extends Dexie {
     Object.values(grouped).forEach(arr => arr.sort((a, b) => a.order_index - b.order_index));
     return grouped;
   }
+
+  // Cache nonconformity parts (reference data from checklist_nonconformity_parts)
+  async cacheNonconformityParts(parts: OfflineNonconformityPart[]): Promise<void> {
+    await this.nonconformityParts.bulkPut(parts);
+  }
+
+  // Get nonconformity parts by nonconformity_id
+  async getNonconformityParts(nonconformityId: string): Promise<OfflineNonconformityPart[]> {
+    return this.nonconformityParts
+      .where('nonconformity_id')
+      .equals(nonconformityId)
+      .toArray();
+  }
+
+  // Add part consumption locally with sync queue
+  async addPartConsumptionLocally(
+    consumption: Omit<OfflinePartConsumption, '_pendingSync' | '_operation'>
+  ): Promise<void> {
+    await this.partConsumptions.put({
+      ...consumption,
+      _pendingSync: true,
+      _operation: 'insert',
+    });
+    await this.addToSyncQueue('preventive_part_consumption', 'insert', {
+      preventive_id: consumption.preventive_id,
+      exec_item_id: consumption.exec_item_id,
+      exec_nonconformity_id: consumption.exec_nonconformity_id,
+      part_id: consumption.part_id,
+      part_code_snapshot: consumption.part_code_snapshot,
+      part_name_snapshot: consumption.part_name_snapshot,
+      quantity: consumption.quantity,
+      stock_source: consumption.stock_source,
+    });
+  }
+
+  // Delete part consumption by exec nonconformity id
+  async deletePartConsumptionByNcId(execNonconformityId: string): Promise<void> {
+    const records = await this.partConsumptions
+      .where('exec_nonconformity_id')
+      .equals(execNonconformityId)
+      .toArray();
+    for (const record of records) {
+      await this.partConsumptions.delete(record.id);
+      await this.addToSyncQueue('preventive_part_consumption', 'delete', {
+        exec_nonconformity_id: execNonconformityId,
+      });
+    }
+  }
+
+  // Delete part consumption by exec item id
+  async deletePartConsumptionByItemId(execItemId: string): Promise<void> {
+    const records = await this.partConsumptions
+      .where('exec_item_id')
+      .equals(execItemId)
+      .toArray();
+    for (const record of records) {
+      await this.partConsumptions.delete(record.id);
+      await this.addToSyncQueue('preventive_part_consumption', 'delete', {
+        exec_nonconformity_id: record.exec_nonconformity_id,
+      });
+    }
+  }
 }
 
 export const offlineChecklistDb = new OfflineChecklistDatabase();

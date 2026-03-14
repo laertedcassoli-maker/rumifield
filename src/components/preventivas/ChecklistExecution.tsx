@@ -772,9 +772,9 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
             }
           } else {
             // Only create part consumption if item has a "Troca" action selected
-            const hasTrocaAction = itemHasTrocaAction(itemId);
+            const hasTroca = await itemHasTrocaAction(itemId);
             
-            if (hasTrocaAction) {
+            if (hasTroca) {
               // Get the exec NC id (just inserted by the hook's sync)
               const { data: newNc } = await supabase
                 .from('preventive_checklist_item_nonconformities')
@@ -811,6 +811,51 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
                       console.error('Erro ao registrar consumo de peça:', consumptionError);
                     }
                   }
+                }
+              }
+            }
+          }
+        } else {
+          // OFFLINE path for nonconformity toggle part consumption
+          if (isSelected) {
+            // NC being REMOVED offline → delete part consumption
+            const execNc = await offlineChecklistDb.checklistNonconformities
+              .filter(
+                nc =>
+                  nc.exec_item_id === itemId &&
+                  nc.template_nonconformity_id === nonconformityId
+              )
+              .first();
+            if (execNc) {
+              await offlineChecklistDb.deletePartConsumptionByNcId(execNc.id);
+            }
+          } else {
+            // NC being ADDED offline → create part consumption if Troca active
+            const hasTroca = await itemHasTrocaAction(itemId);
+            if (hasTroca) {
+              const execNc = await offlineChecklistDb.checklistNonconformities
+                .filter(
+                  nc =>
+                    nc.exec_item_id === itemId &&
+                    nc.template_nonconformity_id === nonconformityId
+                )
+                .first();
+              if (execNc) {
+                const ncParts = await offlineChecklistDb.getNonconformityParts(
+                  nonconformityId
+                );
+                for (const np of ncParts) {
+                  await offlineChecklistDb.addPartConsumptionLocally({
+                    id: crypto.randomUUID(),
+                    preventive_id: preventiveId,
+                    exec_item_id: itemId,
+                    exec_nonconformity_id: execNc.id,
+                    part_id: np.part_id,
+                    part_code_snapshot: np.part_codigo,
+                    part_name_snapshot: np.part_nome,
+                    quantity: np.default_quantity,
+                    stock_source: null,
+                  });
                 }
               }
             }
