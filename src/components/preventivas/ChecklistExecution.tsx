@@ -1173,8 +1173,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
               </h3>
               <div className="space-y-4">
                 {block.items.map((item) => {
-                  const hasFailureDetails = item.status === 'N' && 
-                    (item.availableNonconformities.length > 0 || item.availableActions.length > 0);
+                  const hasFailureDetails = item.status === 'N';
                   const isExpanded = expandedItems.has(item.id);
                   const selectedCount = item.selectedNonconformities.length + item.selectedActions.length;
                   
