@@ -407,21 +407,9 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
       // Save locally first for offline support
       await offlineChecklist.updateItem(itemId, { status, notes });
 
-      // If online, also sync to server immediately
+      // If online, handle side-effects (cleanup actions/NCs/consumption when status changes from N)
+      // Note: the primary update is already handled by offlineChecklist.updateItem above
       if (offlineChecklist.isOnline) {
-        const updates: any = {
-          answered_at: new Date().toISOString()
-        };
-        if (status !== undefined) updates.status = status;
-        if (notes !== undefined) updates.notes = notes;
-
-        const { error } = await supabase
-          .from('preventive_checklist_items')
-          .update(updates)
-          .eq('id', itemId);
-
-        if (error) throw error;
-
         // If status changed from N to something else, remove selected actions, nonconformities and their consumption records
         if (status && status !== 'N') {
           // Get all exec_nonconformity_ids for this item
