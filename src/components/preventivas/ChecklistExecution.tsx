@@ -521,19 +521,27 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
   });
 
   // Helper: check if an item has a selected action containing "Troca" (case-insensitive)
-  const itemHasTrocaAction = (itemId: string): boolean => {
-    if (!existingChecklist?.blocks) return false;
-    for (const block of existingChecklist.blocks) {
-      for (const item of block.items || []) {
-        if (item.id === itemId) {
-          return (item.selected_actions || []).some(
-            (a: any) => a.action_label_snapshot?.toLowerCase().includes('troca')
-          );
+  const itemHasTrocaAction = useCallback(async (itemId: string): Promise<boolean> => {
+    // Try from cached checklist data first
+    if (existingChecklist?.blocks) {
+      for (const block of existingChecklist.blocks) {
+        for (const item of block.items || []) {
+          if (item.id === itemId) {
+            const found = (item.selected_actions || []).some(
+              (a: any) => a.action_label_snapshot?.toLowerCase().includes('troca')
+            );
+            if (found) return true;
+          }
         }
       }
     }
-    return false;
-  };
+    // Fallback to Dexie for offline
+    const dexieActions = await offlineChecklistDb.checklistActions
+      .where('exec_item_id')
+      .equals(itemId)
+      .toArray();
+    return dexieActions.some(a => a.action_label_snapshot?.toLowerCase().includes('troca'));
+  }, [existingChecklist]);
 
   // Helper: create part consumption records for all selected NCs of an item
   const createPartConsumptionForItemNCs = async (itemId: string) => {
