@@ -159,6 +159,8 @@ class OfflineChecklistDatabase extends Dexie {
     await this.checklistSyncQueue.clear();
     await this.checklists.clear();
     await this.checklistBlocks.clear();
+    await this.templateActions.clear();
+    await this.templateNonconformities.clear();
   }
 
   // Cache checklist items for a specific checklist
