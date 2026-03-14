@@ -52,6 +52,22 @@ export interface OfflineChecklistBlock {
   order_index: number;
 }
 
+export interface OfflineTemplateAction {
+  id: string;
+  item_id: string;
+  action_label: string;
+  order_index: number;
+  active: boolean;
+}
+
+export interface OfflineTemplateNonconformity {
+  id: string;
+  item_id: string;
+  nonconformity_label: string;
+  order_index: number;
+  active: boolean;
+}
+
 export interface ChecklistSyncQueueItem {
   id?: number;
   table: 'preventive_checklist_items' | 'preventive_checklist_item_actions' | 'preventive_checklist_item_nonconformities';
