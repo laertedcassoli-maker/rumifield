@@ -157,23 +157,16 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
     enabled: !existingChecklist && !routeTemplateId
   });
 
-  // Get corrective actions for template items
-  const { data: templateActions } = useQuery({
+  // Helper: extract template item IDs from checklist
+  const templateItemIds = existingChecklist?.blocks?.flatMap((block: any) =>
+    block.items?.filter((item: any) => item.template_item_id).map((item: any) => item.template_item_id) || []
+  ) || [];
+
+  // Get corrective actions for template items (with offline fallback)
+  const { data: templateActions } = useOfflineQuery<Record<string, any[]>>({
     queryKey: ['template-corrective-actions', existingChecklist?.id],
     queryFn: async () => {
-      if (!existingChecklist) return {};
-      
-      // Get all template item IDs from the checklist
-      const templateItemIds: string[] = [];
-      existingChecklist.blocks?.forEach((block: any) => {
-        block.items?.forEach((item: any) => {
-          if (item.template_item_id) {
-            templateItemIds.push(item.template_item_id);
-          }
-        });
-      });
-
-      if (templateItemIds.length === 0) return {};
+      if (!existingChecklist || templateItemIds.length === 0) return {};
 
       const { data, error } = await supabase
         .from('checklist_item_corrective_actions')
@@ -184,36 +177,39 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
 
       if (error) throw error;
 
+      // Cache in Dexie for offline use
+      if (data && data.length > 0) {
+        await offlineChecklistDb.cacheTemplateActions(
+          data.map(a => ({
+            id: a.id,
+            item_id: a.item_id,
+            action_label: a.action_label,
+            order_index: a.order_index,
+            active: a.active,
+          }))
+        );
+      }
+
       // Group by item_id
       const grouped: Record<string, typeof data> = {};
       data?.forEach(action => {
-        if (!grouped[action.item_id]) {
-          grouped[action.item_id] = [];
-        }
+        if (!grouped[action.item_id]) grouped[action.item_id] = [];
         grouped[action.item_id].push(action);
       });
-
       return grouped;
     },
-    enabled: !!existingChecklist
+    offlineFn: async () => {
+      if (templateItemIds.length === 0) return {};
+      return offlineChecklistDb.getCachedTemplateActions(templateItemIds);
+    },
+    enabled: !!existingChecklist,
   });
 
-  // Get nonconformities for template items
-  const { data: templateNonconformities } = useQuery({
+  // Get nonconformities for template items (with offline fallback)
+  const { data: templateNonconformities } = useOfflineQuery<Record<string, any[]>>({
     queryKey: ['template-nonconformities', existingChecklist?.id],
     queryFn: async () => {
-      if (!existingChecklist) return {};
-      
-      const templateItemIds: string[] = [];
-      existingChecklist.blocks?.forEach((block: any) => {
-        block.items?.forEach((item: any) => {
-          if (item.template_item_id) {
-            templateItemIds.push(item.template_item_id);
-          }
-        });
-      });
-
-      if (templateItemIds.length === 0) return {};
+      if (!existingChecklist || templateItemIds.length === 0) return {};
 
       const { data, error } = await supabase
         .from('checklist_item_nonconformities')
@@ -224,18 +220,32 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
 
       if (error) throw error;
 
+      // Cache in Dexie for offline use
+      if (data && data.length > 0) {
+        await offlineChecklistDb.cacheTemplateNonconformities(
+          data.map(nc => ({
+            id: nc.id,
+            item_id: nc.item_id,
+            nonconformity_label: nc.nonconformity_label,
+            order_index: nc.order_index,
+            active: nc.active,
+          }))
+        );
+      }
+
       // Group by item_id
       const grouped: Record<string, typeof data> = {};
       data?.forEach(nc => {
-        if (!grouped[nc.item_id]) {
-          grouped[nc.item_id] = [];
-        }
+        if (!grouped[nc.item_id]) grouped[nc.item_id] = [];
         grouped[nc.item_id].push(nc);
       });
-
       return grouped;
     },
-    enabled: !!existingChecklist
+    offlineFn: async () => {
+      if (templateItemIds.length === 0) return {};
+      return offlineChecklistDb.getCachedTemplateNonconformities(templateItemIds);
+    },
+    enabled: !!existingChecklist,
   });
 
   // Create checklist from template
