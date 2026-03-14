@@ -68,9 +68,32 @@ export interface OfflineTemplateNonconformity {
   active: boolean;
 }
 
+export interface OfflineNonconformityPart {
+  id: string;
+  nonconformity_id: string;
+  part_id: string;
+  default_quantity: number;
+  part_codigo: string;
+  part_nome: string;
+}
+
+export interface OfflinePartConsumption {
+  id: string;
+  preventive_id: string;
+  exec_item_id: string;
+  exec_nonconformity_id: string;
+  part_id: string;
+  part_code_snapshot: string;
+  part_name_snapshot: string;
+  quantity: number;
+  stock_source: string | null;
+  _pendingSync?: boolean;
+  _operation?: 'insert' | 'delete';
+}
+
 export interface ChecklistSyncQueueItem {
   id?: number;
-  table: 'preventive_checklist_items' | 'preventive_checklist_item_actions' | 'preventive_checklist_item_nonconformities';
+  table: 'preventive_checklist_items' | 'preventive_checklist_item_actions' | 'preventive_checklist_item_nonconformities' | 'preventive_part_consumption';
   operation: 'update' | 'insert' | 'delete';
   data: Record<string, unknown>;
   createdAt: string;
