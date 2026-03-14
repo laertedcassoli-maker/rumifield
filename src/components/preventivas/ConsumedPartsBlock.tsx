@@ -51,7 +51,7 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
   const queryClient = useQueryClient();
 
   // Fetch consumed parts with is_asset from pecas
-  const { data: parts, isLoading } = useQuery({
+  const { data: parts, isLoading } = useOfflineQuery<(ConsumedPart & { is_asset: boolean })[]>({
     queryKey: ['preventive-consumed-parts', preventiveId],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -75,6 +75,23 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
       }
 
       return items.map(i => ({ ...i, is_asset: false }));
+    },
+    offlineFn: async () => {
+      const offlineItems = await offlineChecklistDb.getPartConsumptionsByPreventiveId(preventiveId);
+      return offlineItems.map(item => ({
+        id: item.id,
+        part_id: item.part_id,
+        part_code_snapshot: item.part_code_snapshot,
+        part_name_snapshot: item.part_name_snapshot,
+        quantity: item.quantity,
+        unit_cost_snapshot: null,
+        stock_source: (item.stock_source as ConsumedPart['stock_source']) || null,
+        asset_unique_code: null,
+        notes: null,
+        is_manual: false,
+        consumed_at: new Date().toISOString(),
+        is_asset: false,
+      }));
     },
     enabled: !!preventiveId,
   });
