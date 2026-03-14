@@ -1282,14 +1282,20 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
                                         disabled={isCompleted}
                                         loading={isProcessing}
                                         variant="danger"
-                                        onClick={() => 
+                                        onClick={() => {
+                                          // Optimistic update
+                                          setOptimisticNcSelections(prev => {
+                                            const current = new Set(prev[item.id] || new Set(item.selectedNonconformities));
+                                            if (isSelected) current.delete(nc.id); else current.add(nc.id);
+                                            return { ...prev, [item.id]: current };
+                                          });
                                           toggleNonconformityMutation.mutate({
                                             itemId: item.id,
                                             nonconformityId: nc.id,
                                             nonconformityLabel: nc.nonconformity_label,
                                             isSelected
-                                          })
-                                        }
+                                          });
+                                        }}
                                       />
                                     );
                                   })}
