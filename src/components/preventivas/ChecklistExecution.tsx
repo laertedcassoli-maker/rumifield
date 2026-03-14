@@ -384,10 +384,25 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
     }
   }, [existingChecklist?.blocks, activeBlockId, offlineChecklist]);
 
-  // Clear optimistic NC/action selections when real data arrives
+  // Clear optimistic NC/action selections per-item when real data arrives
   useEffect(() => {
-    setOptimisticNcSelections({});
-    setOptimisticActionSelections({});
+    if (!existingChecklist) return;
+    existingChecklist.blocks?.forEach((block: any) => {
+      block.items?.forEach((item: any) => {
+        setOptimisticNcSelections(prev => {
+          if (!prev[item.id]) return prev;
+          const next = { ...prev };
+          delete next[item.id];
+          return next;
+        });
+        setOptimisticActionSelections(prev => {
+          if (!prev[item.id]) return prev;
+          const next = { ...prev };
+          delete next[item.id];
+          return next;
+        });
+      });
+    });
   }, [existingChecklist]);
 
   // Auto-expand failure items that need treatment (no selections yet)
