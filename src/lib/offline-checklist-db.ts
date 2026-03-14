@@ -52,6 +52,22 @@ export interface OfflineChecklistBlock {
   order_index: number;
 }
 
+export interface OfflineTemplateAction {
+  id: string;
+  item_id: string;
+  action_label: string;
+  order_index: number;
+  active: boolean;
+}
+
+export interface OfflineTemplateNonconformity {
+  id: string;
+  item_id: string;
+  nonconformity_label: string;
+  order_index: number;
+  active: boolean;
+}
+
 export interface ChecklistSyncQueueItem {
   id?: number;
   table: 'preventive_checklist_items' | 'preventive_checklist_item_actions' | 'preventive_checklist_item_nonconformities';
@@ -68,6 +84,8 @@ class OfflineChecklistDatabase extends Dexie {
   checklistSyncQueue!: Table<ChecklistSyncQueueItem, number>;
   checklists!: Table<OfflineChecklistRecord, string>;
   checklistBlocks!: Table<OfflineChecklistBlock, string>;
+  templateActions!: Table<OfflineTemplateAction, string>;
+  templateNonconformities!: Table<OfflineTemplateNonconformity, string>;
 
   constructor() {
     super("RumiFieldChecklistDB");
@@ -86,6 +104,17 @@ class OfflineChecklistDatabase extends Dexie {
       checklistSyncQueue: "++id, table, operation, createdAt",
       checklists: "id, preventive_id",
       checklistBlocks: "id, checklist_id, order_index",
+    });
+
+    this.version(3).stores({
+      checklistItems: "id, exec_block_id, status, _pendingSync",
+      checklistActions: "id, exec_item_id, template_action_id, _pendingSync",
+      checklistNonconformities: "id, exec_item_id, template_nonconformity_id, _pendingSync",
+      checklistSyncQueue: "++id, table, operation, createdAt",
+      checklists: "id, preventive_id",
+      checklistBlocks: "id, checklist_id, order_index",
+      templateActions: "id, item_id",
+      templateNonconformities: "id, item_id",
     });
   }
 
@@ -130,6 +159,8 @@ class OfflineChecklistDatabase extends Dexie {
     await this.checklistSyncQueue.clear();
     await this.checklists.clear();
     await this.checklistBlocks.clear();
+    await this.templateActions.clear();
+    await this.templateNonconformities.clear();
   }
 
   // Cache checklist items for a specific checklist
@@ -383,6 +414,51 @@ class OfflineChecklistDatabase extends Dexie {
       template: { name: checklist.template_name },
       blocks: fullBlocks,
     };
+  }
+
+  // Cache template actions (reference data from checklist_item_corrective_actions)
+  async cacheTemplateActions(actions: OfflineTemplateAction[]): Promise<void> {
+    if (actions.length === 0) return;
+    await this.templateActions.bulkPut(actions);
+  }
+
+  // Cache template nonconformities (reference data from checklist_item_nonconformities)
+  async cacheTemplateNonconformities(ncs: OfflineTemplateNonconformity[]): Promise<void> {
+    if (ncs.length === 0) return;
+    await this.templateNonconformities.bulkPut(ncs);
+  }
+
+  // Get cached template actions grouped by item_id
+  async getCachedTemplateActions(templateItemIds: string[]): Promise<Record<string, OfflineTemplateAction[]>> {
+    if (templateItemIds.length === 0) return {};
+    const all = await this.templateActions
+      .where('item_id')
+      .anyOf(templateItemIds)
+      .toArray();
+    const grouped: Record<string, OfflineTemplateAction[]> = {};
+    all.forEach(a => {
+      if (!grouped[a.item_id]) grouped[a.item_id] = [];
+      grouped[a.item_id].push(a);
+    });
+    // Sort each group by order_index
+    Object.values(grouped).forEach(arr => arr.sort((a, b) => a.order_index - b.order_index));
+    return grouped;
+  }
+
+  // Get cached template nonconformities grouped by item_id
+  async getCachedTemplateNonconformities(templateItemIds: string[]): Promise<Record<string, OfflineTemplateNonconformity[]>> {
+    if (templateItemIds.length === 0) return {};
+    const all = await this.templateNonconformities
+      .where('item_id')
+      .anyOf(templateItemIds)
+      .toArray();
+    const grouped: Record<string, OfflineTemplateNonconformity[]> = {};
+    all.forEach(nc => {
+      if (!grouped[nc.item_id]) grouped[nc.item_id] = [];
+      grouped[nc.item_id].push(nc);
+    });
+    Object.values(grouped).forEach(arr => arr.sort((a, b) => a.order_index - b.order_index));
+    return grouped;
   }
 }
 
