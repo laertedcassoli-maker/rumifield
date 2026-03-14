@@ -570,6 +570,24 @@ export function useOfflineSync() {
     syncAllRef.current = syncAll;
   }, [syncAll]);
 
+  // Process pending sync queue on mount (handles items from previous sessions)
+  useEffect(() => {
+    const processPendingOnMount = async () => {
+      if (navigator.onLine) {
+        const pendingChecklist = await offlineChecklistDb.getPendingSyncItems();
+        const pendingMain = await offlineDb.getPendingSyncItems();
+        
+        if (pendingChecklist.length > 0 || pendingMain.length > 0) {
+          console.log(`[Sync] Processando ${pendingChecklist.length + pendingMain.length} itens pendentes de sessão anterior`);
+          await processSyncQueue();
+        }
+      }
+    };
+    
+    const timer = setTimeout(processPendingOnMount, 1000);
+    return () => clearTimeout(timer);
+  }, []); // Run only on mount
+
   // Manual sync trigger
   const triggerSync = useCallback(async () => {
     if (isOnline) {
