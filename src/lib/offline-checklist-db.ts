@@ -549,6 +549,13 @@ class OfflineChecklistDatabase extends Dexie {
     }
   }
 
+  // Get part consumptions by preventive_id
+  async getPartConsumptionsByPreventiveId(preventiveId: string): Promise<OfflinePartConsumption[]> {
+    return this.partConsumptions
+      .filter(pc => pc.preventive_id === preventiveId)
+      .toArray();
+  }
+
   // Delete part consumption by exec item id
   async deletePartConsumptionByItemId(execItemId: string): Promise<void> {
     const records = await this.partConsumptions
