@@ -583,22 +583,14 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
         await offlineChecklist.toggleAction(itemId, actionId, actionLabel, isSelected);
 
         // If online, sync to server immediately
+        // If online, handle side-effects only (part consumption)
+        // Note: the primary action insert/delete is handled by offlineChecklist.toggleAction above
         if (offlineChecklist.isOnline) {
           const isTrocaAction = actionLabel.toLowerCase().includes('troca');
 
           if (isSelected) {
-            // Remove action
-            const { error } = await supabase
-              .from('preventive_checklist_item_actions')
-              .delete()
-              .eq('exec_item_id', itemId)
-              .eq('template_action_id', actionId);
-
-            if (error) throw error;
-
             // If removing a "Troca" action, check if there are other "Troca" actions remaining
             if (isTrocaAction) {
-              // Check remaining actions in memory (excluding the one being removed)
               let hasOtherTroca = false;
               if (existingChecklist?.blocks) {
                 for (const block of existingChecklist.blocks) {
@@ -616,20 +608,6 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
               }
             }
           } else {
-            // Use upsert with ON CONFLICT to prevent duplicates atomically
-            const { error } = await supabase
-              .from('preventive_checklist_item_actions')
-              .upsert({
-                exec_item_id: itemId,
-                template_action_id: actionId,
-                action_label_snapshot: actionLabel
-              }, {
-                onConflict: 'exec_item_id,template_action_id',
-                ignoreDuplicates: true
-              });
-
-            if (error) throw error;
-
             // If adding a "Troca" action, create part consumption for existing NCs
             if (isTrocaAction) {
               await createPartConsumptionForItemNCs(itemId);
