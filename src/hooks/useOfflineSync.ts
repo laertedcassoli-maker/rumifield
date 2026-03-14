@@ -181,8 +181,21 @@ export function useOfflineSync() {
           break;
         }
         case "checklists": {
+          let preventiveIds: string[] = [];
+          
+          // Try local cache first
           const cachedPreventivas = await offlineDb.preventivas.toArray();
-          const preventiveIds = cachedPreventivas.map(p => p.id);
+          
+          if (cachedPreventivas.length > 0) {
+            preventiveIds = cachedPreventivas.map(p => p.id);
+          } else {
+            // Fallback: fetch IDs from server if cache is still empty
+            const { data: serverPreventivas } = await supabase
+              .from('preventive_maintenance')
+              .select('id')
+              .limit(200);
+            preventiveIds = (serverPreventivas || []).map(p => p.id);
+          }
           
           if (preventiveIds.length === 0) break;
 
