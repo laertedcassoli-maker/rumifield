@@ -384,6 +384,12 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
     }
   }, [existingChecklist?.blocks, activeBlockId, offlineChecklist]);
 
+  // Clear optimistic NC/action selections when real data arrives
+  useEffect(() => {
+    setOptimisticNcSelections({});
+    setOptimisticActionSelections({});
+  }, [existingChecklist]);
+
   // Auto-expand failure items that need treatment (no selections yet)
   useEffect(() => {
     if (!existingChecklist?.blocks || existingChecklist.status === 'concluido') return;
