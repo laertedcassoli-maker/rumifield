@@ -1276,6 +1276,13 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
                             </Button>
                           </CollapsibleTrigger>
                           <CollapsibleContent className="space-y-4 pt-3 max-h-[60vh] overflow-y-auto">
+                            {/* Loading state when template data not yet available */}
+                            {item.availableNonconformities.length === 0 && item.availableActions.length === 0 && (
+                              <div className="flex items-center gap-2 text-muted-foreground text-sm py-2">
+                                <Loader2 className="h-4 w-4 animate-spin" />
+                                Carregando tratativas...
+                              </div>
+                            )}
                             {/* Nonconformities */}
                             {item.availableNonconformities.length > 0 && (
                               <div className="space-y-3">
