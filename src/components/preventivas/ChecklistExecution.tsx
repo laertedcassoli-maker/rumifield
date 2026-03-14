@@ -163,7 +163,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
   ) || [];
 
   // Get corrective actions for template items (with offline fallback)
-  const { data: templateActions } = useOfflineQuery<Record<string, any[]>>({
+  const { data: templateActions, refetchOffline: refetchActionsOffline } = useOfflineQuery<Record<string, any[]>>({
     queryKey: ['template-corrective-actions', existingChecklist?.id],
     queryFn: async () => {
       if (!existingChecklist || templateItemIds.length === 0) return {};
