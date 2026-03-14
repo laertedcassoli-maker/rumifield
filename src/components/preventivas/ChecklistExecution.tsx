@@ -206,7 +206,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
   });
 
   // Get nonconformities for template items (with offline fallback)
-  const { data: templateNonconformities } = useOfflineQuery<Record<string, any[]>>({
+  const { data: templateNonconformities, refetchOffline: refetchNcsOffline } = useOfflineQuery<Record<string, any[]>>({
     queryKey: ['template-nonconformities', existingChecklist?.id],
     queryFn: async () => {
       if (!existingChecklist || templateItemIds.length === 0) return {};
@@ -247,6 +247,15 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
     },
     enabled: !!existingChecklist,
   });
+
+  // Re-fetch offline template data when templateItemIds change (handles timing where checklist loads after initial offlineFn)
+  const templateItemIdsKey = templateItemIds.join(',');
+  useEffect(() => {
+    if (templateItemIds.length > 0 && !isChecklistOnline) {
+      refetchActionsOffline();
+      refetchNcsOffline();
+    }
+  }, [templateItemIdsKey, isChecklistOnline]);
 
   // Create checklist from template
   const createChecklistMutation = useMutation({
