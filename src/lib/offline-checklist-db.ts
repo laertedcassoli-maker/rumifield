@@ -84,6 +84,8 @@ class OfflineChecklistDatabase extends Dexie {
   checklistSyncQueue!: Table<ChecklistSyncQueueItem, number>;
   checklists!: Table<OfflineChecklistRecord, string>;
   checklistBlocks!: Table<OfflineChecklistBlock, string>;
+  templateActions!: Table<OfflineTemplateAction, string>;
+  templateNonconformities!: Table<OfflineTemplateNonconformity, string>;
 
   constructor() {
     super("RumiFieldChecklistDB");
