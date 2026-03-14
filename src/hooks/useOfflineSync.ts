@@ -221,8 +221,69 @@ export function useOfflineSync() {
             
             if (error) throw error;
             
+            // Collect all template_item_ids from this batch
+            const batchTemplateItemIds: string[] = [];
+            
             for (const checklist of data || []) {
               await offlineChecklistDb.cacheFullChecklist(checklist);
+              
+              // Extract template_item_ids
+              for (const block of checklist.blocks || []) {
+                for (const item of block.items || []) {
+                  if (item.template_item_id) {
+                    batchTemplateItemIds.push(item.template_item_id);
+                  }
+                }
+              }
+            }
+            
+            // Pre-cache template actions and nonconformities for offline use
+            if (batchTemplateItemIds.length > 0) {
+              const uniqueIds = [...new Set(batchTemplateItemIds)];
+              const chunkSize = 100;
+              
+              for (let j = 0; j < uniqueIds.length; j += chunkSize) {
+                const chunk = uniqueIds.slice(j, j + chunkSize);
+                
+                const [actionsRes, ncsRes] = await Promise.all([
+                  supabase
+                    .from('checklist_item_corrective_actions')
+                    .select('id, item_id, action_label, order_index, active')
+                    .in('item_id', chunk)
+                    .eq('active', true)
+                    .order('order_index'),
+                  supabase
+                    .from('checklist_item_nonconformities')
+                    .select('id, item_id, nonconformity_label, order_index, active')
+                    .in('item_id', chunk)
+                    .eq('active', true)
+                    .order('order_index'),
+                ]);
+                
+                if (actionsRes.data && actionsRes.data.length > 0) {
+                  await offlineChecklistDb.cacheTemplateActions(
+                    actionsRes.data.map(a => ({
+                      id: a.id,
+                      item_id: a.item_id,
+                      action_label: a.action_label,
+                      order_index: a.order_index,
+                      active: a.active,
+                    }))
+                  );
+                }
+                
+                if (ncsRes.data && ncsRes.data.length > 0) {
+                  await offlineChecklistDb.cacheTemplateNonconformities(
+                    ncsRes.data.map(nc => ({
+                      id: nc.id,
+                      item_id: nc.item_id,
+                      nonconformity_label: nc.nonconformity_label,
+                      order_index: nc.order_index,
+                      active: nc.active,
+                    }))
+                  );
+                }
+              }
             }
           }
           break;
