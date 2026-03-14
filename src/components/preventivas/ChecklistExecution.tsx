@@ -660,6 +660,42 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
               await createPartConsumptionForItemNCs(itemId);
             }
           }
+        } else {
+          // OFFLINE path for action toggle part consumption
+          const isTrocaAction = actionLabel.toLowerCase().includes('troca');
+          if (isTrocaAction) {
+            if (isSelected) {
+              // "Troca" being REMOVED offline → delete part consumption for item
+              await offlineChecklistDb.deletePartConsumptionByItemId(itemId);
+            } else {
+              // "Troca" being ADDED offline → create consumption for all selected NCs
+              const selectedNcs = await offlineChecklistDb.checklistNonconformities
+                .where('exec_item_id')
+                .equals(itemId)
+                .filter(nc => nc._operation !== 'delete')
+                .toArray();
+
+              for (const execNc of selectedNcs) {
+                if (!execNc.template_nonconformity_id) continue;
+                const ncParts = await offlineChecklistDb.getNonconformityParts(
+                  execNc.template_nonconformity_id
+                );
+                for (const np of ncParts) {
+                  await offlineChecklistDb.addPartConsumptionLocally({
+                    id: crypto.randomUUID(),
+                    preventive_id: preventiveId,
+                    exec_item_id: itemId,
+                    exec_nonconformity_id: execNc.id,
+                    part_id: np.part_id,
+                    part_code_snapshot: np.part_codigo,
+                    part_name_snapshot: np.part_nome,
+                    quantity: np.default_quantity,
+                    stock_source: null,
+                  });
+                }
+              }
+            }
+          }
         }
       } finally {
         // Remove lock
