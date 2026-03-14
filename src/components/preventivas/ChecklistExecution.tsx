@@ -89,6 +89,10 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
   const [processingNonconformities, setProcessingNonconformities] = useState<Set<string>>(new Set());
   const [processingActions, setProcessingActions] = useState<Set<string>>(new Set());
   
+  // Optimistic selections for NCs and actions (offline-friendly instant UI)
+  const [optimisticNcSelections, setOptimisticNcSelections] = useState<Record<string, Set<string>>>({});
+  const [optimisticActionSelections, setOptimisticActionSelections] = useState<Record<string, Set<string>>>({});
+  
   // Offline support hook
   const offlineChecklist = useOfflineChecklist();
 
@@ -379,6 +383,12 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
       offlineChecklist.cacheChecklistData(existingChecklist.blocks);
     }
   }, [existingChecklist?.blocks, activeBlockId, offlineChecklist]);
+
+  // Clear optimistic NC/action selections when real data arrives
+  useEffect(() => {
+    setOptimisticNcSelections({});
+    setOptimisticActionSelections({});
+  }, [existingChecklist]);
 
   // Auto-expand failure items that need treatment (no selections yet)
   useEffect(() => {
@@ -928,14 +938,22 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
   // Calculate progress
   const blocks: ExecBlock[] = existingChecklist.blocks?.map((block: any) => ({
     ...block,
-    items: block.items?.map((item: any) => ({
-      ...item,
-      status: optimisticStatuses[item.id] ?? item.status,
-      selectedActions: item.selected_actions?.map((a: any) => a.template_action_id) || [],
-      selectedNonconformities: item.selected_nonconformities?.map((nc: any) => nc.template_nonconformity_id) || [],
-      availableActions: templateActions?.[item.template_item_id] || [],
-      availableNonconformities: templateNonconformities?.[item.template_item_id] || []
-    })).sort((a: ExecItem, b: ExecItem) => a.order_index - b.order_index) || []
+    items: block.items?.map((item: any) => {
+      const baseSelectedActions = item.selected_actions?.map((a: any) => a.template_action_id) || [];
+      const baseSelectedNcs = item.selected_nonconformities?.map((nc: any) => nc.template_nonconformity_id) || [];
+      return {
+        ...item,
+        status: optimisticStatuses[item.id] ?? item.status,
+        selectedActions: optimisticActionSelections[item.id] 
+          ? [...optimisticActionSelections[item.id]] 
+          : baseSelectedActions,
+        selectedNonconformities: optimisticNcSelections[item.id] 
+          ? [...optimisticNcSelections[item.id]] 
+          : baseSelectedNcs,
+        availableActions: templateActions?.[item.template_item_id] || [],
+        availableNonconformities: templateNonconformities?.[item.template_item_id] || []
+      };
+    }).sort((a: ExecItem, b: ExecItem) => a.order_index - b.order_index) || []
   })).sort((a: ExecBlock, b: ExecBlock) => a.order_index - b.order_index) || [];
 
   const totalItems = blocks.reduce((acc, block) => acc + block.items.length, 0);
@@ -1264,14 +1282,20 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
                                         disabled={isCompleted}
                                         loading={isProcessing}
                                         variant="danger"
-                                        onClick={() => 
+                                        onClick={() => {
+                                          // Optimistic update
+                                          setOptimisticNcSelections(prev => {
+                                            const current = new Set(prev[item.id] || new Set(item.selectedNonconformities));
+                                            if (isSelected) current.delete(nc.id); else current.add(nc.id);
+                                            return { ...prev, [item.id]: current };
+                                          });
                                           toggleNonconformityMutation.mutate({
                                             itemId: item.id,
                                             nonconformityId: nc.id,
                                             nonconformityLabel: nc.nonconformity_label,
                                             isSelected
-                                          })
-                                        }
+                                          });
+                                        }}
                                       />
                                     );
                                   })}
@@ -1299,14 +1323,20 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
                                         disabled={isCompleted}
                                         loading={isProcessing}
                                         variant="success"
-                                        onClick={() => 
+                                        onClick={() => {
+                                          // Optimistic update
+                                          setOptimisticActionSelections(prev => {
+                                            const current = new Set(prev[item.id] || new Set(item.selectedActions));
+                                            if (isSelected) current.delete(action.id); else current.add(action.id);
+                                            return { ...prev, [item.id]: current };
+                                          });
                                           toggleActionMutation.mutate({
                                             itemId: item.id,
                                             actionId: action.id,
                                             actionLabel: action.action_label,
                                             isSelected
-                                          })
-                                        }
+                                          });
+                                        }}
                                       />
                                     );
                                   })}
