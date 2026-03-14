@@ -50,13 +50,29 @@ export default defineConfig(({ mode }) => ({
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
         runtimeCaching: [
           {
-            urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
+            // Active checklist/route data: fast NetworkFirst
+            urlPattern: /^https:\/\/.*\.supabase\.co\/rest\/v1\/(preventive_checklists|preventive_checklist_items|preventive_route_items).*/i,
             handler: "NetworkFirst",
             options: {
-              cacheName: "supabase-cache",
-              networkTimeoutSeconds: 3,
+              cacheName: "supabase-live-cache",
+              networkTimeoutSeconds: 1.5,
               expiration: {
-                maxEntries: 100,
+                maxEntries: 50,
+                maxAgeSeconds: 60 * 60 * 2, // 2 hours
+              },
+              cacheableResponse: {
+                statuses: [0, 200],
+              },
+            },
+          },
+          {
+            // Reference data (clients, parts, templates): CacheFirst
+            urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
+            handler: "CacheFirst",
+            options: {
+              cacheName: "supabase-reference-cache",
+              expiration: {
+                maxEntries: 200,
                 maxAgeSeconds: 60 * 60 * 24, // 24 hours
               },
               cacheableResponse: {

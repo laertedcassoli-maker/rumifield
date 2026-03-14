@@ -407,21 +407,9 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
       // Save locally first for offline support
       await offlineChecklist.updateItem(itemId, { status, notes });
 
-      // If online, also sync to server immediately
+      // If online, handle side-effects (cleanup actions/NCs/consumption when status changes from N)
+      // Note: the primary update is already handled by offlineChecklist.updateItem above
       if (offlineChecklist.isOnline) {
-        const updates: any = {
-          answered_at: new Date().toISOString()
-        };
-        if (status !== undefined) updates.status = status;
-        if (notes !== undefined) updates.notes = notes;
-
-        const { error } = await supabase
-          .from('preventive_checklist_items')
-          .update(updates)
-          .eq('id', itemId);
-
-        if (error) throw error;
-
         // If status changed from N to something else, remove selected actions, nonconformities and their consumption records
         if (status && status !== 'N') {
           // Get all exec_nonconformity_ids for this item
@@ -595,22 +583,14 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
         await offlineChecklist.toggleAction(itemId, actionId, actionLabel, isSelected);
 
         // If online, sync to server immediately
+        // If online, handle side-effects only (part consumption)
+        // Note: the primary action insert/delete is handled by offlineChecklist.toggleAction above
         if (offlineChecklist.isOnline) {
           const isTrocaAction = actionLabel.toLowerCase().includes('troca');
 
           if (isSelected) {
-            // Remove action
-            const { error } = await supabase
-              .from('preventive_checklist_item_actions')
-              .delete()
-              .eq('exec_item_id', itemId)
-              .eq('template_action_id', actionId);
-
-            if (error) throw error;
-
             // If removing a "Troca" action, check if there are other "Troca" actions remaining
             if (isTrocaAction) {
-              // Check remaining actions in memory (excluding the one being removed)
               let hasOtherTroca = false;
               if (existingChecklist?.blocks) {
                 for (const block of existingChecklist.blocks) {
@@ -628,20 +608,6 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
               }
             }
           } else {
-            // Use upsert with ON CONFLICT to prevent duplicates atomically
-            const { error } = await supabase
-              .from('preventive_checklist_item_actions')
-              .upsert({
-                exec_item_id: itemId,
-                template_action_id: actionId,
-                action_label_snapshot: actionLabel
-              }, {
-                onConflict: 'exec_item_id,template_action_id',
-                ignoreDuplicates: true
-              });
-
-            if (error) throw error;
-
             // If adding a "Troca" action, create part consumption for existing NCs
             if (isTrocaAction) {
               await createPartConsumptionForItemNCs(itemId);
@@ -703,9 +669,11 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
         await offlineChecklist.toggleNonconformity(itemId, nonconformityId, nonconformityLabel, isSelected);
 
         // If online, sync to server immediately
+        // If online, handle side-effects only (part consumption)
+        // Note: the primary NC insert/delete is handled by offlineChecklist.toggleNonconformity above
         if (offlineChecklist.isOnline) {
           if (isSelected) {
-            // Remove nonconformity - first get the exec_nonconformity_id
+            // Remove associated part consumption records
             const { data: execNc } = await supabase
               .from('preventive_checklist_item_nonconformities')
               .select('id')
@@ -714,77 +682,51 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
               .maybeSingle();
             
             if (execNc) {
-              // Remove associated part consumption records
               await (supabase as any)
                 .from('preventive_part_consumption')
                 .delete()
                 .eq('exec_nonconformity_id', execNc.id);
             }
-            
-            // Remove nonconformity
-            const { error } = await supabase
-              .from('preventive_checklist_item_nonconformities')
-              .delete()
-              .eq('exec_item_id', itemId)
-              .eq('template_nonconformity_id', nonconformityId);
-
-            if (error) throw error;
           } else {
-            // Use upsert with ON CONFLICT to prevent duplicates atomically
-            // The unique index idx_unique_item_nonconformity handles conflicts
-            const { data: newNc, error } = await supabase
-              .from('preventive_checklist_item_nonconformities')
-              .upsert({
-                exec_item_id: itemId,
-                template_nonconformity_id: nonconformityId,
-                nonconformity_label_snapshot: nonconformityLabel
-              }, {
-                onConflict: 'exec_item_id,template_nonconformity_id'
-              })
-              .select()
-              .single();
-
-            if (error) throw error;
-            
             // Only create part consumption if item has a "Troca" action selected
             const hasTrocaAction = itemHasTrocaAction(itemId);
             
             if (hasTrocaAction) {
-              // Get associated parts for this nonconformity
-              const { data: ncParts } = await (supabase as any)
-                .from('checklist_nonconformity_parts')
-                .select(`
-                  id,
-                  part_id,
-                  default_quantity,
-                  part:pecas(codigo, nome)
-                `)
-                .eq('nonconformity_id', nonconformityId);
-              
-              // Create part consumption records using upsert to prevent duplicates
-              if (ncParts && ncParts.length > 0 && newNc) {
-                for (const np of ncParts) {
-                  const consumptionRecord = {
-                    preventive_id: preventiveId,
-                    exec_item_id: itemId,
-                    exec_nonconformity_id: newNc.id,
-                    part_id: np.part_id,
-                    part_code_snapshot: np.part?.codigo || '',
-                    part_name_snapshot: np.part?.nome || '',
-                    quantity: np.default_quantity,
-                    stock_source: null // Force user to select origin
-                  };
-                  
-                  // Use upsert to prevent duplicates - the unique index handles conflicts
-                  const { error: consumptionError } = await (supabase as any)
-                    .from('preventive_part_consumption')
-                    .upsert(consumptionRecord, {
-                      onConflict: 'exec_nonconformity_id,part_id',
-                      ignoreDuplicates: true
-                    });
-                  
-                  if (consumptionError) {
-                    console.error('Erro ao registrar consumo de peça:', consumptionError);
+              // Get the exec NC id (just inserted by the hook's sync)
+              const { data: newNc } = await supabase
+                .from('preventive_checklist_item_nonconformities')
+                .select('id')
+                .eq('exec_item_id', itemId)
+                .eq('template_nonconformity_id', nonconformityId)
+                .maybeSingle();
+
+              if (newNc) {
+                const { data: ncParts } = await (supabase as any)
+                  .from('checklist_nonconformity_parts')
+                  .select(`id, part_id, default_quantity, part:pecas(codigo, nome)`)
+                  .eq('nonconformity_id', nonconformityId);
+                
+                if (ncParts && ncParts.length > 0) {
+                  for (const np of ncParts) {
+                    const { error: consumptionError } = await (supabase as any)
+                      .from('preventive_part_consumption')
+                      .upsert({
+                        preventive_id: preventiveId,
+                        exec_item_id: itemId,
+                        exec_nonconformity_id: newNc.id,
+                        part_id: np.part_id,
+                        part_code_snapshot: np.part?.codigo || '',
+                        part_name_snapshot: np.part?.nome || '',
+                        quantity: np.default_quantity,
+                        stock_source: null
+                      }, {
+                        onConflict: 'exec_nonconformity_id,part_id',
+                        ignoreDuplicates: true
+                      });
+                    
+                    if (consumptionError) {
+                      console.error('Erro ao registrar consumo de peça:', consumptionError);
+                    }
                   }
                 }
               }

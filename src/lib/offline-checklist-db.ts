@@ -158,17 +158,34 @@ class OfflineChecklistDatabase extends Dexie {
     updates: Partial<Pick<OfflineChecklistItem, 'status' | 'notes' | 'answered_at'>>
   ): Promise<void> {
     const existing = await this.checklistItems.get(itemId);
+
     if (existing) {
+      // Item exists: update preserving all fields
       await this.checklistItems.update(itemId, {
         ...updates,
-        _pendingSync: true
+        _pendingSync: true,
       });
-      
-      await this.addToSyncQueue('preventive_checklist_items', 'update', {
+    } else {
+      // Item NOT in cache yet: create a minimal record so data is never lost
+      await this.checklistItems.put({
         id: itemId,
-        ...updates
+        exec_block_id: '',
+        template_item_id: null,
+        item_name_snapshot: '',
+        order_index: 0,
+        status: updates.status ?? null,
+        notes: updates.notes ?? null,
+        answered_at: updates.answered_at ?? null,
+        _pendingSync: true,
+        _syncedAt: undefined,
       });
     }
+
+    // Always add to sync queue regardless of whether item existed
+    await this.addToSyncQueue('preventive_checklist_items', 'update', {
+      id: itemId,
+      ...updates,
+    });
   }
 
   // Add action locally
