@@ -1,19 +1,33 @@
 
 
-## Corrigir alinhamento do conteudo nos cards de resumo
+## Bug: Não-conformidades não aparecem offline ao marcar "Falha"
 
-### Problema
-O conteudo (numero + label) dentro dos cards de resumo esta visualmente deslocado para a direita. Isso ocorre porque o componente `CardContent` aplica `p-6` (24px) de padding horizontal por padrao, o que em cards estreitos empurra o conteudo para fora do centro visual.
+### Causa raiz
 
-### Solucao
+As queries `templateActions` (L161) e `templateNonconformities` (L202) em `ChecklistExecution.tsx` usam `useQuery` padrão com chamadas diretas ao Supabase — **sem fallback offline**. Quando offline:
 
-**Arquivo: `src/pages/crm/CrmPipeline.tsx`**
+1. `useQuery` fica desabilitado (ou falha)
+2. `templateNonconformities` retorna `undefined`
+3. Na linha 923: `availableNonconformities: templateNonconformities?.[item.template_item_id] || []` → sempre `[]`
+4. UI não tem opções para mostrar
 
-Adicionar `px-2` ao `CardContent` dos cards de resumo para reduzir o padding horizontal, centralizando melhor o conteudo:
+### Solução
 
-```tsx
-<CardContent className="py-2 px-2 text-center">
-```
+**Duas partes:**
 
-Isso substitui o `p-6` padrao do componente por um padding horizontal menor, mantendo o texto centralizado visualmente dentro do card.
+**1. Cachear ações corretivas e não-conformidades no Dexie** (`offline-checklist-db.ts`)
+- Adicionar duas novas tabelas: `templateActions` e `templateNonconformities` (dados de referência do template)
+- No `cacheFullChecklist`, também salvar essas referências quando disponíveis
+- Criar método `getCachedTemplateActions(templateItemIds)` e `getCachedTemplateNonconformities(templateItemIds)`
+
+**2. Converter as queries para `useOfflineQuery`** (`ChecklistExecution.tsx`)
+- Substituir `useQuery` por `useOfflineQuery` para `templateActions` e `templateNonconformities`
+- Fornecer `offlineFn` que busca do Dexie
+
+**3. Popular o cache quando online** (`ChecklistExecution.tsx`)
+- No `queryFn` de cada query, após buscar do Supabase, salvar os dados no Dexie para uso futuro offline
+
+### Arquivos alterados
+- `src/lib/offline-checklist-db.ts` — novas tabelas + métodos de cache/leitura (versão 3 do schema Dexie)
+- `src/components/preventivas/ChecklistExecution.tsx` — converter 2 queries para `useOfflineQuery`
 
