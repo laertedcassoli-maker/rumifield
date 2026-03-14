@@ -122,9 +122,29 @@ export function useOfflineChecklist() {
               .eq("template_nonconformity_id", data.template_nonconformity_id as string);
 
             if (error) throw error;
+          } else if (table === "preventive_part_consumption") {
+            const { error } = await (supabase as any)
+              .from("preventive_part_consumption")
+              .delete()
+              .eq("exec_nonconformity_id", data.exec_nonconformity_id as string);
+
+            if (error) throw error;
           }
           break;
         }
+      }
+
+      // Handle preventive_part_consumption inserts (not covered by update/delete above)
+      if (table === "preventive_part_consumption" && operation === "insert") {
+        const { error } = await (supabase as any)
+          .from("preventive_part_consumption")
+          .upsert(data, {
+            onConflict: 'exec_nonconformity_id,part_id',
+            ignoreDuplicates: true,
+          });
+
+        // Treat duplicate key as success
+        if (error && error.code !== '23505') throw error;
       }
 
       return true;

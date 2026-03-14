@@ -285,6 +285,33 @@ export function useOfflineSync() {
                 }
               }
             }
+
+            // Pre-cache nonconformity parts for offline part consumption
+            const templateNcIds = (await offlineChecklistDb.templateNonconformities.toArray()).map(nc => nc.id);
+            if (templateNcIds.length > 0) {
+              const ncPartsBatchSize = 100;
+              for (let k = 0; k < templateNcIds.length; k += ncPartsBatchSize) {
+                const ncBatch = templateNcIds.slice(k, k + ncPartsBatchSize);
+                const { data: ncParts, error: ncPartsError } = await (supabase as any)
+                  .from('checklist_nonconformity_parts')
+                  .select('id, nonconformity_id, part_id, default_quantity, part:pecas(codigo, nome)')
+                  .in('nonconformity_id', ncBatch);
+
+                if (ncPartsError) throw ncPartsError;
+
+                if (ncParts?.length) {
+                  const mapped = ncParts.map((np: any) => ({
+                    id: np.id,
+                    nonconformity_id: np.nonconformity_id,
+                    part_id: np.part_id,
+                    default_quantity: np.default_quantity,
+                    part_codigo: np.part?.codigo || '',
+                    part_nome: np.part?.nome || '',
+                  }));
+                  await offlineChecklistDb.cacheNonconformityParts(mapped);
+                }
+              }
+            }
           }
           break;
         }

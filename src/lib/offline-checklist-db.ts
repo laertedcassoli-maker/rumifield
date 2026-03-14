@@ -68,9 +68,32 @@ export interface OfflineTemplateNonconformity {
   active: boolean;
 }
 
+export interface OfflineNonconformityPart {
+  id: string;
+  nonconformity_id: string;
+  part_id: string;
+  default_quantity: number;
+  part_codigo: string;
+  part_nome: string;
+}
+
+export interface OfflinePartConsumption {
+  id: string;
+  preventive_id: string;
+  exec_item_id: string;
+  exec_nonconformity_id: string;
+  part_id: string;
+  part_code_snapshot: string;
+  part_name_snapshot: string;
+  quantity: number;
+  stock_source: string | null;
+  _pendingSync?: boolean;
+  _operation?: 'insert' | 'delete';
+}
+
 export interface ChecklistSyncQueueItem {
   id?: number;
-  table: 'preventive_checklist_items' | 'preventive_checklist_item_actions' | 'preventive_checklist_item_nonconformities';
+  table: 'preventive_checklist_items' | 'preventive_checklist_item_actions' | 'preventive_checklist_item_nonconformities' | 'preventive_part_consumption';
   operation: 'update' | 'insert' | 'delete';
   data: Record<string, unknown>;
   createdAt: string;
@@ -86,6 +109,8 @@ class OfflineChecklistDatabase extends Dexie {
   checklistBlocks!: Table<OfflineChecklistBlock, string>;
   templateActions!: Table<OfflineTemplateAction, string>;
   templateNonconformities!: Table<OfflineTemplateNonconformity, string>;
+  nonconformityParts!: Table<OfflineNonconformityPart, string>;
+  partConsumptions!: Table<OfflinePartConsumption, string>;
 
   constructor() {
     super("RumiFieldChecklistDB");
@@ -115,6 +140,19 @@ class OfflineChecklistDatabase extends Dexie {
       checklistBlocks: "id, checklist_id, order_index",
       templateActions: "id, item_id",
       templateNonconformities: "id, item_id",
+    });
+
+    this.version(4).stores({
+      checklistItems: "id, exec_block_id, status, _pendingSync",
+      checklistActions: "id, exec_item_id, template_action_id, _pendingSync",
+      checklistNonconformities: "id, exec_item_id, template_nonconformity_id, _pendingSync",
+      checklistSyncQueue: "++id, table, operation, createdAt",
+      checklists: "id, preventive_id",
+      checklistBlocks: "id, checklist_id, order_index",
+      templateActions: "id, item_id",
+      templateNonconformities: "id, item_id",
+      nonconformityParts: "id, nonconformity_id",
+      partConsumptions: "id, exec_nonconformity_id, exec_item_id, _pendingSync",
     });
   }
 
@@ -161,6 +199,8 @@ class OfflineChecklistDatabase extends Dexie {
     await this.checklistBlocks.clear();
     await this.templateActions.clear();
     await this.templateNonconformities.clear();
+    await this.nonconformityParts.clear();
+    await this.partConsumptions.clear();
   }
 
   // Cache checklist items for a specific checklist
@@ -459,6 +499,68 @@ class OfflineChecklistDatabase extends Dexie {
     });
     Object.values(grouped).forEach(arr => arr.sort((a, b) => a.order_index - b.order_index));
     return grouped;
+  }
+
+  // Cache nonconformity parts (reference data from checklist_nonconformity_parts)
+  async cacheNonconformityParts(parts: OfflineNonconformityPart[]): Promise<void> {
+    await this.nonconformityParts.bulkPut(parts);
+  }
+
+  // Get nonconformity parts by nonconformity_id
+  async getNonconformityParts(nonconformityId: string): Promise<OfflineNonconformityPart[]> {
+    return this.nonconformityParts
+      .where('nonconformity_id')
+      .equals(nonconformityId)
+      .toArray();
+  }
+
+  // Add part consumption locally with sync queue
+  async addPartConsumptionLocally(
+    consumption: Omit<OfflinePartConsumption, '_pendingSync' | '_operation'>
+  ): Promise<void> {
+    await this.partConsumptions.put({
+      ...consumption,
+      _pendingSync: true,
+      _operation: 'insert',
+    });
+    await this.addToSyncQueue('preventive_part_consumption', 'insert', {
+      preventive_id: consumption.preventive_id,
+      exec_item_id: consumption.exec_item_id,
+      exec_nonconformity_id: consumption.exec_nonconformity_id,
+      part_id: consumption.part_id,
+      part_code_snapshot: consumption.part_code_snapshot,
+      part_name_snapshot: consumption.part_name_snapshot,
+      quantity: consumption.quantity,
+      stock_source: consumption.stock_source,
+    });
+  }
+
+  // Delete part consumption by exec nonconformity id
+  async deletePartConsumptionByNcId(execNonconformityId: string): Promise<void> {
+    const records = await this.partConsumptions
+      .where('exec_nonconformity_id')
+      .equals(execNonconformityId)
+      .toArray();
+    for (const record of records) {
+      await this.partConsumptions.delete(record.id);
+      await this.addToSyncQueue('preventive_part_consumption', 'delete', {
+        exec_nonconformity_id: execNonconformityId,
+      });
+    }
+  }
+
+  // Delete part consumption by exec item id
+  async deletePartConsumptionByItemId(execItemId: string): Promise<void> {
+    const records = await this.partConsumptions
+      .where('exec_item_id')
+      .equals(execItemId)
+      .toArray();
+    for (const record of records) {
+      await this.partConsumptions.delete(record.id);
+      await this.addToSyncQueue('preventive_part_consumption', 'delete', {
+        exec_nonconformity_id: record.exec_nonconformity_id,
+      });
+    }
   }
 }
 

@@ -521,19 +521,27 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
   });
 
   // Helper: check if an item has a selected action containing "Troca" (case-insensitive)
-  const itemHasTrocaAction = (itemId: string): boolean => {
-    if (!existingChecklist?.blocks) return false;
-    for (const block of existingChecklist.blocks) {
-      for (const item of block.items || []) {
-        if (item.id === itemId) {
-          return (item.selected_actions || []).some(
-            (a: any) => a.action_label_snapshot?.toLowerCase().includes('troca')
-          );
+  const itemHasTrocaAction = useCallback(async (itemId: string): Promise<boolean> => {
+    // Try from cached checklist data first
+    if (existingChecklist?.blocks) {
+      for (const block of existingChecklist.blocks) {
+        for (const item of block.items || []) {
+          if (item.id === itemId) {
+            const found = (item.selected_actions || []).some(
+              (a: any) => a.action_label_snapshot?.toLowerCase().includes('troca')
+            );
+            if (found) return true;
+          }
         }
       }
     }
-    return false;
-  };
+    // Fallback to Dexie for offline
+    const dexieActions = await offlineChecklistDb.checklistActions
+      .where('exec_item_id')
+      .equals(itemId)
+      .toArray();
+    return dexieActions.some(a => a.action_label_snapshot?.toLowerCase().includes('troca'));
+  }, [existingChecklist]);
 
   // Helper: create part consumption records for all selected NCs of an item
   const createPartConsumptionForItemNCs = async (itemId: string) => {
@@ -652,6 +660,42 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
               await createPartConsumptionForItemNCs(itemId);
             }
           }
+        } else {
+          // OFFLINE path for action toggle part consumption
+          const isTrocaAction = actionLabel.toLowerCase().includes('troca');
+          if (isTrocaAction) {
+            if (isSelected) {
+              // "Troca" being REMOVED offline → delete part consumption for item
+              await offlineChecklistDb.deletePartConsumptionByItemId(itemId);
+            } else {
+              // "Troca" being ADDED offline → create consumption for all selected NCs
+              const selectedNcs = await offlineChecklistDb.checklistNonconformities
+                .where('exec_item_id')
+                .equals(itemId)
+                .filter(nc => nc._operation !== 'delete')
+                .toArray();
+
+              for (const execNc of selectedNcs) {
+                if (!execNc.template_nonconformity_id) continue;
+                const ncParts = await offlineChecklistDb.getNonconformityParts(
+                  execNc.template_nonconformity_id
+                );
+                for (const np of ncParts) {
+                  await offlineChecklistDb.addPartConsumptionLocally({
+                    id: crypto.randomUUID(),
+                    preventive_id: preventiveId,
+                    exec_item_id: itemId,
+                    exec_nonconformity_id: execNc.id,
+                    part_id: np.part_id,
+                    part_code_snapshot: np.part_codigo,
+                    part_name_snapshot: np.part_nome,
+                    quantity: np.default_quantity,
+                    stock_source: null,
+                  });
+                }
+              }
+            }
+          }
         }
       } finally {
         // Remove lock
@@ -728,9 +772,9 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
             }
           } else {
             // Only create part consumption if item has a "Troca" action selected
-            const hasTrocaAction = itemHasTrocaAction(itemId);
+            const hasTroca = await itemHasTrocaAction(itemId);
             
-            if (hasTrocaAction) {
+            if (hasTroca) {
               // Get the exec NC id (just inserted by the hook's sync)
               const { data: newNc } = await supabase
                 .from('preventive_checklist_item_nonconformities')
@@ -767,6 +811,51 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
                       console.error('Erro ao registrar consumo de peça:', consumptionError);
                     }
                   }
+                }
+              }
+            }
+          }
+        } else {
+          // OFFLINE path for nonconformity toggle part consumption
+          if (isSelected) {
+            // NC being REMOVED offline → delete part consumption
+            const execNc = await offlineChecklistDb.checklistNonconformities
+              .filter(
+                nc =>
+                  nc.exec_item_id === itemId &&
+                  nc.template_nonconformity_id === nonconformityId
+              )
+              .first();
+            if (execNc) {
+              await offlineChecklistDb.deletePartConsumptionByNcId(execNc.id);
+            }
+          } else {
+            // NC being ADDED offline → create part consumption if Troca active
+            const hasTroca = await itemHasTrocaAction(itemId);
+            if (hasTroca) {
+              const execNc = await offlineChecklistDb.checklistNonconformities
+                .filter(
+                  nc =>
+                    nc.exec_item_id === itemId &&
+                    nc.template_nonconformity_id === nonconformityId
+                )
+                .first();
+              if (execNc) {
+                const ncParts = await offlineChecklistDb.getNonconformityParts(
+                  nonconformityId
+                );
+                for (const np of ncParts) {
+                  await offlineChecklistDb.addPartConsumptionLocally({
+                    id: crypto.randomUUID(),
+                    preventive_id: preventiveId,
+                    exec_item_id: itemId,
+                    exec_nonconformity_id: execNc.id,
+                    part_id: np.part_id,
+                    part_code_snapshot: np.part_codigo,
+                    part_name_snapshot: np.part_nome,
+                    quantity: np.default_quantity,
+                    stock_source: null,
+                  });
                 }
               }
             }
