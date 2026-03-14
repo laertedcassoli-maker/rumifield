@@ -89,6 +89,10 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
   const [processingNonconformities, setProcessingNonconformities] = useState<Set<string>>(new Set());
   const [processingActions, setProcessingActions] = useState<Set<string>>(new Set());
   
+  // Optimistic selections for NCs and actions (offline-friendly instant UI)
+  const [optimisticNcSelections, setOptimisticNcSelections] = useState<Record<string, Set<string>>>({});
+  const [optimisticActionSelections, setOptimisticActionSelections] = useState<Record<string, Set<string>>>({});
+  
   // Offline support hook
   const offlineChecklist = useOfflineChecklist();
 
