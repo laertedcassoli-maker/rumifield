@@ -109,6 +109,8 @@ class OfflineChecklistDatabase extends Dexie {
   checklistBlocks!: Table<OfflineChecklistBlock, string>;
   templateActions!: Table<OfflineTemplateAction, string>;
   templateNonconformities!: Table<OfflineTemplateNonconformity, string>;
+  nonconformityParts!: Table<OfflineNonconformityPart, string>;
+  partConsumptions!: Table<OfflinePartConsumption, string>;
 
   constructor() {
     super("RumiFieldChecklistDB");
@@ -138,6 +140,19 @@ class OfflineChecklistDatabase extends Dexie {
       checklistBlocks: "id, checklist_id, order_index",
       templateActions: "id, item_id",
       templateNonconformities: "id, item_id",
+    });
+
+    this.version(4).stores({
+      checklistItems: "id, exec_block_id, status, _pendingSync",
+      checklistActions: "id, exec_item_id, template_action_id, _pendingSync",
+      checklistNonconformities: "id, exec_item_id, template_nonconformity_id, _pendingSync",
+      checklistSyncQueue: "++id, table, operation, createdAt",
+      checklists: "id, preventive_id",
+      checklistBlocks: "id, checklist_id, order_index",
+      templateActions: "id, item_id",
+      templateNonconformities: "id, item_id",
+      nonconformityParts: "id, nonconformity_id",
+      partConsumptions: "id, exec_nonconformity_id, exec_item_id, _pendingSync",
     });
   }
 
