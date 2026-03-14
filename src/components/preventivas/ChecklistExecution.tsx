@@ -1180,14 +1180,16 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
                                   hasSelections: true
                                 });
                               } else {
-                                updateItemMutation.mutate({ 
-                                  itemId: item.id, 
-                                  status 
-                                });
+                                // Optimistic UI update — reflect immediately (before mutate)
+                                setOptimisticStatuses(prev => ({ ...prev, [item.id]: status }));
                                 // Auto-expand when marking as failure
                                 if (status === 'N') {
                                   setExpandedItems(prev => new Set([...prev, item.id]));
                                 }
+                                updateItemMutation.mutate({ 
+                                  itemId: item.id, 
+                                  status 
+                                });
                               }
                             }}
                           />
