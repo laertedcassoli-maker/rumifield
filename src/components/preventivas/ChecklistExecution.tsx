@@ -938,14 +938,22 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
   // Calculate progress
   const blocks: ExecBlock[] = existingChecklist.blocks?.map((block: any) => ({
     ...block,
-    items: block.items?.map((item: any) => ({
-      ...item,
-      status: optimisticStatuses[item.id] ?? item.status,
-      selectedActions: item.selected_actions?.map((a: any) => a.template_action_id) || [],
-      selectedNonconformities: item.selected_nonconformities?.map((nc: any) => nc.template_nonconformity_id) || [],
-      availableActions: templateActions?.[item.template_item_id] || [],
-      availableNonconformities: templateNonconformities?.[item.template_item_id] || []
-    })).sort((a: ExecItem, b: ExecItem) => a.order_index - b.order_index) || []
+    items: block.items?.map((item: any) => {
+      const baseSelectedActions = item.selected_actions?.map((a: any) => a.template_action_id) || [];
+      const baseSelectedNcs = item.selected_nonconformities?.map((nc: any) => nc.template_nonconformity_id) || [];
+      return {
+        ...item,
+        status: optimisticStatuses[item.id] ?? item.status,
+        selectedActions: optimisticActionSelections[item.id] 
+          ? [...optimisticActionSelections[item.id]] 
+          : baseSelectedActions,
+        selectedNonconformities: optimisticNcSelections[item.id] 
+          ? [...optimisticNcSelections[item.id]] 
+          : baseSelectedNcs,
+        availableActions: templateActions?.[item.template_item_id] || [],
+        availableNonconformities: templateNonconformities?.[item.template_item_id] || []
+      };
+    }).sort((a: ExecItem, b: ExecItem) => a.order_index - b.order_index) || []
   })).sort((a: ExecBlock, b: ExecBlock) => a.order_index - b.order_index) || [];
 
   const totalItems = blocks.reduce((acc, block) => acc + block.items.length, 0);
