@@ -105,6 +105,17 @@ class OfflineChecklistDatabase extends Dexie {
       checklists: "id, preventive_id",
       checklistBlocks: "id, checklist_id, order_index",
     });
+
+    this.version(3).stores({
+      checklistItems: "id, exec_block_id, status, _pendingSync",
+      checklistActions: "id, exec_item_id, template_action_id, _pendingSync",
+      checklistNonconformities: "id, exec_item_id, template_nonconformity_id, _pendingSync",
+      checklistSyncQueue: "++id, table, operation, createdAt",
+      checklists: "id, preventive_id",
+      checklistBlocks: "id, checklist_id, order_index",
+      templateActions: "id, item_id",
+      templateNonconformities: "id, item_id",
+    });
   }
 
   // Add item to sync queue
