@@ -1323,14 +1323,20 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
                                         disabled={isCompleted}
                                         loading={isProcessing}
                                         variant="success"
-                                        onClick={() => 
+                                        onClick={() => {
+                                          // Optimistic update
+                                          setOptimisticActionSelections(prev => {
+                                            const current = new Set(prev[item.id] || new Set(item.selectedActions));
+                                            if (isSelected) current.delete(action.id); else current.add(action.id);
+                                            return { ...prev, [item.id]: current };
+                                          });
                                           toggleActionMutation.mutate({
                                             itemId: item.id,
                                             actionId: action.id,
                                             actionLabel: action.action_label,
                                             isSelected
-                                          })
-                                        }
+                                          });
+                                        }}
                                       />
                                     );
                                   })}
