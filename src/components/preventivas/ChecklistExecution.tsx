@@ -734,7 +734,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
               )
               .first();
             if (execNc) {
-              const ncParts = await offlineChecklistDb.getNonconformityParts(nonconformityId);
+              const ncParts = await getNcPartsWithFallback(nonconformityId);
               for (const np of ncParts) {
                 await offlineChecklistDb.addPartConsumptionLocally({
                   id: crypto.randomUUID(),

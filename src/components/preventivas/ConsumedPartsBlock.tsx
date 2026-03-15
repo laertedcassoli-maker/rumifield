@@ -275,40 +275,29 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
     },
   });
 
-  // Add manual part mutation
+  // Add manual part mutation (local-first: always writes to Dexie first)
   const addManualPartMutation = useMutation({
     mutationFn: async () => {
       if (!selectedPartId || !selectedPart) throw new Error('Selecione uma peça');
 
-      if (!isOnline) {
-        await offlineChecklistDb.addPartConsumptionLocally({
-          id: crypto.randomUUID(),
-          preventive_id: preventiveId,
-          part_id: selectedPartId,
-          part_code_snapshot: selectedPart.codigo,
-          part_name_snapshot: selectedPart.nome,
-          quantity: parseFloat(quantity) || 1,
-          stock_source: stockSource,
-          exec_item_id: '',
-          exec_nonconformity_id: '',
-        });
-        return;
-      }
+      const newId = crypto.randomUUID();
+      const assetCode = stockSource === 'tecnico' && dialogAssetCode.trim() ? dialogAssetCode.trim() : null;
 
-      const { error } = await supabase
-        .from('preventive_part_consumption')
-        .insert({
-          preventive_id: preventiveId,
-          part_id: selectedPartId,
-          part_code_snapshot: selectedPart.codigo,
-          part_name_snapshot: selectedPart.nome,
-          quantity: parseFloat(quantity) || 1,
-          stock_source: stockSource,
-          asset_unique_code: stockSource === 'tecnico' && dialogAssetCode.trim() ? dialogAssetCode.trim() : null,
-          notes: notes || null,
-          is_manual: true,
-        });
-      if (error) throw error;
+      // Always save locally first
+      await offlineChecklistDb.addPartConsumptionLocally({
+        id: newId,
+        preventive_id: preventiveId,
+        part_id: selectedPartId,
+        part_code_snapshot: selectedPart.codigo,
+        part_name_snapshot: selectedPart.nome,
+        quantity: parseFloat(quantity) || 1,
+        stock_source: stockSource,
+        exec_item_id: null,
+        exec_nonconformity_id: null,
+        is_manual: true,
+        notes: notes || null,
+        asset_unique_code: assetCode,
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['preventive-consumed-parts', preventiveId] });
@@ -316,11 +305,6 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
       resetAddDialog();
     },
     onError: (error: Error) => {
-      if (!isOnline) {
-        toast({ title: 'Peça adicionada!' });
-        resetAddDialog();
-        return;
-      }
       toast({ title: 'Erro ao adicionar peça', description: error.message, variant: 'destructive' });
     },
   });
