@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useLiveQuery } from 'dexie-react-hooks';
 import { supabase } from '@/integrations/supabase/client';
-import { useOfflineQuery } from '@/hooks/useOfflineQuery';
 import { offlineChecklistDb } from '@/lib/offline-checklist-db';
+import { offlineDb } from '@/lib/offline-db';
+import { useOfflineQuery } from '@/hooks/useOfflineQuery';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -47,11 +49,23 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
   const [notes, setNotes] = useState('');
   const [stockSource, setStockSource] = useState<'tecnico' | 'fazenda' | 'novo_pedido'>('tecnico');
   const [dialogAssetCode, setDialogAssetCode] = useState('');
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Fetch consumed parts with is_asset from pecas
-  const { data: parts, isLoading } = useOfflineQuery<(ConsumedPart & { is_asset: boolean })[]>({
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
+  // Online: fetch consumed parts from Supabase
+  const { data: onlineParts, isLoading: onlineLoading } = useQuery({
     queryKey: ['preventive-consumed-parts', preventiveId],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -76,28 +90,41 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
 
       return items.map(i => ({ ...i, is_asset: false }));
     },
-    offlineFn: async () => {
-      const offlineItems = await offlineChecklistDb.getPartConsumptionsByPreventiveId(preventiveId);
-      return offlineItems.map(item => ({
-        id: item.id,
-        part_id: item.part_id,
-        part_code_snapshot: item.part_code_snapshot,
-        part_name_snapshot: item.part_name_snapshot,
-        quantity: item.quantity,
-        unit_cost_snapshot: null,
-        stock_source: (item.stock_source as ConsumedPart['stock_source']) || null,
-        asset_unique_code: null,
-        notes: null,
-        is_manual: false,
-        consumed_at: new Date().toISOString(),
-        is_asset: false,
-      }));
-    },
-    enabled: !!preventiveId,
+    enabled: !!preventiveId && isOnline,
   });
 
-  // Fetch available parts for manual addition
-  const { data: availableParts } = useQuery({
+  // Offline: reactive fetch from Dexie (auto-updates on local changes)
+  const offlineParts = useLiveQuery(
+    () => !isOnline && preventiveId
+      ? offlineChecklistDb.partConsumptions
+          .filter(pc => pc.preventive_id === preventiveId)
+          .toArray()
+      : Promise.resolve([]),
+    [preventiveId, isOnline]
+  );
+
+  // Merge: online data takes priority, offline mapped to same shape
+  const parts: (ConsumedPart & { is_asset: boolean })[] | undefined =
+    isOnline && onlineParts !== undefined
+      ? onlineParts
+      : offlineParts?.map(item => ({
+          id: item.id,
+          part_id: item.part_id,
+          part_code_snapshot: item.part_code_snapshot,
+          part_name_snapshot: item.part_name_snapshot,
+          quantity: item.quantity,
+          unit_cost_snapshot: null,
+          stock_source: (item.stock_source as ConsumedPart['stock_source']) || null,
+          asset_unique_code: null,
+          notes: null,
+          is_manual: false,
+          consumed_at: new Date().toISOString(),
+          is_asset: false,
+        }));
+  const isLoading = isOnline ? onlineLoading : offlineParts === undefined;
+
+  // Fetch available parts for manual addition (with offline fallback)
+  const { data: availableParts } = useOfflineQuery<{ id: string; codigo: string; nome: string; familia: string | null; is_asset?: boolean }[]>({
     queryKey: ['parts-catalog-active'],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -109,6 +136,20 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
 
       if (error) throw error;
       return data as { id: string; codigo: string; nome: string; familia: string | null; is_asset?: boolean }[];
+    },
+    offlineFn: async () => {
+      const items = await offlineDb.pecas
+        .filter(p => p.ativo !== false)
+        .toArray();
+      return items
+        .map(p => ({
+          id: p.id,
+          codigo: p.codigo,
+          nome: p.nome,
+          familia: p.familia ?? null,
+          is_asset: p.is_asset ?? false,
+        }))
+        .sort((a, b) => (a.familia ?? '').localeCompare(b.familia ?? '') || a.nome.localeCompare(b.nome));
     },
     enabled: isAddDialogOpen,
   });
