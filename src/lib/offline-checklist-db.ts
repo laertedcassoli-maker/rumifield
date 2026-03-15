@@ -80,13 +80,17 @@ export interface OfflineNonconformityPart {
 export interface OfflinePartConsumption {
   id: string;
   preventive_id: string;
-  exec_item_id: string;
-  exec_nonconformity_id: string;
+  exec_item_id: string | null;
+  exec_nonconformity_id: string | null;
   part_id: string;
   part_code_snapshot: string;
   part_name_snapshot: string;
   quantity: number;
   stock_source: string | null;
+  is_manual?: boolean;
+  notes?: string | null;
+  asset_unique_code?: string | null;
+  consumed_at?: string;
   _pendingSync?: boolean;
   _operation?: 'insert' | 'delete';
 }
