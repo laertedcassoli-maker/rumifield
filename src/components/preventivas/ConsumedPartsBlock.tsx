@@ -169,70 +169,80 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
   const updateStockSourceMutation = useMutation({
     mutationFn: async ({ partId, stockSource }: { partId: string; stockSource: string }) => {
       const updateData: Record<string, unknown> = { stock_source: stockSource };
-      // Clear asset_unique_code if not tecnico
       if (stockSource !== 'tecnico') {
         updateData.asset_unique_code = null;
       }
+
+      if (!isOnline) {
+        await offlineChecklistDb.partConsumptions.update(partId, { stock_source: stockSource, _pendingSync: true });
+        await offlineChecklistDb.addToSyncQueue('preventive_part_consumption', 'update', { id: partId, ...updateData });
+        return;
+      }
+
       const { error } = await supabase
         .from('preventive_part_consumption')
         .update(updateData)
         .eq('id', partId);
-
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['preventive-consumed-parts', preventiveId] });
     },
     onError: (error: Error) => {
-      toast({
-        title: 'Erro ao atualizar',
-        description: error.message,
-        variant: 'destructive',
-      });
+      if (!isOnline) return;
+      toast({ title: 'Erro ao atualizar', description: error.message, variant: 'destructive' });
     },
   });
 
   // Update asset unique code mutation
   const updateAssetCodeMutation = useMutation({
     mutationFn: async ({ partId, assetCode }: { partId: string; assetCode: string }) => {
+      const value = assetCode || null;
+
+      if (!isOnline) {
+        await offlineChecklistDb.partConsumptions.update(partId, { _pendingSync: true });
+        await offlineChecklistDb.addToSyncQueue('preventive_part_consumption', 'update', { id: partId, asset_unique_code: value });
+        return;
+      }
+
       const { error } = await supabase
         .from('preventive_part_consumption')
-        .update({ asset_unique_code: assetCode || null })
+        .update({ asset_unique_code: value })
         .eq('id', partId);
-
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['preventive-consumed-parts', preventiveId] });
     },
     onError: (error: Error) => {
-      toast({
-        title: 'Erro ao salvar código',
-        description: error.message,
-        variant: 'destructive',
-      });
+      if (!isOnline) return;
+      toast({ title: 'Erro ao salvar código', description: error.message, variant: 'destructive' });
     },
   });
 
   // Update notes mutation
   const updateNotesMutation = useMutation({
     mutationFn: async ({ partId, notes }: { partId: string; notes: string }) => {
+      const value = notes || null;
+
+      if (!isOnline) {
+        await offlineChecklistDb.partConsumptions.update(partId, { _pendingSync: true });
+        await offlineChecklistDb.addToSyncQueue('preventive_part_consumption', 'update', { id: partId, notes: value });
+        return;
+      }
+
       const { error } = await supabase
         .from('preventive_part_consumption')
-        .update({ notes: notes || null })
+        .update({ notes: value })
         .eq('id', partId);
-
       if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['preventive-consumed-parts', preventiveId] });
     },
     onError: (error: Error) => {
-      toast({
-        title: 'Erro ao salvar observação',
-        description: error.message,
-        variant: 'destructive',
-      });
+      if (!isOnline) return;
+      toast({ title: 'Erro ao salvar observação', description: error.message, variant: 'destructive' });
     },
   });
 
@@ -240,6 +250,21 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
   const addManualPartMutation = useMutation({
     mutationFn: async () => {
       if (!selectedPartId || !selectedPart) throw new Error('Selecione uma peça');
+
+      if (!isOnline) {
+        await offlineChecklistDb.addPartConsumptionLocally({
+          id: crypto.randomUUID(),
+          preventive_id: preventiveId,
+          part_id: selectedPartId,
+          part_code_snapshot: selectedPart.codigo,
+          part_name_snapshot: selectedPart.nome,
+          quantity: parseFloat(quantity) || 1,
+          stock_source: stockSource,
+          exec_item_id: '',
+          exec_nonconformity_id: '',
+        });
+        return;
+      }
 
       const { error } = await supabase
         .from('preventive_part_consumption')
@@ -254,7 +279,6 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
           notes: notes || null,
           is_manual: true,
         });
-
       if (error) throw error;
     },
     onSuccess: () => {
@@ -263,23 +287,29 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
       resetAddDialog();
     },
     onError: (error: Error) => {
-      toast({
-        title: 'Erro ao adicionar peça',
-        description: error.message,
-        variant: 'destructive',
-      });
+      if (!isOnline) {
+        toast({ title: 'Peça adicionada!' });
+        resetAddDialog();
+        return;
+      }
+      toast({ title: 'Erro ao adicionar peça', description: error.message, variant: 'destructive' });
     },
   });
 
   // Delete manual part mutation
   const deleteManualPartMutation = useMutation({
     mutationFn: async (partId: string) => {
+      if (!isOnline) {
+        await offlineChecklistDb.partConsumptions.delete(partId);
+        await offlineChecklistDb.addToSyncQueue('preventive_part_consumption', 'delete', { id: partId });
+        return;
+      }
+
       const { error } = await supabase
         .from('preventive_part_consumption')
         .delete()
         .eq('id', partId)
         .eq('is_manual', true);
-
       if (error) throw error;
     },
     onSuccess: () => {
@@ -287,11 +317,11 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
       toast({ title: 'Peça removida!' });
     },
     onError: (error: Error) => {
-      toast({
-        title: 'Erro ao remover peça',
-        description: error.message,
-        variant: 'destructive',
-      });
+      if (!isOnline) {
+        toast({ title: 'Peça removida!' });
+        return;
+      }
+      toast({ title: 'Erro ao remover peça', description: error.message, variant: 'destructive' });
     },
   });
 
