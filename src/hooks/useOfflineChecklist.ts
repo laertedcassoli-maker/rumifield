@@ -123,28 +123,62 @@ export function useOfflineChecklist() {
 
             if (error) throw error;
           } else if (table === "preventive_part_consumption") {
-            const { error } = await (supabase as any)
-              .from("preventive_part_consumption")
-              .delete()
-              .eq("exec_nonconformity_id", data.exec_nonconformity_id as string);
-
-            if (error) throw error;
+            if (data.id) {
+              const { error } = await (supabase as any)
+                .from("preventive_part_consumption")
+                .delete()
+                .eq("id", data.id as string);
+              if (error) throw error;
+            } else if (data.exec_nonconformity_id) {
+              const { error } = await (supabase as any)
+                .from("preventive_part_consumption")
+                .delete()
+                .eq("exec_nonconformity_id", data.exec_nonconformity_id as string);
+              if (error) throw error;
+            }
           }
           break;
         }
       }
 
-      // Handle preventive_part_consumption inserts (not covered by update/delete above)
+      // Handle preventive_part_consumption inserts
       if (table === "preventive_part_consumption" && operation === "insert") {
+        const cleanData = { ...data };
+        delete cleanData._pendingSync;
+        delete cleanData._operation;
+        
         const { error } = await (supabase as any)
           .from("preventive_part_consumption")
-          .upsert(data, {
-            onConflict: 'exec_nonconformity_id,part_id',
+          .upsert(cleanData, {
+            onConflict: 'id',
             ignoreDuplicates: true,
           });
 
         // Treat duplicate key as success
         if (error && error.code !== '23505') throw error;
+        
+        // Mark local record as synced
+        if (data.id) {
+          await offlineChecklistDb.partConsumptions.update(data.id as string, { _pendingSync: false });
+        }
+      }
+
+      // Handle preventive_part_consumption updates
+      if (table === "preventive_part_consumption" && operation === "update") {
+        const id = data.id as string;
+        const cleanData = { ...data };
+        delete cleanData.id;
+        delete cleanData._pendingSync;
+        delete cleanData._operation;
+
+        const { error } = await (supabase as any)
+          .from("preventive_part_consumption")
+          .update(cleanData)
+          .eq("id", id);
+
+        if (error) throw error;
+        
+        await offlineChecklistDb.partConsumptions.update(id, { _pendingSync: false });
       }
 
       return true;

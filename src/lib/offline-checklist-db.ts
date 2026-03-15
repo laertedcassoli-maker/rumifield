@@ -80,13 +80,17 @@ export interface OfflineNonconformityPart {
 export interface OfflinePartConsumption {
   id: string;
   preventive_id: string;
-  exec_item_id: string;
-  exec_nonconformity_id: string;
+  exec_item_id: string | null;
+  exec_nonconformity_id: string | null;
   part_id: string;
   part_code_snapshot: string;
   part_name_snapshot: string;
   quantity: number;
   stock_source: string | null;
+  is_manual?: boolean;
+  notes?: string | null;
+  asset_unique_code?: string | null;
+  consumed_at?: string;
   _pendingSync?: boolean;
   _operation?: 'insert' | 'delete';
 }
@@ -518,20 +522,26 @@ class OfflineChecklistDatabase extends Dexie {
   async addPartConsumptionLocally(
     consumption: Omit<OfflinePartConsumption, '_pendingSync' | '_operation'>
   ): Promise<void> {
-    await this.partConsumptions.put({
+    const record = {
       ...consumption,
+      consumed_at: consumption.consumed_at || new Date().toISOString(),
       _pendingSync: true,
-      _operation: 'insert',
-    });
+      _operation: 'insert' as const,
+    };
+    await this.partConsumptions.put(record);
     await this.addToSyncQueue('preventive_part_consumption', 'insert', {
+      id: consumption.id,
       preventive_id: consumption.preventive_id,
-      exec_item_id: consumption.exec_item_id,
-      exec_nonconformity_id: consumption.exec_nonconformity_id,
+      exec_item_id: consumption.exec_item_id || null,
+      exec_nonconformity_id: consumption.exec_nonconformity_id || null,
       part_id: consumption.part_id,
       part_code_snapshot: consumption.part_code_snapshot,
       part_name_snapshot: consumption.part_name_snapshot,
       quantity: consumption.quantity,
       stock_source: consumption.stock_source,
+      is_manual: consumption.is_manual || false,
+      notes: consumption.notes || null,
+      asset_unique_code: consumption.asset_unique_code || null,
     });
   }
 
@@ -544,6 +554,7 @@ class OfflineChecklistDatabase extends Dexie {
     for (const record of records) {
       await this.partConsumptions.delete(record.id);
       await this.addToSyncQueue('preventive_part_consumption', 'delete', {
+        id: record.id,
         exec_nonconformity_id: execNonconformityId,
       });
     }
@@ -565,9 +576,19 @@ class OfflineChecklistDatabase extends Dexie {
     for (const record of records) {
       await this.partConsumptions.delete(record.id);
       await this.addToSyncQueue('preventive_part_consumption', 'delete', {
+        id: record.id,
         exec_nonconformity_id: record.exec_nonconformity_id,
       });
     }
+  }
+
+  // Update part consumption field locally and queue sync
+  async updatePartConsumptionLocally(
+    id: string,
+    updates: Partial<Pick<OfflinePartConsumption, 'stock_source' | 'notes' | 'asset_unique_code'>>
+  ): Promise<void> {
+    await this.partConsumptions.update(id, { ...updates, _pendingSync: true });
+    await this.addToSyncQueue('preventive_part_consumption', 'update', { id, ...updates });
   }
 }
 

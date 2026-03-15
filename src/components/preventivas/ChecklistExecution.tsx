@@ -529,6 +529,39 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
     return dexieActions.some(a => a.action_label_snapshot?.toLowerCase().includes('troca'));
   }, []);
 
+  // Helper: get NC parts from Dexie with fallback to Supabase if cache is empty
+  const getNcPartsWithFallback = async (templateNcId: string) => {
+    const cached = await offlineChecklistDb.getNonconformityParts(templateNcId);
+    if (cached.length > 0) return cached;
+
+    // Fallback: fetch from server if online
+    if (!navigator.onLine) return [];
+
+    try {
+      const { data, error } = await supabase
+        .from('checklist_nonconformity_parts')
+        .select('id, nonconformity_id, part_id, default_quantity, pecas:part_id(codigo, nome)')
+        .eq('nonconformity_id', templateNcId);
+
+      if (error || !data || data.length === 0) return [];
+
+      const parts = data.map((row: any) => ({
+        id: row.id,
+        nonconformity_id: row.nonconformity_id,
+        part_id: row.part_id,
+        default_quantity: row.default_quantity,
+        part_codigo: row.pecas?.codigo || '',
+        part_nome: row.pecas?.nome || '',
+      }));
+
+      // Cache for future use
+      await offlineChecklistDb.cacheNonconformityParts(parts);
+      return parts;
+    } catch {
+      return [];
+    }
+  };
+
   // Helper: create part consumption records for all selected NCs of an item (always via Dexie)
   const createPartConsumptionForItemNCs = async (itemId: string) => {
     const selectedNCs = await offlineChecklistDb.checklistNonconformities
@@ -541,7 +574,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
 
     for (const nc of selectedNCs) {
       if (!nc.template_nonconformity_id) continue;
-      const ncParts = await offlineChecklistDb.getNonconformityParts(nc.template_nonconformity_id);
+      const ncParts = await getNcPartsWithFallback(nc.template_nonconformity_id);
       for (const np of ncParts) {
         await offlineChecklistDb.addPartConsumptionLocally({
           id: crypto.randomUUID(),
@@ -701,7 +734,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
               )
               .first();
             if (execNc) {
-              const ncParts = await offlineChecklistDb.getNonconformityParts(nonconformityId);
+              const ncParts = await getNcPartsWithFallback(nonconformityId);
               for (const np of ncParts) {
                 await offlineChecklistDb.addPartConsumptionLocally({
                   id: crypto.randomUUID(),

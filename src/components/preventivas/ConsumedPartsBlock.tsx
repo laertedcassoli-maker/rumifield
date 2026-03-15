@@ -93,21 +93,23 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
     enabled: !!preventiveId && isOnline,
   });
 
-  // Offline: reactive fetch from Dexie (auto-updates on local changes)
-  const offlineParts = useLiveQuery(
-    () => !isOnline && preventiveId
+  // Always show Dexie parts reactively (includes pending items)
+  const allLocalParts = useLiveQuery(
+    () => preventiveId
       ? offlineChecklistDb.partConsumptions
           .filter(pc => pc.preventive_id === preventiveId)
           .toArray()
       : Promise.resolve([]),
-    [preventiveId, isOnline]
+    [preventiveId]
   );
 
-  // Merge: online data takes priority, offline mapped to same shape
-  const parts: (ConsumedPart & { is_asset: boolean })[] | undefined =
-    isOnline && onlineParts !== undefined
-      ? onlineParts
-      : offlineParts?.map(item => ({
+  // Merge: use online data as base, overlay any pending local records not yet synced
+  const parts: (ConsumedPart & { is_asset: boolean })[] | undefined = (() => {
+    if (isOnline && onlineParts !== undefined) {
+      const onlineIds = new Set(onlineParts.map(p => p.id));
+      const pendingLocal = (allLocalParts || [])
+        .filter(item => item._pendingSync && !onlineIds.has(item.id))
+        .map(item => ({
           id: item.id,
           part_id: item.part_id,
           part_code_snapshot: item.part_code_snapshot,
@@ -115,13 +117,30 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
           quantity: item.quantity,
           unit_cost_snapshot: null,
           stock_source: (item.stock_source as ConsumedPart['stock_source']) || null,
-          asset_unique_code: null,
-          notes: null,
-          is_manual: false,
-          consumed_at: new Date().toISOString(),
+          asset_unique_code: (item.asset_unique_code as string) || null,
+          notes: (item.notes as string) || null,
+          is_manual: item.is_manual || false,
+          consumed_at: item.consumed_at || new Date().toISOString(),
           is_asset: false,
         }));
-  const isLoading = isOnline ? onlineLoading : offlineParts === undefined;
+      return [...onlineParts, ...pendingLocal];
+    }
+    return (allLocalParts || []).map(item => ({
+      id: item.id,
+      part_id: item.part_id,
+      part_code_snapshot: item.part_code_snapshot,
+      part_name_snapshot: item.part_name_snapshot,
+      quantity: item.quantity,
+      unit_cost_snapshot: null,
+      stock_source: (item.stock_source as ConsumedPart['stock_source']) || null,
+      asset_unique_code: (item.asset_unique_code as string) || null,
+      notes: (item.notes as string) || null,
+      is_manual: item.is_manual || false,
+      consumed_at: item.consumed_at || new Date().toISOString(),
+      is_asset: false,
+    }));
+  })();
+  const isLoading = isOnline ? onlineLoading : allLocalParts === undefined;
 
   // Fetch available parts for manual addition (with offline fallback)
   const { data: availableParts } = useOfflineQuery<{ id: string; codigo: string; nome: string; familia: string | null; is_asset?: boolean }[]>({
@@ -246,40 +265,29 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
     },
   });
 
-  // Add manual part mutation
+  // Add manual part mutation (local-first: always writes to Dexie first)
   const addManualPartMutation = useMutation({
     mutationFn: async () => {
       if (!selectedPartId || !selectedPart) throw new Error('Selecione uma peça');
 
-      if (!isOnline) {
-        await offlineChecklistDb.addPartConsumptionLocally({
-          id: crypto.randomUUID(),
-          preventive_id: preventiveId,
-          part_id: selectedPartId,
-          part_code_snapshot: selectedPart.codigo,
-          part_name_snapshot: selectedPart.nome,
-          quantity: parseFloat(quantity) || 1,
-          stock_source: stockSource,
-          exec_item_id: '',
-          exec_nonconformity_id: '',
-        });
-        return;
-      }
+      const newId = crypto.randomUUID();
+      const assetCode = stockSource === 'tecnico' && dialogAssetCode.trim() ? dialogAssetCode.trim() : null;
 
-      const { error } = await supabase
-        .from('preventive_part_consumption')
-        .insert({
-          preventive_id: preventiveId,
-          part_id: selectedPartId,
-          part_code_snapshot: selectedPart.codigo,
-          part_name_snapshot: selectedPart.nome,
-          quantity: parseFloat(quantity) || 1,
-          stock_source: stockSource,
-          asset_unique_code: stockSource === 'tecnico' && dialogAssetCode.trim() ? dialogAssetCode.trim() : null,
-          notes: notes || null,
-          is_manual: true,
-        });
-      if (error) throw error;
+      // Always save locally first
+      await offlineChecklistDb.addPartConsumptionLocally({
+        id: newId,
+        preventive_id: preventiveId,
+        part_id: selectedPartId,
+        part_code_snapshot: selectedPart.codigo,
+        part_name_snapshot: selectedPart.nome,
+        quantity: parseFloat(quantity) || 1,
+        stock_source: stockSource,
+        exec_item_id: null,
+        exec_nonconformity_id: null,
+        is_manual: true,
+        notes: notes || null,
+        asset_unique_code: assetCode,
+      });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['preventive-consumed-parts', preventiveId] });
@@ -287,11 +295,6 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
       resetAddDialog();
     },
     onError: (error: Error) => {
-      if (!isOnline) {
-        toast({ title: 'Peça adicionada!' });
-        resetAddDialog();
-        return;
-      }
       toast({ title: 'Erro ao adicionar peça', description: error.message, variant: 'destructive' });
     },
   });
