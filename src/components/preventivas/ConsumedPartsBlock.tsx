@@ -93,16 +93,6 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
     enabled: !!preventiveId && isOnline,
   });
 
-  // Offline: reactive fetch from Dexie (auto-updates on local changes)
-  const offlineParts = useLiveQuery(
-    () => !isOnline && preventiveId
-      ? offlineChecklistDb.partConsumptions
-          .filter(pc => pc.preventive_id === preventiveId)
-          .toArray()
-      : Promise.resolve([]),
-    [preventiveId, isOnline]
-  );
-
   // Always show Dexie parts reactively (includes pending items)
   const allLocalParts = useLiveQuery(
     () => preventiveId
@@ -150,7 +140,7 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
       is_asset: false,
     }));
   })();
-  const isLoading = isOnline ? onlineLoading : offlineParts === undefined;
+  const isLoading = isOnline ? onlineLoading : allLocalParts === undefined;
 
   // Fetch available parts for manual addition (with offline fallback)
   const { data: availableParts } = useOfflineQuery<{ id: string; codigo: string; nome: string; familia: string | null; is_asset?: boolean }[]>({
