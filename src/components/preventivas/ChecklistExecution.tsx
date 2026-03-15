@@ -601,69 +601,22 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
         // If online, sync to server immediately
         // If online, handle side-effects only (part consumption)
         // Note: the primary action insert/delete is handled by offlineChecklist.toggleAction above
-        if (offlineChecklist.isOnline) {
-          const isTrocaAction = actionLabel.toLowerCase().includes('troca');
-
+        // Unified path (always via Dexie) for part consumption side-effects
+        const isTrocaAction = actionLabel.toLowerCase().includes('troca');
+        if (isTrocaAction) {
           if (isSelected) {
-            // If removing a "Troca" action, check if there are other "Troca" actions remaining
-            if (isTrocaAction) {
-              let hasOtherTroca = false;
-              if (existingChecklist?.blocks) {
-                for (const block of existingChecklist.blocks) {
-                  for (const item of block.items || []) {
-                    if (item.id === itemId) {
-                      hasOtherTroca = (item.selected_actions || []).some(
-                        (a: any) => a.template_action_id !== actionId && a.action_label_snapshot?.toLowerCase().includes('troca')
-                      );
-                    }
-                  }
-                }
-              }
-              if (!hasOtherTroca) {
-                await removePartConsumptionForItemNCs(itemId);
-              }
+            // "Troca" being REMOVED → check if other Troca actions remain
+            const remainingActions = await offlineChecklistDb.checklistActions
+              .where('exec_item_id')
+              .equals(itemId)
+              .filter(a => a.template_action_id !== actionId && a.action_label_snapshot?.toLowerCase().includes('troca'))
+              .toArray();
+            if (remainingActions.length === 0) {
+              await removePartConsumptionForItemNCs(itemId);
             }
           } else {
-            // If adding a "Troca" action, create part consumption for existing NCs
-            if (isTrocaAction) {
-              await createPartConsumptionForItemNCs(itemId);
-            }
-          }
-        } else {
-          // OFFLINE path for action toggle part consumption
-          const isTrocaAction = actionLabel.toLowerCase().includes('troca');
-          if (isTrocaAction) {
-            if (isSelected) {
-              // "Troca" being REMOVED offline → delete part consumption for item
-              await offlineChecklistDb.deletePartConsumptionByItemId(itemId);
-            } else {
-              // "Troca" being ADDED offline → create consumption for all selected NCs
-              const selectedNcs = await offlineChecklistDb.checklistNonconformities
-                .where('exec_item_id')
-                .equals(itemId)
-                .filter(nc => nc._operation !== 'delete')
-                .toArray();
-
-              for (const execNc of selectedNcs) {
-                if (!execNc.template_nonconformity_id) continue;
-                const ncParts = await offlineChecklistDb.getNonconformityParts(
-                  execNc.template_nonconformity_id
-                );
-                for (const np of ncParts) {
-                  await offlineChecklistDb.addPartConsumptionLocally({
-                    id: crypto.randomUUID(),
-                    preventive_id: preventiveId,
-                    exec_item_id: itemId,
-                    exec_nonconformity_id: execNc.id,
-                    part_id: np.part_id,
-                    part_code_snapshot: np.part_codigo,
-                    part_name_snapshot: np.part_nome,
-                    quantity: np.default_quantity,
-                    stock_source: null,
-                  });
-                }
-              }
-            }
+            // "Troca" being ADDED → create consumption for all selected NCs
+            await createPartConsumptionForItemNCs(itemId);
           }
         }
       } finally {
