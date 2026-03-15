@@ -103,11 +103,23 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
     [preventiveId, isOnline]
   );
 
-  // Merge: online data takes priority, offline mapped to same shape
-  const parts: (ConsumedPart & { is_asset: boolean })[] | undefined =
-    isOnline && onlineParts !== undefined
-      ? onlineParts
-      : offlineParts?.map(item => ({
+  // Always show Dexie parts reactively (includes pending items)
+  const allLocalParts = useLiveQuery(
+    () => preventiveId
+      ? offlineChecklistDb.partConsumptions
+          .filter(pc => pc.preventive_id === preventiveId)
+          .toArray()
+      : Promise.resolve([]),
+    [preventiveId]
+  );
+
+  // Merge: use online data as base, overlay any pending local records not yet synced
+  const parts: (ConsumedPart & { is_asset: boolean })[] | undefined = (() => {
+    if (isOnline && onlineParts !== undefined) {
+      const onlineIds = new Set(onlineParts.map(p => p.id));
+      const pendingLocal = (allLocalParts || [])
+        .filter(item => item._pendingSync && !onlineIds.has(item.id))
+        .map(item => ({
           id: item.id,
           part_id: item.part_id,
           part_code_snapshot: item.part_code_snapshot,
@@ -115,12 +127,29 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
           quantity: item.quantity,
           unit_cost_snapshot: null,
           stock_source: (item.stock_source as ConsumedPart['stock_source']) || null,
-          asset_unique_code: null,
-          notes: null,
-          is_manual: false,
-          consumed_at: new Date().toISOString(),
+          asset_unique_code: (item.asset_unique_code as string) || null,
+          notes: (item.notes as string) || null,
+          is_manual: item.is_manual || false,
+          consumed_at: item.consumed_at || new Date().toISOString(),
           is_asset: false,
         }));
+      return [...onlineParts, ...pendingLocal];
+    }
+    return (allLocalParts || []).map(item => ({
+      id: item.id,
+      part_id: item.part_id,
+      part_code_snapshot: item.part_code_snapshot,
+      part_name_snapshot: item.part_name_snapshot,
+      quantity: item.quantity,
+      unit_cost_snapshot: null,
+      stock_source: (item.stock_source as ConsumedPart['stock_source']) || null,
+      asset_unique_code: (item.asset_unique_code as string) || null,
+      notes: (item.notes as string) || null,
+      is_manual: item.is_manual || false,
+      consumed_at: item.consumed_at || new Date().toISOString(),
+      is_asset: false,
+    }));
+  })();
   const isLoading = isOnline ? onlineLoading : offlineParts === undefined;
 
   // Fetch available parts for manual addition (with offline fallback)
