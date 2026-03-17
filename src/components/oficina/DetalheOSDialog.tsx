@@ -106,6 +106,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
   const queryClient = useQueryClient();
   const [elapsedTime, setElapsedTime] = useState(workOrder.total_time_seconds);
   const [currentSessionTime, setCurrentSessionTime] = useState(0);
+  const [optimisticTimeEntry, setOptimisticTimeEntry] = useState<TimeEntry | null>(null);
   // Local snapshot of total time to avoid UI “reset” while server props/refetch catch up
   const [localTotalSeconds, setLocalTotalSeconds] = useState(workOrder.total_time_seconds);
   const [addPartDialogOpen, setAddPartDialogOpen] = useState(false);
@@ -161,8 +162,10 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
       return data as TimeEntry | null;
     },
     enabled: open && !!user?.id,
-    refetchInterval: (query) => query.state.data?.status === 'running' ? 1000 : false,
+    staleTime: 30000,
   });
+
+  const effectiveTimeEntry = optimisticTimeEntry ?? activeTimeEntry;
 
   // Fetch parts used
   const { data: partsUsed = [] } = useQuery({
@@ -342,14 +345,15 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
     }
   };
 
-  // Timer effect - count elapsed time (simplified: only running or stopped)
+  // Timer effect - count elapsed time using stable deps to avoid interval recreation
   useEffect(() => {
-    const currentEntry = activeTimeEntry;
+    const currentEntry = effectiveTimeEntry;
     
     if (currentEntry?.status === 'running') {
+      const startedAt = new Date(currentEntry.started_at).getTime();
       // Timer is running - count live
       const interval = setInterval(() => {
-        const runningTime = Math.floor((Date.now() - new Date(currentEntry.started_at).getTime()) / 1000);
+        const runningTime = Math.floor((Date.now() - startedAt) / 1000);
         setElapsedTime(localTotalSeconds + runningTime);
         setCurrentSessionTime(runningTime);
       }, 1000);
@@ -359,12 +363,24 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
       setElapsedTime(localTotalSeconds);
       setCurrentSessionTime(0);
     }
-  }, [activeTimeEntry, localTotalSeconds]);
+  }, [effectiveTimeEntry?.id, effectiveTimeEntry?.status, localTotalSeconds]);
 
   // Start timer mutation
   const startTimerMutation = useMutation({
     mutationFn: async (entryMeterHours?: number) => {
       if (!user?.id) throw new Error('Usuário não autenticado');
+
+      // Optimistic update — start timer immediately in the UI
+      const optimistic: TimeEntry = {
+        id: crypto.randomUUID(),
+        work_order_id: workOrder.id,
+        user_id: user.id,
+        started_at: new Date().toISOString(),
+        ended_at: null,
+        duration_seconds: null,
+        status: 'running',
+      };
+      setOptimisticTimeEntry(optimistic);
 
       // Check for existing running timer for this user
       const { data: existingTimer } = await supabase
@@ -434,17 +450,22 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
       toast.success('Cronômetro iniciado!');
     },
     onError: (error) => {
+      setOptimisticTimeEntry(null);
       toast.error(error.message);
+    },
+    onSettled: () => {
+      setOptimisticTimeEntry(null);
     },
   });
 
   // Stop timer mutation (simplified - always stops a running entry)
   const stopTimerMutation = useMutation({
     mutationFn: async () => {
-      if (!activeTimeEntry || activeTimeEntry.status !== 'running') throw new Error('Nenhum cronômetro ativo');
+      const timerEntry = effectiveTimeEntry;
+      if (!timerEntry || timerEntry.status !== 'running') throw new Error('Nenhum cronômetro ativo');
 
       const endedAt = new Date();
-      const durationSeconds = Math.floor((endedAt.getTime() - new Date(activeTimeEntry.started_at).getTime()) / 1000);
+      const durationSeconds = Math.floor((endedAt.getTime() - new Date(timerEntry.started_at).getTime()) / 1000);
 
       // Update time entry to finished
       const { error: entryError } = await supabase
@@ -454,7 +475,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
           duration_seconds: durationSeconds,
           status: 'finished',
         })
-        .eq('id', activeTimeEntry.id);
+        .eq('id', timerEntry.id);
       if (entryError) throw entryError;
 
       // Fetch current total from DB to avoid stale prop issues
@@ -584,7 +605,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
       let warrantyCreated = false;
       
       // Stop any active timer first
-      if (activeTimeEntry) {
+      if (effectiveTimeEntry) {
         await stopTimerMutation.mutateAsync();
       }
 
@@ -860,7 +881,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                {activeTimeEntry ? (
+                {effectiveTimeEntry ? (
                   <>
                     <div className="flex items-center justify-between">
                       <div>
@@ -903,12 +924,12 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
                 )}
               </CardContent>
             </Card>
-            {workOrder.status === 'aguardando' && !activeTimeEntry && (
+            {workOrder.status === 'aguardando' && !effectiveTimeEntry && (
               <div className="text-center py-3 px-4 border border-dashed rounded-lg text-sm text-muted-foreground">
                 Inicie o cronômetro para habilitar os campos abaixo
               </div>
             )}
-            <div className={`space-y-5 ${workOrder.status === 'aguardando' && !activeTimeEntry ? 'opacity-40 pointer-events-none select-none' : ''}`}>
+            <div className={`space-y-5 ${workOrder.status === 'aguardando' && !effectiveTimeEntry ? 'opacity-40 pointer-events-none select-none' : ''}`}>
             {univocaItem && (
               <div>
                 <p className="text-sm font-semibold mb-2">Item</p>
@@ -1102,8 +1123,8 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
                   <Button 
                     size="sm" 
                     onClick={() => setAddPartDialogOpen(true)}
-                    disabled={!activeTimeEntry}
-                    title={!activeTimeEntry ? 'Inicie o cronômetro para adicionar peças' : undefined}
+                    disabled={!effectiveTimeEntry}
+                    title={!effectiveTimeEntry ? 'Inicie o cronômetro para adicionar peças' : undefined}
                     className="bg-green-600 hover:bg-green-700 text-white"
                   >
                     <Plus className="h-4 w-4 mr-1" />
