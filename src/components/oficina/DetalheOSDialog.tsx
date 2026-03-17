@@ -106,6 +106,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
   const queryClient = useQueryClient();
   const [elapsedTime, setElapsedTime] = useState(workOrder.total_time_seconds);
   const [currentSessionTime, setCurrentSessionTime] = useState(0);
+  const [optimisticTimeEntry, setOptimisticTimeEntry] = useState<TimeEntry | null>(null);
   // Local snapshot of total time to avoid UI “reset” while server props/refetch catch up
   const [localTotalSeconds, setLocalTotalSeconds] = useState(workOrder.total_time_seconds);
   const [addPartDialogOpen, setAddPartDialogOpen] = useState(false);
