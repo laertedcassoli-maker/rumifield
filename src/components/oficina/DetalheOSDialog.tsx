@@ -605,7 +605,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
       let warrantyCreated = false;
       
       // Stop any active timer first
-      if (activeTimeEntry) {
+      if (effectiveTimeEntry) {
         await stopTimerMutation.mutateAsync();
       }
 
