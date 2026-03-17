@@ -61,6 +61,16 @@ export default function OrdensServico() {
 
 
 
+  // Manter selectedOS sincronizado com dados frescos do servidor
+  useEffect(() => {
+    if (selectedOS && workOrders.length > 0) {
+      const updated = workOrders.find(wo => wo.id === selectedOS.id);
+      if (updated) {
+        setSelectedOS(updated);
+      }
+    }
+  }, [workOrders]);
+
 
   // Fetch work orders
   const { data: workOrders = [], isLoading } = useQuery({
