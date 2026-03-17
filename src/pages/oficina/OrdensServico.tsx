@@ -175,7 +175,17 @@ export default function OrdensServico() {
     },
   });
 
-  const filteredOrders = workOrders.filter(wo => {
+  // Manter selectedOS sincronizado com dados frescos do servidor
+  useEffect(() => {
+    if (selectedOS && workOrders.length > 0) {
+      const updated = workOrders.find(wo => wo.id === selectedOS.id);
+      if (updated) {
+        setSelectedOS(updated);
+      }
+    }
+  }, [workOrders]);
+
+
     const matchesSearch = wo.code.toLowerCase().includes(search.toLowerCase()) ||
       wo.activities?.name?.toLowerCase().includes(search.toLowerCase()) ||
       wo.item_info?.unique_code?.toLowerCase().includes(search.toLowerCase()) ||
