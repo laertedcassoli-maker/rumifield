@@ -819,8 +819,8 @@ function PartItem({ part, isCompleted, onStockSourceChange, onAssetCodeChange, o
             {part.part_name_snapshot}
           </p>
         </div>
-        {/* Delete button for manual parts */}
-        {part.is_manual && !isCompleted && (
+        {/* Delete button for all parts */}
+        {!isCompleted && (
           <Button
             variant="ghost"
             size="icon"
