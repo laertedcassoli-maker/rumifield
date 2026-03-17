@@ -311,8 +311,7 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
       const { error } = await supabase
         .from('preventive_part_consumption')
         .delete()
-        .eq('id', partId)
-        .eq('is_manual', true);
+        .eq('id', partId);
       if (error) throw error;
     },
     onSuccess: () => {
