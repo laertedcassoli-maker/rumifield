@@ -465,7 +465,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
       if (!timerEntry || timerEntry.status !== 'running') throw new Error('Nenhum cronômetro ativo');
 
       const endedAt = new Date();
-      const durationSeconds = Math.floor((endedAt.getTime() - new Date(activeTimeEntry.started_at).getTime()) / 1000);
+      const durationSeconds = Math.floor((endedAt.getTime() - new Date(timerEntry.started_at).getTime()) / 1000);
 
       // Update time entry to finished
       const { error: entryError } = await supabase
@@ -475,7 +475,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
           duration_seconds: durationSeconds,
           status: 'finished',
         })
-        .eq('id', activeTimeEntry.id);
+        .eq('id', timerEntry.id);
       if (entryError) throw entryError;
 
       // Fetch current total from DB to avoid stale prop issues
