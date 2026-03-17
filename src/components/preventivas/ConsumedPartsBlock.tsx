@@ -311,8 +311,7 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
       const { error } = await supabase
         .from('preventive_part_consumption')
         .delete()
-        .eq('id', partId)
-        .eq('is_manual', true);
+        .eq('id', partId);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -820,8 +819,8 @@ function PartItem({ part, isCompleted, onStockSourceChange, onAssetCodeChange, o
             {part.part_name_snapshot}
           </p>
         </div>
-        {/* Delete button for manual parts */}
-        {part.is_manual && !isCompleted && (
+        {/* Delete button for all parts */}
+        {!isCompleted && (
           <Button
             variant="ghost"
             size="icon"
