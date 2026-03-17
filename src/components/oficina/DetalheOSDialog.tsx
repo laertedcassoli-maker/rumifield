@@ -345,14 +345,15 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
     }
   };
 
-  // Timer effect - count elapsed time (simplified: only running or stopped)
+  // Timer effect - count elapsed time using stable deps to avoid interval recreation
   useEffect(() => {
-    const currentEntry = activeTimeEntry;
+    const currentEntry = effectiveTimeEntry;
     
     if (currentEntry?.status === 'running') {
+      const startedAt = new Date(currentEntry.started_at).getTime();
       // Timer is running - count live
       const interval = setInterval(() => {
-        const runningTime = Math.floor((Date.now() - new Date(currentEntry.started_at).getTime()) / 1000);
+        const runningTime = Math.floor((Date.now() - startedAt) / 1000);
         setElapsedTime(localTotalSeconds + runningTime);
         setCurrentSessionTime(runningTime);
       }, 1000);
@@ -362,7 +363,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
       setElapsedTime(localTotalSeconds);
       setCurrentSessionTime(0);
     }
-  }, [activeTimeEntry, localTotalSeconds]);
+  }, [effectiveTimeEntry?.id, effectiveTimeEntry?.status, localTotalSeconds]);
 
   // Start timer mutation
   const startTimerMutation = useMutation({
