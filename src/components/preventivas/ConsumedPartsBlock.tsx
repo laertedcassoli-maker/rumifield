@@ -302,8 +302,12 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
   // Delete manual part mutation
   const deleteManualPartMutation = useMutation({
     mutationFn: async (partId: string) => {
-      if (!isOnline) {
+      // Always remove from Dexie to prevent stale local records from reappearing
+      try {
         await offlineChecklistDb.partConsumptions.delete(partId);
+      } catch (_) { /* may not exist locally */ }
+
+      if (!isOnline) {
         await offlineChecklistDb.addToSyncQueue('preventive_part_consumption', 'delete', { id: partId });
         return;
       }
@@ -316,11 +320,11 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['preventive-consumed-parts', preventiveId] });
-      toast({ title: 'Peça removida!' });
+      toast({ title: 'Peça removida com sucesso' });
     },
     onError: (error: Error) => {
       if (!isOnline) {
-        toast({ title: 'Peça removida!' });
+        toast({ title: 'Peça removida com sucesso' });
         return;
       }
       toast({ title: 'Erro ao remover peça', description: error.message, variant: 'destructive' });
