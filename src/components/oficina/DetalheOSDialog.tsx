@@ -461,7 +461,8 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
   // Stop timer mutation (simplified - always stops a running entry)
   const stopTimerMutation = useMutation({
     mutationFn: async () => {
-      if (!activeTimeEntry || activeTimeEntry.status !== 'running') throw new Error('Nenhum cronômetro ativo');
+      const timerEntry = effectiveTimeEntry;
+      if (!timerEntry || timerEntry.status !== 'running') throw new Error('Nenhum cronômetro ativo');
 
       const endedAt = new Date();
       const durationSeconds = Math.floor((endedAt.getTime() - new Date(activeTimeEntry.started_at).getTime()) / 1000);
