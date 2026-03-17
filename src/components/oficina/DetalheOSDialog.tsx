@@ -162,8 +162,10 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
       return data as TimeEntry | null;
     },
     enabled: open && !!user?.id,
-    refetchInterval: (query) => query.state.data?.status === 'running' ? 1000 : false,
+    staleTime: 30000,
   });
+
+  const effectiveTimeEntry = optimisticTimeEntry ?? activeTimeEntry;
 
   // Fetch parts used
   const { data: partsUsed = [] } = useQuery({
