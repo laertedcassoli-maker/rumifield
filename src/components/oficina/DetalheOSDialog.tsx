@@ -370,6 +370,18 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
     mutationFn: async (entryMeterHours?: number) => {
       if (!user?.id) throw new Error('Usuário não autenticado');
 
+      // Optimistic update — start timer immediately in the UI
+      const optimistic: TimeEntry = {
+        id: crypto.randomUUID(),
+        work_order_id: workOrder.id,
+        user_id: user.id,
+        started_at: new Date().toISOString(),
+        ended_at: null,
+        duration_seconds: null,
+        status: 'running',
+      };
+      setOptimisticTimeEntry(optimistic);
+
       // Check for existing running timer for this user
       const { data: existingTimer } = await supabase
         .from('work_order_time_entries')
@@ -438,7 +450,11 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
       toast.success('Cronômetro iniciado!');
     },
     onError: (error) => {
+      setOptimisticTimeEntry(null);
       toast.error(error.message);
+    },
+    onSettled: () => {
+      setOptimisticTimeEntry(null);
     },
   });
 
