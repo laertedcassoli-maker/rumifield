@@ -1,19 +1,35 @@
 
 
-## Corrigir alinhamento do conteudo nos cards de resumo
+## Correção: Estado da OS não atualiza após ações (iniciar, parar, etc.)
 
-### Problema
-O conteudo (numero + label) dentro dos cards de resumo esta visualmente deslocado para a direita. Isso ocorre porque o componente `CardContent` aplica `p-6` (24px) de padding horizontal por padrao, o que em cards estreitos empurra o conteudo para fora do centro visual.
+### Causa raiz
 
-### Solucao
+O `DetalheOSDialog` recebe `workOrder={selectedOS}` como prop, mas `selectedOS` é um **snapshot estático** guardado no estado do componente pai (`OrdensServico`). Quando o usuário clica "Iniciar" e a mutation faz `invalidateQueries(['work-orders'])`, a lista `workOrders` é re-fetched, porém **`selectedOS` nunca é atualizado** — ele mantém o objeto antigo com `status: 'aguardando'` e `total_time_seconds: 0`.
 
-**Arquivo: `src/pages/crm/CrmPipeline.tsx`**
+Isso causa:
+- O cronômetro não inicia (o `useEffect` do timer vê `workOrder.total_time_seconds` = 0 do snapshot antigo)
+- O status exibido no dialog não muda
+- O Kanban/lista atualiza corretamente porque usa `workOrders` do query, mas o dialog fica "congelado"
 
-Adicionar `px-2` ao `CardContent` dos cards de resumo para reduzir o padding horizontal, centralizando melhor o conteudo:
+### Correção
 
-```tsx
-<CardContent className="py-2 px-2 text-center">
+**Arquivo: `src/pages/oficina/OrdensServico.tsx`**
+
+1. Adicionar um `useEffect` que sincroniza `selectedOS` com os dados mais recentes da query `workOrders`:
+
+```typescript
+// Manter selectedOS sincronizado com dados frescos do servidor
+useEffect(() => {
+  if (selectedOS && workOrders.length > 0) {
+    const updated = workOrders.find(wo => wo.id === selectedOS.id);
+    if (updated) {
+      setSelectedOS(updated);
+    }
+  }
+}, [workOrders]);
 ```
 
-Isso substitui o `p-6` padrao do componente por um padding horizontal menor, mantendo o texto centralizado visualmente dentro do card.
+Isso garante que quando `invalidateQueries(['work-orders'])` dispara o refetch e a lista `workOrders` é atualizada, o `selectedOS` é automaticamente atualizado com os dados frescos (novo status, novo `total_time_seconds`, etc.), e o dialog reage imediatamente.
+
+Nenhuma outra alteração necessária — o `DetalheOSDialog` já usa `workOrder.total_time_seconds` e `workOrder.status` corretamente; o problema é exclusivamente que ele recebe dados obsoletos.
 
