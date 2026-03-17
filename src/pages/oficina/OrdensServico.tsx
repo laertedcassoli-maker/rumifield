@@ -60,18 +60,6 @@ export default function OrdensServico() {
   const isAdmin = role === 'admin' || role === 'coordenador_rplus' || role === 'coordenador_servicos';
 
 
-
-  // Manter selectedOS sincronizado com dados frescos do servidor
-  useEffect(() => {
-    if (selectedOS && workOrders.length > 0) {
-      const updated = workOrders.find(wo => wo.id === selectedOS.id);
-      if (updated) {
-        setSelectedOS(updated);
-      }
-    }
-  }, [workOrders]);
-
-
   // Fetch work orders
   const { data: workOrders = [], isLoading } = useQuery({
     queryKey: ['work-orders'],
