@@ -881,7 +881,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
-                {activeTimeEntry ? (
+                {effectiveTimeEntry ? (
                   <>
                     <div className="flex items-center justify-between">
                       <div>
