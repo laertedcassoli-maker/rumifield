@@ -1123,8 +1123,8 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
                   <Button 
                     size="sm" 
                     onClick={() => setAddPartDialogOpen(true)}
-                    disabled={!activeTimeEntry}
-                    title={!activeTimeEntry ? 'Inicie o cronômetro para adicionar peças' : undefined}
+                    disabled={!effectiveTimeEntry}
+                    title={!effectiveTimeEntry ? 'Inicie o cronômetro para adicionar peças' : undefined}
                     className="bg-green-600 hover:bg-green-700 text-white"
                   >
                     <Plus className="h-4 w-4 mr-1" />
