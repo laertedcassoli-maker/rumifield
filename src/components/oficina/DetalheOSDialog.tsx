@@ -924,7 +924,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
                 )}
               </CardContent>
             </Card>
-            {workOrder.status === 'aguardando' && !activeTimeEntry && (
+            {workOrder.status === 'aguardando' && !effectiveTimeEntry && (
               <div className="text-center py-3 px-4 border border-dashed rounded-lg text-sm text-muted-foreground">
                 Inicie o cronômetro para habilitar os campos abaixo
               </div>
