@@ -59,6 +59,7 @@ export default function OrdensServico() {
 
   const isAdmin = role === 'admin' || role === 'coordenador_rplus' || role === 'coordenador_servicos';
 
+
   // Fetch work orders
   const { data: workOrders = [], isLoading } = useQuery({
     queryKey: ['work-orders'],
@@ -174,6 +175,15 @@ export default function OrdensServico() {
     },
   });
 
+  // Manter selectedOS sincronizado com dados frescos do servidor
+  useEffect(() => {
+    if (selectedOS && workOrders.length > 0) {
+      const updated = workOrders.find(wo => wo.id === selectedOS.id);
+      if (updated) {
+        setSelectedOS(updated);
+      }
+    }
+  }, [workOrders]);
   const filteredOrders = workOrders.filter(wo => {
     const matchesSearch = wo.code.toLowerCase().includes(search.toLowerCase()) ||
       wo.activities?.name?.toLowerCase().includes(search.toLowerCase()) ||
