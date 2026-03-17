@@ -184,8 +184,7 @@ export default function OrdensServico() {
       }
     }
   }, [workOrders]);
-
-
+  const filteredOrders = workOrders.filter(wo => {
     const matchesSearch = wo.code.toLowerCase().includes(search.toLowerCase()) ||
       wo.activities?.name?.toLowerCase().includes(search.toLowerCase()) ||
       wo.item_info?.unique_code?.toLowerCase().includes(search.toLowerCase()) ||
