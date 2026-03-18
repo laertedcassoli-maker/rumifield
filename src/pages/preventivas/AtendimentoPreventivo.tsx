@@ -419,57 +419,67 @@ export default function AtendimentoPreventivo() {
     }
 
     // Check checklist items with "troca" action have at least 1 linked part
-    const { data: activeChecklist } = await supabase
-      .from('preventive_checklists')
-      .select('id')
-      .eq('preventive_id', routeItem.preventiveId)
-      .in('status', ['em_andamento', 'concluido'])
-      .limit(1)
-      .maybeSingle();
+    try {
+      const { data: activeChecklist } = await supabase
+        .from('preventive_checklists')
+        .select('id')
+        .eq('preventive_id', routeItem.preventiveId)
+        .in('status', ['em_andamento', 'concluido'])
+        .limit(1)
+        .maybeSingle();
 
-    if (activeChecklist) {
-      // Get all checklist items with status 'N' (falha)
-      const { data: failedItems } = await supabase
-        .from('preventive_checklist_items')
-        .select(`
-          id,
-          item_name_snapshot,
-          exec_block_id,
-          preventive_checklist_blocks!inner(checklist_id)
-        `)
-        .eq('status', 'N')
-        .eq('preventive_checklist_blocks.checklist_id', activeChecklist.id);
+      if (activeChecklist) {
+        // Step 1: Get block IDs for this checklist
+        const { data: blocks } = await supabase
+          .from('preventive_checklist_blocks')
+          .select('id')
+          .eq('checklist_id', activeChecklist.id);
 
-      if (failedItems && failedItems.length > 0) {
-        const failedItemIds = failedItems.map(i => i.id);
+        const blockIds = (blocks || []).map(b => b.id);
 
-        // Get actions for failed items that contain "troca"
-        const { data: trocaActions } = await supabase
-          .from('preventive_checklist_item_actions')
-          .select('exec_item_id')
-          .in('exec_item_id', failedItemIds)
-          .ilike('action_label_snapshot', '%troca%');
+        if (blockIds.length > 0) {
+          // Step 2: Get failed items in those blocks
+          const { data: failedItems } = await supabase
+            .from('preventive_checklist_items')
+            .select('id, item_name_snapshot')
+            .eq('status', 'N')
+            .in('exec_block_id', blockIds);
 
-        if (trocaActions && trocaActions.length > 0) {
-          const itemIdsWithTroca = [...new Set(trocaActions.map(a => a.exec_item_id))];
+          if (failedItems && failedItems.length > 0) {
+            const failedItemIds = failedItems.map(i => i.id);
 
-          // Get parts linked to those items
-          const { data: linkedParts } = await supabase
-            .from('preventive_part_consumption')
-            .select('exec_item_id')
-            .eq('preventive_id', routeItem.preventiveId)
-            .in('exec_item_id', itemIdsWithTroca);
+            // Step 3: Get actions containing "troca"
+            const { data: trocaActions } = await supabase
+              .from('preventive_checklist_item_actions')
+              .select('exec_item_id')
+              .in('exec_item_id', failedItemIds)
+              .ilike('action_label_snapshot', '%troca%');
 
-          const itemIdsWithParts = new Set((linkedParts || []).map(p => p.exec_item_id));
-          const itemsWithoutParts = itemIdsWithTroca.filter(id => !itemIdsWithParts.has(id));
+            if (trocaActions && trocaActions.length > 0) {
+              const itemIdsWithTroca = [...new Set(trocaActions.map(a => a.exec_item_id))];
 
-          if (itemsWithoutParts.length > 0) {
-            blockingErrors.push(
-              'Existem itens no checklist com troca de peça que ainda não possuem peça vinculada. Adicione uma peça para cada item antes de finalizar a visita.'
-            );
+              // Step 4: Check which items have linked parts
+              const { data: linkedParts } = await supabase
+                .from('preventive_part_consumption')
+                .select('exec_item_id')
+                .eq('preventive_id', routeItem.preventiveId)
+                .in('exec_item_id', itemIdsWithTroca);
+
+              const itemIdsWithParts = new Set((linkedParts || []).map(p => p.exec_item_id));
+              const itemsWithoutParts = itemIdsWithTroca.filter(id => !itemIdsWithParts.has(id));
+
+              if (itemsWithoutParts.length > 0) {
+                blockingErrors.push(
+                  'Existem itens no checklist com troca de peça que ainda não possuem peça vinculada. Adicione uma peça para cada item antes de finalizar a visita.'
+                );
+              }
+            }
           }
         }
       }
+    } catch (err) {
+      console.error('Erro na validação de peças vinculadas:', err);
+      blockingErrors.push('Erro ao validar peças vinculadas ao checklist. Tente novamente.');
     }
 
     // Check for at least one media
