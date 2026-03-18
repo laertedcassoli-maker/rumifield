@@ -2,9 +2,6 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import { useOfflineChecklist } from "@/hooks/useOfflineChecklist";
-import { useOfflineQuery } from "@/hooks/useOfflineQuery";
-import { offlineChecklistDb } from "@/lib/offline-checklist-db";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -13,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { toast } from "sonner";
-import { AlertTriangle, ClipboardCheck, Loader2, Wrench, WifiOff, Cloud, ChevronDown, ChevronUp, RefreshCw, CheckCircle2 } from "lucide-react";
+import { AlertTriangle, ClipboardCheck, Loader2, Wrench, WifiOff, Cloud, ChevronDown, ChevronUp, CheckCircle2 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import ChecklistItemStatusButtons from "./ChecklistItemStatusButtons";
 import SelectableOptionCard from "./SelectableOptionCard";
@@ -22,7 +19,7 @@ import ChecklistItemNotes from "./ChecklistItemNotes";
 
 interface ChecklistExecutionProps {
   preventiveId: string;
-  routeTemplateId?: string; // Template ID from route - auto-start if provided
+  routeTemplateId?: string;
   onStatusChange?: (status: 'not_started' | 'in_progress' | 'completed') => void;
 }
 
@@ -88,16 +85,9 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
   // Track items being processed to prevent double-clicks
   const [processingNonconformities, setProcessingNonconformities] = useState<Set<string>>(new Set());
   const [processingActions, setProcessingActions] = useState<Set<string>>(new Set());
-  
-  // Optimistic selections for NCs and actions (offline-friendly instant UI)
-  const [optimisticNcSelections, setOptimisticNcSelections] = useState<Record<string, Set<string>>>({});
-  const [optimisticActionSelections, setOptimisticActionSelections] = useState<Record<string, Set<string>>>({});
-  
-  // Offline support hook
-  const offlineChecklist = useOfflineChecklist();
 
   // Get existing checklist for this preventive
-  const { data: existingChecklist, isLoading: loadingChecklist, isOnline: isChecklistOnline, refetchOffline } = useOfflineQuery({
+  const { data: existingChecklist, isLoading: loadingChecklist } = useQuery({
     queryKey: ['preventive-checklist', preventiveId],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -134,15 +124,8 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
         .maybeSingle();
       
       if (error) throw error;
-
-      // Cache full structure for offline use
-      if (data) {
-        await offlineChecklistDb.cacheFullChecklist(data);
-      }
-
       return data;
     },
-    offlineFn: () => offlineChecklistDb.getCachedChecklist(preventiveId),
   });
 
   // Get available templates
@@ -166,8 +149,8 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
     block.items?.filter((item: any) => item.template_item_id).map((item: any) => item.template_item_id) || []
   ) || [];
 
-  // Get corrective actions for template items (with offline fallback)
-  const { data: templateActions, refetchOffline: refetchActionsOffline } = useOfflineQuery<Record<string, any[]>>({
+  // Get corrective actions for template items
+  const { data: templateActions } = useQuery<Record<string, any[]>>({
     queryKey: ['template-corrective-actions', existingChecklist?.id],
     queryFn: async () => {
       if (!existingChecklist || templateItemIds.length === 0) return {};
@@ -181,20 +164,6 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
 
       if (error) throw error;
 
-      // Cache in Dexie for offline use
-      if (data && data.length > 0) {
-        await offlineChecklistDb.cacheTemplateActions(
-          data.map(a => ({
-            id: a.id,
-            item_id: a.item_id,
-            action_label: a.action_label,
-            order_index: a.order_index,
-            active: a.active,
-          }))
-        );
-      }
-
-      // Group by item_id
       const grouped: Record<string, typeof data> = {};
       data?.forEach(action => {
         if (!grouped[action.item_id]) grouped[action.item_id] = [];
@@ -202,15 +171,11 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
       });
       return grouped;
     },
-    offlineFn: async () => {
-      if (templateItemIds.length === 0) return {};
-      return offlineChecklistDb.getCachedTemplateActions(templateItemIds);
-    },
     enabled: !!existingChecklist,
   });
 
-  // Get nonconformities for template items (with offline fallback)
-  const { data: templateNonconformities, refetchOffline: refetchNcsOffline } = useOfflineQuery<Record<string, any[]>>({
+  // Get nonconformities for template items
+  const { data: templateNonconformities } = useQuery<Record<string, any[]>>({
     queryKey: ['template-nonconformities', existingChecklist?.id],
     queryFn: async () => {
       if (!existingChecklist || templateItemIds.length === 0) return {};
@@ -224,20 +189,6 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
 
       if (error) throw error;
 
-      // Cache in Dexie for offline use
-      if (data && data.length > 0) {
-        await offlineChecklistDb.cacheTemplateNonconformities(
-          data.map(nc => ({
-            id: nc.id,
-            item_id: nc.item_id,
-            nonconformity_label: nc.nonconformity_label,
-            order_index: nc.order_index,
-            active: nc.active,
-          }))
-        );
-      }
-
-      // Group by item_id
       const grouped: Record<string, typeof data> = {};
       data?.forEach(nc => {
         if (!grouped[nc.item_id]) grouped[nc.item_id] = [];
@@ -245,26 +196,12 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
       });
       return grouped;
     },
-    offlineFn: async () => {
-      if (templateItemIds.length === 0) return {};
-      return offlineChecklistDb.getCachedTemplateNonconformities(templateItemIds);
-    },
     enabled: !!existingChecklist,
   });
-
-  // Re-fetch offline template data when templateItemIds change (handles timing where checklist loads after initial offlineFn)
-  const templateItemIdsKey = templateItemIds.join(',');
-  useEffect(() => {
-    if (templateItemIds.length > 0 && !isChecklistOnline) {
-      refetchActionsOffline();
-      refetchNcsOffline();
-    }
-  }, [templateItemIdsKey, isChecklistOnline]);
 
   // Create checklist from template
   const createChecklistMutation = useMutation({
     mutationFn: async (templateId: string) => {
-      // Get template structure
       const { data: template, error: templateError } = await supabase
         .from('checklist_templates')
         .select(`
@@ -287,7 +224,6 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
 
       if (templateError) throw templateError;
 
-      // Create checklist
       const { data: checklist, error: checklistError } = await supabase
         .from('preventive_checklists')
         .insert({
@@ -299,7 +235,6 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
 
       if (checklistError) throw checklistError;
 
-      // Create snapshot blocks and items
       for (const block of template.blocks || []) {
         const { data: execBlock, error: blockError } = await supabase
           .from('preventive_checklist_blocks')
@@ -314,7 +249,6 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
 
         if (blockError) throw blockError;
 
-        // Create items
         const activeItems = block.items?.filter((item: any) => item.active) || [];
         if (activeItems.length > 0) {
           const { error: itemsError } = await supabase
@@ -355,7 +289,6 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
     createChecklistMutation.mutate(routeTemplateId);
   };
 
-  // Scroll to block function - must be before any conditional returns
   const scrollToBlock = useCallback((blockId: string) => {
     setActiveBlockId(blockId);
     const element = blockRefs.current[blockId];
@@ -364,48 +297,27 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
     }
   }, []);
 
-  // Auto-start checklist if routeTemplateId is provided and no checklist exists (online only)
+  const isOnline = navigator.onLine;
+
+  // Auto-start checklist if routeTemplateId is provided and no checklist exists
   useEffect(() => {
-    if (!existingChecklist && routeTemplateId && !loadingChecklist && !autoStartAttempted.current && !createChecklistMutation.isPending && isChecklistOnline) {
+    if (!existingChecklist && routeTemplateId && !loadingChecklist && !autoStartAttempted.current && !createChecklistMutation.isPending && isOnline) {
       console.log('[ChecklistExecution] Auto-starting with template:', routeTemplateId);
       autoStartAttempted.current = true;
       setAutoStartState('pending');
       setAutoStartError(null);
       createChecklistMutation.mutate(routeTemplateId);
     }
-  }, [existingChecklist, routeTemplateId, loadingChecklist, createChecklistMutation.isPending, isChecklistOnline]);
+  }, [existingChecklist, routeTemplateId, loadingChecklist, createChecklistMutation.isPending, isOnline]);
 
   // Set initial active block when blocks data is available
   useEffect(() => {
     if (existingChecklist?.blocks && existingChecklist.blocks.length > 0 && !activeBlockId) {
       setActiveBlockId(existingChecklist.blocks[0].id);
-      // Cache checklist data for offline use
-      offlineChecklist.cacheChecklistData(existingChecklist.blocks);
     }
-  }, [existingChecklist?.blocks, activeBlockId, offlineChecklist]);
+  }, [existingChecklist?.blocks, activeBlockId]);
 
-  // Clear optimistic NC/action selections per-item when real data arrives
-  useEffect(() => {
-    if (!existingChecklist) return;
-    existingChecklist.blocks?.forEach((block: any) => {
-      block.items?.forEach((item: any) => {
-        setOptimisticNcSelections(prev => {
-          if (!prev[item.id]) return prev;
-          const next = { ...prev };
-          delete next[item.id];
-          return next;
-        });
-        setOptimisticActionSelections(prev => {
-          if (!prev[item.id]) return prev;
-          const next = { ...prev };
-          delete next[item.id];
-          return next;
-        });
-      });
-    });
-  }, [existingChecklist]);
-
-  // Auto-expand failure items that need treatment (no selections yet)
+  // Auto-expand failure items that need treatment
   useEffect(() => {
     if (!existingChecklist?.blocks || existingChecklist.status === 'concluido') return;
     
@@ -415,7 +327,6 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
         if (item.status === 'N') {
           const hasNonconformities = item.selected_nonconformities?.length > 0;
           const hasActions = item.selected_actions?.length > 0;
-          // Expand if no selections at all
           if (!hasNonconformities && !hasActions) {
             itemsToExpand.push(item.id);
           }
@@ -432,7 +343,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
     }
   }, [existingChecklist?.blocks, existingChecklist?.status]);
 
-  // Update item status with offline support
+  // Update item status — direct Supabase
   const updateItemMutation = useMutation({
     mutationFn: async ({ 
       itemId, 
@@ -443,47 +354,48 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
       status?: 'S' | 'N' | 'NA' | null;
       notes?: string;
     }) => {
-      // Save locally first for offline support
-      await offlineChecklist.updateItem(itemId, { status, notes });
+      if (!navigator.onLine) {
+        throw new Error('Sem conexão');
+      }
 
-      // If online, handle side-effects (cleanup actions/NCs/consumption when status changes from N)
-      // Note: the primary update is already handled by offlineChecklist.updateItem above
-      if (offlineChecklist.isOnline) {
-        // If status changed from N to something else, remove selected actions, nonconformities and their consumption records
-        if (status && status !== 'N') {
-          // Get all exec_nonconformity_ids for this item
-          const { data: execNonconformities } = await supabase
-            .from('preventive_checklist_item_nonconformities')
-            .select('id')
-            .eq('exec_item_id', itemId);
-          
-          if (execNonconformities && execNonconformities.length > 0) {
-            const ncIds = execNonconformities.map(nc => nc.id);
-            
-            // Remove associated part consumption records
-            // Note: Using 'as any' because types are not yet regenerated after migration
-            await (supabase as any)
-              .from('preventive_part_consumption')
-              .delete()
-              .in('exec_nonconformity_id', ncIds);
-          }
-          
-          // Remove the actions themselves
-          await supabase
-            .from('preventive_checklist_item_actions')
-            .delete()
-            .eq('exec_item_id', itemId);
+      const updateData: any = { answered_at: new Date().toISOString() };
+      if (status !== undefined) updateData.status = status;
+      if (notes !== undefined) updateData.notes = notes;
 
-          // Remove the nonconformities
-          await supabase
-            .from('preventive_checklist_item_nonconformities')
+      const { error } = await supabase
+        .from('preventive_checklist_items')
+        .update(updateData)
+        .eq('id', itemId);
+
+      if (error) throw error;
+
+      // If status changed from N to something else, remove selected actions, nonconformities and their consumption records
+      if (status && status !== 'N') {
+        const { data: execNonconformities } = await supabase
+          .from('preventive_checklist_item_nonconformities')
+          .select('id')
+          .eq('exec_item_id', itemId);
+        
+        if (execNonconformities && execNonconformities.length > 0) {
+          const ncIds = execNonconformities.map(nc => nc.id);
+          await (supabase as any)
+            .from('preventive_part_consumption')
             .delete()
-            .eq('exec_item_id', itemId);
+            .in('exec_nonconformity_id', ncIds);
         }
+        
+        await supabase
+          .from('preventive_checklist_item_actions')
+          .delete()
+          .eq('exec_item_id', itemId);
+
+        await supabase
+          .from('preventive_checklist_item_nonconformities')
+          .delete()
+          .eq('exec_item_id', itemId);
       }
     },
     onSuccess: (_, variables) => {
-      // Update cache in-place instead of refetching (avoids scroll reset)
       queryClient.setQueryData(['preventive-checklist', preventiveId], (old: any) => {
         if (!old) return old;
         return {
@@ -497,7 +409,6 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
                 ...(variables.status !== undefined ? { status: variables.status } : {}),
                 ...(variables.notes !== undefined ? { notes: variables.notes } : {}),
                 answered_at: new Date().toISOString(),
-                // Clear selections if changing away from N
                 ...(variables.status && variables.status !== 'N' ? {
                   selected_actions: [],
                   selected_nonconformities: []
@@ -511,99 +422,92 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
       queryClient.invalidateQueries({ queryKey: ['preventive-consumed-parts', preventiveId] });
     },
     onError: (error) => {
-      // If offline, the mutation still succeeds locally
-      if (!offlineChecklist.isOnline) {
-        setLastSavedAt(new Date());
-        return;
-      }
       toast.error('Erro ao atualizar: ' + error.message);
     }
   });
 
-  // Helper: check if an item has a selected action containing "Troca" (always via Dexie)
-  const itemHasTrocaAction = useCallback(async (itemId: string): Promise<boolean> => {
-    const dexieActions = await offlineChecklistDb.checklistActions
-      .where('exec_item_id')
-      .equals(itemId)
-      .toArray();
-    return dexieActions.some(a => a.action_label_snapshot?.toLowerCase().includes('troca'));
-  }, []);
-
-  // Helper: get NC parts from Dexie with fallback to Supabase if cache is empty
-  const getNcPartsWithFallback = async (templateNcId: string) => {
-    const cached = await offlineChecklistDb.getNonconformityParts(templateNcId);
-    if (cached.length > 0) return cached;
-
-    // Fallback: fetch from server if online
-    if (!navigator.onLine) return [];
-
-    try {
-      const { data, error } = await supabase
-        .from('checklist_nonconformity_parts')
-        .select('id, nonconformity_id, part_id, default_quantity, pecas:part_id(codigo, nome)')
-        .eq('nonconformity_id', templateNcId);
-
-      if (error || !data || data.length === 0) return [];
-
-      const parts = data.map((row: any) => ({
-        id: row.id,
-        nonconformity_id: row.nonconformity_id,
-        part_id: row.part_id,
-        default_quantity: row.default_quantity,
-        part_codigo: row.pecas?.codigo || '',
-        part_nome: row.pecas?.nome || '',
-      }));
-
-      // Cache for future use
-      await offlineChecklistDb.cacheNonconformityParts(parts);
-      return parts;
-    } catch {
-      return [];
+  // Helper: check if an item has a selected action containing "Troca" (via Supabase cache)
+  const itemHasTrocaAction = useCallback((itemId: string): boolean => {
+    const checklist = queryClient.getQueryData(['preventive-checklist', preventiveId]) as any;
+    if (!checklist) return false;
+    for (const block of checklist.blocks || []) {
+      for (const item of block.items || []) {
+        if (item.id === itemId) {
+          return item.selected_actions?.some((a: any) => 
+            a.action_label_snapshot?.toLowerCase().includes('troca')
+          ) || false;
+        }
+      }
     }
+    return false;
+  }, [queryClient, preventiveId]);
+
+  // Helper: get NC parts from Supabase
+  const getNcParts = async (templateNcId: string) => {
+    const { data, error } = await supabase
+      .from('checklist_nonconformity_parts')
+      .select('id, nonconformity_id, part_id, default_quantity, pecas:part_id(codigo, nome)')
+      .eq('nonconformity_id', templateNcId);
+
+    if (error || !data || data.length === 0) return [];
+
+    return data.map((row: any) => ({
+      id: row.id,
+      nonconformity_id: row.nonconformity_id,
+      part_id: row.part_id,
+      default_quantity: row.default_quantity,
+      part_codigo: row.pecas?.codigo || '',
+      part_nome: row.pecas?.nome || '',
+    }));
   };
 
-  // Helper: create part consumption records for all selected NCs of an item (always via Dexie)
+  // Helper: create part consumption records for all selected NCs of an item (via Supabase)
   const createPartConsumptionForItemNCs = async (itemId: string) => {
-    const selectedNCs = await offlineChecklistDb.checklistNonconformities
-      .where('exec_item_id')
-      .equals(itemId)
-      .filter(nc => nc._operation !== 'delete')
-      .toArray();
+    const { data: selectedNCs } = await supabase
+      .from('preventive_checklist_item_nonconformities')
+      .select('id, template_nonconformity_id')
+      .eq('exec_item_id', itemId);
 
-    if (selectedNCs.length === 0) return;
+    if (!selectedNCs || selectedNCs.length === 0) return;
 
     for (const nc of selectedNCs) {
       if (!nc.template_nonconformity_id) continue;
-      const ncParts = await getNcPartsWithFallback(nc.template_nonconformity_id);
+      const ncParts = await getNcParts(nc.template_nonconformity_id);
       for (const np of ncParts) {
-        await offlineChecklistDb.addPartConsumptionLocally({
-          id: crypto.randomUUID(),
-          preventive_id: preventiveId,
-          exec_item_id: itemId,
-          exec_nonconformity_id: nc.id,
-          part_id: np.part_id,
-          part_code_snapshot: np.part_codigo,
-          part_name_snapshot: np.part_nome,
-          quantity: np.default_quantity,
-          stock_source: null,
-        });
+        await (supabase as any)
+          .from('preventive_part_consumption')
+          .insert({
+            preventive_id: preventiveId,
+            exec_item_id: itemId,
+            exec_nonconformity_id: nc.id,
+            part_id: np.part_id,
+            part_code_snapshot: np.part_codigo,
+            part_name_snapshot: np.part_nome,
+            quantity: np.default_quantity,
+            stock_source: null,
+          });
       }
     }
   };
 
-  // Helper: remove all automatic part consumption for NCs of an item (always via Dexie)
+  // Helper: remove all automatic part consumption for NCs of an item (via Supabase)
   const removePartConsumptionForItemNCs = async (itemId: string) => {
-    const selectedNCs = await offlineChecklistDb.checklistNonconformities
-      .where('exec_item_id')
-      .equals(itemId)
-      .toArray();
+    const { data: selectedNCs } = await supabase
+      .from('preventive_checklist_item_nonconformities')
+      .select('id')
+      .eq('exec_item_id', itemId);
+
+    if (!selectedNCs) return;
 
     for (const nc of selectedNCs) {
-      await offlineChecklistDb.deletePartConsumptionByNcId(nc.id);
+      await (supabase as any)
+        .from('preventive_part_consumption')
+        .delete()
+        .eq('exec_nonconformity_id', nc.id);
     }
   };
 
-  // Toggle corrective action with offline support and double-click protection
+  // Toggle corrective action — direct Supabase + setQueryData
   const toggleActionMutation = useMutation({
     mutationFn: async ({ 
       itemId, 
@@ -616,35 +520,52 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
       actionLabel: string;
       isSelected: boolean;
     }) => {
+      if (!navigator.onLine) {
+        throw new Error('Sem conexão. Conecte-se à internet para registrar o checklist.');
+      }
+
       const lockKey = `${itemId}-${actionId}`;
-      
-      // Check if already processing this action
       if (processingActions.has(lockKey)) {
         console.log('[ChecklistExecution] Action already being processed, skipping:', lockKey);
         return;
       }
       
-      // Add lock
       setProcessingActions(prev => new Set(prev).add(lockKey));
       
       try {
-        // Save locally first for offline support
-        await offlineChecklist.toggleAction(itemId, actionId, actionLabel, isSelected);
+        if (isSelected) {
+          // Remove action
+          await supabase
+            .from('preventive_checklist_item_actions')
+            .delete()
+            .eq('exec_item_id', itemId)
+            .eq('template_action_id', actionId);
+        } else {
+          // Add action
+          await supabase
+            .from('preventive_checklist_item_actions')
+            .insert({
+              exec_item_id: itemId,
+              template_action_id: actionId,
+              action_label_snapshot: actionLabel
+            } as never);
+        }
 
-        // If online, sync to server immediately
-        // If online, handle side-effects only (part consumption)
-        // Note: the primary action insert/delete is handled by offlineChecklist.toggleAction above
-        // Unified path (always via Dexie) for part consumption side-effects
+        // Part consumption side-effects
         const isTrocaAction = actionLabel.toLowerCase().includes('troca');
         if (isTrocaAction) {
           if (isSelected) {
             // "Troca" being REMOVED → check if other Troca actions remain
-            const remainingActions = await offlineChecklistDb.checklistActions
-              .where('exec_item_id')
-              .equals(itemId)
-              .filter(a => a.template_action_id !== actionId && a.action_label_snapshot?.toLowerCase().includes('troca'))
-              .toArray();
-            if (remainingActions.length === 0) {
+            const { data: remainingActions } = await supabase
+              .from('preventive_checklist_item_actions')
+              .select('id, action_label_snapshot')
+              .eq('exec_item_id', itemId)
+              .neq('template_action_id', actionId);
+            
+            const hasOtherTroca = remainingActions?.some(a => 
+              a.action_label_snapshot?.toLowerCase().includes('troca')
+            );
+            if (!hasOtherTroca) {
               await removePartConsumptionForItemNCs(itemId);
             }
           } else {
@@ -653,7 +574,6 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
           }
         }
       } finally {
-        // Remove lock
         setProcessingActions(prev => {
           const next = new Set(prev);
           next.delete(lockKey);
@@ -661,24 +581,40 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
         });
       }
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['preventive-checklist', preventiveId] });
+    onSuccess: (_, variables) => {
+      // Update cache in-place to avoid refetch (which caused the bug)
+      queryClient.setQueryData(['preventive-checklist', preventiveId], (old: any) => {
+        if (!old) return old;
+        return {
+          ...old,
+          blocks: old.blocks?.map((block: any) => ({
+            ...block,
+            items: block.items?.map((item: any) => {
+              if (item.id !== variables.itemId) return item;
+              let updatedActions = [...(item.selected_actions || [])];
+              if (variables.isSelected) {
+                updatedActions = updatedActions.filter((a: any) => a.template_action_id !== variables.actionId);
+              } else {
+                updatedActions.push({
+                  id: crypto.randomUUID(),
+                  template_action_id: variables.actionId,
+                  action_label_snapshot: variables.actionLabel,
+                });
+              }
+              return { ...item, selected_actions: updatedActions };
+            })
+          }))
+        };
+      });
       queryClient.invalidateQueries({ queryKey: ['preventive-consumed-parts', preventiveId] });
-      if (!offlineChecklist.isOnline) {
-        refetchOffline();
-      }
       setLastSavedAt(new Date());
     },
     onError: (error) => {
-      if (!offlineChecklist.isOnline) {
-        setLastSavedAt(new Date());
-        return;
-      }
       toast.error('Erro ao atualizar ação: ' + error.message);
     }
   });
 
-  // Toggle nonconformity with offline support, double-click protection, and part consumption
+  // Toggle nonconformity — direct Supabase + setQueryData
   const toggleNonconformityMutation = useMutation({
     mutationFn: async ({ 
       itemId, 
@@ -691,68 +627,77 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
       nonconformityLabel: string;
       isSelected: boolean;
     }) => {
+      if (!navigator.onLine) {
+        throw new Error('Sem conexão. Conecte-se à internet para registrar o checklist.');
+      }
+
       const lockKey = `${itemId}-${nonconformityId}`;
-      
-      // Check if already processing this nonconformity
       if (processingNonconformities.has(lockKey)) {
         console.log('[ChecklistExecution] Nonconformity already being processed, skipping:', lockKey);
         return;
       }
       
-      // Add lock
       setProcessingNonconformities(prev => new Set(prev).add(lockKey));
       
       try {
-        // Save locally first for offline support
-        await offlineChecklist.toggleNonconformity(itemId, nonconformityId, nonconformityLabel, isSelected);
-
-        // If online, sync to server immediately
-        // If online, handle side-effects only (part consumption)
-        // Note: the primary NC insert/delete is handled by offlineChecklist.toggleNonconformity above
-        // Unified path (always via Dexie) for part consumption side-effects
         if (isSelected) {
-          // NC being REMOVED → delete associated part consumption
-          const execNc = await offlineChecklistDb.checklistNonconformities
-            .filter(
-              nc =>
-                nc.exec_item_id === itemId &&
-                nc.template_nonconformity_id === nonconformityId
-            )
-            .first();
+          // Remove NC
+          // First get the exec NC id for part consumption cleanup
+          const { data: execNc } = await supabase
+            .from('preventive_checklist_item_nonconformities')
+            .select('id')
+            .eq('exec_item_id', itemId)
+            .eq('template_nonconformity_id', nonconformityId)
+            .maybeSingle();
+          
           if (execNc) {
-            await offlineChecklistDb.deletePartConsumptionByNcId(execNc.id);
+            // Delete associated part consumption
+            await (supabase as any)
+              .from('preventive_part_consumption')
+              .delete()
+              .eq('exec_nonconformity_id', execNc.id);
           }
+
+          await supabase
+            .from('preventive_checklist_item_nonconformities')
+            .delete()
+            .eq('exec_item_id', itemId)
+            .eq('template_nonconformity_id', nonconformityId);
         } else {
+          // Add NC
+          const { data: inserted } = await supabase
+            .from('preventive_checklist_item_nonconformities')
+            .insert({
+              exec_item_id: itemId,
+              template_nonconformity_id: nonconformityId,
+              nonconformity_label_snapshot: nonconformityLabel
+            } as never)
+            .select('id')
+            .single();
+
           // NC being ADDED → create part consumption if Troca active
-          const hasTroca = await itemHasTrocaAction(itemId);
-          if (hasTroca) {
-            const execNc = await offlineChecklistDb.checklistNonconformities
-              .filter(
-                nc =>
-                  nc.exec_item_id === itemId &&
-                  nc.template_nonconformity_id === nonconformityId
-              )
-              .first();
-            if (execNc) {
-              const ncParts = await getNcPartsWithFallback(nonconformityId);
+          if (inserted) {
+            const hasTroca = itemHasTrocaAction(itemId);
+            if (hasTroca) {
+              const ncParts = await getNcParts(nonconformityId);
               for (const np of ncParts) {
-                await offlineChecklistDb.addPartConsumptionLocally({
-                  id: crypto.randomUUID(),
-                  preventive_id: preventiveId,
-                  exec_item_id: itemId,
-                  exec_nonconformity_id: execNc.id,
-                  part_id: np.part_id,
-                  part_code_snapshot: np.part_codigo,
-                  part_name_snapshot: np.part_nome,
-                  quantity: np.default_quantity,
-                  stock_source: null,
-                });
+                await (supabase as any)
+                  .from('preventive_part_consumption')
+                  .insert({
+                    preventive_id: preventiveId,
+                    exec_item_id: itemId,
+                    exec_nonconformity_id: inserted.id,
+                    part_id: np.part_id,
+                    part_code_snapshot: np.part_codigo,
+                    part_name_snapshot: np.part_nome,
+                    quantity: np.default_quantity,
+                    stock_source: null,
+                  });
               }
             }
           }
         }
       } finally {
-        // Remove lock
         setProcessingNonconformities(prev => {
           const next = new Set(prev);
           next.delete(lockKey);
@@ -760,19 +705,35 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
         });
       }
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['preventive-checklist', preventiveId] });
+    onSuccess: (_, variables) => {
+      // Update cache in-place
+      queryClient.setQueryData(['preventive-checklist', preventiveId], (old: any) => {
+        if (!old) return old;
+        return {
+          ...old,
+          blocks: old.blocks?.map((block: any) => ({
+            ...block,
+            items: block.items?.map((item: any) => {
+              if (item.id !== variables.itemId) return item;
+              let updatedNcs = [...(item.selected_nonconformities || [])];
+              if (variables.isSelected) {
+                updatedNcs = updatedNcs.filter((nc: any) => nc.template_nonconformity_id !== variables.nonconformityId);
+              } else {
+                updatedNcs.push({
+                  id: crypto.randomUUID(),
+                  template_nonconformity_id: variables.nonconformityId,
+                  nonconformity_label_snapshot: variables.nonconformityLabel,
+                });
+              }
+              return { ...item, selected_nonconformities: updatedNcs };
+            })
+          }))
+        };
+      });
       queryClient.invalidateQueries({ queryKey: ['preventive-consumed-parts', preventiveId] });
-      if (!offlineChecklist.isOnline) {
-        refetchOffline();
-      }
       setLastSavedAt(new Date());
     },
     onError: (error) => {
-      if (!offlineChecklist.isOnline) {
-        setLastSavedAt(new Date());
-        return;
-      }
       toast.error('Erro ao atualizar não conformidade: ' + error.message);
     }
   });
@@ -804,7 +765,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
   });
 
   // Show loading while fetching or auto-creating checklist
-  if (loadingChecklist || (routeTemplateId && !existingChecklist && isChecklistOnline && (autoStartState === 'pending' || createChecklistMutation.isPending))) {
+  if (loadingChecklist || (routeTemplateId && !existingChecklist && isOnline && (autoStartState === 'pending' || createChecklistMutation.isPending))) {
     return (
       <Card>
         <CardContent className="p-6">
@@ -819,8 +780,8 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
     );
   }
 
-  // Offline and no cached checklist available
-  if (!isChecklistOnline && !existingChecklist && !loadingChecklist) {
+  // Offline and no checklist available
+  if (!isOnline && !existingChecklist && !loadingChecklist) {
     return (
       <Card>
         <CardContent className="p-6">
@@ -835,7 +796,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
     );
   }
 
-  // Auto-start attempted but checklist didn't appear (avoid frozen screen)
+  // Auto-start attempted but checklist didn't appear
   if (routeTemplateId && !existingChecklist && autoStartAttempted.current && autoStartState !== 'pending') {
     return (
       <Card>
@@ -863,7 +824,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
     );
   }
 
-  // No checklist started and no routeTemplateId - show template selection (fallback)
+  // No checklist started - show template selection
   if (!existingChecklist) {
     return (
       <>
@@ -929,25 +890,17 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
     );
   }
 
-  // Calculate progress
+  // Calculate progress — read directly from server data
   const blocks: ExecBlock[] = existingChecklist.blocks?.map((block: any) => ({
     ...block,
-    items: block.items?.map((item: any) => {
-      const baseSelectedActions = item.selected_actions?.map((a: any) => a.template_action_id) || [];
-      const baseSelectedNcs = item.selected_nonconformities?.map((nc: any) => nc.template_nonconformity_id) || [];
-      return {
-        ...item,
-        status: optimisticStatuses[item.id] ?? item.status,
-        selectedActions: optimisticActionSelections[item.id] 
-          ? [...optimisticActionSelections[item.id]] 
-          : baseSelectedActions,
-        selectedNonconformities: optimisticNcSelections[item.id] 
-          ? [...optimisticNcSelections[item.id]] 
-          : baseSelectedNcs,
-        availableActions: templateActions?.[item.template_item_id] || [],
-        availableNonconformities: templateNonconformities?.[item.template_item_id] || []
-      };
-    }).sort((a: ExecItem, b: ExecItem) => a.order_index - b.order_index) || []
+    items: block.items?.map((item: any) => ({
+      ...item,
+      status: optimisticStatuses[item.id] ?? item.status,
+      selectedActions: item.selected_actions?.map((a: any) => a.template_action_id) || [],
+      selectedNonconformities: item.selected_nonconformities?.map((nc: any) => nc.template_nonconformity_id) || [],
+      availableActions: templateActions?.[item.template_item_id] || [],
+      availableNonconformities: templateNonconformities?.[item.template_item_id] || []
+    })).sort((a: ExecItem, b: ExecItem) => a.order_index - b.order_index) || []
   })).sort((a: ExecBlock, b: ExecBlock) => a.order_index - b.order_index) || [];
 
   const totalItems = blocks.reduce((acc, block) => acc + block.items.length, 0);
@@ -959,21 +912,15 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
   const isCompleted = existingChecklist.status === 'concluido';
   const allAnswered = answeredItems === totalItems;
 
-  // Check if any item with status N is missing required selections:
-  // - Must have at least one non-conformity selected (if available)
-  // - Must have at least one corrective action selected (if available)
   const hasIncompleteFailures = blocks.some(block => 
     block.items.some(item => {
       if (item.status !== 'N') return false;
-      
       const missingNonconformity = item.availableNonconformities.length > 0 && item.selectedNonconformities.length === 0;
       const missingAction = item.availableActions.length > 0 && item.selectedActions.length === 0;
-      
       return missingNonconformity || missingAction;
     })
   );
 
-  // Prepare blocks for navigation
   const navBlocks = blocks.map(block => ({
     id: block.id,
     block_name_snapshot: block.block_name_snapshot,
@@ -989,50 +936,12 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
   };
 
   const getSyncStatusDisplay = () => {
-    if (!offlineChecklist.isOnline && offlineChecklist.pendingCount > 0) {
-      return (
-        <div className="flex items-center gap-1.5 text-amber-600">
-          <WifiOff className="h-3 w-3" />
-          <span>{offlineChecklist.pendingCount} pendente{offlineChecklist.pendingCount > 1 ? 's' : ''}</span>
-        </div>
-      );
-    }
-    if (!offlineChecklist.isOnline) {
-      return (
-        <div className="flex items-center gap-1.5 text-amber-600">
-          <WifiOff className="h-3 w-3" />
-          <span>Offline</span>
-        </div>
-      );
-    }
-    if (isSavingNow || offlineChecklist.syncStatus === "syncing") {
+    if (isSavingNow) {
       return (
         <div className="flex items-center gap-1.5 text-muted-foreground">
           <Loader2 className="h-3 w-3 animate-spin" />
           <span>Salvando...</span>
         </div>
-      );
-    }
-    if (offlineChecklist.syncStatus === "pending" && offlineChecklist.pendingCount > 0) {
-      return (
-        <button 
-          onClick={offlineChecklist.triggerSync}
-          className="flex items-center gap-1.5 text-amber-600 hover:text-amber-700 transition-colors"
-        >
-          <RefreshCw className="h-3 w-3" />
-          <span>Sincronizar</span>
-        </button>
-      );
-    }
-    if (offlineChecklist.syncStatus === "error") {
-      return (
-        <button 
-          onClick={offlineChecklist.triggerSync}
-          className="flex items-center gap-1.5 text-destructive hover:text-destructive/80 transition-colors"
-        >
-          <RefreshCw className="h-3 w-3" />
-          <span>Erro</span>
-        </button>
       );
     }
     if (lastSavedAt) {
@@ -1057,7 +966,6 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
         <Card className="max-w-full overflow-x-hidden">
           <CollapsibleTrigger asChild>
             <CardHeader className="pb-3 space-y-0 px-4 sm:px-6 cursor-pointer hover:bg-muted/50 transition-colors">
-              {/* Title row */}
               <div className="flex flex-wrap items-center justify-between gap-2 min-w-0 w-full">
                 <CardTitle className="flex items-center gap-2 text-base leading-tight min-w-0 flex-1 overflow-hidden">
                   <ClipboardCheck className="h-5 w-5 shrink-0" />
@@ -1084,16 +992,13 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
             </CardHeader>
           </CollapsibleTrigger>
           <CollapsibleContent className="animate-accordion-down data-[state=closed]:animate-accordion-up">
-            {/* Progress controls - only when not completed */}
             {!isCompleted && (
               <div className="px-4 sm:px-6 pb-3 space-y-3">
             <div className="space-y-2 pt-1">
-              {/* Sync status */}
               <div className="flex items-center justify-center text-xs">
                 {getSyncStatusDisplay()}
               </div>
 
-              {/* Progress bar and complete button */}
               <div className="flex items-center gap-3">
                 <div className="flex-1 space-y-1 min-w-0">
                   <div className="flex items-center justify-between text-sm">
@@ -1104,7 +1009,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
                 </div>
                 <Button
                   onClick={() => setIsConfirmCompleteOpen(true)}
-                  disabled={completeChecklistMutation.isPending || !isAllAnswered || !offlineChecklist.isOnline}
+                  disabled={completeChecklistMutation.isPending || !isAllAnswered || !navigator.onLine}
                   className="shrink-0"
                   size="default"
                 >
@@ -1113,28 +1018,16 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
                 </Button>
               </div>
 
-              {/* Warning messages */}
-              {!offlineChecklist.isOnline && isAllAnswered && (
+              {!navigator.onLine && isAllAnswered && (
                 <p className="text-xs text-amber-600 text-center">⚠️ Reconecte para concluir</p>
               )}
-              {hasIncompleteFailures && isAllAnswered && offlineChecklist.isOnline && (
+              {hasIncompleteFailures && isAllAnswered && navigator.onLine && (
                 <p className="text-xs text-amber-600 text-center">⚠️ Existem falhas sem tratativas</p>
               )}
               {!isAllAnswered && (
                 <p className="text-xs text-muted-foreground text-center">Responda todos os itens para concluir</p>
               )}
             </div>
-            
-            {/* Block Navigation Chips - Hidden for now */}
-            {/* {blocks.length > 1 && (
-              <div className="w-full overflow-x-auto overscroll-x-contain">
-                <ChecklistBlockNav 
-                  blocks={navBlocks}
-                  activeBlockId={activeBlockId}
-                  onBlockClick={scrollToBlock}
-                />
-              </div>
-            )} */}
           </div>
         )}
         <CardContent className="space-y-6 pt-3">
@@ -1156,9 +1049,6 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
                   const isExpanded = expandedItems.has(item.id);
                   const selectedCount = item.selectedNonconformities.length + item.selectedActions.length;
                   
-                  // Check if this failure needs treatment:
-                  // - Missing non-conformity selection (if options available)
-                  // - Missing corrective action selection (if options available)
                   const missingNonconformity = item.availableNonconformities.length > 0 && item.selectedNonconformities.length === 0;
                   const missingAction = item.availableActions.length > 0 && item.selectedActions.length === 0;
                   const needsTreatment = item.status === 'N' && hasFailureDetails && (missingNonconformity || missingAction);
@@ -1190,19 +1080,19 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
                           <ChecklistItemStatusButtons
                             value={item.status}
                             onChange={(status) => {
-                              // Check if changing from N to S/NA with selections
+                              if (!navigator.onLine) {
+                                toast.error('Sem conexão. Conecte-se à internet para registrar o checklist.');
+                                return;
+                              }
                               const hasSelections = item.selectedNonconformities.length > 0 || item.selectedActions.length > 0;
                               if (item.status === 'N' && (status === 'S' || status === 'NA') && hasSelections) {
-                                // Show confirmation dialog
                                 setPendingStatusChange({
                                   itemId: item.id,
                                   newStatus: status,
                                   hasSelections: true
                                 });
                               } else {
-                                // Optimistic UI update — reflect immediately (before mutate)
                                 setOptimisticStatuses(prev => ({ ...prev, [item.id]: status }));
-                                // Auto-expand when marking as failure
                                 if (status === 'N') {
                                   setExpandedItems(prev => new Set([...prev, item.id]));
                                 }
@@ -1216,7 +1106,6 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
                         )}
                       </div>
 
-                      {/* Collapsible section for failures */}
                       {hasFailureDetails && !isCompleted && (
                         <Collapsible 
                           open={isExpanded} 
@@ -1255,7 +1144,6 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
                             </Button>
                           </CollapsibleTrigger>
                           <CollapsibleContent className="space-y-4 pt-3 max-h-[60vh] overflow-y-auto">
-                            {/* Loading state when template data not yet available */}
                             {item.availableNonconformities.length === 0 && item.availableActions.length === 0 && (
                               <div className="flex items-center gap-2 text-muted-foreground text-sm py-2">
                                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -1283,12 +1171,6 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
                                         loading={isProcessing}
                                         variant="danger"
                                         onClick={() => {
-                                          // Optimistic update
-                                          setOptimisticNcSelections(prev => {
-                                            const current = new Set(prev[item.id] || new Set(item.selectedNonconformities));
-                                            if (isSelected) current.delete(nc.id); else current.add(nc.id);
-                                            return { ...prev, [item.id]: current };
-                                          });
                                           toggleNonconformityMutation.mutate({
                                             itemId: item.id,
                                             nonconformityId: nc.id,
@@ -1324,12 +1206,6 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
                                         loading={isProcessing}
                                         variant="success"
                                         onClick={() => {
-                                          // Optimistic update
-                                          setOptimisticActionSelections(prev => {
-                                            const current = new Set(prev[item.id] || new Set(item.selectedActions));
-                                            if (isSelected) current.delete(action.id); else current.add(action.id);
-                                            return { ...prev, [item.id]: current };
-                                          });
                                           toggleActionMutation.mutate({
                                             itemId: item.id,
                                             actionId: action.id,
@@ -1347,7 +1223,6 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
                         </Collapsible>
                       )}
 
-                      {/* Show selected nonconformities when completed */}
                       {isCompleted && item.status === 'N' && item.selectedNonconformities.length > 0 && (
                         <div className="pl-4 border-l-2 border-amber-400">
                           <p className="text-sm font-medium text-muted-foreground mb-1">
@@ -1364,7 +1239,6 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
                         </div>
                       )}
 
-                      {/* Show selected actions when completed */}
                       {isCompleted && item.status === 'N' && item.selectedActions.length > 0 && (
                         <div className="pl-4 border-l-2 border-destructive/30">
                           <p className="text-sm font-medium text-muted-foreground mb-1">
@@ -1381,7 +1255,6 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
                         </div>
                       )}
 
-                      {/* Notes */}
                       {!isCompleted ? (
                         <ChecklistItemNotes
                           itemId={item.id}
@@ -1432,7 +1305,6 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Confirmation dialog for changing status from N to S/NA */}
       <AlertDialog open={!!pendingStatusChange} onOpenChange={(open) => !open && setPendingStatusChange(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
