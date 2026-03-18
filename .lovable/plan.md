@@ -1,19 +1,26 @@
 
 
-## Corrigir alinhamento do conteudo nos cards de resumo
+## Adicionar confirmação de exclusão de peças no ConsumedPartsBlock
 
 ### Problema
-O conteudo (numero + label) dentro dos cards de resumo esta visualmente deslocado para a direita. Isso ocorre porque o componente `CardContent` aplica `p-6` (24px) de padding horizontal por padrao, o que em cards estreitos empurra o conteudo para fora do centro visual.
+A exclusão de peças acontece imediatamente ao clicar na lixeira, sem confirmação. Isso pode causar remoções acidentais em campo.
 
-### Solucao
+### Solução
 
-**Arquivo: `src/pages/crm/CrmPipeline.tsx`**
+**Arquivo: `src/components/preventivas/ConsumedPartsBlock.tsx`**
 
-Adicionar `px-2` ao `CardContent` dos cards de resumo para reduzir o padding horizontal, centralizando melhor o conteudo:
+1. **Adicionar estado para controlar o AlertDialog** no componente `ConsumedPartsBlock`:
+   - `deleteConfirmPartId: string | null` — armazena o ID da peça pendente de confirmação
 
-```tsx
-<CardContent className="py-2 px-2 text-center">
-```
+2. **Alterar o `onDelete` passado ao `PartItem`** para apenas setar o `deleteConfirmPartId` em vez de chamar a mutation diretamente
 
-Isso substitui o `p-6` padrao do componente por um padding horizontal menor, mantendo o texto centralizado visualmente dentro do card.
+3. **Adicionar um `AlertDialog` no JSX do `ConsumedPartsBlock`** (após o Card), usando os componentes já importados no projeto (`AlertDialog`, `AlertDialogContent`, etc.):
+   - Titulo: "Confirmar exclusão"
+   - Mensagem: "Você realmente deseja excluir esta peça?" com nome/código da peça
+   - Botao Cancelar (outline)
+   - Botao Excluir (destructive) — chama `deleteManualPartMutation.mutate(deleteConfirmPartId)`
+
+4. **Imports**: Adicionar imports de `AlertDialog`, `AlertDialogAction`, `AlertDialogCancel`, `AlertDialogContent`, `AlertDialogDescription`, `AlertDialogFooter`, `AlertDialogHeader`, `AlertDialogTitle` de `@/components/ui/alert-dialog`
+
+Nenhuma alteração no banco, na lógica do checklist ou no layout existente. Apenas a interposição do modal de confirmação antes da exclusão.
 
