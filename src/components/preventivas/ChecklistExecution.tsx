@@ -535,20 +535,22 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
       try {
         if (isSelected) {
           // Remove action
-          await supabase
+          const { error: delErr } = await supabase
             .from('preventive_checklist_item_actions')
             .delete()
             .eq('exec_item_id', itemId)
             .eq('template_action_id', actionId);
+          if (delErr) throw delErr;
         } else {
           // Add action
-          await supabase
+          const { error: insErr } = await supabase
             .from('preventive_checklist_item_actions')
             .insert({
               exec_item_id: itemId,
               template_action_id: actionId,
               action_label_snapshot: actionLabel
             } as never);
+          if (insErr) throw insErr;
         }
 
         // Part consumption side-effects
