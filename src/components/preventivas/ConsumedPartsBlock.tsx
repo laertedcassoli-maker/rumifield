@@ -19,6 +19,16 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { cn } from '@/lib/utils';
 
 interface ConsumedPart {
@@ -49,6 +59,7 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
   const [notes, setNotes] = useState('');
   const [stockSource, setStockSource] = useState<'tecnico' | 'fazenda' | 'novo_pedido'>('tecnico');
   const [dialogAssetCode, setDialogAssetCode] = useState('');
+  const [deleteConfirmPartId, setDeleteConfirmPartId] = useState<string | null>(null);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -359,6 +370,7 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
   const hasParts = totalParts > 0;
 
   return (
+    <>
     <Card className="overflow-hidden">
       <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
         <CollapsibleTrigger asChild>
@@ -410,7 +422,7 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
                       onStockSourceChange={handleStockSourceChange}
                       onAssetCodeChange={handleAssetCodeChange}
                       onNotesChange={(partId, notes) => updateNotesMutation.mutate({ partId, notes })}
-                      onDelete={(partId) => deleteManualPartMutation.mutate(partId)}
+                      onDelete={(partId) => setDeleteConfirmPartId(partId)}
                     />
                   ))}
                 </div>
@@ -601,6 +613,38 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
         </CollapsibleContent>
       </Collapsible>
     </Card>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deleteConfirmPartId} onOpenChange={(open) => { if (!open) setDeleteConfirmPartId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+            <AlertDialogDescription>
+              {(() => {
+                const partToDelete = parts?.find(p => p.id === deleteConfirmPartId);
+                return partToDelete
+                  ? `Você realmente deseja excluir a peça ${partToDelete.part_code_snapshot} — ${partToDelete.part_name_snapshot}?`
+                  : 'Você realmente deseja excluir esta peça?';
+              })()}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (deleteConfirmPartId) {
+                  deleteManualPartMutation.mutate(deleteConfirmPartId);
+                  setDeleteConfirmPartId(null);
+                }
+              }}
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
 
