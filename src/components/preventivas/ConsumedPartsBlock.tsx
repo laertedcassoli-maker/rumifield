@@ -59,6 +59,7 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
   const [notes, setNotes] = useState('');
   const [stockSource, setStockSource] = useState<'tecnico' | 'fazenda' | 'novo_pedido'>('tecnico');
   const [dialogAssetCode, setDialogAssetCode] = useState('');
+  const [deleteConfirmPartId, setDeleteConfirmPartId] = useState<string | null>(null);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const { toast } = useToast();
   const queryClient = useQueryClient();
