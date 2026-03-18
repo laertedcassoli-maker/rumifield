@@ -562,10 +562,28 @@ export default function ExecucaoVisitaCorretiva() {
 
               const itemsWithoutParts = itemIdsWithTroca.filter(id => !itemIdsWithParts.has(id));
 
+              // If there are still unlinked troca items, check if manual parts cover them
               if (itemsWithoutParts.length > 0) {
-                blockingErrors.push(
-                  'Existem itens no checklist com troca de peça que ainda não possuem peça vinculada. Adicione uma peça para cada item antes de finalizar a visita.'
-                );
+                const { data: manualParts } = await supabase
+                  .from('preventive_part_consumption')
+                  .select('id')
+                  .eq('preventive_id', visit.preventiveId)
+                  .is('exec_item_id', null);
+
+                const localManualParts = await offlineChecklistDb.partConsumptions
+                  .filter(pc => pc.preventive_id === visit.preventiveId
+                    && pc.exec_item_id === null
+                    && pc._operation !== 'delete')
+                  .toArray();
+
+                const totalManualParts = (manualParts?.length || 0) + localManualParts.length;
+                const stillMissing = itemsWithoutParts.length - totalManualParts;
+
+                if (stillMissing > 0) {
+                  blockingErrors.push(
+                    'Existem itens no checklist com troca de peça que ainda não possuem peça vinculada. Adicione uma peça para cada item antes de finalizar a visita.'
+                  );
+                }
               }
             }
           }
