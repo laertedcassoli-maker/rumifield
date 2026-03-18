@@ -370,6 +370,7 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
   const hasParts = totalParts > 0;
 
   return (
+    <>
     <Card className="overflow-hidden">
       <Collapsible open={isExpanded} onOpenChange={setIsExpanded}>
         <CollapsibleTrigger asChild>
