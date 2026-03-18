@@ -459,7 +459,7 @@ export default function AtendimentoPreventivo() {
             if (trocaActions && trocaActions.length > 0) {
               const itemIdsWithTroca = [...new Set(trocaActions.map(a => a.exec_item_id))];
 
-              // Step 4: Check which items have linked parts
+              // Step 4: Check which items have linked parts (server + local Dexie)
               const { data: linkedParts } = await supabase
                 .from('preventive_part_consumption')
                 .select('exec_item_id')
@@ -467,6 +467,18 @@ export default function AtendimentoPreventivo() {
                 .in('exec_item_id', itemIdsWithTroca);
 
               const itemIdsWithParts = new Set((linkedParts || []).map(p => p.exec_item_id));
+
+              // Also check local Dexie for pending parts not yet synced
+              const localParts = await offlineChecklistDb.partConsumptions
+                .filter(pc => pc.preventive_id === routeItem.preventiveId
+                  && pc.exec_item_id !== null
+                  && itemIdsWithTroca.includes(pc.exec_item_id!)
+                  && pc._operation !== 'delete')
+                .toArray();
+              localParts.forEach(lp => {
+                if (lp.exec_item_id) itemIdsWithParts.add(lp.exec_item_id);
+              });
+
               const itemsWithoutParts = itemIdsWithTroca.filter(id => !itemIdsWithParts.has(id));
 
               if (itemsWithoutParts.length > 0) {
