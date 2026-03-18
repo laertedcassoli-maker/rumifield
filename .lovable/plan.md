@@ -1,19 +1,14 @@
 
 
-## Corrigir alinhamento do conteudo nos cards de resumo
+## Diagnosis
 
-### Problema
-O conteudo (numero + label) dentro dos cards de resumo esta visualmente deslocado para a direita. Isso ocorre porque o componente `CardContent` aplica `p-6` (24px) de padding horizontal por padrao, o que em cards estreitos empurra o conteudo para fora do centro visual.
+The issue is **not a code bug** — it's a **deployment gap**. The development preview (id-preview--*.lovable.app) always runs the latest code, but the published URL (rumifield.lovable.app) runs the **last published version**, which doesn't include the recent timer fixes (optimistic UI, stable dependencies, etc.).
 
-### Solucao
+Both environments share the same database, so the `work_order_time_entries` record with `status: 'running'` exists. But the old published code likely has the previous timer implementation that doesn't handle the running entry correctly.
 
-**Arquivo: `src/pages/crm/CrmPipeline.tsx`**
+## Solution
 
-Adicionar `px-2` ao `CardContent` dos cards de resumo para reduzir o padding horizontal, centralizando melhor o conteudo:
+No code changes are needed. You need to **re-publish the project** so the published URL gets the latest code with the timer fixes.
 
-```tsx
-<CardContent className="py-2 px-2 text-center">
-```
-
-Isso substitui o `p-6` padrao do componente por um padding horizontal menor, mantendo o texto centralizado visualmente dentro do card.
+You can do this by clicking the **"Publish"** button (or share button) in the Lovable editor to deploy the current version to rumifield.lovable.app. After publishing, do a hard refresh on the published URL (the `?r=` cache-buster should handle this).
 
