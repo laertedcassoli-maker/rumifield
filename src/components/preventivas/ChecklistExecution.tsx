@@ -681,7 +681,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
             .eq('template_nonconformity_id', nonconformityId);
         } else {
           // Add NC
-          const { data: inserted } = await supabase
+          const { data: inserted, error: ncInsertErr } = await supabase
             .from('preventive_checklist_item_nonconformities')
             .insert({
               exec_item_id: itemId,
@@ -691,13 +691,20 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
             .select('id')
             .single();
 
+          if (ncInsertErr) {
+            console.error('[ChecklistExecution] Error inserting NC:', ncInsertErr);
+            throw ncInsertErr;
+          }
+
           // NC being ADDED → create part consumption if Troca active
           if (inserted) {
             const hasTroca = itemHasTrocaAction(itemId);
+            console.log('[ChecklistExecution] NC added for item', itemId, '- hasTroca:', hasTroca);
             if (hasTroca) {
               const ncParts = await getNcParts(nonconformityId);
+              console.log('[ChecklistExecution] Creating parts for NC:', ncParts.length, 'parts');
               for (const np of ncParts) {
-                await (supabase as any)
+                const { error: partErr } = await (supabase as any)
                   .from('preventive_part_consumption')
                   .insert({
                     preventive_id: preventiveId,
@@ -709,6 +716,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
                     quantity: np.default_quantity,
                     stock_source: null,
                   });
+                if (partErr) console.error('[ChecklistExecution] Error inserting part from NC:', partErr);
               }
             }
           }
