@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { offlineChecklistDb } from '@/lib/offline-checklist-db';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -539,7 +540,7 @@ export default function ExecucaoVisitaCorretiva() {
             if (trocaActions && trocaActions.length > 0) {
               const itemIdsWithTroca = [...new Set(trocaActions.map(a => a.exec_item_id))];
 
-              // Step 4: Check which items have linked parts
+              // Step 4: Check which items have linked parts (server + local Dexie)
               const { data: linkedParts } = await supabase
                 .from('preventive_part_consumption')
                 .select('exec_item_id')
@@ -547,12 +548,42 @@ export default function ExecucaoVisitaCorretiva() {
                 .in('exec_item_id', itemIdsWithTroca);
 
               const itemIdsWithParts = new Set((linkedParts || []).map(p => p.exec_item_id));
+
+              // Also check local Dexie for pending parts not yet synced
+              const localParts = await offlineChecklistDb.partConsumptions
+                .filter(pc => pc.preventive_id === visit.preventiveId
+                  && pc.exec_item_id !== null
+                  && itemIdsWithTroca.includes(pc.exec_item_id!)
+                  && pc._operation !== 'delete')
+                .toArray();
+              localParts.forEach(lp => {
+                if (lp.exec_item_id) itemIdsWithParts.add(lp.exec_item_id);
+              });
+
               const itemsWithoutParts = itemIdsWithTroca.filter(id => !itemIdsWithParts.has(id));
 
+              // If there are still unlinked troca items, check if manual parts cover them
               if (itemsWithoutParts.length > 0) {
-                blockingErrors.push(
-                  'Existem itens no checklist com troca de peça que ainda não possuem peça vinculada. Adicione uma peça para cada item antes de finalizar a visita.'
-                );
+                const { data: manualParts } = await supabase
+                  .from('preventive_part_consumption')
+                  .select('id')
+                  .eq('preventive_id', visit.preventiveId)
+                  .is('exec_item_id', null);
+
+                const localManualParts = await offlineChecklistDb.partConsumptions
+                  .filter(pc => pc.preventive_id === visit.preventiveId
+                    && pc.exec_item_id === null
+                    && pc._operation !== 'delete')
+                  .toArray();
+
+                const totalManualParts = (manualParts?.length || 0) + localManualParts.length;
+                const stillMissing = itemsWithoutParts.length - totalManualParts;
+
+                if (stillMissing > 0) {
+                  blockingErrors.push(
+                    'Existem itens no checklist com troca de peça que ainda não possuem peça vinculada. Adicione uma peça para cada item antes de finalizar a visita.'
+                  );
+                }
               }
             }
           }
