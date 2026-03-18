@@ -612,6 +612,38 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
         </CollapsibleContent>
       </Collapsible>
     </Card>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deleteConfirmPartId} onOpenChange={(open) => { if (!open) setDeleteConfirmPartId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirmar exclusão</AlertDialogTitle>
+            <AlertDialogDescription>
+              {(() => {
+                const partToDelete = parts?.find(p => p.id === deleteConfirmPartId);
+                return partToDelete
+                  ? `Você realmente deseja excluir a peça ${partToDelete.part_code_snapshot} — ${partToDelete.part_name_snapshot}?`
+                  : 'Você realmente deseja excluir esta peça?';
+              })()}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (deleteConfirmPartId) {
+                  deleteManualPartMutation.mutate(deleteConfirmPartId);
+                  setDeleteConfirmPartId(null);
+                }
+              }}
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 }
 
