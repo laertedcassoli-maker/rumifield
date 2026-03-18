@@ -421,7 +421,7 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
                       onStockSourceChange={handleStockSourceChange}
                       onAssetCodeChange={handleAssetCodeChange}
                       onNotesChange={(partId, notes) => updateNotesMutation.mutate({ partId, notes })}
-                      onDelete={(partId) => deleteManualPartMutation.mutate(partId)}
+                      onDelete={(partId) => setDeleteConfirmPartId(partId)}
                     />
                   ))}
                 </div>
