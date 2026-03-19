@@ -1,30 +1,19 @@
 
 
-## Fix: Coordenadores não veem pedidos de outros usuários
+## Adicionar filtro por criador do pedido (solicitante)
 
-### Problema
-O estado `viewAll` começa como `false` para todos. Isso significa que coordenadores e admins só veem seus próprios pedidos ao abrir a tela, precisando manualmente ativar o toggle "Ver todos".
+### O que será feito
+Adicionar um `Select` dropdown na área de filtros da tela de Pedidos que permite filtrar por solicitante. Visível apenas para admins/coordenadores (quem tem `viewAll`).
 
-### Correção
-Em `src/pages/Pedidos.tsx`, mudar o valor inicial de `viewAll` para `true` quando o usuário for admin ou coordenador:
+### Alterações em `src/pages/Pedidos.tsx`
 
-```typescript
-// Antes:
-const [viewAll, setViewAll] = useState(false);
+1. **Novo estado**: `solicitanteFilter` (string, default `'all'`)
 
-// Depois:
-const [viewAll, setViewAll] = useState(false);
-// + useEffect que seta viewAll = true quando isAdmin é calculado
-```
+2. **Lista de solicitantes únicos**: `useMemo` que extrai os nomes únicos dos pedidos via `pedido.solicitante?.nome` e `pedido.solicitante_id`, gerando uma lista `{id, nome}` para popular o Select.
 
-Como `isAdmin` depende de `role` (que pode carregar após o render inicial), a forma mais segura é usar um `useEffect` que atualiza `viewAll` quando `isAdmin` muda para `true`:
+3. **Filtro no `filteredAndSortedPedidos`**: Adicionar condição `matchesSolicitante` que compara `pedido.solicitante_id === solicitanteFilter` quando não é `'all'`.
 
-```typescript
-useEffect(() => {
-  if (isAdmin) setViewAll(true);
-}, [isAdmin]);
-```
+4. **UI do Select**: Renderizar um `Select` com label "Solicitante:" na área de filtros (junto aos filtros de Envio/Logística), visível apenas quando `isAdmin && viewAll`.
 
-### Arquivo modificado
-- `src/pages/Pedidos.tsx` — 1 linha adicionada
+5. **Reset**: Incluir `setSolicitanteFilter('all')` no `clearFilters` e no `useEffect` de reset de página.
 
