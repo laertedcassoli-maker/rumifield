@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { toast } from "sonner";
-import { AlertTriangle, ClipboardCheck, Loader2, Wrench, WifiOff, Cloud, ChevronDown, ChevronUp, CheckCircle2, RefreshCw } from "lucide-react";
+import { AlertTriangle, ClipboardCheck, Loader2, Wrench, WifiOff, Cloud, ChevronDown, ChevronUp, CheckCircle2, RefreshCw, Package } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import ChecklistItemStatusButtons from "./ChecklistItemStatusButtons";
 import SelectableOptionCard from "./SelectableOptionCard";
@@ -221,6 +221,24 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
     refetchOnWindowFocus: false,
   });
 
+  // Get exec_item_ids that have at least one part consumption record
+  const { data: coveredExecItemIds } = useQuery<Set<string>>({
+    queryKey: ['part-consumption-coverage', preventiveId],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from('preventive_part_consumption')
+        .select('exec_item_id')
+        .eq('preventive_id', preventiveId)
+        .not('exec_item_id', 'is', null);
+
+      if (error) throw error;
+      return new Set((data || []).map((r: any) => r.exec_item_id));
+    },
+    enabled: !!existingChecklist,
+    staleTime: 10_000,
+    refetchOnWindowFocus: false,
+  });
+
   // Create checklist from template
   const createChecklistMutation = useMutation({
     mutationFn: async (templateId: string) => {
@@ -380,6 +398,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['preventive-checklist', preventiveId] });
       queryClient.invalidateQueries({ queryKey: ['preventive-consumed-parts', preventiveId] });
+      queryClient.invalidateQueries({ queryKey: ['part-consumption-coverage', preventiveId] });
       toast.success('Checklist removido. Selecione um novo template.');
       autoStartAttempted.current = true; // prevent auto-start from firing
       setIsSelectTemplateOpen(true);
@@ -529,6 +548,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
       });
       setLastSavedAt(new Date());
       queryClient.invalidateQueries({ queryKey: ['preventive-consumed-parts', preventiveId] });
+      queryClient.invalidateQueries({ queryKey: ['part-consumption-coverage', preventiveId] });
     },
     onError: (error) => {
       toast.error('Erro ao atualizar: ' + error.message);
@@ -732,6 +752,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
         };
       });
       queryClient.invalidateQueries({ queryKey: ['preventive-consumed-parts', preventiveId] });
+      queryClient.invalidateQueries({ queryKey: ['part-consumption-coverage', preventiveId] });
       setLastSavedAt(new Date());
     },
     onError: (error) => {
@@ -862,6 +883,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
         };
       });
       queryClient.invalidateQueries({ queryKey: ['preventive-consumed-parts', preventiveId] });
+      queryClient.invalidateQueries({ queryKey: ['part-consumption-coverage', preventiveId] });
       setLastSavedAt(new Date());
     },
     onError: (error) => {
@@ -1196,6 +1218,14 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
                   const missingAction = item.availableActions.length > 0 && item.selectedActions.length === 0;
                   const needsTreatment = item.status === 'N' && hasFailureDetails && (missingNonconformity || missingAction);
 
+                  // Check if item has a "troca" action selected but no part linked
+                  const hasTrocaAction = item.status === 'N' && item.selectedActions.some(actionId => {
+                    const action = item.availableActions.find(a => a.id === actionId);
+                    return action && /troca/i.test(action.action_label);
+                  });
+                  const hasCoveredPart = coveredExecItemIds?.has(item.id) ?? false;
+                  const needsPart = hasTrocaAction && !hasCoveredPart;
+
                   return (
                     <div 
                       key={item.id} 
@@ -1209,11 +1239,17 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
                     >
                       <div className="space-y-3">
                         <div className="flex items-start justify-between gap-2">
-                          <div className="flex items-start gap-2 min-w-0 flex-1">
+                          <div className="flex items-start gap-2 min-w-0 flex-1 flex-wrap">
                             <span className="font-medium">{item.item_name_snapshot}</span>
                             {needsTreatment && !isCompleted && (
                               <Badge variant="destructive" className="shrink-0 text-xs animate-pulse">
                                 Pendente
+                              </Badge>
+                            )}
+                            {needsPart && !isCompleted && (
+                              <Badge variant="outline" className="shrink-0 text-xs border-amber-500 text-amber-600 bg-amber-50 dark:bg-amber-950/30">
+                                <Package className="h-3 w-3 mr-1" />
+                                Peça pendente
                               </Badge>
                             )}
                           </div>
