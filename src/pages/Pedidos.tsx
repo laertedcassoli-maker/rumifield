@@ -186,7 +186,10 @@ export default function Pedidos() {
         matchesTipoLogistica = pedido.tipo_logistica === 'entrega_propria';
       }
 
-      return matchesSearch && matchesStatus && matchesDate && matchesTipoEnvio && matchesTipoLogistica;
+      // Solicitante filter
+      const matchesSolicitante = solicitanteFilter === 'all' || pedido.solicitante_id === solicitanteFilter;
+
+      return matchesSearch && matchesStatus && matchesDate && matchesTipoEnvio && matchesTipoLogistica && matchesSolicitante;
     });
     
     filtered.sort((a, b) => {
