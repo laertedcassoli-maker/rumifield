@@ -1207,6 +1207,7 @@ export default function Pedidos() {
                 </div>
               )}
 
+              {filteredAndSortedPedidos.length > 0 && (
                 <Badge variant="outline" className="ml-2 h-6 px-2">
                   {filteredAndSortedPedidos.length} {filteredAndSortedPedidos.length === 1 ? 'pedido' : 'pedidos'}
                 </Badge>
