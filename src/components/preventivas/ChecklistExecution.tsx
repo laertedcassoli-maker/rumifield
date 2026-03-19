@@ -1476,6 +1476,33 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <AlertDialog open={isConfirmReplaceOpen} onOpenChange={setIsConfirmReplaceOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Trocar template de checklist?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Todos os dados preenchidos neste checklist serão apagados permanentemente. Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (existingChecklist?.id) {
+                  replaceChecklistMutation.mutate(existingChecklist.id);
+                }
+                setIsConfirmReplaceOpen(false);
+              }}
+              disabled={replaceChecklistMutation.isPending}
+            >
+              {replaceChecklistMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Sim, trocar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }
