@@ -108,7 +108,9 @@ export default function NovaVisitaDiretaDialog({
 
       try {
         // 1. Generate ticket code
-        const { data: ticketCode, error: codeError } = await supabase.rpc('generate_ticket_code');
+        const { data: ticketCode, error: codeError } = await withTimeout(
+          supabase.rpc('generate_ticket_code')
+        );
         if (codeError) throw codeError;
 
         // 2. Create ticket
