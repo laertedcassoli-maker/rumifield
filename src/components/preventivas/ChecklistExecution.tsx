@@ -671,12 +671,13 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
       }
 
       const lockKey = `${itemId}-${nonconformityId}`;
-      if (processingNonconformities.has(lockKey)) {
+      if (processingNonconformitiesRef.current.has(lockKey)) {
         console.log('[ChecklistExecution] Nonconformity already being processed, skipping:', lockKey);
         return;
       }
       
-      setProcessingNonconformities(prev => new Set(prev).add(lockKey));
+      processingNonconformitiesRef.current.add(lockKey);
+      setProcessingNonconformities(new Set(processingNonconformitiesRef.current));
       
       try {
         if (isSelected) {
