@@ -562,12 +562,13 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
       }
 
       const lockKey = `${itemId}-${actionId}`;
-      if (processingActions.has(lockKey)) {
+      if (processingActionsRef.current.has(lockKey)) {
         console.log('[ChecklistExecution] Action already being processed, skipping:', lockKey);
         return;
       }
       
-      setProcessingActions(prev => new Set(prev).add(lockKey));
+      processingActionsRef.current.add(lockKey);
+      setProcessingActions(new Set(processingActionsRef.current));
       
       try {
         if (isSelected) {
