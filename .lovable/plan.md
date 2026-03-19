@@ -1,48 +1,26 @@
 
 
-## Correção de robustez — Módulo de Chamados (7 bugs)
+## Corrigir duplicação de checklist template — incluir não-conformidades e peças
 
-**Nota:** Bug 7 (NovaVisitaDiretaDialog navigator.onLine) e Bug 2 parcial (rollback) já foram corrigidos na iteração anterior. Os itens abaixo cobrem o que resta.
+### Arquivo: `src/pages/preventivas/Checklists.tsx`
+### Função: `duplicateTemplateMutation`
 
-### Novo arquivo: `src/lib/supabase-helpers.ts`
-Criar helper `withTimeout<T>(promise, ms=10000)` usando `Promise.race` — reutilizável em todos os módulos.
+### Alterações
 
-### 1. `src/pages/chamados/NovoChamado.tsx` (Bug 1 + Bug 8)
-- Salvar `ticket.id` após insert
-- Envolver timeline + tags em try/catch com rollback (delete ticket) no catch antes de re-throw
-- Aplicar `withTimeout` no insert principal
+**1. Expandir o select da estrutura original** (linha ~103)
 
-### 2. `src/components/chamados/NovaVisitaDialog.tsx` (Bug 2 + Bug 8)
-- Capturar erro do `.update()` de status: `if (updateError) throw updateError`
-- Capturar erro do insert timeline: `if (tlError) throw tlError`
-- Rollback: se update/timeline falhar, deletar a visita criada
-- Adicionar `queryClient.invalidateQueries({ queryKey: ['technical-tickets'] })` no onSuccess
-- Aplicar `withTimeout` na criação da visita
+Adicionar `nonconformities:checklist_item_nonconformities(*)` ao select dos items, ao lado de `actions`.
 
-### 3. `src/components/chamados/NovaInteracaoDialog.tsx` (Bug 3 + Bug 8)
-- Capturar erro do `.update()` de status: `if (updateError) throw updateError`
-- Adicionar `queryClient.invalidateQueries({ queryKey: ['technical-tickets'] })` no onSuccess
-- Aplicar `withTimeout` no insert da timeline
+**2. Duplicar não-conformidades** — após o loop de ações corretivas (~linha 137)
 
-### 4. `src/components/chamados/FinalizarChamadoDialog.tsx` (Bug 4 + Bug 8)
-- Capturar erro do insert timeline: `if (tlError) throw tlError`
-- Adicionar `queryClient.invalidateQueries({ queryKey: ['technical-tickets'] })` no onSuccess
-- Aplicar `withTimeout` no update principal
+Para cada `nc` em `item.nonconformities`:
+- Insert em `checklist_item_nonconformities` com campos: `item_id: newItem.id`, `nonconformity_label: nc.nonconformity_label`, `order_index: nc.order_index`, `active: nc.active`
+- Para cada não-conformidade criada, buscar peças vinculadas em `checklist_nonconformity_parts` onde `nonconformity_id = nc.id`
+- Insert cada peça com: `nonconformity_id: newNc.id`, `part_id: part.part_id`, `default_quantity: part.default_quantity`
 
-### 5. `src/pages/chamados/DetalheChamado.tsx` (Bug 5 + Bug 6)
-- **Tags (Bug 5):** Antes do DELETE, salvar snapshot das tags atuais. Se o INSERT falhar, restaurar tags anteriores antes de re-throw
-- **Técnico (Bug 6):** Capturar erro do insert timeline com `console.error` (não bloqueia, mas registra)
+### Campos (inferidos dos types)
+- `checklist_item_nonconformities`: `item_id`, `nonconformity_label`, `order_index`, `active`
+- `checklist_nonconformity_parts`: `nonconformity_id`, `part_id`, `default_quantity`
 
-### 6. `src/components/chamados/NovaVisitaDiretaDialog.tsx` (Bug 8 only)
-- Aplicar `withTimeout` nas chamadas críticas (já tem rollback)
-- Remover `navigator.onLine` check (timeout é proteção suficiente)
-
-### Arquivos alterados
-- `src/lib/supabase-helpers.ts` (novo)
-- `src/pages/chamados/NovoChamado.tsx`
-- `src/components/chamados/NovaVisitaDialog.tsx`
-- `src/components/chamados/NovaInteracaoDialog.tsx`
-- `src/components/chamados/FinalizarChamadoDialog.tsx`
-- `src/pages/chamados/DetalheChamado.tsx`
-- `src/components/chamados/NovaVisitaDiretaDialog.tsx`
+Nenhuma outra alteração na função.
 
