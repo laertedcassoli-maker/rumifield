@@ -616,11 +616,8 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
           }
         }
       } finally {
-        setProcessingActions(prev => {
-          const next = new Set(prev);
-          next.delete(lockKey);
-          return next;
-        });
+        processingActionsRef.current.delete(lockKey);
+        setProcessingActions(new Set(processingActionsRef.current));
       }
     },
     onSuccess: (_, variables) => {
