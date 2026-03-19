@@ -614,6 +614,11 @@ export function useOfflineSync() {
         } else if (tableName === "pedido_itens") {
           const result = await supabase.from("pedido_itens").delete().eq("id", id);
           if (result.error) throw result.error;
+        } else {
+          console.warn(
+            `[Sync] Sem handler para delete em '${tableName}'. Mantendo na fila para retry.`
+          );
+          throw new Error(`Tabela sem handler: ${tableName} / delete`);
         }
         break;
       }
