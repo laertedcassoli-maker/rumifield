@@ -161,6 +161,38 @@ export default function Checklists() {
 
             if (actionError) throw actionError;
           }
+
+          for (const nc of item.nonconformities || []) {
+            const { data: newNc, error: ncError } = await supabase
+              .from('checklist_item_nonconformities')
+              .insert({
+                item_id: newItem.id,
+                nonconformity_label: nc.nonconformity_label,
+                order_index: nc.order_index,
+                active: nc.active
+              })
+              .select()
+              .single();
+
+            if (ncError) throw ncError;
+
+            const { data: parts } = await supabase
+              .from('checklist_nonconformity_parts')
+              .select('*')
+              .eq('nonconformity_id', nc.id);
+
+            for (const part of parts || []) {
+              const { error: partError } = await supabase
+                .from('checklist_nonconformity_parts')
+                .insert({
+                  nonconformity_id: newNc.id,
+                  part_id: part.part_id,
+                  default_quantity: part.default_quantity
+                });
+
+              if (partError) throw partError;
+            }
+          }
         }
       }
 
