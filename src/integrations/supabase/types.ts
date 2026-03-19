@@ -3673,6 +3673,10 @@ export type Database = {
         Returns: undefined
       }
       can_delete_peca: { Args: { _peca_id: string }; Returns: boolean }
+      duplicate_checklist_template: {
+        Args: { p_template_id: string }
+        Returns: string
+      }
       generate_corrective_visit_code: { Args: never; Returns: string }
       generate_preventive_route_code: { Args: never; Returns: string }
       generate_ticket_code: { Args: never; Returns: string }
