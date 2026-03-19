@@ -221,6 +221,24 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
     refetchOnWindowFocus: false,
   });
 
+  // Get exec_item_ids that have at least one part consumption record
+  const { data: coveredExecItemIds } = useQuery<Set<string>>({
+    queryKey: ['part-consumption-coverage', preventiveId],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from('preventive_part_consumption')
+        .select('exec_item_id')
+        .eq('preventive_id', preventiveId)
+        .not('exec_item_id', 'is', null);
+
+      if (error) throw error;
+      return new Set((data || []).map((r: any) => r.exec_item_id));
+    },
+    enabled: !!existingChecklist,
+    staleTime: 10_000,
+    refetchOnWindowFocus: false,
+  });
+
   // Create checklist from template
   const createChecklistMutation = useMutation({
     mutationFn: async (templateId: string) => {
