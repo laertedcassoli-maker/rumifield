@@ -1,19 +1,26 @@
 
 
-## Adicionar filtro por criador do pedido (solicitante)
+## Implementação dos 5 bugs (A-E)
 
-### O que será feito
-Adicionar um `Select` dropdown na área de filtros da tela de Pedidos que permite filtrar por solicitante. Visível apenas para admins/coordenadores (quem tem `viewAll`).
+### Arquivo 1: `src/pages/preventivas/NovaRota.tsx`
 
-### Alterações em `src/pages/Pedidos.tsx`
+**Bug A** — Adicionar `order_index: index` ao map de items (linhas 477-485).
 
-1. **Novo estado**: `solicitanteFilter` (string, default `'all'`)
+**Bug B** — Declarar `let createdRouteId: string | null = null` antes do try. Setar após insert da rota (linha 474). No catch (linhas 496-501), deletar rota órfã antes do toast.
 
-2. **Lista de solicitantes únicos**: `useMemo` que extrai os nomes únicos dos pedidos via `pedido.solicitante?.nome` e `pedido.solicitante_id`, gerando uma lista `{id, nome}` para popular o Select.
+### Arquivo 2: `src/pages/preventivas/DetalheRota.tsx`
 
-3. **Filtro no `filteredAndSortedPedidos`**: Adicionar condição `matchesSolicitante` que compara `pedido.solicitante_id === solicitanteFilter` quando não é `'all'`.
+**Bug C** — Linha 234-237: trocar `.insert(preventiveRecords)` por `.upsert(preventiveRecords, { onConflict: 'client_id,route_id', ignoreDuplicates: false })`.
 
-4. **UI do Select**: Renderizar um `Select` com label "Solicitante:" na área de filtros (junto aos filtros de Envio/Logística), visível apenas quando `isAdmin && viewAll`.
+### Arquivo 3: `src/hooks/useOfflineSync.ts`
 
-5. **Reset**: Incluir `setSolicitanteFilter('all')` no `clearFilters` e no `useEffect` de reset de página.
+**Bug D** — Adicionar handlers no `processSyncItem`:
+- **insert** (após linha 514): handlers para `preventive_maintenance` (upsert com `client_id,route_id`) e `preventive_route_items` (upsert com `id`). Fallback `else` com throw.
+- **update** (após linha 557): handler para `preventive_maintenance`. Fallback `else` com throw.
+- **delete** (após linha 572): fallback `else` com throw.
+
+**Bug E** — Linhas 625-639: substituir `Promise.all` único por 3 fases sequenciais:
+1. `Promise.all` com dados de referência (clientes, pecas, etc + corretivas, rotas, rota_items)
+2. `await syncTableFromServer("preventivas")`
+3. `await syncTableFromServer("checklists")`
 
