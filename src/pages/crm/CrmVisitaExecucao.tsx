@@ -197,13 +197,19 @@ export default function CrmVisitaExecucao() {
   // @ts-ignore
   const cancelMutation = useMutation({
     mutationFn: async (reason: string) => {
-      const { error } = await supabase
-        .from('crm_visits')
-        .update({ status: 'cancelada', cancellation_reason: reason })
-        .eq('id', id);
+      const { error } = await withTimeout(
+        supabase
+          .from('crm_visits')
+          .update({ status: 'cancelada', cancellation_reason: reason })
+          .eq('id', id)
+      );
       if (error) throw error;
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['crm-visitas'] });
+      queryClient.invalidateQueries({ queryKey: ['crm-carteira-visits'] });
+      queryClient.invalidateQueries({ queryKey: ['crm-carteira'] });
+      queryClient.invalidateQueries({ queryKey: ['crm-visit', id] });
       setCancelOpen(false);
       toast({ title: 'Visita cancelada.' });
       navigate(backPath);
