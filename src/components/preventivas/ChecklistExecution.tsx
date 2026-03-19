@@ -159,7 +159,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
       if (error) throw error;
       return data;
     },
-    enabled: !existingChecklist && !routeTemplateId
+    enabled: (!existingChecklist && !routeTemplateId) || isSelectTemplateOpen
   });
 
   // Helper: extract template item IDs from checklist
