@@ -276,7 +276,7 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
     },
   });
 
-  // Add manual part mutation (local-first: always writes to Dexie first)
+  // Add manual part mutation (local-first with online Supabase insert)
   const addManualPartMutation = useMutation({
     mutationFn: async () => {
       if (!selectedPartId || !selectedPart) throw new Error('Selecione uma peça');
@@ -284,8 +284,7 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
       const newId = crypto.randomUUID();
       const assetCode = stockSource === 'tecnico' && dialogAssetCode.trim() ? dialogAssetCode.trim() : null;
 
-      // Always save locally first
-      await offlineChecklistDb.addPartConsumptionLocally({
+      const payload = {
         id: newId,
         preventive_id: preventiveId,
         part_id: selectedPartId,
@@ -298,7 +297,18 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
         is_manual: true,
         notes: notes || null,
         asset_unique_code: assetCode,
-      });
+      };
+
+      // Always save locally first for instant UI feedback
+      await offlineChecklistDb.addPartConsumptionLocally(payload);
+
+      if (isOnline) {
+        // Online: also insert directly into Supabase
+        const { error } = await (supabase as any)
+          .from('preventive_part_consumption')
+          .insert(payload);
+        if (error) throw error;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['preventive-consumed-parts', preventiveId] });
