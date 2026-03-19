@@ -75,6 +75,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [expandedItems, setExpandedItems] = useState<Set<string>>(new Set());
   const [isBlockExpanded, setIsBlockExpanded] = useState(false);
+  const [isConfirmReplaceOpen, setIsConfirmReplaceOpen] = useState(false);
   const [optimisticStatuses, setOptimisticStatuses] = useState<Record<string, 'S' | 'N' | 'NA'>>({});
   const [pendingStatusChange, setPendingStatusChange] = useState<{
     itemId: string;
