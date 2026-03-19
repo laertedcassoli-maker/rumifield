@@ -104,6 +104,18 @@ export default function Pedidos() {
   const [sortField, setSortField] = useState<'created_at' | 'cliente' | 'status'>('created_at');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
+  // Unique solicitantes for filter dropdown
+  const solicitantesUnicos = useMemo(() => {
+    if (!pedidos) return [];
+    const map = new Map<string, string>();
+    for (const p of pedidos) {
+      if (p.solicitante_id && !map.has(p.solicitante_id)) {
+        map.set(p.solicitante_id, (p as any).solicitante?.nome || p.solicitante_id);
+      }
+    }
+    return Array.from(map.entries()).map(([id, nome]) => ({ id, nome })).sort((a, b) => a.nome.localeCompare(b.nome));
+  }, [pedidos]);
+
   // Separate drafts from transmitted orders
   const rascunhos = useMemo(() => {
     if (!pedidos) return [];
