@@ -548,6 +548,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
       });
       setLastSavedAt(new Date());
       queryClient.invalidateQueries({ queryKey: ['preventive-consumed-parts', preventiveId] });
+      queryClient.invalidateQueries({ queryKey: ['part-consumption-coverage', preventiveId] });
     },
     onError: (error) => {
       toast.error('Erro ao atualizar: ' + error.message);
