@@ -34,24 +34,27 @@ export default function FinalizarChamadoDialog({ open, onOpenChange, ticketId }:
     mutationFn: async () => {
       const now = new Date().toISOString();
 
-      const { error } = await supabase
-        .from('technical_tickets')
-        .update({
-          status: 'resolvido',
-          substatus: null,
-          resolved_at: now,
-          resolution_summary: resolutionSummary.trim() || null,
-        })
-        .eq('id', ticketId);
+      const { error } = await withTimeout(
+        supabase
+          .from('technical_tickets')
+          .update({
+            status: 'resolvido',
+            substatus: null,
+            resolved_at: now,
+            resolution_summary: resolutionSummary.trim() || null,
+          })
+          .eq('id', ticketId)
+      );
 
       if (error) throw error;
 
-      await supabase.from('ticket_timeline').insert({
+      const { error: tlError } = await supabase.from('ticket_timeline').insert({
         ticket_id: ticketId,
         user_id: user!.id,
         event_type: 'status_change',
         event_description: 'Chamado finalizado e marcado como resolvido',
       });
+      if (tlError) throw tlError;
     },
     onSuccess: () => {
       toast({ title: 'Chamado finalizado com sucesso!' });
@@ -59,6 +62,7 @@ export default function FinalizarChamadoDialog({ open, onOpenChange, ticketId }:
       onOpenChange(false);
       queryClient.invalidateQueries({ queryKey: ['ticket-detail', ticketId] });
       queryClient.invalidateQueries({ queryKey: ['ticket-timeline', ticketId] });
+      queryClient.invalidateQueries({ queryKey: ['technical-tickets'] });
     },
     onError: (e: Error) => {
       toast({ variant: 'destructive', title: 'Erro ao finalizar', description: e.message });

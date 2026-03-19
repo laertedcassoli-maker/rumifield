@@ -391,7 +391,7 @@ export default function DetalheChamado() {
       
       if (error) throw error;
 
-      await supabase.from('ticket_timeline').insert({
+      const { error: tlError } = await supabase.from('ticket_timeline').insert({
         ticket_id: id,
         user_id: user!.id,
         event_type: 'technician_assigned',
@@ -399,6 +399,7 @@ export default function DetalheChamado() {
           ? 'Técnico de campo atribuído' 
           : 'Técnico de campo removido',
       });
+      if (tlError) console.error('[DetalheChamado] Timeline insert failed:', tlError);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['ticket-detail', id] });

@@ -52,21 +52,22 @@ export default function NovaInteracaoDialog({
       const typeConfig = interactionTypes.find(t => t.value === interactionType);
       const eventDescription = `${typeConfig?.label || 'Interação'}: ${notes.substring(0, 100)}${notes.length > 100 ? '...' : ''}`;
 
-      const { error } = await supabase
-        .from('ticket_timeline')
-        .insert({
-          ticket_id: ticketId,
-          user_id: user!.id,
-          event_type: 'interaction',
-          event_description: eventDescription,
-          interaction_type: interactionType,
-          notes: notes.trim(),
-        });
+      const { error } = await withTimeout(
+        supabase
+          .from('ticket_timeline')
+          .insert({
+            ticket_id: ticketId,
+            user_id: user!.id,
+            event_type: 'interaction',
+            event_description: eventDescription,
+            interaction_type: interactionType,
+            notes: notes.trim(),
+          })
+      );
 
       if (error) throw error;
 
       // Any interaction moves ticket to "em_atendimento"
-      // If interaction type is "waiting", also set substatus to aguardando_cliente
       const updatePayload: { status: 'em_atendimento'; substatus?: string } = {
         status: 'em_atendimento' as const,
       };
@@ -75,14 +76,16 @@ export default function NovaInteracaoDialog({
         updatePayload.substatus = 'aguardando_cliente';
       }
 
-      await supabase
+      const { error: updateError } = await supabase
         .from('technical_tickets')
         .update(updatePayload)
         .eq('id', ticketId);
+      if (updateError) throw updateError;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['ticket-timeline', ticketId] });
       queryClient.invalidateQueries({ queryKey: ['ticket-detail', ticketId] });
+      queryClient.invalidateQueries({ queryKey: ['technical-tickets'] });
       toast({ title: 'Interação registrada!' });
       setNotes('');
       setInteractionType('note');

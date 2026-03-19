@@ -114,23 +114,25 @@ export default function NovaVisitaDiretaDialog({
         if (codeError) throw codeError;
 
         // 2. Create ticket
-        const { data: ticket, error: ticketError } = await supabase
-          .from('technical_tickets')
-          .insert({
-            ticket_code: ticketCode,
-            client_id: clientId,
-            created_by_user_id: user!.id,
-            assigned_technician_id: user!.id,
-            title,
-            description: description || null,
-            priority: 'urgente',
-            status: 'em_atendimento',
-            substatus: 'aguardando_visita',
-            products: selectedProducts,
-            category_id: MAINTENANCE_CATEGORY_ID,
-          })
-          .select('id')
-          .single();
+        const { data: ticket, error: ticketError } = await withTimeout(
+          supabase
+            .from('technical_tickets')
+            .insert({
+              ticket_code: ticketCode,
+              client_id: clientId,
+              created_by_user_id: user!.id,
+              assigned_technician_id: user!.id,
+              title,
+              description: description || null,
+              priority: 'urgente',
+              status: 'em_atendimento',
+              substatus: 'aguardando_visita',
+              products: selectedProducts,
+              category_id: MAINTENANCE_CATEGORY_ID,
+            })
+            .select('id')
+            .single()
+        );
 
         if (ticketError) throw ticketError;
         createdTicketId = ticket.id;
