@@ -54,6 +54,7 @@ export default function Pedidos() {
   const [form, setForm] = useState({ cliente_id: '', observacoes: '', urgencia: 'normal', tipo_envio: '' });
   const [itens, setItens] = useState<{ peca_id: string; quantidade: number }[]>([]);
   const [viewAll, setViewAll] = useState(false);
+  const [solicitanteFilter, setSolicitanteFilter] = useState<string>('all');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
   const [imagePreview, setImagePreview] = useState<{ url: string; nome: string } | null>(null);
@@ -102,6 +103,18 @@ export default function Pedidos() {
   const [tipoLogisticaFilter, setTipoLogisticaFilter] = useState<'all' | 'correios' | 'entrega_propria'>('all');
   const [sortField, setSortField] = useState<'created_at' | 'cliente' | 'status'>('created_at');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+
+  // Unique solicitantes for filter dropdown
+  const solicitantesUnicos = useMemo(() => {
+    if (!pedidos) return [];
+    const map = new Map<string, string>();
+    for (const p of pedidos) {
+      if (p.solicitante_id && !map.has(p.solicitante_id)) {
+        map.set(p.solicitante_id, (p as any).solicitante?.nome || p.solicitante_id);
+      }
+    }
+    return Array.from(map.entries()).map(([id, nome]) => ({ id, nome })).sort((a, b) => a.nome.localeCompare(b.nome));
+  }, [pedidos]);
 
   // Separate drafts from transmitted orders
   const rascunhos = useMemo(() => {
@@ -173,7 +186,10 @@ export default function Pedidos() {
         matchesTipoLogistica = pedido.tipo_logistica === 'entrega_propria';
       }
 
-      return matchesSearch && matchesStatus && matchesDate && matchesTipoEnvio && matchesTipoLogistica;
+      // Solicitante filter
+      const matchesSolicitante = solicitanteFilter === 'all' || pedido.solicitante_id === solicitanteFilter;
+
+      return matchesSearch && matchesStatus && matchesDate && matchesTipoEnvio && matchesTipoLogistica && matchesSolicitante;
     });
     
     filtered.sort((a, b) => {
@@ -192,7 +208,7 @@ export default function Pedidos() {
     });
     
     return filtered;
-  }, [pedidos, rascunhos, pedidosTransmitidos, activeTab, searchTerm, statusFilter, dateFilter, tipoEnvioFilter, tipoLogisticaFilter, sortField, sortOrder]);
+  }, [pedidos, rascunhos, pedidosTransmitidos, activeTab, searchTerm, statusFilter, dateFilter, tipoEnvioFilter, tipoLogisticaFilter, solicitanteFilter, sortField, sortOrder]);
 
   // Paginated data (only for Transmitidos tab)
   const paginatedPedidos = useMemo(() => {
@@ -209,7 +225,7 @@ export default function Pedidos() {
   // Reset page when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, statusFilter, dateFilter, tipoEnvioFilter, tipoLogisticaFilter, activeTab]);
+  }, [searchTerm, statusFilter, dateFilter, tipoEnvioFilter, tipoLogisticaFilter, solicitanteFilter, activeTab]);
 
   const toggleSort = (field: 'created_at' | 'cliente' | 'status') => {
     if (sortField === field) {
@@ -226,6 +242,7 @@ export default function Pedidos() {
     setDateFilter('all');
     setTipoEnvioFilter('all');
     setTipoLogisticaFilter('all');
+    setSolicitanteFilter('all');
   };
 
   const handleTransmitir = async (pedidoId: string) => {
@@ -1073,7 +1090,7 @@ export default function Pedidos() {
                   </SelectContent>
                 </Select>
               )}
-              {(searchTerm || statusFilter !== 'all' || dateFilter !== 'all' || tipoEnvioFilter !== 'all' || tipoLogisticaFilter !== 'all') && (
+              {(searchTerm || statusFilter !== 'all' || dateFilter !== 'all' || tipoEnvioFilter !== 'all' || tipoLogisticaFilter !== 'all' || solicitanteFilter !== 'all') && (
                 <Button variant="ghost" size="icon" onClick={clearFilters}>
                   <X className="h-4 w-4" />
                 </Button>
@@ -1169,6 +1186,24 @@ export default function Pedidos() {
                       Entrega Própria
                     </Button>
                   </div>
+                </div>
+              )}
+
+              {/* Solicitante filter - only for admins with viewAll */}
+              {isAdmin && viewAll && solicitantesUnicos.length > 1 && (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-sm text-muted-foreground">Solicitante:</span>
+                  <Select value={solicitanteFilter} onValueChange={setSolicitanteFilter}>
+                    <SelectTrigger className="h-7 w-[180px] text-xs">
+                      <SelectValue placeholder="Todos" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      {solicitantesUnicos.map(s => (
+                        <SelectItem key={s.id} value={s.id}>{s.nome}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               )}
 
