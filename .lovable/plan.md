@@ -1,26 +1,27 @@
 
 
-## Implementação dos 5 bugs (A-E)
+## Corrigir erro "no unique or exclusion constraint matching ON CONFLICT"
 
-### Arquivo 1: `src/pages/preventivas/NovaRota.tsx`
+### Causa raiz
+O índice `unique_client_route_preventive` é parcial: `UNIQUE (client_id, route_id) WHERE (route_id IS NOT NULL)`. O `ON CONFLICT` do Supabase JS não suporta cláusula `WHERE` de índices parciais, causando o erro.
 
-**Bug A** — Adicionar `order_index: index` ao map de items (linhas 477-485).
+### Correção
 
-**Bug B** — Declarar `let createdRouteId: string | null = null` antes do try. Setar após insert da rota (linha 474). No catch (linhas 496-501), deletar rota órfã antes do toast.
+**Abordagem**: Em vez de `upsert`, usar lógica de "fetch existing + insert only missing" nos 2 pontos afetados.
 
-### Arquivo 2: `src/pages/preventivas/DetalheRota.tsx`
+#### 1. `src/pages/preventivas/DetalheRota.tsx` (Bug C revisado)
 
-**Bug C** — Linha 234-237: trocar `.insert(preventiveRecords)` por `.upsert(preventiveRecords, { onConflict: 'client_id,route_id', ignoreDuplicates: false })`.
+Substituir o `.upsert(...)` por:
+1. Buscar preventivas existentes para este `route_id`: `SELECT id, client_id FROM preventive_maintenance WHERE route_id = ?`
+2. Filtrar `preventiveRecords` removendo os que já existem (por `client_id`)
+3. Se houver novos, fazer `.insert()` apenas dos novos
+4. Combinar os existentes + novos para prosseguir com criação de checklists
 
-### Arquivo 3: `src/hooks/useOfflineSync.ts`
+#### 2. `src/hooks/useOfflineSync.ts` (handler de insert para `preventive_maintenance` no Bug D)
 
-**Bug D** — Adicionar handlers no `processSyncItem`:
-- **insert** (após linha 514): handlers para `preventive_maintenance` (upsert com `client_id,route_id`) e `preventive_route_items` (upsert com `id`). Fallback `else` com throw.
-- **update** (após linha 557): handler para `preventive_maintenance`. Fallback `else` com throw.
-- **delete** (após linha 572): fallback `else` com throw.
+Mesma lógica: tentar `.insert()` e tratar erro `23505` (duplicate key) como sucesso, em vez de usar `.upsert()` com `onConflict`.
 
-**Bug E** — Linhas 625-639: substituir `Promise.all` único por 3 fases sequenciais:
-1. `Promise.all` com dados de referência (clientes, pecas, etc + corretivas, rotas, rota_items)
-2. `await syncTableFromServer("preventivas")`
-3. `await syncTableFromServer("checklists")`
+### Arquivos alterados
+- `src/pages/preventivas/DetalheRota.tsx`
+- `src/hooks/useOfflineSync.ts`
 
