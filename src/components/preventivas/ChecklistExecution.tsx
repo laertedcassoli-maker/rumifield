@@ -216,6 +216,8 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
       return grouped;
     },
     enabled: !!existingChecklist,
+    staleTime: 300_000,
+    refetchOnWindowFocus: false,
   });
 
   // Create checklist from template
