@@ -1,27 +1,51 @@
 
 
-## Corrigir erro "no unique or exclusion constraint matching ON CONFLICT"
-
-### Causa raiz
-O índice `unique_client_route_preventive` é parcial: `UNIQUE (client_id, route_id) WHERE (route_id IS NOT NULL)`. O `ON CONFLICT` do Supabase JS não suporta cláusula `WHERE` de índices parciais, causando o erro.
-
-### Correção
-
-**Abordagem**: Em vez de `upsert`, usar lógica de "fetch existing + insert only missing" nos 2 pontos afetados.
-
-#### 1. `src/pages/preventivas/DetalheRota.tsx` (Bug C revisado)
-
-Substituir o `.upsert(...)` por:
-1. Buscar preventivas existentes para este `route_id`: `SELECT id, client_id FROM preventive_maintenance WHERE route_id = ?`
-2. Filtrar `preventiveRecords` removendo os que já existem (por `client_id`)
-3. Se houver novos, fazer `.insert()` apenas dos novos
-4. Combinar os existentes + novos para prosseguir com criação de checklists
-
-#### 2. `src/hooks/useOfflineSync.ts` (handler de insert para `preventive_maintenance` no Bug D)
-
-Mesma lógica: tentar `.insert()` e tratar erro `23505` (duplicate key) como sucesso, em vez de usar `.upsert()` com `onConflict`.
+## Corrigir bugs de Corretivas e Chamados (Bugs #1-#5)
 
 ### Arquivos alterados
-- `src/pages/preventivas/DetalheRota.tsx`
-- `src/hooks/useOfflineSync.ts`
+- `src/pages/chamados/ExecucaoVisitaCorretiva.tsx`
+- `src/components/chamados/NovaVisitaDiretaDialog.tsx`
+
+---
+
+### Bug #1 + #5 — completeMutation idempotente e resiliente a falha parcial
+**Arquivo:** `ExecucaoVisitaCorretiva.tsx` (linhas 233-476)
+
+No início da `mutationFn`:
+1. Buscar estado atual da visita (`status`, `checkout_at`)
+2. Se já `finalizada` com `checkout_at`, retornar early (já completou)
+3. Se não finalizada, prosseguir normalmente
+
+Operações não-críticas envoltas em try/catch individual (não relançam):
+- `corrective_maintenance` update (linhas 263-279)
+- Criação de pedidos + pedido_itens (linhas 282-367)
+- Criação de workshop_items (linhas 369-402)
+- Inserts em `ticket_timeline` (linhas 413-418, 434-439)
+- Update de `technical_tickets` para resolvido (linhas 421-431) — este permanece crítico mas com try/catch que loga e não trava
+
+Apenas o update principal de `ticket_visits` (linhas 249-260) permanece como operação crítica que relança erro.
+
+### Bug #2 — NovaVisitaDiretaDialog com rollback
+**Arquivo:** `NovaVisitaDiretaDialog.tsx` (linhas 99-167)
+
+1. Declarar `let createdTicketId: string | null = null` antes do try
+2. Após insert do ticket: `createdTicketId = ticket.id`
+3. Envolver insert de `ticket_timeline` em try/catch independente (não bloqueia)
+4. No catch principal: se `createdTicketId` existe, deletar o ticket (cascade deleta visit também via FK)
+
+### Bug #3 — Checkin com timeout e verificação RLS
+**Arquivo:** `ExecucaoVisitaCorretiva.tsx` (linhas 178-230)
+
+1. Adicionar verificação `navigator.onLine` no início
+2. Usar `Promise.race` com timeout de 15s no update de checkin
+3. Usar `.select('id').single()` para verificar que a linha foi afetada
+4. Se `!data`, lançar erro explícito
+5. Envolver `ticket_timeline` do checkin em try/catch independente
+
+### Bug #4 — isOnline reativo
+**Arquivo:** `ExecucaoVisitaCorretiva.tsx`
+
+Adicionar estado reativo `isOnline` com `useState` + `useEffect` (online/offline listeners). Usar nas mutations para dar feedback imediato ao invés de deixar o request travar.
+
+Não necessário em `NovaVisitaDiretaDialog` pois é um dialog modal que já depende de conexão para carregar clientes — mas adicionar check `navigator.onLine` no início da mutation.
 
