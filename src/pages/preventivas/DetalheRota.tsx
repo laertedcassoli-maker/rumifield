@@ -233,7 +233,10 @@ export default function DetalheRota() {
 
         const { data: createdPms, error: pmError } = await supabase
           .from('preventive_maintenance')
-          .insert(preventiveRecords)
+          .upsert(preventiveRecords, {
+            onConflict: 'client_id,route_id',
+            ignoreDuplicates: false
+          })
           .select('id, client_id');
 
         if (pmError) throw pmError;

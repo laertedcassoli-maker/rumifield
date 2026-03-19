@@ -672,7 +672,8 @@ export function useOfflineSync() {
       await processSyncQueue();
       
       // Then, pull latest data from server
-      const tables = [
+      // Fase 1: dados de referência (independentes entre si)
+      const phase1Tables = [
         "clientes", 
         "pecas", 
         "produtos_quimicos", 
@@ -680,13 +681,19 @@ export function useOfflineSync() {
         "estoque", 
         "pedidos",
         "chamados",
-        "preventivas",
-        "checklists",
         "corretivas",
         "rotas",
         "rota_items"
       ];
-      const results = await Promise.all(tables.map(syncTableFromServer));
+      const phase1Results = await Promise.all(phase1Tables.map(syncTableFromServer));
+      
+      // Fase 2: preventivas (depende de clientes já estarem no Dexie)
+      const phase2Result = await syncTableFromServer("preventivas");
+      
+      // Fase 3: checklists (depende de preventivas já estarem no Dexie)
+      const phase3Result = await syncTableFromServer("checklists");
+      
+      const results = [...phase1Results, phase2Result, phase3Result];
       
       if (results.every(Boolean)) {
         setSyncStatus("idle");
