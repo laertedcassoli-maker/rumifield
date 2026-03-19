@@ -3,6 +3,7 @@ import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { supabase } from '@/integrations/supabase/client';
+import { withTimeout } from '@/lib/supabase-helpers';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCliente360Data, PRODUCT_ORDER, PRODUCT_LABELS, type ProductCode, type CrmStage } from '@/hooks/useCrmData';
 import { ProductBadge } from '@/components/crm/ProductBadge';
@@ -128,26 +129,31 @@ export default function CrmVisitaExecucao() {
   // @ts-ignore
   const checkinMutation = useMutation({
     mutationFn: async ({ lat, lon }: { lat: number | null; lon: number | null }) => {
-      const { error } = await supabase
-        .from('crm_visits')
-        .update({
-          status: 'em_andamento',
-          checkin_at: new Date().toISOString(),
-          checkin_lat: lat,
-          checkin_lon: lon,
-        })
-        .eq('id', id);
+      const { error } = await withTimeout(
+        supabase
+          .from('crm_visits')
+          .update({
+            status: 'em_andamento',
+            checkin_at: new Date().toISOString(),
+            checkin_lat: lat,
+            checkin_lon: lon,
+          })
+          .eq('id', id)
+      );
       if (error) throw error;
 
       // Auto-attach checklists for 'ganho' products
       const wonProducts = clientProducts.filter((p: any) => p.stage === 'ganho');
       if (wonProducts.length > 0) {
-        const { data: rules } = await supabase
-          .from('crm_checklist_rules')
-          .select('*')
-          .in('product_code', wonProducts.map((p: any) => p.product_code))
-          .eq('is_active', true)
-          .order('priority');
+        const { data: rules, error: rulesError } = await withTimeout(
+          supabase
+            .from('crm_checklist_rules')
+            .select('*')
+            .in('product_code', wonProducts.map((p: any) => p.product_code))
+            .eq('is_active', true)
+            .order('priority')
+        );
+        if (rulesError) throw rulesError;
 
         if (rules && rules.length > 0) {
           const inserts = rules.map((r: any) => ({
@@ -157,7 +163,18 @@ export default function CrmVisitaExecucao() {
             origin: 'auto',
             started_at: new Date().toISOString(),
           }));
-          await supabase.from('crm_visit_checklists').insert(inserts);
+          // @ts-ignore - upsert with onConflict for idempotency
+          const { error: checklistError } = await withTimeout(
+            supabase.from('crm_visit_checklists').upsert(inserts, { onConflict: 'visit_id,checklist_template_id', ignoreDuplicates: true })
+          );
+          if (checklistError) {
+            // Rollback: revert check-in
+            await supabase
+              .from('crm_visits')
+              .update({ status: 'planejada', checkin_at: null, checkin_lat: null, checkin_lon: null })
+              .eq('id', id);
+            throw checklistError;
+          }
         }
       }
     },
@@ -180,13 +197,19 @@ export default function CrmVisitaExecucao() {
   // @ts-ignore
   const cancelMutation = useMutation({
     mutationFn: async (reason: string) => {
-      const { error } = await supabase
-        .from('crm_visits')
-        .update({ status: 'cancelada', cancellation_reason: reason })
-        .eq('id', id);
+      const { error } = await withTimeout(
+        supabase
+          .from('crm_visits')
+          .update({ status: 'cancelada', cancellation_reason: reason })
+          .eq('id', id)
+      );
       if (error) throw error;
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['crm-visitas'] });
+      queryClient.invalidateQueries({ queryKey: ['crm-carteira-visits'] });
+      queryClient.invalidateQueries({ queryKey: ['crm-carteira'] });
+      queryClient.invalidateQueries({ queryKey: ['crm-visit', id] });
       setCancelOpen(false);
       toast({ title: 'Visita cancelada.' });
       navigate(backPath);
