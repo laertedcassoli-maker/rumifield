@@ -318,7 +318,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
     }
   }, []);
 
-  const isOnline = navigator.onLine;
+  // isOnline is now reactive state (defined above)
 
   // Auto-start checklist if routeTemplateId is provided and no checklist exists
   useEffect(() => {
