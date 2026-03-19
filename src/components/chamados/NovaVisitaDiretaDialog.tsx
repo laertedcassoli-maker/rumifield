@@ -102,54 +102,82 @@ export default function NovaVisitaDiretaDialog({
         throw new Error('Preencha os campos obrigatórios (Cliente e Título)');
       }
 
-      // 1. Generate ticket code
-      const { data: ticketCode, error: codeError } = await supabase.rpc('generate_ticket_code');
-      if (codeError) throw codeError;
+      // Bug #4: Check connectivity
+      if (!navigator.onLine) {
+        throw new Error('Sem conexão com a internet. Conecte-se e tente novamente.');
+      }
 
-      // 2. Create ticket
-      const { data: ticket, error: ticketError } = await supabase
-        .from('technical_tickets')
-        .insert({
-          ticket_code: ticketCode,
-          client_id: clientId,
-          created_by_user_id: user!.id,
-          assigned_technician_id: user!.id,
-          title,
-          description: description || null,
-          priority: 'urgente',
-          status: 'em_atendimento',
-          substatus: 'aguardando_visita',
-          products: selectedProducts,
-          category_id: MAINTENANCE_CATEGORY_ID,
-        })
-        .select('id')
-        .single();
+      // Bug #2: Track created IDs for rollback
+      let createdTicketId: string | null = null;
 
-      if (ticketError) throw ticketError;
+      try {
+        // 1. Generate ticket code
+        const { data: ticketCode, error: codeError } = await supabase.rpc('generate_ticket_code');
+        if (codeError) throw codeError;
 
-      // 3. Create corrective visit
-      const { error: visitError } = await supabase
-        .from('ticket_visits')
-        .insert({
-          ticket_id: ticket.id,
-          client_id: clientId,
-          field_technician_user_id: user!.id,
-          status: 'em_elaboracao',
-          planned_start_date: plannedDate ? format(plannedDate, 'yyyy-MM-dd') : null,
-          internal_notes: description || null,
-        });
+        // 2. Create ticket
+        const { data: ticket, error: ticketError } = await supabase
+          .from('technical_tickets')
+          .insert({
+            ticket_code: ticketCode,
+            client_id: clientId,
+            created_by_user_id: user!.id,
+            assigned_technician_id: user!.id,
+            title,
+            description: description || null,
+            priority: 'urgente',
+            status: 'em_atendimento',
+            substatus: 'aguardando_visita',
+            products: selectedProducts,
+            category_id: MAINTENANCE_CATEGORY_ID,
+          })
+          .select('id')
+          .single();
 
-      if (visitError) throw visitError;
+        if (ticketError) throw ticketError;
+        createdTicketId = ticket.id;
 
-      // 4. Add timeline entry
-      await supabase.from('ticket_timeline').insert({
-        ticket_id: ticket.id,
-        user_id: user!.id,
-        event_type: 'ticket_created',
-        event_description: `Chamado e Visita criados simultaneamente: ${ticketCode}`,
-      });
+        // 3. Create corrective visit
+        const { error: visitError } = await supabase
+          .from('ticket_visits')
+          .insert({
+            ticket_id: ticket.id,
+            client_id: clientId,
+            field_technician_user_id: user!.id,
+            status: 'em_elaboracao',
+            planned_start_date: plannedDate ? format(plannedDate, 'yyyy-MM-dd') : null,
+            internal_notes: description || null,
+          });
 
-      return { ticketId: ticket.id, ticketCode };
+        if (visitError) throw visitError;
+
+        // 4. NON-CRITICAL: Add timeline entry
+        try {
+          await supabase.from('ticket_timeline').insert({
+            ticket_id: ticket.id,
+            user_id: user!.id,
+            event_type: 'ticket_created',
+            event_description: `Chamado e Visita criados simultaneamente: ${ticketCode}`,
+          });
+        } catch (timelineErr) {
+          console.error('[Nova Visita] Timeline não criada:', timelineErr);
+        }
+
+        return { ticketId: ticket.id, ticketCode };
+      } catch (error: any) {
+        // Bug #2: Rollback — delete ticket (cascade deletes visit via FK)
+        if (createdTicketId) {
+          await supabase
+            .from('technical_tickets')
+            .delete()
+            .eq('id', createdTicketId)
+            .then(({ error: rollbackErr }) => {
+              if (rollbackErr) console.error('[Nova Visita] Erro no rollback do chamado:', rollbackErr);
+              else console.log('[Nova Visita] Rollback do chamado realizado com sucesso');
+            });
+        }
+        throw error;
+      }
     },
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['technical-tickets'] });
