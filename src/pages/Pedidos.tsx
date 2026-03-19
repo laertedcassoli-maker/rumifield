@@ -225,7 +225,7 @@ export default function Pedidos() {
   // Reset page when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, statusFilter, dateFilter, tipoEnvioFilter, tipoLogisticaFilter, activeTab]);
+  }, [searchTerm, statusFilter, dateFilter, tipoEnvioFilter, tipoLogisticaFilter, solicitanteFilter, activeTab]);
 
   const toggleSort = (field: 'created_at' | 'cliente' | 'status') => {
     if (sortField === field) {
