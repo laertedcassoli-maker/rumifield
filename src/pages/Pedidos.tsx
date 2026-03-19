@@ -1189,7 +1189,24 @@ export default function Pedidos() {
                 </div>
               )}
 
-              {filteredAndSortedPedidos.length > 0 && (
+              {/* Solicitante filter - only for admins with viewAll */}
+              {isAdmin && viewAll && solicitantesUnicos.length > 1 && (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-sm text-muted-foreground">Solicitante:</span>
+                  <Select value={solicitanteFilter} onValueChange={setSolicitanteFilter}>
+                    <SelectTrigger className="h-7 w-[180px] text-xs">
+                      <SelectValue placeholder="Todos" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Todos</SelectItem>
+                      {solicitantesUnicos.map(s => (
+                        <SelectItem key={s.id} value={s.id}>{s.nome}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+
                 <Badge variant="outline" className="ml-2 h-6 px-2">
                   {filteredAndSortedPedidos.length} {filteredAndSortedPedidos.length === 1 ? 'pedido' : 'pedidos'}
                 </Badge>
