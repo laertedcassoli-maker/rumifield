@@ -398,6 +398,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['preventive-checklist', preventiveId] });
       queryClient.invalidateQueries({ queryKey: ['preventive-consumed-parts', preventiveId] });
+      queryClient.invalidateQueries({ queryKey: ['part-consumption-coverage', preventiveId] });
       toast.success('Checklist removido. Selecione um novo template.');
       autoStartAttempted.current = true; // prevent auto-start from firing
       setIsSelectTemplateOpen(true);
