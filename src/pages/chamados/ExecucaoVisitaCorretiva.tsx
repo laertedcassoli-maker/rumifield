@@ -62,6 +62,19 @@ export default function ExecucaoVisitaCorretiva() {
   const [isCheckingIn, setIsCheckingIn] = useState(false);
   const [completedResult, setCompletedResult] = useState<'resolvido' | 'parcial' | 'aguardando_peca' | null>(null);
 
+  // Bug #4: Reactive online state
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+
   const isAdminOrCoordinator = role === 'admin' || role === 'coordenador_servicos';
 
   // Fetch visit details
