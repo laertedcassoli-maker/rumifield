@@ -512,6 +512,37 @@ export function useOfflineSync() {
         } else if (tableName === "pedido_itens") {
           const result = await supabase.from("pedido_itens").insert(cleanData as never);
           if (result.error) throw result.error;
+        } else if (tableName === "preventive_maintenance") {
+          delete cleanData.client_name;
+          delete cleanData.technician_name;
+          delete cleanData.client_fazenda;
+          const { error } = await (supabase as any)
+            .from("preventive_maintenance")
+            .upsert(cleanData, {
+              onConflict: 'client_id,route_id',
+              ignoreDuplicates: false
+            });
+          if (error && (error as any).code !== '23505') throw error;
+        } else if (tableName === "preventive_route_items") {
+          delete cleanData.client_name;
+          delete cleanData.client_fazenda;
+          delete cleanData.client_lat;
+          delete cleanData.client_lon;
+          delete cleanData.client_cidade;
+          delete cleanData.client_estado;
+          delete cleanData.client_link_maps;
+          const { error } = await (supabase as any)
+            .from("preventive_route_items")
+            .upsert(cleanData, {
+              onConflict: 'id',
+              ignoreDuplicates: false
+            });
+          if (error && (error as any).code !== '23505') throw error;
+        } else {
+          console.warn(
+            `[Sync] Sem handler para insert em '${tableName}'. Mantendo na fila para retry.`
+          );
+          throw new Error(`Tabela sem handler: ${tableName} / insert`);
         }
         
         // Update local record to mark as synced
