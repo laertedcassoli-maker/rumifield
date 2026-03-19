@@ -746,11 +746,8 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
           }
         }
       } finally {
-        setProcessingNonconformities(prev => {
-          const next = new Set(prev);
-          next.delete(lockKey);
-          return next;
-        });
+        processingNonconformitiesRef.current.delete(lockKey);
+        setProcessingNonconformities(new Set(processingNonconformitiesRef.current));
       }
     },
     onSuccess: (_, variables) => {
