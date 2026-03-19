@@ -1,26 +1,41 @@
 
 
-## Corrigir duplicação de checklist template — incluir não-conformidades e peças
+## Plano: Validação rigorosa de peças por item com troca + badge visual "Peça pendente"
 
-### Arquivo: `src/pages/preventivas/Checklists.tsx`
-### Função: `duplicateTemplateMutation`
+### Diagnóstico
+
+A validação de peças vinculadas já existe em ambas as telas de finalização:
+- `AtendimentoPreventivo.tsx` (linhas 422-517) — preventivas
+- `ExecucaoVisitaCorretiva.tsx` (linhas 598-690) — corretivas
+
+Porém há problemas:
+
+1. **Bug de erro duplicado em `AtendimentoPreventivo.tsx`**: Linhas 509-513 adicionam o MESMO erro uma segunda vez fora do bloco `if (stillMissing > 0)`, causando falsos positivos (bloqueia mesmo quando peças manuais cobrem os itens).
+
+2. **Sem indicação visual no checklist**: O técnico não sabe quais itens específicos precisam de peça — apenas vê o erro genérico ao tentar finalizar.
+
+3. **Não há badge "Peça pendente"** nos itens do checklist com "troca de peça" que ainda não têm peça vinculada.
 
 ### Alterações
 
-**1. Expandir o select da estrutura original** (linha ~103)
+**1. Corrigir bug em `AtendimentoPreventivo.tsx`**
+- Remover o bloco duplicado nas linhas 509-513 que empurra o erro sem checar `stillMissing`.
 
-Adicionar `nonconformities:checklist_item_nonconformities(*)` ao select dos items, ao lado de `actions`.
+**2. Adicionar badge "Peça pendente" em `ChecklistExecution.tsx`**
+- Buscar dados de `preventive_part_consumption` para saber quais `exec_item_id` já têm peças vinculadas.
+- Para cada item com `status = 'N'` e ação de "troca" selecionada, verificar se existe pelo menos 1 peça linkada.
+- Exibir badge `Peça pendente` (âmbar/laranja, com ícone Package) ao lado do nome do item quando faltar peça.
+- Usar uma query adicional leve: `select exec_item_id from preventive_part_consumption where preventive_id = ?` (já existe uma query similar de consumed parts).
 
-**2. Duplicar não-conformidades** — após o loop de ações corretivas (~linha 137)
+**3. Garantir consistência da validação na corretiva (`ExecucaoVisitaCorretiva.tsx`)**
+- A lógica já está correta neste arquivo (sem duplicação). Nenhuma alteração necessária.
 
-Para cada `nc` em `item.nonconformities`:
-- Insert em `checklist_item_nonconformities` com campos: `item_id: newItem.id`, `nonconformity_label: nc.nonconformity_label`, `order_index: nc.order_index`, `active: nc.active`
-- Para cada não-conformidade criada, buscar peças vinculadas em `checklist_nonconformity_parts` onde `nonconformity_id = nc.id`
-- Insert cada peça com: `nonconformity_id: newNc.id`, `part_id: part.part_id`, `default_quantity: part.default_quantity`
+### Arquivos alterados
+- `src/pages/preventivas/AtendimentoPreventivo.tsx` — remover linhas 509-513 (bug)
+- `src/components/preventivas/ChecklistExecution.tsx` — adicionar query de peças vinculadas + badge "Peça pendente" nos itens sem cobertura
 
-### Campos (inferidos dos types)
-- `checklist_item_nonconformities`: `item_id`, `nonconformity_label`, `order_index`, `active`
-- `checklist_nonconformity_parts`: `nonconformity_id`, `part_id`, `default_quantity`
-
-Nenhuma outra alteração na função.
+### Resultado
+- Técnico vê em tempo real quais itens do checklist estão sem peça
+- Finalização bloqueada corretamente (sem falsos positivos)
+- Mensagem de erro clara e consistente em ambas as telas
 
