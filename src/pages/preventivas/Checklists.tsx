@@ -112,7 +112,8 @@ export default function Checklists() {
           *,
           items:checklist_template_items(
             *,
-            actions:checklist_item_corrective_actions(*)
+            actions:checklist_item_corrective_actions(*),
+            nonconformities:checklist_item_nonconformities(*)
           )
         `)
         .eq('template_id', templateId)
