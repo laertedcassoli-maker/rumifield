@@ -82,9 +82,24 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
     hasSelections: boolean;
   } | null>(null);
   
-  // Track items being processed to prevent double-clicks
+  // Track items being processed to prevent double-clicks (ref for sync lock, state for UI)
+  const processingNonconformitiesRef = useRef<Set<string>>(new Set());
+  const processingActionsRef = useRef<Set<string>>(new Set());
   const [processingNonconformities, setProcessingNonconformities] = useState<Set<string>>(new Set());
   const [processingActions, setProcessingActions] = useState<Set<string>>(new Set());
+
+  // Bug #2 fix: reactive isOnline state
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   // Get existing checklist for this preventive
   const { data: existingChecklist, isLoading: loadingChecklist } = useQuery({
