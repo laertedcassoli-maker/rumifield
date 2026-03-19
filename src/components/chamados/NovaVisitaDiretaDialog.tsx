@@ -103,12 +103,7 @@ export default function NovaVisitaDiretaDialog({
         throw new Error('Preencha os campos obrigatórios (Cliente e Título)');
       }
 
-      // Bug #4: Check connectivity
-      if (!navigator.onLine) {
-        throw new Error('Sem conexão com a internet. Conecte-se e tente novamente.');
-      }
-
-      // Bug #2: Track created IDs for rollback
+      // Track created IDs for rollback
       let createdTicketId: string | null = null;
 
       try {
