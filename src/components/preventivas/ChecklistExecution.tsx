@@ -82,9 +82,24 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
     hasSelections: boolean;
   } | null>(null);
   
-  // Track items being processed to prevent double-clicks
+  // Track items being processed to prevent double-clicks (ref for sync lock, state for UI)
+  const processingNonconformitiesRef = useRef<Set<string>>(new Set());
+  const processingActionsRef = useRef<Set<string>>(new Set());
   const [processingNonconformities, setProcessingNonconformities] = useState<Set<string>>(new Set());
   const [processingActions, setProcessingActions] = useState<Set<string>>(new Set());
+
+  // Bug #2 fix: reactive isOnline state
+  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   // Get existing checklist for this preventive
   const { data: existingChecklist, isLoading: loadingChecklist } = useQuery({
@@ -126,6 +141,8 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
       if (error) throw error;
       return data;
     },
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
   });
 
   // Get available templates
@@ -172,6 +189,8 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
       return grouped;
     },
     enabled: !!existingChecklist,
+    staleTime: 300_000,
+    refetchOnWindowFocus: false,
   });
 
   // Get nonconformities for template items
@@ -197,6 +216,8 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
       return grouped;
     },
     enabled: !!existingChecklist,
+    staleTime: 300_000,
+    refetchOnWindowFocus: false,
   });
 
   // Create checklist from template
@@ -297,7 +318,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
     }
   }, []);
 
-  const isOnline = navigator.onLine;
+  // isOnline is now reactive state (defined above)
 
   // Auto-start checklist if routeTemplateId is provided and no checklist exists
   useEffect(() => {
@@ -362,12 +383,14 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
       if (status !== undefined) updateData.status = status;
       if (notes !== undefined) updateData.notes = notes;
 
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('preventive_checklist_items')
         .update(updateData)
-        .eq('id', itemId);
+        .eq('id', itemId)
+        .select('id');
 
       if (error) throw error;
+      if (!data || data.length === 0) throw new Error('Falha ao salvar — verifique permissões');
 
       // If status changed from N to something else, remove selected actions, nonconformities and their consumption records
       if (status && status !== 'N') {
@@ -539,12 +562,13 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
       }
 
       const lockKey = `${itemId}-${actionId}`;
-      if (processingActions.has(lockKey)) {
+      if (processingActionsRef.current.has(lockKey)) {
         console.log('[ChecklistExecution] Action already being processed, skipping:', lockKey);
         return;
       }
       
-      setProcessingActions(prev => new Set(prev).add(lockKey));
+      processingActionsRef.current.add(lockKey);
+      setProcessingActions(new Set(processingActionsRef.current));
       
       try {
         if (isSelected) {
@@ -557,14 +581,16 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
           if (delErr) throw delErr;
         } else {
           // Add action
-          const { error: insErr } = await supabase
+          const { data: insData, error: insErr } = await supabase
             .from('preventive_checklist_item_actions')
             .insert({
               exec_item_id: itemId,
               template_action_id: actionId,
               action_label_snapshot: actionLabel
-            } as never);
+            } as never)
+            .select('id');
           if (insErr) throw insErr;
+          if (!insData || insData.length === 0) throw new Error('Ação não salva — verifique permissões');
         }
 
         // Part consumption side-effects
@@ -590,11 +616,8 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
           }
         }
       } finally {
-        setProcessingActions(prev => {
-          const next = new Set(prev);
-          next.delete(lockKey);
-          return next;
-        });
+        processingActionsRef.current.delete(lockKey);
+        setProcessingActions(new Set(processingActionsRef.current));
       }
     },
     onSuccess: (_, variables) => {
@@ -648,12 +671,13 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
       }
 
       const lockKey = `${itemId}-${nonconformityId}`;
-      if (processingNonconformities.has(lockKey)) {
+      if (processingNonconformitiesRef.current.has(lockKey)) {
         console.log('[ChecklistExecution] Nonconformity already being processed, skipping:', lockKey);
         return;
       }
       
-      setProcessingNonconformities(prev => new Set(prev).add(lockKey));
+      processingNonconformitiesRef.current.add(lockKey);
+      setProcessingNonconformities(new Set(processingNonconformitiesRef.current));
       
       try {
         if (isSelected) {
@@ -722,11 +746,8 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
           }
         }
       } finally {
-        setProcessingNonconformities(prev => {
-          const next = new Set(prev);
-          next.delete(lockKey);
-          return next;
-        });
+        processingNonconformitiesRef.current.delete(lockKey);
+        setProcessingNonconformities(new Set(processingNonconformitiesRef.current));
       }
     },
     onSuccess: (_, variables) => {
