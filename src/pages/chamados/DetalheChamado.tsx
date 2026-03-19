@@ -200,9 +200,13 @@ export default function DetalheChamado() {
         if (insError) {
           // Restore previous tags before re-throwing
           if (previousTagIds.length > 0) {
-            await supabase.from('ticket_tag_links').insert(
-              previousTagIds.map(tag_id => ({ ticket_id: id!, tag_id }))
-            ).catch(restoreErr => console.error('[DetalheChamado] Erro ao restaurar tags:', restoreErr));
+            try {
+              await supabase.from('ticket_tag_links').insert(
+                previousTagIds.map(tag_id => ({ ticket_id: id!, tag_id }))
+              );
+            } catch (restoreErr) {
+              console.error('[DetalheChamado] Erro ao restaurar tags:', restoreErr);
+            }
           }
           throw insError;
         }
