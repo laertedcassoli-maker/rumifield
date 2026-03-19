@@ -389,7 +389,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
     }
   });
 
-
+  const retryAutoStart = () => {
     if (!routeTemplateId) return;
     setAutoStartState('pending');
     setAutoStartError(null);
