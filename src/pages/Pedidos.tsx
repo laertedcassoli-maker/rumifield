@@ -70,6 +70,11 @@ export default function Pedidos() {
   const pecas = useLiveQuery(() => offlineDb.pecas.filter(p => p.ativo !== false).toArray(), []);
   const { pedidos, isLoading, createPedido, updatePedido, transmitirPedido, transmitirTodos, deletePedido } = useOfflinePedidos(user?.id, viewAll, isAdmin);
 
+  // Auto-set viewAll for coordinators/admins
+  useEffect(() => {
+    if (isAdmin) setViewAll(true);
+  }, [isAdmin]);
+
   // Auto-sync when page loads and online
   useEffect(() => {
     if (isOnline) {
