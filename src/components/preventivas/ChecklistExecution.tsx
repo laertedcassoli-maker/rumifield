@@ -1148,6 +1148,18 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
                   Concluir
                 </Button>
               </div>
+              <div className="flex justify-end">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={(e) => { e.stopPropagation(); setIsConfirmReplaceOpen(true); }}
+                  disabled={replaceChecklistMutation.isPending}
+                  className="text-xs"
+                >
+                  <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
+                  Trocar checklist
+                </Button>
+              </div>
 
               {!navigator.onLine && isAllAnswered && (
                 <p className="text-xs text-amber-600 text-center">⚠️ Reconecte para concluir</p>
