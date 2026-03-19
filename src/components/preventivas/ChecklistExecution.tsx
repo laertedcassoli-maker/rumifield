@@ -141,6 +141,8 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
       if (error) throw error;
       return data;
     },
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
   });
 
   // Get available templates
