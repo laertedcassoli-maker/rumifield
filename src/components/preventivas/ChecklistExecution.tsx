@@ -581,14 +581,16 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
           if (delErr) throw delErr;
         } else {
           // Add action
-          const { error: insErr } = await supabase
+          const { data: insData, error: insErr } = await supabase
             .from('preventive_checklist_item_actions')
             .insert({
               exec_item_id: itemId,
               template_action_id: actionId,
               action_label_snapshot: actionLabel
-            } as never);
+            } as never)
+            .select('id');
           if (insErr) throw insErr;
+          if (!insData || insData.length === 0) throw new Error('Ação não salva — verifique permissões');
         }
 
         // Part consumption side-effects
