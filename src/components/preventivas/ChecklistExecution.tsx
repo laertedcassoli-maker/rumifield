@@ -383,12 +383,14 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
       if (status !== undefined) updateData.status = status;
       if (notes !== undefined) updateData.notes = notes;
 
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('preventive_checklist_items')
         .update(updateData)
-        .eq('id', itemId);
+        .eq('id', itemId)
+        .select('id');
 
       if (error) throw error;
+      if (!data || data.length === 0) throw new Error('Falha ao salvar — verifique permissões');
 
       // If status changed from N to something else, remove selected actions, nonconformities and their consumption records
       if (status && status !== 'N') {
