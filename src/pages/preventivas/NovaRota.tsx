@@ -453,6 +453,7 @@ export default function NovaRota() {
     }
 
     setIsSaving(true);
+    let createdRouteId: string | null = null;
 
     try {
       // Create route with status 'em_elaboracao'
@@ -472,13 +473,16 @@ export default function NovaRota() {
         .single();
 
       if (routeError) throw routeError;
+      createdRouteId = route.id;
 
-      // Create route items
-      const items = Array.from(selectedClients).map(clientId => {
+      // Create route items with order_index
+      const selectedClientsArray = Array.from(selectedClients);
+      const items = selectedClientsArray.map((clientId, index) => {
         const client = clientsData?.find(c => c.client_id === clientId);
         return {
           route_id: route.id,
           client_id: clientId,
+          order_index: index,
           suggested_reason: client?.suggested_reason || null,
           status: 'planejado' as const,
         };
@@ -494,6 +498,17 @@ export default function NovaRota() {
       queryClient.invalidateQueries({ queryKey: ['preventive-routes'] });
       navigate(`/preventivas/rotas/${route.id}`);
     } catch (error: any) {
+      // Se rota foi criada mas items falharam, limpar para permitir retry
+      if (createdRouteId) {
+        try {
+          await supabase
+            .from('preventive_routes')
+            .delete()
+            .eq('id', createdRouteId);
+        } catch (cleanupError) {
+          console.error('[NovaRota] Falha ao limpar rota órfã:', cleanupError);
+        }
+      }
       toast({
         variant: 'destructive',
         title: 'Erro ao criar rota',

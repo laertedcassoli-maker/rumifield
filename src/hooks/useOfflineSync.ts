@@ -512,6 +512,37 @@ export function useOfflineSync() {
         } else if (tableName === "pedido_itens") {
           const result = await supabase.from("pedido_itens").insert(cleanData as never);
           if (result.error) throw result.error;
+        } else if (tableName === "preventive_maintenance") {
+          delete cleanData.client_name;
+          delete cleanData.technician_name;
+          delete cleanData.client_fazenda;
+          const { error } = await (supabase as any)
+            .from("preventive_maintenance")
+            .upsert(cleanData, {
+              onConflict: 'client_id,route_id',
+              ignoreDuplicates: false
+            });
+          if (error && (error as any).code !== '23505') throw error;
+        } else if (tableName === "preventive_route_items") {
+          delete cleanData.client_name;
+          delete cleanData.client_fazenda;
+          delete cleanData.client_lat;
+          delete cleanData.client_lon;
+          delete cleanData.client_cidade;
+          delete cleanData.client_estado;
+          delete cleanData.client_link_maps;
+          const { error } = await (supabase as any)
+            .from("preventive_route_items")
+            .upsert(cleanData, {
+              onConflict: 'id',
+              ignoreDuplicates: false
+            });
+          if (error && (error as any).code !== '23505') throw error;
+        } else {
+          console.warn(
+            `[Sync] Sem handler para insert em '${tableName}'. Mantendo na fila para retry.`
+          );
+          throw new Error(`Tabela sem handler: ${tableName} / insert`);
         }
         
         // Update local record to mark as synced
@@ -554,6 +585,20 @@ export function useOfflineSync() {
           if (result.error) {
             if ((result.error as any).code !== '23505') throw result.error;
           }
+        } else if (tableName === "preventive_maintenance") {
+          delete cleanData.client_name;
+          delete cleanData.technician_name;
+          delete cleanData.client_fazenda;
+          const { error } = await supabase
+            .from("preventive_maintenance")
+            .update(cleanData as never)
+            .eq("id", id);
+          if (error && (error as any).code !== '23505') throw error;
+        } else {
+          console.warn(
+            `[Sync] Sem handler para update em '${tableName}'. Mantendo na fila para retry.`
+          );
+          throw new Error(`Tabela sem handler: ${tableName} / update`);
         }
         break;
       }
@@ -569,6 +614,11 @@ export function useOfflineSync() {
         } else if (tableName === "pedido_itens") {
           const result = await supabase.from("pedido_itens").delete().eq("id", id);
           if (result.error) throw result.error;
+        } else {
+          console.warn(
+            `[Sync] Sem handler para delete em '${tableName}'. Mantendo na fila para retry.`
+          );
+          throw new Error(`Tabela sem handler: ${tableName} / delete`);
         }
         break;
       }
@@ -622,7 +672,8 @@ export function useOfflineSync() {
       await processSyncQueue();
       
       // Then, pull latest data from server
-      const tables = [
+      // Fase 1: dados de referência (independentes entre si)
+      const phase1Tables = [
         "clientes", 
         "pecas", 
         "produtos_quimicos", 
@@ -630,13 +681,19 @@ export function useOfflineSync() {
         "estoque", 
         "pedidos",
         "chamados",
-        "preventivas",
-        "checklists",
         "corretivas",
         "rotas",
         "rota_items"
       ];
-      const results = await Promise.all(tables.map(syncTableFromServer));
+      const phase1Results = await Promise.all(phase1Tables.map(syncTableFromServer));
+      
+      // Fase 2: preventivas (depende de clientes já estarem no Dexie)
+      const phase2Result = await syncTableFromServer("preventivas");
+      
+      // Fase 3: checklists (depende de preventivas já estarem no Dexie)
+      const phase3Result = await syncTableFromServer("checklists");
+      
+      const results = [...phase1Results, phase2Result, phase3Result];
       
       if (results.every(Boolean)) {
         setSyncStatus("idle");
