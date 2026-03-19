@@ -304,7 +304,92 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
     }
   });
 
-  const retryAutoStart = () => {
+  // Replace checklist mutation — deletes all data and reopens template selection
+  const replaceChecklistMutation = useMutation({
+    mutationFn: async (checklistId: string) => {
+      // Get all block IDs
+      const { data: blockIds, error: blocksErr } = await supabase
+        .from('preventive_checklist_blocks')
+        .select('id')
+        .eq('checklist_id', checklistId);
+      if (blocksErr) throw blocksErr;
+
+      if (blockIds && blockIds.length > 0) {
+        const bIds = blockIds.map(b => b.id);
+        
+        // Get all item IDs
+        const { data: itemIds, error: itemsErr } = await supabase
+          .from('preventive_checklist_items')
+          .select('id')
+          .in('exec_block_id', bIds);
+        if (itemsErr) throw itemsErr;
+
+        if (itemIds && itemIds.length > 0) {
+          const iIds = itemIds.map(i => i.id);
+
+          // Get nonconformity IDs for consumption cleanup
+          const { data: ncIds } = await supabase
+            .from('preventive_checklist_item_nonconformities')
+            .select('id')
+            .in('exec_item_id', iIds);
+
+          if (ncIds && ncIds.length > 0) {
+            await (supabase as any)
+              .from('preventive_part_consumption')
+              .delete()
+              .in('exec_nonconformity_id', ncIds.map(nc => nc.id));
+          }
+
+          // Delete nonconformities
+          const { error: ncDelErr } = await supabase
+            .from('preventive_checklist_item_nonconformities')
+            .delete()
+            .in('exec_item_id', iIds);
+          if (ncDelErr) throw ncDelErr;
+
+          // Delete actions
+          const { error: actDelErr } = await supabase
+            .from('preventive_checklist_item_actions')
+            .delete()
+            .in('exec_item_id', iIds);
+          if (actDelErr) throw actDelErr;
+        }
+
+        // Delete items
+        const { error: itemDelErr } = await supabase
+          .from('preventive_checklist_items')
+          .delete()
+          .in('exec_block_id', bIds);
+        if (itemDelErr) throw itemDelErr;
+      }
+
+      // Delete blocks
+      const { error: blockDelErr } = await supabase
+        .from('preventive_checklist_blocks')
+        .delete()
+        .eq('checklist_id', checklistId);
+      if (blockDelErr) throw blockDelErr;
+
+      // Delete checklist
+      const { error: clDelErr } = await supabase
+        .from('preventive_checklists')
+        .delete()
+        .eq('id', checklistId);
+      if (clDelErr) throw clDelErr;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['preventive-checklist', preventiveId] });
+      queryClient.invalidateQueries({ queryKey: ['preventive-consumed-parts', preventiveId] });
+      toast.success('Checklist removido. Selecione um novo template.');
+      autoStartAttempted.current = true; // prevent auto-start from firing
+      setIsSelectTemplateOpen(true);
+    },
+    onError: (error) => {
+      toast.error('Erro ao remover checklist: ' + error.message);
+    }
+  });
+
+
     if (!routeTemplateId) return;
     setAutoStartState('pending');
     setAutoStartError(null);
