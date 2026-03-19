@@ -190,6 +190,11 @@ export default function ExecucaoVisitaCorretiva() {
   // Check-in mutation
   const checkinMutation = useMutation({
     mutationFn: async () => {
+      // Bug #4: Check connectivity before attempting
+      if (!navigator.onLine) {
+        throw new Error('Sem conexão com a internet. Conecte-se e tente novamente.');
+      }
+
       setIsCheckingIn(true);
       let lat: number | null = null;
       let lon: number | null = null;
@@ -202,7 +207,8 @@ export default function ExecucaoVisitaCorretiva() {
         // Continue without geolocation
       }
 
-      const { error } = await supabase
+      // Bug #3: Timeout + RLS verification
+      const checkinPromise = supabase
         .from('ticket_visits')
         .update({
           checkin_at: new Date().toISOString(),
@@ -210,17 +216,32 @@ export default function ExecucaoVisitaCorretiva() {
           checkin_lon: lon,
           status: 'em_execucao',
         })
-        .eq('id', visitId);
+        .eq('id', visitId)
+        .select('id')
+        .single();
+
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('Timeout: servidor demorou mais que 15s. Tente novamente.')), 15000)
+      );
+
+      const { data, error } = await Promise.race([checkinPromise, timeoutPromise]) as any;
 
       if (error) throw error;
+      if (!data) {
+        throw new Error('Check-in não foi salvo. Verifique sua conexão e tente novamente.');
+      }
 
-      // Add timeline entry
-      await supabase.from('ticket_timeline').insert({
-        ticket_id: visit?.ticket_id,
-        user_id: user!.id,
-        event_type: 'visit_checkin',
-        event_description: `Check-in realizado na visita ${visit?.visit_code}`,
-      });
+      // Bug #3: Timeline is non-critical — don't block checkin
+      try {
+        await supabase.from('ticket_timeline').insert({
+          ticket_id: visit?.ticket_id,
+          user_id: user!.id,
+          event_type: 'visit_checkin',
+          event_description: `Check-in realizado na visita ${visit?.visit_code}`,
+        });
+      } catch (timelineErr) {
+        console.error('[Corretiva] Timeline de checkin não criada:', timelineErr);
+      }
 
       return { lat, lon };
     },
