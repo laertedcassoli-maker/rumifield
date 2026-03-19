@@ -242,6 +242,7 @@ export default function Pedidos() {
     setDateFilter('all');
     setTipoEnvioFilter('all');
     setTipoLogisticaFilter('all');
+    setSolicitanteFilter('all');
   };
 
   const handleTransmitir = async (pedidoId: string) => {
