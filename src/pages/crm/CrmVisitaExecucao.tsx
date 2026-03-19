@@ -129,26 +129,31 @@ export default function CrmVisitaExecucao() {
   // @ts-ignore
   const checkinMutation = useMutation({
     mutationFn: async ({ lat, lon }: { lat: number | null; lon: number | null }) => {
-      const { error } = await supabase
-        .from('crm_visits')
-        .update({
-          status: 'em_andamento',
-          checkin_at: new Date().toISOString(),
-          checkin_lat: lat,
-          checkin_lon: lon,
-        })
-        .eq('id', id);
+      const { error } = await withTimeout(
+        supabase
+          .from('crm_visits')
+          .update({
+            status: 'em_andamento',
+            checkin_at: new Date().toISOString(),
+            checkin_lat: lat,
+            checkin_lon: lon,
+          })
+          .eq('id', id)
+      );
       if (error) throw error;
 
       // Auto-attach checklists for 'ganho' products
       const wonProducts = clientProducts.filter((p: any) => p.stage === 'ganho');
       if (wonProducts.length > 0) {
-        const { data: rules } = await supabase
-          .from('crm_checklist_rules')
-          .select('*')
-          .in('product_code', wonProducts.map((p: any) => p.product_code))
-          .eq('is_active', true)
-          .order('priority');
+        const { data: rules, error: rulesError } = await withTimeout(
+          supabase
+            .from('crm_checklist_rules')
+            .select('*')
+            .in('product_code', wonProducts.map((p: any) => p.product_code))
+            .eq('is_active', true)
+            .order('priority')
+        );
+        if (rulesError) throw rulesError;
 
         if (rules && rules.length > 0) {
           const inserts = rules.map((r: any) => ({
@@ -158,7 +163,18 @@ export default function CrmVisitaExecucao() {
             origin: 'auto',
             started_at: new Date().toISOString(),
           }));
-          await supabase.from('crm_visit_checklists').insert(inserts);
+          // @ts-ignore - upsert with onConflict for idempotency
+          const { error: checklistError } = await withTimeout(
+            supabase.from('crm_visit_checklists').upsert(inserts, { onConflict: 'visit_id,checklist_template_id', ignoreDuplicates: true })
+          );
+          if (checklistError) {
+            // Rollback: revert check-in
+            await supabase
+              .from('crm_visits')
+              .update({ status: 'planejada', checkin_at: null, checkin_lat: null, checkin_lon: null })
+              .eq('id', id);
+            throw checklistError;
+          }
         }
       }
     },
