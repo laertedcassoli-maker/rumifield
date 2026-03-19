@@ -1214,6 +1214,14 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
                   const missingAction = item.availableActions.length > 0 && item.selectedActions.length === 0;
                   const needsTreatment = item.status === 'N' && hasFailureDetails && (missingNonconformity || missingAction);
 
+                  // Check if item has a "troca" action selected but no part linked
+                  const hasTrocaAction = item.status === 'N' && item.selectedActions.some(actionId => {
+                    const action = item.availableActions.find(a => a.id === actionId);
+                    return action && /troca/i.test(action.action_label);
+                  });
+                  const hasCoveredPart = coveredExecItemIds?.has(item.id) ?? false;
+                  const needsPart = hasTrocaAction && !hasCoveredPart;
+
                   return (
                     <div 
                       key={item.id} 
@@ -1227,11 +1235,17 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
                     >
                       <div className="space-y-3">
                         <div className="flex items-start justify-between gap-2">
-                          <div className="flex items-start gap-2 min-w-0 flex-1">
+                          <div className="flex items-start gap-2 min-w-0 flex-1 flex-wrap">
                             <span className="font-medium">{item.item_name_snapshot}</span>
                             {needsTreatment && !isCompleted && (
                               <Badge variant="destructive" className="shrink-0 text-xs animate-pulse">
                                 Pendente
+                              </Badge>
+                            )}
+                            {needsPart && !isCompleted && (
+                              <Badge variant="outline" className="shrink-0 text-xs border-amber-500 text-amber-600 bg-amber-50 dark:bg-amber-950/30">
+                                <Package className="h-3 w-3 mr-1" />
+                                Peça pendente
                               </Badge>
                             )}
                           </div>
