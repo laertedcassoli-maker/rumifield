@@ -585,6 +585,20 @@ export function useOfflineSync() {
           if (result.error) {
             if ((result.error as any).code !== '23505') throw result.error;
           }
+        } else if (tableName === "preventive_maintenance") {
+          delete cleanData.client_name;
+          delete cleanData.technician_name;
+          delete cleanData.client_fazenda;
+          const { error } = await supabase
+            .from("preventive_maintenance")
+            .update(cleanData as never)
+            .eq("id", id);
+          if (error && (error as any).code !== '23505') throw error;
+        } else {
+          console.warn(
+            `[Sync] Sem handler para update em '${tableName}'. Mantendo na fila para retry.`
+          );
+          throw new Error(`Tabela sem handler: ${tableName} / update`);
         }
         break;
       }
