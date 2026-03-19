@@ -3,6 +3,7 @@ import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { supabase } from '@/integrations/supabase/client';
+import { withTimeout } from '@/lib/supabase-helpers';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCliente360Data, PRODUCT_ORDER, PRODUCT_LABELS, type ProductCode, type CrmStage } from '@/hooks/useCrmData';
 import { ProductBadge } from '@/components/crm/ProductBadge';
