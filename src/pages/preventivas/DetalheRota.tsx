@@ -231,15 +231,28 @@ export default function DetalheRota() {
           notes: `Planejada na rota ${route.route_code}`,
         }));
 
-        const { data: createdPms, error: pmError } = await supabase
+        // Fetch existing preventive_maintenance for this route to avoid duplicates
+        const { data: existingPms, error: existingPmError } = await supabase
           .from('preventive_maintenance')
-          .upsert(preventiveRecords, {
-            onConflict: 'client_id,route_id',
-            ignoreDuplicates: false
-          })
-          .select('id, client_id');
+          .select('id, client_id')
+          .eq('route_id', id!);
 
-        if (pmError) throw pmError;
+        if (existingPmError) throw existingPmError;
+
+        const existingClientIds = new Set((existingPms || []).map(pm => pm.client_id));
+        const newRecords = preventiveRecords.filter(r => !existingClientIds.has(r.client_id));
+
+        let createdPms = [...(existingPms || [])];
+
+        if (newRecords.length > 0) {
+          const { data: insertedPms, error: pmError } = await supabase
+            .from('preventive_maintenance')
+            .insert(newRecords)
+            .select('id, client_id');
+
+          if (pmError) throw pmError;
+          createdPms = [...createdPms, ...(insertedPms || [])];
+        }
 
         // For each PM, create the checklist execution structure
         if (createdPms && template) {

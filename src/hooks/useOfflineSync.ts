@@ -518,10 +518,8 @@ export function useOfflineSync() {
           delete cleanData.client_fazenda;
           const { error } = await (supabase as any)
             .from("preventive_maintenance")
-            .upsert(cleanData, {
-              onConflict: 'client_id,route_id',
-              ignoreDuplicates: false
-            });
+            .insert(cleanData);
+          // Treat duplicate key (partial unique index) as success
           if (error && (error as any).code !== '23505') throw error;
         } else if (tableName === "preventive_route_items") {
           delete cleanData.client_name;
