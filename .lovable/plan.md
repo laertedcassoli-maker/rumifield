@@ -1,41 +1,67 @@
 
 
-## Plano: Validação rigorosa de peças por item com troca + badge visual "Peça pendente"
+## Plano: Correção de 12 bugs de robustez no módulo CRM Carteiras
 
-### Diagnóstico
+### Resumo das alterações
 
-A validação de peças vinculadas já existe em ambas as telas de finalização:
-- `AtendimentoPreventivo.tsx` (linhas 422-517) — preventivas
-- `ExecucaoVisitaCorretiva.tsx` (linhas 598-690) — corretivas
+4 arquivos editados, 1 migration criada.
 
-Porém há problemas:
+---
 
-1. **Bug de erro duplicado em `AtendimentoPreventivo.tsx`**: Linhas 509-513 adicionam o MESMO erro uma segunda vez fora do bloco `if (stillMissing > 0)`, causando falsos positivos (bloqueia mesmo quando peças manuais cobrem os itens).
+### 1. `FinalizarVisitaModal.tsx` — Bugs 1A, 2B, 4A, 7A, 7B, 7C
 
-2. **Sem indicação visual no checklist**: O técnico não sabe quais itens específicos precisam de peça — apenas vê o erro genérico ao tentar finalizar.
+**Erros silenciosos + rollback + timeout + idempotência de snapshots**
 
-3. **Não há badge "Peça pendente"** nos itens do checklist com "troca de peça" que ainda não têm peça vinculada.
+- Envolver update da visita com `withTimeout` (12s)
+- Capturar erro do fetch de produtos: `if (productsError) throw productsError`
+- Usar `upsert` com `onConflict: 'visit_id,client_product_id'` (constraint já existe no DB) para snapshots, capturar erro
+- Se snapshot falhar → rollback: reverter visita para `em_andamento` com checkout nulo
+- Adicionar invalidações no `onSuccess`: `['crm-visitas']`, `['crm-carteira-visits']`, `['crm-carteira']`, `['crm-visit', visitId]`
 
-### Alterações
+### 2. `CrmVisitaExecucao.tsx` — Bugs 1B, 2A, 4A, 5C, 7A, 7D
 
-**1. Corrigir bug em `AtendimentoPreventivo.tsx`**
-- Remover o bloco duplicado nas linhas 509-513 que empurra o erro sem checar `stillMissing`.
+**checkinMutation:**
+- Envolver update com `withTimeout`
+- Capturar erro do fetch de rules: `if (rulesError) throw rulesError`
+- Capturar erro do insert de checklists: `if (checklistError)` → rollback (reverter visita para `planejada`)
+- Para idempotência de checklists: não existe unique constraint em `crm_visit_checklists(visit_id, checklist_template_id)` → criar migration para adicionar. Após isso, usar `upsert` com `onConflict: 'visit_id,checklist_template_id'` e `ignoreDuplicates()`
 
-**2. Adicionar badge "Peça pendente" em `ChecklistExecution.tsx`**
-- Buscar dados de `preventive_part_consumption` para saber quais `exec_item_id` já têm peças vinculadas.
-- Para cada item com `status = 'N'` e ação de "troca" selecionada, verificar se existe pelo menos 1 peça linkada.
-- Exibir badge `Peça pendente` (âmbar/laranja, com ícone Package) ao lado do nome do item quando faltar peça.
-- Usar uma query adicional leve: `select exec_item_id from preventive_part_consumption where preventive_id = ?` (já existe uma query similar de consumed parts).
+**cancelMutation (Bug 5C):**
+- Adicionar no `onSuccess`: `queryClient.invalidateQueries` para `['crm-visitas']`, `['crm-carteira-visits']`, `['crm-carteira']`, `['crm-visit', id]`
 
-**3. Garantir consistência da validação na corretiva (`ExecucaoVisitaCorretiva.tsx`)**
-- A lógica já está correta neste arquivo (sem duplicação). Nenhuma alteração necessária.
+### 3. `CriarAcaoModal.tsx` — Bug 5A
+
+- Substituir `invalidateQueries({ queryKey: ['crm-'] })` (no-op) por:
+  - `['crm-360-actions', clientId]`
+  - `['crm-actions-flat']`
+  - `['crm-carteira-actions']`
+  - `['crm-carteira']`
+- Manter `['crm-360-actions']` já existente
+
+### 4. `AtualizarNegociacaoModal.tsx` — Bug 5B
+
+- Substituir `['crm-']` e `['crm-360']` (ambos no-ops) por:
+  - `['crm-360-products']`
+  - `['crm-carteira-products']`
+  - `['crm-pipeline']`
+  - `['crm-carteira']`
+
+### 5. Migration — Unique constraint para idempotência de checklists
+
+```sql
+CREATE UNIQUE INDEX IF NOT EXISTS uq_crm_visit_checklists 
+  ON public.crm_visit_checklists(visit_id, checklist_template_id);
+```
 
 ### Arquivos alterados
-- `src/pages/preventivas/AtendimentoPreventivo.tsx` — remover linhas 509-513 (bug)
-- `src/components/preventivas/ChecklistExecution.tsx` — adicionar query de peças vinculadas + badge "Peça pendente" nos itens sem cobertura
+- `src/components/crm/FinalizarVisitaModal.tsx`
+- `src/pages/crm/CrmVisitaExecucao.tsx`
+- `src/components/crm/CriarAcaoModal.tsx`
+- `src/components/crm/AtualizarNegociacaoModal.tsx`
+- Nova migration SQL (unique constraint)
 
-### Resultado
-- Técnico vê em tempo real quais itens do checklist estão sem peça
-- Finalização bloqueada corretamente (sem falsos positivos)
-- Mensagem de erro clara e consistente em ambas as telas
+### O que NÃO muda
+- Nenhuma lógica de negócio, layout ou estilos
+- Campos enviados ao banco permanecem idênticos
+- Fluxo do usuário inalterado
 
