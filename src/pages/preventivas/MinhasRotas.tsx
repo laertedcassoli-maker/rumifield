@@ -685,6 +685,11 @@ export default function MinhasRotas() {
                 {visit.ticket_code}
               </span>
             </div>
+            {visit.created_at && (
+              <p className="text-xs text-muted-foreground mt-1">
+                Criada em {format(parseISO(visit.created_at), 'dd/MM/yyyy', { locale: ptBR })}
+              </p>
+            )}
 
             {/* Arrow */}
             <div className="flex justify-end mt-2">
