@@ -17,7 +17,7 @@ export interface UnifiedAction {
   description: string | null;
   owner_user_id: string;
   owner_name: string | null;
-  clientes: { id: string; nome: string } | null;
+  clientes: { id: string; nome: string; consultor_rplus_id: string | null } | null;
   _source: 'action' | 'proposal';
   proposed_value?: number | null;
   proposal_status?: ProposalStatus;
@@ -34,13 +34,14 @@ const PROPOSAL_STATUS_MAP: Record<string, ActionStatus> = {
 export function useCrmAcoesData() {
   const { user, role } = useAuth();
   const isAdminOrCoord = role === 'admin' || role === 'coordenador_rplus' || role === 'coordenador_servicos';
+  const isAdmin = role === 'admin' || role === 'coordenador_rplus';
 
   const { data: actions, isLoading: loadingActions } = useQuery({
     queryKey: ['crm-actions-flat', user?.id, isAdminOrCoord],
     queryFn: async () => {
       let query = supabase
         .from('crm_actions')
-        .select('*, clientes!inner(id, nome)')
+        .select('*, clientes!inner(id, nome, consultor_rplus_id)')
         .order('due_at', { ascending: true, nullsFirst: false });
 
       if (!isAdminOrCoord && user?.id) {
@@ -125,10 +126,33 @@ export function useCrmAcoesData() {
     enabled: !!user?.id,
   });
 
+  const { data: consultores } = useQuery({
+    queryKey: ['crm-consultores'],
+    queryFn: async () => {
+      const { data: roles, error: rolesError } = await supabase
+        .from('user_roles')
+        .select('user_id')
+        .eq('role', 'consultor_rplus');
+      if (rolesError) throw rolesError;
+      const userIds = (roles || []).map((r: any) => r.user_id);
+      if (userIds.length === 0) return [];
+      const { data: profiles, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, nome')
+        .in('id', userIds)
+        .order('nome');
+      if (profilesError) throw profilesError;
+      return profiles || [];
+    },
+    enabled: isAdmin,
+  });
+
   return {
     actions: actions || [],
     proposals: proposals || [],
+    consultores: consultores || [],
     isLoading: loadingActions || loadingProposals,
     isAdminOrCoord,
+    isAdmin,
   };
 }
