@@ -284,6 +284,7 @@ export default function MinhasRotas() {
           field_technician_user_id: r.field_technician_user_id,
           technician_name: r.technician_name || 'Não atribuído',
           farm_coordinates: coordinates,
+          created_at: (r as any).created_at || '',
         };
       });
     },
