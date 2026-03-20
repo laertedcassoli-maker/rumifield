@@ -569,13 +569,15 @@ export default function MinhasRotas() {
                   </p>
                 )}
               </div>
-              {renderStatusBadge(route)}
+              <div className="flex flex-col items-end gap-1">
+                {renderStatusBadge(route)}
+                {route.created_at && (
+                  <span className="text-xs text-muted-foreground">
+                    Criada em {format(parseISO(route.created_at), 'dd/MM/yyyy', { locale: ptBR })}
+                  </span>
+                )}
+              </div>
             </div>
-            {route.created_at && (
-              <p className="text-xs text-muted-foreground mb-2 text-right">
-                Criada em {format(parseISO(route.created_at), 'dd/MM/yyyy', { locale: ptBR })}
-              </p>
-            )}
 
             {/* Info row */}
             <div className="flex items-center justify-between text-sm text-muted-foreground mb-3">
