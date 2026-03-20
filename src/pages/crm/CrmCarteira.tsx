@@ -22,6 +22,7 @@ export default function CrmCarteira() {
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search, 300);
+  const [consultorFilter, setConsultorFilter] = useState<string>('todos');
   const [actionModal, setActionModal] = useState<{ open: boolean; clientId: string }>({ open: false, clientId: '' });
 
   const clienteData = useMemo(() => {
