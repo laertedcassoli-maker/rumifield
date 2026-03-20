@@ -17,7 +17,7 @@ export interface UnifiedAction {
   description: string | null;
   owner_user_id: string;
   owner_name: string | null;
-  clientes: { id: string; nome: string } | null;
+  clientes: { id: string; nome: string; consultor_rplus_id: string | null } | null;
   _source: 'action' | 'proposal';
   proposed_value?: number | null;
   proposal_status?: ProposalStatus;
