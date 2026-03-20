@@ -397,6 +397,7 @@ export default function MinhasRotas() {
           technician_name: v.technician_name || 'Não atribuído',
           client_lat: client?.latitude || null,
           client_lon: client?.longitude || null,
+          created_at: (v as any).created_at || '',
         };
       });
     },
