@@ -97,6 +97,21 @@ export default function CrmAcoes() {
         ))}
       </div>
 
+      {/* Consultant filter */}
+      {isAdmin && consultores.length > 0 && (
+        <Select value={consultorFilter} onValueChange={setConsultorFilter}>
+          <SelectTrigger className="h-9 text-sm">
+            <SelectValue placeholder="Todos os consultores" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Todos os consultores</SelectItem>
+            {consultores.map((c: any) => (
+              <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
+
       {/* Results count */}
       {!isLoading && (
         <p className="text-xs text-muted-foreground">{filtered.length} ação(ões) encontrada(s)</p>
