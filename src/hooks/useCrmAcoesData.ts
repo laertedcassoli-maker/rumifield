@@ -34,6 +34,7 @@ const PROPOSAL_STATUS_MAP: Record<string, ActionStatus> = {
 export function useCrmAcoesData() {
   const { user, role } = useAuth();
   const isAdminOrCoord = role === 'admin' || role === 'coordenador_rplus' || role === 'coordenador_servicos';
+  const isAdmin = role === 'admin' || role === 'coordenador_rplus';
 
   const { data: actions, isLoading: loadingActions } = useQuery({
     queryKey: ['crm-actions-flat', user?.id, isAdminOrCoord],
