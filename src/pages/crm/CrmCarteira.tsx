@@ -16,7 +16,7 @@ import { CriarAcaoModal } from '@/components/crm/CriarAcaoModal';
 
 
 export default function CrmCarteira() {
-  const { clientes, clientProducts, snapshots, actions, visits, isLoading } = useCarteiraData();
+  const { clientes, clientProducts, snapshots, actions, visits, consultores, isAdmin, isLoading } = useCarteiraData();
 
   const { data: produtoBadgeColors } = useProductBadgeColors();
   const navigate = useNavigate();
