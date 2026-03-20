@@ -366,6 +366,7 @@ export default function MinhasRotas() {
           technician_name: profilesMap.get(visit.field_technician_user_id) || 'Não atribuído',
           client_lat: client?.latitude || null,
           client_lon: client?.longitude || null,
+          created_at: visit.created_at || '',
         };
       });
     },
