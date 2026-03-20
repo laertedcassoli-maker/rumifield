@@ -572,7 +572,7 @@ export default function MinhasRotas() {
               {renderStatusBadge(route)}
             </div>
             {route.created_at && (
-              <p className="text-xs text-muted-foreground mb-2">
+              <p className="text-xs text-muted-foreground mb-2 text-right">
                 Criada em {format(parseISO(route.created_at), 'dd/MM/yyyy', { locale: ptBR })}
               </p>
             )}
@@ -666,7 +666,7 @@ export default function MinhasRotas() {
               {renderStatusBadge(visit)}
             </div>
             {visit.created_at && (
-              <p className="text-xs text-muted-foreground mb-2">
+              <p className="text-xs text-muted-foreground mb-2 text-right">
                 Criada em {format(parseISO(visit.created_at), 'dd/MM/yyyy', { locale: ptBR })}
               </p>
             )}
