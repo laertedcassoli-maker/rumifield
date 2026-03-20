@@ -306,7 +306,8 @@ export default function MinhasRotas() {
           status,
           field_technician_user_id,
           ticket_id,
-          client_id
+          client_id,
+          created_at
         `)
         .in('status', ['planejada', 'em_elaboracao', 'em_execucao', 'finalizada'])
         .order('planned_start_date', { ascending: true });
