@@ -573,7 +573,7 @@ export default function MinhasRotas() {
             </div>
 
             {/* Info row */}
-            <div className="flex items-center justify-between text-sm text-muted-foreground mb-3">
+            <div className="flex items-center justify-between text-sm text-muted-foreground mb-1">
               <span className="flex items-center gap-1">
                 <Calendar className="h-4 w-4" />
                 {format(parseISO(route.start_date), 'dd/MM', { locale: ptBR })} - {format(parseISO(route.end_date), 'dd/MM', { locale: ptBR })}
@@ -583,6 +583,11 @@ export default function MinhasRotas() {
                 {route.executed_farms}/{route.total_farms}
               </span>
             </div>
+            {route.created_at && (
+              <p className="text-xs text-muted-foreground mb-3">
+                Criada em {format(parseISO(route.created_at), 'dd/MM/yyyy', { locale: ptBR })}
+              </p>
+            )}
 
             {/* Progress bar */}
             <div className="space-y-1.5">
