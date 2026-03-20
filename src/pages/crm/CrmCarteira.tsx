@@ -81,6 +81,10 @@ export default function CrmCarteira() {
   const filtered = useMemo(() => {
     let list = clienteData;
 
+    if (consultorFilter !== 'todos') {
+      list = list.filter(c => c.consultor_rplus_id === consultorFilter);
+    }
+
     if (debouncedSearch) {
       const s = debouncedSearch.toLowerCase();
       list = list.filter(c =>
@@ -91,7 +95,7 @@ export default function CrmCarteira() {
     }
 
     return list;
-  }, [clienteData, debouncedSearch]);
+  }, [clienteData, debouncedSearch, consultorFilter]);
 
   return (
     <div className="space-y-3 animate-fade-in pb-24 overflow-x-hidden">
