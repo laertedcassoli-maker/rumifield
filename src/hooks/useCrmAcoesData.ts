@@ -41,7 +41,7 @@ export function useCrmAcoesData() {
     queryFn: async () => {
       let query = supabase
         .from('crm_actions')
-        .select('*, clientes!inner(id, nome)')
+        .select('*, clientes!inner(id, nome, consultor_rplus_id)')
         .order('due_at', { ascending: true, nullsFirst: false });
 
       if (!isAdminOrCoord && user?.id) {
