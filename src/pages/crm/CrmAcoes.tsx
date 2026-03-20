@@ -83,20 +83,6 @@ export default function CrmAcoes() {
         />
       </div>
 
-      {/* Status filter */}
-      <div className="flex gap-2 flex-wrap">
-        {STATUS_FILTERS.map((f) => (
-          <Button
-            key={f.value}
-            variant={statusFilter === f.value ? 'default' : 'outline'}
-            size="sm"
-            onClick={() => setStatusFilter(f.value)}
-          >
-            {f.label}
-          </Button>
-        ))}
-      </div>
-
       {/* Consultant filter */}
       {isAdmin && consultores.length > 0 && (
         <Select value={consultorFilter} onValueChange={setConsultorFilter}>
@@ -111,6 +97,20 @@ export default function CrmAcoes() {
           </SelectContent>
         </Select>
       )}
+
+      {/* Status filter */}
+      <div className="flex gap-2 flex-wrap">
+        {STATUS_FILTERS.map((f) => (
+          <Button
+            key={f.value}
+            variant={statusFilter === f.value ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setStatusFilter(f.value)}
+          >
+            {f.label}
+          </Button>
+        ))}
+      </div>
 
       {/* Results count */}
       {!isLoading && (
