@@ -44,6 +44,11 @@ export default function CrmAcoes() {
       );
     }
 
+    // Consultant filter
+    if (consultorFilter !== 'todos') {
+      result = result.filter((a) => a.clientes?.consultor_rplus_id === consultorFilter);
+    }
+
     // Sort: overdue first, then by due_at ascending
     return result.sort((a, b) => {
       const aOverdue = a.due_at && a.status !== 'concluida' && isPast(new Date(a.due_at)) && !isToday(new Date(a.due_at));
@@ -55,7 +60,7 @@ export default function CrmAcoes() {
       if (!b.due_at) return -1;
       return new Date(a.due_at).getTime() - new Date(b.due_at).getTime();
     });
-  }, [actions, statusFilter, search]);
+  }, [actions, statusFilter, search, consultorFilter]);
 
   const isOverdue = (action: UnifiedAction) =>
     action.due_at && action.status !== 'concluida' && isPast(new Date(action.due_at)) && !isToday(new Date(action.due_at));
