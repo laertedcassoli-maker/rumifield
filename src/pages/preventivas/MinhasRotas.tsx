@@ -79,6 +79,7 @@ interface CorrectiveVisit {
   technician_name: string;
   client_lat: number | null;
   client_lon: number | null;
+  created_at: string;
 }
 
 type UnifiedRoute = PreventiveRoute | CorrectiveVisit;
