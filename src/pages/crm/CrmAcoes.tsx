@@ -19,10 +19,11 @@ const STATUS_FILTERS = [
 ] as const;
 
 export default function CrmAcoes() {
-  const { actions, isLoading, isAdminOrCoord } = useCrmAcoesData();
+  const { actions, isLoading, isAdminOrCoord, isAdmin, consultores } = useCrmAcoesData();
 
   const [statusFilter, setStatusFilter] = useState<string>('aberta');
   const [search, setSearch] = useState('');
+  const [consultorFilter, setConsultorFilter] = useState<string>('todos');
   const [selectedAction, setSelectedAction] = useState<UnifiedAction | null>(null);
 
   const filtered = useMemo(() => {
