@@ -244,6 +244,7 @@ export default function MinhasRotas() {
         field_technician_user_id: route.field_technician_user_id,
         technician_name: profilesMap.get(route.field_technician_user_id) || 'Não atribuído',
         farm_coordinates: countMap.get(route.id)?.coordinates || [],
+        created_at: route.created_at || '',
       }));
     },
     offlineFn: async () => {
