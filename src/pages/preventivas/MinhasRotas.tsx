@@ -61,6 +61,7 @@ interface PreventiveRoute {
   field_technician_user_id: string;
   technician_name: string;
   farm_coordinates: Array<{ lat: number; lon: number; name: string }>;
+  created_at: string;
 }
 
 interface CorrectiveVisit {
