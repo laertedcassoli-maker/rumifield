@@ -460,10 +460,22 @@ export default function MinhasRotas() {
         }
       }
     }).sort((a, b) => {
-      // Sort by date
-      const dateA = a.type === 'preventive' ? a.start_date : a.scheduled_date;
-      const dateB = b.type === 'preventive' ? b.start_date : b.scheduled_date;
-      return new Date(dateA).getTime() - new Date(dateB).getTime();
+      // Primário: created_at decrescente
+      const createdA = a.created_at || '';
+      const createdB = b.created_at || '';
+      if (createdB !== createdA) return createdB.localeCompare(createdA);
+
+      // Secundário: status por prioridade
+      const STATUS_PRIORITY: Record<string, number> = {
+        em_elaboracao: 0,
+        em_execucao: 1,
+        planejada: 2,
+        finalizada: 3,
+        cancelada: 4,
+      };
+      const prioA = STATUS_PRIORITY[a.status] ?? 99;
+      const prioB = STATUS_PRIORITY[b.status] ?? 99;
+      return prioA - prioB;
     });
   }, [preventiveRoutes, correctiveVisits, filter, technicianFilter, typeFilter, statusFilter]);
 
