@@ -96,7 +96,7 @@ export default function MinhasRotas() {
   const { user, role } = useAuth();
   const [filter, setFilter] = useState<FilterType>('todas');
   const [technicianFilter, setTechnicianFilter] = useState<string>('all');
-  const [routeView, setRouteView] = useState<RouteView>('ativas');
+  const [routeView, setRouteView] = useState<RouteView>('todas');
   const [sortBy, setSortBy] = useState<SortBy>('default');
   const [showNovaVisita, setShowNovaVisita] = useState(false);
 
@@ -789,76 +789,78 @@ export default function MinhasRotas() {
           </Button>
         </div>
 
-        {/* Filters - Single row */}
-        <div className="flex gap-2 items-center">
-          <Select value={routeView} onValueChange={(v) => setRouteView(v as RouteView)}>
-            <SelectTrigger className="h-9 flex-1 min-w-0">
-              <Filter className="mr-1.5 h-3.5 w-3.5 shrink-0" />
-              <SelectValue placeholder="Mostrar" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="ativas">Em andamento</SelectItem>
-              <SelectItem value="preventivas_ativas">Preventivas ativas</SelectItem>
-              <SelectItem value="corretivas_ativas">Corretivas ativas</SelectItem>
-              <SelectItem value="concluidas">Concluídas</SelectItem>
-              <SelectItem value="preventivas_concluidas">Preventivas concluídas</SelectItem>
-              <SelectItem value="corretivas_concluidas">Corretivas concluídas</SelectItem>
-              <SelectItem value="todas">Todas</SelectItem>
-            </SelectContent>
-          </Select>
-
-          <Select value={filter} onValueChange={(v) => setFilter(v as FilterType)}>
-            <SelectTrigger className="h-9 flex-1 min-w-0">
-              <Calendar className="mr-1.5 h-3.5 w-3.5 shrink-0" />
-              <SelectValue placeholder="Data" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="hoje">Hoje</SelectItem>
-              <SelectItem value="semana">Esta semana</SelectItem>
-              <SelectItem value="todas">Todas as datas</SelectItem>
-            </SelectContent>
-          </Select>
-
-          <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortBy)}>
-            <SelectTrigger className="h-9 flex-1 min-w-0">
-              <ArrowUpDown className="mr-1.5 h-3.5 w-3.5 shrink-0" />
-              <SelectValue placeholder="Ordenar" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="default">Padrão (Data + Status)</SelectItem>
-              <SelectItem value="status">Por Status</SelectItem>
-              <SelectItem value="data_criacao">Por Data de Criação</SelectItem>
-              <SelectItem value="tipo">Por Tipo</SelectItem>
-              <SelectItem value="tecnico">Por Técnico</SelectItem>
-            </SelectContent>
-          </Select>
-
-          {isAdminOrCoordinator && (
-            <Select value={technicianFilter} onValueChange={setTechnicianFilter}>
-              <SelectTrigger className="h-9 flex-1 min-w-0">
-                <User className="mr-1.5 h-3.5 w-3.5 shrink-0" />
-                <SelectValue placeholder="Técnico" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todos os técnicos</SelectItem>
-                {technicians?.map(tech => (
-                  <SelectItem key={tech.id} value={tech.id}>{tech.nome}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-
-          {(routeView !== 'ativas' || filter !== 'todas' || sortBy !== 'default' || technicianFilter !== 'all') && (
+        {/* Filters */}
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-muted-foreground">Filtros e ordenação</span>
             <Button
               variant="ghost"
-              size="icon"
-              className="h-9 w-9 shrink-0"
-              onClick={() => { setRouteView('ativas'); setFilter('todas'); setSortBy('default'); setTechnicianFilter('all'); }}
-              title="Limpar filtros"
+              size="sm"
+              className="h-6 text-xs px-2 gap-1 text-muted-foreground"
+              onClick={() => { setRouteView('todas'); setFilter('todas'); setSortBy('default'); setTechnicianFilter('all'); }}
             >
-              <X className="h-4 w-4" />
+              <X className="h-3 w-3" />
+              Limpar
             </Button>
-          )}
+          </div>
+          <div className="flex gap-2">
+            <Select value={routeView} onValueChange={(v) => setRouteView(v as RouteView)}>
+              <SelectTrigger className="h-9 flex-1 min-w-0">
+                <Filter className="mr-1.5 h-3.5 w-3.5 shrink-0" />
+                <SelectValue placeholder="Mostrar" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todas">Todas</SelectItem>
+                <SelectItem value="ativas">Em andamento</SelectItem>
+                <SelectItem value="preventivas_ativas">Preventivas ativas</SelectItem>
+                <SelectItem value="corretivas_ativas">Corretivas ativas</SelectItem>
+                <SelectItem value="concluidas">Concluídas</SelectItem>
+                <SelectItem value="preventivas_concluidas">Preventivas concluídas</SelectItem>
+                <SelectItem value="corretivas_concluidas">Corretivas concluídas</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select value={filter} onValueChange={(v) => setFilter(v as FilterType)}>
+              <SelectTrigger className="h-9 flex-1 min-w-0">
+                <Calendar className="mr-1.5 h-3.5 w-3.5 shrink-0" />
+                <SelectValue placeholder="Data" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="todas">Todas as datas</SelectItem>
+                <SelectItem value="hoje">Hoje</SelectItem>
+                <SelectItem value="semana">Esta semana</SelectItem>
+              </SelectContent>
+            </Select>
+
+            <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortBy)}>
+              <SelectTrigger className="h-9 flex-1 min-w-0">
+                <ArrowUpDown className="mr-1.5 h-3.5 w-3.5 shrink-0" />
+                <SelectValue placeholder="Ordenar" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="default">Padrão (Data + Status)</SelectItem>
+                <SelectItem value="status">Por Status</SelectItem>
+                <SelectItem value="data_criacao">Por Data de Criação</SelectItem>
+                <SelectItem value="tipo">Por Tipo</SelectItem>
+                <SelectItem value="tecnico">Por Técnico</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {isAdminOrCoordinator && (
+              <Select value={technicianFilter} onValueChange={setTechnicianFilter}>
+                <SelectTrigger className="h-9 flex-1 min-w-0">
+                  <User className="mr-1.5 h-3.5 w-3.5 shrink-0" />
+                  <SelectValue placeholder="Técnico" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os técnicos</SelectItem>
+                  {technicians?.map(tech => (
+                    <SelectItem key={tech.id} value={tech.id}>{tech.nome}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
         </div>
 
         {/* Routes List */}
@@ -879,23 +881,23 @@ export default function MinhasRotas() {
             <CardContent className="py-10 text-center">
               <Route className="mx-auto h-10 w-10 text-muted-foreground/50" />
               <h3 className="mt-3 font-semibold text-sm">
-                {filter !== 'todas' || technicianFilter !== 'all' || routeView !== 'ativas'
+                {filter !== 'todas' || technicianFilter !== 'all' || routeView !== 'todas' || sortBy !== 'default'
                   ? 'Nenhuma rota encontrada' 
                   : isAdminOrCoordinator 
                     ? 'Nenhuma rota em execução'
                     : 'Nenhuma rota atribuída'}
               </h3>
               <p className="text-xs text-muted-foreground mt-1">
-                {filter !== 'todas' || technicianFilter !== 'all' || routeView !== 'ativas'
+                {filter !== 'todas' || technicianFilter !== 'all' || routeView !== 'todas' || sortBy !== 'default'
                   ? 'Tente outros filtros' 
                   : 'Aguarde novas atribuições'}
               </p>
-              {(filter !== 'todas' || technicianFilter !== 'all' || routeView !== 'ativas') && (
+              {(filter !== 'todas' || technicianFilter !== 'all' || routeView !== 'todas' || sortBy !== 'default') && (
                 <Button 
                   variant="outline" 
                   size="sm"
                   className="mt-3" 
-                  onClick={() => { setFilter('todas'); setTechnicianFilter('all'); setRouteView('ativas'); setSortBy('default'); }}
+                  onClick={() => { setFilter('todas'); setTechnicianFilter('all'); setRouteView('todas'); setSortBy('default'); }}
                 >
                   Limpar filtros
                 </Button>
