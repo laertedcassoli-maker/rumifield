@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { withTimeout } from '@/lib/supabase-helpers';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -173,58 +172,42 @@ export default function NovoChamado() {
   const createTicket = useMutation({
     mutationFn: async () => {
       // Generate ticket code
-      const { data: ticketCode, error: codeError } = await withTimeout(
-        supabase.rpc('generate_ticket_code')
-      );
+      const { data: ticketCode, error: codeError } = await supabase.rpc('generate_ticket_code');
       if (codeError) throw codeError;
 
       // Insert ticket
-      const { data: ticket, error } = await withTimeout(
-        supabase
-          .from('technical_tickets')
-          .insert({
-            ticket_code: ticketCode,
-            client_id: clientId,
-            created_by_user_id: user!.id,
-            assigned_technician_id: technicianId || null,
-            title: description.trim().substring(0, 80),
-            description: description || null,
-            priority: priority as any,
-            status: 'aberto',
-            products: selectedProducts,
-            category_id: categoryId || null,
-          })
-          .select('id')
-          .single()
-      );
+      const { data: ticket, error } = await supabase
+        .from('technical_tickets')
+        .insert({
+          ticket_code: ticketCode,
+          client_id: clientId,
+          created_by_user_id: user!.id,
+          assigned_technician_id: technicianId || null,
+          title: description.trim().substring(0, 80),
+          description: description || null,
+          priority: priority as any,
+          status: 'aberto',
+          products: selectedProducts,
+          category_id: categoryId || null,
+        })
+        .select('id')
+        .single();
 
       if (error) throw error;
 
-      const createdTicketId = ticket.id;
-      try {
-        // Add timeline entry
-        const { error: tlError } = await supabase.from('ticket_timeline').insert({
-          ticket_id: createdTicketId,
-          user_id: user!.id,
-          event_type: 'ticket_created',
-          event_description: `Chamado criado: ${ticketCode}`,
-        });
-        if (tlError) throw tlError;
+      // Add timeline entry
+      await supabase.from('ticket_timeline').insert({
+        ticket_id: ticket.id,
+        user_id: user!.id,
+        event_type: 'ticket_created',
+        event_description: `Chamado criado: ${ticketCode}`,
+      });
 
-        // Save tag links
-        if (selectedTagIds.length > 0) {
-          const { error: tagError } = await supabase.from('ticket_tag_links').insert(
-            selectedTagIds.map(tagId => ({ ticket_id: createdTicketId, tag_id: tagId }))
-          );
-          if (tagError) throw tagError;
-        }
-      } catch (err) {
-        // Rollback: delete the ticket to allow clean retry
-        await supabase.from('technical_tickets').delete().eq('id', createdTicketId)
-          .then(({ error: rbErr }) => {
-            if (rbErr) console.error('[NovoChamado] Erro no rollback:', rbErr);
-          });
-        throw err;
+      // Save tag links
+      if (selectedTagIds.length > 0) {
+        await supabase.from('ticket_tag_links').insert(
+          selectedTagIds.map(tagId => ({ ticket_id: ticket.id, tag_id: tagId }))
+        );
       }
 
       return ticket;

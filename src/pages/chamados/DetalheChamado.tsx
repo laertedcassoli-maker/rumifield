@@ -178,38 +178,18 @@ export default function DetalheChamado() {
   // Update tags mutation
   const updateTags = useMutation({
     mutationFn: async (tagIds: string[]) => {
-      // Snapshot current tags for rollback
-      const { data: currentTags } = await supabase
-        .from('ticket_tag_links')
-        .select('tag_id')
-        .eq('ticket_id', id!);
-      const previousTagIds = currentTags?.map(t => t.tag_id) || [];
-
       // Delete existing links
       const { error: delError } = await supabase
         .from('ticket_tag_links')
         .delete()
         .eq('ticket_id', id!);
       if (delError) throw delError;
-
       // Insert new links
       if (tagIds.length > 0) {
         const { error: insError } = await supabase
           .from('ticket_tag_links')
           .insert(tagIds.map(tag_id => ({ ticket_id: id!, tag_id })));
-        if (insError) {
-          // Restore previous tags before re-throwing
-          if (previousTagIds.length > 0) {
-            try {
-              await supabase.from('ticket_tag_links').insert(
-                previousTagIds.map(tag_id => ({ ticket_id: id!, tag_id }))
-              );
-            } catch (restoreErr) {
-              console.error('[DetalheChamado] Erro ao restaurar tags:', restoreErr);
-            }
-          }
-          throw insError;
-        }
+        if (insError) throw insError;
       }
     },
     onSuccess: () => {
@@ -395,7 +375,7 @@ export default function DetalheChamado() {
       
       if (error) throw error;
 
-      const { error: tlError } = await supabase.from('ticket_timeline').insert({
+      await supabase.from('ticket_timeline').insert({
         ticket_id: id,
         user_id: user!.id,
         event_type: 'technician_assigned',
@@ -403,7 +383,6 @@ export default function DetalheChamado() {
           ? 'Técnico de campo atribuído' 
           : 'Técnico de campo removido',
       });
-      if (tlError) console.error('[DetalheChamado] Timeline insert failed:', tlError);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['ticket-detail', id] });

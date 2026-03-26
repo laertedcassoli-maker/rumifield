@@ -86,10 +86,8 @@ export function CriarAcaoModal({ open, onOpenChange, clientId: externalClientId,
     },
     onSuccess: () => {
       toast.success('Ação criada!');
+      queryClient.invalidateQueries({ queryKey: ['crm-'] });
       queryClient.invalidateQueries({ queryKey: ['crm-360-actions'] });
-      queryClient.invalidateQueries({ queryKey: ['crm-actions-flat'] });
-      queryClient.invalidateQueries({ queryKey: ['crm-carteira-actions'] });
-      queryClient.invalidateQueries({ queryKey: ['crm-carteira'] });
       onOpenChange(false);
       setTitle(''); setDescription(''); setType('tarefa'); setPriority('3'); setDueAt(''); setStatus('aberta'); setSelectedClientId('');
       onCreated?.();

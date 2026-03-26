@@ -506,7 +506,11 @@ export default function AtendimentoPreventivo() {
                 }
               }
 
-
+              if (itemsWithoutParts.length > 0) {
+                blockingErrors.push(
+                  'Existem itens no checklist com troca de peça que ainda não possuem peça vinculada. Adicione uma peça para cada item antes de finalizar a visita.'
+                );
+              }
             }
           }
         }

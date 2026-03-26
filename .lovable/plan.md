@@ -1,38 +1,51 @@
 
 
-## Adicionar ordenação configurável na tela Minhas Rotas
+## Corrigir bugs de Corretivas e Chamados (Bugs #1-#5)
 
-### O que será feito
+### Arquivos alterados
+- `src/pages/chamados/ExecucaoVisitaCorretiva.tsx`
+- `src/components/chamados/NovaVisitaDiretaDialog.tsx`
 
-Adicionar um seletor de ordenação ("Ordenar por") ao bloco de filtros, permitindo ao usuário escolher entre 4 critérios de ordenação:
+---
 
-- **Status** (padrão atual — prioriza em_elaboração, em_execução, planejada, etc.)
-- **Data de criação** (mais recentes primeiro)
-- **Tipo** (Preventivas primeiro ou Corretivas primeiro)
-- **Técnico** (ordem alfabética pelo nome)
+### Bug #1 + #5 — completeMutation idempotente e resiliente a falha parcial
+**Arquivo:** `ExecucaoVisitaCorretiva.tsx` (linhas 233-476)
 
-### Alterações em `src/pages/preventivas/MinhasRotas.tsx`
+No início da `mutationFn`:
+1. Buscar estado atual da visita (`status`, `checkout_at`)
+2. Se já `finalizada` com `checkout_at`, retornar early (já completou)
+3. Se não finalizada, prosseguir normalmente
 
-1. **Novo estado `sortBy`**: Criar um state `sortBy` com tipo `'status' | 'data_criacao' | 'tipo' | 'tecnico'`, default `'status'`.
+Operações não-críticas envoltas em try/catch individual (não relançam):
+- `corrective_maintenance` update (linhas 263-279)
+- Criação de pedidos + pedido_itens (linhas 282-367)
+- Criação de workshop_items (linhas 369-402)
+- Inserts em `ticket_timeline` (linhas 413-418, 434-439)
+- Update de `technical_tickets` para resolvido (linhas 421-431) — este permanece crítico mas com try/catch que loga e não trava
 
-2. **Novo seletor no bloco de filtros**: Adicionar um `<Select>` com ícone `ArrowUpDown` (lucide) logo abaixo do filtro de status e antes do filtro de técnico. Label: "Ordenar por".
+Apenas o update principal de `ticket_visits` (linhas 249-260) permanece como operação crítica que relança erro.
 
-3. **Refatorar o `.sort()` no `useMemo`**: Em vez de usar a lógica fixa atual (data primária + status secundário), o comparator vai escolher o critério primário com base em `sortBy`:
-   - `'status'`: prioridade de status → data criação desc → id
-   - `'data_criacao'`: dia local desc → status → id
-   - `'tipo'`: preventive antes de corrective (ou vice-versa) → data desc → id
-   - `'tecnico'`: nome do técnico asc → data desc → id
+### Bug #2 — NovaVisitaDiretaDialog com rollback
+**Arquivo:** `NovaVisitaDiretaDialog.tsx` (linhas 99-167)
 
-4. **Adicionar `sortBy` às dependências do `useMemo`**.
+1. Declarar `let createdTicketId: string | null = null` antes do try
+2. Após insert do ticket: `createdTicketId = ticket.id`
+3. Envolver insert de `ticket_timeline` em try/catch independente (não bloqueia)
+4. No catch principal: se `createdTicketId` existe, deletar o ticket (cascade deleta visit também via FK)
 
-### Layout visual
+### Bug #3 — Checkin com timeout e verificação RLS
+**Arquivo:** `ExecucaoVisitaCorretiva.tsx` (linhas 178-230)
 
-O seletor ficará na mesma área dos filtros existentes, como um `<Select>` full-width igual ao de status, mantendo consistência visual.
+1. Adicionar verificação `navigator.onLine` no início
+2. Usar `Promise.race` com timeout de 15s no update de checkin
+3. Usar `.select('id').single()` para verificar que a linha foi afetada
+4. Se `!data`, lançar erro explícito
+5. Envolver `ticket_timeline` do checkin em try/catch independente
 
-### O que NÃO muda
+### Bug #4 — isOnline reativo
+**Arquivo:** `ExecucaoVisitaCorretiva.tsx`
 
-- Filtros existentes (tipo, período, status, técnico)
-- Layout dos cards
-- Exibição de "Criada em"
-- Normalização de status de corretivas
+Adicionar estado reativo `isOnline` com `useState` + `useEffect` (online/offline listeners). Usar nas mutations para dar feedback imediato ao invés de deixar o request travar.
+
+Não necessário em `NovaVisitaDiretaDialog` pois é um dialog modal que já depende de conexão para carregar clientes — mas adicionar check `navigator.onLine` no início da mutation.
 

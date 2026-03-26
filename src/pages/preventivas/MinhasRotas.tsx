@@ -11,6 +11,7 @@ import {
   Route,
   Calendar,
   MapPin,
+  CheckCircle2,
   Clock,
   ArrowRight,
   User,
@@ -18,11 +19,7 @@ import {
   AlertTriangle,
   Wrench,
   Plus,
-  WifiOff,
-  ArrowUpDown,
-  Filter,
-  CheckCircle2,
-  X
+  WifiOff
 } from 'lucide-react';
 import NovaVisitaDiretaDialog from '@/components/chamados/NovaVisitaDiretaDialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -49,8 +46,8 @@ const correctiveStatusConfig = {
 };
 
 type FilterType = 'hoje' | 'semana' | 'todas';
-type RouteView = 'ativas' | 'preventivas_ativas' | 'corretivas_ativas' | 'concluidas' | 'preventivas_concluidas' | 'corretivas_concluidas' | 'todas';
-type SortBy = 'default' | 'status' | 'data_criacao' | 'tipo' | 'tecnico';
+type RouteType = 'all' | 'preventive' | 'corrective';
+type StatusFilter = 'ativas' | 'concluidas' | 'todas';
 
 interface PreventiveRoute {
   type: 'preventive';
@@ -64,7 +61,6 @@ interface PreventiveRoute {
   field_technician_user_id: string;
   technician_name: string;
   farm_coordinates: Array<{ lat: number; lon: number; name: string }>;
-  created_at: string;
 }
 
 interface CorrectiveVisit {
@@ -82,7 +78,6 @@ interface CorrectiveVisit {
   technician_name: string;
   client_lat: number | null;
   client_lon: number | null;
-  created_at: string;
 }
 
 type UnifiedRoute = PreventiveRoute | CorrectiveVisit;
@@ -96,8 +91,8 @@ export default function MinhasRotas() {
   const { user, role } = useAuth();
   const [filter, setFilter] = useState<FilterType>('todas');
   const [technicianFilter, setTechnicianFilter] = useState<string>('all');
-  const [routeView, setRouteView] = useState<RouteView>('todas');
-  const [sortBy, setSortBy] = useState<SortBy>('default');
+  const [typeFilter, setTypeFilter] = useState<RouteType>('all');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('ativas');
   const [showNovaVisita, setShowNovaVisita] = useState(false);
 
   const isAdminOrCoordinator = role === 'admin' || role === 'coordenador_servicos';
@@ -162,7 +157,7 @@ export default function MinhasRotas() {
 
       let query = supabase
         .from('preventive_routes')
-        .select('id, route_code, start_date, end_date, status, field_technician_user_id, created_at')
+        .select('id, route_code, start_date, end_date, status, field_technician_user_id')
         .in('status', ['planejada', 'em_execucao', 'finalizada'])
         .order('start_date', { ascending: true });
 
@@ -247,7 +242,6 @@ export default function MinhasRotas() {
         field_technician_user_id: route.field_technician_user_id,
         technician_name: profilesMap.get(route.field_technician_user_id) || 'Não atribuído',
         farm_coordinates: countMap.get(route.id)?.coordinates || [],
-        created_at: route.created_at || '',
       }));
     },
     offlineFn: async () => {
@@ -287,7 +281,6 @@ export default function MinhasRotas() {
           field_technician_user_id: r.field_technician_user_id,
           technician_name: r.technician_name || 'Não atribuído',
           farm_coordinates: coordinates,
-          created_at: (r as any).created_at || '',
         };
       });
     },
@@ -309,8 +302,7 @@ export default function MinhasRotas() {
           status,
           field_technician_user_id,
           ticket_id,
-          client_id,
-          created_at
+          client_id
         `)
         .in('status', ['planejada', 'em_elaboracao', 'em_execucao', 'finalizada'])
         .order('planned_start_date', { ascending: true });
@@ -369,7 +361,6 @@ export default function MinhasRotas() {
           technician_name: profilesMap.get(visit.field_technician_user_id) || 'Não atribuído',
           client_lat: client?.latitude || null,
           client_lon: client?.longitude || null,
-          created_at: visit.created_at || '',
         };
       });
     },
@@ -400,7 +391,6 @@ export default function MinhasRotas() {
           technician_name: v.technician_name || 'Não atribuído',
           client_lat: client?.latitude || null,
           client_lon: client?.longitude || null,
-          created_at: (v as any).created_at || '',
         };
       });
     },
@@ -419,34 +409,18 @@ export default function MinhasRotas() {
     ];
 
     return allRoutes.filter(route => {
-      // RouteView filter (combines type + status)
-      const completedStatuses = ['concluida', 'finalizada'];
-      const cancelledStatuses = ['cancelada'];
-      const isCompleted = completedStatuses.includes(route.status);
-      const isCancelled = cancelledStatuses.includes(route.status);
-      const isActive = !isCompleted && !isCancelled;
+      // Type filter
+      if (typeFilter !== 'all') {
+        if (typeFilter === 'preventive' && route.type !== 'preventive') return false;
+        if (typeFilter === 'corrective' && route.type !== 'corrective') return false;
+      }
 
-      switch (routeView) {
-        case 'ativas':
-          if (!isActive) return false;
-          break;
-        case 'preventivas_ativas':
-          if (route.type !== 'preventive' || !isActive) return false;
-          break;
-        case 'corretivas_ativas':
-          if (route.type !== 'corrective' || !isActive) return false;
-          break;
-        case 'concluidas':
-          if (!isCompleted) return false;
-          break;
-        case 'preventivas_concluidas':
-          if (route.type !== 'preventive' || !isCompleted) return false;
-          break;
-        case 'corretivas_concluidas':
-          if (route.type !== 'corrective' || !isCompleted) return false;
-          break;
-        case 'todas':
-          break;
+      // Status filter
+      if (statusFilter !== 'todas') {
+        const completedStatuses = ['concluida', 'finalizada'];
+        const isCompleted = completedStatuses.includes(route.status);
+        if (statusFilter === 'ativas' && isCompleted) return false;
+        if (statusFilter === 'concluidas' && !isCompleted) return false;
       }
 
       // Technician filter
@@ -479,55 +453,12 @@ export default function MinhasRotas() {
         }
       }
     }).sort((a, b) => {
-      const getLocalDay = (dt: string | undefined) => {
-        if (!dt) return '';
-        try { return format(parseISO(dt), 'yyyy-MM-dd'); } catch { return ''; }
-      };
-
-      const normalizeStatus = (status: string) => {
-        if (status === 'em_andamento') return 'em_execucao';
-        if (status === 'agendada') return 'planejada';
-        return status;
-      };
-
-      const STATUS_PRIORITY: Record<string, number> = {
-        em_elaboracao: 0,
-        em_execucao: 1,
-        planejada: 2,
-        finalizada: 3,
-        cancelada: 4,
-      };
-
-      const dayA = getLocalDay(a.created_at);
-      const dayB = getLocalDay(b.created_at);
-      const prioA = STATUS_PRIORITY[normalizeStatus(a.status)] ?? 99;
-      const prioB = STATUS_PRIORITY[normalizeStatus(b.status)] ?? 99;
-      const tsA = a.created_at ? new Date(a.created_at).getTime() : 0;
-      const tsB = b.created_at ? new Date(b.created_at).getTime() : 0;
-
-      const byDay = dayB.localeCompare(dayA);
-      const byStatus = prioA - prioB;
-      const byTs = tsB - tsA;
-      const byType = (a.type === 'preventive' ? 0 : 1) - (b.type === 'preventive' ? 0 : 1);
-      const byTech = a.technician_name.localeCompare(b.technician_name);
-      const byId = a.id.localeCompare(b.id);
-
-      switch (sortBy) {
-        case 'default':
-          return byDay || byStatus || byTs || byId;
-        case 'status':
-          return byStatus || byDay || byTs || byId;
-        case 'data_criacao':
-          return byDay || byTs || byStatus || byId;
-        case 'tipo':
-          return byType || byDay || byStatus || byTs || byId;
-        case 'tecnico':
-          return byTech || byDay || byStatus || byTs || byId;
-        default:
-          return byDay || byStatus || byTs || byId;
-      }
+      // Sort by date
+      const dateA = a.type === 'preventive' ? a.start_date : a.scheduled_date;
+      const dateB = b.type === 'preventive' ? b.start_date : b.scheduled_date;
+      return new Date(dateA).getTime() - new Date(dateB).getTime();
     });
-  }, [preventiveRoutes, correctiveVisits, filter, technicianFilter, routeView, sortBy]);
+  }, [preventiveRoutes, correctiveVisits, filter, technicianFilter, typeFilter, statusFilter]);
 
   const renderStatusBadge = (route: UnifiedRoute) => {
     if (route.type === 'preventive') {
@@ -619,14 +550,7 @@ export default function MinhasRotas() {
                   </p>
                 )}
               </div>
-              <div className="flex flex-col items-end gap-1">
-                {renderStatusBadge(route)}
-                {route.created_at && (
-                  <span className="text-xs text-muted-foreground">
-                    Criada em {format(parseISO(route.created_at), 'dd/MM/yyyy', { locale: ptBR })}
-                  </span>
-                )}
-              </div>
+              {renderStatusBadge(route)}
             </div>
 
             {/* Info row */}
@@ -715,14 +639,7 @@ export default function MinhasRotas() {
                   </p>
                 )}
               </div>
-              <div className="flex flex-col items-end gap-1">
-                {renderStatusBadge(visit)}
-                {visit.created_at && (
-                  <span className="text-xs text-muted-foreground">
-                    Criada em {format(parseISO(visit.created_at), 'dd/MM/yyyy', { locale: ptBR })}
-                  </span>
-                )}
-              </div>
+              {renderStatusBadge(visit)}
             </div>
 
             {/* Client info */}
@@ -789,90 +706,96 @@ export default function MinhasRotas() {
           </Button>
         </div>
 
-        {/* Filters */}
-        <div className="space-y-1.5">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-muted-foreground">Filtros e ordenação</span>
+        {/* Filters - Stacked on mobile */}
+        <div className="space-y-3">
+          {/* Type Filter */}
+          <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
             <Button
-              variant="ghost"
+              variant={typeFilter === 'all' ? 'default' : 'outline'}
               size="sm"
-              className="h-6 text-xs px-2 gap-1 text-muted-foreground"
-              onClick={() => { setRouteView('todas'); setFilter('todas'); setSortBy('default'); setTechnicianFilter('all'); }}
+              onClick={() => setTypeFilter('all')}
+              className="shrink-0"
             >
-              <X className="h-3 w-3" />
-              Limpar
+              Todas
+            </Button>
+            <Button
+              variant={typeFilter === 'preventive' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setTypeFilter('preventive')}
+              className="shrink-0 gap-1"
+            >
+              <Route className="h-3 w-3" />
+              Preventivas
+            </Button>
+            <Button
+              variant={typeFilter === 'corrective' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setTypeFilter('corrective')}
+              className="shrink-0 gap-1"
+            >
+              <Wrench className="h-3 w-3" />
+              Corretivas
             </Button>
           </div>
-          <div className="flex gap-2">
-            <div className="flex-1 min-w-0 space-y-1">
-              <label className="text-[10px] font-medium text-muted-foreground">Mostrar</label>
-              <Select value={routeView} onValueChange={(v) => setRouteView(v as RouteView)}>
-                <SelectTrigger className="h-9 w-full">
-                  <Filter className="mr-1.5 h-3.5 w-3.5 shrink-0" />
-                  <SelectValue placeholder="Mostrar" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todas">Todas</SelectItem>
-                  <SelectItem value="ativas">Em andamento</SelectItem>
-                  <SelectItem value="preventivas_ativas">Preventivas ativas</SelectItem>
-                  <SelectItem value="corretivas_ativas">Corretivas ativas</SelectItem>
-                  <SelectItem value="concluidas">Concluídas</SelectItem>
-                  <SelectItem value="preventivas_concluidas">Preventivas concluídas</SelectItem>
-                  <SelectItem value="corretivas_concluidas">Corretivas concluídas</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
 
-            <div className="flex-1 min-w-0 space-y-1">
-              <label className="text-[10px] font-medium text-muted-foreground">Período</label>
-              <Select value={filter} onValueChange={(v) => setFilter(v as FilterType)}>
-                <SelectTrigger className="h-9 w-full">
-                  <Calendar className="mr-1.5 h-3.5 w-3.5 shrink-0" />
-                  <SelectValue placeholder="Data" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="todas">Todas as datas</SelectItem>
-                  <SelectItem value="hoje">Hoje</SelectItem>
-                  <SelectItem value="semana">Esta semana</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="flex-1 min-w-0 space-y-1">
-              <label className="text-[10px] font-medium text-muted-foreground">Ordenar por</label>
-              <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortBy)}>
-                <SelectTrigger className="h-9 w-full">
-                  <ArrowUpDown className="mr-1.5 h-3.5 w-3.5 shrink-0" />
-                  <SelectValue placeholder="Ordenar" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="default">Padrão (Data + Status)</SelectItem>
-                  <SelectItem value="status">Por Status</SelectItem>
-                  <SelectItem value="data_criacao">Por Data de Criação</SelectItem>
-                  <SelectItem value="tipo">Por Tipo</SelectItem>
-                  <SelectItem value="tecnico">Por Técnico</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {isAdminOrCoordinator && (
-              <div className="flex-1 min-w-0 space-y-1">
-                <label className="text-[10px] font-medium text-muted-foreground">Técnico</label>
-                <Select value={technicianFilter} onValueChange={setTechnicianFilter}>
-                  <SelectTrigger className="h-9 w-full">
-                    <User className="mr-1.5 h-3.5 w-3.5 shrink-0" />
-                    <SelectValue placeholder="Técnico" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Todos os técnicos</SelectItem>
-                    {technicians?.map(tech => (
-                      <SelectItem key={tech.id} value={tech.id}>{tech.nome}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
+          {/* Quick Date Filters - Scrollable on mobile */}
+          <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+            <Button
+              variant={filter === 'hoje' ? 'secondary' : 'ghost'}
+              size="sm"
+              onClick={() => setFilter('hoje')}
+              className="shrink-0"
+            >
+              Hoje
+            </Button>
+            <Button
+              variant={filter === 'semana' ? 'secondary' : 'ghost'}
+              size="sm"
+              onClick={() => setFilter('semana')}
+              className="shrink-0"
+            >
+              Semana
+            </Button>
+            <Button
+              variant={filter === 'todas' ? 'secondary' : 'ghost'}
+              size="sm"
+              onClick={() => setFilter('todas')}
+              className="shrink-0"
+            >
+              Todas
+            </Button>
           </div>
+
+          {/* Status Filter */}
+          <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilter)}>
+            <SelectTrigger className="w-full">
+              <CheckCircle2 className="mr-2 h-4 w-4 shrink-0" />
+              <SelectValue placeholder="Filtrar por status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ativas">Em andamento</SelectItem>
+              <SelectItem value="concluidas">Concluídas</SelectItem>
+              <SelectItem value="todas">Todos os status</SelectItem>
+            </SelectContent>
+          </Select>
+
+          {/* Technician Filter (Admin/Coordinator only) */}
+          {isAdminOrCoordinator && (
+            <Select value={technicianFilter} onValueChange={setTechnicianFilter}>
+              <SelectTrigger className="w-full">
+                <User className="mr-2 h-4 w-4 shrink-0" />
+                <SelectValue placeholder="Filtrar por técnico" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os técnicos</SelectItem>
+                {technicians?.map(tech => (
+                  <SelectItem key={tech.id} value={tech.id}>
+                    {tech.nome}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
         </div>
 
         {/* Routes List */}
@@ -893,23 +816,23 @@ export default function MinhasRotas() {
             <CardContent className="py-10 text-center">
               <Route className="mx-auto h-10 w-10 text-muted-foreground/50" />
               <h3 className="mt-3 font-semibold text-sm">
-                {filter !== 'todas' || technicianFilter !== 'all' || routeView !== 'todas' || sortBy !== 'default'
+                {filter !== 'todas' || technicianFilter !== 'all' || typeFilter !== 'all' || statusFilter !== 'ativas'
                   ? 'Nenhuma rota encontrada' 
                   : isAdminOrCoordinator 
                     ? 'Nenhuma rota em execução'
                     : 'Nenhuma rota atribuída'}
               </h3>
               <p className="text-xs text-muted-foreground mt-1">
-                {filter !== 'todas' || technicianFilter !== 'all' || routeView !== 'todas' || sortBy !== 'default'
+                {filter !== 'todas' || technicianFilter !== 'all' || typeFilter !== 'all' || statusFilter !== 'ativas'
                   ? 'Tente outros filtros' 
                   : 'Aguarde novas atribuições'}
               </p>
-              {(filter !== 'todas' || technicianFilter !== 'all' || routeView !== 'todas' || sortBy !== 'default') && (
+              {(filter !== 'todas' || technicianFilter !== 'all' || typeFilter !== 'all' || statusFilter !== 'ativas') && (
                 <Button 
                   variant="outline" 
                   size="sm"
                   className="mt-3" 
-                  onClick={() => { setFilter('todas'); setTechnicianFilter('all'); setRouteView('todas'); setSortBy('default'); }}
+                  onClick={() => { setFilter('todas'); setTechnicianFilter('all'); setTypeFilter('all'); setStatusFilter('ativas'); }}
                 >
                   Limpar filtros
                 </Button>

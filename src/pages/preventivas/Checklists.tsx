@@ -90,16 +90,85 @@ export default function Checklists() {
 
   const duplicateTemplateMutation = useMutation({
     mutationFn: async (templateId: string) => {
-      const { data, error } = await supabase
-        .rpc('duplicate_checklist_template', { p_template_id: templateId });
+      const template = templates?.find(t => t.id === templateId);
+      if (!template) throw new Error('Template não encontrado');
+
+      // Create new template
+      const { data: newTemplate, error: templateError } = await supabase
+        .from('checklist_templates')
+        .insert({ 
+          name: `${template.name} (Cópia)`, 
+          description: template.description 
+        })
+        .select()
+        .single();
       
-      if (error) throw error;
-      return data as string;
+      if (templateError) throw templateError;
+
+      // Fetch full template structure
+      const { data: blocks, error: blocksError } = await supabase
+        .from('checklist_template_blocks')
+        .select(`
+          *,
+          items:checklist_template_items(
+            *,
+            actions:checklist_item_corrective_actions(*)
+          )
+        `)
+        .eq('template_id', templateId)
+        .order('order_index');
+
+      if (blocksError) throw blocksError;
+
+      // Duplicate blocks, items, and actions
+      for (const block of blocks || []) {
+        const { data: newBlock, error: blockError } = await supabase
+          .from('checklist_template_blocks')
+          .insert({
+            template_id: newTemplate.id,
+            block_name: block.block_name,
+            order_index: block.order_index
+          })
+          .select()
+          .single();
+
+        if (blockError) throw blockError;
+
+        for (const item of block.items || []) {
+          const { data: newItem, error: itemError } = await supabase
+            .from('checklist_template_items')
+            .insert({
+              block_id: newBlock.id,
+              item_name: item.item_name,
+              order_index: item.order_index,
+              active: item.active
+            })
+            .select()
+            .single();
+
+          if (itemError) throw itemError;
+
+          for (const action of item.actions || []) {
+            const { error: actionError } = await supabase
+              .from('checklist_item_corrective_actions')
+              .insert({
+                item_id: newItem.id,
+                action_label: action.action_label,
+                order_index: action.order_index,
+                active: action.active
+              });
+
+            if (actionError) throw actionError;
+          }
+        }
+      }
+
+      return newTemplate;
     },
-    onSuccess: (newTemplateId) => {
+    onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['checklist-templates'] });
       toast.success('Template duplicado com sucesso!');
-      navigate(`/preventivas/checklists/${newTemplateId}`);
+      navigate(`/preventivas/checklists/${data.id}`);
     },
     onError: (error) => {
       toast.error('Erro ao duplicar: ' + error.message);

@@ -6,7 +6,6 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Search, Calendar, User, AlertTriangle, CheckCircle2, Clock } from 'lucide-react';
 import { format, isPast, isToday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -19,11 +18,10 @@ const STATUS_FILTERS = [
 ] as const;
 
 export default function CrmAcoes() {
-  const { actions, isLoading, isAdminOrCoord, isAdmin, consultores } = useCrmAcoesData();
+  const { actions, isLoading, isAdminOrCoord } = useCrmAcoesData();
 
   const [statusFilter, setStatusFilter] = useState<string>('aberta');
   const [search, setSearch] = useState('');
-  const [consultorFilter, setConsultorFilter] = useState<string>('todos');
   const [selectedAction, setSelectedAction] = useState<UnifiedAction | null>(null);
 
   const filtered = useMemo(() => {
@@ -44,11 +42,6 @@ export default function CrmAcoes() {
       );
     }
 
-    // Consultant filter
-    if (consultorFilter !== 'todos') {
-      result = result.filter((a) => a.clientes?.consultor_rplus_id === consultorFilter);
-    }
-
     // Sort: overdue first, then by due_at ascending
     return result.sort((a, b) => {
       const aOverdue = a.due_at && a.status !== 'concluida' && isPast(new Date(a.due_at)) && !isToday(new Date(a.due_at));
@@ -60,7 +53,7 @@ export default function CrmAcoes() {
       if (!b.due_at) return -1;
       return new Date(a.due_at).getTime() - new Date(b.due_at).getTime();
     });
-  }, [actions, statusFilter, search, consultorFilter]);
+  }, [actions, statusFilter, search]);
 
   const isOverdue = (action: UnifiedAction) =>
     action.due_at && action.status !== 'concluida' && isPast(new Date(action.due_at)) && !isToday(new Date(action.due_at));
@@ -82,21 +75,6 @@ export default function CrmAcoes() {
           className="pl-9"
         />
       </div>
-
-      {/* Consultant filter */}
-      {isAdmin && consultores.length > 0 && (
-        <Select value={consultorFilter} onValueChange={setConsultorFilter}>
-          <SelectTrigger className="h-9 text-sm">
-            <SelectValue placeholder="Todos os consultores" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="todos">Todos os consultores</SelectItem>
-            {consultores.map((c: any) => (
-              <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      )}
 
       {/* Status filter */}
       <div className="flex gap-2 flex-wrap">

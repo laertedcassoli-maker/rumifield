@@ -114,34 +114,12 @@ export function useCarteiraData() {
     enabled: !!user,
   });
 
-  const { data: consultores } = useQuery({
-    queryKey: ['crm-consultores'],
-    queryFn: async () => {
-      const { data: roles, error: rolesError } = await supabase
-        .from('user_roles')
-        .select('user_id')
-        .eq('role', 'consultor_rplus');
-      if (rolesError) throw rolesError;
-      const userIds = (roles || []).map((r: any) => r.user_id);
-      if (userIds.length === 0) return [];
-      const { data: profiles, error: profilesError } = await supabase
-        .from('profiles')
-        .select('id, nome')
-        .in('id', userIds)
-        .order('nome');
-      if (profilesError) throw profilesError;
-      return profiles || [];
-    },
-    enabled: isAdmin,
-  });
-
   return {
     clientes: clientes || [],
     clientProducts: clientProducts || [],
     snapshots: snapshots || [],
     actions: actions || [],
     visits: visits || [],
-    consultores: consultores || [],
     isLoading: loadingClientes || loadingProducts || loadingSnapshots || loadingActions || loadingVisits,
     isAdmin,
   };
