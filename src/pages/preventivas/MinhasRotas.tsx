@@ -844,6 +844,20 @@ export default function MinhasRotas() {
             </SelectContent>
           </Select>
 
+          {/* Sort By */}
+          <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortBy)}>
+            <SelectTrigger className="w-full">
+              <ArrowUpDown className="mr-2 h-4 w-4 shrink-0" />
+              <SelectValue placeholder="Ordenar por" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="status">Ordenar por Status</SelectItem>
+              <SelectItem value="data_criacao">Ordenar por Data de Criação</SelectItem>
+              <SelectItem value="tipo">Ordenar por Tipo</SelectItem>
+              <SelectItem value="tecnico">Ordenar por Técnico</SelectItem>
+            </SelectContent>
+          </Select>
+
           {/* Technician Filter (Admin/Coordinator only) */}
           {isAdminOrCoordinator && (
             <Select value={technicianFilter} onValueChange={setTechnicianFilter}>
