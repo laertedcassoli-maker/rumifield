@@ -463,18 +463,11 @@ export default function MinhasRotas() {
         }
       }
     }).sort((a, b) => {
-      // Helper: dia local normalizado (mesmo fuso exibido no card)
       const getLocalDay = (dt: string | undefined) => {
         if (!dt) return '';
         try { return format(parseISO(dt), 'yyyy-MM-dd'); } catch { return ''; }
       };
 
-      // Primário: data (dia local) de criação decrescente
-      const dayA = getLocalDay(a.created_at);
-      const dayB = getLocalDay(b.created_at);
-      if (dayB !== dayA) return dayB.localeCompare(dayA);
-
-      // Secundário: status por prioridade (com aliases de corretiva)
       const normalizeStatus = (status: string) => {
         if (status === 'em_andamento') return 'em_execucao';
         if (status === 'agendada') return 'planejada';
@@ -489,18 +482,34 @@ export default function MinhasRotas() {
         cancelada: 4,
       };
 
+      const dayA = getLocalDay(a.created_at);
+      const dayB = getLocalDay(b.created_at);
       const prioA = STATUS_PRIORITY[normalizeStatus(a.status)] ?? 99;
       const prioB = STATUS_PRIORITY[normalizeStatus(b.status)] ?? 99;
-      if (prioA !== prioB) return prioA - prioB;
-
-      // Terciário: timestamp completo decrescente
       const tsA = a.created_at ? new Date(a.created_at).getTime() : 0;
       const tsB = b.created_at ? new Date(b.created_at).getTime() : 0;
-      if (tsB !== tsA) return tsB - tsA;
 
-      return a.id.localeCompare(b.id);
+      const byDay = dayB.localeCompare(dayA);
+      const byStatus = prioA - prioB;
+      const byTs = tsB - tsA;
+      const byType = (a.type === 'preventive' ? 0 : 1) - (b.type === 'preventive' ? 0 : 1);
+      const byTech = a.technician_name.localeCompare(b.technician_name);
+      const byId = a.id.localeCompare(b.id);
+
+      switch (sortBy) {
+        case 'status':
+          return byStatus || byDay || byTs || byId;
+        case 'data_criacao':
+          return byDay || byStatus || byTs || byId;
+        case 'tipo':
+          return byType || byDay || byStatus || byTs || byId;
+        case 'tecnico':
+          return byTech || byDay || byStatus || byTs || byId;
+        default:
+          return byStatus || byDay || byTs || byId;
+      }
     });
-  }, [preventiveRoutes, correctiveVisits, filter, technicianFilter, typeFilter, statusFilter]);
+  }, [preventiveRoutes, correctiveVisits, filter, technicianFilter, typeFilter, statusFilter, sortBy]);
 
   const renderStatusBadge = (route: UnifiedRoute) => {
     if (route.type === 'preventive') {
