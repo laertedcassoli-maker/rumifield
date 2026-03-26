@@ -1,22 +1,25 @@
 
 
-## Limpar todos os registros de solicitação de peças
+## Alterar filtro padrão de data para "30 dias" na tela de Pedidos
 
-### Operação
+### Alteração
 
-Executar 3 DELETEs na ordem correta (respeitando chaves estrangeiras):
+**Arquivo:** `src/pages/Pedidos.tsx`
 
-1. `DELETE FROM ticket_parts_requests` — vínculos entre pedidos e chamados
-2. `DELETE FROM pedido_itens` — itens dos pedidos
-3. `DELETE FROM pedidos` — pedidos em si
+**Linha 101** — mudar o valor inicial de `dateFilter` de `'all'` para `'30'`:
 
-### Método
+```ts
+// DE:
+const [dateFilter, setDateFilter] = useState<'30' | 'all'>('all');
 
-Usar o insert tool (operação de dados, não de schema) para executar os DELETEs sequencialmente.
+// PARA:
+const [dateFilter, setDateFilter] = useState<'30' | 'all'>('30');
+```
 
-### Impacto
+### Confirmação
 
-- Todos os pedidos, itens e vínculos com chamados serão removidos permanentemente
-- Nenhum código será alterado
-- O histórico de timeline dos chamados (`ticket_timeline`) permanece intacto (referências textuais, sem FK)
+O filtro de 30 dias já filtra pelos **últimos 30 dias** (linhas 164-169): calcula `cutoffDate = hoje - 30 dias` e compara com `created_at` do pedido. Lógica correta, apenas o default precisa mudar.
+
+### O que NÃO muda
+- Lógica de filtragem, botões, clearFilters, nenhum outro comportamento
 
