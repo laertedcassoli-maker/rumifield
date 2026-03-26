@@ -100,6 +100,21 @@ export default function CrmAcoes() {
         />
       </div>
 
+      {/* CSM filter (admin/coord only) */}
+      {isAdminOrCoord && (
+        <Select value={csmFilter} onValueChange={setCsmFilter}>
+          <SelectTrigger className="w-full md:w-64">
+            <SelectValue placeholder="Filtrar por consultor" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos os consultores</SelectItem>
+            {(consultores || []).map((c) => (
+              <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
+
       {/* Status filter */}
       <div className="flex gap-2 flex-wrap">
         {STATUS_FILTERS.map((f) => (
