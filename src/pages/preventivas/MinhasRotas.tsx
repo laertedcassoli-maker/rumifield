@@ -21,7 +21,8 @@ import {
   WifiOff,
   ArrowUpDown,
   Filter,
-  CheckCircle2
+  CheckCircle2,
+  X
 } from 'lucide-react';
 import NovaVisitaDiretaDialog from '@/components/chamados/NovaVisitaDiretaDialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
