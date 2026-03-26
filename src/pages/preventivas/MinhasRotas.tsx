@@ -497,16 +497,18 @@ export default function MinhasRotas() {
       const byId = a.id.localeCompare(b.id);
 
       switch (sortBy) {
+        case 'default':
+          return byDay || byStatus || byTs || byId;
         case 'status':
           return byStatus || byDay || byTs || byId;
         case 'data_criacao':
-          return byDay || byStatus || byTs || byId;
+          return byDay || byTs || byStatus || byId;
         case 'tipo':
           return byType || byDay || byStatus || byTs || byId;
         case 'tecnico':
           return byTech || byDay || byStatus || byTs || byId;
         default:
-          return byStatus || byDay || byTs || byId;
+          return byDay || byStatus || byTs || byId;
       }
     });
   }, [preventiveRoutes, correctiveVisits, filter, technicianFilter, typeFilter, statusFilter, sortBy]);
