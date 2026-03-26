@@ -773,111 +773,70 @@ export default function MinhasRotas() {
           </Button>
         </div>
 
-        {/* Filters - Stacked on mobile */}
-        <div className="space-y-3">
-          {/* Type Filter */}
-          <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
-            <Button
-              variant={typeFilter === 'all' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setTypeFilter('all')}
-              className="shrink-0"
-            >
-              Todas
-            </Button>
-            <Button
-              variant={typeFilter === 'preventive' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setTypeFilter('preventive')}
-              className="shrink-0 gap-1"
-            >
-              <Route className="h-3 w-3" />
-              Preventivas
-            </Button>
-            <Button
-              variant={typeFilter === 'corrective' ? 'default' : 'outline'}
-              size="sm"
-              onClick={() => setTypeFilter('corrective')}
-              className="shrink-0 gap-1"
-            >
-              <Wrench className="h-3 w-3" />
-              Corretivas
-            </Button>
+        {/* Filters - Compact layout */}
+        <div className="space-y-2">
+          {/* Type + Date filters in one row */}
+          <div className="flex items-center gap-3 overflow-x-auto pb-1 -mx-1 px-1">
+            <div className="flex gap-1.5 shrink-0">
+              <Button variant={typeFilter === 'all' ? 'default' : 'outline'} size="sm" onClick={() => setTypeFilter('all')} className="h-7 text-xs px-2.5">Todas</Button>
+              <Button variant={typeFilter === 'preventive' ? 'default' : 'outline'} size="sm" onClick={() => setTypeFilter('preventive')} className="h-7 text-xs px-2.5 gap-1">
+                <Route className="h-3 w-3" />Prev
+              </Button>
+              <Button variant={typeFilter === 'corrective' ? 'default' : 'outline'} size="sm" onClick={() => setTypeFilter('corrective')} className="h-7 text-xs px-2.5 gap-1">
+                <Wrench className="h-3 w-3" />Corr
+              </Button>
+            </div>
+            <div className="h-4 w-px bg-border shrink-0" />
+            <div className="flex gap-1.5 shrink-0">
+              <Button variant={filter === 'hoje' ? 'secondary' : 'ghost'} size="sm" onClick={() => setFilter('hoje')} className="h-7 text-xs px-2.5">Hoje</Button>
+              <Button variant={filter === 'semana' ? 'secondary' : 'ghost'} size="sm" onClick={() => setFilter('semana')} className="h-7 text-xs px-2.5">Semana</Button>
+              <Button variant={filter === 'todas' ? 'secondary' : 'ghost'} size="sm" onClick={() => setFilter('todas')} className="h-7 text-xs px-2.5">Todas</Button>
+            </div>
           </div>
 
-          {/* Quick Date Filters - Scrollable on mobile */}
-          <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
-            <Button
-              variant={filter === 'hoje' ? 'secondary' : 'ghost'}
-              size="sm"
-              onClick={() => setFilter('hoje')}
-              className="shrink-0"
-            >
-              Hoje
-            </Button>
-            <Button
-              variant={filter === 'semana' ? 'secondary' : 'ghost'}
-              size="sm"
-              onClick={() => setFilter('semana')}
-              className="shrink-0"
-            >
-              Semana
-            </Button>
-            <Button
-              variant={filter === 'todas' ? 'secondary' : 'ghost'}
-              size="sm"
-              onClick={() => setFilter('todas')}
-              className="shrink-0"
-            >
-              Todas
-            </Button>
-          </div>
-
-          {/* Status Filter */}
-          <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilter)}>
-            <SelectTrigger className="w-full">
-              <CheckCircle2 className="mr-2 h-4 w-4 shrink-0" />
-              <SelectValue placeholder="Filtrar por status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="ativas">Em andamento</SelectItem>
-              <SelectItem value="concluidas">Concluídas</SelectItem>
-              <SelectItem value="todas">Todos os status</SelectItem>
-            </SelectContent>
-          </Select>
-
-          {/* Sort By */}
-          <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortBy)}>
-            <SelectTrigger className="w-full">
-              <ArrowUpDown className="mr-2 h-4 w-4 shrink-0" />
-              <SelectValue placeholder="Ordenar por" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="default">Padrão (Data + Status)</SelectItem>
-              <SelectItem value="status">Ordenar por Status</SelectItem>
-              <SelectItem value="data_criacao">Ordenar por Data de Criação</SelectItem>
-              <SelectItem value="tipo">Ordenar por Tipo</SelectItem>
-              <SelectItem value="tecnico">Ordenar por Técnico</SelectItem>
-            </SelectContent>
-          </Select>
-
-          {/* Technician Filter (Admin/Coordinator only) */}
-          {isAdminOrCoordinator && (
-            <Select value={technicianFilter} onValueChange={setTechnicianFilter}>
-              <SelectTrigger className="w-full">
-                <User className="mr-2 h-4 w-4 shrink-0" />
-                <SelectValue placeholder="Filtrar por técnico" />
+          {/* Selects in a grid */}
+          <div className="grid grid-cols-2 gap-2">
+            <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilter)}>
+              <SelectTrigger className="h-9">
+                <CheckCircle2 className="mr-1.5 h-3.5 w-3.5 shrink-0" />
+                <SelectValue placeholder="Status" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Todos os técnicos</SelectItem>
-                {technicians?.map(tech => (
-                  <SelectItem key={tech.id} value={tech.id}>
-                    {tech.nome}
-                  </SelectItem>
-                ))}
+                <SelectItem value="ativas">Em andamento</SelectItem>
+                <SelectItem value="concluidas">Concluídas</SelectItem>
+                <SelectItem value="todas">Todos os status</SelectItem>
               </SelectContent>
             </Select>
-          )}
+
+            <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortBy)}>
+              <SelectTrigger className="h-9">
+                <ArrowUpDown className="mr-1.5 h-3.5 w-3.5 shrink-0" />
+                <SelectValue placeholder="Ordenar" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="default">Padrão (Data + Status)</SelectItem>
+                <SelectItem value="status">Por Status</SelectItem>
+                <SelectItem value="data_criacao">Por Data de Criação</SelectItem>
+                <SelectItem value="tipo">Por Tipo</SelectItem>
+                <SelectItem value="tecnico">Por Técnico</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {isAdminOrCoordinator && (
+              <Select value={technicianFilter} onValueChange={setTechnicianFilter}>
+                <SelectTrigger className="h-9 col-span-2">
+                  <User className="mr-1.5 h-3.5 w-3.5 shrink-0" />
+                  <SelectValue placeholder="Técnico" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Todos os técnicos</SelectItem>
+                  {technicians?.map(tech => (
+                    <SelectItem key={tech.id} value={tech.id}>{tech.nome}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          </div>
         </div>
 
         {/* Routes List */}
