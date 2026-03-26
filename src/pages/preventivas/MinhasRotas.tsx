@@ -19,7 +19,8 @@ import {
   AlertTriangle,
   Wrench,
   Plus,
-  WifiOff
+  WifiOff,
+  ArrowUpDown
 } from 'lucide-react';
 import NovaVisitaDiretaDialog from '@/components/chamados/NovaVisitaDiretaDialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
