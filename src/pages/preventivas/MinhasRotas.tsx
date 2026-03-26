@@ -97,6 +97,7 @@ export default function MinhasRotas() {
   const [technicianFilter, setTechnicianFilter] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<RouteType>('all');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('ativas');
+  const [sortBy, setSortBy] = useState<SortBy>('status');
   const [showNovaVisita, setShowNovaVisita] = useState(false);
 
   const isAdminOrCoordinator = role === 'admin' || role === 'coordenador_servicos';
