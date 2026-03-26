@@ -460,12 +460,18 @@ export default function MinhasRotas() {
         }
       }
     }).sort((a, b) => {
-      // Primário: created_at decrescente
-      const createdA = a.created_at || '';
-      const createdB = b.created_at || '';
-      if (createdB !== createdA) return createdB.localeCompare(createdA);
+      // Primário: data (dia) de criação decrescente
+      const createdDayA = (a.created_at || '').slice(0, 10);
+      const createdDayB = (b.created_at || '').slice(0, 10);
+      if (createdDayB !== createdDayA) return createdDayB.localeCompare(createdDayA);
 
-      // Secundário: status por prioridade
+      // Secundário: status por prioridade (com aliases de corretiva)
+      const normalizeStatus = (status: string) => {
+        if (status === 'em_andamento') return 'em_execucao';
+        if (status === 'agendada') return 'planejada';
+        return status;
+      };
+
       const STATUS_PRIORITY: Record<string, number> = {
         em_elaboracao: 0,
         em_execucao: 1,
@@ -473,9 +479,17 @@ export default function MinhasRotas() {
         finalizada: 3,
         cancelada: 4,
       };
-      const prioA = STATUS_PRIORITY[a.status] ?? 99;
-      const prioB = STATUS_PRIORITY[b.status] ?? 99;
-      return prioA - prioB;
+
+      const prioA = STATUS_PRIORITY[normalizeStatus(a.status)] ?? 99;
+      const prioB = STATUS_PRIORITY[normalizeStatus(b.status)] ?? 99;
+      if (prioA !== prioB) return prioA - prioB;
+
+      // Terciário: timestamp completo decrescente
+      const createdA = a.created_at || '';
+      const createdB = b.created_at || '';
+      if (createdB !== createdA) return createdB.localeCompare(createdA);
+
+      return a.id.localeCompare(b.id);
     });
   }, [preventiveRoutes, correctiveVisits, filter, technicianFilter, typeFilter, statusFilter]);
 
