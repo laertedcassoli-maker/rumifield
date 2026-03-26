@@ -39,7 +39,9 @@ const preventiveStatusConfig = {
 // Corrective visit statuses
 const correctiveStatusConfig = {
   planejada: { label: 'Planejada', color: 'bg-blue-500/10 text-blue-600 border-blue-500/20', icon: Calendar },
+  agendada: { label: 'Planejada', color: 'bg-blue-500/10 text-blue-600 border-blue-500/20', icon: Calendar },
   em_elaboracao: { label: 'Em Elaboração', color: 'bg-muted text-muted-foreground border-border', icon: Clock },
+  em_andamento: { label: 'Em Execução', color: 'bg-warning/10 text-warning border-warning/20', icon: Clock },
   em_execucao: { label: 'Em Execução', color: 'bg-warning/10 text-warning border-warning/20', icon: Clock },
   finalizada: { label: 'Concluída', color: 'bg-green-500/10 text-green-600 border-green-500/20', icon: CheckCircle2 },
   cancelada: { label: 'Cancelada', color: 'bg-destructive/10 text-destructive border-destructive/20', icon: AlertTriangle },
