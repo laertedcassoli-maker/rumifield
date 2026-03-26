@@ -911,7 +911,7 @@ export default function MinhasRotas() {
                   variant="outline" 
                   size="sm"
                   className="mt-3" 
-                  onClick={() => { setFilter('todas'); setTechnicianFilter('all'); setTypeFilter('all'); setStatusFilter('ativas'); }}
+                  onClick={() => { setFilter('todas'); setTechnicianFilter('all'); setTypeFilter('all'); setStatusFilter('ativas'); setSortBy('status'); }}
                 >
                   Limpar filtros
                 </Button>
