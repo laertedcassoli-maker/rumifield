@@ -418,18 +418,34 @@ export default function MinhasRotas() {
     ];
 
     return allRoutes.filter(route => {
-      // Type filter
-      if (typeFilter !== 'all') {
-        if (typeFilter === 'preventive' && route.type !== 'preventive') return false;
-        if (typeFilter === 'corrective' && route.type !== 'corrective') return false;
-      }
+      // RouteView filter (combines type + status)
+      const completedStatuses = ['concluida', 'finalizada'];
+      const cancelledStatuses = ['cancelada'];
+      const isCompleted = completedStatuses.includes(route.status);
+      const isCancelled = cancelledStatuses.includes(route.status);
+      const isActive = !isCompleted && !isCancelled;
 
-      // Status filter
-      if (statusFilter !== 'todas') {
-        const completedStatuses = ['concluida', 'finalizada'];
-        const isCompleted = completedStatuses.includes(route.status);
-        if (statusFilter === 'ativas' && isCompleted) return false;
-        if (statusFilter === 'concluidas' && !isCompleted) return false;
+      switch (routeView) {
+        case 'ativas':
+          if (!isActive) return false;
+          break;
+        case 'preventivas_ativas':
+          if (route.type !== 'preventive' || !isActive) return false;
+          break;
+        case 'corretivas_ativas':
+          if (route.type !== 'corrective' || !isActive) return false;
+          break;
+        case 'concluidas':
+          if (!isCompleted) return false;
+          break;
+        case 'preventivas_concluidas':
+          if (route.type !== 'preventive' || !isCompleted) return false;
+          break;
+        case 'corretivas_concluidas':
+          if (route.type !== 'corrective' || !isCompleted) return false;
+          break;
+        case 'todas':
+          break;
       }
 
       // Technician filter
