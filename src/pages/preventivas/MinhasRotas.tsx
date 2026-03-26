@@ -95,8 +95,7 @@ export default function MinhasRotas() {
   const { user, role } = useAuth();
   const [filter, setFilter] = useState<FilterType>('todas');
   const [technicianFilter, setTechnicianFilter] = useState<string>('all');
-  const [typeFilter, setTypeFilter] = useState<RouteType>('all');
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('ativas');
+  const [routeView, setRouteView] = useState<RouteView>('ativas');
   const [sortBy, setSortBy] = useState<SortBy>('default');
   const [showNovaVisita, setShowNovaVisita] = useState(false);
 
