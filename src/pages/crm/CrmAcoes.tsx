@@ -35,11 +35,11 @@ export default function CrmAcoes() {
       const { data, error } = await supabase
         .from('profiles')
         .select('id, nome')
-        .eq('role', 'consultor_rplus')
+        .eq('role', 'consultor_rplus' as any)
         .eq('is_active', true)
         .order('nome');
       if (error) throw error;
-      return data || [];
+      return (data || []) as { id: string; nome: string }[];
     },
     enabled: isAdminOrCoord,
   });
