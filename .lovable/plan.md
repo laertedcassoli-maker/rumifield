@@ -1,46 +1,32 @@
 
 
-## Limpar todas as 23 rotas preventivas para início da produção
+## Apagar todos os chamados e visitas corretivas
 
-### Cadeia de dependências identificada
+### Dados encontrados
 
-```text
-preventive_routes
-  ├── preventive_route_items (ON DELETE CASCADE — automático)
-  └── preventive_maintenance.route_id (ON DELETE SET NULL)
-        └── preventive_checklists (ON DELETE CASCADE)
-              └── preventive_checklist_blocks (CASCADE)
-                    └── preventive_checklist_items (CASCADE)
-                          ├── preventive_checklist_item_actions (CASCADE)
-                          └── preventive_checklist_item_nonconformities (CASCADE)
+| Tabela | Registros |
+|---|---|
+| technical_tickets | 62 |
+| ticket_visits (CORR) | 41 |
+| ticket_timeline | 204 |
+| ticket_tag_links | 13 |
+| ticket_visit_actions | 0 |
+| ticket_parts_requests | 0 |
+| pedidos (origem corretiva) | 0 |
 
-pedidos.preventive_id → referencia preventive_maintenance (pode existir)
-```
+### Sequência de DELETEs (respeitando FKs)
 
-### Sequência de DELETEs necessária
-
-Precisamos executar na ordem correta para não deixar dados órfãos:
-
-1. **`DELETE FROM pedido_itens`** onde o pedido está vinculado a uma preventiva das rotas
-2. **`DELETE FROM pedidos`** onde `preventive_id` aponta para uma `preventive_maintenance` vinculada às rotas
-3. **`DELETE FROM preventive_maintenance`** onde `route_id IS NOT NULL` — isso dispara CASCADE automático para checklists, blocos, itens, ações e não-conformidades
-4. **`DELETE FROM preventive_routes`** — isso dispara CASCADE automático para `preventive_route_items`
-
-### O que será removido
-
-- 23 rotas preventivas e seus itens (fazendas)
-- Todas as preventivas vinculadas a essas rotas + seus checklists completos
-- Pedidos de peças originados dessas preventivas (se houver)
+1. `DELETE FROM ticket_visit_actions` — ações das visitas
+2. `DELETE FROM ticket_parts_requests` — peças vinculadas a chamados
+3. `DELETE FROM ticket_tag_links` — etiquetas dos chamados
+4. `DELETE FROM ticket_timeline` — linha do tempo
+5. `DELETE FROM ticket_visits` — visitas corretivas (CORR)
+6. `DELETE FROM technical_tickets` — chamados
 
 ### O que NÃO será afetado
-
-- Clientes
-- Chamados e visitas corretivas
-- Pedidos não vinculados a preventivas
-- Templates de checklist
-- Dados de CRM
+- Clientes, rotas preventivas, pedidos, CRM, estoque
+- Tags e categorias de chamados (apenas os vínculos são removidos)
 
 ### Método
-
-Usar o migration tool para executar os DELETEs sequencialmente, com confirmação prévia.
+Usar o insert tool para executar os DELETEs sequencialmente.
 
