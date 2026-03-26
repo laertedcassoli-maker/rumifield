@@ -98,7 +98,7 @@ export default function Pedidos() {
   // Filter and sort state
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [dateFilter, setDateFilter] = useState<'30' | 'all'>('all');
+  const [dateFilter, setDateFilter] = useState<'30' | 'all'>('30');
   const [tipoEnvioFilter, setTipoEnvioFilter] = useState<'all' | 'envio' | 'apenas_nf'>('all');
   const [tipoLogisticaFilter, setTipoLogisticaFilter] = useState<'all' | 'correios' | 'entrega_propria'>('all');
   const [sortField, setSortField] = useState<'created_at' | 'cliente' | 'status'>('created_at');
