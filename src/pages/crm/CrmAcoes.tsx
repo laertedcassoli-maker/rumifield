@@ -52,6 +52,11 @@ export default function CrmAcoes() {
       result = result.filter((a) => a.status === statusFilter);
     }
 
+    // CSM filter
+    if (csmFilter !== 'all') {
+      result = result.filter((a) => a.owner_user_id === csmFilter);
+    }
+
     // Search
     if (search.trim()) {
       const q = search.toLowerCase();
