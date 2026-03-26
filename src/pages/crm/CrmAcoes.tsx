@@ -32,12 +32,11 @@ export default function CrmAcoes() {
   const { data: consultores } = useQuery({
     queryKey: ['crm-consultores-rplus'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const q = supabase
         .from('profiles')
         .select('id, nome')
-        .eq('role', 'consultor_rplus' as any)
-        .eq('is_active', true)
-        .order('nome');
+        .order('nome') as any;
+      const { data, error } = await q.eq('role', 'consultor_rplus').eq('is_active', true);
       if (error) throw error;
       return (data || []) as { id: string; nome: string }[];
     },
