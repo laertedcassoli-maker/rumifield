@@ -49,6 +49,7 @@ const correctiveStatusConfig = {
 type FilterType = 'hoje' | 'semana' | 'todas';
 type RouteType = 'all' | 'preventive' | 'corrective';
 type StatusFilter = 'ativas' | 'concluidas' | 'todas';
+type SortBy = 'status' | 'data_criacao' | 'tipo' | 'tecnico';
 
 interface PreventiveRoute {
   type: 'preventive';
