@@ -804,61 +804,73 @@ export default function MinhasRotas() {
             </Button>
           </div>
           <div className="flex gap-2">
-            <Select value={routeView} onValueChange={(v) => setRouteView(v as RouteView)}>
-              <SelectTrigger className="h-9 flex-1 min-w-0">
-                <Filter className="mr-1.5 h-3.5 w-3.5 shrink-0" />
-                <SelectValue placeholder="Mostrar" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todas">Todas</SelectItem>
-                <SelectItem value="ativas">Em andamento</SelectItem>
-                <SelectItem value="preventivas_ativas">Preventivas ativas</SelectItem>
-                <SelectItem value="corretivas_ativas">Corretivas ativas</SelectItem>
-                <SelectItem value="concluidas">Concluídas</SelectItem>
-                <SelectItem value="preventivas_concluidas">Preventivas concluídas</SelectItem>
-                <SelectItem value="corretivas_concluidas">Corretivas concluídas</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Select value={filter} onValueChange={(v) => setFilter(v as FilterType)}>
-              <SelectTrigger className="h-9 flex-1 min-w-0">
-                <Calendar className="mr-1.5 h-3.5 w-3.5 shrink-0" />
-                <SelectValue placeholder="Data" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="todas">Todas as datas</SelectItem>
-                <SelectItem value="hoje">Hoje</SelectItem>
-                <SelectItem value="semana">Esta semana</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortBy)}>
-              <SelectTrigger className="h-9 flex-1 min-w-0">
-                <ArrowUpDown className="mr-1.5 h-3.5 w-3.5 shrink-0" />
-                <SelectValue placeholder="Ordenar" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="default">Padrão (Data + Status)</SelectItem>
-                <SelectItem value="status">Por Status</SelectItem>
-                <SelectItem value="data_criacao">Por Data de Criação</SelectItem>
-                <SelectItem value="tipo">Por Tipo</SelectItem>
-                <SelectItem value="tecnico">Por Técnico</SelectItem>
-              </SelectContent>
-            </Select>
-
-            {isAdminOrCoordinator && (
-              <Select value={technicianFilter} onValueChange={setTechnicianFilter}>
-                <SelectTrigger className="h-9 flex-1 min-w-0">
-                  <User className="mr-1.5 h-3.5 w-3.5 shrink-0" />
-                  <SelectValue placeholder="Técnico" />
+            <div className="flex-1 min-w-0 space-y-1">
+              <label className="text-[10px] font-medium text-muted-foreground">Mostrar</label>
+              <Select value={routeView} onValueChange={(v) => setRouteView(v as RouteView)}>
+                <SelectTrigger className="h-9 w-full">
+                  <Filter className="mr-1.5 h-3.5 w-3.5 shrink-0" />
+                  <SelectValue placeholder="Mostrar" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">Todos os técnicos</SelectItem>
-                  {technicians?.map(tech => (
-                    <SelectItem key={tech.id} value={tech.id}>{tech.nome}</SelectItem>
-                  ))}
+                  <SelectItem value="todas">Todas</SelectItem>
+                  <SelectItem value="ativas">Em andamento</SelectItem>
+                  <SelectItem value="preventivas_ativas">Preventivas ativas</SelectItem>
+                  <SelectItem value="corretivas_ativas">Corretivas ativas</SelectItem>
+                  <SelectItem value="concluidas">Concluídas</SelectItem>
+                  <SelectItem value="preventivas_concluidas">Preventivas concluídas</SelectItem>
+                  <SelectItem value="corretivas_concluidas">Corretivas concluídas</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+
+            <div className="flex-1 min-w-0 space-y-1">
+              <label className="text-[10px] font-medium text-muted-foreground">Período</label>
+              <Select value={filter} onValueChange={(v) => setFilter(v as FilterType)}>
+                <SelectTrigger className="h-9 w-full">
+                  <Calendar className="mr-1.5 h-3.5 w-3.5 shrink-0" />
+                  <SelectValue placeholder="Data" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="todas">Todas as datas</SelectItem>
+                  <SelectItem value="hoje">Hoje</SelectItem>
+                  <SelectItem value="semana">Esta semana</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex-1 min-w-0 space-y-1">
+              <label className="text-[10px] font-medium text-muted-foreground">Ordenar por</label>
+              <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortBy)}>
+                <SelectTrigger className="h-9 w-full">
+                  <ArrowUpDown className="mr-1.5 h-3.5 w-3.5 shrink-0" />
+                  <SelectValue placeholder="Ordenar" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="default">Padrão (Data + Status)</SelectItem>
+                  <SelectItem value="status">Por Status</SelectItem>
+                  <SelectItem value="data_criacao">Por Data de Criação</SelectItem>
+                  <SelectItem value="tipo">Por Tipo</SelectItem>
+                  <SelectItem value="tecnico">Por Técnico</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {isAdminOrCoordinator && (
+              <div className="flex-1 min-w-0 space-y-1">
+                <label className="text-[10px] font-medium text-muted-foreground">Técnico</label>
+                <Select value={technicianFilter} onValueChange={setTechnicianFilter}>
+                  <SelectTrigger className="h-9 w-full">
+                    <User className="mr-1.5 h-3.5 w-3.5 shrink-0" />
+                    <SelectValue placeholder="Técnico" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Todos os técnicos</SelectItem>
+                    {technicians?.map(tech => (
+                      <SelectItem key={tech.id} value={tech.id}>{tech.nome}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             )}
           </div>
         </div>
