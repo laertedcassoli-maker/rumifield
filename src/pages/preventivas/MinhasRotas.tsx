@@ -866,23 +866,23 @@ export default function MinhasRotas() {
             <CardContent className="py-10 text-center">
               <Route className="mx-auto h-10 w-10 text-muted-foreground/50" />
               <h3 className="mt-3 font-semibold text-sm">
-                {filter !== 'todas' || technicianFilter !== 'all' || typeFilter !== 'all' || statusFilter !== 'ativas'
+                {filter !== 'todas' || technicianFilter !== 'all' || routeView !== 'ativas'
                   ? 'Nenhuma rota encontrada' 
                   : isAdminOrCoordinator 
                     ? 'Nenhuma rota em execução'
                     : 'Nenhuma rota atribuída'}
               </h3>
               <p className="text-xs text-muted-foreground mt-1">
-                {filter !== 'todas' || technicianFilter !== 'all' || typeFilter !== 'all' || statusFilter !== 'ativas'
+                {filter !== 'todas' || technicianFilter !== 'all' || routeView !== 'ativas'
                   ? 'Tente outros filtros' 
                   : 'Aguarde novas atribuições'}
               </p>
-              {(filter !== 'todas' || technicianFilter !== 'all' || typeFilter !== 'all' || statusFilter !== 'ativas') && (
+              {(filter !== 'todas' || technicianFilter !== 'all' || routeView !== 'ativas') && (
                 <Button 
                   variant="outline" 
                   size="sm"
                   className="mt-3" 
-                  onClick={() => { setFilter('todas'); setTechnicianFilter('all'); setTypeFilter('all'); setStatusFilter('ativas'); setSortBy('default'); }}
+                  onClick={() => { setFilter('todas'); setTechnicianFilter('all'); setRouteView('ativas'); setSortBy('default'); }}
                 >
                   Limpar filtros
                 </Button>
