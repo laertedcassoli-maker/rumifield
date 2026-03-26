@@ -789,7 +789,7 @@ export default function MinhasRotas() {
         </div>
 
         {/* Filters - Single row */}
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center">
           <Select value={routeView} onValueChange={(v) => setRouteView(v as RouteView)}>
             <SelectTrigger className="h-9 flex-1 min-w-0">
               <Filter className="mr-1.5 h-3.5 w-3.5 shrink-0" />
@@ -845,6 +845,18 @@ export default function MinhasRotas() {
                 ))}
               </SelectContent>
             </Select>
+          )}
+
+          {(routeView !== 'ativas' || filter !== 'todas' || sortBy !== 'default' || technicianFilter !== 'all') && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-9 w-9 shrink-0"
+              onClick={() => { setRouteView('ativas'); setFilter('todas'); setSortBy('default'); setTechnicianFilter('all'); }}
+              title="Limpar filtros"
+            >
+              <X className="h-4 w-4" />
+            </Button>
           )}
         </div>
 
