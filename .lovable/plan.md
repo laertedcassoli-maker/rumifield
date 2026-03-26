@@ -1,32 +1,23 @@
 
 
-## Apagar todos os chamados e visitas corretivas
+## Limpar registros antigos de preventive_maintenance (sem rota)
 
-### Dados encontrados
+### Situação
 
-| Tabela | Registros |
-|---|---|
-| technical_tickets | 62 |
-| ticket_visits (CORR) | 41 |
-| ticket_timeline | 204 |
-| ticket_tag_links | 13 |
-| ticket_visit_actions | 0 |
-| ticket_parts_requests | 0 |
-| pedidos (origem corretiva) | 0 |
+Restam **102 registros** na tabela `preventive_maintenance` com `route_id IS NULL` — são dados de teste antigos que aparecem no calendário. Distribuição: 96 planejadas, 5 concluídas, 1 cancelada.
 
-### Sequência de DELETEs (respeitando FKs)
+### Operação
 
-1. `DELETE FROM ticket_visit_actions` — ações das visitas
-2. `DELETE FROM ticket_parts_requests` — peças vinculadas a chamados
-3. `DELETE FROM ticket_tag_links` — etiquetas dos chamados
-4. `DELETE FROM ticket_timeline` — linha do tempo
-5. `DELETE FROM ticket_visits` — visitas corretivas (CORR)
-6. `DELETE FROM technical_tickets` — chamados
+Executar DELETEs na ordem correta (respeitando cascatas):
+
+1. **`DELETE FROM pedido_itens`** onde o pedido aponta para essas preventivas
+2. **`DELETE FROM pedidos`** onde `preventive_id` está nessas preventivas
+3. **`DELETE FROM preventive_maintenance WHERE route_id IS NULL`** — cascata automática remove checklists, blocos, itens, ações e não-conformidades associados
+
+### Resultado
+
+O calendário de preventivas ficará limpo, pronto para produção.
 
 ### O que NÃO será afetado
-- Clientes, rotas preventivas, pedidos, CRM, estoque
-- Tags e categorias de chamados (apenas os vínculos são removidos)
-
-### Método
-Usar o insert tool para executar os DELETEs sequencialmente.
+- Clientes, chamados, pedidos sem vínculo preventivo, CRM, estoque, templates de checklist
 
