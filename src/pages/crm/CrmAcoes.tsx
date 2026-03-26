@@ -1,11 +1,14 @@
 import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/integrations/supabase/client';
 import { EditarAcaoSheet } from '@/components/crm/EditarAcaoSheet';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Search, Calendar, User, AlertTriangle, CheckCircle2, Clock } from 'lucide-react';
 import { format, isPast, isToday } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -22,7 +25,23 @@ export default function CrmAcoes() {
 
   const [statusFilter, setStatusFilter] = useState<string>('aberta');
   const [search, setSearch] = useState('');
+  const [csmFilter, setCsmFilter] = useState<string>('all');
   const [selectedAction, setSelectedAction] = useState<UnifiedAction | null>(null);
+
+  // Fetch consultores R+ for CSM filter (admin/coord only)
+  const { data: consultores } = useQuery({
+    queryKey: ['crm-consultores-rplus'],
+    queryFn: async () => {
+      const q = supabase
+        .from('profiles')
+        .select('id, nome')
+        .order('nome') as any;
+      const { data, error } = await q.eq('role', 'consultor_rplus').eq('is_active', true);
+      if (error) throw error;
+      return (data || []) as { id: string; nome: string }[];
+    },
+    enabled: isAdminOrCoord,
+  });
 
   const filtered = useMemo(() => {
     // Filter only tasks (actions, no proposals)
@@ -31,6 +50,11 @@ export default function CrmAcoes() {
     // Status filter
     if (statusFilter !== 'todas') {
       result = result.filter((a) => a.status === statusFilter);
+    }
+
+    // CSM filter
+    if (csmFilter !== 'all') {
+      result = result.filter((a) => a.owner_user_id === csmFilter);
     }
 
     // Search
@@ -53,7 +77,7 @@ export default function CrmAcoes() {
       if (!b.due_at) return -1;
       return new Date(a.due_at).getTime() - new Date(b.due_at).getTime();
     });
-  }, [actions, statusFilter, search]);
+  }, [actions, statusFilter, search, csmFilter]);
 
   const isOverdue = (action: UnifiedAction) =>
     action.due_at && action.status !== 'concluida' && isPast(new Date(action.due_at)) && !isToday(new Date(action.due_at));
@@ -75,6 +99,21 @@ export default function CrmAcoes() {
           className="pl-9"
         />
       </div>
+
+      {/* CSM filter (admin/coord only) */}
+      {isAdminOrCoord && (
+        <Select value={csmFilter} onValueChange={setCsmFilter}>
+          <SelectTrigger className="w-full md:w-64">
+            <SelectValue placeholder="Filtrar por consultor" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos os consultores</SelectItem>
+            {(consultores || []).map((c) => (
+              <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
 
       {/* Status filter */}
       <div className="flex gap-2 flex-wrap">
