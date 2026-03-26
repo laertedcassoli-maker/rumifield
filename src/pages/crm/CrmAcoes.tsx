@@ -25,7 +25,24 @@ export default function CrmAcoes() {
 
   const [statusFilter, setStatusFilter] = useState<string>('aberta');
   const [search, setSearch] = useState('');
+  const [csmFilter, setCsmFilter] = useState<string>('all');
   const [selectedAction, setSelectedAction] = useState<UnifiedAction | null>(null);
+
+  // Fetch consultores R+ for CSM filter (admin/coord only)
+  const { data: consultores } = useQuery({
+    queryKey: ['crm-consultores-rplus'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, nome')
+        .eq('role', 'consultor_rplus')
+        .eq('is_active', true)
+        .order('nome');
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: isAdminOrCoord,
+  });
 
   const filtered = useMemo(() => {
     // Filter only tasks (actions, no proposals)
