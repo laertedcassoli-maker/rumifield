@@ -1,9 +1,10 @@
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useGeolocation } from '@/hooks/useGeolocation';
 import { offlineDb } from '@/lib/offline-db';
+import { withTimeout } from '@/lib/supabase-helpers';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Loader2, CheckCircle2, AlertTriangle, Clock, LogOut, CalendarDays } from 'lucide-react';
@@ -30,6 +31,7 @@ export function FinalizarVisitaModal({ open, onOpenChange, visitId, clientId, on
   const { user } = useAuth();
   const { toast } = useToast();
   const geo = useGeolocation();
+  const queryClient = useQueryClient();
 
   const now = new Date();
 
@@ -68,22 +70,27 @@ export function FinalizarVisitaModal({ open, onOpenChange, visitId, clientId, on
         lon = geo.longitude;
       } catch { /* proceed */ }
 
-      const { error } = await supabase
-        .from('crm_visits')
-        .update({
-          status: 'concluida',
-          checkout_at: new Date().toISOString(),
-          checkout_lat: lat,
-          checkout_lon: lon,
-        })
-        .eq('id', visitId);
+      const { error } = await withTimeout(
+        supabase
+          .from('crm_visits')
+          .update({
+            status: 'concluida',
+            checkout_at: new Date().toISOString(),
+            checkout_lat: lat,
+            checkout_lon: lon,
+          })
+          .eq('id', visitId)
+      );
       if (error) throw error;
 
       // Snapshot product states
-      const { data: products } = await supabase
-        .from('crm_client_products')
-        .select('id, product_code, stage, value_estimated, probability, loss_reason_id, loss_notes')
-        .eq('client_id', clientId);
+      const { data: products, error: productsError } = await withTimeout(
+        supabase
+          .from('crm_client_products')
+          .select('id, product_code, stage, value_estimated, probability, loss_reason_id, loss_notes')
+          .eq('client_id', clientId)
+      );
+      if (productsError) throw productsError;
 
       if (products && products.length > 0) {
         const snapshotInserts = products.map((p: any) => ({
@@ -96,11 +103,27 @@ export function FinalizarVisitaModal({ open, onOpenChange, visitId, clientId, on
           loss_reason_id: p.loss_reason_id,
           loss_notes: p.loss_notes,
         }));
-        await supabase.from('crm_visit_product_snapshots').insert(snapshotInserts);
+        const { error: snapError } = await withTimeout(
+          supabase
+            .from('crm_visit_product_snapshots')
+            .upsert(snapshotInserts, { onConflict: 'visit_id,client_product_id' })
+        );
+        if (snapError) {
+          // Rollback: revert visit to em_andamento
+          await supabase
+            .from('crm_visits')
+            .update({ status: 'em_andamento', checkout_at: null, checkout_lat: null, checkout_lon: null })
+            .eq('id', visitId);
+          throw snapError;
+        }
       }
     },
     onSuccess: () => {
       toast({ title: 'Visita finalizada com sucesso!' });
+      queryClient.invalidateQueries({ queryKey: ['crm-visitas'] });
+      queryClient.invalidateQueries({ queryKey: ['crm-carteira-visits'] });
+      queryClient.invalidateQueries({ queryKey: ['crm-carteira'] });
+      queryClient.invalidateQueries({ queryKey: ['crm-visit', visitId] });
       onOpenChange(false);
       onFinalized();
     },

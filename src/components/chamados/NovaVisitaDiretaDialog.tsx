@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { withTimeout } from '@/lib/supabase-helpers';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -102,37 +103,36 @@ export default function NovaVisitaDiretaDialog({
         throw new Error('Preencha os campos obrigatórios (Cliente e Título)');
       }
 
-      // Bug #4: Check connectivity
-      if (!navigator.onLine) {
-        throw new Error('Sem conexão com a internet. Conecte-se e tente novamente.');
-      }
-
-      // Bug #2: Track created IDs for rollback
+      // Track created IDs for rollback
       let createdTicketId: string | null = null;
 
       try {
         // 1. Generate ticket code
-        const { data: ticketCode, error: codeError } = await supabase.rpc('generate_ticket_code');
+        const { data: ticketCode, error: codeError } = await withTimeout(
+          supabase.rpc('generate_ticket_code')
+        );
         if (codeError) throw codeError;
 
         // 2. Create ticket
-        const { data: ticket, error: ticketError } = await supabase
-          .from('technical_tickets')
-          .insert({
-            ticket_code: ticketCode,
-            client_id: clientId,
-            created_by_user_id: user!.id,
-            assigned_technician_id: user!.id,
-            title,
-            description: description || null,
-            priority: 'urgente',
-            status: 'em_atendimento',
-            substatus: 'aguardando_visita',
-            products: selectedProducts,
-            category_id: MAINTENANCE_CATEGORY_ID,
-          })
-          .select('id')
-          .single();
+        const { data: ticket, error: ticketError } = await withTimeout(
+          supabase
+            .from('technical_tickets')
+            .insert({
+              ticket_code: ticketCode,
+              client_id: clientId,
+              created_by_user_id: user!.id,
+              assigned_technician_id: user!.id,
+              title,
+              description: description || null,
+              priority: 'urgente',
+              status: 'em_atendimento',
+              substatus: 'aguardando_visita',
+              products: selectedProducts,
+              category_id: MAINTENANCE_CATEGORY_ID,
+            })
+            .select('id')
+            .single()
+        );
 
         if (ticketError) throw ticketError;
         createdTicketId = ticket.id;

@@ -1,7 +1,5 @@
 import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
 import { EditarAcaoSheet } from '@/components/crm/EditarAcaoSheet';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -21,27 +19,12 @@ const STATUS_FILTERS = [
 ] as const;
 
 export default function CrmAcoes() {
-  const { actions, isLoading, isAdminOrCoord } = useCrmAcoesData();
+  const { actions, isLoading, isAdminOrCoord, isAdmin, consultores } = useCrmAcoesData();
 
   const [statusFilter, setStatusFilter] = useState<string>('aberta');
   const [search, setSearch] = useState('');
-  const [csmFilter, setCsmFilter] = useState<string>('all');
+  const [consultorFilter, setConsultorFilter] = useState<string>('todos');
   const [selectedAction, setSelectedAction] = useState<UnifiedAction | null>(null);
-
-  // Fetch consultores R+ for CSM filter (admin/coord only)
-  const { data: consultores } = useQuery({
-    queryKey: ['crm-consultores-rplus'],
-    queryFn: async () => {
-      const q = supabase
-        .from('profiles')
-        .select('id, nome')
-        .order('nome') as any;
-      const { data, error } = await q.eq('role', 'consultor_rplus').eq('is_active', true);
-      if (error) throw error;
-      return (data || []) as { id: string; nome: string }[];
-    },
-    enabled: isAdminOrCoord,
-  });
 
   const filtered = useMemo(() => {
     // Filter only tasks (actions, no proposals)
@@ -52,11 +35,6 @@ export default function CrmAcoes() {
       result = result.filter((a) => a.status === statusFilter);
     }
 
-    // CSM filter
-    if (csmFilter !== 'all') {
-      result = result.filter((a) => a.owner_user_id === csmFilter);
-    }
-
     // Search
     if (search.trim()) {
       const q = search.toLowerCase();
@@ -64,6 +42,11 @@ export default function CrmAcoes() {
         a.title?.toLowerCase().includes(q) ||
         a.clientes?.nome?.toLowerCase().includes(q)
       );
+    }
+
+    // Consultant filter
+    if (consultorFilter !== 'todos') {
+      result = result.filter((a) => a.clientes?.consultor_rplus_id === consultorFilter);
     }
 
     // Sort: overdue first, then by due_at ascending
@@ -77,7 +60,7 @@ export default function CrmAcoes() {
       if (!b.due_at) return -1;
       return new Date(a.due_at).getTime() - new Date(b.due_at).getTime();
     });
-  }, [actions, statusFilter, search, csmFilter]);
+  }, [actions, statusFilter, search, consultorFilter]);
 
   const isOverdue = (action: UnifiedAction) =>
     action.due_at && action.status !== 'concluida' && isPast(new Date(action.due_at)) && !isToday(new Date(action.due_at));
@@ -100,15 +83,15 @@ export default function CrmAcoes() {
         />
       </div>
 
-      {/* CSM filter (admin/coord only) */}
-      {isAdminOrCoord && (
-        <Select value={csmFilter} onValueChange={setCsmFilter}>
-          <SelectTrigger className="w-full md:w-64">
-            <SelectValue placeholder="Filtrar por consultor" />
+      {/* Consultant filter */}
+      {isAdmin && consultores.length > 0 && (
+        <Select value={consultorFilter} onValueChange={setConsultorFilter}>
+          <SelectTrigger className="h-9 text-sm">
+            <SelectValue placeholder="Todos os consultores" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">Todos os consultores</SelectItem>
-            {(consultores || []).map((c) => (
+            <SelectItem value="todos">Todos os consultores</SelectItem>
+            {consultores.map((c: any) => (
               <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>
             ))}
           </SelectContent>

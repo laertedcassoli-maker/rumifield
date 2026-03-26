@@ -151,7 +151,7 @@ export default function CrmCliente360() {
     description: a.description,
     owner_user_id: a.owner_user_id,
     owner_name: null,
-    clientes: cliente ? { id: cliente.id, nome: cliente.nome } : null,
+    clientes: cliente ? { id: cliente.id, nome: cliente.nome, consultor_rplus_id: cliente.consultor_rplus_id ?? null } : null,
     _source: 'action',
     product_code: null,
   });

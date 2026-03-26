@@ -49,8 +49,11 @@ export function AtualizarNegociacaoModal({ open, onOpenChange, clientProductId, 
     },
     onSuccess: () => {
       toast.success('Negociação atualizada!');
-      queryClient.invalidateQueries({ queryKey: ['crm-'] });
-      queryClient.invalidateQueries({ queryKey: ['crm-360'] });
+      queryClient.invalidateQueries({ queryKey: ['crm-360-products'] });
+      queryClient.invalidateQueries({ queryKey: ['crm-carteira-products'] });
+      queryClient.invalidateQueries({ queryKey: ['crm-pipeline'] });
+      queryClient.invalidateQueries({ queryKey: ['crm-carteira'] });
+      queryClient.invalidateQueries({ queryKey: ['crm-opportunity-counts'] });
       onOpenChange(false);
       setNewStage(''); setNotes(''); setLossReasonId(''); setLossNotes('');
       onUpdated?.();

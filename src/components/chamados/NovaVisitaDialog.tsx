@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { withTimeout } from '@/lib/supabase-helpers';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import {
@@ -92,40 +93,54 @@ export default function NovaVisitaDialog({
     mutationFn: async () => {
       if (!technicianId) throw new Error('Selecione um técnico');
 
-      const { data: visit, error } = await supabase
-        .from('ticket_visits')
-        .insert({
-          ticket_id: ticketId,
-          client_id: clientId,
-          field_technician_user_id: technicianId,
-          status: 'em_elaboracao',
-          planned_start_date: plannedDate ? format(plannedDate, 'yyyy-MM-dd') : null,
-          checklist_template_id: checklistTemplateId || null,
-          internal_notes: notes || null,
-        })
-        .select('id')
-        .single();
+      const { data: visit, error } = await withTimeout(
+        supabase
+          .from('ticket_visits')
+          .insert({
+            ticket_id: ticketId,
+            client_id: clientId,
+            field_technician_user_id: technicianId,
+            status: 'em_elaboracao',
+            planned_start_date: plannedDate ? format(plannedDate, 'yyyy-MM-dd') : null,
+            checklist_template_id: checklistTemplateId || null,
+            internal_notes: notes || null,
+          })
+          .select('id')
+          .single()
+      );
 
       if (error) throw error;
 
-      // Update ticket status to em_atendimento and substatus to aguardando_visita
-      await supabase
-        .from('technical_tickets')
-        .update({
-          status: 'em_atendimento',
-          substatus: 'aguardando_visita',
-        })
-        .eq('id', ticketId);
+      const createdVisitId = visit.id;
+      try {
+        // Update ticket status
+        const { error: updateError } = await supabase
+          .from('technical_tickets')
+          .update({
+            status: 'em_atendimento',
+            substatus: 'aguardando_visita',
+          })
+          .eq('id', ticketId);
+        if (updateError) throw updateError;
 
-      // Add timeline entry
-      await supabase.from('ticket_timeline').insert({
-        ticket_id: ticketId,
-        user_id: user!.id,
-        event_type: 'visit_created',
-        event_description: plannedDate 
-          ? `Visita agendada para ${format(plannedDate, "dd/MM/yyyy", { locale: ptBR })}`
-          : 'Visita criada (data a definir)',
-      });
+        // Add timeline entry
+        const { error: tlError } = await supabase.from('ticket_timeline').insert({
+          ticket_id: ticketId,
+          user_id: user!.id,
+          event_type: 'visit_created',
+          event_description: plannedDate 
+            ? `Visita agendada para ${format(plannedDate, "dd/MM/yyyy", { locale: ptBR })}`
+            : 'Visita criada (data a definir)',
+        });
+        if (tlError) throw tlError;
+      } catch (err) {
+        // Rollback: delete the visit to allow clean retry
+        await supabase.from('ticket_visits').delete().eq('id', createdVisitId)
+          .then(({ error: rbErr }) => {
+            if (rbErr) console.error('[NovaVisita] Erro no rollback:', rbErr);
+          });
+        throw err;
+      }
 
       return visit;
     },
@@ -133,6 +148,7 @@ export default function NovaVisitaDialog({
       queryClient.invalidateQueries({ queryKey: ['ticket-visits', ticketId] });
       queryClient.invalidateQueries({ queryKey: ['ticket-timeline', ticketId] });
       queryClient.invalidateQueries({ queryKey: ['ticket-detail', ticketId] });
+      queryClient.invalidateQueries({ queryKey: ['technical-tickets'] });
       toast({ title: 'Visita agendada com sucesso!' });
       handleClose();
     },

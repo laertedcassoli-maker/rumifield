@@ -61,6 +61,7 @@ interface PreventiveRoute {
   field_technician_user_id: string;
   technician_name: string;
   farm_coordinates: Array<{ lat: number; lon: number; name: string }>;
+  created_at: string;
 }
 
 interface CorrectiveVisit {
@@ -78,6 +79,7 @@ interface CorrectiveVisit {
   technician_name: string;
   client_lat: number | null;
   client_lon: number | null;
+  created_at: string;
 }
 
 type UnifiedRoute = PreventiveRoute | CorrectiveVisit;
@@ -157,7 +159,7 @@ export default function MinhasRotas() {
 
       let query = supabase
         .from('preventive_routes')
-        .select('id, route_code, start_date, end_date, status, field_technician_user_id')
+        .select('id, route_code, start_date, end_date, status, field_technician_user_id, created_at')
         .in('status', ['planejada', 'em_execucao', 'finalizada'])
         .order('start_date', { ascending: true });
 
@@ -242,6 +244,7 @@ export default function MinhasRotas() {
         field_technician_user_id: route.field_technician_user_id,
         technician_name: profilesMap.get(route.field_technician_user_id) || 'Não atribuído',
         farm_coordinates: countMap.get(route.id)?.coordinates || [],
+        created_at: route.created_at || '',
       }));
     },
     offlineFn: async () => {
@@ -281,6 +284,7 @@ export default function MinhasRotas() {
           field_technician_user_id: r.field_technician_user_id,
           technician_name: r.technician_name || 'Não atribuído',
           farm_coordinates: coordinates,
+          created_at: (r as any).created_at || '',
         };
       });
     },
@@ -302,7 +306,8 @@ export default function MinhasRotas() {
           status,
           field_technician_user_id,
           ticket_id,
-          client_id
+          client_id,
+          created_at
         `)
         .in('status', ['planejada', 'em_elaboracao', 'em_execucao', 'finalizada'])
         .order('planned_start_date', { ascending: true });
@@ -361,6 +366,7 @@ export default function MinhasRotas() {
           technician_name: profilesMap.get(visit.field_technician_user_id) || 'Não atribuído',
           client_lat: client?.latitude || null,
           client_lon: client?.longitude || null,
+          created_at: visit.created_at || '',
         };
       });
     },
@@ -391,6 +397,7 @@ export default function MinhasRotas() {
           technician_name: v.technician_name || 'Não atribuído',
           client_lat: client?.latitude || null,
           client_lon: client?.longitude || null,
+          created_at: (v as any).created_at || '',
         };
       });
     },
@@ -453,10 +460,22 @@ export default function MinhasRotas() {
         }
       }
     }).sort((a, b) => {
-      // Sort by date
-      const dateA = a.type === 'preventive' ? a.start_date : a.scheduled_date;
-      const dateB = b.type === 'preventive' ? b.start_date : b.scheduled_date;
-      return new Date(dateA).getTime() - new Date(dateB).getTime();
+      // Primário: created_at decrescente
+      const createdA = a.created_at || '';
+      const createdB = b.created_at || '';
+      if (createdB !== createdA) return createdB.localeCompare(createdA);
+
+      // Secundário: status por prioridade
+      const STATUS_PRIORITY: Record<string, number> = {
+        em_elaboracao: 0,
+        em_execucao: 1,
+        planejada: 2,
+        finalizada: 3,
+        cancelada: 4,
+      };
+      const prioA = STATUS_PRIORITY[a.status] ?? 99;
+      const prioB = STATUS_PRIORITY[b.status] ?? 99;
+      return prioA - prioB;
     });
   }, [preventiveRoutes, correctiveVisits, filter, technicianFilter, typeFilter, statusFilter]);
 
@@ -550,7 +569,14 @@ export default function MinhasRotas() {
                   </p>
                 )}
               </div>
-              {renderStatusBadge(route)}
+              <div className="flex flex-col items-end gap-1">
+                {renderStatusBadge(route)}
+                {route.created_at && (
+                  <span className="text-xs text-muted-foreground">
+                    Criada em {format(parseISO(route.created_at), 'dd/MM/yyyy', { locale: ptBR })}
+                  </span>
+                )}
+              </div>
             </div>
 
             {/* Info row */}
@@ -639,7 +665,14 @@ export default function MinhasRotas() {
                   </p>
                 )}
               </div>
-              {renderStatusBadge(visit)}
+              <div className="flex flex-col items-end gap-1">
+                {renderStatusBadge(visit)}
+                {visit.created_at && (
+                  <span className="text-xs text-muted-foreground">
+                    Criada em {format(parseISO(visit.created_at), 'dd/MM/yyyy', { locale: ptBR })}
+                  </span>
+                )}
+              </div>
             </div>
 
             {/* Client info */}

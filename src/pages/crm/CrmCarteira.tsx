@@ -7,6 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Search, CircleDot, AlertCircle, Target, Clock, Plus, CalendarDays, ShieldCheck, ChevronRight } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -15,12 +16,13 @@ import { CriarAcaoModal } from '@/components/crm/CriarAcaoModal';
 
 
 export default function CrmCarteira() {
-  const { clientes, clientProducts, snapshots, actions, visits, isLoading } = useCarteiraData();
+  const { clientes, clientProducts, snapshots, actions, visits, consultores, isAdmin, isLoading } = useCarteiraData();
 
   const { data: produtoBadgeColors } = useProductBadgeColors();
   const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search, 300);
+  const [consultorFilter, setConsultorFilter] = useState<string>('todos');
   const [actionModal, setActionModal] = useState<{ open: boolean; clientId: string }>({ open: false, clientId: '' });
 
   const clienteData = useMemo(() => {
@@ -79,6 +81,10 @@ export default function CrmCarteira() {
   const filtered = useMemo(() => {
     let list = clienteData;
 
+    if (consultorFilter !== 'todos') {
+      list = list.filter(c => c.consultor_rplus_id === consultorFilter);
+    }
+
     if (debouncedSearch) {
       const s = debouncedSearch.toLowerCase();
       list = list.filter(c =>
@@ -89,7 +95,7 @@ export default function CrmCarteira() {
     }
 
     return list;
-  }, [clienteData, debouncedSearch]);
+  }, [clienteData, debouncedSearch, consultorFilter]);
 
   return (
     <div className="space-y-3 animate-fade-in pb-24 overflow-x-hidden">
@@ -105,6 +111,21 @@ export default function CrmCarteira() {
           className="pl-8 h-9 text-sm"
         />
       </div>
+
+      {/* Consultant filter (admin only) */}
+      {isAdmin && consultores.length > 0 && (
+        <Select value={consultorFilter} onValueChange={setConsultorFilter}>
+          <SelectTrigger className="h-9 text-sm">
+            <SelectValue placeholder="Todos os consultores" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Todos os consultores</SelectItem>
+            {consultores.map((c: any) => (
+              <SelectItem key={c.id} value={c.id}>{c.nome}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      )}
 
       {/* Client count */}
       <p className="text-xs text-muted-foreground">{filtered.length} de {clienteData.length} clientes</p>
