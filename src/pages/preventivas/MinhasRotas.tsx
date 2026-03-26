@@ -49,7 +49,7 @@ const correctiveStatusConfig = {
 type FilterType = 'hoje' | 'semana' | 'todas';
 type RouteType = 'all' | 'preventive' | 'corrective';
 type StatusFilter = 'ativas' | 'concluidas' | 'todas';
-type SortBy = 'status' | 'data_criacao' | 'tipo' | 'tecnico';
+type SortBy = 'default' | 'status' | 'data_criacao' | 'tipo' | 'tecnico';
 
 interface PreventiveRoute {
   type: 'preventive';
@@ -97,7 +97,7 @@ export default function MinhasRotas() {
   const [technicianFilter, setTechnicianFilter] = useState<string>('all');
   const [typeFilter, setTypeFilter] = useState<RouteType>('all');
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('ativas');
-  const [sortBy, setSortBy] = useState<SortBy>('status');
+  const [sortBy, setSortBy] = useState<SortBy>('default');
   const [showNovaVisita, setShowNovaVisita] = useState(false);
 
   const isAdminOrCoordinator = role === 'admin' || role === 'coordenador_servicos';
@@ -497,16 +497,18 @@ export default function MinhasRotas() {
       const byId = a.id.localeCompare(b.id);
 
       switch (sortBy) {
+        case 'default':
+          return byDay || byStatus || byTs || byId;
         case 'status':
           return byStatus || byDay || byTs || byId;
         case 'data_criacao':
-          return byDay || byStatus || byTs || byId;
+          return byDay || byTs || byStatus || byId;
         case 'tipo':
           return byType || byDay || byStatus || byTs || byId;
         case 'tecnico':
           return byTech || byDay || byStatus || byTs || byId;
         default:
-          return byStatus || byDay || byTs || byId;
+          return byDay || byStatus || byTs || byId;
       }
     });
   }, [preventiveRoutes, correctiveVisits, filter, technicianFilter, typeFilter, statusFilter, sortBy]);
@@ -851,6 +853,7 @@ export default function MinhasRotas() {
               <SelectValue placeholder="Ordenar por" />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value="default">Padrão (Data + Status)</SelectItem>
               <SelectItem value="status">Ordenar por Status</SelectItem>
               <SelectItem value="data_criacao">Ordenar por Data de Criação</SelectItem>
               <SelectItem value="tipo">Ordenar por Tipo</SelectItem>
@@ -911,7 +914,7 @@ export default function MinhasRotas() {
                   variant="outline" 
                   size="sm"
                   className="mt-3" 
-                  onClick={() => { setFilter('todas'); setTechnicianFilter('all'); setTypeFilter('all'); setStatusFilter('ativas'); setSortBy('status'); }}
+                  onClick={() => { setFilter('todas'); setTechnicianFilter('all'); setTypeFilter('all'); setStatusFilter('ativas'); setSortBy('default'); }}
                 >
                   Limpar filtros
                 </Button>
