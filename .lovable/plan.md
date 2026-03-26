@@ -1,34 +1,38 @@
 
-Objetivo: corrigir a ordenação em **Minhas Rotas** quando os cards parecem ter a mesma data de criação, mas ainda ficam fora da prioridade de status.
 
-1) Diagnóstico provável (com base no código atual)
-- Hoje a ordenação usa `created_at.slice(0, 10)` como chave primária de dia.
-- Isso pega o **dia em UTC** da string, enquanto a data exibida no card (`format(parseISO(...), 'dd/MM/yyyy')`) está em horário local.
-- Resultado: dois cards podem aparecer com a **mesma data visível** para você, mas terem chaves de dia diferentes na ordenação; por isso um card “não iniciado/planejada” pode cair entre cards “em execução”.
+## Adicionar ordenação configurável na tela Minhas Rotas
 
-2) Ajuste de ordenação (somente em `src/pages/preventivas/MinhasRotas.tsx`)
-- Manter a regra pedida:
-  - Primária: data de criação decrescente
-  - Secundária: prioridade de status
-- Trocar a chave de dia para **dia local normalizado**:
-  - `getCreatedDayKey(created_at)` usando `parseISO` + `format(..., 'yyyy-MM-dd')`
-  - fallback seguro para `''` quando inválido/nulo
-- Manter normalização de status de corretivas:
-  - `em_andamento -> em_execucao`
-  - `agendada -> planejada`
-- Comparator final:
-  1. `createdDay` local desc
-  2. `STATUS_PRIORITY` asc (`em_elaboracao`, `em_execucao`, `planejada`, `finalizada`, `cancelada`)
-  3. timestamp completo desc (`new Date(created_at).getTime()`)
-  4. `id` asc (desempate determinístico)
+### O que será feito
 
-3) Restrições que serão respeitadas
-- Não tocar no bloco de filtros de período (`hoje`, `semana`, `todas`).
-- Não alterar filtros de status/tipo/técnico.
-- Manter exatamente o mapeamento offline das corretivas já existente.
-- Não alterar layout dos cards nem exibição de “Criada em”.
+Adicionar um seletor de ordenação ("Ordenar por") ao bloco de filtros, permitindo ao usuário escolher entre 4 critérios de ordenação:
 
-4) Validação após ajuste
-- Testar com cards de preventiva/corretiva exibindo a mesma data no card.
-- Confirmar que nenhum “planejada/não iniciado” aparece entre dois “em execução”.
-- Confirmar ordem esperada quando houver empate total (usa timestamp completo e id).
+- **Status** (padrão atual — prioriza em_elaboração, em_execução, planejada, etc.)
+- **Data de criação** (mais recentes primeiro)
+- **Tipo** (Preventivas primeiro ou Corretivas primeiro)
+- **Técnico** (ordem alfabética pelo nome)
+
+### Alterações em `src/pages/preventivas/MinhasRotas.tsx`
+
+1. **Novo estado `sortBy`**: Criar um state `sortBy` com tipo `'status' | 'data_criacao' | 'tipo' | 'tecnico'`, default `'status'`.
+
+2. **Novo seletor no bloco de filtros**: Adicionar um `<Select>` com ícone `ArrowUpDown` (lucide) logo abaixo do filtro de status e antes do filtro de técnico. Label: "Ordenar por".
+
+3. **Refatorar o `.sort()` no `useMemo`**: Em vez de usar a lógica fixa atual (data primária + status secundário), o comparator vai escolher o critério primário com base em `sortBy`:
+   - `'status'`: prioridade de status → data criação desc → id
+   - `'data_criacao'`: dia local desc → status → id
+   - `'tipo'`: preventive antes de corrective (ou vice-versa) → data desc → id
+   - `'tecnico'`: nome do técnico asc → data desc → id
+
+4. **Adicionar `sortBy` às dependências do `useMemo`**.
+
+### Layout visual
+
+O seletor ficará na mesma área dos filtros existentes, como um `<Select>` full-width igual ao de status, mantendo consistência visual.
+
+### O que NÃO muda
+
+- Filtros existentes (tipo, período, status, técnico)
+- Layout dos cards
+- Exibição de "Criada em"
+- Normalização de status de corretivas
+
