@@ -794,10 +794,10 @@ export default function MinhasRotas() {
             </div>
           </div>
 
-          {/* Selects in a grid */}
-          <div className="grid grid-cols-2 gap-2">
+          {/* Selects in one row */}
+          <div className="flex gap-2">
             <Select value={statusFilter} onValueChange={(v) => setStatusFilter(v as StatusFilter)}>
-              <SelectTrigger className="h-9">
+              <SelectTrigger className="h-9 flex-1 min-w-0">
                 <CheckCircle2 className="mr-1.5 h-3.5 w-3.5 shrink-0" />
                 <SelectValue placeholder="Status" />
               </SelectTrigger>
@@ -809,7 +809,7 @@ export default function MinhasRotas() {
             </Select>
 
             <Select value={sortBy} onValueChange={(v) => setSortBy(v as SortBy)}>
-              <SelectTrigger className="h-9">
+              <SelectTrigger className="h-9 flex-1 min-w-0">
                 <ArrowUpDown className="mr-1.5 h-3.5 w-3.5 shrink-0" />
                 <SelectValue placeholder="Ordenar" />
               </SelectTrigger>
@@ -824,7 +824,7 @@ export default function MinhasRotas() {
 
             {isAdminOrCoordinator && (
               <Select value={technicianFilter} onValueChange={setTechnicianFilter}>
-                <SelectTrigger className="h-9 col-span-2">
+                <SelectTrigger className="h-9 flex-1 min-w-0">
                   <User className="mr-1.5 h-3.5 w-3.5 shrink-0" />
                   <SelectValue placeholder="Técnico" />
                 </SelectTrigger>
