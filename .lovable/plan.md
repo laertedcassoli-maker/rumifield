@@ -1,25 +1,46 @@
 
 
-## Alterar filtro padrão de data para "30 dias" na tela de Pedidos
+## Limpar todas as 23 rotas preventivas para início da produção
 
-### Alteração
+### Cadeia de dependências identificada
 
-**Arquivo:** `src/pages/Pedidos.tsx`
+```text
+preventive_routes
+  ├── preventive_route_items (ON DELETE CASCADE — automático)
+  └── preventive_maintenance.route_id (ON DELETE SET NULL)
+        └── preventive_checklists (ON DELETE CASCADE)
+              └── preventive_checklist_blocks (CASCADE)
+                    └── preventive_checklist_items (CASCADE)
+                          ├── preventive_checklist_item_actions (CASCADE)
+                          └── preventive_checklist_item_nonconformities (CASCADE)
 
-**Linha 101** — mudar o valor inicial de `dateFilter` de `'all'` para `'30'`:
-
-```ts
-// DE:
-const [dateFilter, setDateFilter] = useState<'30' | 'all'>('all');
-
-// PARA:
-const [dateFilter, setDateFilter] = useState<'30' | 'all'>('30');
+pedidos.preventive_id → referencia preventive_maintenance (pode existir)
 ```
 
-### Confirmação
+### Sequência de DELETEs necessária
 
-O filtro de 30 dias já filtra pelos **últimos 30 dias** (linhas 164-169): calcula `cutoffDate = hoje - 30 dias` e compara com `created_at` do pedido. Lógica correta, apenas o default precisa mudar.
+Precisamos executar na ordem correta para não deixar dados órfãos:
 
-### O que NÃO muda
-- Lógica de filtragem, botões, clearFilters, nenhum outro comportamento
+1. **`DELETE FROM pedido_itens`** onde o pedido está vinculado a uma preventiva das rotas
+2. **`DELETE FROM pedidos`** onde `preventive_id` aponta para uma `preventive_maintenance` vinculada às rotas
+3. **`DELETE FROM preventive_maintenance`** onde `route_id IS NOT NULL` — isso dispara CASCADE automático para checklists, blocos, itens, ações e não-conformidades
+4. **`DELETE FROM preventive_routes`** — isso dispara CASCADE automático para `preventive_route_items`
+
+### O que será removido
+
+- 23 rotas preventivas e seus itens (fazendas)
+- Todas as preventivas vinculadas a essas rotas + seus checklists completos
+- Pedidos de peças originados dessas preventivas (se houver)
+
+### O que NÃO será afetado
+
+- Clientes
+- Chamados e visitas corretivas
+- Pedidos não vinculados a preventivas
+- Templates de checklist
+- Dados de CRM
+
+### Método
+
+Usar o migration tool para executar os DELETEs sequencialmente, com confirmação prévia.
 
