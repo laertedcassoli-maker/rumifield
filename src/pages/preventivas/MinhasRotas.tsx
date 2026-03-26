@@ -526,7 +526,7 @@ export default function MinhasRotas() {
           return byDay || byStatus || byTs || byId;
       }
     });
-  }, [preventiveRoutes, correctiveVisits, filter, technicianFilter, typeFilter, statusFilter, sortBy]);
+  }, [preventiveRoutes, correctiveVisits, filter, technicianFilter, routeView, sortBy]);
 
   const renderStatusBadge = (route: UnifiedRoute) => {
     if (route.type === 'preventive') {
