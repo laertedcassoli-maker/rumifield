@@ -11,7 +11,6 @@ import {
   Route,
   Calendar,
   MapPin,
-  CheckCircle2,
   Clock,
   ArrowRight,
   User,
@@ -20,7 +19,9 @@ import {
   Wrench,
   Plus,
   WifiOff,
-  ArrowUpDown
+  ArrowUpDown,
+  Filter,
+  CheckCircle2
 } from 'lucide-react';
 import NovaVisitaDiretaDialog from '@/components/chamados/NovaVisitaDiretaDialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
