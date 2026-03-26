@@ -851,6 +851,7 @@ export default function MinhasRotas() {
               <SelectValue placeholder="Ordenar por" />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value="default">Padrão (Data + Status)</SelectItem>
               <SelectItem value="status">Ordenar por Status</SelectItem>
               <SelectItem value="data_criacao">Ordenar por Data de Criação</SelectItem>
               <SelectItem value="tipo">Ordenar por Tipo</SelectItem>
