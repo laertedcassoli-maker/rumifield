@@ -1,28 +1,22 @@
 
 
-## Adicionar filtro por consultor na tela de Tarefas CRM
+## Limpar todos os registros de solicitação de peças
 
-### Arquivos alterados
+### Operação
 
-**1. `src/hooks/useCrmAcoesData.ts`**
+Executar 3 DELETEs na ordem correta (respeitando chaves estrangeiras):
 
-- Expandir select de `crm_actions`: `clientes!inner(id, nome, consultor_rplus_id)`
-- Atualizar interface `UnifiedAction.clientes` para incluir `consultor_rplus_id: string | null`
-- Adicionar `isAdmin` derivado de `role === 'admin' || role === 'coordenador_rplus'`
-- Adicionar query `['crm-consultores']` (mesmo padrão de `usePipelineData`): busca `user_roles` com `consultor_rplus`, depois `profiles`, habilitada apenas quando `isAdmin`
-- Adicionar `consultores` e `isAdmin` ao retorno
+1. `DELETE FROM ticket_parts_requests` — vínculos entre pedidos e chamados
+2. `DELETE FROM pedido_itens` — itens dos pedidos
+3. `DELETE FROM pedidos` — pedidos em si
 
-**2. `src/pages/crm/CrmAcoes.tsx`**
+### Método
 
-- Desestruturar `consultores` e `isAdmin` (renomear uso de `isAdminOrCoord` onde necessário para exibição do filtro)
-- Adicionar estado `consultorFilter` (`'todos'` default)
-- No `useMemo`, após filtro de busca: `if (consultorFilter !== 'todos') result = result.filter(a => a.clientes?.consultor_rplus_id === consultorFilter)`
-- Adicionar `consultorFilter` às deps do `useMemo`
-- No JSX, entre filtros de status e contador, renderizar `Select` de consultores (visível apenas para `isAdmin`)
-- Importar componentes de `Select`
+Usar o insert tool (operação de dados, não de schema) para executar os DELETEs sequencialmente.
 
-### O que NÃO muda
-- Lógica de `owner_user_id` (consultores veem só suas tarefas)
-- Filtros de status e busca existentes
-- Ordenação, cards, navegação, EditarAcaoSheet
+### Impacto
+
+- Todos os pedidos, itens e vínculos com chamados serão removidos permanentemente
+- Nenhum código será alterado
+- O histórico de timeline dos chamados (`ticket_timeline`) permanece intacto (referências textuais, sem FK)
 
