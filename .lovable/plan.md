@@ -1,28 +1,21 @@
 
 
-## Adicionar filtro por consultor na tela de Tarefas CRM
+## Diagnóstico: alterações presentes no código, problema é cache
 
-### Arquivos alterados
+Ao analisar o arquivo `src/pages/preventivas/MinhasRotas.tsx`, **todas as alterações solicitadas estão implementadas corretamente**:
 
-**1. `src/hooks/useCrmAcoesData.ts`**
+- **Ordenação** por `created_at` decrescente + prioridade de status (linhas 462-479) ✅
+- **"Criada em"** exibida nos cards preventivos (linhas 574-578) e corretivos ✅  
+- **Layout** com `flex flex-col items-end gap-1` alinhado à direita abaixo do status (linha 572) ✅
 
-- Expandir select de `crm_actions`: `clientes!inner(id, nome, consultor_rplus_id)`
-- Atualizar interface `UnifiedAction.clientes` para incluir `consultor_rplus_id: string | null`
-- Adicionar `isAdmin` derivado de `role === 'admin' || role === 'coordenador_rplus'`
-- Adicionar query `['crm-consultores']` (mesmo padrão de `usePipelineData`): busca `user_roles` com `consultor_rplus`, depois `profiles`, habilitada apenas quando `isAdmin`
-- Adicionar `consultores` e `isAdmin` ao retorno
+### Causa provável
 
-**2. `src/pages/crm/CrmAcoes.tsx`**
+O preview ou o app está servindo uma versão antiga do código via cache do Service Worker (PWA). Isso é um comportamento esperado do `CacheFirst` configurado no Workbox.
 
-- Desestruturar `consultores` e `isAdmin` (renomear uso de `isAdminOrCoord` onde necessário para exibição do filtro)
-- Adicionar estado `consultorFilter` (`'todos'` default)
-- No `useMemo`, após filtro de busca: `if (consultorFilter !== 'todos') result = result.filter(a => a.clientes?.consultor_rplus_id === consultorFilter)`
-- Adicionar `consultorFilter` às deps do `useMemo`
-- No JSX, entre filtros de status e contador, renderizar `Select` de consultores (visível apenas para `isAdmin`)
-- Importar componentes de `Select`
+### Solução
 
-### O que NÃO muda
-- Lógica de `owner_user_id` (consultores veem só suas tarefas)
-- Filtros de status e busca existentes
-- Ordenação, cards, navegação, EditarAcaoSheet
+1. **No preview do Lovable:** Faça um hard refresh (`Ctrl+Shift+R` / `Cmd+Shift+R`) ou abra em aba anônima
+2. **No app publicado:** Use o botão de "Atualizar" / "Force Refresh" que já existe no app, ou limpe o cache do navegador
+
+Nenhuma alteração de código é necessária — o conteúdo já está correto.
 
