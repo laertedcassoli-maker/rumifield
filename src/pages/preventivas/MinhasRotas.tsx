@@ -460,10 +460,16 @@ export default function MinhasRotas() {
         }
       }
     }).sort((a, b) => {
-      // Primário: data (dia) de criação decrescente
-      const createdDayA = (a.created_at || '').slice(0, 10);
-      const createdDayB = (b.created_at || '').slice(0, 10);
-      if (createdDayB !== createdDayA) return createdDayB.localeCompare(createdDayA);
+      // Helper: dia local normalizado (mesmo fuso exibido no card)
+      const getLocalDay = (dt: string | undefined) => {
+        if (!dt) return '';
+        try { return format(parseISO(dt), 'yyyy-MM-dd'); } catch { return ''; }
+      };
+
+      // Primário: data (dia local) de criação decrescente
+      const dayA = getLocalDay(a.created_at);
+      const dayB = getLocalDay(b.created_at);
+      if (dayB !== dayA) return dayB.localeCompare(dayA);
 
       // Secundário: status por prioridade (com aliases de corretiva)
       const normalizeStatus = (status: string) => {
@@ -485,9 +491,9 @@ export default function MinhasRotas() {
       if (prioA !== prioB) return prioA - prioB;
 
       // Terciário: timestamp completo decrescente
-      const createdA = a.created_at || '';
-      const createdB = b.created_at || '';
-      if (createdB !== createdA) return createdB.localeCompare(createdA);
+      const tsA = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const tsB = b.created_at ? new Date(b.created_at).getTime() : 0;
+      if (tsB !== tsA) return tsB - tsA;
 
       return a.id.localeCompare(b.id);
     });
