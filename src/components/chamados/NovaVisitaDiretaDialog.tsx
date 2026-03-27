@@ -210,7 +210,7 @@ export default function NovaVisitaDiretaDialog({
         }
       );
       // Background reconciliation
-      queryClient.invalidateQueries({ queryKey: ['my-corrective-visits'] });
+      queryClient.invalidateQueries({ queryKey: ['my-corrective-visits'], refetchType: 'none' });
       queryClient.invalidateQueries({ queryKey: ['technical-tickets'] });
       toast({ title: `Nova Visita agendada: ${data.ticketCode}` });
       handleClose();
