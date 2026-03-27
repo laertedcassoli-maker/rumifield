@@ -139,7 +139,7 @@ export default function NovaVisitaDiretaDialog({
         createdTicketId = ticket.id;
 
         // 3. Create corrective visit
-        const { error: visitError } = await supabase
+        const { data: visitData, error: visitError } = await supabase
           .from('ticket_visits')
           .insert({
             ticket_id: ticket.id,
@@ -148,9 +148,33 @@ export default function NovaVisitaDiretaDialog({
             status: 'em_elaboracao',
             planned_start_date: plannedDate ? format(plannedDate, 'yyyy-MM-dd') : null,
             internal_notes: description || null,
-          });
+          })
+          .select('id, visit_code')
+          .single();
 
         if (visitError) throw visitError;
+
+        // Write to Dexie so useLiveQuery updates the list immediately
+        const selectedClient = clients?.find((c: any) => c.id === clientId);
+        await offlineDb.corretivas.put({
+          id: visitData.id,
+          visit_code: visitData.visit_code,
+          ticket_id: ticket.id,
+          ticket_code: ticketCode,
+          ticket_title: title,
+          client_id: clientId,
+          client_name: selectedClient?.nome || '',
+          client_fazenda: selectedClient?.fazenda || null,
+          field_technician_user_id: user!.id,
+          status: 'em_elaboracao',
+          planned_start_date: plannedDate ? format(plannedDate, 'yyyy-MM-dd') : null,
+          checkin_at: null,
+          checkin_lat: null,
+          checkin_lon: null,
+          checkout_at: null,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        });
 
         // 4. NON-CRITICAL: Add timeline entry
         try {
