@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { withTimeout } from '@/lib/supabase-helpers';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
-import { useMenuPermissions } from '@/hooks/useMenuPermissions';
+
 import {
   Dialog,
   DialogContent,
