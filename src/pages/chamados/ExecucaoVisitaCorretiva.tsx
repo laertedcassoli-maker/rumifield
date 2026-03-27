@@ -212,6 +212,36 @@ export default function ExecucaoVisitaCorretiva() {
         throw new Error('Check-in não foi salvo. Verifique sua conexão e tente novamente.');
       }
 
+      // Create preventive_maintenance record for this corrective visit (needed for checklist)
+      let preventiveId: string | null = null;
+      try {
+        const { data: existingPm } = await supabase
+          .from('preventive_maintenance')
+          .select('id')
+          .eq('client_id', visit?.client_id)
+          .ilike('notes', `%CORR-VISIT-${visitId}%`)
+          .maybeSingle();
+
+        if (existingPm) {
+          preventiveId = existingPm.id;
+        } else {
+          const { data: newPm } = await supabase
+            .from('preventive_maintenance')
+            .insert([{
+              client_id: visit?.client_id,
+              scheduled_date: visit?.planned_start_date || new Date().toISOString().split('T')[0],
+              status: 'planejada' as const,
+              technician_user_id: visit?.field_technician_user_id,
+              notes: `Visita Corretiva CORR-VISIT-${visitId} - ${visit?.ticket?.ticket_code || 'Chamado'}`,
+            }])
+            .select('id')
+            .single();
+          if (newPm) preventiveId = newPm.id;
+        }
+      } catch (pmErr) {
+        console.error('[Corretiva] Erro ao criar preventive_maintenance no check-in:', pmErr);
+      }
+
       // Bug #3: Timeline is non-critical — don't block checkin
       try {
         await supabase.from('ticket_timeline').insert({
@@ -224,7 +254,7 @@ export default function ExecucaoVisitaCorretiva() {
         console.error('[Corretiva] Timeline de checkin não criada:', timelineErr);
       }
 
-      return { lat, lon };
+      return { lat, lon, preventiveId };
     },
     onSuccess: () => {
       queryClient.setQueryData(
