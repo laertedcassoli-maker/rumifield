@@ -246,7 +246,15 @@ export default function ExecucaoVisitaCorretiva() {
       return { lat, lon };
     },
     onSuccess: () => {
+      queryClient.setQueryData(
+        ['corrective-visit-execution', visitId],
+        (old: any) => {
+          if (!old) return old;
+          return { ...old, checkin_at: new Date().toISOString(), status: 'em_execucao' };
+        }
+      );
       queryClient.invalidateQueries({ queryKey: ['corrective-visit-execution', visitId] });
+      queryClient.invalidateQueries({ queryKey: ['my-corrective-visits'] });
       toast({
         title: 'Check-in realizado!',
         description: 'Você pode iniciar o atendimento.',

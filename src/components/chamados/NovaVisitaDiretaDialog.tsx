@@ -179,9 +179,9 @@ export default function NovaVisitaDiretaDialog({
         throw error;
       }
     },
-    onSuccess: (data) => {
+    onSuccess: async (data) => {
+      await queryClient.refetchQueries({ queryKey: ['my-corrective-visits'] });
       queryClient.invalidateQueries({ queryKey: ['technical-tickets'] });
-      queryClient.invalidateQueries({ queryKey: ['my-corrective-visits'] });
       toast({ title: `Nova Visita agendada: ${data.ticketCode}` });
       handleClose();
     },
