@@ -1,71 +1,72 @@
 
 
-## Correção de 2 bugs em Visitas Corretivas (mobile)
+## Correção: cronômetro preso em OS concluída (causa raiz: RLS)
 
-### BUG A — Nova visita não aparece na lista sem Force Sync
+### Diagnóstico confirmado
 
-**Arquivo:** `src/components/chamados/NovaVisitaDiretaDialog.tsx`
+A OS-2026-00077 foi concluída pelo usuário `b55984cd` mas o time entry `running` pertence ao usuário `87209f6f`. A política RLS atual em `work_order_time_entries` é:
 
-**Causa:** A lista usa `useLiveQuery` do Dexie. O `refetchQueries` no `onSuccess` não tem efeito pois não há `useQuery` ativo com essa chave.
-
-**Correção (2 pontos no mesmo arquivo):**
-
-1. **Linha 141** — alterar o insert de `ticket_visits` para retornar os dados com `.select('id, visit_code').single()`:
-```ts
-const { data: visitData, error: visitError } = await supabase
-  .from('ticket_visits')
-  .insert({ ... })
-  .select('id, visit_code')
-  .single();
+```sql
+USING (auth.uid() = user_id)  -- só permite operar entries do próprio usuário
 ```
 
-2. **Após o insert ter sucesso (antes do return)** — escrever no Dexie:
-```ts
-await offlineDb.corretivas.put({
-  id: visitData.id,
-  visit_code: visitData.visit_code,
-  ticket_id: ticket.id,
-  ticket_code: ticketCode,
-  ticket_title: title,
-  client_id: clientId,
-  client_name: selectedClient?.nome || '',
-  client_fazenda: selectedClient?.fazenda || null,
-  field_technician_user_id: user!.id,
-  status: 'em_elaboracao',
-  planned_start_date: plannedDate ? format(plannedDate, 'yyyy-MM-dd') : null,
-  checkin_at: null, checkin_lat: null, checkin_lon: null, checkout_at: null,
-  created_at: new Date().toISOString(),
-  updated_at: new Date().toISOString(),
-});
+Quando o `completeOSMutation` tentou fazer `UPDATE ... SET status='finished'` no entry do outro técnico, o RLS bloqueou silenciosamente (0 rows affected, sem erro). O código não valida se o update afetou alguma linha.
+
+### Correção
+
+**1. Migration: nova política RLS em `work_order_time_entries`**
+
+Permitir que quem tem permissão de UPDATE na OS (responsável, criador, admin, coordenador, técnico oficina) também possa atualizar os time entries dessa OS:
+
+```sql
+CREATE POLICY "OS editors can update time_entries"
+  ON public.work_order_time_entries
+  FOR UPDATE
+  TO authenticated
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.work_orders wo
+      WHERE wo.id = work_order_time_entries.work_order_id
+        AND (
+          wo.created_by_user_id = auth.uid()
+          OR wo.assigned_to_user_id = auth.uid()
+          OR is_admin_or_coordinator(auth.uid())
+          OR has_role(auth.uid(), 'tecnico_oficina')
+        )
+    )
+  );
 ```
 
-3. **`onSuccess`** — manter o `refetchQueries` (inofensivo) ou removê-lo. A lista já atualizará via `useLiveQuery`.
+**2. Migration: limpar o entry preso da OS-2026-00077**
 
-Adicionar import de `offlineDb` no topo do arquivo.
+Mesmo que o usuário pediu "só correção futura", o entry `549ca584` com `status=running` precisa ser corrigido para destravar o técnico `87209f6f`:
 
----
-
-### BUG B — Botão "Fazer Check-in" reaparece após clique
-
-**Arquivo:** `src/pages/chamados/ExecucaoVisitaCorretiva.tsx`
-
-**Causa:** `invalidateQueries` dispara refetch imediato que pode retornar `checkin_at: null` (replica lag), sobrescrevendo o `setQueryData` otimista.
-
-**Correção (linhas 256-257)** — adicionar `refetchType: 'none'`:
-```ts
-queryClient.invalidateQueries({
-  queryKey: ['corrective-visit-execution', visitId],
-  refetchType: 'none',
-});
-queryClient.invalidateQueries({
-  queryKey: ['my-corrective-visits'],
-  refetchType: 'none',
-});
+```sql
+UPDATE public.work_order_time_entries
+SET status = 'finished',
+    ended_at = '2026-03-26T17:20:01.397Z',
+    duration_seconds = EXTRACT(EPOCH FROM ('2026-03-26T17:20:01.397+00'::timestamptz - started_at))::int
+WHERE id = '549ca584-0a35-43c8-ad8d-e0b136da3539'
+  AND status = 'running';
 ```
 
----
+**3. DetalheOSDialog.tsx: validar que o UPDATE realmente afetou linhas**
+
+No `completeOSMutation`, após o update de cada running entry, verificar o `count` retornado. Se 0, lançar erro explicando que não foi possível parar o cronômetro de outro técnico:
+
+```ts
+const { error: stopError, count } = await supabase
+  .from('work_order_time_entries')
+  .update({ ... })
+  .eq('id', entry.id)
+  .select('id', { count: 'exact', head: true });
+
+if (count === 0) {
+  throw new Error('Não foi possível encerrar o cronômetro — verifique permissões');
+}
+```
 
 ### Resumo
-- 2 arquivos alterados, pontos cirúrgicos
-- Nenhuma mudança de layout, estilo ou lógica de negócio
+- 1 migration com nova política RLS + limpeza do entry preso
+- 1 ajuste no `DetalheOSDialog.tsx` para detectar falha silenciosa de RLS
 
