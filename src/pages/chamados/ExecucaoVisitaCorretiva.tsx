@@ -121,11 +121,9 @@ export default function ExecucaoVisitaCorretiva() {
         .eq('id', visitData.client_id)
         .maybeSingle();
 
-      // Check/create preventive_maintenance record for this visit
-      // We'll use route_id = null and link via client_id + created_at
+      // Check for existing preventive_maintenance record linked to this visit
       let preventiveId: string | null = null;
 
-      // Look for existing PM linked to this visit (we'll use a naming convention in notes)
       const { data: existingPm } = await supabase
         .from('preventive_maintenance')
         .select('id, internal_notes, public_notes, public_token')
@@ -142,23 +140,6 @@ export default function ExecucaoVisitaCorretiva() {
         internalNotes = existingPm.internal_notes || visitData.internal_notes;
         publicNotes = existingPm.public_notes || visitData.public_notes;
         publicToken = existingPm.public_token;
-      } else if (visitData.checkin_at) {
-        // Create preventive_maintenance record for this corrective visit
-        const { data: newPm, error: pmError } = await supabase
-          .from('preventive_maintenance')
-          .insert([{
-            client_id: visitData.client_id,
-            scheduled_date: visitData.planned_start_date || new Date().toISOString().split('T')[0],
-            status: 'planejada' as const,
-            technician_user_id: visitData.field_technician_user_id,
-            notes: `Visita Corretiva CORR-VISIT-${visitData.id} - ${ticket?.ticket_code || 'Chamado'}`,
-          }])
-          .select('id')
-          .single();
-
-        if (!pmError && newPm) {
-          preventiveId = newPm.id;
-        }
       }
 
       // Check checklist status
