@@ -1,23 +1,67 @@
 
 
-## Limpar registros antigos de preventive_maintenance (sem rota)
+## Correção de 3 bugs no módulo de visitas corretivas (mobile)
 
-### Situação
+A análise está correta. Os 3 bugs são reais e as correções propostas são adequadas. Segue o plano validado:
 
-Restam **102 registros** na tabela `preventive_maintenance` com `route_id IS NULL` — são dados de teste antigos que aparecem no calendário. Distribuição: 96 planejadas, 5 concluídas, 1 cancelada.
+### FIX 1 — NovaVisitaDiretaDialog.tsx: nova visita aparece na lista
 
-### Operação
+**Arquivo:** `src/components/chamados/NovaVisitaDiretaDialog.tsx`
 
-Executar DELETEs na ordem correta (respeitando cascatas):
+No `onSuccess` (linha ~139), trocar `invalidateQueries` por `refetchQueries` com await:
 
-1. **`DELETE FROM pedido_itens`** onde o pedido aponta para essas preventivas
-2. **`DELETE FROM pedidos`** onde `preventive_id` está nessas preventivas
-3. **`DELETE FROM preventive_maintenance WHERE route_id IS NULL`** — cascata automática remove checklists, blocos, itens, ações e não-conformidades associados
+```ts
+onSuccess: async (data) => {
+  await queryClient.refetchQueries({ queryKey: ['my-corrective-visits'] });
+  queryClient.invalidateQueries({ queryKey: ['technical-tickets'] });
+  toast({ title: `Nova Visita agendada: ${data.ticketCode}` });
+  handleClose();
+},
+```
 
-### Resultado
+Isso força aguardar o refetch da rede antes de fechar o dialog, garantindo que a lista exiba a visita recém-criada.
 
-O calendário de preventivas ficará limpo, pronto para produção.
+### FIX 2 — ExecucaoVisitaCorretiva.tsx: check-in otimista
 
-### O que NÃO será afetado
-- Clientes, chamados, pedidos sem vínculo preventivo, CRM, estoque, templates de checklist
+**Arquivo:** `src/pages/chamados/ExecucaoVisitaCorretiva.tsx`
+
+No `checkinMutation.onSuccess` (linhas 248-254), adicionar `setQueryData` otimista antes do `invalidateQueries`:
+
+```ts
+onSuccess: () => {
+  queryClient.setQueryData(
+    ['corrective-visit-execution', visitId],
+    (old: any) => {
+      if (!old) return old;
+      return { ...old, checkin_at: new Date().toISOString(), status: 'em_execucao' };
+    }
+  );
+  queryClient.invalidateQueries({ queryKey: ['corrective-visit-execution', visitId] });
+  queryClient.invalidateQueries({ queryKey: ['my-corrective-visits'] });
+  toast({ title: 'Check-in realizado!', description: 'Você pode iniciar o atendimento.' });
+  setIsCheckingIn(false);
+},
+```
+
+A tela transiciona imediatamente para o estado pós-checkin sem aguardar refetch.
+
+### FIX 3 — useGeolocation.ts: GPS rápido
+
+**Arquivo:** `src/hooks/useGeolocation.ts`
+
+Alterar as options do `getCurrentPosition` (linha ~53):
+
+```ts
+{
+  enableHighAccuracy: false,  // triangulação celular/WiFi, 1-2s em vez de 10-30s
+  timeout: 8000,              // falha em 8s no máximo
+  maximumAge: 120000,         // aceita coordenada de até 2 min (suficiente para check-in em fazenda)
+}
+```
+
+### Resumo de impacto
+
+- 3 arquivos alterados, apenas nos pontos indicados
+- Nenhuma mudança de layout, estilo ou lógica de negócio
+- Melhora significativa da experiência mobile em campo com rede instável
 
