@@ -1,67 +1,71 @@
 
 
-## Correção de 3 bugs no módulo de visitas corretivas (mobile)
+## Correção de 2 bugs em Visitas Corretivas (mobile)
 
-A análise está correta. Os 3 bugs são reais e as correções propostas são adequadas. Segue o plano validado:
-
-### FIX 1 — NovaVisitaDiretaDialog.tsx: nova visita aparece na lista
+### BUG A — Nova visita não aparece na lista sem Force Sync
 
 **Arquivo:** `src/components/chamados/NovaVisitaDiretaDialog.tsx`
 
-No `onSuccess` (linha ~139), trocar `invalidateQueries` por `refetchQueries` com await:
+**Causa:** A lista usa `useLiveQuery` do Dexie. O `refetchQueries` no `onSuccess` não tem efeito pois não há `useQuery` ativo com essa chave.
 
+**Correção (2 pontos no mesmo arquivo):**
+
+1. **Linha 141** — alterar o insert de `ticket_visits` para retornar os dados com `.select('id, visit_code').single()`:
 ```ts
-onSuccess: async (data) => {
-  await queryClient.refetchQueries({ queryKey: ['my-corrective-visits'] });
-  queryClient.invalidateQueries({ queryKey: ['technical-tickets'] });
-  toast({ title: `Nova Visita agendada: ${data.ticketCode}` });
-  handleClose();
-},
+const { data: visitData, error: visitError } = await supabase
+  .from('ticket_visits')
+  .insert({ ... })
+  .select('id, visit_code')
+  .single();
 ```
 
-Isso força aguardar o refetch da rede antes de fechar o dialog, garantindo que a lista exiba a visita recém-criada.
+2. **Após o insert ter sucesso (antes do return)** — escrever no Dexie:
+```ts
+await offlineDb.corretivas.put({
+  id: visitData.id,
+  visit_code: visitData.visit_code,
+  ticket_id: ticket.id,
+  ticket_code: ticketCode,
+  ticket_title: title,
+  client_id: clientId,
+  client_name: selectedClient?.nome || '',
+  client_fazenda: selectedClient?.fazenda || null,
+  field_technician_user_id: user!.id,
+  status: 'em_elaboracao',
+  planned_start_date: plannedDate ? format(plannedDate, 'yyyy-MM-dd') : null,
+  checkin_at: null, checkin_lat: null, checkin_lon: null, checkout_at: null,
+  created_at: new Date().toISOString(),
+  updated_at: new Date().toISOString(),
+});
+```
 
-### FIX 2 — ExecucaoVisitaCorretiva.tsx: check-in otimista
+3. **`onSuccess`** — manter o `refetchQueries` (inofensivo) ou removê-lo. A lista já atualizará via `useLiveQuery`.
+
+Adicionar import de `offlineDb` no topo do arquivo.
+
+---
+
+### BUG B — Botão "Fazer Check-in" reaparece após clique
 
 **Arquivo:** `src/pages/chamados/ExecucaoVisitaCorretiva.tsx`
 
-No `checkinMutation.onSuccess` (linhas 248-254), adicionar `setQueryData` otimista antes do `invalidateQueries`:
+**Causa:** `invalidateQueries` dispara refetch imediato que pode retornar `checkin_at: null` (replica lag), sobrescrevendo o `setQueryData` otimista.
 
+**Correção (linhas 256-257)** — adicionar `refetchType: 'none'`:
 ```ts
-onSuccess: () => {
-  queryClient.setQueryData(
-    ['corrective-visit-execution', visitId],
-    (old: any) => {
-      if (!old) return old;
-      return { ...old, checkin_at: new Date().toISOString(), status: 'em_execucao' };
-    }
-  );
-  queryClient.invalidateQueries({ queryKey: ['corrective-visit-execution', visitId] });
-  queryClient.invalidateQueries({ queryKey: ['my-corrective-visits'] });
-  toast({ title: 'Check-in realizado!', description: 'Você pode iniciar o atendimento.' });
-  setIsCheckingIn(false);
-},
+queryClient.invalidateQueries({
+  queryKey: ['corrective-visit-execution', visitId],
+  refetchType: 'none',
+});
+queryClient.invalidateQueries({
+  queryKey: ['my-corrective-visits'],
+  refetchType: 'none',
+});
 ```
 
-A tela transiciona imediatamente para o estado pós-checkin sem aguardar refetch.
+---
 
-### FIX 3 — useGeolocation.ts: GPS rápido
-
-**Arquivo:** `src/hooks/useGeolocation.ts`
-
-Alterar as options do `getCurrentPosition` (linha ~53):
-
-```ts
-{
-  enableHighAccuracy: false,  // triangulação celular/WiFi, 1-2s em vez de 10-30s
-  timeout: 8000,              // falha em 8s no máximo
-  maximumAge: 120000,         // aceita coordenada de até 2 min (suficiente para check-in em fazenda)
-}
-```
-
-### Resumo de impacto
-
-- 3 arquivos alterados, apenas nos pontos indicados
+### Resumo
+- 2 arquivos alterados, pontos cirúrgicos
 - Nenhuma mudança de layout, estilo ou lógica de negócio
-- Melhora significativa da experiência mobile em campo com rede instável
 
