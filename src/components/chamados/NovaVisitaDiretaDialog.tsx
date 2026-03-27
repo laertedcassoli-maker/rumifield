@@ -183,8 +183,34 @@ export default function NovaVisitaDiretaDialog({
         throw error;
       }
     },
-    onSuccess: async (data) => {
-      await queryClient.refetchQueries({ queryKey: ['my-corrective-visits'] });
+    onSuccess: (data) => {
+      // Optimistic: insert new visit at top of React Query cache
+      const selectedClientData = clients?.find(c => c.id === clientId);
+      queryClient.setQueryData(
+        ['my-corrective-visits', user?.id, isAdminOrCoordinator],
+        (old: any[] | undefined) => {
+          const newVisit = {
+            type: 'corrective' as const,
+            id: data.visitId,
+            code: data.visitCode || 'CORR-????',
+            scheduled_date: plannedDate ? format(plannedDate, 'yyyy-MM-dd') : '',
+            status: 'em_elaboracao',
+            ticket_id: data.ticketId,
+            ticket_code: data.ticketCode,
+            client_id: clientId,
+            client_name: selectedClientData?.nome || '',
+            client_fazenda: selectedClientData?.fazenda || null,
+            field_technician_user_id: user!.id,
+            technician_name: '',
+            client_lat: null,
+            client_lon: null,
+            created_at: new Date().toISOString(),
+          };
+          return [newVisit, ...(old || [])];
+        }
+      );
+      // Background reconciliation
+      queryClient.invalidateQueries({ queryKey: ['my-corrective-visits'] });
       queryClient.invalidateQueries({ queryKey: ['technical-tickets'] });
       toast({ title: `Nova Visita agendada: ${data.ticketCode}` });
       handleClose();
