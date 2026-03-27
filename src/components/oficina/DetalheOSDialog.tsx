@@ -606,9 +606,49 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
     mutationFn: async (): Promise<{ warrantyCreated: boolean }> => {
       let warrantyCreated = false;
       
-      // Stop any active timer first
-      if (effectiveTimeEntry) {
-        await stopTimerMutation.mutateAsync();
+      // Force-stop ALL running time entries for this OS directly in the DB
+      // This avoids race conditions where effectiveTimeEntry is stale
+      const { data: runningEntries, error: fetchError } = await supabase
+        .from('work_order_time_entries')
+        .select('id, started_at')
+        .eq('work_order_id', workOrder.id)
+        .eq('status', 'running');
+      if (fetchError) throw fetchError;
+
+      if (runningEntries && runningEntries.length > 0) {
+        const now = Date.now();
+        let totalStoppedDuration = 0;
+
+        for (const entry of runningEntries) {
+          const durationSeconds = Math.floor((now - new Date(entry.started_at).getTime()) / 1000);
+          totalStoppedDuration += durationSeconds;
+
+          const { error: stopError } = await supabase
+            .from('work_order_time_entries')
+            .update({
+              ended_at: new Date(now).toISOString(),
+              duration_seconds: durationSeconds,
+              status: 'finished',
+            })
+            .eq('id', entry.id);
+          if (stopError) throw stopError;
+        }
+
+        // Fetch current total from DB and add stopped durations
+        const { data: currentOS } = await supabase
+          .from('work_orders')
+          .select('total_time_seconds')
+          .eq('id', workOrder.id)
+          .single();
+
+        const currentTotal = currentOS?.total_time_seconds ?? 0;
+        const { error: totalError } = await supabase
+          .from('work_orders')
+          .update({ total_time_seconds: currentTotal + totalStoppedDuration })
+          .eq('id', workOrder.id);
+        if (totalError) throw totalError;
+
+        setLocalTotalSeconds(currentTotal + totalStoppedDuration);
       }
 
       const univocaItem = workOrderItems.find(item => item.workshop_item_id);
