@@ -256,14 +256,20 @@ export default function ExecucaoVisitaCorretiva() {
 
       return { lat, lon, preventiveId };
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       queryClient.setQueryData(
         ['corrective-visit-execution', visitId],
         (old: any) => {
           if (!old) return old;
-          return { ...old, checkin_at: new Date().toISOString(), status: 'em_execucao' };
+          return {
+            ...old,
+            checkin_at: new Date().toISOString(),
+            status: 'em_execucao',
+            preventiveId: result.preventiveId || old.preventiveId,
+          };
         }
       );
+      // Mark stale but don't refetch immediately (avoid replica lag overwrite)
       queryClient.invalidateQueries({
         queryKey: ['corrective-visit-execution', visitId],
         refetchType: 'none',
