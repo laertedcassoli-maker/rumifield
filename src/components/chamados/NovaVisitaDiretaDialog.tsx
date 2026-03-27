@@ -167,7 +167,7 @@ export default function NovaVisitaDiretaDialog({
           console.error('[Nova Visita] Timeline não criada:', timelineErr);
         }
 
-        return { ticketId: ticket.id, ticketCode };
+        return { ticketId: ticket.id, ticketCode, visitId: visitData.id, visitCode: visitData.visit_code };
       } catch (error: any) {
         // Bug #2: Rollback — delete ticket (cascade deletes visit via FK)
         if (createdTicketId) {
