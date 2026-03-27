@@ -623,15 +623,19 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
           const durationSeconds = Math.floor((now - new Date(entry.started_at).getTime()) / 1000);
           totalStoppedDuration += durationSeconds;
 
-          const { error: stopError } = await supabase
+          const { error: stopError, count } = await supabase
             .from('work_order_time_entries')
             .update({
               ended_at: new Date(now).toISOString(),
               duration_seconds: durationSeconds,
-              status: 'finished',
+              status: 'finished' as const,
             })
-            .eq('id', entry.id);
+            .eq('id', entry.id)
+            .select('id', { count: 'exact', head: true });
           if (stopError) throw stopError;
+          if (count === 0) {
+            throw new Error('Não foi possível encerrar o cronômetro — verifique permissões');
+          }
         }
 
         // Fetch current total from DB and add stopped durations
