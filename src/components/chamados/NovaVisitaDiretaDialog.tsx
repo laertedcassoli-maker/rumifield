@@ -50,7 +50,8 @@ export default function NovaVisitaDiretaDialog({
   open,
   onOpenChange,
 }: NovaVisitaDiretaDialogProps) {
-  const { user } = useAuth();
+  const { user, role } = useAuth();
+  const isAdminOrCoordinator = role === 'admin' || role === 'coordenador_servicos';
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
