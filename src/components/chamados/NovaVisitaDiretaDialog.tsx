@@ -2,9 +2,9 @@ import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { withTimeout } from '@/lib/supabase-helpers';
-import { offlineDb } from '@/lib/offline-db';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+
 import {
   Dialog,
   DialogContent,
@@ -50,7 +50,8 @@ export default function NovaVisitaDiretaDialog({
   open,
   onOpenChange,
 }: NovaVisitaDiretaDialogProps) {
-  const { user } = useAuth();
+  const { user, role } = useAuth();
+  const isAdminOrCoordinator = role === 'admin' || role === 'coordenador_servicos';
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -154,28 +155,6 @@ export default function NovaVisitaDiretaDialog({
 
         if (visitError) throw visitError;
 
-        // Write to Dexie so useLiveQuery updates the list immediately
-        const selectedClient = clients?.find((c: any) => c.id === clientId);
-        await offlineDb.corretivas.put({
-          id: visitData.id,
-          visit_code: visitData.visit_code,
-          ticket_id: ticket.id,
-          ticket_code: ticketCode,
-          ticket_title: title,
-          client_id: clientId,
-          client_name: selectedClient?.nome || '',
-          client_fazenda: selectedClient?.fazenda || null,
-          field_technician_user_id: user!.id,
-          status: 'em_elaboracao',
-          planned_start_date: plannedDate ? format(plannedDate, 'yyyy-MM-dd') : null,
-          checkin_at: null,
-          checkin_lat: null,
-          checkin_lon: null,
-          checkout_at: null,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        });
-
         // 4. NON-CRITICAL: Add timeline entry
         try {
           await supabase.from('ticket_timeline').insert({
@@ -188,7 +167,7 @@ export default function NovaVisitaDiretaDialog({
           console.error('[Nova Visita] Timeline não criada:', timelineErr);
         }
 
-        return { ticketId: ticket.id, ticketCode };
+        return { ticketId: ticket.id, ticketCode, visitId: visitData.id, visitCode: visitData.visit_code };
       } catch (error: any) {
         // Bug #2: Rollback — delete ticket (cascade deletes visit via FK)
         if (createdTicketId) {
@@ -204,8 +183,34 @@ export default function NovaVisitaDiretaDialog({
         throw error;
       }
     },
-    onSuccess: async (data) => {
-      await queryClient.refetchQueries({ queryKey: ['my-corrective-visits'] });
+    onSuccess: (data) => {
+      // Optimistic: insert new visit at top of React Query cache
+      const selectedClientData = clients?.find(c => c.id === clientId);
+      queryClient.setQueryData(
+        ['my-corrective-visits', user?.id, isAdminOrCoordinator],
+        (old: any[] | undefined) => {
+          const newVisit = {
+            type: 'corrective' as const,
+            id: data.visitId,
+            code: data.visitCode || 'CORR-????',
+            scheduled_date: plannedDate ? format(plannedDate, 'yyyy-MM-dd') : '',
+            status: 'em_elaboracao',
+            ticket_id: data.ticketId,
+            ticket_code: data.ticketCode,
+            client_id: clientId,
+            client_name: selectedClientData?.nome || '',
+            client_fazenda: selectedClientData?.fazenda || null,
+            field_technician_user_id: user!.id,
+            technician_name: '',
+            client_lat: null,
+            client_lon: null,
+            created_at: new Date().toISOString(),
+          };
+          return [newVisit, ...(old || [])];
+        }
+      );
+      // Background reconciliation
+      queryClient.invalidateQueries({ queryKey: ['my-corrective-visits'] });
       queryClient.invalidateQueries({ queryKey: ['technical-tickets'] });
       toast({ title: `Nova Visita agendada: ${data.ticketCode}` });
       handleClose();

@@ -291,8 +291,8 @@ export default function MinhasRotas() {
     enabled: !!user?.id,
   });
 
-  // Fetch corrective visits with offline fallback
-  const { data: correctiveVisits, isLoading: isLoadingCorrective, isOfflineData: isCorrectiveOffline } = useOfflineQuery<CorrectiveVisit[]>({
+  // Fetch corrective visits — online-first, no offline fallback
+  const { data: correctiveVisits, isLoading: isLoadingCorrective } = useQuery<CorrectiveVisit[]>({
     queryKey: ['my-corrective-visits', user?.id, isAdminOrCoordinator],
     queryFn: async () => {
       if (!user?.id) return [];
@@ -370,41 +370,13 @@ export default function MinhasRotas() {
         };
       });
     },
-    offlineFn: async () => {
-      let corretivas = await offlineDb.corretivas.toArray();
-      if (!isAdminOrCoordinator && user?.id) {
-        corretivas = corretivas.filter(c => c.field_technician_user_id === user.id);
-      }
-      corretivas = corretivas.filter(c => ['planejada', 'em_elaboracao', 'em_execucao', 'finalizada'].includes(c.status));
-
-      const allClients = await offlineDb.clientes.toArray();
-      const clientsMap = new Map(allClients.map(c => [c.id, c]));
-
-      return corretivas.map(v => {
-        const client = clientsMap.get(v.client_id);
-        return {
-          type: 'corrective' as const,
-          id: v.id,
-          code: v.visit_code || 'CORR-????',
-          scheduled_date: v.planned_start_date || '',
-          status: v.status === 'em_execucao' ? 'em_andamento' : v.status === 'planejada' ? 'agendada' : v.status,
-          ticket_id: v.ticket_id,
-          ticket_code: v.ticket_code || '',
-          client_id: v.client_id,
-          client_name: client?.nome || v.client_name || 'Cliente não encontrado',
-          client_fazenda: client?.fazenda || v.client_fazenda || null,
-          field_technician_user_id: v.field_technician_user_id || '',
-          technician_name: v.technician_name || 'Não atribuído',
-          client_lat: client?.latitude || null,
-          client_lon: client?.longitude || null,
-          created_at: (v as any).created_at || '',
-        };
-      });
-    },
     enabled: !!user?.id,
+    staleTime: 0,
+    refetchOnMount: 'always' as const,
+    refetchOnReconnect: true,
   });
 
-  const isAnyOffline = isPreventiveOffline || isCorrectiveOffline;
+  const isAnyOffline = isPreventiveOffline;
 
   const isLoading = isLoadingPreventive || isLoadingCorrective;
 

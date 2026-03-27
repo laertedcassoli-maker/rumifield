@@ -121,11 +121,9 @@ export default function ExecucaoVisitaCorretiva() {
         .eq('id', visitData.client_id)
         .maybeSingle();
 
-      // Check/create preventive_maintenance record for this visit
-      // We'll use route_id = null and link via client_id + created_at
+      // Check for existing preventive_maintenance record linked to this visit
       let preventiveId: string | null = null;
 
-      // Look for existing PM linked to this visit (we'll use a naming convention in notes)
       const { data: existingPm } = await supabase
         .from('preventive_maintenance')
         .select('id, internal_notes, public_notes, public_token')
@@ -142,23 +140,6 @@ export default function ExecucaoVisitaCorretiva() {
         internalNotes = existingPm.internal_notes || visitData.internal_notes;
         publicNotes = existingPm.public_notes || visitData.public_notes;
         publicToken = existingPm.public_token;
-      } else if (visitData.checkin_at) {
-        // Create preventive_maintenance record for this corrective visit
-        const { data: newPm, error: pmError } = await supabase
-          .from('preventive_maintenance')
-          .insert([{
-            client_id: visitData.client_id,
-            scheduled_date: visitData.planned_start_date || new Date().toISOString().split('T')[0],
-            status: 'planejada' as const,
-            technician_user_id: visitData.field_technician_user_id,
-            notes: `Visita Corretiva CORR-VISIT-${visitData.id} - ${ticket?.ticket_code || 'Chamado'}`,
-          }])
-          .select('id')
-          .single();
-
-        if (!pmError && newPm) {
-          preventiveId = newPm.id;
-        }
       }
 
       // Check checklist status
@@ -231,6 +212,36 @@ export default function ExecucaoVisitaCorretiva() {
         throw new Error('Check-in não foi salvo. Verifique sua conexão e tente novamente.');
       }
 
+      // Create preventive_maintenance record for this corrective visit (needed for checklist)
+      let preventiveId: string | null = null;
+      try {
+        const { data: existingPm } = await supabase
+          .from('preventive_maintenance')
+          .select('id')
+          .eq('client_id', visit?.client_id)
+          .ilike('notes', `%CORR-VISIT-${visitId}%`)
+          .maybeSingle();
+
+        if (existingPm) {
+          preventiveId = existingPm.id;
+        } else {
+          const { data: newPm } = await supabase
+            .from('preventive_maintenance')
+            .insert([{
+              client_id: visit?.client_id,
+              scheduled_date: visit?.planned_start_date || new Date().toISOString().split('T')[0],
+              status: 'planejada' as const,
+              technician_user_id: visit?.field_technician_user_id,
+              notes: `Visita Corretiva CORR-VISIT-${visitId} - ${visit?.ticket?.ticket_code || 'Chamado'}`,
+            }])
+            .select('id')
+            .single();
+          if (newPm) preventiveId = newPm.id;
+        }
+      } catch (pmErr) {
+        console.error('[Corretiva] Erro ao criar preventive_maintenance no check-in:', pmErr);
+      }
+
       // Bug #3: Timeline is non-critical — don't block checkin
       try {
         await supabase.from('ticket_timeline').insert({
@@ -243,16 +254,22 @@ export default function ExecucaoVisitaCorretiva() {
         console.error('[Corretiva] Timeline de checkin não criada:', timelineErr);
       }
 
-      return { lat, lon };
+      return { lat, lon, preventiveId };
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       queryClient.setQueryData(
         ['corrective-visit-execution', visitId],
         (old: any) => {
           if (!old) return old;
-          return { ...old, checkin_at: new Date().toISOString(), status: 'em_execucao' };
+          return {
+            ...old,
+            checkin_at: new Date().toISOString(),
+            status: 'em_execucao',
+            preventiveId: result.preventiveId || old.preventiveId,
+          };
         }
       );
+      // Mark stale but don't refetch immediately (avoid replica lag overwrite)
       queryClient.invalidateQueries({
         queryKey: ['corrective-visit-execution', visitId],
         refetchType: 'none',
