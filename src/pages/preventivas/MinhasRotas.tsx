@@ -376,7 +376,7 @@ export default function MinhasRotas() {
     refetchOnReconnect: true,
   });
 
-  const isAnyOffline = isPreventiveOffline || isCorrectiveOffline;
+  const isAnyOffline = isPreventiveOffline;
 
   const isLoading = isLoadingPreventive || isLoadingCorrective;
 
