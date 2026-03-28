@@ -308,7 +308,7 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
 
       return { newId };
     },
-    onSuccess: (_, __, context) => {
+    onSuccess: (result) => {
       // Optimistic: add to cache immediately using the SAME ID from mutationFn
       if (selectedPartId && selectedPart) {
         const assetCode = stockSource === 'tecnico' && dialogAssetCode.trim() ? dialogAssetCode.trim() : null;
