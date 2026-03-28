@@ -558,6 +558,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
         queryClient.refetchQueries({ queryKey: ['preventive-consumed-parts', preventiveId] });
         queryClient.refetchQueries({ queryKey: ['part-consumption-coverage', preventiveId] });
       }, 2000);
+      setLastSavedAt(new Date());
     },
     onError: (error) => {
       toast.error('Erro ao atualizar: ' + error.message);
