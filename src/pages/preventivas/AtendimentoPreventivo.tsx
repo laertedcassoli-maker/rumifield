@@ -401,16 +401,6 @@ export default function AtendimentoPreventivo() {
 
               const itemIdsWithParts = new Set((linkedParts || []).map(p => p.exec_item_id));
 
-              // Also check local Dexie for pending parts not yet synced (automatic)
-              const localParts = await offlineChecklistDb.partConsumptions
-                .filter(pc => pc.preventive_id === routeItem.preventiveId
-                  && pc.exec_item_id !== null
-                  && itemIdsWithTroca.includes(pc.exec_item_id!)
-                  && pc._operation !== 'delete')
-                .toArray();
-              localParts.forEach(lp => {
-                if (lp.exec_item_id) itemIdsWithParts.add(lp.exec_item_id);
-              });
 
               const itemsWithoutParts = itemIdsWithTroca.filter(id => !itemIdsWithParts.has(id));
 
