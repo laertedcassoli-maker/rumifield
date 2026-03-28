@@ -805,9 +805,11 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
         });
       }
 
-      // Mark stale without immediate refetch — preserves optimistic cache
-      queryClient.invalidateQueries({ queryKey: ['preventive-consumed-parts', preventiveId], refetchType: 'none' });
-      queryClient.invalidateQueries({ queryKey: ['part-consumption-coverage', preventiveId], refetchType: 'none' });
+      // Delayed refetch to reconcile with backend (avoids replica lag overwriting optimistic cache)
+      setTimeout(() => {
+        queryClient.refetchQueries({ queryKey: ['preventive-consumed-parts', preventiveId] });
+        queryClient.refetchQueries({ queryKey: ['part-consumption-coverage', preventiveId] });
+      }, 3000);
       setLastSavedAt(new Date());
     },
     onError: (error) => {
