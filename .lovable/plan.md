@@ -1,59 +1,55 @@
 
 
-## Correções aprovadas: checklist estável + peças visíveis no mobile
+## Correção: checklist some + peças automáticas não aparecem (WiFi estável)
 
-### Fix 1 — AtendimentoPreventivo.tsx: substituir useOfflineQuery por useQuery
+### Bug 1 — Peças automáticas não aparecem
 
-**Linhas 1-8**: Trocar import de `useOfflineQuery` por `useQuery` do tanstack. Remover imports de `offlineDb` e `offlineChecklistDb` (usados apenas na offlineFn e validação local).
+**Causa raiz:** `ConsumedPartsBlock.tsx` linha 104 — query tem `enabled: !!preventiveId && isOnline`. Mesmo online, o `refetchQueries` chamado pelo `ChecklistExecution` pode não surtar efeito se a query ficou brevemente desabilitada durante um ciclo de render. Além disso, a lógica de merge com Dexie (linhas 108-137) adiciona complexidade sem benefício para peças auto-criadas (que nunca são escritas no Dexie).
 
-**Linhas 65-223**: Substituir `useOfflineQuery` por `useQuery` com:
-```ts
-const { data: routeItem, isLoading, error, refetch } = useQuery({
-  queryKey: ['route-item-attendance', itemId],
-  queryFn: async () => { /* mesmo queryFn atual, linhas 67-151 */ },
-  enabled: !!itemId,
-  retry: 3,
-  retryDelay: 1500,
-  staleTime: 30_000,
-  refetchOnWindowFocus: false,
-});
-```
-- Remover completamente a `offlineFn` (linhas 154-222)
-- Remover variáveis `isOfflineData` e `refetchOffline` (não mais retornadas)
+**Correção — Arquivo:** `src/components/preventivas/ConsumedPartsBlock.tsx`
 
-**Linhas 581-598**: No estado de erro/não encontrado, adicionar botão "Tentar novamente" que chama `refetch()`:
-```ts
-if (error) {
-  return (
-    <div className="text-center py-12 px-4">
-      <AlertTriangle className="mx-auto h-10 w-10 text-yellow-500" />
-      <h2 className="mt-3 font-semibold">Erro ao carregar dados</h2>
-      <p className="text-sm text-muted-foreground mt-1">Verifique sua conexão</p>
-      <Button onClick={() => refetch()} className="mt-4" size="sm">Tentar novamente</Button>
-    </div>
-  );
-}
-```
-
-**Linhas 470-481** (validação Dexie): Remover checagem local de peças no Dexie (`offlineChecklistDb.partConsumptions.filter...`) — manter apenas a query ao backend, que é a fonte de verdade.
-
-### Fix 2 — ChecklistExecution.tsx: refetchQueries para peças
-
-Nas 4 ocorrências onde `invalidateQueries` é chamado para `['preventive-consumed-parts', preventiveId]` (linhas ~550, ~754, ~885, ~400), trocar por `refetchQueries` para forçar atualização imediata:
-
+Linha 104: remover `isOnline` do `enabled`:
 ```ts
 // DE:
-queryClient.invalidateQueries({ queryKey: ['preventive-consumed-parts', preventiveId] });
-
+enabled: !!preventiveId && isOnline,
 // PARA:
-queryClient.refetchQueries({ queryKey: ['preventive-consumed-parts', preventiveId] });
+enabled: !!preventiveId,
 ```
 
-Mesma troca para `['part-consumption-coverage', preventiveId]`.
+Isso garante que a query esteja sempre ativa e responda ao `refetchQueries`.
+
+### Bug 2 — Checklist some ao voltar e clicar "Continuar"
+
+**Causa raiz:** `AtendimentoPreventivo.tsx` linhas 93-98 — o queryFn descarta erros silenciosamente:
+```ts
+const { data: existingPm } = await supabase...  // error ignorado!
+```
+Se a chamada falha, `preventiveId` fica `null`, a UI mostra o dead-end, e o `retry: 3` nunca dispara porque a função retorna sem lançar exceção.
+
+**Correção — Arquivo:** `src/pages/preventivas/AtendimentoPreventivo.tsx`
+
+Adicionar throw em 3 pontos da queryFn:
+
+1. Linha 65-71 (route_items): já lança ✅
+2. Linhas 75-79 (route): adicionar tratamento de erro:
+```ts
+const { data: route, error: routeError } = await supabase...
+if (routeError) throw routeError;
+```
+3. Linhas 82-86 (client): idem:
+```ts
+const { data: client, error: clientError } = await supabase...
+if (clientError) throw clientError;
+```
+4. Linhas 93-98 (preventive_maintenance): idem:
+```ts
+const { data: existingPm, error: pmError } = await supabase...
+if (pmError) throw pmError;
+```
 
 ### Resumo
-- 2 arquivos alterados
-- Elimina dependência de Dexie para tela de atendimento preventivo
-- Peças automáticas aparecem imediatamente na UI
-- Checklist não some mais em oscilação de rede
+- 2 arquivos, alterações cirúrgicas
+- Nenhuma mudança de layout, lógica de negócio ou estilos
+- Bug 1: query de peças sempre habilitada → refetch funciona
+- Bug 2: erros propagados → retry automático funciona
 
