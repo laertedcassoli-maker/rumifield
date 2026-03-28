@@ -587,7 +587,7 @@ export default function AtendimentoPreventivo() {
           onStatusChange={(status) => {
             setChecklistStatus(status);
             if (status === 'completed') {
-              refetchOffline(); // Refresh data
+              refetch(); // Refresh data
             }
           }}
         />
