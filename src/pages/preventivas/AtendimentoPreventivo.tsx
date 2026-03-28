@@ -1,11 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { useOfflineQuery } from '@/hooks/useOfflineQuery';
-import { offlineDb } from '@/lib/offline-db';
-import { offlineChecklistDb } from '@/lib/offline-checklist-db';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -62,7 +59,7 @@ export default function AtendimentoPreventivo() {
   const isAdminOrCoordinator = role === 'admin' || role === 'coordenador_servicos';
 
   // Fetch route item details
-  const { data: routeItem, isLoading, isOfflineData, refetchOffline } = useOfflineQuery({
+  const { data: routeItem, isLoading, error, refetch } = useQuery({
     queryKey: ['route-item-attendance', itemId],
     queryFn: async () => {
       const { data: item, error } = await supabase
@@ -151,75 +148,10 @@ export default function AtendimentoPreventivo() {
       };
     },
     enabled: !!itemId,
-    offlineFn: async () => {
-      // Fallback: build data from Dexie cached tables
-      const item = await offlineDb.rota_items.get(itemId!);
-      if (!item) return null;
-
-      const route = await offlineDb.rotas.get(item.route_id);
-      const client = await offlineDb.clientes.get(item.client_id);
-
-      // Try to find preventive from Dexie
-      let preventiveRecord = await offlineDb.preventivas
-        .filter(p => p.client_id === item.client_id && p.route_id === item.route_id)
-        .first();
-
-      // If not found, create one locally (fallback for offline check-in)
-      if (!preventiveRecord && route) {
-        const pmId = crypto.randomUUID();
-        const newPm = {
-          id: pmId,
-          client_id: item.client_id,
-          route_id: item.route_id,
-          scheduled_date: route.start_date || new Date().toISOString().split('T')[0],
-          status: 'planejada',
-          technician_user_id: route.field_technician_user_id || null,
-          notes: `Atendimento via rota ${route.route_code || ''}`,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        };
-        await offlineDb.preventivas.put(newPm);
-        await offlineDb.addToSyncQueue('preventive_maintenance', 'insert', {
-          id: pmId,
-          client_id: item.client_id,
-          route_id: item.route_id,
-          scheduled_date: route.start_date || new Date().toISOString().split('T')[0],
-          status: 'planejada',
-          technician_user_id: route.field_technician_user_id,
-          notes: `Atendimento via rota ${route.route_code || ''}`,
-        });
-        preventiveRecord = newPm;
-      }
-
-      return {
-        id: item.id,
-        client_id: item.client_id,
-        status: item.status,
-        checkin_at: item.checkin_at,
-        checkin_lat: item.checkin_lat,
-        checkin_lon: item.checkin_lon,
-        order_index: item.order_index,
-        route_id: item.route_id,
-        route: route ? {
-          id: route.id,
-          route_code: route.route_code,
-          start_date: route.start_date,
-          field_technician_user_id: route.field_technician_user_id,
-          checklist_template_id: route.checklist_template_id,
-        } : null,
-        client: client ? {
-          id: client.id,
-          nome: client.nome,
-          fazenda: client.fazenda,
-          cidade: client.cidade,
-          estado: client.estado,
-        } : null,
-        preventiveId: preventiveRecord?.id || null,
-        internalNotes: preventiveRecord?.internal_notes || null,
-        publicNotes: preventiveRecord?.public_notes || null,
-        publicToken: preventiveRecord?.public_token || null,
-      };
-    },
+    retry: 3,
+    retryDelay: 1500,
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
   });
 
   // Complete attendance mutation (Encerrar Visita)
@@ -469,16 +401,6 @@ export default function AtendimentoPreventivo() {
 
               const itemIdsWithParts = new Set((linkedParts || []).map(p => p.exec_item_id));
 
-              // Also check local Dexie for pending parts not yet synced (automatic)
-              const localParts = await offlineChecklistDb.partConsumptions
-                .filter(pc => pc.preventive_id === routeItem.preventiveId
-                  && pc.exec_item_id !== null
-                  && itemIdsWithTroca.includes(pc.exec_item_id!)
-                  && pc._operation !== 'delete')
-                .toArray();
-              localParts.forEach(lp => {
-                if (lp.exec_item_id) itemIdsWithParts.add(lp.exec_item_id);
-              });
 
               const itemsWithoutParts = itemIdsWithTroca.filter(id => !itemIdsWithParts.has(id));
 
@@ -490,13 +412,7 @@ export default function AtendimentoPreventivo() {
                   .eq('preventive_id', routeItem.preventiveId)
                   .is('exec_item_id', null);
 
-                const localManualParts = await offlineChecklistDb.partConsumptions
-                  .filter(pc => pc.preventive_id === routeItem.preventiveId
-                    && pc.exec_item_id === null
-                    && pc._operation !== 'delete')
-                  .toArray();
-
-                const totalManualParts = (manualParts?.length || 0) + localManualParts.length;
+                const totalManualParts = manualParts?.length || 0;
                 const stillMissing = itemsWithoutParts.length - totalManualParts;
 
                 if (stillMissing > 0) {
@@ -586,6 +502,19 @@ export default function AtendimentoPreventivo() {
     );
   }
 
+  if (error) {
+    return (
+      <div className="text-center py-12 px-4">
+        <AlertTriangle className="mx-auto h-10 w-10 text-yellow-500" />
+        <h2 className="mt-3 font-semibold">Erro ao carregar dados</h2>
+        <p className="text-sm text-muted-foreground mt-1">Verifique sua conexão e tente novamente</p>
+        <Button onClick={() => refetch()} className="mt-4" size="sm">
+          Tentar novamente
+        </Button>
+      </div>
+    );
+  }
+
   if (!routeItem) {
     return (
       <div className="text-center py-12 px-4">
@@ -623,12 +552,6 @@ export default function AtendimentoPreventivo() {
               Voltar
             </Link>
           </Button>
-          {isOfflineData && (
-            <Badge variant="outline" className="bg-amber-500/10 text-amber-600 border-amber-500/20">
-              <WifiOff className="h-3 w-3 mr-1" />
-              Offline
-            </Badge>
-          )}
           {isVisitCompleted && (
             <Badge
               variant="outline"
@@ -677,7 +600,7 @@ export default function AtendimentoPreventivo() {
           onStatusChange={(status) => {
             setChecklistStatus(status);
             if (status === 'completed') {
-              refetchOffline(); // Refresh data
+              refetch(); // Refresh data
             }
           }}
         />
@@ -818,21 +741,16 @@ export default function AtendimentoPreventivo() {
           <div className="max-w-2xl mx-auto">
             <Button 
               onClick={handleEncerrarClick}
-              disabled={!canFinishVisit || completeMutation.isPending || isOfflineData}
+              disabled={!canFinishVisit || completeMutation.isPending}
               className="w-full"
               size="lg"
             >
               <LogOut className="h-4 w-4 mr-2" />
               Encerrar Visita
             </Button>
-            {!canFinishVisit && !isOfflineData && (
+            {!canFinishVisit && (
               <p className="text-xs text-muted-foreground text-center mt-2">
                 Conclua o checklist para encerrar a visita
-              </p>
-            )}
-            {isOfflineData && (
-              <p className="text-xs text-muted-foreground text-center mt-2">
-                Encerrar visita requer conexão com a internet
               </p>
             )}
           </div>

@@ -397,8 +397,8 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['preventive-checklist', preventiveId] });
-      queryClient.invalidateQueries({ queryKey: ['preventive-consumed-parts', preventiveId] });
-      queryClient.invalidateQueries({ queryKey: ['part-consumption-coverage', preventiveId] });
+      queryClient.refetchQueries({ queryKey: ['preventive-consumed-parts', preventiveId] });
+      queryClient.refetchQueries({ queryKey: ['part-consumption-coverage', preventiveId] });
       toast.success('Checklist removido. Selecione um novo template.');
       autoStartAttempted.current = true; // prevent auto-start from firing
       setIsSelectTemplateOpen(true);
@@ -547,8 +547,8 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
         };
       });
       setLastSavedAt(new Date());
-      queryClient.invalidateQueries({ queryKey: ['preventive-consumed-parts', preventiveId] });
-      queryClient.invalidateQueries({ queryKey: ['part-consumption-coverage', preventiveId] });
+      queryClient.refetchQueries({ queryKey: ['preventive-consumed-parts', preventiveId] });
+      queryClient.refetchQueries({ queryKey: ['part-consumption-coverage', preventiveId] });
     },
     onError: (error) => {
       toast.error('Erro ao atualizar: ' + error.message);
@@ -751,8 +751,8 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
           }))
         };
       });
-      queryClient.invalidateQueries({ queryKey: ['preventive-consumed-parts', preventiveId] });
-      queryClient.invalidateQueries({ queryKey: ['part-consumption-coverage', preventiveId] });
+      queryClient.refetchQueries({ queryKey: ['preventive-consumed-parts', preventiveId] });
+      queryClient.refetchQueries({ queryKey: ['part-consumption-coverage', preventiveId] });
       setLastSavedAt(new Date());
     },
     onError: (error) => {
@@ -882,8 +882,8 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
           }))
         };
       });
-      queryClient.invalidateQueries({ queryKey: ['preventive-consumed-parts', preventiveId] });
-      queryClient.invalidateQueries({ queryKey: ['part-consumption-coverage', preventiveId] });
+      queryClient.refetchQueries({ queryKey: ['preventive-consumed-parts', preventiveId] });
+      queryClient.refetchQueries({ queryKey: ['part-consumption-coverage', preventiveId] });
       setLastSavedAt(new Date());
     },
     onError: (error) => {
