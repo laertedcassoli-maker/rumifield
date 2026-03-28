@@ -306,13 +306,14 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
         if (error) throw error;
       }
     },
-    onSuccess: () => {
-      // Optimistic: add to cache immediately
+    onSuccess: (_, __, context) => {
+      // Optimistic: add to cache immediately using the SAME ID from mutationFn
       if (selectedPartId && selectedPart) {
         const assetCode = stockSource === 'tecnico' && dialogAssetCode.trim() ? dialogAssetCode.trim() : null;
+        queryClient.cancelQueries({ queryKey: ['preventive-consumed-parts', preventiveId] });
         queryClient.setQueryData(['preventive-consumed-parts', preventiveId], (old: any[]) => {
           const newPart = {
-            id: crypto.randomUUID(), // approximate — reconciled on next fetch
+            id: (context as any)?.newId || crypto.randomUUID(),
             part_id: selectedPartId,
             part_code_snapshot: selectedPart.codigo,
             part_name_snapshot: selectedPart.nome,
@@ -324,6 +325,7 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
             is_manual: true,
             consumed_at: new Date().toISOString(),
             is_asset: selectedPart.is_asset ?? false,
+            _optimistic: true,
           };
           return [...(old || []), newPart];
         });
