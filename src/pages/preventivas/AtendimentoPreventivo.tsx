@@ -72,11 +72,12 @@ export default function AtendimentoPreventivo() {
       if (!item) return null;
 
       // Fetch route details
-      const { data: route } = await supabase
+      const { data: route, error: routeError } = await supabase
         .from('preventive_routes')
         .select('id, route_code, start_date, field_technician_user_id, checklist_template_id')
         .eq('id', item.route_id)
         .maybeSingle();
+      if (routeError) throw routeError;
 
       // Fetch client details
       const { data: client } = await supabase
