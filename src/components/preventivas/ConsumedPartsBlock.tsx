@@ -300,7 +300,28 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['preventive-consumed-parts', preventiveId] });
+      // Optimistic: add to cache immediately
+      if (selectedPartId && selectedPart) {
+        const assetCode = stockSource === 'tecnico' && dialogAssetCode.trim() ? dialogAssetCode.trim() : null;
+        queryClient.setQueryData(['preventive-consumed-parts', preventiveId], (old: any[]) => {
+          const newPart = {
+            id: crypto.randomUUID(), // approximate — reconciled on next fetch
+            part_id: selectedPartId,
+            part_code_snapshot: selectedPart.codigo,
+            part_name_snapshot: selectedPart.nome,
+            quantity: parseFloat(quantity) || 1,
+            unit_cost_snapshot: null,
+            stock_source: stockSource,
+            asset_unique_code: assetCode,
+            notes: notes || null,
+            is_manual: true,
+            consumed_at: new Date().toISOString(),
+            is_asset: selectedPart.is_asset ?? false,
+          };
+          return [...(old || []), newPart];
+        });
+      }
+      queryClient.invalidateQueries({ queryKey: ['preventive-consumed-parts', preventiveId], refetchType: 'none' });
       toast({ title: 'Peça adicionada!' });
       resetAddDialog();
     },
