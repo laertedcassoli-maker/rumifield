@@ -553,11 +553,9 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
           return old.filter((p: any) => p.exec_item_id !== variables.itemId || p.is_manual);
         });
       }
-      // Delayed reconciliation
-      setTimeout(() => {
-        queryClient.refetchQueries({ queryKey: ['preventive-consumed-parts', preventiveId] });
-        queryClient.refetchQueries({ queryKey: ['part-consumption-coverage', preventiveId] });
-      }, 2000);
+      // Mark stale without immediate refetch — preserves optimistic cache
+      queryClient.invalidateQueries({ queryKey: ['preventive-consumed-parts', preventiveId], refetchType: 'none' });
+      queryClient.invalidateQueries({ queryKey: ['part-consumption-coverage', preventiveId], refetchType: 'none' });
       setLastSavedAt(new Date());
     },
     onError: (error) => {
