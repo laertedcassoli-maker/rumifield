@@ -502,6 +502,19 @@ export default function AtendimentoPreventivo() {
     );
   }
 
+  if (error) {
+    return (
+      <div className="text-center py-12 px-4">
+        <AlertTriangle className="mx-auto h-10 w-10 text-yellow-500" />
+        <h2 className="mt-3 font-semibold">Erro ao carregar dados</h2>
+        <p className="text-sm text-muted-foreground mt-1">Verifique sua conexão e tente novamente</p>
+        <Button onClick={() => refetch()} className="mt-4" size="sm">
+          Tentar novamente
+        </Button>
+      </div>
+    );
+  }
+
   if (!routeItem) {
     return (
       <div className="text-center py-12 px-4">
