@@ -546,9 +546,19 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
           }))
         };
       });
+      // Optimistic: if status changed away from N, remove parts for this item from cache
+      if (variables.status && variables.status !== 'N') {
+        queryClient.setQueryData(['preventive-consumed-parts', preventiveId], (old: any[]) => {
+          if (!old) return old;
+          return old.filter((p: any) => p.exec_item_id !== variables.itemId || p.is_manual);
+        });
+      }
+      // Delayed reconciliation
+      setTimeout(() => {
+        queryClient.refetchQueries({ queryKey: ['preventive-consumed-parts', preventiveId] });
+        queryClient.refetchQueries({ queryKey: ['part-consumption-coverage', preventiveId] });
+      }, 2000);
       setLastSavedAt(new Date());
-      queryClient.refetchQueries({ queryKey: ['preventive-consumed-parts', preventiveId] });
-      queryClient.refetchQueries({ queryKey: ['part-consumption-coverage', preventiveId] });
     },
     onError: (error) => {
       toast.error('Erro ao atualizar: ' + error.message);
@@ -591,7 +601,9 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
   };
 
   // Helper: create part consumption records for all selected NCs of an item (via Supabase)
-  const createPartConsumptionForItemNCs = async (itemId: string) => {
+  // Returns the created parts for optimistic cache update
+  const createPartConsumptionForItemNCs = async (itemId: string): Promise<any[]> => {
+    const createdParts: any[] = [];
     const { data: selectedNCs, error: ncError } = await supabase
       .from('preventive_checklist_item_nonconformities')
       .select('id, template_nonconformity_id')
@@ -599,12 +611,12 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
 
     if (ncError) {
       console.error('[ChecklistExecution] Error fetching NCs for part consumption:', ncError);
-      return;
+      return createdParts;
     }
 
     if (!selectedNCs || selectedNCs.length === 0) {
       console.log('[ChecklistExecution] No NCs found for item', itemId, '- skipping part consumption creation');
-      return;
+      return createdParts;
     }
 
     console.log('[ChecklistExecution] Creating part consumption for', selectedNCs.length, 'NCs on item', itemId);
@@ -614,23 +626,37 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
       const ncParts = await getNcParts(nc.template_nonconformity_id);
       console.log('[ChecklistExecution] NC', nc.id, 'has', ncParts.length, 'parts configured');
       for (const np of ncParts) {
+        const newId = crypto.randomUUID();
+        const record = {
+          id: newId,
+          preventive_id: preventiveId,
+          exec_item_id: itemId,
+          exec_nonconformity_id: nc.id,
+          part_id: np.part_id,
+          part_code_snapshot: np.part_codigo,
+          part_name_snapshot: np.part_nome,
+          quantity: np.default_quantity,
+          stock_source: null,
+        };
         const { error: insertErr } = await (supabase as any)
           .from('preventive_part_consumption')
-          .insert({
-            preventive_id: preventiveId,
-            exec_item_id: itemId,
-            exec_nonconformity_id: nc.id,
-            part_id: np.part_id,
-            part_code_snapshot: np.part_codigo,
-            part_name_snapshot: np.part_nome,
-            quantity: np.default_quantity,
-            stock_source: null,
-          });
+          .insert(record);
         if (insertErr) {
           console.error('[ChecklistExecution] Error inserting part consumption:', insertErr);
+        } else {
+          createdParts.push({
+            ...record,
+            unit_cost_snapshot: null,
+            asset_unique_code: null,
+            notes: null,
+            is_manual: false,
+            consumed_at: new Date().toISOString(),
+            is_asset: false,
+          });
         }
       }
     }
+    return createdParts;
   };
 
   // Helper: remove all automatic part consumption for NCs of an item (via Supabase)
@@ -662,7 +688,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
       actionId: string; 
       actionLabel: string;
       isSelected: boolean;
-    }) => {
+    }): Promise<{ createdParts: any[]; removedParts: boolean }> => {
       if (!navigator.onLine) {
         throw new Error('Sem conexão. Conecte-se à internet para registrar o checklist.');
       }
@@ -670,12 +696,15 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
       const lockKey = `${itemId}-${actionId}`;
       if (processingActionsRef.current.has(lockKey)) {
         console.log('[ChecklistExecution] Action already being processed, skipping:', lockKey);
-        return;
+        return { createdParts: [], removedParts: false };
       }
       
       processingActionsRef.current.add(lockKey);
       setProcessingActions(new Set(processingActionsRef.current));
       
+      let createdParts: any[] = [];
+      let removedParts = false;
+
       try {
         if (isSelected) {
           // Remove action
@@ -715,19 +744,22 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
             );
             if (!hasOtherTroca) {
               await removePartConsumptionForItemNCs(itemId);
+              removedParts = true;
             }
           } else {
             // "Troca" being ADDED → create consumption for all selected NCs
-            await createPartConsumptionForItemNCs(itemId);
+            createdParts = await createPartConsumptionForItemNCs(itemId);
           }
         }
       } finally {
         processingActionsRef.current.delete(lockKey);
         setProcessingActions(new Set(processingActionsRef.current));
       }
+
+      return { createdParts, removedParts };
     },
-    onSuccess: (_, variables) => {
-      // Update cache in-place to avoid refetch (which caused the bug)
+    onSuccess: (result, variables) => {
+      // Update checklist cache in-place
       queryClient.setQueryData(['preventive-checklist', preventiveId], (old: any) => {
         if (!old) return old;
         return {
@@ -751,8 +783,29 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
           }))
         };
       });
-      queryClient.refetchQueries({ queryKey: ['preventive-consumed-parts', preventiveId] });
-      queryClient.refetchQueries({ queryKey: ['part-consumption-coverage', preventiveId] });
+
+      // Optimistic update for parts cache
+      if (result?.createdParts?.length) {
+        queryClient.setQueryData(['preventive-consumed-parts', preventiveId], (old: any[]) => {
+          if (!old) return result.createdParts;
+          const existingIds = new Set(old.map((p: any) => p.id));
+          const newParts = result.createdParts.filter((p: any) => !existingIds.has(p.id));
+          return [...old, ...newParts];
+        });
+      }
+      if (result?.removedParts) {
+        // Remove parts for this item from cache
+        queryClient.setQueryData(['preventive-consumed-parts', preventiveId], (old: any[]) => {
+          if (!old) return old;
+          return old.filter((p: any) => p.exec_item_id !== variables.itemId || p.is_manual);
+        });
+      }
+
+      // Delayed reconciliation with backend
+      setTimeout(() => {
+        queryClient.refetchQueries({ queryKey: ['preventive-consumed-parts', preventiveId] });
+        queryClient.refetchQueries({ queryKey: ['part-consumption-coverage', preventiveId] });
+      }, 2000);
       setLastSavedAt(new Date());
     },
     onError: (error) => {
@@ -772,7 +825,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
       nonconformityId: string; 
       nonconformityLabel: string;
       isSelected: boolean;
-    }) => {
+    }): Promise<{ createdParts: any[]; removedNcId: string | null }> => {
       if (!navigator.onLine) {
         throw new Error('Sem conexão. Conecte-se à internet para registrar o checklist.');
       }
@@ -780,16 +833,18 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
       const lockKey = `${itemId}-${nonconformityId}`;
       if (processingNonconformitiesRef.current.has(lockKey)) {
         console.log('[ChecklistExecution] Nonconformity already being processed, skipping:', lockKey);
-        return;
+        return { createdParts: [], removedNcId: null };
       }
       
       processingNonconformitiesRef.current.add(lockKey);
       setProcessingNonconformities(new Set(processingNonconformitiesRef.current));
       
+      let createdParts: any[] = [];
+      let removedNcId: string | null = null;
+
       try {
         if (isSelected) {
           // Remove NC
-          // First get the exec NC id for part consumption cleanup
           const { data: execNc } = await supabase
             .from('preventive_checklist_item_nonconformities')
             .select('id')
@@ -798,7 +853,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
             .maybeSingle();
           
           if (execNc) {
-            // Delete associated part consumption
+            removedNcId = execNc.id;
             await (supabase as any)
               .from('preventive_part_consumption')
               .delete()
@@ -835,19 +890,34 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
               const ncParts = await getNcParts(nonconformityId);
               console.log('[ChecklistExecution] Creating parts for NC:', ncParts.length, 'parts');
               for (const np of ncParts) {
+                const newId = crypto.randomUUID();
+                const record = {
+                  id: newId,
+                  preventive_id: preventiveId,
+                  exec_item_id: itemId,
+                  exec_nonconformity_id: inserted.id,
+                  part_id: np.part_id,
+                  part_code_snapshot: np.part_codigo,
+                  part_name_snapshot: np.part_nome,
+                  quantity: np.default_quantity,
+                  stock_source: null,
+                };
                 const { error: partErr } = await (supabase as any)
                   .from('preventive_part_consumption')
-                  .insert({
-                    preventive_id: preventiveId,
-                    exec_item_id: itemId,
-                    exec_nonconformity_id: inserted.id,
-                    part_id: np.part_id,
-                    part_code_snapshot: np.part_codigo,
-                    part_name_snapshot: np.part_nome,
-                    quantity: np.default_quantity,
-                    stock_source: null,
+                  .insert(record);
+                if (partErr) {
+                  console.error('[ChecklistExecution] Error inserting part from NC:', partErr);
+                } else {
+                  createdParts.push({
+                    ...record,
+                    unit_cost_snapshot: null,
+                    asset_unique_code: null,
+                    notes: null,
+                    is_manual: false,
+                    consumed_at: new Date().toISOString(),
+                    is_asset: false,
                   });
-                if (partErr) console.error('[ChecklistExecution] Error inserting part from NC:', partErr);
+                }
               }
             }
           }
@@ -856,9 +926,11 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
         processingNonconformitiesRef.current.delete(lockKey);
         setProcessingNonconformities(new Set(processingNonconformitiesRef.current));
       }
+
+      return { createdParts, removedNcId };
     },
-    onSuccess: (_, variables) => {
-      // Update cache in-place
+    onSuccess: (result, variables) => {
+      // Update checklist cache in-place
       queryClient.setQueryData(['preventive-checklist', preventiveId], (old: any) => {
         if (!old) return old;
         return {
@@ -882,8 +954,28 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
           }))
         };
       });
-      queryClient.refetchQueries({ queryKey: ['preventive-consumed-parts', preventiveId] });
-      queryClient.refetchQueries({ queryKey: ['part-consumption-coverage', preventiveId] });
+
+      // Optimistic update for parts cache
+      if (result?.createdParts?.length) {
+        queryClient.setQueryData(['preventive-consumed-parts', preventiveId], (old: any[]) => {
+          if (!old) return result.createdParts;
+          const existingIds = new Set(old.map((p: any) => p.id));
+          const newParts = result.createdParts.filter((p: any) => !existingIds.has(p.id));
+          return [...old, ...newParts];
+        });
+      }
+      if (result?.removedNcId) {
+        queryClient.setQueryData(['preventive-consumed-parts', preventiveId], (old: any[]) => {
+          if (!old) return old;
+          return old.filter((p: any) => p.exec_nonconformity_id !== result.removedNcId);
+        });
+      }
+
+      // Delayed reconciliation with backend
+      setTimeout(() => {
+        queryClient.refetchQueries({ queryKey: ['preventive-consumed-parts', preventiveId] });
+        queryClient.refetchQueries({ queryKey: ['part-consumption-coverage', preventiveId] });
+      }, 2000);
       setLastSavedAt(new Date());
     },
     onError: (error) => {

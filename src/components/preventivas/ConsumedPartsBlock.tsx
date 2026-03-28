@@ -102,6 +102,10 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
       return items.map(i => ({ ...i, is_asset: false }));
     },
     enabled: !!preventiveId,
+    staleTime: 10_000,
+    retry: 2,
+    refetchOnWindowFocus: false,
+    placeholderData: (prev: any) => prev,
   });
 
   // Always show Dexie parts reactively (includes pending items)
