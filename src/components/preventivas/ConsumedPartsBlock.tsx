@@ -75,10 +75,10 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
     };
   }, []);
 
-  // Online: fetch consumed parts from Supabase
+  // Online: fetch consumed parts from Supabase (simple server fetch, no merge-by-ID)
   const { data: onlineParts, isLoading: onlineLoading } = useQuery({
     queryKey: ['preventive-consumed-parts', preventiveId],
-    queryFn: async ({ queryKey }) => {
+    queryFn: async () => {
       const { data, error } = await supabase
         .from('preventive_part_consumption')
         .select('id, part_id, part_code_snapshot, part_name_snapshot, quantity, unit_cost_snapshot, stock_source, asset_unique_code, notes, is_manual, consumed_at, exec_item_id, exec_nonconformity_id')
@@ -88,31 +88,22 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
       if (error) throw error;
       const serverItems = (data || []) as (ConsumedPart & { exec_item_id?: string; exec_nonconformity_id?: string })[];
 
-      // Merge-by-ID: preserve optimistic items not yet on server
-      const existingCache = queryClient.getQueryData<any[]>(queryKey) || [];
-      const serverIds = new Set(serverItems.map(i => i.id));
-      // Keep optimistic items that haven't appeared on server yet
-      const optimisticOnly = existingCache.filter((c: any) => !serverIds.has(c.id) && c._optimistic);
-
       // Fetch is_asset for each unique part_id
-      const allItems = [...serverItems, ...optimisticOnly];
-      const partIds = [...new Set(allItems.map(i => i.part_id))];
+      const partIds = [...new Set(serverItems.map(i => i.part_id))];
       if (partIds.length > 0) {
         const { data: pecasData } = await supabase
           .from('pecas')
           .select('id, is_asset')
           .in('id', partIds);
         const assetMap = new Map((pecasData || []).map((p: any) => [p.id, p.is_asset ?? false]));
-        return allItems.map(i => ({ ...i, is_asset: assetMap.get(i.part_id) ?? false }));
+        return serverItems.map(i => ({ ...i, is_asset: assetMap.get(i.part_id) ?? false }));
       }
 
-      return allItems.map(i => ({ ...i, is_asset: false }));
+      return serverItems.map(i => ({ ...i, is_asset: false }));
     },
     enabled: !!preventiveId,
-    staleTime: 30_000,
+    staleTime: 0,
     retry: 2,
-    refetchOnWindowFocus: false,
-    placeholderData: (prev: any) => prev,
   });
 
   // Always show Dexie parts reactively (includes pending items)
