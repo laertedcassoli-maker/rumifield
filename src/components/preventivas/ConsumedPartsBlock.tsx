@@ -349,8 +349,13 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
         .eq('id', partId);
       if (error) throw error;
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['preventive-consumed-parts', preventiveId] });
+    onSuccess: (_, partId) => {
+      // Optimistic: remove from cache immediately
+      queryClient.setQueryData(['preventive-consumed-parts', preventiveId], (old: any[]) => {
+        if (!old) return old;
+        return old.filter((p: any) => p.id !== partId);
+      });
+      queryClient.invalidateQueries({ queryKey: ['preventive-consumed-parts', preventiveId], refetchType: 'none' });
       toast({ title: 'Peça removida com sucesso' });
     },
     onError: (error: Error) => {
