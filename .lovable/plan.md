@@ -1,47 +1,35 @@
 
-Objetivo: manter o salvamento 100% online como está hoje, mas mudar a exibição para um modelo “shadow cache determinístico”, para que a peça apareça imediatamente no mobile sem depender de Forçar Atualização.
 
-Diagnóstico (confirmado)
-- As peças da PREV-2026-00002 estão sendo gravadas no backend.
-- O problema é de renderização imediata: respostas de leitura atrasadas podem substituir o cache otimista e esconder temporariamente as peças.
+## Fix: peças desaparecem após fechar e reabrir o app
 
-Estratégia diferente (sem depender de sync manual)
-1) Transformar a lista de peças em “merge por ID” (não substituição cega)
-- Arquivo: `src/components/preventivas/ConsumedPartsBlock.tsx`
-- Ajustar `queryFn` de `preventive-consumed-parts` para:
-  - Buscar dados online normalmente.
-  - Ler cache atual da própria query.
-  - Mesclar `server + cache otimista` por `id` (server prevalece quando existir).
-- Efeito: se a leitura online vier atrasada, ela não apaga a peça recém-criada no cache local da query.
+### Causa raiz identificada
 
-2) Blindar mutações do checklist contra sobrescrita de request em voo
-- Arquivo: `src/components/preventivas/ChecklistExecution.tsx`
-- Antes de aplicar `setQueryData` de peças automáticas:
-  - `queryClient.cancelQueries({ queryKey: ['preventive-consumed-parts', preventiveId] })`
-- Depois:
-  - manter `setQueryData` (upsert por `id`) como fonte imediata da UI.
-  - manter `invalidateQueries(..., refetchType: 'none')` (sem refetch agressivo imediato).
-- Efeito: evita que uma resposta antiga de rede derrube a peça que acabou de entrar no cache.
+A query de peças (`preventive-consumed-parts`) tem configurações que impedem refetch adequado no remount:
 
-3) Corrigir inconsistência de ID no fluxo manual (ajuste colateral importante)
-- Arquivo: `src/components/preventivas/ConsumedPartsBlock.tsx`
-- Hoje o `onSuccess` da peça manual usa `crypto.randomUUID()` novo (diferente do ID inserido).
-- Ajustar para usar exatamente o mesmo `id` do payload inserido.
-- Efeito: elimina duplicidade/fantasma no cache e melhora consistência visual no mobile.
+1. `staleTime: 30_000` — dados considerados "frescos" por 30s, não refetch mesmo após remount
+2. `refetchOnWindowFocus: false` — não refetch ao voltar para a aba
+3. `placeholderData: (prev) => prev` — pode retornar dados antigos vazios
+4. Merge-by-ID complexo no `queryFn` que lê o cache dentro do próprio fetch, criando dependência circular
+5. `refetchType: 'none'` em todas as invalidações — dados marcados como stale mas nunca refetched em background
 
-4) Regras de reconciliação
-- Continuar gravando online como fonte oficial.
-- Não depender do Dexie para peça automática aparecer.
-- Dexie permanece apenas como apoio offline já existente, sem virar fonte principal da tela em modo online.
+Combinação: ao fechar e reabrir, o cache está vazio, a query roda mas o merge-by-ID retorna array vazio antes dos dados do server chegarem, e o `placeholderData` não tem nada para mostrar.
 
-Validação (mobile, sem Forçar Atualização)
-1. PREV-2026-00002: marcar NC + ação “Troca” e confirmar peça aparecendo na hora.
-2. Repetir em 2 itens seguidos (toques rápidos) e confirmar que nenhuma peça “some”.
-3. Sair e “Continuar” visita: checklist e peças permanecem visíveis.
-4. Confirmar que remoção de NC/ação remove peça da lista imediatamente.
-5. Confirmar que o botão “Forçar Atualização” não é mais necessário nesse fluxo.
+### Correção: simplificar a query de peças
 
-Impacto
-- Sem migration.
-- Sem mudança de regra de negócio.
-- Foco total em consistência de UI no mobile com persistência online preservada.
+**Arquivo:** `src/components/preventivas/ConsumedPartsBlock.tsx`
+
+1. **Remover merge-by-ID do queryFn** — a query retorna apenas dados do servidor, sem ler o cache dentro dela mesma
+2. **Remover `staleTime: 30_000`** — usar `staleTime: 0` para sempre refetch no mount
+3. **Remover `refetchOnWindowFocus: false`** — permitir refetch ao voltar
+4. **Remover `placeholderData`** — evitar dados fantasma
+5. **Manter `cancelQueries` + `setQueryData` nas mutações** — para feedback otimista imediato durante a sessão
+
+**Arquivo:** `src/components/preventivas/ChecklistExecution.tsx`
+
+6. **Trocar `refetchType: 'none'` por refetch com delay de 3s** — após mutação otimista, agendar refetch real para reconciliar com o backend (delay evita replica lag)
+
+### Resumo
+- A peça aparece instantaneamente via `setQueryData` (otimista) durante a sessão
+- Ao reabrir, a query sempre busca do servidor e exibe os dados reais
+- Refetch com delay de 3s garante reconciliação sem sobrescrever o estado otimista
+
