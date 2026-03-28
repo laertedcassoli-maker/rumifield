@@ -546,6 +546,8 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
           }))
         };
       });
+      // Cancel in-flight parts queries to prevent stale responses from overwriting optimistic cache
+      queryClient.cancelQueries({ queryKey: ['preventive-consumed-parts', preventiveId] });
       // Optimistic: if status changed away from N, remove parts for this item from cache
       if (variables.status && variables.status !== 'N') {
         queryClient.setQueryData(['preventive-consumed-parts', preventiveId], (old: any[]) => {
@@ -782,12 +784,14 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
         };
       });
 
+      // Cancel in-flight parts queries to prevent stale responses from overwriting optimistic cache
+      queryClient.cancelQueries({ queryKey: ['preventive-consumed-parts', preventiveId] });
       // Optimistic update for parts cache
       if (result?.createdParts?.length) {
         queryClient.setQueryData(['preventive-consumed-parts', preventiveId], (old: any[]) => {
-          if (!old) return result.createdParts;
+          if (!old) return result.createdParts.map((p: any) => ({ ...p, _optimistic: true }));
           const existingIds = new Set(old.map((p: any) => p.id));
-          const newParts = result.createdParts.filter((p: any) => !existingIds.has(p.id));
+          const newParts = result.createdParts.filter((p: any) => !existingIds.has(p.id)).map((p: any) => ({ ...p, _optimistic: true }));
           return [...old, ...newParts];
         });
       }
@@ -951,12 +955,14 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
         };
       });
 
+      // Cancel in-flight parts queries to prevent stale responses from overwriting optimistic cache
+      queryClient.cancelQueries({ queryKey: ['preventive-consumed-parts', preventiveId] });
       // Optimistic update for parts cache
       if (result?.createdParts?.length) {
         queryClient.setQueryData(['preventive-consumed-parts', preventiveId], (old: any[]) => {
-          if (!old) return result.createdParts;
+          if (!old) return result.createdParts.map((p: any) => ({ ...p, _optimistic: true }));
           const existingIds = new Set(old.map((p: any) => p.id));
-          const newParts = result.createdParts.filter((p: any) => !existingIds.has(p.id));
+          const newParts = result.createdParts.filter((p: any) => !existingIds.has(p.id)).map((p: any) => ({ ...p, _optimistic: true }));
           return [...old, ...newParts];
         });
       }
