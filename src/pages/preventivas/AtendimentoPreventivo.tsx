@@ -59,7 +59,7 @@ export default function AtendimentoPreventivo() {
   const isAdminOrCoordinator = role === 'admin' || role === 'coordenador_servicos';
 
   // Fetch route item details
-  const { data: routeItem, isLoading, isOfflineData, refetchOffline } = useOfflineQuery({
+  const { data: routeItem, isLoading, error, refetch } = useQuery({
     queryKey: ['route-item-attendance', itemId],
     queryFn: async () => {
       const { data: item, error } = await supabase
@@ -148,75 +148,10 @@ export default function AtendimentoPreventivo() {
       };
     },
     enabled: !!itemId,
-    offlineFn: async () => {
-      // Fallback: build data from Dexie cached tables
-      const item = await offlineDb.rota_items.get(itemId!);
-      if (!item) return null;
-
-      const route = await offlineDb.rotas.get(item.route_id);
-      const client = await offlineDb.clientes.get(item.client_id);
-
-      // Try to find preventive from Dexie
-      let preventiveRecord = await offlineDb.preventivas
-        .filter(p => p.client_id === item.client_id && p.route_id === item.route_id)
-        .first();
-
-      // If not found, create one locally (fallback for offline check-in)
-      if (!preventiveRecord && route) {
-        const pmId = crypto.randomUUID();
-        const newPm = {
-          id: pmId,
-          client_id: item.client_id,
-          route_id: item.route_id,
-          scheduled_date: route.start_date || new Date().toISOString().split('T')[0],
-          status: 'planejada',
-          technician_user_id: route.field_technician_user_id || null,
-          notes: `Atendimento via rota ${route.route_code || ''}`,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        };
-        await offlineDb.preventivas.put(newPm);
-        await offlineDb.addToSyncQueue('preventive_maintenance', 'insert', {
-          id: pmId,
-          client_id: item.client_id,
-          route_id: item.route_id,
-          scheduled_date: route.start_date || new Date().toISOString().split('T')[0],
-          status: 'planejada',
-          technician_user_id: route.field_technician_user_id,
-          notes: `Atendimento via rota ${route.route_code || ''}`,
-        });
-        preventiveRecord = newPm;
-      }
-
-      return {
-        id: item.id,
-        client_id: item.client_id,
-        status: item.status,
-        checkin_at: item.checkin_at,
-        checkin_lat: item.checkin_lat,
-        checkin_lon: item.checkin_lon,
-        order_index: item.order_index,
-        route_id: item.route_id,
-        route: route ? {
-          id: route.id,
-          route_code: route.route_code,
-          start_date: route.start_date,
-          field_technician_user_id: route.field_technician_user_id,
-          checklist_template_id: route.checklist_template_id,
-        } : null,
-        client: client ? {
-          id: client.id,
-          nome: client.nome,
-          fazenda: client.fazenda,
-          cidade: client.cidade,
-          estado: client.estado,
-        } : null,
-        preventiveId: preventiveRecord?.id || null,
-        internalNotes: preventiveRecord?.internal_notes || null,
-        publicNotes: preventiveRecord?.public_notes || null,
-        publicToken: preventiveRecord?.public_token || null,
-      };
-    },
+    retry: 3,
+    retryDelay: 1500,
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
   });
 
   // Complete attendance mutation (Encerrar Visita)
