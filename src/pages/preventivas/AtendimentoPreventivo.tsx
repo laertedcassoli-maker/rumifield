@@ -728,21 +728,16 @@ export default function AtendimentoPreventivo() {
           <div className="max-w-2xl mx-auto">
             <Button 
               onClick={handleEncerrarClick}
-              disabled={!canFinishVisit || completeMutation.isPending || isOfflineData}
+              disabled={!canFinishVisit || completeMutation.isPending}
               className="w-full"
               size="lg"
             >
               <LogOut className="h-4 w-4 mr-2" />
               Encerrar Visita
             </Button>
-            {!canFinishVisit && !isOfflineData && (
+            {!canFinishVisit && (
               <p className="text-xs text-muted-foreground text-center mt-2">
                 Conclua o checklist para encerrar a visita
-              </p>
-            )}
-            {isOfflineData && (
-              <p className="text-xs text-muted-foreground text-center mt-2">
-                Encerrar visita requer conexão com a internet
               </p>
             )}
           </div>
