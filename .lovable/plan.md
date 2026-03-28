@@ -1,33 +1,59 @@
 
 
-## Limpar dados de teste — preventivas e corretivas
+## Correções aprovadas: checklist estável + peças visíveis no mobile
 
-### Dados encontrados
+### Fix 1 — AtendimentoPreventivo.tsx: substituir useOfflineQuery por useQuery
 
-| Tabela | Registros |
-|---|---|
-| preventive_routes | 2 |
-| preventive_route_items | 2 (CASCADE automático) |
-| preventive_maintenance | 9 |
-| preventive_checklists | 4 (CASCADE automático) |
-| technical_tickets | 9 |
-| ticket_visits | 9 |
-| ticket_timeline | 22 |
-| pedidos / pedido_itens | 0 |
-| visita_midias | 0 |
+**Linhas 1-8**: Trocar import de `useOfflineQuery` por `useQuery` do tanstack. Remover imports de `offlineDb` e `offlineChecklistDb` (usados apenas na offlineFn e validação local).
 
-### Sequência de DELETEs
+**Linhas 65-223**: Substituir `useOfflineQuery` por `useQuery` com:
+```ts
+const { data: routeItem, isLoading, error, refetch } = useQuery({
+  queryKey: ['route-item-attendance', itemId],
+  queryFn: async () => { /* mesmo queryFn atual, linhas 67-151 */ },
+  enabled: !!itemId,
+  retry: 3,
+  retryDelay: 1500,
+  staleTime: 30_000,
+  refetchOnWindowFocus: false,
+});
+```
+- Remover completamente a `offlineFn` (linhas 154-222)
+- Remover variáveis `isOfflineData` e `refetchOffline` (não mais retornadas)
 
-1. `DELETE FROM ticket_timeline` — 22 registros
-2. `DELETE FROM ticket_visits` — 9 visitas corretivas
-3. `DELETE FROM technical_tickets` — 9 chamados
-4. `DELETE FROM preventive_maintenance` — 9 registros (cascata remove checklists, blocos, itens, ações)
-5. `DELETE FROM preventive_route_items` — 2 itens
-6. `DELETE FROM preventive_routes` — 2 rotas
+**Linhas 581-598**: No estado de erro/não encontrado, adicionar botão "Tentar novamente" que chama `refetch()`:
+```ts
+if (error) {
+  return (
+    <div className="text-center py-12 px-4">
+      <AlertTriangle className="mx-auto h-10 w-10 text-yellow-500" />
+      <h2 className="mt-3 font-semibold">Erro ao carregar dados</h2>
+      <p className="text-sm text-muted-foreground mt-1">Verifique sua conexão</p>
+      <Button onClick={() => refetch()} className="mt-4" size="sm">Tentar novamente</Button>
+    </div>
+  );
+}
+```
 
-### O que NÃO será afetado
-- Clientes, pedidos, CRM, estoque, oficina, templates de checklist, usuários
+**Linhas 470-481** (validação Dexie): Remover checagem local de peças no Dexie (`offlineChecklistDb.partConsumptions.filter...`) — manter apenas a query ao backend, que é a fonte de verdade.
 
-### Método
-Usar o insert tool para executar os DELETEs sequencialmente.
+### Fix 2 — ChecklistExecution.tsx: refetchQueries para peças
+
+Nas 4 ocorrências onde `invalidateQueries` é chamado para `['preventive-consumed-parts', preventiveId]` (linhas ~550, ~754, ~885, ~400), trocar por `refetchQueries` para forçar atualização imediata:
+
+```ts
+// DE:
+queryClient.invalidateQueries({ queryKey: ['preventive-consumed-parts', preventiveId] });
+
+// PARA:
+queryClient.refetchQueries({ queryKey: ['preventive-consumed-parts', preventiveId] });
+```
+
+Mesma troca para `['part-consumption-coverage', preventiveId]`.
+
+### Resumo
+- 2 arquivos alterados
+- Elimina dependência de Dexie para tela de atendimento preventivo
+- Peças automáticas aparecem imediatamente na UI
+- Checklist não some mais em oscilação de rede
 
