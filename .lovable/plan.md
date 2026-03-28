@@ -1,39 +1,46 @@
 
-Objetivo: eliminar a dependência do botão “Forçar sync” para exibir peças no bloco de consumo da preventiva, mantendo a lógica de negócio atual.
+Diagnóstico atualizado (causa raiz real)
+- O problema não é “falta de gravação”: as peças estão no backend.
+- O que falha é a consistência visual imediata no mobile por 2 pontos:
+  1) `ChecklistExecution.tsx` faz `setQueryData` otimista, mas em seguida executa `refetchQueries` (com delay fixo), que pode retornar snapshot antigo e sobrescrever o cache otimista.
+  2) `ConsumedPartsBlock.tsx` ainda decide a fonte de render por `isOnline`; se esse estado oscilar, ele ignora o cache online (onde a peça já foi inserida otimisticamente) e mostra lista vazia/local.
 
-Diagnóstico confirmado (com base no código + banco):
-- As peças estão sendo gravadas corretamente no backend para a PREV-2026-00001.
-- O problema está na atualização da UI: o bloco de peças depende de refetch e fallback local; quando o refetch retorna snapshot antigo (lag de leitura) ou falha pontual, a lista fica vazia até um novo ciclo de sync manual.
-
-Escopo (somente frontend, sem alterar regra de negócio):
-1) `src/components/preventivas/ChecklistExecution.tsx`
-2) `src/components/preventivas/ConsumedPartsBlock.tsx`
+Abordagem diferente (sem depender de “Forçar atualização”)
+- Trocar de “refetch agressivo” para “cache determinístico + reconciliação segura”.
+- A UI passa a confiar no cache otimista imediato e só reconcilia sem sobrescrever cedo demais.
 
 Plano de implementação
 
-1) Tornar a atualização de peças “determinística” no `ChecklistExecution`
-- Nos fluxos que criam/removem consumo automático (`toggleActionMutation`, `toggleNonconformityMutation`, e limpeza em `updateItemMutation`), retornar do `mutationFn` os IDs/linhas de peças afetadas.
-- No `onSuccess`, aplicar `queryClient.setQueryData(['preventive-consumed-parts', preventiveId], ...)` para inserir/remover imediatamente no cache.
-- Manter reconciliação com backend, mas sem sobrescrever instantaneamente com snapshot potencialmente atrasado:
-  - `invalidateQueries(..., refetchType: 'none')`
-  - `refetchQueries(...)` com pequeno delay (ex.: 1.5–2s) para reconciliar após propagação.
+1) `src/components/preventivas/ChecklistExecution.tsx`
+- Remover os `setTimeout(... refetchQueries ...)` nos fluxos:
+  - `updateItemMutation.onSuccess`
+  - `toggleActionMutation.onSuccess`
+  - `toggleNonconformityMutation.onSuccess`
+- Substituir por:
+  - `queryClient.invalidateQueries({ queryKey: ['preventive-consumed-parts', preventiveId], refetchType: 'none' })`
+  - `queryClient.invalidateQueries({ queryKey: ['part-consumption-coverage', preventiveId], refetchType: 'none' })`
+- Manter `setQueryData` otimista atual (ele já está correto e imediato).
 
-2) Blindar renderização no `ConsumedPartsBlock`
-- Ajustar composição da lista para não cair em “lista vazia” quando query online oscilar:
-  - Priorizar último cache online válido + pendências locais.
-  - Usar fallback local completo apenas quando realmente offline.
-- Manter `enabled: !!preventiveId` (já corrigido).
-- Adicionar estabilidade de query (`staleTime`, `retry`, `refetchOnWindowFocus: false`) para reduzir re-fetch agressivo no mobile.
-- Garantir deduplicação por `id` ao mesclar online/local.
+2) `src/components/preventivas/ConsumedPartsBlock.tsx`
+- Não usar `isOnline` para decidir o que renderizar.
+- Novo merge de dados:
+  - base = `onlineParts` (ou último cache da query)
+  - overlay = pendências locais (`_pendingSync`) não existentes na base
+  - deduplicação por `id`
+- Ajustar loading para não “piscar vazio” quando houver cache prévio.
+- Manter `enabled: !!preventiveId` e `placeholderData` para preservar última lista enquanto reconcilia.
 
-3) QA focado no bug reportado (mobile)
-- Cenário A: marcar NC com ação “Troca” e validar exibição imediata da peça sem clicar em sync.
-- Cenário B: sair da visita e “Continuar” e validar que peças continuam visíveis.
-- Cenário C: repetir com 2+ NCs no mesmo item para validar merge/deduplicação.
-- Cenário D: validar que remoção de NC/ação remove peça da UI imediatamente e reconcilia com backend.
+3) `src/components/preventivas/ConsumedPartsBlock.tsx` (mutações manuais)
+- Em `addManualPartMutation` e `deleteManualPartMutation`, aplicar `setQueryData` local no `onSuccess` (inserir/remover item no cache imediatamente), além da invalidação sem refetch imediato.
+- Isso elimina a janela em que peça manual existe no backend/local, mas ainda não aparece na UI.
 
-Detalhes técnicos (resumo)
-- Sem migration de banco.
-- Sem mudança de layout/estilo.
-- Sem alterar regra de geração de peças (NC + ação “Troca”).
-- Ajuste é de sincronização visual/cache React Query para evitar dependência de sync manual.
+Validação (mobile, sem botão de força)
+1. Marcar NC + ação “Troca” em PREV-2026-00002 e confirmar peça imediata no bloco.
+2. Adicionar peça manual e confirmar exibição imediata.
+3. Sair da visita e clicar “Continuar” e validar que checklist + peças permanecem visíveis.
+4. Repetir rápido (ações consecutivas) para garantir que não há regressão de race visual.
+
+Impacto
+- Sem mudança de regra de negócio.
+- Sem depender de sync forçado.
+- Foco total em consistência de UI no mobile, com atualização imediata e estável.
