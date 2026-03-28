@@ -789,9 +789,9 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
       // Optimistic update for parts cache
       if (result?.createdParts?.length) {
         queryClient.setQueryData(['preventive-consumed-parts', preventiveId], (old: any[]) => {
-          if (!old) return result.createdParts;
+          if (!old) return result.createdParts.map((p: any) => ({ ...p, _optimistic: true }));
           const existingIds = new Set(old.map((p: any) => p.id));
-          const newParts = result.createdParts.filter((p: any) => !existingIds.has(p.id));
+          const newParts = result.createdParts.filter((p: any) => !existingIds.has(p.id)).map((p: any) => ({ ...p, _optimistic: true }));
           return [...old, ...newParts];
         });
       }
