@@ -80,11 +80,12 @@ export default function AtendimentoPreventivo() {
       if (routeError) throw routeError;
 
       // Fetch client details
-      const { data: client } = await supabase
+      const { data: client, error: clientError } = await supabase
         .from('clientes')
         .select('id, nome, fazenda, cidade, estado')
         .eq('id', item.client_id)
         .maybeSingle();
+      if (clientError) throw clientError;
 
       // Fetch or find preventive_maintenance record by route_id (unique constraint)
       let preventiveId: string | null = null;
