@@ -315,7 +315,7 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
         queryClient.cancelQueries({ queryKey: ['preventive-consumed-parts', preventiveId] });
         queryClient.setQueryData(['preventive-consumed-parts', preventiveId], (old: any[]) => {
           const newPart = {
-            id: (context as any)?.newId || crypto.randomUUID(),
+            id: result?.newId || crypto.randomUUID(),
             part_id: selectedPartId,
             part_code_snapshot: selectedPart.codigo,
             part_name_snapshot: selectedPart.nome,
