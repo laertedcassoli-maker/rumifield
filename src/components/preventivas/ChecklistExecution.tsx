@@ -546,6 +546,8 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
           }))
         };
       });
+      // Cancel in-flight parts queries to prevent stale responses from overwriting optimistic cache
+      queryClient.cancelQueries({ queryKey: ['preventive-consumed-parts', preventiveId] });
       // Optimistic: if status changed away from N, remove parts for this item from cache
       if (variables.status && variables.status !== 'N') {
         queryClient.setQueryData(['preventive-consumed-parts', preventiveId], (old: any[]) => {
