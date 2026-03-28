@@ -72,30 +72,33 @@ export default function AtendimentoPreventivo() {
       if (!item) return null;
 
       // Fetch route details
-      const { data: route } = await supabase
+      const { data: route, error: routeError } = await supabase
         .from('preventive_routes')
         .select('id, route_code, start_date, field_technician_user_id, checklist_template_id')
         .eq('id', item.route_id)
         .maybeSingle();
+      if (routeError) throw routeError;
 
       // Fetch client details
-      const { data: client } = await supabase
+      const { data: client, error: clientError } = await supabase
         .from('clientes')
         .select('id, nome, fazenda, cidade, estado')
         .eq('id', item.client_id)
         .maybeSingle();
+      if (clientError) throw clientError;
 
       // Fetch or find preventive_maintenance record by route_id (unique constraint)
       let preventiveId: string | null = null;
       let internalNotes: string | null = null;
       let publicNotes: string | null = null;
       
-      const { data: existingPm } = await supabase
+      const { data: existingPm, error: pmError } = await supabase
         .from('preventive_maintenance')
         .select('id, internal_notes, public_notes, public_token')
         .eq('client_id', item.client_id)
         .eq('route_id', item.route_id)
         .maybeSingle();
+      if (pmError) throw pmError;
 
       let publicToken: string | null = null;
 
