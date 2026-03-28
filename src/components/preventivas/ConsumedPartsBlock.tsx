@@ -361,7 +361,8 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
       if (error) throw error;
     },
     onSuccess: (_, partId) => {
-      // Optimistic: remove from cache immediately
+      // Cancel in-flight queries and remove from cache immediately
+      queryClient.cancelQueries({ queryKey: ['preventive-consumed-parts', preventiveId] });
       queryClient.setQueryData(['preventive-consumed-parts', preventiveId], (old: any[]) => {
         if (!old) return old;
         return old.filter((p: any) => p.id !== partId);
