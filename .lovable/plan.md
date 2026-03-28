@@ -1,55 +1,39 @@
 
+Objetivo: eliminar a dependência do botão “Forçar sync” para exibir peças no bloco de consumo da preventiva, mantendo a lógica de negócio atual.
 
-## Correção: checklist some + peças automáticas não aparecem (WiFi estável)
+Diagnóstico confirmado (com base no código + banco):
+- As peças estão sendo gravadas corretamente no backend para a PREV-2026-00001.
+- O problema está na atualização da UI: o bloco de peças depende de refetch e fallback local; quando o refetch retorna snapshot antigo (lag de leitura) ou falha pontual, a lista fica vazia até um novo ciclo de sync manual.
 
-### Bug 1 — Peças automáticas não aparecem
+Escopo (somente frontend, sem alterar regra de negócio):
+1) `src/components/preventivas/ChecklistExecution.tsx`
+2) `src/components/preventivas/ConsumedPartsBlock.tsx`
 
-**Causa raiz:** `ConsumedPartsBlock.tsx` linha 104 — query tem `enabled: !!preventiveId && isOnline`. Mesmo online, o `refetchQueries` chamado pelo `ChecklistExecution` pode não surtar efeito se a query ficou brevemente desabilitada durante um ciclo de render. Além disso, a lógica de merge com Dexie (linhas 108-137) adiciona complexidade sem benefício para peças auto-criadas (que nunca são escritas no Dexie).
+Plano de implementação
 
-**Correção — Arquivo:** `src/components/preventivas/ConsumedPartsBlock.tsx`
+1) Tornar a atualização de peças “determinística” no `ChecklistExecution`
+- Nos fluxos que criam/removem consumo automático (`toggleActionMutation`, `toggleNonconformityMutation`, e limpeza em `updateItemMutation`), retornar do `mutationFn` os IDs/linhas de peças afetadas.
+- No `onSuccess`, aplicar `queryClient.setQueryData(['preventive-consumed-parts', preventiveId], ...)` para inserir/remover imediatamente no cache.
+- Manter reconciliação com backend, mas sem sobrescrever instantaneamente com snapshot potencialmente atrasado:
+  - `invalidateQueries(..., refetchType: 'none')`
+  - `refetchQueries(...)` com pequeno delay (ex.: 1.5–2s) para reconciliar após propagação.
 
-Linha 104: remover `isOnline` do `enabled`:
-```ts
-// DE:
-enabled: !!preventiveId && isOnline,
-// PARA:
-enabled: !!preventiveId,
-```
+2) Blindar renderização no `ConsumedPartsBlock`
+- Ajustar composição da lista para não cair em “lista vazia” quando query online oscilar:
+  - Priorizar último cache online válido + pendências locais.
+  - Usar fallback local completo apenas quando realmente offline.
+- Manter `enabled: !!preventiveId` (já corrigido).
+- Adicionar estabilidade de query (`staleTime`, `retry`, `refetchOnWindowFocus: false`) para reduzir re-fetch agressivo no mobile.
+- Garantir deduplicação por `id` ao mesclar online/local.
 
-Isso garante que a query esteja sempre ativa e responda ao `refetchQueries`.
+3) QA focado no bug reportado (mobile)
+- Cenário A: marcar NC com ação “Troca” e validar exibição imediata da peça sem clicar em sync.
+- Cenário B: sair da visita e “Continuar” e validar que peças continuam visíveis.
+- Cenário C: repetir com 2+ NCs no mesmo item para validar merge/deduplicação.
+- Cenário D: validar que remoção de NC/ação remove peça da UI imediatamente e reconcilia com backend.
 
-### Bug 2 — Checklist some ao voltar e clicar "Continuar"
-
-**Causa raiz:** `AtendimentoPreventivo.tsx` linhas 93-98 — o queryFn descarta erros silenciosamente:
-```ts
-const { data: existingPm } = await supabase...  // error ignorado!
-```
-Se a chamada falha, `preventiveId` fica `null`, a UI mostra o dead-end, e o `retry: 3` nunca dispara porque a função retorna sem lançar exceção.
-
-**Correção — Arquivo:** `src/pages/preventivas/AtendimentoPreventivo.tsx`
-
-Adicionar throw em 3 pontos da queryFn:
-
-1. Linha 65-71 (route_items): já lança ✅
-2. Linhas 75-79 (route): adicionar tratamento de erro:
-```ts
-const { data: route, error: routeError } = await supabase...
-if (routeError) throw routeError;
-```
-3. Linhas 82-86 (client): idem:
-```ts
-const { data: client, error: clientError } = await supabase...
-if (clientError) throw clientError;
-```
-4. Linhas 93-98 (preventive_maintenance): idem:
-```ts
-const { data: existingPm, error: pmError } = await supabase...
-if (pmError) throw pmError;
-```
-
-### Resumo
-- 2 arquivos, alterações cirúrgicas
-- Nenhuma mudança de layout, lógica de negócio ou estilos
-- Bug 1: query de peças sempre habilitada → refetch funciona
-- Bug 2: erros propagados → retry automático funciona
-
+Detalhes técnicos (resumo)
+- Sem migration de banco.
+- Sem mudança de layout/estilo.
+- Sem alterar regra de geração de peças (NC + ação “Troca”).
+- Ajuste é de sincronização visual/cache React Query para evitar dependência de sync manual.
