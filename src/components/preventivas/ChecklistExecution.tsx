@@ -678,7 +678,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
       actionId: string; 
       actionLabel: string;
       isSelected: boolean;
-    }) => {
+    }): Promise<{ createdParts: any[]; removedParts: boolean }> => {
       if (!navigator.onLine) {
         throw new Error('Sem conexão. Conecte-se à internet para registrar o checklist.');
       }
@@ -686,12 +686,15 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
       const lockKey = `${itemId}-${actionId}`;
       if (processingActionsRef.current.has(lockKey)) {
         console.log('[ChecklistExecution] Action already being processed, skipping:', lockKey);
-        return;
+        return { createdParts: [], removedParts: false };
       }
       
       processingActionsRef.current.add(lockKey);
       setProcessingActions(new Set(processingActionsRef.current));
       
+      let createdParts: any[] = [];
+      let removedParts = false;
+
       try {
         if (isSelected) {
           // Remove action
@@ -731,19 +734,22 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
             );
             if (!hasOtherTroca) {
               await removePartConsumptionForItemNCs(itemId);
+              removedParts = true;
             }
           } else {
             // "Troca" being ADDED → create consumption for all selected NCs
-            await createPartConsumptionForItemNCs(itemId);
+            createdParts = await createPartConsumptionForItemNCs(itemId);
           }
         }
       } finally {
         processingActionsRef.current.delete(lockKey);
         setProcessingActions(new Set(processingActionsRef.current));
       }
+
+      return { createdParts, removedParts };
     },
-    onSuccess: (_, variables) => {
-      // Update cache in-place to avoid refetch (which caused the bug)
+    onSuccess: (result, variables) => {
+      // Update checklist cache in-place
       queryClient.setQueryData(['preventive-checklist', preventiveId], (old: any) => {
         if (!old) return old;
         return {
@@ -767,8 +773,29 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
           }))
         };
       });
-      queryClient.refetchQueries({ queryKey: ['preventive-consumed-parts', preventiveId] });
-      queryClient.refetchQueries({ queryKey: ['part-consumption-coverage', preventiveId] });
+
+      // Optimistic update for parts cache
+      if (result?.createdParts?.length) {
+        queryClient.setQueryData(['preventive-consumed-parts', preventiveId], (old: any[]) => {
+          if (!old) return result.createdParts;
+          const existingIds = new Set(old.map((p: any) => p.id));
+          const newParts = result.createdParts.filter((p: any) => !existingIds.has(p.id));
+          return [...old, ...newParts];
+        });
+      }
+      if (result?.removedParts) {
+        // Remove parts for this item from cache
+        queryClient.setQueryData(['preventive-consumed-parts', preventiveId], (old: any[]) => {
+          if (!old) return old;
+          return old.filter((p: any) => p.exec_item_id !== variables.itemId || p.is_manual);
+        });
+      }
+
+      // Delayed reconciliation with backend
+      setTimeout(() => {
+        queryClient.refetchQueries({ queryKey: ['preventive-consumed-parts', preventiveId] });
+        queryClient.refetchQueries({ queryKey: ['part-consumption-coverage', preventiveId] });
+      }, 2000);
       setLastSavedAt(new Date());
     },
     onError: (error) => {
