@@ -101,7 +101,7 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
 
       return items.map(i => ({ ...i, is_asset: false }));
     },
-    enabled: !!preventiveId && isOnline,
+    enabled: !!preventiveId,
   });
 
   // Always show Dexie parts reactively (includes pending items)

@@ -92,12 +92,13 @@ export default function AtendimentoPreventivo() {
       let internalNotes: string | null = null;
       let publicNotes: string | null = null;
       
-      const { data: existingPm } = await supabase
+      const { data: existingPm, error: pmError } = await supabase
         .from('preventive_maintenance')
         .select('id, internal_notes, public_notes, public_token')
         .eq('client_id', item.client_id)
         .eq('route_id', item.route_id)
         .maybeSingle();
+      if (pmError) throw pmError;
 
       let publicToken: string | null = null;
 
