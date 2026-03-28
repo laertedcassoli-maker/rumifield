@@ -546,9 +546,18 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
           }))
         };
       });
-      setLastSavedAt(new Date());
-      queryClient.refetchQueries({ queryKey: ['preventive-consumed-parts', preventiveId] });
-      queryClient.refetchQueries({ queryKey: ['part-consumption-coverage', preventiveId] });
+      // Optimistic: if status changed away from N, remove parts for this item from cache
+      if (variables.status && variables.status !== 'N') {
+        queryClient.setQueryData(['preventive-consumed-parts', preventiveId], (old: any[]) => {
+          if (!old) return old;
+          return old.filter((p: any) => p.exec_item_id !== variables.itemId || p.is_manual);
+        });
+      }
+      // Delayed reconciliation
+      setTimeout(() => {
+        queryClient.refetchQueries({ queryKey: ['preventive-consumed-parts', preventiveId] });
+        queryClient.refetchQueries({ queryKey: ['part-consumption-coverage', preventiveId] });
+      }, 2000);
     },
     onError: (error) => {
       toast.error('Erro ao atualizar: ' + error.message);
