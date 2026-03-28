@@ -1,46 +1,47 @@
 
-Diagnóstico atualizado (causa raiz real)
-- O problema não é “falta de gravação”: as peças estão no backend.
-- O que falha é a consistência visual imediata no mobile por 2 pontos:
-  1) `ChecklistExecution.tsx` faz `setQueryData` otimista, mas em seguida executa `refetchQueries` (com delay fixo), que pode retornar snapshot antigo e sobrescrever o cache otimista.
-  2) `ConsumedPartsBlock.tsx` ainda decide a fonte de render por `isOnline`; se esse estado oscilar, ele ignora o cache online (onde a peça já foi inserida otimisticamente) e mostra lista vazia/local.
+Objetivo: manter o salvamento 100% online como está hoje, mas mudar a exibição para um modelo “shadow cache determinístico”, para que a peça apareça imediatamente no mobile sem depender de Forçar Atualização.
 
-Abordagem diferente (sem depender de “Forçar atualização”)
-- Trocar de “refetch agressivo” para “cache determinístico + reconciliação segura”.
-- A UI passa a confiar no cache otimista imediato e só reconcilia sem sobrescrever cedo demais.
+Diagnóstico (confirmado)
+- As peças da PREV-2026-00002 estão sendo gravadas no backend.
+- O problema é de renderização imediata: respostas de leitura atrasadas podem substituir o cache otimista e esconder temporariamente as peças.
 
-Plano de implementação
+Estratégia diferente (sem depender de sync manual)
+1) Transformar a lista de peças em “merge por ID” (não substituição cega)
+- Arquivo: `src/components/preventivas/ConsumedPartsBlock.tsx`
+- Ajustar `queryFn` de `preventive-consumed-parts` para:
+  - Buscar dados online normalmente.
+  - Ler cache atual da própria query.
+  - Mesclar `server + cache otimista` por `id` (server prevalece quando existir).
+- Efeito: se a leitura online vier atrasada, ela não apaga a peça recém-criada no cache local da query.
 
-1) `src/components/preventivas/ChecklistExecution.tsx`
-- Remover os `setTimeout(... refetchQueries ...)` nos fluxos:
-  - `updateItemMutation.onSuccess`
-  - `toggleActionMutation.onSuccess`
-  - `toggleNonconformityMutation.onSuccess`
-- Substituir por:
-  - `queryClient.invalidateQueries({ queryKey: ['preventive-consumed-parts', preventiveId], refetchType: 'none' })`
-  - `queryClient.invalidateQueries({ queryKey: ['part-consumption-coverage', preventiveId], refetchType: 'none' })`
-- Manter `setQueryData` otimista atual (ele já está correto e imediato).
+2) Blindar mutações do checklist contra sobrescrita de request em voo
+- Arquivo: `src/components/preventivas/ChecklistExecution.tsx`
+- Antes de aplicar `setQueryData` de peças automáticas:
+  - `queryClient.cancelQueries({ queryKey: ['preventive-consumed-parts', preventiveId] })`
+- Depois:
+  - manter `setQueryData` (upsert por `id`) como fonte imediata da UI.
+  - manter `invalidateQueries(..., refetchType: 'none')` (sem refetch agressivo imediato).
+- Efeito: evita que uma resposta antiga de rede derrube a peça que acabou de entrar no cache.
 
-2) `src/components/preventivas/ConsumedPartsBlock.tsx`
-- Não usar `isOnline` para decidir o que renderizar.
-- Novo merge de dados:
-  - base = `onlineParts` (ou último cache da query)
-  - overlay = pendências locais (`_pendingSync`) não existentes na base
-  - deduplicação por `id`
-- Ajustar loading para não “piscar vazio” quando houver cache prévio.
-- Manter `enabled: !!preventiveId` e `placeholderData` para preservar última lista enquanto reconcilia.
+3) Corrigir inconsistência de ID no fluxo manual (ajuste colateral importante)
+- Arquivo: `src/components/preventivas/ConsumedPartsBlock.tsx`
+- Hoje o `onSuccess` da peça manual usa `crypto.randomUUID()` novo (diferente do ID inserido).
+- Ajustar para usar exatamente o mesmo `id` do payload inserido.
+- Efeito: elimina duplicidade/fantasma no cache e melhora consistência visual no mobile.
 
-3) `src/components/preventivas/ConsumedPartsBlock.tsx` (mutações manuais)
-- Em `addManualPartMutation` e `deleteManualPartMutation`, aplicar `setQueryData` local no `onSuccess` (inserir/remover item no cache imediatamente), além da invalidação sem refetch imediato.
-- Isso elimina a janela em que peça manual existe no backend/local, mas ainda não aparece na UI.
+4) Regras de reconciliação
+- Continuar gravando online como fonte oficial.
+- Não depender do Dexie para peça automática aparecer.
+- Dexie permanece apenas como apoio offline já existente, sem virar fonte principal da tela em modo online.
 
-Validação (mobile, sem botão de força)
-1. Marcar NC + ação “Troca” em PREV-2026-00002 e confirmar peça imediata no bloco.
-2. Adicionar peça manual e confirmar exibição imediata.
-3. Sair da visita e clicar “Continuar” e validar que checklist + peças permanecem visíveis.
-4. Repetir rápido (ações consecutivas) para garantir que não há regressão de race visual.
+Validação (mobile, sem Forçar Atualização)
+1. PREV-2026-00002: marcar NC + ação “Troca” e confirmar peça aparecendo na hora.
+2. Repetir em 2 itens seguidos (toques rápidos) e confirmar que nenhuma peça “some”.
+3. Sair e “Continuar” visita: checklist e peças permanecem visíveis.
+4. Confirmar que remoção de NC/ação remove peça da lista imediatamente.
+5. Confirmar que o botão “Forçar Atualização” não é mais necessário nesse fluxo.
 
 Impacto
+- Sem migration.
 - Sem mudança de regra de negócio.
-- Sem depender de sync forçado.
-- Foco total em consistência de UI no mobile, com atualização imediata e estável.
+- Foco total em consistência de UI no mobile com persistência online preservada.
