@@ -1,36 +1,33 @@
 
 
-## Fix: nova COR não aparece na lista (invalidação sobrescreve update otimista)
+## Limpar dados de teste — preventivas e corretivas
 
-### Causa raiz
+### Dados encontrados
 
-No `onSuccess` do `NovaVisitaDiretaDialog.tsx`, a sequência é:
-1. `setQueryData` — insere a nova visita otimisticamente ✅
-2. `invalidateQueries({ queryKey: ['my-corrective-visits'] })` — dispara refetch imediato que busca dados do backend ❌
+| Tabela | Registros |
+|---|---|
+| preventive_routes | 2 |
+| preventive_route_items | 2 (CASCADE automático) |
+| preventive_maintenance | 9 |
+| preventive_checklists | 4 (CASCADE automático) |
+| technical_tickets | 9 |
+| ticket_visits | 9 |
+| ticket_timeline | 22 |
+| pedidos / pedido_itens | 0 |
+| visita_midias | 0 |
 
-O refetch retorna dados potencialmente stale (replica lag no mobile), sobrescrevendo o insert otimista. É exatamente o mesmo bug que já corrigimos no check-in.
+### Sequência de DELETEs
 
-### Correção
+1. `DELETE FROM ticket_timeline` — 22 registros
+2. `DELETE FROM ticket_visits` — 9 visitas corretivas
+3. `DELETE FROM technical_tickets` — 9 chamados
+4. `DELETE FROM preventive_maintenance` — 9 registros (cascata remove checklists, blocos, itens, ações)
+5. `DELETE FROM preventive_route_items` — 2 itens
+6. `DELETE FROM preventive_routes` — 2 rotas
 
-**Arquivo:** `src/components/chamados/NovaVisitaDiretaDialog.tsx` (linha 213)
+### O que NÃO será afetado
+- Clientes, pedidos, CRM, estoque, oficina, templates de checklist, usuários
 
-Adicionar `refetchType: 'none'` na invalidação de `my-corrective-visits`, mantendo apenas a marcação como stale (será reconciliado no próximo mount/focus):
-
-```ts
-// DE:
-queryClient.invalidateQueries({ queryKey: ['my-corrective-visits'] });
-
-// PARA:
-queryClient.invalidateQueries({ 
-  queryKey: ['my-corrective-visits'],
-  refetchType: 'none',
-});
-```
-
-A invalidação de `technical-tickets` pode manter refetch normal pois não afeta a lista visível.
-
-### Impacto
-- 1 linha alterada
-- Nova COR aparece imediatamente via cache otimista
-- Reconciliação acontece automaticamente no próximo foco/navegação (staleTime: 0)
+### Método
+Usar o insert tool para executar os DELETEs sequencialmente.
 
