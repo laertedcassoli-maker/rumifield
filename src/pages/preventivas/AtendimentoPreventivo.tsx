@@ -412,13 +412,7 @@ export default function AtendimentoPreventivo() {
                   .eq('preventive_id', routeItem.preventiveId)
                   .is('exec_item_id', null);
 
-                const localManualParts = await offlineChecklistDb.partConsumptions
-                  .filter(pc => pc.preventive_id === routeItem.preventiveId
-                    && pc.exec_item_id === null
-                    && pc._operation !== 'delete')
-                  .toArray();
-
-                const totalManualParts = (manualParts?.length || 0) + localManualParts.length;
+                const totalManualParts = manualParts?.length || 0;
                 const stillMissing = itemsWithoutParts.length - totalManualParts;
 
                 if (stillMissing > 0) {
