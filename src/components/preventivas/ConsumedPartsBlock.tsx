@@ -305,6 +305,8 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
           .insert(payload);
         if (error) throw error;
       }
+
+      return { newId };
     },
     onSuccess: (_, __, context) => {
       // Optimistic: add to cache immediately using the SAME ID from mutationFn
