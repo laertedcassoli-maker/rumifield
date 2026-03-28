@@ -591,7 +591,9 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
   };
 
   // Helper: create part consumption records for all selected NCs of an item (via Supabase)
-  const createPartConsumptionForItemNCs = async (itemId: string) => {
+  // Returns the created parts for optimistic cache update
+  const createPartConsumptionForItemNCs = async (itemId: string): Promise<any[]> => {
+    const createdParts: any[] = [];
     const { data: selectedNCs, error: ncError } = await supabase
       .from('preventive_checklist_item_nonconformities')
       .select('id, template_nonconformity_id')
@@ -599,12 +601,12 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
 
     if (ncError) {
       console.error('[ChecklistExecution] Error fetching NCs for part consumption:', ncError);
-      return;
+      return createdParts;
     }
 
     if (!selectedNCs || selectedNCs.length === 0) {
       console.log('[ChecklistExecution] No NCs found for item', itemId, '- skipping part consumption creation');
-      return;
+      return createdParts;
     }
 
     console.log('[ChecklistExecution] Creating part consumption for', selectedNCs.length, 'NCs on item', itemId);
@@ -614,23 +616,37 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
       const ncParts = await getNcParts(nc.template_nonconformity_id);
       console.log('[ChecklistExecution] NC', nc.id, 'has', ncParts.length, 'parts configured');
       for (const np of ncParts) {
+        const newId = crypto.randomUUID();
+        const record = {
+          id: newId,
+          preventive_id: preventiveId,
+          exec_item_id: itemId,
+          exec_nonconformity_id: nc.id,
+          part_id: np.part_id,
+          part_code_snapshot: np.part_codigo,
+          part_name_snapshot: np.part_nome,
+          quantity: np.default_quantity,
+          stock_source: null,
+        };
         const { error: insertErr } = await (supabase as any)
           .from('preventive_part_consumption')
-          .insert({
-            preventive_id: preventiveId,
-            exec_item_id: itemId,
-            exec_nonconformity_id: nc.id,
-            part_id: np.part_id,
-            part_code_snapshot: np.part_codigo,
-            part_name_snapshot: np.part_nome,
-            quantity: np.default_quantity,
-            stock_source: null,
-          });
+          .insert(record);
         if (insertErr) {
           console.error('[ChecklistExecution] Error inserting part consumption:', insertErr);
+        } else {
+          createdParts.push({
+            ...record,
+            unit_cost_snapshot: null,
+            asset_unique_code: null,
+            notes: null,
+            is_manual: false,
+            consumed_at: new Date().toISOString(),
+            is_asset: false,
+          });
         }
       }
     }
+    return createdParts;
   };
 
   // Helper: remove all automatic part consumption for NCs of an item (via Supabase)
