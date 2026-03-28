@@ -118,44 +118,29 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
     [preventiveId]
   );
 
-  // Merge: use online data as base, overlay any pending local records not yet synced
+  // Merge: always use query cache as base, overlay pending local records (deduplicate by id)
   const parts: (ConsumedPart & { is_asset: boolean })[] | undefined = (() => {
-    if (isOnline && onlineParts !== undefined) {
-      const onlineIds = new Set(onlineParts.map(p => p.id));
-      const pendingLocal = (allLocalParts || [])
-        .filter(item => item._pendingSync && !onlineIds.has(item.id))
-        .map(item => ({
-          id: item.id,
-          part_id: item.part_id,
-          part_code_snapshot: item.part_code_snapshot,
-          part_name_snapshot: item.part_name_snapshot,
-          quantity: item.quantity,
-          unit_cost_snapshot: null,
-          stock_source: (item.stock_source as ConsumedPart['stock_source']) || null,
-          asset_unique_code: (item.asset_unique_code as string) || null,
-          notes: (item.notes as string) || null,
-          is_manual: item.is_manual || false,
-          consumed_at: item.consumed_at || new Date().toISOString(),
-          is_asset: false,
-        }));
-      return [...onlineParts, ...pendingLocal];
-    }
-    return (allLocalParts || []).map(item => ({
-      id: item.id,
-      part_id: item.part_id,
-      part_code_snapshot: item.part_code_snapshot,
-      part_name_snapshot: item.part_name_snapshot,
-      quantity: item.quantity,
-      unit_cost_snapshot: null,
-      stock_source: (item.stock_source as ConsumedPart['stock_source']) || null,
-      asset_unique_code: (item.asset_unique_code as string) || null,
-      notes: (item.notes as string) || null,
-      is_manual: item.is_manual || false,
-      consumed_at: item.consumed_at || new Date().toISOString(),
-      is_asset: false,
-    }));
+    const base = onlineParts || [];
+    const baseIds = new Set(base.map(p => p.id));
+    const pendingLocal = (allLocalParts || [])
+      .filter(item => item._pendingSync && !baseIds.has(item.id))
+      .map(item => ({
+        id: item.id,
+        part_id: item.part_id,
+        part_code_snapshot: item.part_code_snapshot,
+        part_name_snapshot: item.part_name_snapshot,
+        quantity: item.quantity,
+        unit_cost_snapshot: null,
+        stock_source: (item.stock_source as ConsumedPart['stock_source']) || null,
+        asset_unique_code: (item.asset_unique_code as string) || null,
+        notes: (item.notes as string) || null,
+        is_manual: item.is_manual || false,
+        consumed_at: item.consumed_at || new Date().toISOString(),
+        is_asset: false,
+      }));
+    return [...base, ...pendingLocal];
   })();
-  const isLoading = isOnline ? onlineLoading : allLocalParts === undefined;
+  const isLoading = onlineLoading && !onlineParts;
 
   // Fetch available parts for manual addition (with offline fallback)
   const { data: availableParts } = useOfflineQuery<{ id: string; codigo: string; nome: string; familia: string | null; is_asset?: boolean }[]>({
