@@ -53,6 +53,7 @@ interface ConsumedPartsBlockProps {
 export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }: ConsumedPartsBlockProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const prevPartsCountRef = useRef(0);
+  const [pollPausedUntil, setPollPausedUntil] = useState(0);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isPartSelectorOpen, setIsPartSelectorOpen] = useState(false);
   const [selectedPartId, setSelectedPartId] = useState<string | null>(null);
@@ -103,10 +104,27 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
       return serverItems.map(i => ({ ...i, is_asset: false }));
     },
     enabled: !!preventiveId,
-    staleTime: 2000,
-    refetchInterval: 5000,
+    staleTime: Date.now() < pollPausedUntil ? 15000 : 2000,
+    refetchInterval: Date.now() < pollPausedUntil ? false : 5000,
     retry: 2,
   });
+
+  // Listen for optimistic cache updates and pause polling to protect them
+  useEffect(() => {
+    const unsubscribe = queryClient.getQueryCache().subscribe((event) => {
+      if (
+        event?.query?.queryKey?.[0] === 'preventive-consumed-parts' &&
+        event?.query?.queryKey?.[1] === preventiveId &&
+        event?.type === 'updated'
+      ) {
+        const data = event.query.state.data as any[];
+        if (data?.some((p: any) => p._optimistic)) {
+          setPollPausedUntil(Date.now() + 15000);
+        }
+      }
+    });
+    return () => unsubscribe();
+  }, [queryClient, preventiveId]);
 
   // Always show Dexie parts reactively (includes pending items)
   const allLocalParts = useLiveQuery(

@@ -802,7 +802,6 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
         });
       }
 
-      queryClient.invalidateQueries({ queryKey: ['preventive-consumed-parts', preventiveId], refetchType: 'none' });
       queryClient.invalidateQueries({ queryKey: ['part-consumption-coverage', preventiveId], refetchType: 'none' });
       setLastSavedAt(new Date());
     },
@@ -971,7 +970,6 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
         });
       }
 
-      queryClient.invalidateQueries({ queryKey: ['preventive-consumed-parts', preventiveId], refetchType: 'none' });
       queryClient.invalidateQueries({ queryKey: ['part-consumption-coverage', preventiveId], refetchType: 'none' });
       setLastSavedAt(new Date());
     },
