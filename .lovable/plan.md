@@ -1,43 +1,43 @@
 
 
-## Limpar rota duplicada + prevenir duplicatas futuras
+## Correção definitiva: peças não exibidas no mobile
 
-### 1. Excluir a rota duplicada (via insert tool)
+### Diagnóstico (após análise profunda)
 
-A primeira PREV-2026-00003 (`7dd16f01-...`, 3 fazendas) será excluída. A segunda (`982a5d51-...`, 4 fazendas) será mantida.
+O `setQueryData` otimista no `ChecklistExecution` atualiza o cache de `preventive-consumed-parts`. Porém, o `ConsumedPartsBlock` usa `staleTime: 0`, o que faz o React Query considerar QUALQUER dado no cache como "stale" e agendar um refetch imediato. Esse refetch compete com o `setQueryData` otimista e pode sobrescrever os dados antes de renderizar.
 
-```sql
-DELETE FROM preventive_route_items WHERE route_id = '7dd16f01-55c3-44c1-9f1b-a08035076e3a';
-DELETE FROM preventive_routes WHERE id = '7dd16f01-55c3-44c1-9f1b-a08035076e3a';
-```
+Além disso, o `setTimeout` de 3s que faz `refetchQueries` pode retornar dados do servidor antes que a replicação complete, limpando o cache otimista.
 
-### 2. Adicionar constraint UNIQUE na coluna `route_code` (migration)
+### Estratégia: polling curto + auto-expand
 
-```sql
-ALTER TABLE public.preventive_routes
-ADD CONSTRAINT preventive_routes_route_code_unique UNIQUE (route_code);
-```
+Em vez de depender da coordenação frágil de cache entre dois componentes, usar **polling automático** no `ConsumedPartsBlock` para garantir que os dados do servidor apareçam em poucos segundos, independentemente do estado do cache otimista.
 
-Isso impede duplicatas a nível de banco, independente de race conditions no frontend.
+### Alterações
 
-### 3. Proteção no frontend — NovaRota.tsx
+**Arquivo: `src/components/preventivas/ConsumedPartsBlock.tsx`**
 
-Atualmente o código gera o `route_code` no cliente (query + incremento). Se dois usuários abrem a tela ao mesmo tempo, ambos obtêm o mesmo código.
+1. Adicionar `refetchInterval: 5000` na query de peças — a cada 5 segundos, busca do servidor. Garante que mesmo se o cache otimista falhar, as peças aparecem em no máximo 5s.
 
-Alterar o `handleSubmit` para usar a função `generate_preventive_route_code()` do banco (via `rpc`) no momento do insert, em vez de usar o código gerado previamente no estado do form. O campo continua exibindo o código sugerido, mas o valor real vem do banco no momento da gravação.
+2. Adicionar `staleTime: 2000` (em vez de 0) — evita que um refetch imediato sobrescreva o dado otimista recém-inserido pelo `setQueryData`.
 
-```ts
-// No handleSubmit, antes do insert:
-const { data: codeData } = await supabase.rpc('generate_preventive_route_code');
-const finalCode = codeData || form.route_code;
+3. **Auto-expand**: quando a lista de peças muda de 0 para >0 itens, expandir automaticamente o bloco (setar `isExpanded = true`). Isso garante que o usuário veja as peças sem precisar abrir manualmente o collapsible.
 
-// Usar finalCode no insert
-```
+**Arquivo: `src/components/preventivas/ChecklistExecution.tsx`**
 
-Se o insert falhar por constraint unique (race condition), exibir toast de erro claro.
+4. **Remover todos os `setTimeout` de 3s** que fazem `refetchQueries` para `preventive-consumed-parts`. O polling no ConsumedPartsBlock já garante a reconciliação — os timeouts só criam race conditions.
+
+5. Manter o `cancelQueries` + `setQueryData` otimista como está (para feedback imediato quando funciona).
+
+### Por que esta abordagem é diferente
+
+- Todas as tentativas anteriores dependiam de **coordenação síncrona** entre dois componentes via cache React Query (setQueryData → observer → render). Isso é frágil em mobile.
+- O polling é **independente** — funciona sem depender do `onSuccess` do outro componente. É a técnica mais confiável para dados que mudam por efeitos colaterais no backend.
+- O `staleTime: 2000` protege o dado otimista de ser sobrescrito imediatamente.
+- O auto-expand remove a necessidade de o usuário abrir manualmente o bloco para verificar se as peças foram geradas.
 
 ### Resumo
-- 1 exclusão de dados (rota duplicada)
-- 1 migration (UNIQUE constraint)
-- 1 arquivo alterado: `NovaRota.tsx` (usar RPC para código final)
+- 2 arquivos alterados
+- Sem migration
+- Sem mudança de regra de negócio
+- Peças garantidas em até 5s no mobile (e instantâneas quando otimismo funciona)
 
