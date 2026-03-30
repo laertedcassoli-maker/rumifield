@@ -1,35 +1,43 @@
 
 
-## Fix: peças desaparecem após fechar e reabrir o app
+## Limpar rota duplicada + prevenir duplicatas futuras
 
-### Causa raiz identificada
+### 1. Excluir a rota duplicada (via insert tool)
 
-A query de peças (`preventive-consumed-parts`) tem configurações que impedem refetch adequado no remount:
+A primeira PREV-2026-00003 (`7dd16f01-...`, 3 fazendas) será excluída. A segunda (`982a5d51-...`, 4 fazendas) será mantida.
 
-1. `staleTime: 30_000` — dados considerados "frescos" por 30s, não refetch mesmo após remount
-2. `refetchOnWindowFocus: false` — não refetch ao voltar para a aba
-3. `placeholderData: (prev) => prev` — pode retornar dados antigos vazios
-4. Merge-by-ID complexo no `queryFn` que lê o cache dentro do próprio fetch, criando dependência circular
-5. `refetchType: 'none'` em todas as invalidações — dados marcados como stale mas nunca refetched em background
+```sql
+DELETE FROM preventive_route_items WHERE route_id = '7dd16f01-55c3-44c1-9f1b-a08035076e3a';
+DELETE FROM preventive_routes WHERE id = '7dd16f01-55c3-44c1-9f1b-a08035076e3a';
+```
 
-Combinação: ao fechar e reabrir, o cache está vazio, a query roda mas o merge-by-ID retorna array vazio antes dos dados do server chegarem, e o `placeholderData` não tem nada para mostrar.
+### 2. Adicionar constraint UNIQUE na coluna `route_code` (migration)
 
-### Correção: simplificar a query de peças
+```sql
+ALTER TABLE public.preventive_routes
+ADD CONSTRAINT preventive_routes_route_code_unique UNIQUE (route_code);
+```
 
-**Arquivo:** `src/components/preventivas/ConsumedPartsBlock.tsx`
+Isso impede duplicatas a nível de banco, independente de race conditions no frontend.
 
-1. **Remover merge-by-ID do queryFn** — a query retorna apenas dados do servidor, sem ler o cache dentro dela mesma
-2. **Remover `staleTime: 30_000`** — usar `staleTime: 0` para sempre refetch no mount
-3. **Remover `refetchOnWindowFocus: false`** — permitir refetch ao voltar
-4. **Remover `placeholderData`** — evitar dados fantasma
-5. **Manter `cancelQueries` + `setQueryData` nas mutações** — para feedback otimista imediato durante a sessão
+### 3. Proteção no frontend — NovaRota.tsx
 
-**Arquivo:** `src/components/preventivas/ChecklistExecution.tsx`
+Atualmente o código gera o `route_code` no cliente (query + incremento). Se dois usuários abrem a tela ao mesmo tempo, ambos obtêm o mesmo código.
 
-6. **Trocar `refetchType: 'none'` por refetch com delay de 3s** — após mutação otimista, agendar refetch real para reconciliar com o backend (delay evita replica lag)
+Alterar o `handleSubmit` para usar a função `generate_preventive_route_code()` do banco (via `rpc`) no momento do insert, em vez de usar o código gerado previamente no estado do form. O campo continua exibindo o código sugerido, mas o valor real vem do banco no momento da gravação.
+
+```ts
+// No handleSubmit, antes do insert:
+const { data: codeData } = await supabase.rpc('generate_preventive_route_code');
+const finalCode = codeData || form.route_code;
+
+// Usar finalCode no insert
+```
+
+Se o insert falhar por constraint unique (race condition), exibir toast de erro claro.
 
 ### Resumo
-- A peça aparece instantaneamente via `setQueryData` (otimista) durante a sessão
-- Ao reabrir, a query sempre busca do servidor e exibe os dados reais
-- Refetch com delay de 3s garante reconciliação sem sobrescrever o estado otimista
+- 1 exclusão de dados (rota duplicada)
+- 1 migration (UNIQUE constraint)
+- 1 arquivo alterado: `NovaRota.tsx` (usar RPC para código final)
 
