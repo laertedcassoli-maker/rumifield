@@ -457,11 +457,16 @@ export default function NovaRota() {
     let createdRouteId: string | null = null;
 
     try {
+      // Generate final route_code from DB to avoid duplicates
+      const { data: finalCode, error: codeError } = await supabase.rpc('generate_preventive_route_code');
+      if (codeError) throw codeError;
+      const routeCode = finalCode || form.route_code;
+
       // Create route with status 'em_elaboracao'
       const { data: route, error: routeError } = await supabase
         .from('preventive_routes')
         .insert({
-          route_code: form.route_code,
+          route_code: routeCode,
           start_date: form.start_date,
           end_date: form.end_date,
           field_technician_user_id: form.field_technician_user_id,
