@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { supabase } from '@/integrations/supabase/client';
@@ -52,6 +52,7 @@ interface ConsumedPartsBlockProps {
 
 export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }: ConsumedPartsBlockProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const prevPartsCountRef = useRef(0);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isPartSelectorOpen, setIsPartSelectorOpen] = useState(false);
   const [selectedPartId, setSelectedPartId] = useState<string | null>(null);
@@ -102,7 +103,8 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
       return serverItems.map(i => ({ ...i, is_asset: false }));
     },
     enabled: !!preventiveId,
-    staleTime: 0,
+    staleTime: 2000,
+    refetchInterval: 5000,
     retry: 2,
   });
 
@@ -139,6 +141,15 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
     return [...base, ...pendingLocal];
   })();
   const isLoading = onlineLoading && !onlineParts;
+
+  // Auto-expand when parts appear for the first time
+  useEffect(() => {
+    const count = parts?.length || 0;
+    if (prevPartsCountRef.current === 0 && count > 0) {
+      setIsExpanded(true);
+    }
+    prevPartsCountRef.current = count;
+  }, [parts?.length]);
 
   // Fetch available parts for manual addition (with offline fallback)
   const { data: availableParts } = useOfflineQuery<{ id: string; codigo: string; nome: string; familia: string | null; is_asset?: boolean }[]>({
