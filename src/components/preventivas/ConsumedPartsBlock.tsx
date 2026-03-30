@@ -53,6 +53,7 @@ interface ConsumedPartsBlockProps {
 export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }: ConsumedPartsBlockProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const prevPartsCountRef = useRef(0);
+  const [pollPausedUntil, setPollPausedUntil] = useState(0);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isPartSelectorOpen, setIsPartSelectorOpen] = useState(false);
   const [selectedPartId, setSelectedPartId] = useState<string | null>(null);
