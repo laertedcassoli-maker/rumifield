@@ -321,6 +321,7 @@ export default function DetalheRota() {
     onSuccess: (_, newStatus) => {
       queryClient.invalidateQueries({ queryKey: ['preventive-route', id] });
       queryClient.invalidateQueries({ queryKey: ['preventive-routes'] });
+      queryClient.invalidateQueries({ queryKey: ['my-preventive-routes'] });
       queryClient.invalidateQueries({ queryKey: ['calendar-preventives'] });
       const message = newStatus === 'planejada' 
         ? 'Planejamento finalizado! A rota está pronta para execução.'
