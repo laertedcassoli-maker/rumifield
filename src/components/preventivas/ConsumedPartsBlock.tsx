@@ -142,6 +142,15 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
   })();
   const isLoading = onlineLoading && !onlineParts;
 
+  // Auto-expand when parts appear for the first time
+  useEffect(() => {
+    const count = parts?.length || 0;
+    if (prevPartsCountRef.current === 0 && count > 0) {
+      setIsExpanded(true);
+    }
+    prevPartsCountRef.current = count;
+  }, [parts?.length]);
+
   // Fetch available parts for manual addition (with offline fallback)
   const { data: availableParts } = useOfflineQuery<{ id: string; codigo: string; nome: string; familia: string | null; is_asset?: boolean }[]>({
     queryKey: ['parts-catalog-active'],
