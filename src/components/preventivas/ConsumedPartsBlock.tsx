@@ -102,7 +102,8 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
       return serverItems.map(i => ({ ...i, is_asset: false }));
     },
     enabled: !!preventiveId,
-    staleTime: 0,
+    staleTime: 2000,
+    refetchInterval: 5000,
     retry: 2,
   });
 
