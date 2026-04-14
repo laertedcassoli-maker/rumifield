@@ -506,12 +506,6 @@ export function useOfflineSync() {
         } else if (tableName === "estoque_cliente") {
           const result = await supabase.from("estoque_cliente").insert(cleanData as never);
           if (result.error) throw result.error;
-        } else if (tableName === "pedidos") {
-          const result = await supabase.from("pedidos").insert(cleanData as never);
-          if (result.error) throw result.error;
-        } else if (tableName === "pedido_itens") {
-          const result = await supabase.from("pedido_itens").insert(cleanData as never);
-          if (result.error) throw result.error;
         } else if (tableName === "preventive_maintenance") {
           delete cleanData.client_name;
           delete cleanData.technician_name;
@@ -548,10 +542,6 @@ export function useOfflineSync() {
           await offlineDb.visitas.update(data.id as string, { _pendingSync: false, sincronizado: true });
         } else if (table === "estoque" && data.id) {
           await offlineDb.estoque.update(data.id as string, { _pendingSync: false });
-        } else if (table === "pedidos" && data.id) {
-          await offlineDb.pedidos.update(data.id as string, { _pendingSync: false });
-        } else if (table === "pedido_itens" && data.id) {
-          await offlineDb.pedido_itens.update(data.id as string, { _pendingSync: false });
         }
         break;
       }
@@ -568,9 +558,6 @@ export function useOfflineSync() {
           if (result.error) throw result.error;
         } else if (tableName === "estoque_cliente") {
           const result = await supabase.from("estoque_cliente").update(cleanData as never).eq("id", id);
-          if (result.error) throw result.error;
-        } else if (tableName === "pedidos") {
-          const result = await supabase.from("pedidos").update(cleanData as never).eq("id", id);
           if (result.error) throw result.error;
         } else if (tableName === "preventive_route_items") {
           const result = await supabase.from("preventive_route_items").update(cleanData as never).eq("id", id);
@@ -608,9 +595,6 @@ export function useOfflineSync() {
           if (result.error) throw result.error;
         } else if (tableName === "estoque_cliente") {
           const result = await supabase.from("estoque_cliente").delete().eq("id", id);
-          if (result.error) throw result.error;
-        } else if (tableName === "pedido_itens") {
-          const result = await supabase.from("pedido_itens").delete().eq("id", id);
           if (result.error) throw result.error;
         } else {
           console.warn(
@@ -677,7 +661,6 @@ export function useOfflineSync() {
         "produtos_quimicos", 
         "visitas", 
         "estoque", 
-        "pedidos",
         "chamados",
         "corretivas",
         "rotas",

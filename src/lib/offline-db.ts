@@ -265,8 +265,6 @@ class OfflineDatabase extends Dexie {
   produtos_quimicos!: Table<OfflineProdutoQuimico, string>;
   visitas!: Table<OfflineVisita, string>;
   estoque!: Table<OfflineEstoque, string>;
-  pedidos!: Table<OfflinePedido, string>;
-  pedido_itens!: Table<OfflinePedidoItem, string>;
   chamados!: Table<OfflineChamado, string>;
   preventivas!: Table<OfflinePreventiva, string>;
   corretivas!: Table<OfflineCorretiva, string>;
@@ -327,8 +325,6 @@ class OfflineDatabase extends Dexie {
     await this.produtos_quimicos.clear();
     await this.visitas.clear();
     await this.estoque.clear();
-    await this.pedidos.clear();
-    await this.pedido_itens.clear();
     await this.chamados.clear();
     await this.preventivas.clear();
     await this.corretivas.clear();
