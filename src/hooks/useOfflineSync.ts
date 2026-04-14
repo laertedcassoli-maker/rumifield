@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { offlineDb, SyncQueueItem } from "@/lib/offline-db";
 import { offlineChecklistDb } from "@/lib/offline-checklist-db";
-import { syncPedidosFromServer } from "@/hooks/useOfflinePedidos";
+
 import { toast } from "sonner";
 
 export type SyncStatus = "idle" | "syncing" | "error" | "offline";
@@ -106,8 +106,8 @@ export function useOfflineSync() {
           break;
         }
         case "pedidos": {
-          // Use dedicated sync function for pedidos
-          return await syncPedidosFromServer();
+          // Pedidos module is now 100% online via React Query - skip offline sync
+          return true;
         }
         case "chamados": {
           // Fetch chamados with client/technician info

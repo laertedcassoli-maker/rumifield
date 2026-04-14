@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { X, Search, Plus, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
+import { useDebounce } from '@/hooks/useDebounce';
 
 interface WorkshopItem {
   id: string;
@@ -40,6 +41,8 @@ export default function AssetSearchField({
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [pendingAssetCode, setPendingAssetCode] = useState('');
 
+  const debouncedSearch = useDebounce(searchValue, 300);
+
   // Load current asset on mount
   useEffect(() => {
     if (currentAssetId) {
@@ -53,6 +56,13 @@ export default function AssetSearchField({
       searchAssets('');
     }
   }, [open]);
+
+  // Debounced search effect
+  useEffect(() => {
+    if (open) {
+      searchAssets(debouncedSearch);
+    }
+  }, [debouncedSearch, open]);
 
   const fetchAssetDetails = async (assetId: string) => {
     try {
@@ -74,7 +84,6 @@ export default function AssetSearchField({
     
     setIsLoading(true);
     try {
-      // Search workshop_items by omie_product_id matching the part
       const { data } = await supabase
         .from('workshop_items')
         .select('id, unique_code, current_motor_code, status')
@@ -118,7 +127,10 @@ export default function AssetSearchField({
     try {
       const { data, error } = await supabase
         .from('workshop_items')
-        .insert({ unique_code: pendingAssetCode, omie_product_id: pecaId, created_by_user_id: user?.id || null, creation_source: 'automatico' })
+        .upsert(
+          { unique_code: pendingAssetCode, omie_product_id: pecaId, created_by_user_id: user?.id || null, creation_source: 'automatico', status: 'disponivel' },
+          { onConflict: 'unique_code' }
+        )
         .select('id, unique_code, current_motor_code, status')
         .single();
       if (error) throw error;
@@ -163,7 +175,6 @@ export default function AssetSearchField({
               value={searchValue}
               onValueChange={(value) => {
                 setSearchValue(value);
-                searchAssets(value);
               }}
               disabled={disabled}
             />

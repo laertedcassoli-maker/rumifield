@@ -4,14 +4,14 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { 
   Truck, HandHelping, FileText, Eye, ArrowRight, CheckCircle2, 
-  User, Calendar, Package, Clock, AlertTriangle, CloudOff 
+  User, Calendar, Package, Clock, AlertTriangle 
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import ConcluirPedidoDialog from './ConcluirPedidoDialog';
 import ProcessarPedidoDialog from './ProcessarPedidoDialog';
-import type { PedidoComItens } from '@/hooks/useOfflinePedidos';
+import type { PedidoComItens } from '@/types/pedidos';
 
 const urgenciaConfig: Record<string, { label: string; className: string }> = {
   baixa: { label: 'Baixa', className: 'bg-muted text-muted-foreground' },
@@ -61,14 +61,9 @@ function PedidoCard({
     <Card className="shadow-sm">
       <CardContent className="p-3 space-y-2">
         {/* Pedido code */}
-        {pedido.pedido_code ? (
+        {pedido.pedido_code && (
           <span className="font-mono text-xs text-muted-foreground">{pedido.pedido_code}</span>
-        ) : pedido._pendingSync ? (
-          <Badge variant="outline" className="text-[10px] h-5 border-orange-300 text-orange-500 gap-0.5">
-            <CloudOff className="h-2.5 w-2.5" />
-            Pendente sync
-          </Badge>
-        ) : null}
+        )}
         {/* Top badges */}
         <div className="flex items-center gap-1.5 flex-wrap">
           <Badge variant="outline" className={cn('text-[10px] h-5 border-0', urgencia.className)}>
