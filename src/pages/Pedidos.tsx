@@ -1,9 +1,6 @@
-import { useState, useMemo, useEffect, useCallback } from 'react';
-import { useLiveQuery } from 'dexie-react-hooks';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
-import { useOfflinePedidos } from '@/hooks/useOfflinePedidos';
-import { useOffline } from '@/contexts/OfflineContext';
-import { offlineDb } from '@/lib/offline-db';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -17,7 +14,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
-import { Plus, Loader2, Trash2, Minus, ArrowUpDown, Search, X, Eye, Pencil, CloudOff, ShoppingCart, Package, ImageIcon, Send, FileText, ChevronLeft, ChevronRight, Truck, HandHelping, AlertTriangle } from 'lucide-react';
+import { Plus, Loader2, Trash2, Minus, ArrowUpDown, Search, X, Eye, Pencil, ShoppingCart, Package, ImageIcon, Send, FileText, ChevronLeft, ChevronRight, Truck, HandHelping, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -25,6 +22,7 @@ import { cn } from '@/lib/utils';
 import PedidoKanban from '@/components/pedidos/PedidoKanban';
 import AssetSearchField from '@/components/pedidos/AssetSearchField';
 import EditarPedidoSolicitado from '@/components/pedidos/EditarPedidoSolicitado';
+import type { PedidoComItens, PedidoItem } from '@/types/pedidos';
 
 const statusColors: Record<string, string> = {
   rascunho: 'bg-muted text-muted-foreground border-muted-foreground/30',
@@ -47,7 +45,7 @@ const statusLabels: Record<string, string> = {
 export default function Pedidos() {
   const { user, role } = useAuth();
   const { toast } = useToast();
-  const { isOnline, triggerSync, lastSyncTime, syncStatus, pushChanges } = useOffline();
+  const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [editingPedido, setEditingPedido] = useState<any>(null);
   const [viewingPedido, setViewingPedido] = useState<any>(null);
@@ -66,22 +64,80 @@ export default function Pedidos() {
   const isAdmin = role === 'admin' || role === 'coordenador_rplus' || role === 'coordenador_servicos' || role === 'coordenador_logistica';
   const canManagePedidos = role === 'admin' || role === 'coordenador_logistica';
 
-  // Use offline data
-  const clientes = useLiveQuery(() => offlineDb.clientes.toArray(), []);
-  const pecas = useLiveQuery(() => offlineDb.pecas.filter(p => p.ativo !== false).toArray(), []);
-  const { pedidos, isLoading, createPedido, updatePedido, transmitirPedido, transmitirTodos, deletePedido } = useOfflinePedidos(user?.id, viewAll, isAdmin);
+  // Fetch clientes from Supabase
+  const { data: clientes } = useQuery({
+    queryKey: ['pedidos-clientes'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('clientes').select('id, nome, fazenda, cidade, estado, consultor_rplus_id').eq('status', 'ativo').order('nome');
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user,
+    staleTime: 60_000,
+  });
+
+  // Fetch pecas from Supabase
+  const { data: pecas } = useQuery({
+    queryKey: ['pedidos-pecas'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('pecas').select('id, codigo, nome, descricao, familia, imagem_url, is_asset, ativo').eq('ativo', true).order('codigo');
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!user,
+    staleTime: 60_000,
+  });
+
+  // Fetch pedidos from Supabase
+  const { data: pedidos, isLoading } = useQuery({
+    queryKey: ['pedidos', user?.id, viewAll, isAdmin],
+    queryFn: async () => {
+      let query = supabase
+        .from('pedidos')
+        .select(`
+          *,
+          clientes(nome, fazenda, consultor_rplus_id),
+          pedido_itens(
+            *,
+            pecas(nome, codigo, familia, is_asset, imagem_url),
+            workshop_items:workshop_item_id(id, unique_code)
+          )
+        `)
+        .order('created_at', { ascending: false })
+        .limit(500);
+
+      if (!isAdmin || !viewAll) {
+        query = query.eq('solicitante_id', user!.id);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+
+      // Fetch solicitante names
+      const solicitanteIds = [...new Set((data || []).map(p => p.solicitante_id))];
+      const { data: profiles } = solicitanteIds.length > 0
+        ? await supabase.from('profiles').select('id, nome, email').in('id', solicitanteIds)
+        : { data: [] as { id: string; nome: string; email: string }[] };
+      const profileMap = new Map((profiles || []).map(p => [p.id, { nome: p.nome, email: p.email }]));
+
+      return (data || []).map(p => ({
+        ...p,
+        solicitante: profileMap.get(p.solicitante_id) || null,
+        pedido_itens: (p.pedido_itens || []).map((item: any) => ({
+          ...item,
+          workshop_item: item.workshop_items || null,
+        })),
+      })) as PedidoComItens[];
+    },
+    enabled: !!user,
+    staleTime: 30_000,
+    refetchOnWindowFocus: true,
+  });
 
   // Auto-set viewAll for coordinators/admins
   useEffect(() => {
     if (isAdmin) setViewAll(true);
   }, [isAdmin]);
-
-  // Auto-sync when page loads and online
-  useEffect(() => {
-    if (isOnline) {
-      triggerSync();
-    }
-  }, []);
 
   // Tab state for drafts vs submitted
   const [activeTab, setActiveTab] = useState<'rascunhos' | 'pedidos'>('pedidos');
@@ -128,7 +184,6 @@ export default function Pedidos() {
   }, [pedidos]);
 
   const filteredAndSortedPedidos = useMemo(() => {
-    // Use different source based on active tab
     const source = activeTab === 'rascunhos' ? rascunhos : pedidosTransmitidos;
     if (!source.length) return [];
     
@@ -137,10 +192,8 @@ export default function Pedidos() {
         const searchWords = searchLower.split(/\s+/).filter(w => w.length > 0);
         
         const matchesSearch = searchTerm === '' || (() => {
-          // Check pedido_code
           if (pedido.pedido_code?.toLowerCase().includes(searchLower)) return true;
           
-          // Check if client/farm matches all words
           const clienteNome = pedido.clientes?.nome?.toLowerCase() || '';
           const clienteFazenda = pedido.clientes?.fazenda?.toLowerCase() || '';
           const clienteMatch = searchWords.every(word => 
@@ -148,7 +201,6 @@ export default function Pedidos() {
           );
           if (clienteMatch) return true;
           
-          // Check if any part matches all words
           return pedido.pedido_itens?.some((item: any) => {
             const pecaCodigo = item.pecas?.codigo?.toLowerCase() || '';
             const pecaNome = item.pecas?.nome?.toLowerCase() || '';
@@ -158,39 +210,34 @@ export default function Pedidos() {
           });
         })();
       
-      // Status filter only applies to transmitted orders tab
-      const matchesStatus = activeTab === 'rascunhos' || statusFilter === 'all' || pedido.status === statusFilter;
-      
-      // Date filter
-      let matchesDate = true;
-      if (dateFilter !== 'all') {
-        const daysAgo = parseInt(dateFilter);
-        const cutoffDate = new Date();
-        cutoffDate.setDate(cutoffDate.getDate() - daysAgo);
-        matchesDate = new Date(pedido.created_at) >= cutoffDate;
-      }
-      
-      // Tipo envio filter
-      let matchesTipoEnvio = true;
-      if (tipoEnvioFilter === 'envio') {
-        matchesTipoEnvio = pedido.tipo_envio === 'envio_fisico';
-      } else if (tipoEnvioFilter === 'apenas_nf') {
-        matchesTipoEnvio = pedido.tipo_envio === 'apenas_nf';
-      }
+        const matchesStatus = activeTab === 'rascunhos' || statusFilter === 'all' || pedido.status === statusFilter;
+        
+        let matchesDate = true;
+        if (dateFilter !== 'all') {
+          const daysAgo = parseInt(dateFilter);
+          const cutoffDate = new Date();
+          cutoffDate.setDate(cutoffDate.getDate() - daysAgo);
+          matchesDate = new Date(pedido.created_at) >= cutoffDate;
+        }
+        
+        let matchesTipoEnvio = true;
+        if (tipoEnvioFilter === 'envio') {
+          matchesTipoEnvio = pedido.tipo_envio === 'envio_fisico';
+        } else if (tipoEnvioFilter === 'apenas_nf') {
+          matchesTipoEnvio = pedido.tipo_envio === 'apenas_nf';
+        }
 
-      // Tipo logistica filter
-      let matchesTipoLogistica = true;
-      if (tipoLogisticaFilter === 'correios') {
-        matchesTipoLogistica = pedido.tipo_logistica === 'correios';
-      } else if (tipoLogisticaFilter === 'entrega_propria') {
-        matchesTipoLogistica = pedido.tipo_logistica === 'entrega_propria';
-      }
+        let matchesTipoLogistica = true;
+        if (tipoLogisticaFilter === 'correios') {
+          matchesTipoLogistica = pedido.tipo_logistica === 'correios';
+        } else if (tipoLogisticaFilter === 'entrega_propria') {
+          matchesTipoLogistica = pedido.tipo_logistica === 'entrega_propria';
+        }
 
-      // Solicitante filter
-      const matchesSolicitante = solicitanteFilter === 'all' || pedido.solicitante_id === solicitanteFilter;
+        const matchesSolicitante = solicitanteFilter === 'all' || pedido.solicitante_id === solicitanteFilter;
 
-      return matchesSearch && matchesStatus && matchesDate && matchesTipoEnvio && matchesTipoLogistica && matchesSolicitante;
-    });
+        return matchesSearch && matchesStatus && matchesDate && matchesTipoEnvio && matchesTipoLogistica && matchesSolicitante;
+      });
     
     filtered.sort((a, b) => {
       let comparison = 0;
@@ -248,12 +295,11 @@ export default function Pedidos() {
   const handleTransmitir = async (pedidoId: string) => {
     setIsTransmitting(true);
     try {
-      await transmitirPedido(pedidoId);
+      const { error } = await supabase.from('pedidos').update({ status: 'solicitado' }).eq('id', pedidoId);
+      if (error) throw error;
+      queryClient.invalidateQueries({ queryKey: ['pedidos'] });
       toast({ title: 'Pedido transmitido!', description: 'O pedido foi enviado para processamento.' });
       setActiveTab('pedidos');
-      if (isOnline) {
-        pushChanges();
-      }
     } catch (error: any) {
       toast({ variant: 'destructive', title: 'Erro ao transmitir', description: error.message });
     } finally {
@@ -265,15 +311,14 @@ export default function Pedidos() {
     if (rascunhos.length === 0) return;
     setIsTransmitting(true);
     try {
-      await transmitirTodos(rascunhos.map(r => r.id));
+      const { error } = await supabase.from('pedidos').update({ status: 'solicitado' }).in('id', rascunhos.map(r => r.id));
+      if (error) throw error;
+      queryClient.invalidateQueries({ queryKey: ['pedidos'] });
       toast({ 
         title: 'Todos os rascunhos transmitidos!', 
         description: `${rascunhos.length} pedido(s) enviado(s) para processamento.` 
       });
       setActiveTab('pedidos');
-      if (isOnline) {
-        pushChanges();
-      }
     } catch (error: any) {
       toast({ variant: 'destructive', title: 'Erro ao transmitir', description: error.message });
     } finally {
@@ -285,15 +330,17 @@ export default function Pedidos() {
     if (!editingPedido) return;
     setIsDeleting(true);
     try {
-      await deletePedido(editingPedido.id);
+      // Delete items first then pedido
+      const { error: itensError } = await supabase.from('pedido_itens').delete().eq('pedido_id', editingPedido.id);
+      if (itensError) throw itensError;
+      const { error: pedidoError } = await supabase.from('pedidos').delete().eq('id', editingPedido.id);
+      if (pedidoError) throw pedidoError;
+      queryClient.invalidateQueries({ queryKey: ['pedidos'] });
       toast({ title: 'Rascunho excluído!' });
       setOpen(false);
       setEditingPedido(null);
       setForm({ cliente_id: '', observacoes: '', urgencia: 'normal', tipo_envio: '' });
       setItens([]);
-      if (isOnline) {
-        pushChanges();
-      }
     } catch (error: any) {
       toast({ variant: 'destructive', title: 'Erro ao excluir', description: error.message });
     } finally {
@@ -380,24 +427,59 @@ export default function Pedidos() {
     setIsSubmitting(true);
     try {
       if (editingPedido) {
-        await updatePedido(editingPedido.id, {
+        // Update pedido
+        const { error: pedidoError } = await supabase.from('pedidos').update({
           cliente_id: form.cliente_id,
-          observacoes: form.observacoes,
-          itens,
-        });
+          observacoes: form.observacoes || null,
+        }).eq('id', editingPedido.id);
+        if (pedidoError) throw pedidoError;
+
+        // Delete old items
+        const { error: deleteError } = await supabase.from('pedido_itens').delete().eq('pedido_id', editingPedido.id);
+        if (deleteError) throw deleteError;
+
+        // Create new items
+        const newItens = itens.map(item => ({
+          pedido_id: editingPedido.id,
+          peca_id: item.peca_id,
+          quantidade: item.quantidade,
+        }));
+        const { error: itensError } = await supabase.from('pedido_itens').insert(newItens);
+        if (itensError) throw itensError;
+
         toast({ title: 'Pedido atualizado!' });
       } else {
-        await createPedido({
-          solicitante_id: user!.id,
-          cliente_id: form.cliente_id,
-          observacoes: form.observacoes,
-          origem: 'chamado',
-          tipo_envio: form.tipo_envio || undefined,
-          urgencia: form.urgencia,
-          itens,
-        });
+        // Create new pedido
+        const { data: pedido, error: pedidoError } = await supabase
+          .from('pedidos')
+          .insert({
+            solicitante_id: user!.id,
+            cliente_id: form.cliente_id,
+            observacoes: form.observacoes || null,
+            origem: 'chamado',
+            tipo_envio: form.tipo_envio || null,
+            urgencia: form.urgencia,
+            status: 'rascunho',
+          })
+          .select('id')
+          .single();
+        if (pedidoError) throw pedidoError;
+
+        // Create items
+        const newItens = itens.map(item => ({
+          pedido_id: pedido.id,
+          peca_id: item.peca_id,
+          quantidade: item.quantidade,
+        }));
+        const { error: itensError } = await supabase.from('pedido_itens').insert(newItens);
+        if (itensError) {
+          // Rollback: delete orphan pedido
+          await supabase.from('pedidos').delete().eq('id', pedido.id);
+          throw itensError;
+        }
+
         toast({ title: 'Rascunho salvo!', description: 'Clique em "Transmitir" para enviar o pedido.' });
-        setActiveTab('rascunhos'); // Switch to drafts tab
+        setActiveTab('rascunhos');
       }
       setOpen(false);
       setEditingPedido(null);
@@ -406,11 +488,7 @@ export default function Pedidos() {
       setShowConfirmation(false);
       setClienteSearch('');
       setPecaSearches({});
-      
-      // Push changes when online (without full re-fetch)
-      if (isOnline) {
-        pushChanges();
-      }
+      queryClient.invalidateQueries({ queryKey: ['pedidos'] });
     } catch (error: any) {
       toast({ variant: 'destructive', title: 'Erro ao salvar pedido', description: error.message });
     } finally {
@@ -418,7 +496,7 @@ export default function Pedidos() {
     }
   };
 
-  // Processar pedido (solicitado -> processamento, optionally set tipo_logistica)
+  // Processar pedido (solicitado -> processamento)
   const handleProcessar = useCallback(async (pedidoId: string, tipoLogistica?: string, itemsWithAssets?: Record<string, string>) => {
     setIsProcessingAction(true);
     try {
@@ -431,27 +509,24 @@ export default function Pedidos() {
         .eq('id', pedidoId);
       if (error) throw error;
 
-      // Save asset associations
+      // Save asset associations with error handling
       if (itemsWithAssets) {
         for (const [itemId, workshopItemId] of Object.entries(itemsWithAssets)) {
           if (workshopItemId) {
-            await supabase.from('pedido_itens').update({ workshop_item_id: workshopItemId }).eq('id', itemId);
+            const { error: assetError } = await supabase.from('pedido_itens').update({ workshop_item_id: workshopItemId }).eq('id', itemId);
+            if (assetError) throw assetError;
           }
         }
       }
 
-      // Update local
-      const localUpdate: any = { status: 'processamento' };
-      if (tipoLogistica) localUpdate.tipo_logistica = tipoLogistica;
-      await offlineDb.pedidos.update(pedidoId, localUpdate);
+      queryClient.invalidateQueries({ queryKey: ['pedidos'] });
       toast({ title: 'Pedido movido para processamento!' });
-      if (isOnline) setTimeout(() => triggerSync(), 500);
     } catch (err: any) {
       toast({ variant: 'destructive', title: 'Erro', description: err.message });
     } finally {
       setIsProcessingAction(false);
     }
-  }, [isOnline, toast, triggerSync]);
+  }, [toast, queryClient]);
 
   // Concluir pedido (processamento -> faturado + NF + tipo_logistica)
   const handleConcluir = useCallback(async (pedidoId: string, nfNumero: string, dataFaturamento: string, tipoLogistica: string, itemsWithAssets?: Record<string, string>) => {
@@ -468,29 +543,24 @@ export default function Pedidos() {
         .eq('id', pedidoId);
       if (error) throw error;
 
-      // Save asset associations
+      // Save asset associations with error handling
       if (itemsWithAssets) {
         for (const [itemId, workshopItemId] of Object.entries(itemsWithAssets)) {
           if (workshopItemId) {
-            await supabase.from('pedido_itens').update({ workshop_item_id: workshopItemId }).eq('id', itemId);
+            const { error: assetError } = await supabase.from('pedido_itens').update({ workshop_item_id: workshopItemId }).eq('id', itemId);
+            if (assetError) throw assetError;
           }
         }
       }
 
-      await offlineDb.pedidos.update(pedidoId, { 
-        status: 'faturado', 
-        omie_nf_numero: nfNumero,
-        omie_data_faturamento: dataFaturamento,
-        tipo_logistica: tipoLogistica,
-      });
+      queryClient.invalidateQueries({ queryKey: ['pedidos'] });
       toast({ title: 'Pedido concluído!', description: `NF ${nfNumero} registrada.` });
-      if (isOnline) setTimeout(() => triggerSync(), 500);
     } catch (err: any) {
       toast({ variant: 'destructive', title: 'Erro', description: err.message });
     } finally {
       setIsProcessingAction(false);
     }
-  }, [isOnline, toast, triggerSync]);
+  }, [toast, queryClient]);
 
   // Vincular ativo diretamente no detalhe do pedido
   const handleAssetLinked = useCallback(async (itemId: string, workshopItemId: string | null) => {
@@ -512,15 +582,6 @@ export default function Pedidos() {
         workshopItemData = data;
       }
 
-      // Update local Dexie
-      const localPedido = await offlineDb.pedidos.get(viewingPedido.id);
-      if (localPedido && localPedido.pedido_itens) {
-        const updatedItens = localPedido.pedido_itens.map((it: any) =>
-          it.id === itemId ? { ...it, workshop_item_id: workshopItemId } : it
-        );
-        await offlineDb.pedidos.update(viewingPedido.id, { pedido_itens: updatedItens });
-      }
-
       // Update viewingPedido state with complete workshop_item object
       setViewingPedido((prev: any) => {
         if (!prev) return prev;
@@ -536,37 +597,17 @@ export default function Pedidos() {
 
       setEditingAssetItemId(null);
       toast({ title: 'Ativo vinculado com sucesso!' });
-      if (isOnline) setTimeout(() => triggerSync(), 500);
+      queryClient.invalidateQueries({ queryKey: ['pedidos'] });
     } catch (err: any) {
       toast({ variant: 'destructive', title: 'Erro ao vincular ativo', description: err.message });
     }
-  }, [viewingPedido, isOnline, toast, triggerSync]);
+  }, [viewingPedido, toast, queryClient]);
 
   return (
     <div className="space-y-6 animate-fade-in w-full max-w-full overflow-x-hidden">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0">
-          <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold">Pedidos de Peças</h1>
-            {!isOnline && (
-              <Badge variant="outline" className="text-orange-500 border-orange-300">
-                <CloudOff className="h-3 w-3 mr-1" />
-                Offline
-              </Badge>
-            )}
-          </div>
-          <p className="text-xs text-muted-foreground mt-1">
-            {syncStatus === 'syncing' ? (
-              <span className="flex items-center gap-1">
-                <Loader2 className="h-3 w-3 animate-spin" />
-                Sincronizando...
-              </span>
-            ) : lastSyncTime ? (
-              `Última sync: ${format(lastSyncTime, "dd/MM 'às' HH:mm", { locale: ptBR })}`
-            ) : (
-              'Nunca sincronizado'
-            )}
-          </p>
+          <h1 className="text-2xl font-bold">Pedidos de Peças</h1>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Dialog open={open} onOpenChange={handleCloseDialog}>
@@ -582,12 +623,6 @@ export default function Pedidos() {
                 <DialogHeader>
                   <DialogTitle className="flex items-center gap-2">
                     Confirmar Rascunho
-                    {!isOnline && (
-                      <Badge variant="outline" className="text-orange-500 border-orange-300 text-xs">
-                        <CloudOff className="h-3 w-3 mr-1" />
-                        Offline
-                      </Badge>
-                    )}
                   </DialogTitle>
                 </DialogHeader>
                 
@@ -677,7 +712,6 @@ export default function Pedidos() {
                         <Loader2 className="h-4 w-4 animate-spin" />
                       ) : (
                         <>
-                          {!isOnline && <CloudOff className="mr-2 h-4 w-4" />}
                           <FileText className="mr-2 h-4 w-4" />
                           Salvar Rascunho
                         </>
@@ -691,12 +725,6 @@ export default function Pedidos() {
                 <DialogHeader>
                   <DialogTitle className="flex items-center gap-2">
                     {editingPedido ? 'Editar Pedido' : 'Novo Pedido de Peças'}
-                    {!isOnline && (
-                      <Badge variant="outline" className="text-orange-500 border-orange-300 text-xs">
-                        <CloudOff className="h-3 w-3 mr-1" />
-                        Offline
-                      </Badge>
-                    )}
                   </DialogTitle>
                 </DialogHeader>
                 <form onSubmit={editingPedido ? (e) => { e.preventDefault(); handleSubmit(); } : handleShowConfirmation} className="space-y-4">
@@ -1011,10 +1039,7 @@ export default function Pedidos() {
                       {isSubmitting ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
                       ) : (
-                        <>
-                          {!isOnline && <CloudOff className="mr-2 h-4 w-4" />}
-                          Salvar
-                        </>
+                        'Salvar'
                       )}
                     </Button>
                   </div>
@@ -1333,13 +1358,12 @@ export default function Pedidos() {
         /* Rascunhos - keep card list */
         <div className="space-y-3">
           {filteredAndSortedPedidos.map((pedido) => (
-            <Card key={pedido.id} className={cn(pedido._pendingSync && 'border-orange-300 border-dashed')}>
+            <Card key={pedido.id}>
               <CardContent className="p-4">
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
                       <Badge variant="outline" className={cn(statusColors[pedido.status], 'text-xs')}>
-                        {pedido._pendingSync && <CloudOff className="h-3 w-3 mr-1" />}
                         {statusLabels[pedido.status]}
                       </Badge>
                     </div>
@@ -1401,7 +1425,7 @@ export default function Pedidos() {
               onSaved={(updated) => {
                 setViewingPedido(updated);
                 setIsEditingSolicitado(false);
-                triggerSync();
+                queryClient.invalidateQueries({ queryKey: ['pedidos'] });
               }}
               onCancel={() => setIsEditingSolicitado(false)}
             />
@@ -1409,17 +1433,9 @@ export default function Pedidos() {
             <div className="space-y-4">
               {/* Status Badge + Edit Button */}
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <Badge variant="outline" className={cn(statusColors[viewingPedido.status], 'text-sm')}>
-                    {statusLabels[viewingPedido.status]}
-                  </Badge>
-                  {viewingPedido._pendingSync && (
-                    <Badge variant="outline" className="text-orange-500 border-orange-300">
-                      <CloudOff className="h-3 w-3 mr-1" />
-                      Pendente sync
-                    </Badge>
-                  )}
-                </div>
+                <Badge variant="outline" className={cn(statusColors[viewingPedido.status], 'text-sm')}>
+                  {statusLabels[viewingPedido.status]}
+                </Badge>
                 {canManagePedidos && viewingPedido.status === 'solicitado' && (
                   <Button variant="outline" size="sm" className="gap-1" onClick={() => setIsEditingSolicitado(true)}>
                     <Pencil className="h-3 w-3" />
