@@ -731,6 +731,16 @@ export function useOfflineSync() {
     return () => clearTimeout(timer);
   }, []); // Run only on mount
 
+  // Push-only sync: sends pending changes to server without re-fetching all data
+  const pushChanges = useCallback(async () => {
+    if (!isOnlineRef.current) return;
+    try {
+      await processSyncQueue();
+    } catch (error) {
+      console.error("Push sync error:", error);
+    }
+  }, [processSyncQueue]);
+
   // Manual sync trigger
   const triggerSync = useCallback(async () => {
     if (isOnline) {
@@ -747,6 +757,7 @@ export function useOfflineSync() {
     lastSyncTime,
     syncAll,
     triggerSync,
+    pushChanges,
     updatePendingCount,
   };
 }
