@@ -272,7 +272,7 @@ export default function Pedidos() {
       });
       setActiveTab('pedidos');
       if (isOnline) {
-        setTimeout(() => triggerSync(), 500);
+        pushChanges();
       }
     } catch (error: any) {
       toast({ variant: 'destructive', title: 'Erro ao transmitir', description: error.message });
