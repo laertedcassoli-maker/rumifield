@@ -316,6 +316,12 @@ class OfflineDatabase extends Dexie {
     this.version(5).stores({
       crm_visit_audios: "id, visit_id, product_code, status",
     });
+
+    // Version 6: Remove pedidos/pedido_itens (module is now 100% online)
+    this.version(6).stores({
+      pedidos: null,
+      pedido_itens: null,
+    });
   }
 
   // Clear all offline data

@@ -105,10 +105,6 @@ export function useOfflineSync() {
           }
           break;
         }
-        case "pedidos": {
-          // Pedidos module is now 100% online via React Query - skip offline sync
-          return true;
-        }
         case "chamados": {
           // Fetch chamados with client/technician info
           const result = await supabase
