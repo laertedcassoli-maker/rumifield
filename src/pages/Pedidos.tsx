@@ -250,8 +250,9 @@ export default function Pedidos() {
     try {
       await transmitirPedido(pedidoId);
       toast({ title: 'Pedido transmitido!', description: 'O pedido foi enviado para processamento.' });
+      setActiveTab('pedidos');
       if (isOnline) {
-        setTimeout(() => triggerSync(), 500);
+        pushChanges();
       }
     } catch (error: any) {
       toast({ variant: 'destructive', title: 'Erro ao transmitir', description: error.message });
