@@ -11,7 +11,7 @@ import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import ConcluirPedidoDialog from './ConcluirPedidoDialog';
 import ProcessarPedidoDialog from './ProcessarPedidoDialog';
-import type { PedidoComItens } from '@/hooks/useOfflinePedidos';
+import type { PedidoComItens } from '@/types/pedidos';
 
 const urgenciaConfig: Record<string, { label: string; className: string }> = {
   baixa: { label: 'Baixa', className: 'bg-muted text-muted-foreground' },

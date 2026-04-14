@@ -1,7 +1,6 @@
 import { useState, useCallback } from 'react';
-import { useLiveQuery } from 'dexie-react-hooks';
+import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { offlineDb } from '@/lib/offline-db';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -20,14 +19,6 @@ interface EditarPedidoSolicitadoProps {
   onCancel: () => void;
 }
 
-interface PendingChange {
-  type: 'cancel' | 'add' | 'qty_change';
-  itemId?: string;
-  pecaId?: string;
-  oldQty?: number;
-  newQty?: number;
-}
-
 interface LogEntry {
   id: string;
   action: string;
@@ -42,7 +33,17 @@ interface LogEntry {
 export default function EditarPedidoSolicitado({ pedido, onSaved, onCancel }: EditarPedidoSolicitadoProps) {
   const { user } = useAuth();
   const { toast } = useToast();
-  const pecas = useLiveQuery(() => offlineDb.pecas.filter(p => p.ativo !== false).toArray(), []);
+
+  // Fetch pecas from Supabase
+  const { data: pecas } = useQuery({
+    queryKey: ['pedidos-pecas'],
+    queryFn: async () => {
+      const { data, error } = await supabase.from('pecas').select('id, codigo, nome, descricao, familia, imagem_url, is_asset, ativo').eq('ativo', true).order('codigo');
+      if (error) throw error;
+      return data || [];
+    },
+    staleTime: 60_000,
+  });
 
   // Local state for editing
   const [items, setItems] = useState<any[]>(() =>
@@ -67,7 +68,7 @@ export default function EditarPedidoSolicitado({ pedido, onSaved, onCancel }: Ed
   ];
 
   const hasChanges = 
-    items.some(i => i._cancelled && !i.cancelled_at) || // newly cancelled
+    items.some(i => i._cancelled && !i.cancelled_at) ||
     newItems.length > 0 ||
     Object.keys(qtyChanges).length > 0;
 
@@ -141,10 +142,11 @@ export default function EditarPedidoSolicitado({ pedido, onSaved, onCancel }: Ed
       const newlyCancelled = items.filter(i => i._cancelled && !i.cancelled_at);
       for (const item of newlyCancelled) {
         const peca = pecas?.find(p => p.id === item.peca_id) || item.pecas;
-        await supabase.from('pedido_itens').update({
+        const { error: cancelError } = await supabase.from('pedido_itens').update({
           cancelled_at: new Date().toISOString(),
           cancelled_by: user.id,
         } as any).eq('id', item.id);
+        if (cancelError) throw cancelError;
 
         logs.push({
           pedido_id: pedido.id,
@@ -165,7 +167,8 @@ export default function EditarPedidoSolicitado({ pedido, onSaved, onCancel }: Ed
         if (!item || item._cancelled) continue;
         const peca = pecas?.find(p => p.id === item.peca_id) || item.pecas;
 
-        await supabase.from('pedido_itens').update({ quantidade: newQty }).eq('id', itemId);
+        const { error: qtyError } = await supabase.from('pedido_itens').update({ quantidade: newQty }).eq('id', itemId);
+        if (qtyError) throw qtyError;
 
         logs.push({
           pedido_id: pedido.id,
@@ -216,14 +219,29 @@ export default function EditarPedidoSolicitado({ pedido, onSaved, onCancel }: Ed
       }
 
       // 5. Re-fetch the updated pedido
-      const { data: refreshed } = await supabase
+      const { data: refreshed, error: refreshError } = await supabase
         .from('pedidos')
-        .select('*, clientes(nome, fazenda), pedido_itens(*, pecas(nome, codigo, familia, is_asset), workshop_items:workshop_item_id(id, unique_code))')
+        .select('*, clientes(nome, fazenda), pedido_itens(*, pecas(nome, codigo, familia, is_asset, imagem_url), workshop_items:workshop_item_id(id, unique_code))')
         .eq('id', pedido.id)
-        .single();
+        .maybeSingle();
+
+      if (refreshError || !refreshed) {
+        toast({ title: 'Pedido salvo, recarregando...', variant: 'default' });
+        onSaved(null);
+        return;
+      }
+
+      // Map workshop_items to workshop_item for UI
+      const mapped = {
+        ...refreshed,
+        pedido_itens: (refreshed.pedido_itens || []).map((item: any) => ({
+          ...item,
+          workshop_item: item.workshop_items || null,
+        })),
+      };
 
       toast({ title: 'Pedido atualizado!', description: `${logs.length} alteração(ões) registrada(s).` });
-      onSaved(refreshed);
+      onSaved(mapped);
     } catch (err: any) {
       toast({ variant: 'destructive', title: 'Erro ao salvar', description: err.message });
     } finally {
@@ -432,20 +450,12 @@ export default function EditarPedidoSolicitado({ pedido, onSaved, onCancel }: Ed
                   )}>
                     {actionLabel[log.action] || log.action}
                   </span>
-                  {' '}
-                  <span className="font-mono">{log.peca_codigo}</span>
-                  {' '}
-                  <span className="text-muted-foreground">{log.peca_nome}</span>
+                  <span className="ml-1">{log.peca_codigo} - {log.peca_nome}</span>
                   {log.action === 'qty_changed' && (
                     <span className="text-muted-foreground"> ({log.old_quantity} → {log.new_quantity})</span>
                   )}
-                  {log.action === 'added' && log.new_quantity && (
-                    <span className="text-muted-foreground"> (x{log.new_quantity})</span>
-                  )}
+                  <p className="text-muted-foreground">{format(new Date(log.created_at), "dd/MM/yy HH:mm", { locale: ptBR })}</p>
                 </div>
-                <span className="text-muted-foreground shrink-0">
-                  {format(new Date(log.created_at), "dd/MM HH:mm", { locale: ptBR })}
-                </span>
               </div>
             ))
           )}
@@ -453,18 +463,13 @@ export default function EditarPedidoSolicitado({ pedido, onSaved, onCancel }: Ed
       )}
 
       {/* Action buttons */}
-      <div className="flex gap-2 pt-2 sticky bottom-0 bg-background pb-1">
+      <div className="flex gap-2 pt-2">
         <Button type="button" variant="outline" className="flex-1" onClick={onCancel} disabled={isSaving}>
           Cancelar
         </Button>
-        <Button
-          type="button"
-          className="flex-1"
-          onClick={handleSave}
-          disabled={isSaving || !hasChanges}
-        >
-          {isSaving ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Save className="h-4 w-4 mr-2" />}
-          Salvar Alterações
+        <Button type="button" className="flex-1 gap-1" onClick={handleSave} disabled={!hasChanges || isSaving}>
+          {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+          Salvar
         </Button>
       </div>
     </div>

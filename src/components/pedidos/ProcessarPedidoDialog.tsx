@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -12,7 +12,7 @@ import { Label } from '@/components/ui/label';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Loader2, ArrowRight, Truck, HandHelping } from 'lucide-react';
 import AssetSearchField from './AssetSearchField';
-import type { PedidoComItens } from '@/hooks/useOfflinePedidos';
+import type { PedidoComItens } from '@/types/pedidos';
 
 interface ProcessarPedidoDialogProps {
   open: boolean;
@@ -26,6 +26,7 @@ export default function ProcessarPedidoDialog({ open, onOpenChange, pedido, onCo
   const [isSubmitting, setIsSubmitting] = useState(false);
   const needsLogistica = pedido?.tipo_envio !== 'apenas_nf';
   const [itemsWithAssets, setItemsWithAssets] = useState<Record<string, string>>({});
+  const submittingRef = useRef(false);
 
   const itemsNeedingAssets = useMemo(() => {
     if (!pedido?.pedido_itens) return [];
@@ -35,12 +36,15 @@ export default function ProcessarPedidoDialog({ open, onOpenChange, pedido, onCo
   }, [pedido]);
 
   const handleConfirm = async () => {
+    if (submittingRef.current) return;
+    submittingRef.current = true;
     setIsSubmitting(true);
     try {
       await onConfirm(tipoLogistica || undefined, itemsWithAssets);
       setTipoLogistica('');
       setItemsWithAssets({});
     } finally {
+      submittingRef.current = false;
       setIsSubmitting(false);
     }
   };

@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -13,7 +13,7 @@ import { Label } from '@/components/ui/label';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Loader2, FileText, Truck, HandHelping } from 'lucide-react';
 import AssetSearchField from './AssetSearchField';
-import type { PedidoComItens } from '@/hooks/useOfflinePedidos';
+import type { PedidoComItens } from '@/types/pedidos';
 
 interface ConcluirPedidoDialogProps {
   open: boolean;
@@ -30,16 +30,19 @@ export default function ConcluirPedidoDialog({ open, onOpenChange, pedido, onCon
   const [isSubmitting, setIsSubmitting] = useState(false);
   const needsLogistica = pedido?.tipo_envio !== 'apenas_nf';
   const [itemsWithAssets, setItemsWithAssets] = useState<Record<string, string>>({});
+  const submittingRef = useRef(false);
 
-  const itemsNeedingAssets = useMemo(() => {
+  const itemsNeedingAssets = (() => {
     if (!pedido?.pedido_itens) return [];
-    return pedido.pedido_itens.filter(item => 
+    return pedido.pedido_itens.filter(item =>
       item.pecas?.is_asset && !item.workshop_item
     );
-  }, [pedido]);
+  })();
 
   const handleConfirm = async () => {
+    if (submittingRef.current) return;
     if (!nfNumero.trim() || (needsLogistica && !tipoLogistica)) return;
+    submittingRef.current = true;
     setIsSubmitting(true);
     try {
       await onConfirm(nfNumero.trim(), dataFaturamento, needsLogistica ? tipoLogistica : 'nao_aplicavel', itemsWithAssets);
@@ -48,6 +51,7 @@ export default function ConcluirPedidoDialog({ open, onOpenChange, pedido, onCon
       setTipoLogistica('');
       setItemsWithAssets({});
     } finally {
+      submittingRef.current = false;
       setIsSubmitting(false);
     }
   };
