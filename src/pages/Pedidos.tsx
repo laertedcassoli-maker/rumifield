@@ -47,7 +47,7 @@ const statusLabels: Record<string, string> = {
 export default function Pedidos() {
   const { user, role } = useAuth();
   const { toast } = useToast();
-  const { isOnline, triggerSync, lastSyncTime, syncStatus } = useOffline();
+  const { isOnline, triggerSync, lastSyncTime, syncStatus, pushChanges } = useOffline();
   const [open, setOpen] = useState(false);
   const [editingPedido, setEditingPedido] = useState<any>(null);
   const [viewingPedido, setViewingPedido] = useState<any>(null);
