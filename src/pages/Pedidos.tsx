@@ -292,7 +292,7 @@ export default function Pedidos() {
       setForm({ cliente_id: '', observacoes: '', urgencia: 'normal', tipo_envio: '' });
       setItens([]);
       if (isOnline) {
-        setTimeout(() => triggerSync(), 500);
+        pushChanges();
       }
     } catch (error: any) {
       toast({ variant: 'destructive', title: 'Erro ao excluir', description: error.message });
