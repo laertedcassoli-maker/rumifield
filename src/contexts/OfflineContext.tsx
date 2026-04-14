@@ -8,6 +8,7 @@ interface OfflineContextType {
   pendingCount: number;
   lastSyncTime: Date | null;
   triggerSync: () => Promise<void>;
+  pushChanges: () => Promise<void>;
 }
 
 const OfflineContext = createContext<OfflineContextType | null>(null);
@@ -39,7 +40,14 @@ export function OfflineProvider({ children }: { children: ReactNode }) {
   }, [user, offlineSync.isOnline]);
 
   return (
-    <OfflineContext.Provider value={offlineSync}>
+    <OfflineContext.Provider value={{
+      isOnline: offlineSync.isOnline,
+      syncStatus: offlineSync.syncStatus,
+      pendingCount: offlineSync.pendingCount,
+      lastSyncTime: offlineSync.lastSyncTime,
+      triggerSync: offlineSync.triggerSync,
+      pushChanges: offlineSync.pushChanges,
+    }}>
       {children}
     </OfflineContext.Provider>
   );
