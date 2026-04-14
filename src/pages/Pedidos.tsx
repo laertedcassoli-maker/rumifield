@@ -47,7 +47,7 @@ const statusLabels: Record<string, string> = {
 export default function Pedidos() {
   const { user, role } = useAuth();
   const { toast } = useToast();
-  const { isOnline, triggerSync, lastSyncTime, syncStatus } = useOffline();
+  const { isOnline, triggerSync, lastSyncTime, syncStatus, pushChanges } = useOffline();
   const [open, setOpen] = useState(false);
   const [editingPedido, setEditingPedido] = useState<any>(null);
   const [viewingPedido, setViewingPedido] = useState<any>(null);
@@ -250,8 +250,9 @@ export default function Pedidos() {
     try {
       await transmitirPedido(pedidoId);
       toast({ title: 'Pedido transmitido!', description: 'O pedido foi enviado para processamento.' });
+      setActiveTab('pedidos');
       if (isOnline) {
-        setTimeout(() => triggerSync(), 500);
+        pushChanges();
       }
     } catch (error: any) {
       toast({ variant: 'destructive', title: 'Erro ao transmitir', description: error.message });
@@ -271,7 +272,7 @@ export default function Pedidos() {
       });
       setActiveTab('pedidos');
       if (isOnline) {
-        setTimeout(() => triggerSync(), 500);
+        pushChanges();
       }
     } catch (error: any) {
       toast({ variant: 'destructive', title: 'Erro ao transmitir', description: error.message });
@@ -291,7 +292,7 @@ export default function Pedidos() {
       setForm({ cliente_id: '', observacoes: '', urgencia: 'normal', tipo_envio: '' });
       setItens([]);
       if (isOnline) {
-        setTimeout(() => triggerSync(), 500);
+        pushChanges();
       }
     } catch (error: any) {
       toast({ variant: 'destructive', title: 'Erro ao excluir', description: error.message });
@@ -406,11 +407,9 @@ export default function Pedidos() {
       setClienteSearch('');
       setPecaSearches({});
       
-      // Force sync when online
+      // Push changes when online (without full re-fetch)
       if (isOnline) {
-        setTimeout(() => {
-          triggerSync();
-        }, 500);
+        pushChanges();
       }
     } catch (error: any) {
       toast({ variant: 'destructive', title: 'Erro ao salvar pedido', description: error.message });
