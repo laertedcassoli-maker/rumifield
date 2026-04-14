@@ -1,39 +1,75 @@
 
 
-## Automatizar sincronização de clientes iMilk
+## Refatorar Pedidos para 100% Online
 
-### Problema
-A sincronização é 100% manual. Clientes novos no iMilk não aparecem automaticamente no RumiFlow.
+Eliminar toda a camada offline (Dexie, sync queue, useLiveQuery) do módulo de Pedidos e corrigir bugs de robustez. Supabase como fonte única de verdade, React Query como cache reativo.
 
-### Solução
-Criar um cron job que execute a edge function `sync-imilk-clientes` automaticamente a cada **6 horas** (4x por dia). Isso garante que novos clientes apareçam no sistema sem intervenção manual.
+---
 
-### Implementação
+### FASE 1 — Eliminar camada offline
 
-**1. Habilitar extensões necessárias (migration)**
-```sql
-CREATE EXTENSION IF NOT EXISTS pg_cron WITH SCHEMA pg_catalog;
-CREATE EXTENSION IF NOT EXISTS pg_net WITH SCHEMA extensions;
-```
+**1A. Reescrever `Pedidos.tsx`** (~1650 linhas)
 
-**2. Criar o cron job (via insert tool, pois contém dados específicos do projeto)**
-```sql
-SELECT cron.schedule(
-  'sync-imilk-clientes-auto',
-  '0 */6 * * *',  -- a cada 6 horas
-  $$
-  SELECT net.http_post(
-    url := 'https://gperaijwlecreqxoygjy.supabase.co/functions/v1/sync-imilk-clientes',
-    headers := '{"Content-Type": "application/json", "Authorization": "Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImdwZXJhaWp3bGVjcmVxeG95Z2p5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQ4NTMwODEsImV4cCI6MjA4MDQyOTA4MX0.POQEK-DZ3XOhrusopPFmENAbSsqp-boonj2QjGcd0Xk"}'::jsonb,
-    body := '{}'::jsonb
-  ) AS request_id;
-  $$
-);
-```
+- Remover imports: `useLiveQuery`, `offlineDb`, `useOfflinePedidos`, `useOffline`
+- Remover referências a `triggerSync`, `pushChanges`, `isOnline`, `syncStatus`, `lastSyncTime`
+- Remover badge offline e texto de sync status
+- Substituir `clientes` e `pecas` (via `useLiveQuery`/Dexie) por `useQuery` do React Query buscando do Supabase
+- Substituir `pedidos` (via `useOfflinePedidos`) por `useQuery` com joins (clientes, pedido_itens, pecas, workshop_items, profiles)
+- Converter `createPedido`, `updatePedido`, `transmitirPedido`, `transmitirTodos`, `deletePedido` em `useMutation` diretas ao Supabase com `invalidateQueries(['pedidos'])` no `onSuccess`
+- `handleProcessar` / `handleConcluir`: remover `offlineDb.pedidos.update()` e `setTimeout(() => triggerSync())`, usar `invalidateQueries`
+- `handleAssetLinked`: remover update Dexie, manter update do state local + `invalidateQueries`
 
-### Resultado
-- Sincronização automática 4x ao dia (00h, 06h, 12h, 18h)
-- Novos clientes aparecem em no máximo 6 horas
-- O botão manual na tela de admin continua funcionando para sincronizações imediatas
-- Sem alteração de código frontend
+**1B. Deletar `src/hooks/useOfflinePedidos.ts`**
+
+**1C. Atualizar imports em arquivos dependentes**
+
+- `ProcessarPedidoDialog.tsx`, `ConcluirPedidoDialog.tsx`, `PedidoKanban.tsx`: mover tipo `PedidoComItens` para novo arquivo `src/types/pedidos.ts`
+- `useOfflineSync.ts`: remover import de `syncPedidosFromServer` e o case `"pedidos"` do sync
+- `EditarPedidoSolicitado.tsx`: substituir `useLiveQuery`/`offlineDb.pecas` por `useQuery` do Supabase
+
+**1D. Limpar `offline-db.ts`**
+
+- Remover tabelas `pedidos` e `pedido_itens` da definição Dexie (manter as demais)
+
+---
+
+### FASE 2 — Corrigir bugs de robustez
+
+**2A.** `handleProcessar` / `handleConcluir`: capturar erros individuais no loop de asset associations
+
+**2B.** `EditarPedidoSolicitado.tsx`: capturar erros em cada operação Supabase. Tratar re-fetch que falha gracefully.
+
+**2C.** `AssetSearchField.tsx`: debounce de 300ms na busca via `useDebounce`. Usar `upsert` com `onConflict: 'unique_code'` ao criar asset.
+
+**2D.** `ConcluirPedidoDialog.tsx` e `ProcessarPedidoDialog.tsx`: `useRef` guard contra double-click.
+
+---
+
+### FASE 3 — Limpeza
+
+- Remover imports órfãos em todos os arquivos modificados
+- Verificar build sem erros
+
+---
+
+### Arquivos modificados
+
+| Arquivo | Ação |
+|---|---|
+| `src/pages/Pedidos.tsx` | Rewrite principal |
+| `src/hooks/useOfflinePedidos.ts` | Deletar |
+| `src/types/pedidos.ts` | Criar (tipo PedidoComItens) |
+| `src/components/pedidos/EditarPedidoSolicitado.tsx` | Remover Dexie, error handling |
+| `src/components/pedidos/AssetSearchField.tsx` | Debounce + upsert |
+| `src/components/pedidos/ConcluirPedidoDialog.tsx` | Double-click guard |
+| `src/components/pedidos/ProcessarPedidoDialog.tsx` | Double-click guard |
+| `src/components/pedidos/PedidoKanban.tsx` | Atualizar import tipo |
+| `src/hooks/useOfflineSync.ts` | Remover ref pedidos |
+| `src/lib/offline-db.ts` | Remover tabelas pedidos |
+
+### Não será alterado
+
+- Nenhum outro módulo (preventivas, chamados, CRM, oficina, estoque)
+- Layout, estilos, campos de formulário
+- Estrutura de tabelas ou RLS no Supabase
 
