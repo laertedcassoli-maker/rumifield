@@ -407,11 +407,9 @@ export default function Pedidos() {
       setClienteSearch('');
       setPecaSearches({});
       
-      // Force sync when online
+      // Push changes when online (without full re-fetch)
       if (isOnline) {
-        setTimeout(() => {
-          triggerSync();
-        }, 500);
+        pushChanges();
       }
     } catch (error: any) {
       toast({ variant: 'destructive', title: 'Erro ao salvar pedido', description: error.message });
