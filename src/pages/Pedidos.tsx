@@ -1538,14 +1538,21 @@ export default function Pedidos() {
                           {(() => {
                             const isEditable = ['solicitado', 'processamento'].includes(viewingPedido.status);
                             const isEditingThis = editingAssetItemId === item.id;
+                            const linkedAssets = item.pedido_item_assets || [];
+                            const hasLinkedAssets = linkedAssets.length > 0 || item.workshop_item?.unique_code;
                             
-                            if (item.workshop_item?.unique_code) {
+                            if (hasLinkedAssets) {
+                              const assetCodes = linkedAssets.length > 0
+                                ? linkedAssets.map((a: any) => a.workshop_items?.unique_code).filter(Boolean)
+                                : [item.workshop_item?.unique_code].filter(Boolean);
                               return (
                                 <div className="mt-1">
-                                  <div className="flex items-center gap-1.5">
-                                    <Badge variant="outline" className="text-[10px] h-5 font-mono border-primary/40 text-primary bg-primary/5">
-                                      🏷️ {item.workshop_item.unique_code}
-                                    </Badge>
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    {assetCodes.map((code: string, idx: number) => (
+                                      <Badge key={idx} variant="outline" className="text-[10px] h-5 font-mono border-primary/40 text-primary bg-primary/5">
+                                        🏷️ {code}
+                                      </Badge>
+                                    ))}
                                     {isEditable && (
                                       <Button
                                         variant="ghost"
