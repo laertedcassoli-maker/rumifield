@@ -87,7 +87,6 @@ export default function AssetSearchField({
       const { data } = await supabase
         .from('workshop_items')
         .select('id, unique_code, current_motor_code, status')
-        .eq('omie_product_id', pecaId)
         .ilike('unique_code', `%${query}%`)
         .order('unique_code', { ascending: true });
       
