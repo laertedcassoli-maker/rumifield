@@ -12,6 +12,16 @@ export interface PedidoItem {
   workshop_items?: { id: string; unique_code: string } | null;
   // Alias used in UI
   workshop_item?: { id: string; unique_code: string } | null;
+  // Multiple assets from junction table
+  pedido_item_assets?: PedidoItemAsset[];
+}
+
+export interface PedidoItemAsset {
+  id: string;
+  pedido_item_id: string;
+  workshop_item_id: string;
+  created_at: string;
+  workshop_items?: { id: string; unique_code: string } | null;
 }
 
 export interface PedidoComItens {

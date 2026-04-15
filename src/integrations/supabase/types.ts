@@ -1667,6 +1667,42 @@ export type Database = {
         }
         Relationships: []
       }
+      pedido_item_assets: {
+        Row: {
+          created_at: string
+          id: string
+          pedido_item_id: string
+          workshop_item_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          pedido_item_id: string
+          workshop_item_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          pedido_item_id?: string
+          workshop_item_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pedido_item_assets_pedido_item_id_fkey"
+            columns: ["pedido_item_id"]
+            isOneToOne: false
+            referencedRelation: "pedido_itens"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pedido_item_assets_workshop_item_id_fkey"
+            columns: ["workshop_item_id"]
+            isOneToOne: false
+            referencedRelation: "workshop_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pedido_item_log: {
         Row: {
           action: string

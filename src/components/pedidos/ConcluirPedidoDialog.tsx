@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -12,14 +12,14 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Loader2, FileText, Truck, HandHelping } from 'lucide-react';
-import AssetSearchField from './AssetSearchField';
+import MultiAssetField from './MultiAssetField';
 import type { PedidoComItens } from '@/types/pedidos';
 
 interface ConcluirPedidoDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   pedido?: PedidoComItens;
-  onConfirm: (nfNumero: string, dataFaturamento: string, tipoLogistica: string, itemsWithAssets?: Record<string, string>) => Promise<void>;
+  onConfirm: (nfNumero: string, dataFaturamento: string, tipoLogistica: string, itemsWithAssets?: Record<string, string[]>) => Promise<void>;
   currentTipoLogistica?: string | null;
 }
 
@@ -29,15 +29,15 @@ export default function ConcluirPedidoDialog({ open, onOpenChange, pedido, onCon
   const [tipoLogistica, setTipoLogistica] = useState(currentTipoLogistica || '');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const needsLogistica = pedido?.tipo_envio !== 'apenas_nf';
-  const [itemsWithAssets, setItemsWithAssets] = useState<Record<string, string>>({});
+  const [itemsWithAssets, setItemsWithAssets] = useState<Record<string, string[]>>({});
   const submittingRef = useRef(false);
 
-  const itemsNeedingAssets = (() => {
+  const itemsNeedingAssets = useMemo(() => {
     if (!pedido?.pedido_itens) return [];
     return pedido.pedido_itens.filter(item =>
-      item.pecas?.is_asset && !item.workshop_item
+      item.pecas?.is_asset && !item.cancelled_at
     );
-  })();
+  }, [pedido]);
 
   const handleConfirm = async () => {
     if (submittingRef.current) return;
@@ -114,16 +114,18 @@ export default function ConcluirPedidoDialog({ open, onOpenChange, pedido, onCon
             <div className="space-y-3 pt-2 border-t">
               <Label className="text-sm font-semibold">Vincular Ativos (Peças Controladas)</Label>
               {itemsNeedingAssets.map(item => (
-                <AssetSearchField
+                <MultiAssetField
                   key={item.id}
                   pecaId={item.peca_id}
-                  onAssetSelected={(workshopItemId) => {
+                  pecaNome={item.pecas?.nome || item.pecas?.codigo || ''}
+                  quantidade={item.quantidade}
+                  selectedAssets={itemsWithAssets[item.id] || []}
+                  onAssetsChange={(assets) => {
                     setItemsWithAssets(prev => ({
                       ...prev,
-                      [item.id]: workshopItemId || '',
+                      [item.id]: assets,
                     }));
                   }}
-                  currentAssetId={itemsWithAssets[item.id] || null}
                 />
               ))}
             </div>

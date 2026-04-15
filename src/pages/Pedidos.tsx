@@ -100,7 +100,8 @@ export default function Pedidos() {
           pedido_itens(
             *,
             pecas(nome, codigo, familia, is_asset, imagem_url),
-            workshop_items:workshop_item_id(id, unique_code)
+            workshop_items:workshop_item_id(id, unique_code),
+            pedido_item_assets(id, pedido_item_id, workshop_item_id, workshop_items:workshop_item_id(id, unique_code))
           )
         `)
         .order('created_at', { ascending: false })
@@ -497,7 +498,7 @@ export default function Pedidos() {
   };
 
   // Processar pedido (solicitado -> processamento)
-  const handleProcessar = useCallback(async (pedidoId: string, tipoLogistica?: string, itemsWithAssets?: Record<string, string>) => {
+  const handleProcessar = useCallback(async (pedidoId: string, tipoLogistica?: string, itemsWithAssets?: Record<string, string[]>) => {
     setIsProcessingAction(true);
     try {
       const updateData: any = { status: 'processamento' };
@@ -509,12 +510,26 @@ export default function Pedidos() {
         .eq('id', pedidoId);
       if (error) throw error;
 
-      // Save asset associations with error handling
+      // Save asset associations into junction table
       if (itemsWithAssets) {
-        for (const [itemId, workshopItemId] of Object.entries(itemsWithAssets)) {
-          if (workshopItemId) {
-            const { error: assetError } = await supabase.from('pedido_itens').update({ workshop_item_id: workshopItemId }).eq('id', itemId);
-            if (assetError) throw assetError;
+        for (const [itemId, assetIds] of Object.entries(itemsWithAssets)) {
+          const validIds = assetIds.filter(id => !!id);
+          if (validIds.length > 0) {
+            // Set first asset as workshop_item_id for backwards compat
+            const { error: itemError } = await supabase.from('pedido_itens').update({ workshop_item_id: validIds[0] }).eq('id', itemId);
+            if (itemError) throw itemError;
+
+            // Insert all into junction table
+            const rows = validIds.map(wsId => ({ pedido_item_id: itemId, workshop_item_id: wsId }));
+            const { error: junctionError } = await supabase.from('pedido_item_assets').insert(rows);
+            if (junctionError) throw junctionError;
+
+            // Fetch unique_codes for asset_codes array
+            const { data: wsItems } = await supabase.from('workshop_items').select('unique_code').in('id', validIds);
+            if (wsItems) {
+              const codes = wsItems.map(w => w.unique_code);
+              await supabase.from('pedido_itens').update({ asset_codes: codes }).eq('id', itemId);
+            }
           }
         }
       }
@@ -529,7 +544,7 @@ export default function Pedidos() {
   }, [toast, queryClient]);
 
   // Concluir pedido (processamento -> faturado + NF + tipo_logistica)
-  const handleConcluir = useCallback(async (pedidoId: string, nfNumero: string, dataFaturamento: string, tipoLogistica: string, itemsWithAssets?: Record<string, string>) => {
+  const handleConcluir = useCallback(async (pedidoId: string, nfNumero: string, dataFaturamento: string, tipoLogistica: string, itemsWithAssets?: Record<string, string[]>) => {
     setIsProcessingAction(true);
     try {
       const { error } = await supabase
@@ -543,12 +558,23 @@ export default function Pedidos() {
         .eq('id', pedidoId);
       if (error) throw error;
 
-      // Save asset associations with error handling
+      // Save asset associations into junction table
       if (itemsWithAssets) {
-        for (const [itemId, workshopItemId] of Object.entries(itemsWithAssets)) {
-          if (workshopItemId) {
-            const { error: assetError } = await supabase.from('pedido_itens').update({ workshop_item_id: workshopItemId }).eq('id', itemId);
-            if (assetError) throw assetError;
+        for (const [itemId, assetIds] of Object.entries(itemsWithAssets)) {
+          const validIds = assetIds.filter(id => !!id);
+          if (validIds.length > 0) {
+            const { error: itemError } = await supabase.from('pedido_itens').update({ workshop_item_id: validIds[0] }).eq('id', itemId);
+            if (itemError) throw itemError;
+
+            const rows = validIds.map(wsId => ({ pedido_item_id: itemId, workshop_item_id: wsId }));
+            const { error: junctionError } = await supabase.from('pedido_item_assets').insert(rows);
+            if (junctionError) throw junctionError;
+
+            const { data: wsItems } = await supabase.from('workshop_items').select('unique_code').in('id', validIds);
+            if (wsItems) {
+              const codes = wsItems.map(w => w.unique_code);
+              await supabase.from('pedido_itens').update({ asset_codes: codes }).eq('id', itemId);
+            }
           }
         }
       }
@@ -1512,14 +1538,21 @@ export default function Pedidos() {
                           {(() => {
                             const isEditable = ['solicitado', 'processamento'].includes(viewingPedido.status);
                             const isEditingThis = editingAssetItemId === item.id;
+                            const linkedAssets = item.pedido_item_assets || [];
+                            const hasLinkedAssets = linkedAssets.length > 0 || item.workshop_item?.unique_code;
                             
-                            if (item.workshop_item?.unique_code) {
+                            if (hasLinkedAssets) {
+                              const assetCodes = linkedAssets.length > 0
+                                ? linkedAssets.map((a: any) => a.workshop_items?.unique_code).filter(Boolean)
+                                : [item.workshop_item?.unique_code].filter(Boolean);
                               return (
                                 <div className="mt-1">
-                                  <div className="flex items-center gap-1.5">
-                                    <Badge variant="outline" className="text-[10px] h-5 font-mono border-primary/40 text-primary bg-primary/5">
-                                      🏷️ {item.workshop_item.unique_code}
-                                    </Badge>
+                                  <div className="flex items-center gap-1.5 flex-wrap">
+                                    {assetCodes.map((code: string, idx: number) => (
+                                      <Badge key={idx} variant="outline" className="text-[10px] h-5 font-mono border-primary/40 text-primary bg-primary/5">
+                                        🏷️ {code}
+                                      </Badge>
+                                    ))}
                                     {isEditable && (
                                       <Button
                                         variant="ghost"
