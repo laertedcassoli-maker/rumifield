@@ -516,7 +516,7 @@ export default function Pedidos() {
           const validIds = assetIds.filter(id => !!id);
           if (validIds.length > 0) {
             // Set first asset as workshop_item_id for backwards compat
-            const { error: itemError } = await supabase.from('pedido_itens').update({ workshop_item_id: validIds[0] }).eq('id', itemId);
+            const { error: itemError } = await supabase.from('pedido_itens').update({ workshop_item_id: validIds[0] }).eq('id', itemId).neq('workshop_item_id', validIds[0]);
             if (itemError) throw itemError;
 
             // Insert all into junction table
@@ -547,23 +547,12 @@ export default function Pedidos() {
   const handleConcluir = useCallback(async (pedidoId: string, nfNumero: string, dataFaturamento: string, tipoLogistica: string, itemsWithAssets?: Record<string, string[]>) => {
     setIsProcessingAction(true);
     try {
-      const { error } = await supabase
-        .from('pedidos')
-        .update({ 
-          status: 'faturado', 
-          omie_nf_numero: nfNumero,
-          omie_data_faturamento: dataFaturamento,
-          tipo_logistica: tipoLogistica,
-        } as any)
-        .eq('id', pedidoId);
-      if (error) throw error;
-
-      // Save asset associations into junction table
+      // Save asset associations BEFORE updating status
       if (itemsWithAssets) {
         for (const [itemId, assetIds] of Object.entries(itemsWithAssets)) {
           const validIds = assetIds.filter(id => !!id);
           if (validIds.length > 0) {
-            const { error: itemError } = await supabase.from('pedido_itens').update({ workshop_item_id: validIds[0] }).eq('id', itemId);
+            const { error: itemError } = await supabase.from('pedido_itens').update({ workshop_item_id: validIds[0] }).eq('id', itemId).neq('workshop_item_id', validIds[0]);
             if (itemError) throw itemError;
 
             const rows = validIds.map(wsId => ({ pedido_item_id: itemId, workshop_item_id: wsId }));
@@ -578,6 +567,17 @@ export default function Pedidos() {
           }
         }
       }
+
+      const { error } = await supabase
+        .from('pedidos')
+        .update({ 
+          status: 'faturado', 
+          omie_nf_numero: nfNumero,
+          omie_data_faturamento: dataFaturamento,
+          tipo_logistica: tipoLogistica,
+        } as any)
+        .eq('id', pedidoId);
+      if (error) throw error;
 
       queryClient.invalidateQueries({ queryKey: ['pedidos'] });
       toast({ title: 'Pedido concluído!', description: `NF ${nfNumero} registrada.` });
