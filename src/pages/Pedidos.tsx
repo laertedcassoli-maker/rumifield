@@ -100,7 +100,8 @@ export default function Pedidos() {
           pedido_itens(
             *,
             pecas(nome, codigo, familia, is_asset, imagem_url),
-            workshop_items:workshop_item_id(id, unique_code)
+            workshop_items:workshop_item_id(id, unique_code),
+            pedido_item_assets(id, pedido_item_id, workshop_item_id, workshop_items:workshop_item_id(id, unique_code))
           )
         `)
         .order('created_at', { ascending: false })
