@@ -1566,6 +1566,11 @@ export default function Pedidos() {
                             const isEditingThis = editingAssetItemId === item.id;
                             const linkedAssets = item.pedido_item_assets || [];
                             const hasLinkedAssets = linkedAssets.length > 0 || item.workshop_item?.unique_code;
+
+                            // Build current asset IDs array from junction or legacy field
+                            const currentAssetIds = linkedAssets.length > 0
+                              ? linkedAssets.map((a: any) => a.workshop_item_id).filter(Boolean)
+                              : item.workshop_item_id ? [item.workshop_item_id] : [];
                             
                             if (hasLinkedAssets) {
                               const assetCodes = linkedAssets.length > 0
@@ -1592,10 +1597,12 @@ export default function Pedidos() {
                                   </div>
                                   {isEditingThis && (
                                     <div className="mt-2">
-                                      <AssetSearchField
+                                      <MultiAssetField
                                         pecaId={item.peca_id}
-                                        currentAssetId={item.workshop_item_id}
-                                        onAssetSelected={(wsId) => handleAssetLinked(item.id, wsId)}
+                                        pecaNome={item.pecas?.nome || item.pecas?.codigo || ''}
+                                        quantidade={item.quantidade}
+                                        selectedAssets={currentAssetIds}
+                                        onAssetsChange={(assets) => handleAssetsLinked(item.id, assets)}
                                       />
                                     </div>
                                   )}
@@ -1621,9 +1628,12 @@ export default function Pedidos() {
                                   </div>
                                   {isEditingThis && (
                                     <div className="mt-2">
-                                      <AssetSearchField
+                                      <MultiAssetField
                                         pecaId={item.peca_id}
-                                        onAssetSelected={(wsId) => handleAssetLinked(item.id, wsId)}
+                                        pecaNome={item.pecas?.nome || item.pecas?.codigo || ''}
+                                        quantidade={item.quantidade}
+                                        selectedAssets={[]}
+                                        onAssetsChange={(assets) => handleAssetsLinked(item.id, assets)}
                                       />
                                     </div>
                                   )}
