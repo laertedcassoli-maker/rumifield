@@ -588,46 +588,72 @@ export default function Pedidos() {
     }
   }, [toast, queryClient]);
 
-  // Vincular ativo diretamente no detalhe do pedido
-  const handleAssetLinked = useCallback(async (itemId: string, workshopItemId: string | null) => {
+  // Vincular ativos diretamente no detalhe do pedido (suporta múltiplos)
+  const handleAssetsLinked = useCallback(async (itemId: string, assetIds: string[]) => {
     try {
-      const { error } = await supabase
-        .from('pedido_itens')
-        .update({ workshop_item_id: workshopItemId })
-        .eq('id', itemId);
-      if (error) throw error;
+      const validIds = assetIds.filter(id => !!id);
 
-      // Fetch the linked asset's unique_code for UI update
-      let workshopItemData: { id: string; unique_code: string } | null = null;
-      if (workshopItemId) {
-        const { data } = await supabase
-          .from('workshop_items')
-          .select('id, unique_code')
-          .eq('id', workshopItemId)
-          .single();
-        workshopItemData = data;
+      // Clear existing junction rows for this item
+      await supabase.from('pedido_item_assets').delete().eq('pedido_item_id', itemId);
+
+      if (validIds.length > 0) {
+        // Set first asset as workshop_item_id for backwards compat
+        await supabase.from('pedido_itens').update({ workshop_item_id: validIds[0] }).eq('id', itemId);
+
+        // Insert junction rows
+        const rows = validIds.map(wsId => ({ pedido_item_id: itemId, workshop_item_id: wsId }));
+        await supabase.from('pedido_item_assets').insert(rows);
+
+        // Update asset_codes for quick reference
+        const { data: wsItems } = await supabase.from('workshop_items').select('id, unique_code').in('id', validIds);
+        if (wsItems) {
+          const codes = wsItems.map(w => w.unique_code);
+          await supabase.from('pedido_itens').update({ asset_codes: codes }).eq('id', itemId);
+        }
+
+        // Update local state
+        const junctionData = (wsItems || []).map(w => ({
+          id: crypto.randomUUID(),
+          pedido_item_id: itemId,
+          workshop_item_id: w.id,
+          created_at: new Date().toISOString(),
+          workshop_items: { id: w.id, unique_code: w.unique_code },
+        }));
+
+        setViewingPedido((prev: any) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            pedido_itens: prev.pedido_itens?.map((it: any) =>
+              it.id === itemId
+                ? { ...it, workshop_item_id: validIds[0], workshop_item: wsItems?.[0] || null, pedido_item_assets: junctionData }
+                : it
+            ),
+          };
+        });
+      } else {
+        // Clear all
+        await supabase.from('pedido_itens').update({ workshop_item_id: null, asset_codes: [] }).eq('id', itemId);
+        setViewingPedido((prev: any) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            pedido_itens: prev.pedido_itens?.map((it: any) =>
+              it.id === itemId
+                ? { ...it, workshop_item_id: null, workshop_item: null, pedido_item_assets: [] }
+                : it
+            ),
+          };
+        });
       }
 
-      // Update viewingPedido state with complete workshop_item object
-      setViewingPedido((prev: any) => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          pedido_itens: prev.pedido_itens?.map((it: any) =>
-            it.id === itemId
-              ? { ...it, workshop_item_id: workshopItemId, workshop_item: workshopItemData }
-              : it
-          ),
-        };
-      });
-
       setEditingAssetItemId(null);
-      toast({ title: 'Ativo vinculado com sucesso!' });
+      toast({ title: 'Ativos vinculados com sucesso!' });
       queryClient.invalidateQueries({ queryKey: ['pedidos'] });
     } catch (err: any) {
-      toast({ variant: 'destructive', title: 'Erro ao vincular ativo', description: err.message });
+      toast({ variant: 'destructive', title: 'Erro ao vincular ativos', description: err.message });
     }
-  }, [viewingPedido, toast, queryClient]);
+  }, [toast, queryClient]);
 
   return (
     <div className="space-y-6 animate-fade-in w-full max-w-full overflow-x-hidden">
