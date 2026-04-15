@@ -39,8 +39,8 @@ const tipoLogisticaConfig: Record<string, { label: string; icon: React.ReactNode
 interface PedidoKanbanProps {
   pedidos: PedidoComItens[];
   onViewPedido: (pedido: PedidoComItens) => void;
-  onProcessar: (pedidoId: string, tipoLogistica?: string, itemsWithAssets?: Record<string, string>) => Promise<void>;
-  onConcluir: (pedidoId: string, nfNumero: string, dataFaturamento: string, tipoLogistica: string, itemsWithAssets?: Record<string, string>) => Promise<void>;
+  onProcessar: (pedidoId: string, tipoLogistica?: string, itemsWithAssets?: Record<string, string[]>) => Promise<void>;
+  onConcluir: (pedidoId: string, nfNumero: string, dataFaturamento: string, tipoLogistica: string, itemsWithAssets?: Record<string, string[]>) => Promise<void>;
   isProcessing: boolean;
   consultorNames: Record<string, string>;
 }

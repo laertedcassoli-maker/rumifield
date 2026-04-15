@@ -497,7 +497,7 @@ export default function Pedidos() {
   };
 
   // Processar pedido (solicitado -> processamento)
-  const handleProcessar = useCallback(async (pedidoId: string, tipoLogistica?: string, itemsWithAssets?: Record<string, string>) => {
+  const handleProcessar = useCallback(async (pedidoId: string, tipoLogistica?: string, itemsWithAssets?: Record<string, string[]>) => {
     setIsProcessingAction(true);
     try {
       const updateData: any = { status: 'processamento' };
@@ -509,12 +509,26 @@ export default function Pedidos() {
         .eq('id', pedidoId);
       if (error) throw error;
 
-      // Save asset associations with error handling
+      // Save asset associations into junction table
       if (itemsWithAssets) {
-        for (const [itemId, workshopItemId] of Object.entries(itemsWithAssets)) {
-          if (workshopItemId) {
-            const { error: assetError } = await supabase.from('pedido_itens').update({ workshop_item_id: workshopItemId }).eq('id', itemId);
-            if (assetError) throw assetError;
+        for (const [itemId, assetIds] of Object.entries(itemsWithAssets)) {
+          const validIds = assetIds.filter(id => !!id);
+          if (validIds.length > 0) {
+            // Set first asset as workshop_item_id for backwards compat
+            const { error: itemError } = await supabase.from('pedido_itens').update({ workshop_item_id: validIds[0] }).eq('id', itemId);
+            if (itemError) throw itemError;
+
+            // Insert all into junction table
+            const rows = validIds.map(wsId => ({ pedido_item_id: itemId, workshop_item_id: wsId }));
+            const { error: junctionError } = await supabase.from('pedido_item_assets').insert(rows);
+            if (junctionError) throw junctionError;
+
+            // Fetch unique_codes for asset_codes array
+            const { data: wsItems } = await supabase.from('workshop_items').select('unique_code').in('id', validIds);
+            if (wsItems) {
+              const codes = wsItems.map(w => w.unique_code);
+              await supabase.from('pedido_itens').update({ asset_codes: codes }).eq('id', itemId);
+            }
           }
         }
       }
@@ -529,7 +543,7 @@ export default function Pedidos() {
   }, [toast, queryClient]);
 
   // Concluir pedido (processamento -> faturado + NF + tipo_logistica)
-  const handleConcluir = useCallback(async (pedidoId: string, nfNumero: string, dataFaturamento: string, tipoLogistica: string, itemsWithAssets?: Record<string, string>) => {
+  const handleConcluir = useCallback(async (pedidoId: string, nfNumero: string, dataFaturamento: string, tipoLogistica: string, itemsWithAssets?: Record<string, string[]>) => {
     setIsProcessingAction(true);
     try {
       const { error } = await supabase
@@ -543,12 +557,23 @@ export default function Pedidos() {
         .eq('id', pedidoId);
       if (error) throw error;
 
-      // Save asset associations with error handling
+      // Save asset associations into junction table
       if (itemsWithAssets) {
-        for (const [itemId, workshopItemId] of Object.entries(itemsWithAssets)) {
-          if (workshopItemId) {
-            const { error: assetError } = await supabase.from('pedido_itens').update({ workshop_item_id: workshopItemId }).eq('id', itemId);
-            if (assetError) throw assetError;
+        for (const [itemId, assetIds] of Object.entries(itemsWithAssets)) {
+          const validIds = assetIds.filter(id => !!id);
+          if (validIds.length > 0) {
+            const { error: itemError } = await supabase.from('pedido_itens').update({ workshop_item_id: validIds[0] }).eq('id', itemId);
+            if (itemError) throw itemError;
+
+            const rows = validIds.map(wsId => ({ pedido_item_id: itemId, workshop_item_id: wsId }));
+            const { error: junctionError } = await supabase.from('pedido_item_assets').insert(rows);
+            if (junctionError) throw junctionError;
+
+            const { data: wsItems } = await supabase.from('workshop_items').select('unique_code').in('id', validIds);
+            if (wsItems) {
+              const codes = wsItems.map(w => w.unique_code);
+              await supabase.from('pedido_itens').update({ asset_codes: codes }).eq('id', itemId);
+            }
           }
         }
       }
