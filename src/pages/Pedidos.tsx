@@ -20,7 +20,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import PedidoKanban from '@/components/pedidos/PedidoKanban';
-import AssetSearchField from '@/components/pedidos/AssetSearchField';
+import MultiAssetField from '@/components/pedidos/MultiAssetField';
 import EditarPedidoSolicitado from '@/components/pedidos/EditarPedidoSolicitado';
 import type { PedidoComItens, PedidoItem } from '@/types/pedidos';
 
