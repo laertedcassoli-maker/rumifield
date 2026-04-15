@@ -1,75 +1,74 @@
 
 
-## Refatorar Pedidos para 100% Online
+## Proposta: Múltiplos ativos por item de pedido (quantidade > 1)
 
-Eliminar toda a camada offline (Dexie, sync queue, useLiveQuery) do módulo de Pedidos e corrigir bugs de robustez. Supabase como fonte única de verdade, React Query como cache reativo.
+### Problema atual
 
----
+Quando um `pedido_item` tem `quantidade: 2` para uma peça com `is_asset = true`, só existe um campo `workshop_item_id` (UUID único) — o usuário só consegue vincular 1 ativo.
 
-### FASE 1 — Eliminar camada offline
+### Solução proposta
 
-**1A. Reescrever `Pedidos.tsx`** (~1650 linhas)
+A tabela `pedido_itens` já possui uma coluna `asset_codes` (text[]) que não é utilizada. Vou usá-la em conjunto com uma **nova tabela de junção** para vincular múltiplos `workshop_items` a um único `pedido_item`.
 
-- Remover imports: `useLiveQuery`, `offlineDb`, `useOfflinePedidos`, `useOffline`
-- Remover referências a `triggerSync`, `pushChanges`, `isOnline`, `syncStatus`, `lastSyncTime`
-- Remover badge offline e texto de sync status
-- Substituir `clientes` e `pecas` (via `useLiveQuery`/Dexie) por `useQuery` do React Query buscando do Supabase
-- Substituir `pedidos` (via `useOfflinePedidos`) por `useQuery` com joins (clientes, pedido_itens, pecas, workshop_items, profiles)
-- Converter `createPedido`, `updatePedido`, `transmitirPedido`, `transmitirTodos`, `deletePedido` em `useMutation` diretas ao Supabase com `invalidateQueries(['pedidos'])` no `onSuccess`
-- `handleProcessar` / `handleConcluir`: remover `offlineDb.pedidos.update()` e `setTimeout(() => triggerSync())`, usar `invalidateQueries`
-- `handleAssetLinked`: remover update Dexie, manter update do state local + `invalidateQueries`
+**Nova tabela: `pedido_item_assets`**
+```text
+pedido_item_assets
+├── id (uuid PK)
+├── pedido_item_id (uuid FK → pedido_itens.id ON DELETE CASCADE)
+├── workshop_item_id (uuid FK → workshop_items.id)
+├── created_at (timestamptz)
+└── UNIQUE(pedido_item_id, workshop_item_id)
+```
 
-**1B. Deletar `src/hooks/useOfflinePedidos.ts`**
+RLS: mesmas políticas que `pedido_itens` (leitura pública, insert/update/delete via owner ou admin).
 
-**1C. Atualizar imports em arquivos dependentes**
+### Mudanças na UI
 
-- `ProcessarPedidoDialog.tsx`, `ConcluirPedidoDialog.tsx`, `PedidoKanban.tsx`: mover tipo `PedidoComItens` para novo arquivo `src/types/pedidos.ts`
-- `useOfflineSync.ts`: remover import de `syncPedidosFromServer` e o case `"pedidos"` do sync
-- `EditarPedidoSolicitado.tsx`: substituir `useLiveQuery`/`offlineDb.pecas` por `useQuery` do Supabase
+**1. `AssetSearchField` → novo `MultiAssetField`**
 
-**1D. Limpar `offline-db.ts`**
+Quando `quantidade > 1`, renderizar N campos de busca de ativo (um por unidade). Exemplo para quantidade 2:
 
-- Remover tabelas `pedidos` e `pedido_itens` da definição Dexie (manter as demais)
+```text
+┌─────────────────────────────────┐
+│ Peça: Pistola XYZ (Qtd: 2)     │
+│                                 │
+│  Ativo 1: [Buscar ativo...]     │
+│  Ativo 2: [Buscar ativo...]     │
+└─────────────────────────────────┘
+```
 
----
+Cada campo funciona igual ao `AssetSearchField` atual, mas retorna um array de `workshop_item_id[]` em vez de um único ID.
 
-### FASE 2 — Corrigir bugs de robustez
+**2. Dialogs (`ProcessarPedidoDialog`, `ConcluirPedidoDialog`)**
 
-**2A.** `handleProcessar` / `handleConcluir`: capturar erros individuais no loop de asset associations
+- Mudar tipo de `itemsWithAssets` de `Record<string, string>` para `Record<string, string[]>`
+- Renderizar `MultiAssetField` passando `quantidade` para cada item com `is_asset`
 
-**2B.** `EditarPedidoSolicitado.tsx`: capturar erros em cada operação Supabase. Tratar re-fetch que falha gracefully.
+**3. `Pedidos.tsx` — handlers**
 
-**2C.** `AssetSearchField.tsx`: debounce de 300ms na busca via `useDebounce`. Usar `upsert` com `onConflict: 'unique_code'` ao criar asset.
+- `handleProcessar` / `handleConcluir`: em vez de um `update({ workshop_item_id })`, fazer insert na tabela `pedido_item_assets` (um registro por ativo)
+- Manter `workshop_item_id` no `pedido_itens` com o primeiro ativo (retrocompatibilidade)
+- Gravar os códigos em `asset_codes[]` para referência rápida
 
-**2D.** `ConcluirPedidoDialog.tsx` e `ProcessarPedidoDialog.tsx`: `useRef` guard contra double-click.
+**4. Visualização do pedido**
 
----
+Na view de detalhe, exibir todos os ativos vinculados ao item (não apenas 1).
 
-### FASE 3 — Limpeza
-
-- Remover imports órfãos em todos os arquivos modificados
-- Verificar build sem erros
-
----
-
-### Arquivos modificados
+### Arquivos impactados
 
 | Arquivo | Ação |
 |---|---|
-| `src/pages/Pedidos.tsx` | Rewrite principal |
-| `src/hooks/useOfflinePedidos.ts` | Deletar |
-| `src/types/pedidos.ts` | Criar (tipo PedidoComItens) |
-| `src/components/pedidos/EditarPedidoSolicitado.tsx` | Remover Dexie, error handling |
-| `src/components/pedidos/AssetSearchField.tsx` | Debounce + upsert |
-| `src/components/pedidos/ConcluirPedidoDialog.tsx` | Double-click guard |
-| `src/components/pedidos/ProcessarPedidoDialog.tsx` | Double-click guard |
-| `src/components/pedidos/PedidoKanban.tsx` | Atualizar import tipo |
-| `src/hooks/useOfflineSync.ts` | Remover ref pedidos |
-| `src/lib/offline-db.ts` | Remover tabelas pedidos |
+| Migration SQL | Criar tabela `pedido_item_assets` com RLS |
+| `src/components/pedidos/MultiAssetField.tsx` | Novo componente |
+| `src/components/pedidos/AssetSearchField.tsx` | Sem mudanças (reutilizado internamente) |
+| `src/components/pedidos/ProcessarPedidoDialog.tsx` | Usar `MultiAssetField`, `Record<string, string[]>` |
+| `src/components/pedidos/ConcluirPedidoDialog.tsx` | Idem |
+| `src/pages/Pedidos.tsx` | Handlers + visualização de múltiplos ativos |
+| `src/types/pedidos.ts` | Adicionar tipo `PedidoItemAsset` |
 
-### Não será alterado
+### O que NÃO muda
 
-- Nenhum outro módulo (preventivas, chamados, CRM, oficina, estoque)
-- Layout, estilos, campos de formulário
-- Estrutura de tabelas ou RLS no Supabase
+- Estrutura de `pedido_itens` (mantém `workshop_item_id` para retrocompatibilidade)
+- Layout geral, outros módulos
+- Lógica de criação de pedido (ativos são vinculados no processamento/conclusão)
 
