@@ -11,27 +11,27 @@ import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Loader2, ArrowRight, Truck, HandHelping } from 'lucide-react';
-import AssetSearchField from './AssetSearchField';
+import MultiAssetField from './MultiAssetField';
 import type { PedidoComItens } from '@/types/pedidos';
 
 interface ProcessarPedidoDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   pedido?: PedidoComItens;
-  onConfirm: (tipoLogistica?: string, itemsWithAssets?: Record<string, string>) => Promise<void>;
+  onConfirm: (tipoLogistica?: string, itemsWithAssets?: Record<string, string[]>) => Promise<void>;
 }
 
 export default function ProcessarPedidoDialog({ open, onOpenChange, pedido, onConfirm }: ProcessarPedidoDialogProps) {
   const [tipoLogistica, setTipoLogistica] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const needsLogistica = pedido?.tipo_envio !== 'apenas_nf';
-  const [itemsWithAssets, setItemsWithAssets] = useState<Record<string, string>>({});
+  const [itemsWithAssets, setItemsWithAssets] = useState<Record<string, string[]>>({});
   const submittingRef = useRef(false);
 
   const itemsNeedingAssets = useMemo(() => {
     if (!pedido?.pedido_itens) return [];
     return pedido.pedido_itens.filter(item => 
-      item.pecas?.is_asset && !item.workshop_item
+      item.pecas?.is_asset && !item.cancelled_at
     );
   }, [pedido]);
 
@@ -88,16 +88,18 @@ export default function ProcessarPedidoDialog({ open, onOpenChange, pedido, onCo
             <div className="space-y-3 pt-2 border-t">
               <Label className="text-sm font-semibold">Vincular Ativos (Peças Controladas)</Label>
               {itemsNeedingAssets.map(item => (
-                <AssetSearchField
+                <MultiAssetField
                   key={item.id}
                   pecaId={item.peca_id}
-                  onAssetSelected={(workshopItemId) => {
+                  pecaNome={item.pecas?.nome || item.pecas?.codigo || ''}
+                  quantidade={item.quantidade}
+                  selectedAssets={itemsWithAssets[item.id] || []}
+                  onAssetsChange={(assets) => {
                     setItemsWithAssets(prev => ({
                       ...prev,
-                      [item.id]: workshopItemId || '',
+                      [item.id]: assets,
                     }));
                   }}
-                  currentAssetId={itemsWithAssets[item.id] || null}
                 />
               ))}
             </div>
