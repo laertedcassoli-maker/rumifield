@@ -182,39 +182,45 @@ export function NovaOSDialog({ open, onOpenChange, onSuccess }: NovaOSDialogProp
 
       if (osError) throw osError;
 
-      // Create work order item (only when there's a valid item or product)
-      if (selectedActivity?.execution_type === 'UNIVOCA' && selectedItem) {
-        const { error: itemError } = await supabase
-          .from('work_order_items')
-          .insert({
-            work_order_id: osData.id,
-            quantity: 1,
-            workshop_item_id: selectedItem.id,
-          });
-        if (itemError) throw itemError;
-      } else if (selectedActivity?.execution_type === 'LOTE') {
-        // For LOTE, try to find a linked product; skip item creation if none
-        const firstProduct = activityProducts.find(ap => ap.activity_id === selectedActivityId);
-        if (firstProduct) {
+      // FIX 8: Create work order items with rollback on failure
+      try {
+        if (selectedActivity?.execution_type === 'UNIVOCA' && selectedItem) {
           const { error: itemError } = await supabase
             .from('work_order_items')
             .insert({
               work_order_id: osData.id,
-              quantity,
-              omie_product_id: firstProduct.omie_product_id,
+              quantity: 1,
+              workshop_item_id: selectedItem.id,
             });
           if (itemError) throw itemError;
-        }
-        // If no activity_product linked, skip — OS is created without items
-      }
 
-      // Update workshop item status if UNIVOCA
-      if (selectedActivity?.execution_type === 'UNIVOCA' && selectedItem) {
-        const { error: updateError } = await supabase
-          .from('workshop_items')
-          .update({ status: 'em_manutencao' })
-          .eq('id', selectedItem.id);
-        if (updateError) throw updateError;
+          // Update workshop item status
+          const { error: updateError } = await supabase
+            .from('workshop_items')
+            .update({ status: 'em_manutencao' })
+            .eq('id', selectedItem.id);
+          if (updateError) {
+            // Rollback: delete items and OS
+            await supabase.from('work_order_items').delete().eq('work_order_id', osData.id);
+            throw updateError;
+          }
+        } else if (selectedActivity?.execution_type === 'LOTE') {
+          const firstProduct = activityProducts.find(ap => ap.activity_id === selectedActivityId);
+          if (firstProduct) {
+            const { error: itemError } = await supabase
+              .from('work_order_items')
+              .insert({
+                work_order_id: osData.id,
+                quantity,
+                omie_product_id: firstProduct.omie_product_id,
+              });
+            if (itemError) throw itemError;
+          }
+        }
+      } catch (stepError) {
+        // Rollback: delete the orphan OS
+        await supabase.from('work_orders').delete().eq('id', osData.id);
+        throw stepError;
       }
 
       return osData;

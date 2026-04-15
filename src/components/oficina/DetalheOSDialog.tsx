@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -100,6 +100,28 @@ interface DetalheOSDialogProps {
   onUpdate: () => void;
 }
 
+/** Helper: recalculate total_time_seconds from all finished entries (source of truth) */
+async function recalcTotalFromEntries(workOrderId: string): Promise<number> {
+  const { data: allEntries, error: sumError } = await supabase
+    .from('work_order_time_entries')
+    .select('duration_seconds')
+    .eq('work_order_id', workOrderId)
+    .eq('status', 'finished');
+  if (sumError) throw sumError;
+
+  const calculatedTotal = (allEntries || []).reduce(
+    (sum, e) => sum + (e.duration_seconds || 0), 0
+  );
+
+  const { error: osError } = await supabase
+    .from('work_orders')
+    .update({ total_time_seconds: calculatedTotal })
+    .eq('id', workOrderId);
+  if (osError) throw osError;
+
+  return calculatedTotal;
+}
+
 export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: DetalheOSDialogProps) {
   const { user, role } = useAuth();
   const isAdmin = role === 'admin';
@@ -107,7 +129,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
   const [elapsedTime, setElapsedTime] = useState(workOrder.total_time_seconds);
   const [currentSessionTime, setCurrentSessionTime] = useState(0);
   const [optimisticTimeEntry, setOptimisticTimeEntry] = useState<TimeEntry | null>(null);
-  // Local snapshot of total time to avoid UI “reset” while server props/refetch catch up
+  // Local snapshot of total time to avoid UI "reset" while server props/refetch catch up
   const [localTotalSeconds, setLocalTotalSeconds] = useState(workOrder.total_time_seconds);
   const [addPartDialogOpen, setAddPartDialogOpen] = useState(false);
   const [selectedPecaId, setSelectedPecaId] = useState('');
@@ -122,6 +144,11 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
   const [motorCodeConfirm, setMotorCodeConfirm] = useState('');
   const [motorCodeConfirmError, setMotorCodeConfirmError] = useState(false);
   const [completionNotes, setCompletionNotes] = useState('');
+
+  // FIX 4: Ref to protect localTotalSeconds from stale refetch after Stop
+  const recentlyStoppedRef = useRef(false);
+  // FIX 7: Guard against double-click on Play
+  const startingTimerRef = useRef(false);
 
   // Reset all form state when a different work order is opened
   useEffect(() => {
@@ -141,9 +168,11 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
     setTimeHistoryOpen(false);
   }, [workOrder.id]);
 
-  // Keep local total in sync when the workOrder prop updates
+  // FIX 4: Keep local total in sync — but skip for 5s after stop to prevent stale overwrite
   useEffect(() => {
-    setLocalTotalSeconds(workOrder.total_time_seconds);
+    if (!recentlyStoppedRef.current) {
+      setLocalTotalSeconds(workOrder.total_time_seconds);
+    }
   }, [workOrder.total_time_seconds]);
 
   // Fetch active time entry for this user on this OS (only running status now)
@@ -168,6 +197,13 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
   });
 
   const effectiveTimeEntry = optimisticTimeEntry ?? activeTimeEntry;
+
+  // FIX 3: Clear optimistic entry when real query data arrives
+  useEffect(() => {
+    if (activeTimeEntry && optimisticTimeEntry) {
+      setOptimisticTimeEntry(null);
+    }
+  }, [activeTimeEntry]);
 
   // Fetch parts used
   const { data: partsUsed = [] } = useQuery({
@@ -455,53 +491,53 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
       setOptimisticTimeEntry(null);
       toast.error(error.message);
     },
-    onSettled: () => {
-      setOptimisticTimeEntry(null);
-    },
+    // FIX 3: Removed onSettled that cleared optimistic entry — now handled by useEffect above
   });
 
-  // Stop timer mutation (simplified - always stops a running entry)
+  // FIX 1 + FIX 2 + FIX 5: Stop timer mutation — always fetch real entry from DB, recalc total from entries
   const stopTimerMutation = useMutation({
     mutationFn: async () => {
-      const timerEntry = effectiveTimeEntry;
-      if (!timerEntry || timerEntry.status !== 'running') throw new Error('Nenhum cronômetro ativo');
+      // FIX 1: ALWAYS fetch the real running entry from the DB — never trust the optimistic ID
+      const { data: realEntry, error: fetchError } = await supabase
+        .from('work_order_time_entries')
+        .select('id, started_at')
+        .eq('work_order_id', workOrder.id)
+        .eq('user_id', user!.id)
+        .eq('status', 'running')
+        .order('started_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
 
-      const endedAt = new Date();
-      const durationSeconds = Math.floor((endedAt.getTime() - new Date(timerEntry.started_at).getTime()) / 1000);
+      if (fetchError) throw fetchError;
+      if (!realEntry) throw new Error('Nenhum timer ativo encontrado.');
 
-      // Update time entry to finished
-      const { error: entryError } = await supabase
+      const now = new Date();
+      const startedAt = new Date(realEntry.started_at);
+      const durationSeconds = Math.round((now.getTime() - startedAt.getTime()) / 1000);
+
+      // Stop the REAL entry
+      const { error: stopError } = await supabase
         .from('work_order_time_entries')
         .update({
-          ended_at: endedAt.toISOString(),
+          ended_at: now.toISOString(),
           duration_seconds: durationSeconds,
-          status: 'finished',
+          status: 'finished' as const,
         })
-        .eq('id', timerEntry.id);
-      if (entryError) throw entryError;
+        .eq('id', realEntry.id);
+      if (stopError) throw stopError;
 
-      // Fetch current total from DB to avoid stale prop issues
-      const { data: currentOS } = await supabase
-        .from('work_orders')
-        .select('total_time_seconds')
-        .eq('id', workOrder.id)
-        .single();
-      
-      const currentTotal = currentOS?.total_time_seconds ?? 0;
-
-      // Update work order total time
-      const { error: osError } = await supabase
-        .from('work_orders')
-        .update({
-          total_time_seconds: currentTotal + durationSeconds,
-        })
-        .eq('id', workOrder.id);
-      if (osError) throw osError;
+      // FIX 5: Recalculate total from all finished entries (atomic source of truth)
+      const calculatedTotal = await recalcTotalFromEntries(workOrder.id);
 
       // Update local total immediately to prevent UI reset
-      setLocalTotalSeconds(currentTotal + durationSeconds);
+      setLocalTotalSeconds(calculatedTotal);
     },
     onSuccess: () => {
+      // FIX 4: Protect localTotalSeconds from stale refetch for 5s
+      recentlyStoppedRef.current = true;
+      setTimeout(() => { recentlyStoppedRef.current = false; }, 5000);
+
+      setOptimisticTimeEntry(null);
       queryClient.invalidateQueries({ queryKey: ['active-time-entry', workOrder.id, user?.id] });
       queryClient.invalidateQueries({ queryKey: ['work-orders'] });
       queryClient.invalidateQueries({ queryKey: ['time-entries-history', workOrder.id] });
@@ -601,13 +637,12 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
     },
   });
 
-  // Complete OS mutation
+  // FIX 5: Complete OS mutation — recalc total from entries
   const completeOSMutation = useMutation({
     mutationFn: async (): Promise<{ warrantyCreated: boolean }> => {
       let warrantyCreated = false;
       
       // Force-stop ALL running time entries for this OS directly in the DB
-      // This avoids race conditions where effectiveTimeEntry is stale
       const { data: runningEntries, error: fetchError } = await supabase
         .from('work_order_time_entries')
         .select('id, started_at')
@@ -617,11 +652,9 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
 
       if (runningEntries && runningEntries.length > 0) {
         const now = Date.now();
-        let totalStoppedDuration = 0;
 
         for (const entry of runningEntries) {
           const durationSeconds = Math.floor((now - new Date(entry.started_at).getTime()) / 1000);
-          totalStoppedDuration += durationSeconds;
 
           const { error: stopError, data: updatedRows } = await supabase
             .from('work_order_time_entries')
@@ -637,23 +670,11 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
             throw new Error('Não foi possível encerrar o cronômetro — verifique permissões');
           }
         }
-
-        // Fetch current total from DB and add stopped durations
-        const { data: currentOS } = await supabase
-          .from('work_orders')
-          .select('total_time_seconds')
-          .eq('id', workOrder.id)
-          .single();
-
-        const currentTotal = currentOS?.total_time_seconds ?? 0;
-        const { error: totalError } = await supabase
-          .from('work_orders')
-          .update({ total_time_seconds: currentTotal + totalStoppedDuration })
-          .eq('id', workOrder.id);
-        if (totalError) throw totalError;
-
-        setLocalTotalSeconds(currentTotal + totalStoppedDuration);
       }
+
+      // FIX 5: Recalculate total from all finished entries (atomic source of truth)
+      const calculatedTotal = await recalcTotalFromEntries(workOrder.id);
+      setLocalTotalSeconds(calculatedTotal);
 
       const univocaItem = workOrderItems.find(item => item.workshop_item_id);
       
@@ -673,7 +694,6 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
           // If motor was replaced, record history BEFORE updating the milestone
           if (isMotorReplacement) {
             // Get current workshop item data to calculate motor hours used
-            // Note: using raw query since types haven't regenerated yet for new columns
             const { data: currentWorkshopItem } = await supabase
               .from('workshop_items')
               .select('motor_replaced_at_meter_hours, meter_hours_last')
@@ -686,18 +706,16 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
                                       0;
             const motorHoursUsed = meterValue - previousMilestone;
 
-            // Get motor codes from parts used in this OS (raw query for new columns)
+            // Get motor codes from parts used in this OS
             const { data: motorParts } = await supabase
               .from('work_order_parts_used')
               .select('omie_product_id, notes')
               .eq('work_order_id', workOrder.id);
             
-            // Fetch the raw data with new columns using rpc or raw approach
             let oldMotorCode: string | null = null;
             let newMotorCode: string | null = null;
             
             if (motorParts && motorParts.length > 0) {
-              // Check each part to see if it's a motor and get codes
               for (const part of motorParts) {
                 const { data: partInfo } = await supabase
                   .from('pecas')
@@ -706,7 +724,6 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
                   .single();
                 
                 if (partInfo?.nome?.toLowerCase().includes('motor')) {
-                  // Get codes via raw query for new columns
                   const { data: partWithCodes } = await supabase
                     .from('work_order_parts_used')
                     .select('*')
@@ -754,7 +771,6 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
             const warrantyHours = warrantyConfig?.valor ? parseInt(warrantyConfig.valor) : 400;
             
             if (motorHoursUsed < warrantyHours && oldMotorCode) {
-              // Create warranty request automatically
               const warrantyInsert = {
                 motor_code: oldMotorCode,
                 description: `Motor retirado com ${motorHoursUsed.toFixed(0)}h de uso (garantia: ${warrantyHours}h)`,
@@ -773,7 +789,6 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
               
               if (warrantyError) {
                 console.error('Error creating warranty request:', warrantyError);
-                // Don't throw - warranty creation failure shouldn't block OS completion
               } else {
                 warrantyCreated = true;
               }
@@ -889,15 +904,22 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
   // Check if this activity requires meter hours
   const requiresMeterHours = (() => {
     if (workOrder.activities?.execution_type !== 'UNIVOCA' || !univocaItem) return false;
-    // Check if any activity_product requires meter hours
     const workshopProductId = univocaItem.workshop_items?.omie_product_id;
     if (!workshopProductId) return activityProducts.some(ap => ap.requires_meter_hours);
     return activityProducts.some(ap => ap.omie_product_id === workshopProductId && ap.requires_meter_hours);
   })();
 
+  // FIX 6: Handle dialog close — auto-stop timer if running
+  const handleDialogClose = (openState: boolean) => {
+    if (!openState && effectiveTimeEntry?.status === 'running') {
+      stopTimerMutation.mutate();
+    }
+    onOpenChange(openState);
+  };
+
   return (
     <>
-      <Dialog open={open} onOpenChange={onOpenChange}>
+      <Dialog open={open} onOpenChange={handleDialogClose}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 flex-wrap">
@@ -957,9 +979,16 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
                       <p className="text-xs text-muted-foreground mt-0.5">total</p>
                     </div>
                     {workOrder.status !== 'concluido' && (
+                      // FIX 7: Double-click guard on Play
                       <Button
                         size="sm"
-                        onClick={() => startTimerMutation.mutate(undefined)}
+                        onClick={() => {
+                          if (startingTimerRef.current) return;
+                          startingTimerRef.current = true;
+                          startTimerMutation.mutate(undefined, {
+                            onSettled: () => { startingTimerRef.current = false; }
+                          });
+                        }}
                         disabled={startTimerMutation.isPending}
                       >
                         <Play className="h-4 w-4 mr-1" />
@@ -1398,7 +1427,8 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
                     <Separator className="my-2" />
                     <div className="flex justify-between text-sm font-medium">
                       <span>Total acumulado:</span>
-                      <span className="font-mono">{formatTime(workOrder.total_time_seconds)}</span>
+                      {/* FIX 9: Use elapsedTime (live) instead of stale workOrder.total_time_seconds */}
+                      <span className="font-mono">{formatTime(elapsedTime)}</span>
                     </div>
                   </div>
                 </CollapsibleContent>
@@ -1407,7 +1437,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
+            <Button variant="outline" onClick={() => handleDialogClose(false)}>
               Fechar
             </Button>
           </DialogFooter>
@@ -1465,14 +1495,16 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
 
             {/* Search results */}
             {partSearchQuery.trim().length >= 2 && !selectedPecaId && (
-              <div className="border rounded-lg max-h-48 overflow-y-auto">
+              <div className="max-h-[200px] overflow-auto border rounded-lg flex-shrink-0">
                 {filteredPecas.length === 0 ? (
-                  <p className="p-3 text-sm text-muted-foreground text-center">Nenhuma peça encontrada</p>
+                  <div className="p-4 text-center text-muted-foreground">
+                    Nenhuma peça encontrada
+                  </div>
                 ) : (
-                  filteredPecas.slice(0, 20).map((peca) => (
+                  filteredPecas.slice(0, 30).map((peca) => (
                     <div
                       key={peca.id}
-                      className="p-3 border-b last:border-b-0 cursor-pointer hover:bg-muted/50"
+                      className="p-2 border-b last:border-b-0 cursor-pointer hover:bg-muted/50"
                       onClick={() => handleSelectPart(peca)}
                     >
                       <p className="font-medium text-sm">{peca.nome}</p>
@@ -1483,98 +1515,80 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
               </div>
             )}
 
-            {/* Selected part display */}
-            {selectedPecaId && (() => {
-              const selectedPart = pecas.find(p => p.id === selectedPecaId) || 
-                                   recentPartsUsed.find(p => p.id === selectedPecaId);
-              const isMotorPart = selectedPart?.nome?.toLowerCase().includes('motor');
-              
-              return (
-                <>
-                  <Card className={isMotorPart ? "bg-amber-50 border-amber-200 dark:bg-amber-950/30 dark:border-amber-800" : "bg-muted/30"}>
-                    <CardContent className="py-3 flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        {isMotorPart && <Wrench className="h-4 w-4 text-amber-600" />}
-                        <div>
-                          <p className="font-medium text-sm">{selectedPart?.nome}</p>
-                          <p className="text-xs text-muted-foreground font-mono">{selectedPart?.codigo}</p>
-                        </div>
-                      </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setSelectedPecaId('');
-                          setMotorCodeRemoved('');
-                          setMotorCodeInstalled('');
-                        }}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </CardContent>
-                  </Card>
+            {/* Selected part */}
+            {selectedPecaId && (
+              <div className="space-y-3 overflow-auto flex-1">
+                <div className="flex items-center justify-between p-3 border rounded-lg bg-primary/5">
+                  <div>
+                    <p className="font-medium text-sm">
+                      {(pecas.find(p => p.id === selectedPecaId) || recentPartsUsed.find(p => p.id === selectedPecaId))?.nome}
+                    </p>
+                    <p className="text-xs text-muted-foreground font-mono">
+                      {(pecas.find(p => p.id === selectedPecaId) || recentPartsUsed.find(p => p.id === selectedPecaId))?.codigo}
+                    </p>
+                  </div>
+                  <Button variant="ghost" size="sm" onClick={() => setSelectedPecaId('')}>✕</Button>
+                </div>
 
-                  {/* Motor codes - only show for motor parts */}
-                  {isMotorPart && (
-                    <div className="p-3 border rounded-lg bg-amber-50/50 dark:bg-amber-950/20 space-y-3">
-                      <p className="text-sm font-medium flex items-center gap-2">
-                        <Wrench className="h-4 w-4 text-amber-600" />
+                {/* Motor code fields - only show for motor parts */}
+                {(() => {
+                  const selectedPart = pecas.find(p => p.id === selectedPecaId) || 
+                                      recentPartsUsed.find(p => p.id === selectedPecaId);
+                  if (!selectedPart?.nome?.toLowerCase().includes('motor')) return null;
+                  
+                  return (
+                    <div className="space-y-3 p-3 border rounded-lg bg-amber-50/50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800">
+                      <p className="text-sm font-semibold text-amber-800 dark:text-amber-200 flex items-center gap-2">
+                        <Wrench className="h-4 w-4" />
                         Códigos do Motor
                       </p>
-                      <div className="grid grid-cols-2 gap-3">
+                      <div className="space-y-2">
                         <div>
-                          <Label className="text-xs">Motor Retirado</Label>
+                          <Label className="text-xs">Motor Retirado (DD-XXXXX)</Label>
                           <Input
                             placeholder="DD-00000"
                             value={motorCodeRemoved}
                             onChange={(e) => setMotorCodeRemoved(e.target.value.toUpperCase())}
+                            className="font-mono h-8"
                             maxLength={8}
-                            className="font-mono"
                           />
                         </div>
                         <div>
-                          <Label className="text-xs font-semibold">Motor Novo <span className="text-destructive">*</span></Label>
+                          <Label className="text-xs">
+                            Motor Novo (DD-XXXXX) <span className="text-destructive">*</span>
+                          </Label>
                           <Input
                             placeholder="DD-00000"
                             value={motorCodeInstalled}
                             onChange={(e) => setMotorCodeInstalled(e.target.value.toUpperCase())}
+                            className="font-mono h-8"
                             maxLength={8}
-                            className={`font-mono border-amber-400 bg-amber-50 dark:bg-amber-950/40 focus:border-amber-500 ring-1 ring-amber-300 dark:ring-amber-700 ${
-                              !motorCodeInstalled ? 'animate-pulse' : ''
-                            }`}
                           />
                         </div>
                       </div>
-                      <p className="text-xs text-muted-foreground">
-                        Formato: DD-XXXXX (5 dígitos). Motor Novo é obrigatório.
-                      </p>
                     </div>
-                  )}
+                  );
+                })()}
 
-                  {/* Quantity */}
-                  <div>
-                    <Label>Quantidade</Label>
-                    <Input
-                      type="number"
-                      min={1}
-                      value={partQuantity}
-                      onChange={(e) => setPartQuantity(parseInt(e.target.value) || 1)}
-                    />
-                  </div>
-                </>
-              );
-            })()}
+                <div>
+                  <Label>Quantidade</Label>
+                  <Input
+                    type="number"
+                    min={1}
+                    value={partQuantity}
+                    onChange={(e) => setPartQuantity(parseInt(e.target.value) || 1)}
+                    className="h-8"
+                  />
+                </div>
+              </div>
+            )}
           </div>
-          <DialogFooter className="mt-4">
-            <Button variant="outline" onClick={() => setAddPartDialogOpen(false)}>
-              Cancelar
-            </Button>
-            <Button 
-              onClick={() => addPartMutation.mutate()} 
+          <DialogFooter>
+            <Button
+              onClick={() => addPartMutation.mutate()}
               disabled={!selectedPecaId || addPartMutation.isPending}
-              className="bg-green-600 hover:bg-green-700 text-white"
             >
-              {addPartMutation.isPending ? 'Adicionando...' : 'Adicionar'}
+              {addPartMutation.isPending ? 'Salvando...' : 'Salvar'}
             </Button>
           </DialogFooter>
         </DialogContent>
