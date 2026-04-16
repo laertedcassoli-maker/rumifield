@@ -87,6 +87,7 @@ export default function AssetSearchField({
       const { data } = await supabase
         .from('workshop_items')
         .select('id, unique_code, current_motor_code, status')
+        .eq('status', 'disponivel')
         .ilike('unique_code', `%${query}%`)
         .order('unique_code', { ascending: true });
       
@@ -100,9 +101,6 @@ export default function AssetSearchField({
   };
 
   const handleSelect = (asset: WorkshopItem) => {
-    if (asset.status === 'em_manutencao') {
-      toast({ title: 'Atenção', description: 'Esse ativo ainda se encontra em manutenção.', variant: 'destructive' });
-    }
     setSelectedAsset(asset);
     onAssetSelected(asset.id);
     setOpen(false);
