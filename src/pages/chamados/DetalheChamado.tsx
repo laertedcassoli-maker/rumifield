@@ -407,6 +407,9 @@ export default function DetalheChamado() {
       queryClient.invalidateQueries({ queryKey: ['ticket-timeline', id] });
       toast({ title: 'Técnico atualizado!' });
     },
+    onError: (e: Error) => {
+      toast({ variant: 'destructive', title: 'Erro ao atualizar técnico', description: e.message });
+    },
   });
 
   // Fetch available technicians for assignment
