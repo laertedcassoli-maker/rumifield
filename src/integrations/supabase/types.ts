@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      access_logs: {
+        Row: {
+          created_at: string
+          email: string | null
+          event_type: string
+          id: string
+          ip: string | null
+          reason: string | null
+          user_agent: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          event_type: string
+          id?: string
+          ip?: string | null
+          reason?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          event_type?: string
+          id?: string
+          ip?: string | null
+          reason?: string | null
+          user_agent?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       activities: {
         Row: {
           allows_quantity: boolean
@@ -3752,6 +3785,10 @@ export type Database = {
       reorder_checklist_items: {
         Args: { p_block_id: string; p_ordered_ids: string[] }
         Returns: undefined
+      }
+      validate_rumina_login: {
+        Args: { p_email: string; p_user_id: string }
+        Returns: Json
       }
     }
     Enums: {

@@ -17,6 +17,7 @@ interface AuthContextType {
   session: Session | null;
   profile: Profile | null;
   role: AppRole | null;
+  isAdmin: boolean;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signUp: (email: string, password: string, nome: string) => Promise<{ error: Error | null }>;
@@ -24,6 +25,20 @@ interface AuthContextType {
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+async function logAccess(eventType: 'login' | 'logout' | 'login_denied' | 'login_error', email: string | null, userId: string | null, reason?: string) {
+  try {
+    await supabase.from('access_logs').insert({
+      user_id: userId,
+      email,
+      event_type: eventType,
+      reason: reason ?? null,
+      user_agent: typeof navigator !== 'undefined' ? navigator.userAgent : null,
+    });
+  } catch (e) {
+    console.warn('[access_logs] failed to insert', e);
+  }
+}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -114,13 +129,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
+    const currentEmail = user?.email ?? null;
+    const currentId = user?.id ?? null;
+    await logAccess('logout', currentEmail, currentId);
     localStorage.removeItem('cached_profile');
     localStorage.removeItem('cached_role');
     await supabase.auth.signOut();
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, profile, role, loading, signIn, signUp, signOut }}>
+    <AuthContext.Provider value={{ user, session, profile, role, isAdmin: role === 'admin', loading, signIn, signUp, signOut }}>
       {children}
     </AuthContext.Provider>
   );

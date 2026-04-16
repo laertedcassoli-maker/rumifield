@@ -50,6 +50,8 @@ export default defineConfig(({ mode }) => ({
         clientsClaim: true,
         maximumFileSizeToCacheInBytes: 3 * 1024 * 1024, // 3 MB
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
+        // OAuth callback paths must NEVER be intercepted by the SW
+        navigateFallbackDenylist: [/^\/~oauth/],
         runtimeCaching: [
           // 1) Auth — never cache
           {
