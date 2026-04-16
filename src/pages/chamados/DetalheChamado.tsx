@@ -154,6 +154,7 @@ export default function DetalheChamado() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['ticket-detail', id] });
+      queryClient.invalidateQueries({ queryKey: ['technical-tickets'] });
       setEditingDescription(false);
       toast({ title: 'Descrição atualizada!' });
     },
@@ -170,6 +171,7 @@ export default function DetalheChamado() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['ticket-detail', id] });
+      queryClient.invalidateQueries({ queryKey: ['technical-tickets'] });
       setEditingPriority(false);
       toast({ title: 'Prioridade atualizada!' });
     },
@@ -211,6 +213,7 @@ export default function DetalheChamado() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['ticket-tags', id] });
+      queryClient.invalidateQueries({ queryKey: ['technical-tickets'] });
       setEditingTags(false);
       toast({ title: 'Tags atualizadas!' });
     },
@@ -405,6 +408,7 @@ export default function DetalheChamado() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['ticket-detail', id] });
       queryClient.invalidateQueries({ queryKey: ['ticket-timeline', id] });
+      queryClient.invalidateQueries({ queryKey: ['technical-tickets'] });
       toast({ title: 'Técnico atualizado!' });
     },
     onError: (e: Error) => {
