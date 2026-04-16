@@ -32,6 +32,7 @@ export interface PedidoComItens {
   observacoes?: string | null;
   omie_pedido_id?: string | null;
   omie_nf_numero?: string | null;
+  omie_nf_numero_2?: string | null;
   omie_data_faturamento?: string | null;
   origem?: string | null;
   tipo_envio?: string | null;

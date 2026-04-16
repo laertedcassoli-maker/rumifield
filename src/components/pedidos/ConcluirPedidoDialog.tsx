@@ -19,12 +19,13 @@ interface ConcluirPedidoDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   pedido?: PedidoComItens;
-  onConfirm: (nfNumero: string, dataFaturamento: string, tipoLogistica: string, itemsWithAssets?: Record<string, string[]>) => Promise<void>;
+  onConfirm: (nfNumero: string, dataFaturamento: string, tipoLogistica: string, itemsWithAssets?: Record<string, string[]>, nfNumero2?: string) => Promise<void>;
   currentTipoLogistica?: string | null;
 }
 
 export default function ConcluirPedidoDialog({ open, onOpenChange, pedido, onConfirm, currentTipoLogistica }: ConcluirPedidoDialogProps) {
   const [nfNumero, setNfNumero] = useState('');
+  const [nfNumero2, setNfNumero2] = useState('');
   const [dataFaturamento, setDataFaturamento] = useState(new Date().toISOString().split('T')[0]);
   const [tipoLogistica, setTipoLogistica] = useState(currentTipoLogistica || '');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -45,8 +46,9 @@ export default function ConcluirPedidoDialog({ open, onOpenChange, pedido, onCon
     submittingRef.current = true;
     setIsSubmitting(true);
     try {
-      await onConfirm(nfNumero.trim(), dataFaturamento, needsLogistica ? tipoLogistica : 'nao_aplicavel', itemsWithAssets);
+      await onConfirm(nfNumero.trim(), dataFaturamento, needsLogistica ? tipoLogistica : 'nao_aplicavel', itemsWithAssets, nfNumero2.trim() || undefined);
       setNfNumero('');
+      setNfNumero2('');
       setDataFaturamento(new Date().toISOString().split('T')[0]);
       setTipoLogistica('');
       setItemsWithAssets({});
@@ -78,6 +80,15 @@ export default function ConcluirPedidoDialog({ open, onOpenChange, pedido, onCon
               value={nfNumero}
               onChange={(e) => setNfNumero(e.target.value)}
               autoFocus
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="nf-numero-2">Número da NF (Adicional) <span className="text-muted-foreground font-normal">(opcional)</span></Label>
+            <Input
+              id="nf-numero-2"
+              placeholder="Ex: 67890"
+              value={nfNumero2}
+              onChange={(e) => setNfNumero2(e.target.value)}
             />
           </div>
           <div className="space-y-2">

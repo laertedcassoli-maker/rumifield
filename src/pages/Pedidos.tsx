@@ -544,7 +544,7 @@ export default function Pedidos() {
   }, [toast, queryClient]);
 
   // Concluir pedido (processamento -> faturado + NF + tipo_logistica)
-  const handleConcluir = useCallback(async (pedidoId: string, nfNumero: string, dataFaturamento: string, tipoLogistica: string, itemsWithAssets?: Record<string, string[]>) => {
+  const handleConcluir = useCallback(async (pedidoId: string, nfNumero: string, dataFaturamento: string, tipoLogistica: string, itemsWithAssets?: Record<string, string[]>, nfNumero2?: string) => {
     setIsProcessingAction(true);
     try {
       // Save asset associations BEFORE updating status
@@ -575,6 +575,7 @@ export default function Pedidos() {
         .update({ 
           status: 'faturado', 
           omie_nf_numero: nfNumero,
+          omie_nf_numero_2: nfNumero2 || null,
           omie_data_faturamento: dataFaturamento,
           tipo_logistica: tipoLogistica,
         } as any)
@@ -582,7 +583,8 @@ export default function Pedidos() {
       if (error) throw error;
 
       queryClient.invalidateQueries({ queryKey: ['pedidos'] });
-      toast({ title: 'Pedido concluído!', description: `NF ${nfNumero} registrada.` });
+      const nfLabel = nfNumero2 ? `${nfNumero} / ${nfNumero2}` : nfNumero;
+      toast({ title: 'Pedido concluído!', description: `NF ${nfLabel} registrada.` });
     } catch (err: any) {
       toast({ variant: 'destructive', title: 'Erro', description: err.message });
     } finally {
@@ -1693,7 +1695,10 @@ export default function Pedidos() {
                 <div className="flex items-center gap-4 text-sm p-3 rounded-lg bg-success/10 border border-success/20">
                   <div>
                     <span className="text-muted-foreground">NF: </span>
-                    <span className="font-medium">{viewingPedido.omie_nf_numero}</span>
+                    <span className="font-medium">
+                      {viewingPedido.omie_nf_numero}
+                      {viewingPedido.omie_nf_numero_2 ? ` / ${viewingPedido.omie_nf_numero_2}` : ''}
+                    </span>
                   </div>
                   {viewingPedido.omie_data_faturamento && (
                     <div>
