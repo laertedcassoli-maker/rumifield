@@ -400,7 +400,7 @@ export default function DetalheChamado() {
           ? 'Técnico de campo atribuído' 
           : 'Técnico de campo removido',
       });
-      if (tlError) console.error('[DetalheChamado] Timeline insert failed:', tlError);
+      if (tlError) throw tlError;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['ticket-detail', id] });
