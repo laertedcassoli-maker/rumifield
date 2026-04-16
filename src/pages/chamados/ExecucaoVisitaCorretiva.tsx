@@ -176,7 +176,6 @@ export default function ExecucaoVisitaCorretiva() {
         throw new Error('Sem conexão com a internet. Conecte-se e tente novamente.');
       }
 
-      setIsCheckingIn(true);
       let lat: number | null = null;
       let lon: number | null = null;
 
@@ -212,47 +211,42 @@ export default function ExecucaoVisitaCorretiva() {
         throw new Error('Check-in não foi salvo. Verifique sua conexão e tente novamente.');
       }
 
-      // Create preventive_maintenance record for this corrective visit (needed for checklist)
+      // BLOCKING: Create or fetch preventive_maintenance record (needed for checklist)
       let preventiveId: string | null = null;
-      try {
-        const { data: existingPm } = await supabase
+      const { data: existingPm, error: existingPmError } = await supabase
+        .from('preventive_maintenance')
+        .select('id')
+        .eq('client_id', visit?.client_id)
+        .ilike('notes', `%CORR-VISIT-${visitId}%`)
+        .maybeSingle();
+      if (existingPmError) throw existingPmError;
+
+      if (existingPm) {
+        preventiveId = existingPm.id;
+      } else {
+        const { data: newPm, error: pmError } = await supabase
           .from('preventive_maintenance')
+          .insert([{
+            client_id: visit?.client_id,
+            scheduled_date: visit?.planned_start_date || new Date().toISOString().split('T')[0],
+            status: 'planejada' as const,
+            technician_user_id: visit?.field_technician_user_id,
+            notes: `Visita Corretiva CORR-VISIT-${visitId} - ${visit?.ticket?.ticket_code || 'Chamado'}`,
+          }])
           .select('id')
-          .eq('client_id', visit?.client_id)
-          .ilike('notes', `%CORR-VISIT-${visitId}%`)
-          .maybeSingle();
-
-        if (existingPm) {
-          preventiveId = existingPm.id;
-        } else {
-          const { data: newPm } = await supabase
-            .from('preventive_maintenance')
-            .insert([{
-              client_id: visit?.client_id,
-              scheduled_date: visit?.planned_start_date || new Date().toISOString().split('T')[0],
-              status: 'planejada' as const,
-              technician_user_id: visit?.field_technician_user_id,
-              notes: `Visita Corretiva CORR-VISIT-${visitId} - ${visit?.ticket?.ticket_code || 'Chamado'}`,
-            }])
-            .select('id')
-            .single();
-          if (newPm) preventiveId = newPm.id;
-        }
-      } catch (pmErr) {
-        console.error('[Corretiva] Erro ao criar preventive_maintenance no check-in:', pmErr);
+          .single();
+        if (pmError) throw pmError;
+        preventiveId = newPm.id;
       }
 
-      // Bug #3: Timeline is non-critical — don't block checkin
-      try {
-        await supabase.from('ticket_timeline').insert({
-          ticket_id: visit?.ticket_id,
-          user_id: user!.id,
-          event_type: 'visit_checkin',
-          event_description: `Check-in realizado na visita ${visit?.visit_code}`,
-        });
-      } catch (timelineErr) {
-        console.error('[Corretiva] Timeline de checkin não criada:', timelineErr);
-      }
+      // BLOCKING: Timeline entry
+      const { error: tlError } = await supabase.from('ticket_timeline').insert({
+        ticket_id: visit?.ticket_id,
+        user_id: user!.id,
+        event_type: 'visit_checkin',
+        event_description: `Check-in realizado na visita ${visit?.visit_code}`,
+      });
+      if (tlError) throw tlError;
 
       return { lat, lon, preventiveId };
     },
@@ -282,7 +276,6 @@ export default function ExecucaoVisitaCorretiva() {
         title: 'Check-in realizado!',
         description: 'Você pode iniciar o atendimento.',
       });
-      setIsCheckingIn(false);
     },
     onError: (error: Error) => {
       toast({
@@ -290,6 +283,8 @@ export default function ExecucaoVisitaCorretiva() {
         description: error.message,
         variant: 'destructive',
       });
+    },
+    onSettled: () => {
       setIsCheckingIn(false);
     },
   });
