@@ -1,0 +1,1 @@
+ALTER TABLE public.pedidos ADD COLUMN omie_nf_numero_2 text;

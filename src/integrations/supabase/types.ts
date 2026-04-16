@@ -1833,6 +1833,7 @@ export type Database = {
           observacoes: string | null
           omie_data_faturamento: string | null
           omie_nf_numero: string | null
+          omie_nf_numero_2: string | null
           omie_pedido_id: string | null
           origem: string | null
           pedido_code: string | null
@@ -1851,6 +1852,7 @@ export type Database = {
           observacoes?: string | null
           omie_data_faturamento?: string | null
           omie_nf_numero?: string | null
+          omie_nf_numero_2?: string | null
           omie_pedido_id?: string | null
           origem?: string | null
           pedido_code?: string | null
@@ -1869,6 +1871,7 @@ export type Database = {
           observacoes?: string | null
           omie_data_faturamento?: string | null
           omie_nf_numero?: string | null
+          omie_nf_numero_2?: string | null
           omie_pedido_id?: string | null
           origem?: string | null
           pedido_code?: string | null
