@@ -213,6 +213,7 @@ export default function DetalheChamado() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['ticket-tags', id] });
+      queryClient.invalidateQueries({ queryKey: ['technical-tickets'] });
       setEditingTags(false);
       toast({ title: 'Tags atualizadas!' });
     },
