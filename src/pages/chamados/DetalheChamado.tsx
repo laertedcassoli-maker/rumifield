@@ -171,6 +171,7 @@ export default function DetalheChamado() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['ticket-detail', id] });
+      queryClient.invalidateQueries({ queryKey: ['technical-tickets'] });
       setEditingPriority(false);
       toast({ title: 'Prioridade atualizada!' });
     },
