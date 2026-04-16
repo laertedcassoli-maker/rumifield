@@ -908,7 +908,10 @@ export default function ExecucaoVisitaCorretiva() {
               </div>
             </div>
             <Button 
-              onClick={() => checkinMutation.mutate()}
+              onClick={() => {
+                setIsCheckingIn(true);
+                checkinMutation.mutate();
+              }}
               disabled={checkinMutation.isPending || isCheckingIn}
               size="lg"
               className="w-full"
