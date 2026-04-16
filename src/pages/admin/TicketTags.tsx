@@ -98,6 +98,29 @@ export default function TicketTags() {
     },
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error: linkError } = await supabase
+        .from('ticket_tag_links')
+        .delete()
+        .eq('tag_id', id);
+      if (linkError) throw linkError;
+
+      const { error } = await supabase
+        .from('ticket_tags')
+        .delete()
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ticket-tags-admin'] });
+      toast({ title: 'Tag excluída!' });
+    },
+    onError: (err: Error) => {
+      toast({ variant: 'destructive', title: 'Erro ao excluir', description: err.message });
+    },
+  });
+
   const openNew = () => {
     setEditingTag(null);
     setName('');
