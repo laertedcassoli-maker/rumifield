@@ -1,30 +1,22 @@
 
-## Diagnóstico atualizado
 
-Confirmado via DB:
-- **Ivan Henrique** é `coordenador_logistica` (criou e está como `assigned_to_user_id`).
-- A função `is_admin_or_coordinator` **já inclui** `coordenador_logistica` → RLS NÃO bloqueia o update.
-- `work_order_items` foi salvo com `meter_hours_exit=182.7` ✅, mas `workshop_items.meter_hours_last=NULL` e `status='em_manutencao'` (com `updated_at` igual ao `created_at`, ou seja, **o UPDATE nunca chegou a rodar**).
+## Diagnóstico
 
-Conclusão: não foi RLS nem o trigger `validate_meter_hours` (NULL→valor é permitido). O update do `workshop_items` simplesmente **não foi executado**, mesmo o de `work_order_items` tendo rodado logo antes. Provável causa: condição `if (univocaItem.workshop_item_id)` foi falsa porque o estado local (`workOrderItems` do `useQuery`) estava desatualizado/sem o `workshop_item_id` populado no momento do clique. Sem `.select()`, qualquer 0-row update passa despercebido.
+Em `src/components/pedidos/AssetSearchField.tsx`, a função `searchAssets` busca em `workshop_items` apenas por `unique_code` ilike, sem filtro de status. Resultado: ativos `em_manutencao` aparecem na lista (apenas exibem um toast ao selecionar). O usuário pede para **filtrar** mostrando só os disponíveis.
 
-Independente da causa exata (que pode ter sido race de cache local), o problema estrutural é o mesmo: **3 updates em `workshop_items` sem detecção de 0-row**, violando `mem://security/rls-silent-failure-detection`.
+Status existentes hoje: `disponivel` (84) e `em_manutencao` (59).
 
 ## Plano
 
-### 1. Corrigir registro órfão (insert tool / UPDATE)
-Atualizar diretamente o ativo `0000071`:
-- `status = 'disponivel'`
-- `meter_hours_last = 182.7`
+### `src/components/pedidos/AssetSearchField.tsx`
 
-### 2. Blindar `completeOSMutation` em `src/components/oficina/DetalheOSDialog.tsx`
-Nos 3 updates de `workshop_items` (linhas 807, 821, 842):
-- Adicionar `.select('id')` ao final.
-- Após cada update: `if (!data || data.length === 0) throw new Error('Falha ao atualizar status do ativo — recarregue a tela e tente novamente')`.
-
-### 3. Garantir que `univocaItem` está fresco antes do complete
-Antes de executar o bloco da linha 682, refazer um SELECT direto em `work_order_items` por `work_order_id` para evitar trabalhar com cache local desatualizado. Usar esse resultado fresh em vez de `workOrderItems` (state).
+1. Em `searchAssets`, adicionar `.eq('status', 'disponivel')` ao SELECT.
+2. No `handleSelect`, remover a checagem `if (asset.status === 'em_manutencao')` (não vai mais aparecer; código morto).
+3. Manter o fluxo de **criar novo ativo** quando a busca não retornar nada — o ativo é criado com `status: 'disponivel'` (já é o default no upsert), então continua coerente.
+4. Manter exibição do badge de status no item da lista (todos serão "disponivel", mas mantém consistência visual e cobre se outros status forem adicionados no futuro com a mesma regra).
 
 ### Fora do escopo
-- Refatorar permissões da oficina.
-- Backfill de outras OS antigas (tratar caso a caso se aparecerem).
+- Não alterar `MultiAssetField` nem `TicketPartsRequestPanel`.
+- Não mexer em telas de oficina onde faz sentido listar ativos `em_manutencao`.
+- Não adicionar toggle "ver todos os status" — usuário pediu o filtro direto.
+
