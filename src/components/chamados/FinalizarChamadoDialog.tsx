@@ -65,6 +65,7 @@ export default function FinalizarChamadoDialog({ open, onOpenChange, ticketId }:
       queryClient.invalidateQueries({ queryKey: ['ticket-detail', ticketId] });
       queryClient.invalidateQueries({ queryKey: ['ticket-timeline', ticketId] });
       queryClient.invalidateQueries({ queryKey: ['technical-tickets'] });
+      navigate('/chamados');
     },
     onError: (e: Error) => {
       toast({ variant: 'destructive', title: 'Erro ao finalizar', description: e.message });
