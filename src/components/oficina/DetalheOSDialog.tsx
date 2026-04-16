@@ -676,7 +676,13 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
       const calculatedTotal = await recalcTotalFromEntries(workOrder.id);
       setLocalTotalSeconds(calculatedTotal);
 
-      const univocaItem = workOrderItems.find(item => item.workshop_item_id);
+      // Refetch fresh work_order_items to avoid stale local cache (could miss workshop_item_id)
+      const { data: freshItems, error: freshItemsError } = await supabase
+        .from('work_order_items')
+        .select('id, workshop_item_id, omie_product_id, workshop_items:workshop_item_id(meter_hours_last, motor_replaced_at_meter_hours)')
+        .eq('work_order_id', workOrder.id);
+      if (freshItemsError) throw freshItemsError;
+      const univocaItem = (freshItems || []).find(item => item.workshop_item_id);
       
       // Save meter hours if provided
       if (univocaItem && meterHoursCurrent) {
@@ -804,11 +810,15 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
               workshopUpdate.current_motor_code = newMotorCode;
             }
 
-            const { error: workshopError } = await supabase
+            const { data: workshopUpdated, error: workshopError } = await supabase
               .from('workshop_items')
               .update(workshopUpdate as never)
-              .eq('id', univocaItem.workshop_item_id);
+              .eq('id', univocaItem.workshop_item_id)
+              .select('id');
             if (workshopError) throw workshopError;
+            if (!workshopUpdated || workshopUpdated.length === 0) {
+              throw new Error('Falha ao atualizar status do ativo — recarregue a tela e tente novamente');
+            }
           } else {
             // No motor replacement - update meter hours and confirm motor code
             const workshopUpdateNoReplacement: Record<string, unknown> = {
@@ -818,11 +828,15 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
             if (motorCodeConfirm.trim()) {
               workshopUpdateNoReplacement.current_motor_code = motorCodeConfirm.trim();
             }
-            const { error: workshopError } = await supabase
+            const { data: workshopUpdated, error: workshopError } = await supabase
               .from('workshop_items')
               .update(workshopUpdateNoReplacement as never)
-              .eq('id', univocaItem.workshop_item_id);
+              .eq('id', univocaItem.workshop_item_id)
+              .select('id');
             if (workshopError) throw workshopError;
+            if (!workshopUpdated || workshopUpdated.length === 0) {
+              throw new Error('Falha ao atualizar status do ativo — recarregue a tela e tente novamente');
+            }
           }
 
           // Create meter reading record
@@ -839,11 +853,15 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
         }
       } else if (univocaItem?.workshop_item_id) {
         // Just update status to disponivel
-        const { error: workshopError } = await supabase
+        const { data: workshopUpdated, error: workshopError } = await supabase
           .from('workshop_items')
           .update({ status: 'disponivel' })
-          .eq('id', univocaItem.workshop_item_id);
+          .eq('id', univocaItem.workshop_item_id)
+          .select('id');
         if (workshopError) throw workshopError;
+        if (!workshopUpdated || workshopUpdated.length === 0) {
+          throw new Error('Falha ao atualizar status do ativo — recarregue a tela e tente novamente');
+        }
       }
 
       // Complete the work order
