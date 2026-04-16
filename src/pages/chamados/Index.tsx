@@ -30,13 +30,10 @@ import {
   ChevronRight,
   Building2,
   User,
-  WifiOff
 } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Link } from 'react-router-dom';
-import { useOffline } from '@/contexts/OfflineContext';
-import { useOfflineChamados } from '@/hooks/useOfflineChamados';
 
 // Helper function to calculate duration in days
 const calculateDurationDays = (createdAt: string, resolvedAt?: string | null): number => {
@@ -85,16 +82,14 @@ export default function ChamadosIndex() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState(1);
-  const { isOnline } = useOffline();
-  const { chamados: offlineChamados, isLoading: offlineLoading } = useOfflineChamados();
 
   const isAdminOrCoordinator = role === 'admin' || role === 'coordenador_servicos';
 
-  // Fetch tickets online
-  const { data: onlineTickets, isLoading: onlineLoading } = useQuery<TicketWithDetails[]>({
+  // Fetch tickets online (single source of truth via React Query)
+  const { data: tickets, isLoading } = useQuery<TicketWithDetails[]>({
     queryKey: ['technical-tickets'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('technical_tickets')
         .select(`
           id,
@@ -109,7 +104,14 @@ export default function ChamadosIndex() {
           resolved_at
         `)
         .order('created_at', { ascending: false });
-      
+
+      // Defesa em profundidade além da RLS: técnicos de campo só veem seus tickets
+      if (!isAdminOrCoordinator && user) {
+        query = query.eq('assigned_technician_id', user.id);
+      }
+
+      const { data, error } = await query;
+
       if (error) throw error;
       if (!data?.length) return [];
 
