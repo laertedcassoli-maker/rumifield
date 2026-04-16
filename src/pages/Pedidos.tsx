@@ -556,7 +556,9 @@ export default function Pedidos() {
             if (itemError) throw itemError;
 
             const rows = validIds.map(wsId => ({ pedido_item_id: itemId, workshop_item_id: wsId }));
-            const { error: junctionError } = await supabase.from('pedido_item_assets').insert(rows);
+            const { error: junctionError } = await supabase
+              .from('pedido_item_assets')
+              .upsert(rows, { onConflict: 'pedido_item_id,workshop_item_id', ignoreDuplicates: true });
             if (junctionError) throw junctionError;
 
             const { data: wsItems } = await supabase.from('workshop_items').select('unique_code').in('id', validIds);
