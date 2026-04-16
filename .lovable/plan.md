@@ -1,24 +1,30 @@
 
-Adicionar ação de exclusão na tabela de tags cadastradas em `src/pages/admin/TicketTags.tsx`.
+## Diagnóstico atualizado
+
+Confirmado via DB:
+- **Ivan Henrique** é `coordenador_logistica` (criou e está como `assigned_to_user_id`).
+- A função `is_admin_or_coordinator` **já inclui** `coordenador_logistica` → RLS NÃO bloqueia o update.
+- `work_order_items` foi salvo com `meter_hours_exit=182.7` ✅, mas `workshop_items.meter_hours_last=NULL` e `status='em_manutencao'` (com `updated_at` igual ao `created_at`, ou seja, **o UPDATE nunca chegou a rodar**).
+
+Conclusão: não foi RLS nem o trigger `validate_meter_hours` (NULL→valor é permitido). O update do `workshop_items` simplesmente **não foi executado**, mesmo o de `work_order_items` tendo rodado logo antes. Provável causa: condição `if (univocaItem.workshop_item_id)` foi falsa porque o estado local (`workOrderItems` do `useQuery`) estava desatualizado/sem o `workshop_item_id` populado no momento do clique. Sem `.select()`, qualquer 0-row update passa despercebido.
+
+Independente da causa exata (que pode ter sido race de cache local), o problema estrutural é o mesmo: **3 updates em `workshop_items` sem detecção de 0-row**, violando `mem://security/rls-silent-failure-detection`.
 
 ## Plano
 
-### `src/pages/admin/TicketTags.tsx`
-- Adicionar `deleteMutation` que:
-  1. Remove vínculos em `ticket_tag_assignments` (caso existam) para evitar FK violations.
-  2. Deleta a tag em `ticket_tags` por `id`.
-  3. Captura erros explicitamente (`if (error) throw error`).
-  4. `onSuccess`: invalida `['ticket-tags-admin']` + toast "Tag excluída!".
-  5. `onError`: toast destrutivo.
-- Adicionar botão "Excluir" (ícone `Trash2`, variant ghost, cor destructive) na coluna Ações, ao lado do botão de editar.
-- Envolver o botão em `AlertDialog` (já disponível em `@/components/ui/alert-dialog`) com confirmação destrutiva: título "Excluir tag?", descrição alertando que a tag será removida de todos os chamados, botões "Cancelar" / "Excluir".
-- Ajustar largura da coluna Ações para `w-[120px]` para acomodar os dois botões.
+### 1. Corrigir registro órfão (insert tool / UPDATE)
+Atualizar diretamente o ativo `0000071`:
+- `status = 'disponivel'`
+- `meter_hours_last = 182.7`
 
-### Detalhes técnicos
-- Verificar se existe tabela de vínculo (provavelmente `ticket_tag_assignments` ou similar) antes de implementar — se não existir, deletar direto. Confirmar via `supabase--read_query` antes de codar.
-- Manter padrão do projeto: confirmação explícita destrutiva (alinhado a `mem://features/consumed-parts-deletion-logic`).
-- Sem mudanças de schema, RLS ou layout além do botão extra.
+### 2. Blindar `completeOSMutation` em `src/components/oficina/DetalheOSDialog.tsx`
+Nos 3 updates de `workshop_items` (linhas 807, 821, 842):
+- Adicionar `.select('id')` ao final.
+- Após cada update: `if (!data || data.length === 0) throw new Error('Falha ao atualizar status do ativo — recarregue a tela e tente novamente')`.
+
+### 3. Garantir que `univocaItem` está fresco antes do complete
+Antes de executar o bloco da linha 682, refazer um SELECT direto em `work_order_items` por `work_order_id` para evitar trabalhar com cache local desatualizado. Usar esse resultado fresh em vez de `workOrderItems` (state).
 
 ### Fora do escopo
-- Soft-delete (usar `is_active=false` já existe via Switch).
-- Reordenação de tags.
+- Refatorar permissões da oficina.
+- Backfill de outras OS antigas (tratar caso a caso se aparecerem).
