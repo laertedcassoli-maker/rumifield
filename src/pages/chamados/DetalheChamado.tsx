@@ -154,6 +154,7 @@ export default function DetalheChamado() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['ticket-detail', id] });
+      queryClient.invalidateQueries({ queryKey: ['technical-tickets'] });
       setEditingDescription(false);
       toast({ title: 'Descrição atualizada!' });
     },
