@@ -1695,7 +1695,10 @@ export default function Pedidos() {
                 <div className="flex items-center gap-4 text-sm p-3 rounded-lg bg-success/10 border border-success/20">
                   <div>
                     <span className="text-muted-foreground">NF: </span>
-                    <span className="font-medium">{viewingPedido.omie_nf_numero}</span>
+                    <span className="font-medium">
+                      {viewingPedido.omie_nf_numero}
+                      {viewingPedido.omie_nf_numero_2 ? ` / ${viewingPedido.omie_nf_numero_2}` : ''}
+                    </span>
                   </div>
                   {viewingPedido.omie_data_faturamento && (
                     <div>
