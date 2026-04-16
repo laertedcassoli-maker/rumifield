@@ -29,6 +29,7 @@ export default function FinalizarChamadoDialog({ open, onOpenChange, ticketId }:
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [resolutionSummary, setResolutionSummary] = useState('');
 
   const finalizeMutation = useMutation({
