@@ -278,6 +278,12 @@ class OfflineDatabase extends Dexie {
       pedidos: null,
       pedido_itens: null,
     });
+
+    // Version 7: Remove chamados/corretivas (módulo Chamados Técnicos é 100% online)
+    this.version(7).stores({
+      chamados: null,
+      corretivas: null,
+    });
   }
 
   // Clear all offline data
@@ -287,9 +293,7 @@ class OfflineDatabase extends Dexie {
     await this.produtos_quimicos.clear();
     await this.visitas.clear();
     await this.estoque.clear();
-    await this.chamados.clear();
     await this.preventivas.clear();
-    await this.corretivas.clear();
     await this.rotas.clear();
     await this.rota_items.clear();
     await this.crm_visit_audios.clear();
