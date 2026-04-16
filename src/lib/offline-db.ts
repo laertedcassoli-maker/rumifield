@@ -223,9 +223,7 @@ class OfflineDatabase extends Dexie {
   produtos_quimicos!: Table<OfflineProdutoQuimico, string>;
   visitas!: Table<OfflineVisita, string>;
   estoque!: Table<OfflineEstoque, string>;
-  chamados!: Table<OfflineChamado, string>;
   preventivas!: Table<OfflinePreventiva, string>;
-  corretivas!: Table<OfflineCorretiva, string>;
   rotas!: Table<OfflineRota, string>;
   rota_items!: Table<OfflineRotaItem, string>;
   crm_visit_audios!: Table<OfflineCrmVisitAudio, string>;

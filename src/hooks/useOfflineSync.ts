@@ -105,42 +105,7 @@ export function useOfflineSync() {
           }
           break;
         }
-        case "chamados": {
-          // Fetch chamados with client/technician info
-          const result = await supabase
-            .from("technical_tickets")
-            .select("id, ticket_code, title, description, priority, status, client_id, assigned_technician_id, created_at, resolved_at, updated_at")
-            .order("created_at", { ascending: false })
-            .limit(200);
-          if (result.error) throw result.error;
-          
-          if (result.data?.length) {
-            const clientIds = [...new Set(result.data.map(t => t.client_id))];
-            const techIds = [...new Set(result.data.map(t => t.assigned_technician_id).filter(Boolean))] as string[];
-            
-            const [clientsRes, profilesRes] = await Promise.all([
-              supabase.from("clientes").select("id, nome, fazenda").in("id", clientIds),
-              techIds.length > 0 ? supabase.from("profiles").select("id, nome").in("id", techIds) : Promise.resolve({ data: [] as { id: string; nome: string }[] })
-            ]);
-            
-            const clientsMap = new Map<string, { id: string; nome: string; fazenda: string | null }>(
-              (clientsRes.data || []).map(c => [c.id, c])
-            );
-            const profilesMap = new Map<string, string>(
-              (profilesRes.data || []).map(p => [p.id, p.nome])
-            );
-            
-            const enriched = result.data.map(ticket => ({
-              ...ticket,
-              client_name: clientsMap.get(ticket.client_id)?.nome || "Cliente não encontrado",
-              client_fazenda: clientsMap.get(ticket.client_id)?.fazenda || null,
-              technician_name: ticket.assigned_technician_id ? (profilesMap.get(ticket.assigned_technician_id) || null) : null,
-            }));
-            
-            await offlineDb.chamados.bulkPut(enriched as any);
-          }
-          break;
-        }
+        // Note: "chamados" removido — Chamados Técnicos é 100% online via React Query
         case "preventivas": {
           const result = await supabase
             .from("preventive_maintenance")

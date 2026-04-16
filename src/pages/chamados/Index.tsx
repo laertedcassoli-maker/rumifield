@@ -235,12 +235,6 @@ export default function ChamadosIndex() {
           <p className="text-muted-foreground">Gestão de chamados e visitas corretivas</p>
         </div>
         <div className="flex items-center gap-2">
-          {!isOnline && (
-            <Badge variant="secondary" className="gap-1">
-              <WifiOff className="h-3 w-3" />
-              Offline
-            </Badge>
-          )}
           <Button asChild>
             <Link to="/chamados/novo">
               <Plus className="mr-2 h-4 w-4" />
