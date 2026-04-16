@@ -219,9 +219,9 @@ export default function PedidoKanban({
         onOpenChange={(open) => !open && setConcluirPedidoId(null)}
         pedido={concluirPedidoId ? pedidos.find(p => p.id === concluirPedidoId) : undefined}
         currentTipoLogistica={concluirPedidoId ? pedidos.find(p => p.id === concluirPedidoId)?.tipo_logistica : undefined}
-        onConfirm={async (nfNumero, dataFaturamento, tipoLogistica, itemsWithAssets) => {
+        onConfirm={async (nfNumero, dataFaturamento, tipoLogistica, itemsWithAssets, nfNumero2) => {
           if (concluirPedidoId) {
-            await onConcluir(concluirPedidoId, nfNumero, dataFaturamento, tipoLogistica, itemsWithAssets);
+            await onConcluir(concluirPedidoId, nfNumero, dataFaturamento, tipoLogistica, itemsWithAssets, nfNumero2);
             setConcluirPedidoId(null);
           }
         }}
