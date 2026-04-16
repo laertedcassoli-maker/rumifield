@@ -27,71 +27,9 @@ export interface OfflineCliente {
   updated_at: string;
 }
 
-// Chamados (technical tickets)
-export interface OfflineChamado {
-  id: string;
-  ticket_code: string;
-  title: string;
-  description?: string | null;
-  priority: string;
-  status: string;
-  client_id: string;
-  assigned_technician_id?: string | null;
-  created_at: string;
-  resolved_at?: string | null;
-  updated_at: string;
-  // Nested data for display
-  client_name?: string;
-  client_fazenda?: string | null;
-  technician_name?: string | null;
-  visits_count?: number;
-}
+// NOTE: chamados (technical_tickets) e corretivas (ticket_visits) foram
+// removidos da camada offline — esses módulos operam 100% online via React Query.
 
-// Preventive maintenance records
-export interface OfflinePreventiva {
-  id: string;
-  client_id: string;
-  scheduled_date: string;
-  completed_date?: string | null;
-  status: string;
-  notes?: string | null;
-  internal_notes?: string | null;
-  public_notes?: string | null;
-  public_token?: string | null;
-  route_id?: string | null;
-  technician_user_id?: string | null;
-  created_at: string;
-  updated_at: string;
-  // Nested data for display
-  client_name?: string;
-  client_fazenda?: string | null;
-  technician_name?: string | null;
-}
-
-// Corrective visits (ticket_visits)
-export interface OfflineCorretiva {
-  id: string;
-  visit_code: string;
-  ticket_id: string;
-  client_id: string;
-  status: string;
-  planned_start_date?: string | null;
-  checkin_at?: string | null;
-  checkin_lat?: number | null;
-  checkin_lon?: number | null;
-  checkout_at?: string | null;
-  field_technician_user_id?: string | null;
-  notes?: string | null;
-  created_at: string;
-  updated_at: string;
-  // Nested data for display
-  ticket_code?: string;
-  ticket_title?: string;
-  client_name?: string;
-  client_fazenda?: string | null;
-  technician_name?: string | null;
-  public_token?: string | null;
-}
 
 // Preventive routes
 export interface OfflineRota {

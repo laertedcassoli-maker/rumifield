@@ -155,32 +155,11 @@ export default function ChamadosIndex() {
         };
       }) as TicketWithDetails[];
     },
-    enabled: isOnline,
+    enabled: !!user,
+    staleTime: 30_000,
+    refetchOnWindowFocus: true,
   });
 
-  // Convert offline data to TicketWithDetails format
-  const offlineTicketsConverted = useMemo<TicketWithDetails[]>(() => {
-    return offlineChamados.map(c => ({
-      id: c.id,
-      ticket_code: c.ticket_code,
-      title: c.title,
-      description: c.description || null,
-      priority: c.priority,
-      status: c.status,
-      client_id: c.client_id,
-      client_name: c.client_name || 'Cliente não encontrado',
-      client_fazenda: c.client_fazenda || null,
-      assigned_technician_id: c.assigned_technician_id || null,
-      technician_name: c.technician_name || null,
-      created_at: c.created_at,
-      resolved_at: c.resolved_at || null,
-      visits_count: c.visits_count || 0,
-    }));
-  }, [offlineChamados]);
-
-  // Use appropriate data based on online status
-  const tickets = isOnline ? onlineTickets : offlineTicketsConverted;
-  const isLoading = isOnline ? onlineLoading : offlineLoading;
 
   // Filter and paginate
   const filteredTickets = useMemo(() => {

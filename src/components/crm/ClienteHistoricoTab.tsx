@@ -10,9 +10,7 @@ import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import { TimelineEventModal } from '@/components/crm/TimelineEventModal';
 import { useOffline } from '@/contexts/OfflineContext';
-import { useOfflineChamados } from '@/hooks/useOfflineChamados';
 import { useOfflinePreventivas } from '@/hooks/useOfflinePreventivas';
-import { useOfflineCorretivas } from '@/hooks/useOfflineCorretivas';
 
 type EventType = 'chamado' | 'preventiva' | 'corretiva';
 
@@ -79,25 +77,15 @@ export function ClienteHistoricoTab({ clientId }: ClienteHistoricoTabProps) {
   const [selectedEvent, setSelectedEvent] = useState<TimelineEvent | null>(null);
   const { isOnline } = useOffline();
 
-  // Offline hooks
-  const { chamados: allOfflineChamados } = useOfflineChamados();
+  // Offline hook (preventivas only — chamados/corretivas são 100% online)
   const { preventivas: allOfflinePreventivas } = useOfflinePreventivas();
-  const { corretivas: allOfflineCorretivas } = useOfflineCorretivas();
 
-  const offlineChamados = useMemo(() =>
-    allOfflineChamados.filter(c => c.client_id === clientId).slice(0, 20),
-    [allOfflineChamados, clientId]
-  );
   const offlinePreventivas = useMemo(() =>
     allOfflinePreventivas.filter(p => p.client_id === clientId).slice(0, 20),
     [allOfflinePreventivas, clientId]
   );
-  const offlineCorretivas = useMemo(() =>
-    allOfflineCorretivas.filter(c => c.client_id === clientId).slice(0, 20),
-    [allOfflineCorretivas, clientId]
-  );
 
-  // Online queries
+  // Online queries (chamados/corretivas: online-only; preventivas: fallback offline)
   const { data: onlineChamados = [] } = useQuery({
     queryKey: ['cliente-chamados', clientId],
     queryFn: async () => {
@@ -110,7 +98,7 @@ export function ClienteHistoricoTab({ clientId }: ClienteHistoricoTabProps) {
       if (error) throw error;
       return data;
     },
-    enabled: !!clientId && isOnline,
+    enabled: !!clientId,
   });
 
   const { data: onlinePreventivas = [] } = useQuery({
@@ -144,23 +132,15 @@ export function ClienteHistoricoTab({ clientId }: ClienteHistoricoTabProps) {
       if (error) throw error;
       return data;
     },
-    enabled: !!clientId && isOnline,
+    enabled: !!clientId,
   });
 
-  const chamados = isOnline ? onlineChamados : offlineChamados.map(c => ({
-    id: c.id, ticket_code: c.ticket_code, title: c.title,
-    status: c.status, priority: c.priority, created_at: c.created_at,
-  }));
+  const chamados = onlineChamados;
   const preventivas = isOnline ? onlinePreventivas : offlinePreventivas.map(p => ({
     id: p.id, scheduled_date: p.scheduled_date, completed_date: p.completed_date,
     status: p.status, public_token: p.public_token,
   }));
-  const corretivas = isOnline ? onlineCorretivas : offlineCorretivas.map(c => ({
-    id: c.id, visit_code: c.visit_code, status: c.status,
-    planned_start_date: c.planned_start_date, checkin_at: c.checkin_at,
-    technical_tickets: { client_id: c.client_id, title: c.ticket_title },
-    corrective_maintenance: { public_token: c.public_token },
-  }));
+  const corretivas = onlineCorretivas;
 
   // Build unified timeline
   const timeline: TimelineEvent[] = [
