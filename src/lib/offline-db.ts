@@ -30,6 +30,26 @@ export interface OfflineCliente {
 // NOTE: chamados (technical_tickets) e corretivas (ticket_visits) foram
 // removidos da camada offline — esses módulos operam 100% online via React Query.
 
+// Preventive maintenance records
+export interface OfflinePreventiva {
+  id: string;
+  client_id: string;
+  scheduled_date: string;
+  completed_date?: string | null;
+  status: string;
+  notes?: string | null;
+  internal_notes?: string | null;
+  public_notes?: string | null;
+  public_token?: string | null;
+  route_id?: string | null;
+  technician_user_id?: string | null;
+  created_at: string;
+  updated_at: string;
+  // Nested data for display
+  client_name?: string;
+  client_fazenda?: string | null;
+  technician_name?: string | null;
+}
 
 // Preventive routes
 export interface OfflineRota {
