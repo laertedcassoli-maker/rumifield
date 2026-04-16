@@ -175,41 +175,38 @@ export default function DetalheChamado() {
     },
   });
 
-  // Update tags mutation
+  // Update tags mutation (diff pattern: insert missing, delete removed)
   const updateTags = useMutation({
     mutationFn: async (tagIds: string[]) => {
-      // Snapshot current tags for rollback
-      const { data: currentTags } = await supabase
+      // 1. Fetch current tag links
+      const { data: currentLinks, error: fetchError } = await supabase
         .from('ticket_tag_links')
         .select('tag_id')
         .eq('ticket_id', id!);
-      const previousTagIds = currentTags?.map(t => t.tag_id) || [];
+      if (fetchError) throw fetchError;
 
-      // Delete existing links
-      const { error: delError } = await supabase
-        .from('ticket_tag_links')
-        .delete()
-        .eq('ticket_id', id!);
-      if (delError) throw delError;
+      const currentIds = (currentLinks || []).map(l => l.tag_id);
 
-      // Insert new links
-      if (tagIds.length > 0) {
-        const { error: insError } = await supabase
+      // 2. Compute diffs
+      const toAdd = tagIds.filter(t => !currentIds.includes(t));
+      const toRemove = currentIds.filter(t => !tagIds.includes(t));
+
+      // 3. Insert new links (if any)
+      if (toAdd.length > 0) {
+        const { error: addError } = await supabase
           .from('ticket_tag_links')
-          .insert(tagIds.map(tag_id => ({ ticket_id: id!, tag_id })));
-        if (insError) {
-          // Restore previous tags before re-throwing
-          if (previousTagIds.length > 0) {
-            try {
-              await supabase.from('ticket_tag_links').insert(
-                previousTagIds.map(tag_id => ({ ticket_id: id!, tag_id }))
-              );
-            } catch (restoreErr) {
-              console.error('[DetalheChamado] Erro ao restaurar tags:', restoreErr);
-            }
-          }
-          throw insError;
-        }
+          .insert(toAdd.map(tag_id => ({ ticket_id: id!, tag_id })));
+        if (addError) throw addError;
+      }
+
+      // 4. Remove obsolete links (if any)
+      if (toRemove.length > 0) {
+        const { error: remError } = await supabase
+          .from('ticket_tag_links')
+          .delete()
+          .eq('ticket_id', id!)
+          .in('tag_id', toRemove);
+        if (remError) throw remError;
       }
     },
     onSuccess: () => {
