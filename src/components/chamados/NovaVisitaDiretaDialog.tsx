@@ -212,6 +212,8 @@ export default function NovaVisitaDiretaDialog({
       // Background reconciliation
       queryClient.invalidateQueries({ queryKey: ['my-corrective-visits'], refetchType: 'none' });
       queryClient.invalidateQueries({ queryKey: ['technical-tickets'] });
+      queryClient.invalidateQueries({ queryKey: ['ticket-visits', data.ticketId] });
+      queryClient.invalidateQueries({ queryKey: ['ticket-timeline', data.ticketId] });
       toast({ title: `Nova Visita agendada: ${data.ticketCode}` });
       handleClose();
     },
