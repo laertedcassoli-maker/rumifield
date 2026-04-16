@@ -143,6 +143,7 @@ export default function MinhasRotas() {
         .from('profiles')
         .select('id, nome')
         .in('id', userIds)
+        .eq('is_active', true)
         .order('nome');
 
       if (profilesError) throw profilesError;
