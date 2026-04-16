@@ -176,7 +176,6 @@ export default function ExecucaoVisitaCorretiva() {
         throw new Error('Sem conexão com a internet. Conecte-se e tente novamente.');
       }
 
-      setIsCheckingIn(true);
       let lat: number | null = null;
       let lon: number | null = null;
 
@@ -212,47 +211,42 @@ export default function ExecucaoVisitaCorretiva() {
         throw new Error('Check-in não foi salvo. Verifique sua conexão e tente novamente.');
       }
 
-      // Create preventive_maintenance record for this corrective visit (needed for checklist)
+      // BLOCKING: Create or fetch preventive_maintenance record (needed for checklist)
       let preventiveId: string | null = null;
-      try {
-        const { data: existingPm } = await supabase
+      const { data: existingPm, error: existingPmError } = await supabase
+        .from('preventive_maintenance')
+        .select('id')
+        .eq('client_id', visit?.client_id)
+        .ilike('notes', `%CORR-VISIT-${visitId}%`)
+        .maybeSingle();
+      if (existingPmError) throw existingPmError;
+
+      if (existingPm) {
+        preventiveId = existingPm.id;
+      } else {
+        const { data: newPm, error: pmError } = await supabase
           .from('preventive_maintenance')
+          .insert([{
+            client_id: visit?.client_id,
+            scheduled_date: visit?.planned_start_date || new Date().toISOString().split('T')[0],
+            status: 'planejada' as const,
+            technician_user_id: visit?.field_technician_user_id,
+            notes: `Visita Corretiva CORR-VISIT-${visitId} - ${visit?.ticket?.ticket_code || 'Chamado'}`,
+          }])
           .select('id')
-          .eq('client_id', visit?.client_id)
-          .ilike('notes', `%CORR-VISIT-${visitId}%`)
-          .maybeSingle();
-
-        if (existingPm) {
-          preventiveId = existingPm.id;
-        } else {
-          const { data: newPm } = await supabase
-            .from('preventive_maintenance')
-            .insert([{
-              client_id: visit?.client_id,
-              scheduled_date: visit?.planned_start_date || new Date().toISOString().split('T')[0],
-              status: 'planejada' as const,
-              technician_user_id: visit?.field_technician_user_id,
-              notes: `Visita Corretiva CORR-VISIT-${visitId} - ${visit?.ticket?.ticket_code || 'Chamado'}`,
-            }])
-            .select('id')
-            .single();
-          if (newPm) preventiveId = newPm.id;
-        }
-      } catch (pmErr) {
-        console.error('[Corretiva] Erro ao criar preventive_maintenance no check-in:', pmErr);
+          .single();
+        if (pmError) throw pmError;
+        preventiveId = newPm.id;
       }
 
-      // Bug #3: Timeline is non-critical — don't block checkin
-      try {
-        await supabase.from('ticket_timeline').insert({
-          ticket_id: visit?.ticket_id,
-          user_id: user!.id,
-          event_type: 'visit_checkin',
-          event_description: `Check-in realizado na visita ${visit?.visit_code}`,
-        });
-      } catch (timelineErr) {
-        console.error('[Corretiva] Timeline de checkin não criada:', timelineErr);
-      }
+      // BLOCKING: Timeline entry
+      const { error: tlError } = await supabase.from('ticket_timeline').insert({
+        ticket_id: visit?.ticket_id,
+        user_id: user!.id,
+        event_type: 'visit_checkin',
+        event_description: `Check-in realizado na visita ${visit?.visit_code}`,
+      });
+      if (tlError) throw tlError;
 
       return { lat, lon, preventiveId };
     },
@@ -282,7 +276,6 @@ export default function ExecucaoVisitaCorretiva() {
         title: 'Check-in realizado!',
         description: 'Você pode iniciar o atendimento.',
       });
-      setIsCheckingIn(false);
     },
     onError: (error: Error) => {
       toast({
@@ -290,6 +283,8 @@ export default function ExecucaoVisitaCorretiva() {
         description: error.message,
         variant: 'destructive',
       });
+    },
+    onSettled: () => {
       setIsCheckingIn(false);
     },
   });
@@ -344,11 +339,19 @@ export default function ExecucaoVisitaCorretiva() {
       if (visitError) throw visitError;
       if (!visitUpdateData) throw new Error('Encerramento não foi salvo. Verifique permissões e tente novamente.');
 
-      // NON-CRITICAL: Update corrective_maintenance
-      if (visit.preventiveId) {
-        try {
-          const publicToken = crypto.randomUUID();
-          await supabase
+      try {
+        // Update corrective_maintenance (idempotent: reuse existing public_token)
+        if (visit.preventiveId) {
+          const { data: cmCurrent, error: cmFetchError } = await supabase
+            .from('corrective_maintenance')
+            .select('public_token')
+            .eq('id', visit.preventiveId)
+            .maybeSingle();
+          if (cmFetchError) throw cmFetchError;
+
+          const publicToken = cmCurrent?.public_token || crypto.randomUUID();
+
+          const { error: cmError } = await supabase
             .from('corrective_maintenance')
             .update({
               status: 'concluida',
@@ -358,30 +361,29 @@ export default function ExecucaoVisitaCorretiva() {
               public_token: publicToken,
             })
             .eq('id', visit.preventiveId);
-        } catch (cmError) {
-          console.error('[Corretiva] Erro ao atualizar corrective_maintenance:', cmError);
+          if (cmError) throw cmError;
         }
-      }
 
-      // NON-CRITICAL: Auto-create pedidos for consumed parts
-      if (visit.preventiveId && user) {
-        try {
+        // Auto-create pedidos for consumed parts
+        if (visit.preventiveId && user) {
           // Pedido for parts with stock_source = 'novo_pedido' (envio_fisico)
-          const { data: novoPedidoParts } = await supabase
+          const { data: novoPedidoParts, error: novoPedidoPartsError } = await supabase
             .from('preventive_part_consumption')
             .select('part_id, part_name_snapshot, quantity')
             .eq('preventive_id', visit.preventiveId)
             .eq('stock_source', 'novo_pedido');
+          if (novoPedidoPartsError) throw novoPedidoPartsError;
 
           if (novoPedidoParts && novoPedidoParts.length > 0) {
-            // Check if pedido already exists for idempotency
-            const { data: existingPedido } = await supabase
+            // Idempotency check
+            const { data: existingPedido, error: existingPedidoError } = await supabase
               .from('pedidos')
               .select('id')
               .eq('preventive_id', visit.preventiveId)
               .eq('origem', 'corretiva')
               .eq('tipo_envio', 'envio_fisico')
               .maybeSingle();
+            if (existingPedidoError) throw existingPedidoError;
 
             if (!existingPedido) {
               const { data: pedido, error: pedidoError } = await supabase
@@ -397,48 +399,46 @@ export default function ExecucaoVisitaCorretiva() {
                 } as any)
                 .select('id')
                 .single();
+              if (pedidoError) throw pedidoError;
 
-              if (!pedidoError && pedido) {
-                const grouped: Record<string, number> = {};
-                for (const p of novoPedidoParts) {
-                  grouped[p.part_id] = (grouped[p.part_id] || 0) + (p.quantity || 1);
-                }
-                const pedidoItens = Object.entries(grouped).map(([peca_id, quantidade]) => ({
-                  pedido_id: pedido.id,
-                  peca_id,
-                  quantidade,
-                }));
-                await supabase.from('pedido_itens').insert(pedidoItens);
-
-                await supabase.from('ticket_parts_requests').insert({
-                  ticket_id: visit.ticket_id,
-                  pedido_id: pedido.id,
-                  visit_id: visit.id,
-                });
+              const grouped: Record<string, number> = {};
+              for (const p of novoPedidoParts) {
+                grouped[p.part_id] = (grouped[p.part_id] || 0) + (p.quantity || 1);
               }
+              const pedidoItens = Object.entries(grouped).map(([peca_id, quantidade]) => ({
+                pedido_id: pedido.id,
+                peca_id,
+                quantidade,
+              }));
+              const { error: pedidoItensError } = await supabase.from('pedido_itens').insert(pedidoItens);
+              if (pedidoItensError) throw pedidoItensError;
+
+              const { error: tprError } = await supabase.from('ticket_parts_requests').insert({
+                ticket_id: visit.ticket_id,
+                pedido_id: pedido.id,
+                visit_id: visit.id,
+              });
+              if (tprError) throw tprError;
             }
           }
-        } catch (pedidoErr) {
-          console.error('[Corretiva] Erro ao criar pedido envio_fisico:', pedidoErr);
-        }
 
-        try {
           // Pedido for parts with stock_source = 'tecnico' (apenas_nf)
-          const { data: tecnicoPartsForNF } = await supabase
+          const { data: tecnicoPartsForNF, error: tecnicoPartsForNFError } = await supabase
             .from('preventive_part_consumption')
             .select('part_id, part_name_snapshot, quantity')
             .eq('preventive_id', visit.preventiveId)
             .eq('stock_source', 'tecnico');
+          if (tecnicoPartsForNFError) throw tecnicoPartsForNFError;
 
           if (tecnicoPartsForNF && tecnicoPartsForNF.length > 0) {
-            // Check if pedido already exists for idempotency
-            const { data: existingPedidoNF } = await supabase
+            const { data: existingPedidoNF, error: existingPedidoNFError } = await supabase
               .from('pedidos')
               .select('id')
               .eq('preventive_id', visit.preventiveId)
               .eq('origem', 'corretiva')
               .eq('tipo_envio', 'apenas_nf')
               .maybeSingle();
+            if (existingPedidoNFError) throw existingPedidoNFError;
 
             if (!existingPedidoNF) {
               const { data: pedidoNF, error: pedidoNFError } = await supabase
@@ -454,116 +454,119 @@ export default function ExecucaoVisitaCorretiva() {
                 } as any)
                 .select('id')
                 .single();
+              if (pedidoNFError) throw pedidoNFError;
 
-              if (!pedidoNFError && pedidoNF) {
-                const groupedNF: Record<string, number> = {};
-                for (const p of tecnicoPartsForNF) {
-                  groupedNF[p.part_id] = (groupedNF[p.part_id] || 0) + (p.quantity || 1);
-                }
-                const pedidoItensNF = Object.entries(groupedNF).map(([peca_id, quantidade]) => ({
-                  pedido_id: pedidoNF.id,
-                  peca_id,
-                  quantidade,
-                }));
-                await supabase.from('pedido_itens').insert(pedidoItensNF);
-
-                await supabase.from('ticket_parts_requests').insert({
-                  ticket_id: visit.ticket_id,
-                  pedido_id: pedidoNF.id,
-                  visit_id: visit.id,
-                });
+              const groupedNF: Record<string, number> = {};
+              for (const p of tecnicoPartsForNF) {
+                groupedNF[p.part_id] = (groupedNF[p.part_id] || 0) + (p.quantity || 1);
               }
+              const pedidoItensNF = Object.entries(groupedNF).map(([peca_id, quantidade]) => ({
+                pedido_id: pedidoNF.id,
+                peca_id,
+                quantidade,
+              }));
+              const { error: pedidoItensNFError } = await supabase.from('pedido_itens').insert(pedidoItensNF);
+              if (pedidoItensNFError) throw pedidoItensNFError;
+
+              const { error: tprNFError } = await supabase.from('ticket_parts_requests').insert({
+                ticket_id: visit.ticket_id,
+                pedido_id: pedidoNF.id,
+                visit_id: visit.id,
+              });
+              if (tprNFError) throw tprNFError;
             }
           }
-        } catch (pedidoNFErr) {
-          console.error('[Corretiva] Erro ao criar pedido apenas_nf:', pedidoNFErr);
-        }
 
-        // NON-CRITICAL: Auto-create workshop_items
-        try {
-          const { data: tecnicoParts } = await supabase
+          // Auto-create workshop_items via bulk upsert (idempotent)
+          const { data: tecnicoParts, error: tecnicoPartsError } = await supabase
             .from('preventive_part_consumption')
             .select('part_id, asset_unique_code')
             .eq('preventive_id', visit.preventiveId)
             .eq('stock_source', 'tecnico')
             .not('asset_unique_code', 'is', null);
+          if (tecnicoPartsError) throw tecnicoPartsError;
 
           if (tecnicoParts && tecnicoParts.length > 0) {
             const partIds = [...new Set(tecnicoParts.map(tp => tp.part_id))];
-            const { data: assetParts } = await supabase
+            const { data: assetParts, error: assetPartsError } = await supabase
               .from('pecas')
               .select('id, is_asset')
               .in('id', partIds);
+            if (assetPartsError) throw assetPartsError;
+
             const assetSet = new Set((assetParts || []).filter((p: any) => p.is_asset).map((p: any) => p.id));
 
-            for (const tp of tecnicoParts) {
-              if (!tp.asset_unique_code?.trim()) continue;
-              if (!assetSet.has(tp.part_id)) continue;
-              const { data: existing } = await supabase
-                .from('workshop_items')
-                .select('id')
-                .eq('unique_code', tp.asset_unique_code.trim())
-                .maybeSingle();
+            const workshopRows = tecnicoParts
+              .filter(tp => tp.asset_unique_code?.trim() && assetSet.has(tp.part_id))
+              .map(tp => ({
+                unique_code: tp.asset_unique_code!.trim(),
+                omie_product_id: tp.part_id,
+                status: 'disponivel' as const,
+              }));
 
-              if (!existing) {
-                await supabase.from('workshop_items').insert({
-                  unique_code: tp.asset_unique_code.trim(),
-                  omie_product_id: tp.part_id,
-                  status: 'disponivel',
-                });
-              }
+            if (workshopRows.length > 0) {
+              const { error: wsError } = await supabase
+                .from('workshop_items')
+                .upsert(workshopRows, { onConflict: 'unique_code', ignoreDuplicates: true });
+              if (wsError) throw wsError;
             }
           }
-        } catch (workshopErr) {
-          console.error('[Corretiva] Erro ao criar workshop_items:', workshopErr);
         }
-      }
 
-      // Build result label for timeline
-      const resultLabels = {
-        resolvido: 'Resolvido',
-        parcial: 'Parcialmente resolvido',
-        aguardando_peca: 'Aguardando peça'
-      };
+        // Build result label for timeline
+        const resultLabels = {
+          resolvido: 'Resolvido',
+          parcial: 'Parcialmente resolvido',
+          aguardando_peca: 'Aguardando peça'
+        };
 
-      // NON-CRITICAL: Add timeline entry
-      try {
-        await supabase.from('ticket_timeline').insert({
+        // Timeline entry (blocking)
+        const { error: tlError } = await supabase.from('ticket_timeline').insert({
           ticket_id: visit.ticket_id,
           user_id: user!.id,
           event_type: 'visit_completed',
           event_description: `Visita ${visit.visit_code} concluída - ${resultLabels[result]}`,
         });
-      } catch (timelineErr) {
-        console.error('[Corretiva] Erro ao criar timeline de conclusão:', timelineErr);
-      }
+        if (tlError) throw tlError;
 
-      // If result is "resolvido", close the ticket
-      if (result === 'resolvido') {
-        try {
+        // If result is "resolvido", close the ticket (blocking)
+        if (result === 'resolvido') {
           const { error: ticketError } = await supabase
             .from('technical_tickets')
-            .update({ 
+            .update({
               status: 'resolvido',
               substatus: null,
               resolved_at: new Date().toISOString(),
             })
             .eq('id', visit.ticket_id);
+          if (ticketError) throw ticketError;
 
-          if (ticketError) {
-            console.error('[Corretiva] Erro ao resolver chamado:', ticketError);
-          }
-
-          // Add timeline entry for ticket resolution
-          await supabase.from('ticket_timeline').insert({
+          const { error: resolveTlError } = await supabase.from('ticket_timeline').insert({
             ticket_id: visit.ticket_id,
             user_id: user!.id,
             event_type: 'status_change',
             event_description: 'Chamado encerrado - Problema resolvido na visita',
           });
-        } catch (resolveErr) {
-          console.error('[Corretiva] Erro ao resolver chamado/timeline:', resolveErr);
+          if (resolveTlError) throw resolveTlError;
         }
+      } catch (err) {
+        // Rollback: revert visit to em_execucao (best effort)
+        const { error: rollbackError } = await supabase
+          .from('ticket_visits')
+          .update({
+            status: 'em_execucao',
+            checkout_at: null,
+            checkout_lat: null,
+            checkout_lon: null,
+            result: null,
+          })
+          .eq('id', visitId);
+        if (rollbackError) {
+          console.error('[Corretiva] Falha no rollback da visita:', rollbackError);
+        } else {
+          console.log('[Corretiva] Rollback da visita executado após falha no encerramento.');
+        }
+        throw err;
       }
 
       return result;
@@ -905,7 +908,10 @@ export default function ExecucaoVisitaCorretiva() {
               </div>
             </div>
             <Button 
-              onClick={() => checkinMutation.mutate()}
+              onClick={() => {
+                setIsCheckingIn(true);
+                checkinMutation.mutate();
+              }}
               disabled={checkinMutation.isPending || isCheckingIn}
               size="lg"
               className="w-full"
