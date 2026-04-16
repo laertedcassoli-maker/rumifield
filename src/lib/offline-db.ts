@@ -27,25 +27,8 @@ export interface OfflineCliente {
   updated_at: string;
 }
 
-// Chamados (technical tickets)
-export interface OfflineChamado {
-  id: string;
-  ticket_code: string;
-  title: string;
-  description?: string | null;
-  priority: string;
-  status: string;
-  client_id: string;
-  assigned_technician_id?: string | null;
-  created_at: string;
-  resolved_at?: string | null;
-  updated_at: string;
-  // Nested data for display
-  client_name?: string;
-  client_fazenda?: string | null;
-  technician_name?: string | null;
-  visits_count?: number;
-}
+// NOTE: chamados (technical_tickets) e corretivas (ticket_visits) foram
+// removidos da camada offline — esses módulos operam 100% online via React Query.
 
 // Preventive maintenance records
 export interface OfflinePreventiva {
@@ -66,31 +49,6 @@ export interface OfflinePreventiva {
   client_name?: string;
   client_fazenda?: string | null;
   technician_name?: string | null;
-}
-
-// Corrective visits (ticket_visits)
-export interface OfflineCorretiva {
-  id: string;
-  visit_code: string;
-  ticket_id: string;
-  client_id: string;
-  status: string;
-  planned_start_date?: string | null;
-  checkin_at?: string | null;
-  checkin_lat?: number | null;
-  checkin_lon?: number | null;
-  checkout_at?: string | null;
-  field_technician_user_id?: string | null;
-  notes?: string | null;
-  created_at: string;
-  updated_at: string;
-  // Nested data for display
-  ticket_code?: string;
-  ticket_title?: string;
-  client_name?: string;
-  client_fazenda?: string | null;
-  technician_name?: string | null;
-  public_token?: string | null;
 }
 
 // Preventive routes
@@ -265,9 +223,7 @@ class OfflineDatabase extends Dexie {
   produtos_quimicos!: Table<OfflineProdutoQuimico, string>;
   visitas!: Table<OfflineVisita, string>;
   estoque!: Table<OfflineEstoque, string>;
-  chamados!: Table<OfflineChamado, string>;
   preventivas!: Table<OfflinePreventiva, string>;
-  corretivas!: Table<OfflineCorretiva, string>;
   rotas!: Table<OfflineRota, string>;
   rota_items!: Table<OfflineRotaItem, string>;
   crm_visit_audios!: Table<OfflineCrmVisitAudio, string>;
@@ -322,6 +278,12 @@ class OfflineDatabase extends Dexie {
       pedidos: null,
       pedido_itens: null,
     });
+
+    // Version 7: Remove chamados/corretivas (módulo Chamados Técnicos é 100% online)
+    this.version(7).stores({
+      chamados: null,
+      corretivas: null,
+    });
   }
 
   // Clear all offline data
@@ -331,9 +293,7 @@ class OfflineDatabase extends Dexie {
     await this.produtos_quimicos.clear();
     await this.visitas.clear();
     await this.estoque.clear();
-    await this.chamados.clear();
     await this.preventivas.clear();
-    await this.corretivas.clear();
     await this.rotas.clear();
     await this.rota_items.clear();
     await this.crm_visit_audios.clear();

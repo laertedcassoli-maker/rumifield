@@ -30,13 +30,10 @@ import {
   ChevronRight,
   Building2,
   User,
-  WifiOff
 } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Link } from 'react-router-dom';
-import { useOffline } from '@/contexts/OfflineContext';
-import { useOfflineChamados } from '@/hooks/useOfflineChamados';
 
 // Helper function to calculate duration in days
 const calculateDurationDays = (createdAt: string, resolvedAt?: string | null): number => {
@@ -85,16 +82,14 @@ export default function ChamadosIndex() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
   const [currentPage, setCurrentPage] = useState(1);
-  const { isOnline } = useOffline();
-  const { chamados: offlineChamados, isLoading: offlineLoading } = useOfflineChamados();
 
   const isAdminOrCoordinator = role === 'admin' || role === 'coordenador_servicos';
 
-  // Fetch tickets online
-  const { data: onlineTickets, isLoading: onlineLoading } = useQuery<TicketWithDetails[]>({
+  // Fetch tickets online (single source of truth via React Query)
+  const { data: tickets, isLoading } = useQuery<TicketWithDetails[]>({
     queryKey: ['technical-tickets'],
     queryFn: async () => {
-      const { data, error } = await supabase
+      let query = supabase
         .from('technical_tickets')
         .select(`
           id,
@@ -109,7 +104,14 @@ export default function ChamadosIndex() {
           resolved_at
         `)
         .order('created_at', { ascending: false });
-      
+
+      // Defesa em profundidade além da RLS: técnicos de campo só veem seus tickets
+      if (!isAdminOrCoordinator && user) {
+        query = query.eq('assigned_technician_id', user.id);
+      }
+
+      const { data, error } = await query;
+
       if (error) throw error;
       if (!data?.length) return [];
 
@@ -153,32 +155,11 @@ export default function ChamadosIndex() {
         };
       }) as TicketWithDetails[];
     },
-    enabled: isOnline,
+    enabled: !!user,
+    staleTime: 30_000,
+    refetchOnWindowFocus: true,
   });
 
-  // Convert offline data to TicketWithDetails format
-  const offlineTicketsConverted = useMemo<TicketWithDetails[]>(() => {
-    return offlineChamados.map(c => ({
-      id: c.id,
-      ticket_code: c.ticket_code,
-      title: c.title,
-      description: c.description || null,
-      priority: c.priority,
-      status: c.status,
-      client_id: c.client_id,
-      client_name: c.client_name || 'Cliente não encontrado',
-      client_fazenda: c.client_fazenda || null,
-      assigned_technician_id: c.assigned_technician_id || null,
-      technician_name: c.technician_name || null,
-      created_at: c.created_at,
-      resolved_at: c.resolved_at || null,
-      visits_count: c.visits_count || 0,
-    }));
-  }, [offlineChamados]);
-
-  // Use appropriate data based on online status
-  const tickets = isOnline ? onlineTickets : offlineTicketsConverted;
-  const isLoading = isOnline ? onlineLoading : offlineLoading;
 
   // Filter and paginate
   const filteredTickets = useMemo(() => {
@@ -254,12 +235,6 @@ export default function ChamadosIndex() {
           <p className="text-muted-foreground">Gestão de chamados e visitas corretivas</p>
         </div>
         <div className="flex items-center gap-2">
-          {!isOnline && (
-            <Badge variant="secondary" className="gap-1">
-              <WifiOff className="h-3 w-3" />
-              Offline
-            </Badge>
-          )}
           <Button asChild>
             <Link to="/chamados/novo">
               <Plus className="mr-2 h-4 w-4" />

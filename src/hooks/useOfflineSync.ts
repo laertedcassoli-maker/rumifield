@@ -105,42 +105,7 @@ export function useOfflineSync() {
           }
           break;
         }
-        case "chamados": {
-          // Fetch chamados with client/technician info
-          const result = await supabase
-            .from("technical_tickets")
-            .select("id, ticket_code, title, description, priority, status, client_id, assigned_technician_id, created_at, resolved_at, updated_at")
-            .order("created_at", { ascending: false })
-            .limit(200);
-          if (result.error) throw result.error;
-          
-          if (result.data?.length) {
-            const clientIds = [...new Set(result.data.map(t => t.client_id))];
-            const techIds = [...new Set(result.data.map(t => t.assigned_technician_id).filter(Boolean))] as string[];
-            
-            const [clientsRes, profilesRes] = await Promise.all([
-              supabase.from("clientes").select("id, nome, fazenda").in("id", clientIds),
-              techIds.length > 0 ? supabase.from("profiles").select("id, nome").in("id", techIds) : Promise.resolve({ data: [] as { id: string; nome: string }[] })
-            ]);
-            
-            const clientsMap = new Map<string, { id: string; nome: string; fazenda: string | null }>(
-              (clientsRes.data || []).map(c => [c.id, c])
-            );
-            const profilesMap = new Map<string, string>(
-              (profilesRes.data || []).map(p => [p.id, p.nome])
-            );
-            
-            const enriched = result.data.map(ticket => ({
-              ...ticket,
-              client_name: clientsMap.get(ticket.client_id)?.nome || "Cliente não encontrado",
-              client_fazenda: clientsMap.get(ticket.client_id)?.fazenda || null,
-              technician_name: ticket.assigned_technician_id ? (profilesMap.get(ticket.assigned_technician_id) || null) : null,
-            }));
-            
-            await offlineDb.chamados.bulkPut(enriched as any);
-          }
-          break;
-        }
+        // Note: "chamados" removido — Chamados Técnicos é 100% online via React Query
         case "preventivas": {
           const result = await supabase
             .from("preventive_maintenance")
@@ -311,70 +276,7 @@ export function useOfflineSync() {
           }
           break;
         }
-        case "corretivas": {
-          const result = await supabase
-            .from("ticket_visits")
-            .select(`
-              id, visit_code, ticket_id, client_id, status, planned_start_date, 
-              checkin_at, checkin_lat, checkin_lon, checkout_at, 
-              field_technician_user_id, created_at, updated_at,
-              corrective_maintenance(public_token)
-            `)
-            .order("created_at", { ascending: false })
-            .limit(200);
-          if (result.error) throw result.error;
-          
-          if (result.data?.length) {
-            const ticketIds = [...new Set(result.data.map(v => v.ticket_id))];
-            const clientIds = [...new Set(result.data.map(v => v.client_id).filter(Boolean))] as string[];
-            const techIds = [...new Set(result.data.map(v => v.field_technician_user_id).filter(Boolean))] as string[];
-            
-            const [ticketsRes, clientsRes, profilesRes] = await Promise.all([
-              supabase.from("technical_tickets").select("id, ticket_code, title").in("id", ticketIds),
-              clientIds.length > 0 ? supabase.from("clientes").select("id, nome, fazenda").in("id", clientIds) : Promise.resolve({ data: [] as { id: string; nome: string; fazenda: string | null }[] }),
-              techIds.length > 0 ? supabase.from("profiles").select("id, nome").in("id", techIds) : Promise.resolve({ data: [] as { id: string; nome: string }[] })
-            ]);
-            
-            const ticketsMap = new Map<string, { id: string; ticket_code: string; title: string }>(
-              (ticketsRes.data || []).map(t => [t.id, t])
-            );
-            const clientsMap = new Map<string, { id: string; nome: string; fazenda: string | null }>(
-              (clientsRes.data || []).map(c => [c.id, c])
-            );
-            const profilesMap = new Map<string, string>(
-              (profilesRes.data || []).map(p => [p.id, p.nome])
-            );
-            
-            const enriched = result.data.map(v => {
-              const cmData = v.corrective_maintenance as { public_token: string | null } | null;
-              return {
-                id: v.id,
-                visit_code: v.visit_code,
-                ticket_id: v.ticket_id,
-                client_id: v.client_id || "",
-                status: v.status,
-                planned_start_date: v.planned_start_date,
-                checkin_at: v.checkin_at,
-                checkin_lat: v.checkin_lat,
-                checkin_lon: v.checkin_lon,
-                checkout_at: v.checkout_at,
-                field_technician_user_id: v.field_technician_user_id,
-                notes: null,
-                created_at: v.created_at,
-                updated_at: v.updated_at,
-                ticket_code: ticketsMap.get(v.ticket_id)?.ticket_code || "",
-                ticket_title: ticketsMap.get(v.ticket_id)?.title || "",
-                client_name: v.client_id ? (clientsMap.get(v.client_id)?.nome || "Cliente não encontrado") : "",
-                client_fazenda: v.client_id ? (clientsMap.get(v.client_id)?.fazenda || null) : null,
-                technician_name: v.field_technician_user_id ? (profilesMap.get(v.field_technician_user_id) || null) : null,
-                public_token: cmData?.public_token || null,
-              };
-            });
-            
-            await offlineDb.corretivas.bulkPut(enriched as any);
-          }
-          break;
-        }
+        // Note: "corretivas" removido — Visitas Corretivas usam React Query (online-first)
         case "rotas": {
           const result = await supabase
             .from("preventive_routes")
@@ -657,8 +559,6 @@ export function useOfflineSync() {
         "produtos_quimicos", 
         "visitas", 
         "estoque", 
-        "chamados",
-        "corretivas",
         "rotas",
         "rota_items"
       ];
