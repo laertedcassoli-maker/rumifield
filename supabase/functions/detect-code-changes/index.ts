@@ -97,8 +97,6 @@ const knownModules: CodeModule[] = [
   { name: 'Hook - Offline Sync', type: 'hook', path: 'src/hooks/useOfflineSync.ts', category: 'regra_transversal' },
   { name: 'Hook - Offline Data', type: 'hook', path: 'src/hooks/useOfflineData.ts', category: 'regra_transversal' },
   { name: 'Hook - Offline Checklist', type: 'hook', path: 'src/hooks/useOfflineChecklist.ts', category: 'regra_transversal' },
-  { name: 'Hook - Offline Chamados', type: 'hook', path: 'src/hooks/useOfflineChamados.ts', category: 'regra_transversal' },
-  { name: 'Hook - Offline Corretivas', type: 'hook', path: 'src/hooks/useOfflineCorretivas.ts', category: 'regra_transversal' },
   { name: 'Hook - Offline Pedidos', type: 'hook', path: 'src/hooks/useOfflinePedidos.ts', category: 'regra_transversal' },
   { name: 'Hook - Offline Preventivas', type: 'hook', path: 'src/hooks/useOfflinePreventivas.ts', category: 'regra_transversal' },
   { name: 'Hook - Offline Rotas', type: 'hook', path: 'src/hooks/useOfflineRotas.ts', category: 'regra_transversal' },
