@@ -431,6 +431,7 @@ export default function DetalheChamado() {
         .from('profiles')
         .select('id, nome')
         .in('id', roles.map(r => r.user_id))
+        .eq('is_active', true)
         .order('nome');
       
       return profiles || [];

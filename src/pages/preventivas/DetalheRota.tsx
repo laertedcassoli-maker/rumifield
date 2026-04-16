@@ -181,7 +181,8 @@ export default function DetalheRota() {
       const { data: profiles } = await supabase
         .from('profiles')
         .select('id, nome')
-        .in('id', roles.map(r => r.user_id));
+        .in('id', roles.map(r => r.user_id))
+        .eq('is_active', true);
       
       return profiles || [];
     },
