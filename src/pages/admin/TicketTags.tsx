@@ -10,7 +10,19 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Pencil, Loader2, Tag } from 'lucide-react';
+import { Plus, Pencil, Loader2, Tag, Trash2 } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
+import { buttonVariants } from '@/components/ui/button';
 
 interface TicketTag {
   id: string;
