@@ -174,7 +174,7 @@ export default function TicketTags() {
                   <TableHead>Tag</TableHead>
                   <TableHead>Cor</TableHead>
                   <TableHead>Ativa</TableHead>
-                  <TableHead className="w-[80px]">Ações</TableHead>
+                  <TableHead className="w-[120px]">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
