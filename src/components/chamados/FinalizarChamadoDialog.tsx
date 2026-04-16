@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -28,6 +29,7 @@ export default function FinalizarChamadoDialog({ open, onOpenChange, ticketId }:
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
   const [resolutionSummary, setResolutionSummary] = useState('');
 
   const finalizeMutation = useMutation({
@@ -63,6 +65,7 @@ export default function FinalizarChamadoDialog({ open, onOpenChange, ticketId }:
       queryClient.invalidateQueries({ queryKey: ['ticket-detail', ticketId] });
       queryClient.invalidateQueries({ queryKey: ['ticket-timeline', ticketId] });
       queryClient.invalidateQueries({ queryKey: ['technical-tickets'] });
+      navigate('/chamados');
     },
     onError: (e: Error) => {
       toast({ variant: 'destructive', title: 'Erro ao finalizar', description: e.message });
