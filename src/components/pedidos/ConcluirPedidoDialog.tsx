@@ -46,8 +46,9 @@ export default function ConcluirPedidoDialog({ open, onOpenChange, pedido, onCon
     submittingRef.current = true;
     setIsSubmitting(true);
     try {
-      await onConfirm(nfNumero.trim(), dataFaturamento, needsLogistica ? tipoLogistica : 'nao_aplicavel', itemsWithAssets);
+      await onConfirm(nfNumero.trim(), dataFaturamento, needsLogistica ? tipoLogistica : 'nao_aplicavel', itemsWithAssets, nfNumero2.trim() || undefined);
       setNfNumero('');
+      setNfNumero2('');
       setDataFaturamento(new Date().toISOString().split('T')[0]);
       setTipoLogistica('');
       setItemsWithAssets({});
