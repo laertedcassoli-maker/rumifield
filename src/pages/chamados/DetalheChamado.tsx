@@ -408,6 +408,7 @@ export default function DetalheChamado() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['ticket-detail', id] });
       queryClient.invalidateQueries({ queryKey: ['ticket-timeline', id] });
+      queryClient.invalidateQueries({ queryKey: ['technical-tickets'] });
       toast({ title: 'Técnico atualizado!' });
     },
     onError: (e: Error) => {
