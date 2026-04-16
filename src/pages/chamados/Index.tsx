@@ -157,6 +157,7 @@ export default function ChamadosIndex() {
     },
     enabled: !!user,
     staleTime: 30_000,
+    refetchOnMount: 'always',
     refetchOnWindowFocus: true,
   });
 
