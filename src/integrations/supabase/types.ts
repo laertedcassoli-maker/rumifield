@@ -212,6 +212,36 @@ export type Database = {
         }
         Relationships: []
       }
+      authorized_users: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          is_active: boolean
+          nome: string
+          role: Database["public"]["Enums"]["app_role"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          is_active?: boolean
+          nome: string
+          role?: Database["public"]["Enums"]["app_role"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          is_active?: boolean
+          nome?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
       checklist_action_parts: {
         Row: {
           action_id: string
