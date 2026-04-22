@@ -3808,6 +3808,10 @@ export type Database = {
         Args: { _client_id: string; _user_id: string }
         Returns: boolean
       }
+      is_route_technician: {
+        Args: { _route_id: string; _user_id: string }
+        Returns: boolean
+      }
       reorder_checklist_blocks: {
         Args: { p_ordered_ids: string[]; p_template_id: string }
         Returns: undefined
