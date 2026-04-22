@@ -62,7 +62,7 @@ export default function Pedidos() {
   const [consultorNames, setConsultorNames] = useState<Record<string, string>>({});
   
   const isAdmin = role === 'admin' || role === 'coordenador_rplus' || role === 'coordenador_servicos' || role === 'coordenador_logistica';
-  const canManagePedidos = role === 'admin' || role === 'coordenador_logistica';
+  const canManagePedidos = role === 'admin' || role === 'coordenador_logistica' || role === 'coordenador_servicos';
 
   // Fetch clientes from Supabase
   const { data: clientes } = useQuery({
