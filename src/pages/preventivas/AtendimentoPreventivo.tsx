@@ -361,7 +361,7 @@ export default function AtendimentoPreventivo() {
       const answered = items?.filter(i => i.status !== null).length || 0;
       return { status: checklist.status, answered, total };
     },
-    enabled: !!routeItem?.preventiveId && !isVisitCompletedRef(routeItem),
+    enabled: !!routeItem?.preventiveId && routeItem?.status !== 'executado',
     refetchInterval: 5000,
   });
 
