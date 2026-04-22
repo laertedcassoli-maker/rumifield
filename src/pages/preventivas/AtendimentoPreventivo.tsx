@@ -334,6 +334,46 @@ export default function AtendimentoPreventivo() {
   // Can only finish visit when checklist is completed
   const canFinishVisit = checklistStatus === 'completed';
 
+  // Track checklist progress (answered/total) to detect "100% answered but not finalized"
+  const { data: checklistProgress } = useQuery({
+    queryKey: ['atendimento-checklist-progress', routeItem?.preventiveId],
+    queryFn: async () => {
+      if (!routeItem?.preventiveId) return null;
+      const { data: checklist } = await supabase
+        .from('preventive_checklists')
+        .select('id, status')
+        .eq('preventive_id', routeItem.preventiveId)
+        .maybeSingle();
+      if (!checklist) return { status: null, answered: 0, total: 0 };
+
+      const { data: blocks } = await supabase
+        .from('preventive_checklist_blocks')
+        .select('id')
+        .eq('checklist_id', checklist.id);
+      const blockIds = (blocks || []).map(b => b.id);
+      if (blockIds.length === 0) return { status: checklist.status, answered: 0, total: 0 };
+
+      const { data: items } = await supabase
+        .from('preventive_checklist_items')
+        .select('id, status')
+        .in('exec_block_id', blockIds);
+      const total = items?.length || 0;
+      const answered = items?.filter(i => i.status !== null).length || 0;
+      return { status: checklist.status, answered, total };
+    },
+    enabled: !!routeItem?.preventiveId && routeItem?.status !== 'executado',
+    refetchInterval: 5000,
+  });
+
+  const allItemsAnswered =
+    !!checklistProgress &&
+    checklistProgress.total > 0 &&
+    checklistProgress.answered === checklistProgress.total;
+  const checklistNotFinalized =
+    checklistStatus !== 'completed' &&
+    checklistProgress?.status === 'em_andamento';
+  const showFinalizeChecklistReminder = allItemsAnswered && checklistNotFinalized;
+
   // Validation function for encerrar
   const validateBeforeComplete = async (): Promise<ValidationResult> => {
     const blockingErrors: string[] = [];
@@ -470,6 +510,24 @@ export default function AtendimentoPreventivo() {
   };
 
   const handleEncerrarClick = async () => {
+    // Educational feedback when checklist hasn't been finalized yet
+    if (!canFinishVisit) {
+      if (allItemsAnswered && checklistNotFinalized) {
+        toast({
+          title: 'Finalize o checklist primeiro',
+          description: 'Você respondeu todos os itens, mas precisa clicar em "Finalizar Checklist" (botão verde no fim da lista) antes de encerrar a visita.',
+          variant: 'destructive',
+        });
+      } else {
+        toast({
+          title: 'Checklist incompleto',
+          description: 'Responda todos os itens do checklist e clique em "Finalizar Checklist" antes de encerrar a visita.',
+          variant: 'destructive',
+        });
+      }
+      return;
+    }
+
     const result = await validateBeforeComplete();
     setValidationResult(result);
 
@@ -595,7 +653,26 @@ export default function AtendimentoPreventivo() {
         </CardContent>
       </Card>
 
-      {/* Checklist Execution Block */}
+      {/* Reminder banner: all items answered but checklist not finalized */}
+      {!isVisitCompleted && showFinalizeChecklistReminder && (
+        <div
+          role="alert"
+          className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 flex items-start gap-3"
+        >
+          <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+          <div className="space-y-1">
+            <p className="text-sm font-semibold text-amber-700 dark:text-amber-400">
+              Você respondeu todos os itens — falta finalizar o checklist
+            </p>
+            <p className="text-xs text-amber-700/90 dark:text-amber-400/90">
+              Role até o fim da lista de itens e clique no botão verde
+              <span className="font-semibold"> "Finalizar Checklist"</span> para liberar o encerramento da visita.
+            </p>
+          </div>
+        </div>
+      )}
+
+
       {routeItem.preventiveId ? (
         <ChecklistExecution 
           preventiveId={routeItem.preventiveId}
@@ -744,7 +821,8 @@ export default function AtendimentoPreventivo() {
           <div className="max-w-2xl mx-auto">
             <Button 
               onClick={handleEncerrarClick}
-              disabled={!canFinishVisit || completeMutation.isPending}
+              disabled={completeMutation.isPending}
+              variant={canFinishVisit ? 'default' : 'secondary'}
               className="w-full"
               size="lg"
             >
@@ -752,8 +830,10 @@ export default function AtendimentoPreventivo() {
               Encerrar Visita
             </Button>
             {!canFinishVisit && (
-              <p className="text-xs text-muted-foreground text-center mt-2">
-                Conclua o checklist para encerrar a visita
+              <p className="text-xs text-center mt-2 text-amber-600 dark:text-amber-400 font-medium">
+                {showFinalizeChecklistReminder
+                  ? '⚠️ Finalize o checklist primeiro (botão verde no fim da lista)'
+                  : 'Responda todos os itens e finalize o checklist para encerrar'}
               </p>
             )}
           </div>
