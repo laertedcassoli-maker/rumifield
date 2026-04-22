@@ -510,6 +510,24 @@ export default function AtendimentoPreventivo() {
   };
 
   const handleEncerrarClick = async () => {
+    // Educational feedback when checklist hasn't been finalized yet
+    if (!canFinishVisit) {
+      if (allItemsAnswered && checklistNotFinalized) {
+        toast({
+          title: 'Finalize o checklist primeiro',
+          description: 'Você respondeu todos os itens, mas precisa clicar em "Finalizar Checklist" (botão verde no fim da lista) antes de encerrar a visita.',
+          variant: 'destructive',
+        });
+      } else {
+        toast({
+          title: 'Checklist incompleto',
+          description: 'Responda todos os itens do checklist e clique em "Finalizar Checklist" antes de encerrar a visita.',
+          variant: 'destructive',
+        });
+      }
+      return;
+    }
+
     const result = await validateBeforeComplete();
     setValidationResult(result);
 
