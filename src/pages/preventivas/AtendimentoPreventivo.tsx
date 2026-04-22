@@ -653,7 +653,26 @@ export default function AtendimentoPreventivo() {
         </CardContent>
       </Card>
 
-      {/* Checklist Execution Block */}
+      {/* Reminder banner: all items answered but checklist not finalized */}
+      {!isVisitCompleted && showFinalizeChecklistReminder && (
+        <div
+          role="alert"
+          className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 flex items-start gap-3"
+        >
+          <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+          <div className="space-y-1">
+            <p className="text-sm font-semibold text-amber-700 dark:text-amber-400">
+              Você respondeu todos os itens — falta finalizar o checklist
+            </p>
+            <p className="text-xs text-amber-700/90 dark:text-amber-400/90">
+              Role até o fim da lista de itens e clique no botão verde
+              <span className="font-semibold"> "Finalizar Checklist"</span> para liberar o encerramento da visita.
+            </p>
+          </div>
+        </div>
+      )}
+
+
       {routeItem.preventiveId ? (
         <ChecklistExecution 
           preventiveId={routeItem.preventiveId}
