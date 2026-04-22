@@ -821,7 +821,8 @@ export default function AtendimentoPreventivo() {
           <div className="max-w-2xl mx-auto">
             <Button 
               onClick={handleEncerrarClick}
-              disabled={!canFinishVisit || completeMutation.isPending}
+              disabled={completeMutation.isPending}
+              variant={canFinishVisit ? 'default' : 'secondary'}
               className="w-full"
               size="lg"
             >
@@ -829,8 +830,10 @@ export default function AtendimentoPreventivo() {
               Encerrar Visita
             </Button>
             {!canFinishVisit && (
-              <p className="text-xs text-muted-foreground text-center mt-2">
-                Conclua o checklist para encerrar a visita
+              <p className="text-xs text-center mt-2 text-amber-600 dark:text-amber-400 font-medium">
+                {showFinalizeChecklistReminder
+                  ? '⚠️ Finalize o checklist primeiro (botão verde no fim da lista)'
+                  : 'Responda todos os itens e finalize o checklist para encerrar'}
               </p>
             )}
           </div>
