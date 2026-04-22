@@ -46,6 +46,30 @@ const logHorizontalOverflow = () => {
 window.addEventListener('resize', () => setTimeout(logHorizontalOverflow, 50));
 setTimeout(logHorizontalOverflow, 500);
 
+// Unregister Service Worker in Lovable preview/iframe contexts to avoid
+// stale cache and false offline detection. SW continues active in production.
+const isInIframe = (() => {
+  try {
+    return window.self !== window.top;
+  } catch (e) {
+    return true;
+  }
+})();
+
+const isPreviewHost =
+  window.location.hostname.includes("id-preview--") ||
+  window.location.hostname.includes("lovableproject.com");
+
+if (isPreviewHost || isInIframe) {
+  navigator.serviceWorker?.getRegistrations().then((registrations) => {
+    registrations.forEach((r) => r.unregister());
+  }).catch(() => {});
+  // Also clear caches to drop any stale responses
+  if ('caches' in window) {
+    caches.keys().then((keys) => keys.forEach((k) => caches.delete(k))).catch(() => {});
+  }
+}
+
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <App />
