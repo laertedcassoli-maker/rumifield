@@ -334,6 +334,46 @@ export default function AtendimentoPreventivo() {
   // Can only finish visit when checklist is completed
   const canFinishVisit = checklistStatus === 'completed';
 
+  // Track checklist progress (answered/total) to detect "100% answered but not finalized"
+  const { data: checklistProgress } = useQuery({
+    queryKey: ['atendimento-checklist-progress', routeItem?.preventiveId],
+    queryFn: async () => {
+      if (!routeItem?.preventiveId) return null;
+      const { data: checklist } = await supabase
+        .from('preventive_checklists')
+        .select('id, status')
+        .eq('preventive_id', routeItem.preventiveId)
+        .maybeSingle();
+      if (!checklist) return { status: null, answered: 0, total: 0 };
+
+      const { data: blocks } = await supabase
+        .from('preventive_checklist_blocks')
+        .select('id')
+        .eq('checklist_id', checklist.id);
+      const blockIds = (blocks || []).map(b => b.id);
+      if (blockIds.length === 0) return { status: checklist.status, answered: 0, total: 0 };
+
+      const { data: items } = await supabase
+        .from('preventive_checklist_items')
+        .select('id, status')
+        .in('exec_block_id', blockIds);
+      const total = items?.length || 0;
+      const answered = items?.filter(i => i.status !== null).length || 0;
+      return { status: checklist.status, answered, total };
+    },
+    enabled: !!routeItem?.preventiveId && !isVisitCompletedRef(routeItem),
+    refetchInterval: 5000,
+  });
+
+  const allItemsAnswered =
+    !!checklistProgress &&
+    checklistProgress.total > 0 &&
+    checklistProgress.answered === checklistProgress.total;
+  const checklistNotFinalized =
+    checklistStatus !== 'completed' &&
+    checklistProgress?.status === 'em_andamento';
+  const showFinalizeChecklistReminder = allItemsAnswered && checklistNotFinalized;
+
   // Validation function for encerrar
   const validateBeforeComplete = async (): Promise<ValidationResult> => {
     const blockingErrors: string[] = [];
