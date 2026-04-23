@@ -203,9 +203,18 @@ export function CheckinDialog({
                 <div className="flex-1 min-w-0">
                   <p className="text-xs text-muted-foreground uppercase tracking-wide">Localização</p>
                   {geoLoading ? (
-                    <div className="flex items-center gap-2 mt-1">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      <span className="text-sm">Obtendo localização...</span>
+                    <div className="mt-1">
+                      <div className="flex items-center gap-2">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span className="text-sm">Obtendo localização...</span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleRetryLocation}
+                        className="text-xs text-primary underline mt-1 hover:no-underline"
+                      >
+                        Tentar de novo
+                      </button>
                     </div>
                   ) : hasLocation ? (
                     <div>
@@ -231,12 +240,30 @@ export function CheckinDialog({
                 )}
               </div>
 
-              {/* Warning if no location */}
+              {/* Warning if no location (explicit error) */}
               {!geoLoading && !hasLocation && geoError && (
                 <div className="flex items-start gap-3 p-3 rounded-xl bg-destructive/10 text-destructive">
                   <AlertTriangle className="h-5 w-5 shrink-0 mt-0.5" />
                   <p className="text-sm">
                     Sem localização. O registro ficará incompleto.
+                  </p>
+                </div>
+              )}
+
+              {/* Warning if location is taking too long (stuck) */}
+              {geoStuck && !hasLocation && !geoError && (
+                <div className="flex items-start gap-3 p-3 rounded-xl bg-warning/10 border border-warning/30">
+                  <AlertTriangle className="h-5 w-5 shrink-0 mt-0.5 text-warning" />
+                  <p className="text-sm text-foreground">
+                    Não foi possível obter sua localização agora. Você pode{' '}
+                    <button
+                      type="button"
+                      onClick={handleRetryLocation}
+                      className="underline font-medium text-primary hover:no-underline"
+                    >
+                      tentar novamente
+                    </button>
+                    {' '}ou continuar sem GPS (o registro ficará incompleto).
                   </p>
                 </div>
               )}
@@ -257,7 +284,7 @@ export function CheckinDialog({
                     </>
                   )}
                 </Button>
-              ) : !geoLoading && geoError ? (
+              ) : (geoError || geoStuck) ? (
                 <Button onClick={handleConfirmWithoutLocation} disabled={isLoading} size="lg" variant="secondary" className="w-full">
                   {isLoading ? (
                     <>
