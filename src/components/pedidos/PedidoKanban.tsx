@@ -1,10 +1,10 @@
 import { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { 
   Truck, HandHelping, FileText, Eye, ArrowRight, CheckCircle2, 
-  User, Calendar, Package, Clock, AlertTriangle 
+  User, Calendar, Package, Pencil, Trash2
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -43,6 +43,10 @@ interface PedidoKanbanProps {
   onConcluir: (pedidoId: string, nfNumero: string, dataFaturamento: string, tipoLogistica: string, itemsWithAssets?: Record<string, string[]>, nfNumero2?: string) => Promise<void>;
   isProcessing: boolean;
   consultorNames: Record<string, string>;
+  currentUserId?: string;
+  canManage?: boolean;
+  onEdit?: (pedido: PedidoComItens) => void;
+  onDelete?: (pedido: PedidoComItens) => void;
 }
 
 function PedidoCard({ 
@@ -128,7 +132,8 @@ function PedidoCard({
 }
 
 export default function PedidoKanban({ 
-  pedidos, onViewPedido, onProcessar, onConcluir, isProcessing, consultorNames 
+  pedidos, onViewPedido, onProcessar, onConcluir, isProcessing, consultorNames,
+  currentUserId, canManage = false, onEdit, onDelete,
 }: PedidoKanbanProps) {
   const [concluirPedidoId, setConcluirPedidoId] = useState<string | null>(null);
   const [processarPedidoId, setProcessarPedidoId] = useState<string | null>(null);
@@ -136,6 +141,9 @@ export default function PedidoKanban({
   const abertos = pedidos.filter(p => p.status === 'solicitado');
   const emProcessamento = pedidos.filter(p => p.status === 'processamento');
   const concluidos = pedidos.filter(p => p.status === 'faturado');
+
+  const canEditDelete = (pedido: PedidoComItens) =>
+    canManage || (!!currentUserId && pedido.solicitante_id === currentUserId);
 
   const columns = [
     {
@@ -145,15 +153,45 @@ export default function PedidoKanban({
       bgColor: 'bg-blue-50 dark:bg-blue-950/20',
       items: abertos,
       renderAction: (pedido: PedidoComItens) => (
-        <Button
-          size="sm"
-          className="h-7 text-xs flex-1 gap-1"
-          onClick={() => setProcessarPedidoId(pedido.id)}
-          disabled={isProcessing}
-        >
-          <ArrowRight className="h-3 w-3" />
-          Processar
-        </Button>
+        <div className="flex items-center gap-1 flex-1">
+          {canEditDelete(pedido) && onEdit && (
+            <Button
+              size="icon"
+              variant="outline"
+              className="h-7 w-7"
+              onClick={() => onEdit(pedido)}
+              disabled={isProcessing}
+              title="Editar pedido"
+              aria-label="Editar pedido"
+            >
+              <Pencil className="h-3 w-3" />
+            </Button>
+          )}
+          {canEditDelete(pedido) && onDelete && (
+            <Button
+              size="icon"
+              variant="outline"
+              className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
+              onClick={() => onDelete(pedido)}
+              disabled={isProcessing}
+              title="Excluir pedido"
+              aria-label="Excluir pedido"
+            >
+              <Trash2 className="h-3 w-3" />
+            </Button>
+          )}
+          {canManage && (
+            <Button
+              size="sm"
+              className="h-7 text-xs flex-1 gap-1"
+              onClick={() => setProcessarPedidoId(pedido.id)}
+              disabled={isProcessing}
+            >
+              <ArrowRight className="h-3 w-3" />
+              Processar
+            </Button>
+          )}
+        </div>
       ),
     },
     {
@@ -162,7 +200,7 @@ export default function PedidoKanban({
       color: 'text-orange-600',
       bgColor: 'bg-orange-50 dark:bg-orange-950/20',
       items: emProcessamento,
-      renderAction: (pedido: PedidoComItens) => (
+      renderAction: (pedido: PedidoComItens) => canManage ? (
         <Button
           size="sm"
           variant="default"
@@ -173,7 +211,7 @@ export default function PedidoKanban({
           <CheckCircle2 className="h-3 w-3" />
           Concluir
         </Button>
-      ),
+      ) : null,
     },
     {
       title: 'Concluído',
