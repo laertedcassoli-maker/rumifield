@@ -1,58 +1,87 @@
 
 
-## Diagnóstico: dialog de check-in trava em "Aguardando localização" sem saída
+## Diagnóstico: política RLS bloqueia a própria conclusão do checklist
 
-### Estado atual de Roger
+### O erro
 
-Roger tem a rota em andamento `PREV-2026-00004` (iniciada hoje, 23/04) com 3 fazendas:
-- John Leonardo Petter — ✅ check-in feito 13:35
-- BAUKE DIJKSTRA — ⏳ sem check-in
-- Leonel Lopes de Almeida — ⏳ sem check-in
+Quando o técnico clica em **"Finalizar Checklist"**, o código faz:
 
-Ele está travando ao tentar abrir o check-in numa dessas duas. A rota anterior (PREV-2026-00002) também tem MELKSTAD com check-in feito mas pendente de encerramento (assunto da conversa anterior).
+```ts
+// src/components/preventivas/ChecklistExecution.tsx (linha 986-992)
+supabase.from('preventive_checklists')
+  .update({ status: 'concluido', completed_at: ... })
+  .eq('id', existingChecklist.id);
+```
 
-### Causa raiz (código)
+A tabela `preventive_checklists` tem a política:
 
-Arquivo: `src/components/preventivas/CheckinDialog.tsx`.
+| policyname | cmd | USING | WITH CHECK |
+|---|---|---|---|
+| Technicians can update own preventive_checklists | UPDATE | `status = 'em_andamento'` | *(nulo → herda USING)* |
 
-Quando o dialog abre, ele dispara `getLocation()` (timeout configurado: 8s). Enquanto `geoLoading = true`:
-- A seção "Localização" mostra spinner "Obtendo localização...".
-- O **único botão de ação** disponível é `<Button disabled>Aguardando localização...</Button>`.
-- O botão "Continuar sem localização" **só aparece depois de `geoError` ser setado**.
+Quando `WITH CHECK` é nulo num UPDATE, o Postgres aplica a expressão do `USING` também na **nova linha**. Como o técnico está mudando `status` de `em_andamento` para `concluido`, a nova linha falha em `status = 'em_andamento'` e dispara o erro:
 
-Em PWA instalado / WebView do tablet (caso típico do Roger em campo), `navigator.geolocation.getCurrentPosition` pode:
-1. Ficar pendurado indefinidamente se a permissão estiver em "prompt" e o usuário não responder ao banner do sistema (que às vezes aparece atrás do app).
-2. Não disparar nem `success` nem o callback de erro com `TIMEOUT` se o serviço de localização do SO estiver desligado, dependendo do navegador.
-3. Demorar bem mais que 8s para responder em áreas de sinal fraco.
+> *"nova linha viola política de segurança"*.
 
-Resultado: Roger fica preso no spinner sem nenhuma forma de prosseguir (a não ser cancelar o dialog inteiro). Não há um caminho explícito para "Tentar novamente / Pular GPS" enquanto a tentativa atual está em curso.
+Ou seja, a política impede exatamente a transição que deveria liberar. Admin/coordenador passam por uma policy separada (`is_admin_or_coordinator`), por isso eles conseguem.
 
-### Plano de correção
+### Plano de correção (uma migration SQL)
 
-Ajuste **somente** em `src/components/preventivas/CheckinDialog.tsx`:
+Recriar a policy de UPDATE com `WITH CHECK` explícito que:
+1. Permite atualizar enquanto o checklist está `em_andamento` (evita mexer em checklists já concluídos por outras pessoas).
+2. Aceita a nova linha desde que o técnico seja o dono da rota — independentemente do novo status (`em_andamento` ou `concluido`).
 
-1. **Watchdog interno de 10s no dialog** — Após abrir, se `geoLoading` continuar `true` por 10s sem sucesso nem erro, o dialog força um estado local `geoStuck = true` e exibe um botão **"Continuar sem localização"** mesmo sem `geoError` ter sido disparado. Isso cobre o caso em que a Geolocation API nunca chama callback nenhum.
+```sql
+-- Substitui a policy quebrada
+DROP POLICY IF EXISTS "Technicians can update own preventive_checklists"
+  ON public.preventive_checklists;
 
-2. **Botão "Tentar novamente" sempre visível durante loading** — Ao lado do spinner da localização, mostrar um link/botão pequeno "Tentar de novo" que reinicia `getLocation()` (útil quando o usuário sabe que negou por engano ou que o GPS demora).
+CREATE POLICY "Technicians can update own preventive_checklists"
+ON public.preventive_checklists
+FOR UPDATE
+TO authenticated
+USING (
+  status = 'em_andamento'
+  AND EXISTS (
+    SELECT 1
+    FROM public.preventive_maintenance pm
+    JOIN public.preventive_route_items pri ON pri.id = pm.route_item_id
+    JOIN public.preventive_routes pr ON pr.id = pri.route_id
+    WHERE pm.id = preventive_checklists.preventive_id
+      AND pr.field_technician_user_id = auth.uid()
+  )
+)
+WITH CHECK (
+  EXISTS (
+    SELECT 1
+    FROM public.preventive_maintenance pm
+    JOIN public.preventive_route_items pri ON pri.id = pm.route_item_id
+    JOIN public.preventive_routes pr ON pr.id = pri.route_id
+    WHERE pm.id = preventive_checklists.preventive_id
+      AND pr.field_technician_user_id = auth.uid()
+  )
+);
+```
 
-3. **Sempre permitir prosseguir sem GPS** — Ao invés de só mostrar "Continuar sem localização" quando `geoError` existe, mostrar esse botão como secundário sempre que (`geoStuck` OR `geoError` OR após 10s). O botão primário "Confirmar Check-in" continua aparecendo só quando `hasLocation`.
-
-4. **Aviso explícito em caso de timeout/stuck** — Pequeno texto laranja: *"Não foi possível obter sua localização agora. Você pode tentar novamente ou continuar sem GPS (o registro ficará incompleto)."*
-
-5. **Limpar timer no cleanup do `useEffect`** — para não acionar o estado `geoStuck` depois do dialog fechar.
+> Observação: o nome exato da coluna que liga `preventive_maintenance` ao `route_item` precisa ser confirmado no momento da migration (pode ser `route_item_id` ou outro). Vou validar contra o schema antes de aplicar e ajustar o JOIN se necessário (mantendo a mesma intenção: técnico dono da rota = autorizado).
 
 ### Onde NÃO mexer
 
-- `useGeolocation.ts` continua igual (timeout 8s já é razoável; o problema é a UX quando ele não dispara).
-- `ExecucaoRota.tsx` / `checkinMutation` continua igual — já é resiliente (salva offline primeiro, sync em background com timeout de 3s).
-- Sem migração de banco ou mudança de RLS.
+- **Código React**: `ChecklistExecution.tsx` está correto, não precisa de mudança.
+- **Outras policies** (`INSERT`, `SELECT`, `ALL` para admin): permanecem intactas.
+- **Sem alteração de RLS** em `preventive_checklist_items`, `preventive_route_items`, `preventive_maintenance`, `preventive_routes` — essas já foram corrigidas em migrations anteriores e estão funcionando (Roger consegue responder itens, fazer check-in e encerrar visita pelo fluxo normal).
 
-### Ação imediata para o Roger (enquanto não publicamos o fix)
+### Prompt para o Lovable
 
-1. No tablet/celular, abrir Configurações → Permissões do app/site → garantir que **Localização está permitida** para `rumifield.lovable.app`.
-2. Garantir que o **Serviço de Localização do sistema está ligado** (Android: Configurações → Localização ON; iOS: Ajustes → Privacidade → Serviços de Localização ON).
-3. Fechar e reabrir o app, aguardar até 10s no dialog. Se ainda não aparecer botão de confirmar, **cancelar e tentar de novo** (a 2ª tentativa geralmente usa cache do GPS e responde na hora).
-4. Em último caso: cancelar o dialog, ativar Wi-Fi/4G por alguns segundos para o GPS assistido (A-GPS) baixar coordenadas e tentar de novo.
-
-Posso aplicar os 5 ajustes acima no `CheckinDialog.tsx`?
+> **Bug fix — Técnico não consegue finalizar checklist preventivo (RLS bloqueia transição de status)**
+>
+> **Sintoma**: Ao clicar em "Finalizar Checklist", aparece *"Erro ao concluir: nova linha viola política de segurança para a tabela preventive_checklists"*. Admin/coordenador conseguem; técnico de campo não.
+>
+> **Causa raiz**: A policy `Technicians can update own preventive_checklists` em `public.preventive_checklists` tem `USING (status = 'em_andamento')` e `WITH CHECK` nulo. Como `WITH CHECK` nulo herda o `USING`, a nova linha (com `status = 'concluido'`) falha a checagem e o UPDATE é bloqueado — exatamente a transição que deveria ser permitida.
+>
+> **Fix**: Criar nova migration que faz `DROP POLICY` da política atual e recria com `USING` validando que (a) o checklist ainda está `em_andamento` e (b) o usuário autenticado é o `field_technician_user_id` da rota dona do checklist (via JOIN `preventive_maintenance` → `preventive_route_items` → `preventive_routes`); e `WITH CHECK` validando apenas (b), permitindo qualquer status novo (`em_andamento` ou `concluido`).
+>
+> **Não alterar**: código React, demais policies da tabela, nem RLS de outras tabelas (já corrigidas anteriormente).
+>
+> **Validação pós-deploy**: pedir ao Roger para abrir o checklist da fazenda travada, responder o último item se faltar, e clicar em "Finalizar Checklist" — deve concluir sem erro e liberar o botão "Encerrar Visita".
 
