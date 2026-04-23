@@ -1,47 +1,58 @@
 
 
-## Diagnóstico: não é bug de permissão — é fluxo de UX
+## Diagnóstico: dialog de check-in trava em "Aguardando localização" sem saída
 
-Investiguei a rota `PREV-2026-00002` do Roger. **Não há erro de RLS.** Prova:
-- Roger já encerrou com sucesso a 1ª fazenda (status `concluida`).
-- Está travado na 2ª fazenda (MELKSTAD) — mas as policies funcionaram na 1ª, então não pode ser permissão.
-- Logs do Postgres não mostram nenhum erro vindo da sessão dele.
+### Estado atual de Roger
 
-### O que realmente está acontecendo
+Roger tem a rota em andamento `PREV-2026-00004` (iniciada hoje, 23/04) com 3 fazendas:
+- John Leonardo Petter — ✅ check-in feito 13:35
+- BAUKE DIJKSTRA — ⏳ sem check-in
+- Leonel Lopes de Almeida — ⏳ sem check-in
 
-Estado atual da 2ª visita do Roger:
+Ele está travando ao tentar abrir o check-in numa dessas duas. A rota anterior (PREV-2026-00002) também tem MELKSTAD com check-in feito mas pendente de encerramento (assunto da conversa anterior).
 
-| Verificação | Status |
-|---|---|
-| Itens do checklist respondidos | ✅ 3/3 |
-| Fotos anexadas | ✅ 1 |
-| Peças com origem definida | ✅ ok |
-| **Checklist marcado como "Concluído"** | ❌ ainda em `em_andamento` |
+### Causa raiz (código)
 
-O botão "Encerrar Visita" só fica habilitado quando `checklistStatus === 'completed'` (linha 335 de `AtendimentoPreventivo.tsx`). Roger respondeu todos os itens mas **não clicou no botão "Finalizar Checklist"** dentro da tela de execução do checklist — então o status permanece `em_andamento` e o "Encerrar" fica bloqueado/falha.
+Arquivo: `src/components/preventivas/CheckinDialog.tsx`.
 
-É um problema de fluxo em 2 etapas pouco evidente:
-1. Responder todos os itens → clicar **"Finalizar Checklist"** (vira `concluido`)
-2. Voltar para a tela da fazenda → clicar **"Encerrar Visita"**
+Quando o dialog abre, ele dispara `getLocation()` (timeout configurado: 8s). Enquanto `geoLoading = true`:
+- A seção "Localização" mostra spinner "Obtendo localização...".
+- O **único botão de ação** disponível é `<Button disabled>Aguardando localização...</Button>`.
+- O botão "Continuar sem localização" **só aparece depois de `geoError` ser setado**.
 
-Roger pulou a etapa 1.
+Em PWA instalado / WebView do tablet (caso típico do Roger em campo), `navigator.geolocation.getCurrentPosition` pode:
+1. Ficar pendurado indefinidamente se a permissão estiver em "prompt" e o usuário não responder ao banner do sistema (que às vezes aparece atrás do app).
+2. Não disparar nem `success` nem o callback de erro com `TIMEOUT` se o serviço de localização do SO estiver desligado, dependendo do navegador.
+3. Demorar bem mais que 8s para responder em áreas de sinal fraco.
 
-### Plano de correção (UX)
+Resultado: Roger fica preso no spinner sem nenhuma forma de prosseguir (a não ser cancelar o dialog inteiro). Não há um caminho explícito para "Tentar novamente / Pular GPS" enquanto a tentativa atual está em curso.
 
-Pequeno ajuste em `src/pages/preventivas/AtendimentoPreventivo.tsx` para o problema não se repetir com outros técnicos:
+### Plano de correção
 
-1. **Mensagem clara no botão**: quando `canFinishVisit` for `false` por causa do checklist em andamento, mostrar texto explícito tipo *"Finalize o checklist primeiro"* abaixo/no botão "Encerrar Visita" (em vez de só ficar desabilitado em silêncio).
+Ajuste **somente** em `src/components/preventivas/CheckinDialog.tsx`:
 
-2. **Toast educativo ao clicar**: manter o botão clicável e, ao clicar com checklist em `em_andamento`, mostrar toast explicando: *"Você precisa finalizar o checklist (botão verde no fim da lista de itens) antes de encerrar a visita."* — alinhado com a memória `mem://ui-patterns/validation-feedback-behavior`.
+1. **Watchdog interno de 10s no dialog** — Após abrir, se `geoLoading` continuar `true` por 10s sem sucesso nem erro, o dialog força um estado local `geoStuck = true` e exibe um botão **"Continuar sem localização"** mesmo sem `geoError` ter sido disparado. Isso cobre o caso em que a Geolocation API nunca chama callback nenhum.
 
-3. **Atalho visual**: mostrar um aviso amarelo no topo da tela "Atendimento" se o checklist estiver `em_andamento` com 100% dos itens respondidos, lembrando o técnico de finalizar.
+2. **Botão "Tentar novamente" sempre visível durante loading** — Ao lado do spinner da localização, mostrar um link/botão pequeno "Tentar de novo" que reinicia `getLocation()` (útil quando o usuário sabe que negou por engano ou que o GPS demora).
 
-### Ação imediata para o Roger
+3. **Sempre permitir prosseguir sem GPS** — Ao invés de só mostrar "Continuar sem localização" quando `geoError` existe, mostrar esse botão como secundário sempre que (`geoStuck` OR `geoError` OR após 10s). O botão primário "Confirmar Check-in" continua aparecendo só quando `hasLocation`.
 
-Pedir para ele:
-1. Abrir a tela do checklist da MELKSTAD,
-2. Rolar até o fim e clicar no botão **"Finalizar Checklist"**,
-3. Voltar e clicar em **"Encerrar Visita"** — vai funcionar normalmente.
+4. **Aviso explícito em caso de timeout/stuck** — Pequeno texto laranja: *"Não foi possível obter sua localização agora. Você pode tentar novamente ou continuar sem GPS (o registro ficará incompleto)."*
 
-Sem necessidade de mudança em RLS, banco ou policies. Confirma que pode aplicar os 3 ajustes de UX acima?
+5. **Limpar timer no cleanup do `useEffect`** — para não acionar o estado `geoStuck` depois do dialog fechar.
+
+### Onde NÃO mexer
+
+- `useGeolocation.ts` continua igual (timeout 8s já é razoável; o problema é a UX quando ele não dispara).
+- `ExecucaoRota.tsx` / `checkinMutation` continua igual — já é resiliente (salva offline primeiro, sync em background com timeout de 3s).
+- Sem migração de banco ou mudança de RLS.
+
+### Ação imediata para o Roger (enquanto não publicamos o fix)
+
+1. No tablet/celular, abrir Configurações → Permissões do app/site → garantir que **Localização está permitida** para `rumifield.lovable.app`.
+2. Garantir que o **Serviço de Localização do sistema está ligado** (Android: Configurações → Localização ON; iOS: Ajustes → Privacidade → Serviços de Localização ON).
+3. Fechar e reabrir o app, aguardar até 10s no dialog. Se ainda não aparecer botão de confirmar, **cancelar e tentar de novo** (a 2ª tentativa geralmente usa cache do GPS e responde na hora).
+4. Em último caso: cancelar o dialog, ativar Wi-Fi/4G por alguns segundos para o GPS assistido (A-GPS) baixar coordenadas e tentar de novo.
+
+Posso aplicar os 5 ajustes acima no `CheckinDialog.tsx`?
 
