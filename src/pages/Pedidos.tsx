@@ -69,8 +69,8 @@ export default function Pedidos() {
   
   const isAdmin = role === 'admin' || role === 'coordenador_rplus' || role === 'coordenador_servicos' || role === 'coordenador_logistica';
   const canManagePedidos = role === 'admin' || role === 'coordenador_logistica' || role === 'coordenador_servicos';
-  // Apenas admin e coord. logística podem excluir pedidos de outros usuários
-  const canDeleteAnyPedido = role === 'admin' || role === 'coordenador_logistica';
+  // Admin, coord. logística e coord. de serviços podem excluir pedidos de outros usuários
+  const canDeleteAnyPedido = role === 'admin' || role === 'coordenador_logistica' || role === 'coordenador_servicos';
 
   // Fetch clientes from Supabase
   const { data: clientes } = useQuery({
