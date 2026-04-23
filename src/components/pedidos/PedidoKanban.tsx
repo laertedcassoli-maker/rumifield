@@ -160,7 +160,7 @@ export default function PedidoKanban({
       items: abertos,
       renderAction: (pedido: PedidoComItens) => (
         <div className="flex items-center gap-1 flex-1">
-          {canEditDelete(pedido) && onEdit && (
+          {canEdit(pedido) && onEdit && (
             <Button
               size="icon"
               variant="outline"
@@ -173,7 +173,7 @@ export default function PedidoKanban({
               <Pencil className="h-3 w-3" />
             </Button>
           )}
-          {canEditDelete(pedido) && onDelete && (
+          {canDelete(pedido) && onDelete && (
             <Button
               size="icon"
               variant="outline"
