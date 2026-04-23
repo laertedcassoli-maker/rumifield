@@ -1821,6 +1821,28 @@ export default function Pedidos() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Confirm delete pedido (status solicitado) */}
+      <AlertDialog open={!!pedidoToDelete} onOpenChange={(open) => !open && !isDeletingPedido && setPedidoToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir pedido permanentemente?</AlertDialogTitle>
+            <AlertDialogDescription>
+              O pedido <span className="font-mono font-semibold">{pedidoToDelete?.pedido_code || ''}</span> e todos os seus itens, vínculos e histórico serão removidos. Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeletingPedido}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isDeletingPedido}
+              onClick={(e) => { e.preventDefault(); handleDeletePedidoSolicitado(); }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeletingPedido ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Excluindo...</> : 'Excluir'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
