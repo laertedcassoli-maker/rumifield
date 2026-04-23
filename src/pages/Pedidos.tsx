@@ -69,6 +69,8 @@ export default function Pedidos() {
   
   const isAdmin = role === 'admin' || role === 'coordenador_rplus' || role === 'coordenador_servicos' || role === 'coordenador_logistica';
   const canManagePedidos = role === 'admin' || role === 'coordenador_logistica' || role === 'coordenador_servicos';
+  // Apenas admin e coord. logística podem excluir pedidos de outros usuários
+  const canDeleteAnyPedido = role === 'admin' || role === 'coordenador_logistica';
 
   // Fetch clientes from Supabase
   const { data: clientes } = useQuery({
@@ -1385,6 +1387,7 @@ export default function Pedidos() {
             consultorNames={consultorNames}
             currentUserId={user?.id}
             canManage={canManagePedidos}
+            canDeleteAny={canDeleteAnyPedido}
             onEdit={handleEditPedido}
             onDelete={(p) => setPedidoToDelete(p)}
           />
@@ -1443,16 +1446,18 @@ export default function Pedidos() {
                       </p>
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
-                      {pedido.status === 'solicitado' && pedido.solicitante_id === user?.id && (
+                      {pedido.status === 'solicitado' && (pedido.solicitante_id === user?.id || canDeleteAnyPedido) && (
                         <>
-                          <Button
-                            variant="outline" size="icon" className="h-8 w-8"
-                            onClick={() => handleEditPedido(pedido)}
-                            title="Editar pedido"
-                            aria-label="Editar pedido"
-                          >
-                            <Pencil className="h-4 w-4" />
-                          </Button>
+                          {(pedido.solicitante_id === user?.id || canManagePedidos) && (
+                            <Button
+                              variant="outline" size="icon" className="h-8 w-8"
+                              onClick={() => handleEditPedido(pedido)}
+                              title="Editar pedido"
+                              aria-label="Editar pedido"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                          )}
                           <Button
                             variant="outline" size="icon"
                             className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
