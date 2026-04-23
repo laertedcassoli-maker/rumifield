@@ -14,6 +14,10 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Plus, Loader2, Trash2, Minus, ArrowUpDown, Search, X, Eye, Pencil, ShoppingCart, Package, ImageIcon, Send, FileText, ChevronLeft, ChevronRight, Truck, HandHelping, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
@@ -60,6 +64,8 @@ export default function Pedidos() {
   const [editingAssetItemId, setEditingAssetItemId] = useState<string | null>(null);
   const [isEditingSolicitado, setIsEditingSolicitado] = useState(false);
   const [consultorNames, setConsultorNames] = useState<Record<string, string>>({});
+  const [pedidoToDelete, setPedidoToDelete] = useState<PedidoComItens | null>(null);
+  const [isDeletingPedido, setIsDeletingPedido] = useState(false);
   
   const isAdmin = role === 'admin' || role === 'coordenador_rplus' || role === 'coordenador_servicos' || role === 'coordenador_logistica';
   const canManagePedidos = role === 'admin' || role === 'coordenador_logistica' || role === 'coordenador_servicos';
@@ -383,6 +389,12 @@ export default function Pedidos() {
   };
 
   const handleEditPedido = (pedido: any) => {
+    // Pedidos transmitidos (status 'solicitado') usam o editor incremental que preserva log/assets
+    if (pedido.status === 'solicitado') {
+      setViewingPedido(pedido);
+      setIsEditingSolicitado(true);
+      return;
+    }
     setEditingPedido(pedido);
     setForm({
       cliente_id: pedido.cliente_id,
@@ -397,6 +409,51 @@ export default function Pedidos() {
       })) || []
     );
     setOpen(true);
+  };
+
+  const handleDeletePedidoSolicitado = async () => {
+    if (!pedidoToDelete) return;
+    setIsDeletingPedido(true);
+    try {
+      const itemIds = (pedidoToDelete.pedido_itens || []).map((i: any) => i.id);
+      // 1) pedido_item_assets
+      if (itemIds.length > 0) {
+        const { error: assetsErr } = await supabase
+          .from('pedido_item_assets')
+          .delete()
+          .in('pedido_item_id', itemIds);
+        if (assetsErr) throw assetsErr;
+      }
+      // 2) pedido_item_log
+      const { error: logErr } = await supabase
+        .from('pedido_item_log')
+        .delete()
+        .eq('pedido_id', pedidoToDelete.id);
+      if (logErr) throw logErr;
+      // 3) pedido_itens
+      const { error: itensErr } = await supabase
+        .from('pedido_itens')
+        .delete()
+        .eq('pedido_id', pedidoToDelete.id);
+      if (itensErr) throw itensErr;
+      // 4) pedidos
+      const { error: pedidoErr } = await supabase
+        .from('pedidos')
+        .delete()
+        .eq('id', pedidoToDelete.id);
+      if (pedidoErr) throw pedidoErr;
+
+      queryClient.invalidateQueries({ queryKey: ['pedidos'] });
+      toast({
+        title: 'Pedido excluído',
+        description: `${pedidoToDelete.pedido_code || 'Pedido'} foi removido permanentemente.`,
+      });
+      setPedidoToDelete(null);
+    } catch (error: any) {
+      toast({ variant: 'destructive', title: 'Erro ao excluir', description: error.message });
+    } finally {
+      setIsDeletingPedido(false);
+    }
   };
 
   const handleCloseDialog = (isOpen: boolean) => {
@@ -1326,6 +1383,10 @@ export default function Pedidos() {
             onConcluir={handleConcluir}
             isProcessing={isProcessingAction}
             consultorNames={consultorNames}
+            currentUserId={user?.id}
+            canManage={canManagePedidos}
+            onEdit={handleEditPedido}
+            onDelete={(p) => setPedidoToDelete(p)}
           />
         ) : (
           /* Tabela somente leitura para perfis sem permissão de gestão */
@@ -1381,10 +1442,33 @@ export default function Pedidos() {
                         {(pedido.pedido_itens?.filter((i: any) => !i.cancelled_at)?.length || 0)} {(pedido.pedido_itens?.filter((i: any) => !i.cancelled_at)?.length || 0) === 1 ? 'item' : 'itens'} · {format(new Date(pedido.created_at), "dd/MM/yy", { locale: ptBR })}
                       </p>
                     </div>
-                    <Button variant="outline" size="sm" className="h-8 gap-1.5 shrink-0" onClick={() => setViewingPedido(pedido)}>
-                      <Eye className="h-4 w-4" />
-                      Detalhes
-                    </Button>
+                    <div className="flex items-center gap-1 shrink-0">
+                      {pedido.status === 'solicitado' && pedido.solicitante_id === user?.id && (
+                        <>
+                          <Button
+                            variant="outline" size="icon" className="h-8 w-8"
+                            onClick={() => handleEditPedido(pedido)}
+                            title="Editar pedido"
+                            aria-label="Editar pedido"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="outline" size="icon"
+                            className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                            onClick={() => setPedidoToDelete(pedido)}
+                            title="Excluir pedido"
+                            aria-label="Excluir pedido"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </>
+                      )}
+                      <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={() => setViewingPedido(pedido)}>
+                        <Eye className="h-4 w-4" />
+                        Detalhes
+                      </Button>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
@@ -1737,6 +1821,28 @@ export default function Pedidos() {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Confirm delete pedido (status solicitado) */}
+      <AlertDialog open={!!pedidoToDelete} onOpenChange={(open) => !open && !isDeletingPedido && setPedidoToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir pedido permanentemente?</AlertDialogTitle>
+            <AlertDialogDescription>
+              O pedido <span className="font-mono font-semibold">{pedidoToDelete?.pedido_code || ''}</span> e todos os seus itens, vínculos e histórico serão removidos. Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeletingPedido}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isDeletingPedido}
+              onClick={(e) => { e.preventDefault(); handleDeletePedidoSolicitado(); }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeletingPedido ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Excluindo...</> : 'Excluir'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
