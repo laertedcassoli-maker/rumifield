@@ -389,6 +389,12 @@ export default function Pedidos() {
   };
 
   const handleEditPedido = (pedido: any) => {
+    // Pedidos transmitidos (status 'solicitado') usam o editor incremental que preserva log/assets
+    if (pedido.status === 'solicitado') {
+      setViewingPedido(pedido);
+      setIsEditingSolicitado(true);
+      return;
+    }
     setEditingPedido(pedido);
     setForm({
       cliente_id: pedido.cliente_id,
@@ -403,6 +409,51 @@ export default function Pedidos() {
       })) || []
     );
     setOpen(true);
+  };
+
+  const handleDeletePedidoSolicitado = async () => {
+    if (!pedidoToDelete) return;
+    setIsDeletingPedido(true);
+    try {
+      const itemIds = (pedidoToDelete.pedido_itens || []).map((i: any) => i.id);
+      // 1) pedido_item_assets
+      if (itemIds.length > 0) {
+        const { error: assetsErr } = await supabase
+          .from('pedido_item_assets')
+          .delete()
+          .in('pedido_item_id', itemIds);
+        if (assetsErr) throw assetsErr;
+      }
+      // 2) pedido_item_log
+      const { error: logErr } = await supabase
+        .from('pedido_item_log')
+        .delete()
+        .eq('pedido_id', pedidoToDelete.id);
+      if (logErr) throw logErr;
+      // 3) pedido_itens
+      const { error: itensErr } = await supabase
+        .from('pedido_itens')
+        .delete()
+        .eq('pedido_id', pedidoToDelete.id);
+      if (itensErr) throw itensErr;
+      // 4) pedidos
+      const { error: pedidoErr } = await supabase
+        .from('pedidos')
+        .delete()
+        .eq('id', pedidoToDelete.id);
+      if (pedidoErr) throw pedidoErr;
+
+      queryClient.invalidateQueries({ queryKey: ['pedidos'] });
+      toast({
+        title: 'Pedido excluído',
+        description: `${pedidoToDelete.pedido_code || 'Pedido'} foi removido permanentemente.`,
+      });
+      setPedidoToDelete(null);
+    } catch (error: any) {
+      toast({ variant: 'destructive', title: 'Erro ao excluir', description: error.message });
+    } finally {
+      setIsDeletingPedido(false);
+    }
   };
 
   const handleCloseDialog = (isOpen: boolean) => {
