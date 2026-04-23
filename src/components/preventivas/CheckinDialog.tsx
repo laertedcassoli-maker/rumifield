@@ -74,8 +74,27 @@ export function CheckinDialog({
       getLocation();
       setShowEarlyWarning(false);
       setPendingLocation(null);
+      setGeoStuck(false);
     }
   }, [open, getLocation]);
+
+  // Watchdog: if geolocation hangs for 10s without success or error, allow user to proceed without GPS
+  useEffect(() => {
+    if (!open) return;
+    if (!geoLoading) return;
+    if (hasLocation || geoError) return;
+
+    const timer = setTimeout(() => {
+      setGeoStuck(true);
+    }, 10000);
+
+    return () => clearTimeout(timer);
+  }, [open, geoLoading, hasLocation, geoError]);
+
+  const handleRetryLocation = () => {
+    setGeoStuck(false);
+    getLocation();
+  };
 
   const handleConfirmClick = (lat: number | null, lon: number | null) => {
     if (isEarlyStart) {
