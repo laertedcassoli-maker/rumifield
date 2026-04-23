@@ -1442,10 +1442,33 @@ export default function Pedidos() {
                         {(pedido.pedido_itens?.filter((i: any) => !i.cancelled_at)?.length || 0)} {(pedido.pedido_itens?.filter((i: any) => !i.cancelled_at)?.length || 0) === 1 ? 'item' : 'itens'} · {format(new Date(pedido.created_at), "dd/MM/yy", { locale: ptBR })}
                       </p>
                     </div>
-                    <Button variant="outline" size="sm" className="h-8 gap-1.5 shrink-0" onClick={() => setViewingPedido(pedido)}>
-                      <Eye className="h-4 w-4" />
-                      Detalhes
-                    </Button>
+                    <div className="flex items-center gap-1 shrink-0">
+                      {pedido.status === 'solicitado' && pedido.solicitante_id === user?.id && (
+                        <>
+                          <Button
+                            variant="outline" size="icon" className="h-8 w-8"
+                            onClick={() => handleEditPedido(pedido)}
+                            title="Editar pedido"
+                            aria-label="Editar pedido"
+                          >
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="outline" size="icon"
+                            className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                            onClick={() => setPedidoToDelete(pedido)}
+                            title="Excluir pedido"
+                            aria-label="Excluir pedido"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </>
+                      )}
+                      <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={() => setViewingPedido(pedido)}>
+                        <Eye className="h-4 w-4" />
+                        Detalhes
+                      </Button>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
