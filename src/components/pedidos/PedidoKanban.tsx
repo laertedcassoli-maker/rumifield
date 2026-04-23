@@ -45,6 +45,7 @@ interface PedidoKanbanProps {
   consultorNames: Record<string, string>;
   currentUserId?: string;
   canManage?: boolean;
+  canDeleteAny?: boolean;
   onEdit?: (pedido: PedidoComItens) => void;
   onDelete?: (pedido: PedidoComItens) => void;
 }
@@ -133,7 +134,7 @@ function PedidoCard({
 
 export default function PedidoKanban({ 
   pedidos, onViewPedido, onProcessar, onConcluir, isProcessing, consultorNames,
-  currentUserId, canManage = false, onEdit, onDelete,
+  currentUserId, canManage = false, canDeleteAny = false, onEdit, onDelete,
 }: PedidoKanbanProps) {
   const [concluirPedidoId, setConcluirPedidoId] = useState<string | null>(null);
   const [processarPedidoId, setProcessarPedidoId] = useState<string | null>(null);
@@ -142,8 +143,13 @@ export default function PedidoKanban({
   const emProcessamento = pedidos.filter(p => p.status === 'processamento');
   const concluidos = pedidos.filter(p => p.status === 'faturado');
 
-  const canEditDelete = (pedido: PedidoComItens) =>
+  // Edição: dono do pedido OU quem pode gerenciar (admin/coord. logística/serviços)
+  const canEdit = (pedido: PedidoComItens) =>
     canManage || (!!currentUserId && pedido.solicitante_id === currentUserId);
+
+  // Exclusão: dono do pedido OU somente admin/coord. logística (canDeleteAny)
+  const canDelete = (pedido: PedidoComItens) =>
+    canDeleteAny || (!!currentUserId && pedido.solicitante_id === currentUserId);
 
   const columns = [
     {
@@ -154,7 +160,7 @@ export default function PedidoKanban({
       items: abertos,
       renderAction: (pedido: PedidoComItens) => (
         <div className="flex items-center gap-1 flex-1">
-          {canEditDelete(pedido) && onEdit && (
+          {canEdit(pedido) && onEdit && (
             <Button
               size="icon"
               variant="outline"
@@ -167,7 +173,7 @@ export default function PedidoKanban({
               <Pencil className="h-3 w-3" />
             </Button>
           )}
-          {canEditDelete(pedido) && onDelete && (
+          {canDelete(pedido) && onDelete && (
             <Button
               size="icon"
               variant="outline"
