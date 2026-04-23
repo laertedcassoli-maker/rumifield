@@ -52,6 +52,7 @@ export function CheckinDialog({
   const [currentTime, setCurrentTime] = useState(new Date());
   const [showEarlyWarning, setShowEarlyWarning] = useState(false);
   const [pendingLocation, setPendingLocation] = useState<{ lat: number | null; lon: number | null } | null>(null);
+  const [geoStuck, setGeoStuck] = useState(false);
   const { latitude, longitude, accuracy, loading: geoLoading, error: geoError, getLocation, hasLocation } = useGeolocation();
 
   // Calculate days until planned start
