@@ -1383,6 +1383,10 @@ export default function Pedidos() {
             onConcluir={handleConcluir}
             isProcessing={isProcessingAction}
             consultorNames={consultorNames}
+            currentUserId={user?.id}
+            canManage={canManagePedidos}
+            onEdit={handleEditPedido}
+            onDelete={(p) => setPedidoToDelete(p)}
           />
         ) : (
           /* Tabela somente leitura para perfis sem permissão de gestão */
