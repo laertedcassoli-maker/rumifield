@@ -438,14 +438,18 @@ export default function Pedidos() {
         .delete()
         .eq('pedido_id', pedidoToDelete.id);
       if (itensErr) throw itensErr;
-      // 4) pedidos
-      const { error: pedidoErr } = await supabase
+      // 4) pedidos — usar .select() para detectar falha silenciosa de RLS
+      const { data: deletedRows, error: pedidoErr } = await supabase
         .from('pedidos')
         .delete()
-        .eq('id', pedidoToDelete.id);
+        .eq('id', pedidoToDelete.id)
+        .select('id');
       if (pedidoErr) throw pedidoErr;
+      if (!deletedRows || deletedRows.length === 0) {
+        throw new Error('Não foi possível excluir o pedido. Verifique suas permissões.');
+      }
 
-      queryClient.invalidateQueries({ queryKey: ['pedidos'] });
+      await queryClient.invalidateQueries({ queryKey: ['pedidos'] });
       toast({
         title: 'Pedido excluído',
         description: `${pedidoToDelete.pedido_code || 'Pedido'} foi removido permanentemente.`,
