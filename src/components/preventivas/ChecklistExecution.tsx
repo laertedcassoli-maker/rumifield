@@ -1518,7 +1518,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
                         </div>
                       )}
 
-                      {isCompleted && item.status === 'N' && item.selectedActions.length > 0 && (
+                      {isReadOnly && item.status === 'N' && item.selectedActions.length > 0 && (
                         <div className="pl-4 border-l-2 border-destructive/30">
                           <p className="text-sm font-medium text-muted-foreground mb-1">
                             Ações corretivas realizadas:
