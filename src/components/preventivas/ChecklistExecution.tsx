@@ -1385,7 +1385,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
                         )}
                       </div>
 
-                      {hasFailureDetails && !isCompleted && (
+                      {hasFailureDetails && !isReadOnly && (
                         <Collapsible 
                           open={isExpanded} 
                           onOpenChange={(open) => {
