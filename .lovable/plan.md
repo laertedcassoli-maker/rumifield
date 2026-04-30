@@ -1,38 +1,52 @@
+## Objetivo
 
-## Problema
+Permitir que apenas o usuário **Phelipe Rogerio** (`phelipe.rogerio@rumina.com.br`) possa editar um checklist de preventiva mesmo após ele ter sido concluído. Para os demais usuários, o comportamento atual é mantido (checklist concluído = somente leitura).
 
-Quando um coordenador (ex: Ivan) tenta excluir um pedido na tela de Solicitação de Peças, o card permanece visível mesmo após o toast de sucesso. Causa raiz:
+## Como funciona hoje
 
-- As RLS policies de DELETE em `pedidos`, `pedido_itens` e `pedido_item_assets` exigem `solicitante_id = auth.uid()`.
-- A tabela `pedido_item_log` não tem nenhuma policy de DELETE.
-- Coordenadores conseguem excluir filhos parcialmente (alguns sem policy bloqueiam), mas o `DELETE` em `pedidos` é filtrado silenciosamente pelo RLS — 0 linhas afetadas, sem erro retornado.
-- O frontend interpreta como sucesso e o card "fantasma" continua no banco.
+No `ChecklistExecution.tsx`, quando `existingChecklist.status === 'concluido'`, a flag `isCompleted` bloqueia tudo:
+- Botões de status dos itens ficam `disabled={isCompleted}`
+- Botões "Concluir" e "Trocar checklist" são escondidos
+- Auto-save é abortado (`if (existingChecklist.status === 'concluido') return;`)
+- Itens, ações e não-conformidades viram visualização (read-only)
 
-## Mudanças
+## Mudanças propostas
 
-### 1. Migration SQL — adicionar policies de DELETE para roles administrativas
+### 1. Identificar o usuário privilegiado
+Em vez de fixar UUID no código (frágil), vou criar uma função SQL `can_edit_completed_checklist(_user_id uuid)` que retorna `true` se:
+- O usuário tem role `admin`, **OU**
+- O email do usuário é `phelipe.rogerio@rumina.com.br`
 
-Para `admin`, `coordenador_logistica` e `coordenador_servicos`, criar policies permissivas adicionais (não substituem as existentes do dono):
+Isso fica fácil de manter — se amanhã quiser liberar para outro usuário, basta editar a função.
 
-- `public.pedidos` — DELETE permitido se `has_role(auth.uid(), 'admin' | 'coordenador_logistica' | 'coordenador_servicos')`.
-- `public.pedido_itens` — mesma regra.
-- `public.pedido_item_assets` — mesma regra.
-- `public.pedido_item_log` — criar policy de DELETE (hoje não existe nenhuma) com a mesma regra E também permitir o dono do pedido pai (via JOIN em `pedidos`), espelhando o padrão das outras tabelas filhas.
+### 2. Hook no front
+Criar um hook `useCanEditCompletedChecklist()` que consulta essa função via RPC e retorna `boolean`.
 
-Resultado: dono continua excluindo seus próprios pedidos; admin/coord. logística/coord. serviços excluem qualquer pedido; ninguém mais pode excluir.
+### 3. Ajustar `ChecklistExecution.tsx`
+- Substituir `const isCompleted = ...` por uma flag derivada: `isReadOnly = isCompleted && !canEditCompleted`
+- Trocar todos os usos de `isCompleted` que controlam **edição** por `isReadOnly`
+- Manter `isCompleted` apenas para o **badge visual "Concluído"** (todos continuam vendo o badge verde)
+- No bloco de ações (Concluir / Trocar checklist):
+  - Se `isCompleted && canEditCompleted`, mostrar um aviso amarelo "Modo edição (checklist concluído) — alterações serão salvas" e manter os controles habilitados
+  - Esconder o botão "Concluir" (já está concluído), mas manter "Trocar checklist" e edição inline dos itens
 
-### 2. `src/pages/Pedidos.tsx` — detecção de falha silenciosa
+### 4. Liberar auto-save no modo admin
+No `useEffect` de hidratação/save (linha 448) e nas mutations (`updateItemMutation`, `toggleActionMutation`, `toggleNonconformityMutation`), remover o early-return baseado em `status === 'concluido'` quando `canEditCompleted` for `true`.
 
-No `handleDeletePedidoSolicitado` (linhas 416-459):
+### 5. RLS
+As policies das tabelas `preventive_checklists`, `preventive_checklist_items` e `preventive_checklist_item_actions` já permitem update por usuários autenticados — não precisam mudar. A regra é puramente client-side + RPC.
 
-- Trocar o `delete()` final em `pedidos` por `.delete().eq('id', ...).select('id')`.
-- Após o delete, validar `if (!data || data.length === 0) throw new Error('Não foi possível excluir o pedido. Verifique suas permissões.')`.
-- Trocar `queryClient.invalidateQueries(...)` por `await queryClient.invalidateQueries({ queryKey: ['pedidos'] })` para garantir que a UI só atualiza depois do refetch.
+## Arquivos afetados
 
-Assim, se no futuro alguma policy bloquear silenciosamente novamente, o usuário verá um erro explícito em vez de um card fantasma.
+- **Migration SQL** (nova função `can_edit_completed_checklist`)
+- `src/hooks/useCanEditCompletedChecklist.ts` (novo)
+- `src/components/preventivas/ChecklistExecution.tsx` (ajustes de gating)
 
-## Resultado esperado
+## Comportamento final
 
-- Ivan (coord. logística/serviços) e admins conseguem excluir qualquer pedido; o card desaparece imediatamente.
-- Usuários comuns continuam excluindo apenas seus próprios pedidos (regra atual).
-- Falhas de permissão futuras geram toast vermelho explícito, sem cards fantasmas.
+| Usuário | Ao abrir checklist concluído |
+|---|---|
+| Phelipe Rogerio / Admin | Vê badge "Concluído" + aviso de modo edição. Pode alterar status, ações, NCs, peças. Auto-save ativo. |
+| Demais (técnicos/consultores) | Vê badge "Concluído". Tudo somente leitura, como hoje. |
+
+Posso seguir?

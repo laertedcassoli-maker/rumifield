@@ -16,6 +16,7 @@ import ChecklistItemStatusButtons from "./ChecklistItemStatusButtons";
 import SelectableOptionCard from "./SelectableOptionCard";
 import ChecklistBlockNav from "./ChecklistBlockNav";
 import ChecklistItemNotes from "./ChecklistItemNotes";
+import { useCanEditCompletedChecklist } from "@/hooks/useCanEditCompletedChecklist";
 
 interface ChecklistExecutionProps {
   preventiveId: string;
@@ -62,6 +63,7 @@ type ChecklistStatus = 'em_andamento' | 'concluido';
 
 export default function ChecklistExecution({ preventiveId, routeTemplateId, onStatusChange }: ChecklistExecutionProps) {
   const { user } = useAuth();
+  const canEditCompleted = useCanEditCompletedChecklist();
   const queryClient = useQueryClient();
   const [isSelectTemplateOpen, setIsSelectTemplateOpen] = useState(false);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
@@ -1150,6 +1152,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
   );
   const progress = totalItems > 0 ? (answeredItems / totalItems) * 100 : 0;
   const isCompleted = existingChecklist.status === 'concluido';
+  const isReadOnly = isCompleted && !canEditCompleted;
   const allAnswered = answeredItems === totalItems;
 
   const hasIncompleteFailures = blocks.some(block => 
@@ -1232,9 +1235,17 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
             </CardHeader>
           </CollapsibleTrigger>
           <CollapsibleContent className="animate-accordion-down data-[state=closed]:animate-accordion-up">
-            {!isCompleted && (
+            {!isReadOnly && (
               <div className="px-4 sm:px-6 pb-3 space-y-3">
             <div className="space-y-2 pt-1">
+              {isCompleted && canEditCompleted && (
+                <div className="flex items-start gap-2 text-xs p-2 rounded border border-amber-300 bg-amber-50 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300">
+                  <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                  <span>
+                    <strong>Modo edição:</strong> este checklist já foi concluído. Alterações serão salvas mesmo assim.
+                  </span>
+                </div>
+              )}
               <div className="flex items-center justify-center text-xs">
                 {getSyncStatusDisplay()}
               </div>
@@ -1247,15 +1258,17 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
                   </div>
                   <Progress value={progress} className="h-2" />
                 </div>
-                <Button
-                  onClick={() => setIsConfirmCompleteOpen(true)}
-                  disabled={completeChecklistMutation.isPending || !isAllAnswered || !navigator.onLine}
-                  className="shrink-0"
-                  size="default"
-                >
-                  <CheckCircle2 className="h-4 w-4 mr-1.5" />
-                  Concluir
-                </Button>
+                {!isCompleted && (
+                  <Button
+                    onClick={() => setIsConfirmCompleteOpen(true)}
+                    disabled={completeChecklistMutation.isPending || !isAllAnswered || !navigator.onLine}
+                    className="shrink-0"
+                    size="default"
+                  >
+                    <CheckCircle2 className="h-4 w-4 mr-1.5" />
+                    Concluir
+                  </Button>
+                )}
               </div>
               <div className="flex justify-end">
                 <Button
@@ -1270,13 +1283,13 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
                 </Button>
               </div>
 
-              {!navigator.onLine && isAllAnswered && (
+              {!isCompleted && !navigator.onLine && isAllAnswered && (
                 <p className="text-xs text-amber-600 text-center">⚠️ Reconecte para concluir</p>
               )}
-              {hasIncompleteFailures && isAllAnswered && navigator.onLine && (
+              {!isCompleted && hasIncompleteFailures && isAllAnswered && navigator.onLine && (
                 <p className="text-xs text-amber-600 text-center">⚠️ Existem falhas sem tratativas</p>
               )}
-              {!isAllAnswered && (
+              {!isCompleted && !isAllAnswered && (
                 <p className="text-xs text-muted-foreground text-center">Responda todos os itens para concluir</p>
               )}
             </div>
@@ -1328,21 +1341,21 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex items-start gap-2 min-w-0 flex-1 flex-wrap">
                             <span className="font-medium">{item.item_name_snapshot}</span>
-                            {needsTreatment && !isCompleted && (
+                            {needsTreatment && !isReadOnly && (
                               <Badge variant="destructive" className="shrink-0 text-xs animate-pulse">
                                 Pendente
                               </Badge>
                             )}
-                            {needsPart && !isCompleted && (
+                            {needsPart && !isReadOnly && (
                               <Badge variant="outline" className="shrink-0 text-xs border-amber-500 text-amber-600 bg-amber-50 dark:bg-amber-950/30">
                                 <Package className="h-3 w-3 mr-1" />
                                 Peça pendente
                               </Badge>
                             )}
                           </div>
-                          {isCompleted && <StatusBadge status={item.status} />}
+                          {isReadOnly && <StatusBadge status={item.status} />}
                         </div>
-                        {!isCompleted && (
+                        {!isReadOnly && (
                           <ChecklistItemStatusButtons
                             value={item.status}
                             onChange={(status) => {
@@ -1372,7 +1385,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
                         )}
                       </div>
 
-                      {hasFailureDetails && !isCompleted && (
+                      {hasFailureDetails && !isReadOnly && (
                         <Collapsible 
                           open={isExpanded} 
                           onOpenChange={(open) => {
@@ -1433,7 +1446,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
                                         key={nc.id}
                                         label={nc.nonconformity_label}
                                         selected={isSelected}
-                                        disabled={isCompleted}
+                                        disabled={isReadOnly}
                                         loading={isProcessing}
                                         variant="danger"
                                         onClick={() => {
@@ -1468,7 +1481,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
                                         key={action.id}
                                         label={action.action_label}
                                         selected={isSelected}
-                                        disabled={isCompleted}
+                                        disabled={isReadOnly}
                                         loading={isProcessing}
                                         variant="success"
                                         onClick={() => {
@@ -1489,7 +1502,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
                         </Collapsible>
                       )}
 
-                      {isCompleted && item.status === 'N' && item.selectedNonconformities.length > 0 && (
+                      {isReadOnly && item.status === 'N' && item.selectedNonconformities.length > 0 && (
                         <div className="pl-4 border-l-2 border-amber-400">
                           <p className="text-sm font-medium text-muted-foreground mb-1">
                             Não conformidades identificadas:
@@ -1505,7 +1518,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
                         </div>
                       )}
 
-                      {isCompleted && item.status === 'N' && item.selectedActions.length > 0 && (
+                      {isReadOnly && item.status === 'N' && item.selectedActions.length > 0 && (
                         <div className="pl-4 border-l-2 border-destructive/30">
                           <p className="text-sm font-medium text-muted-foreground mb-1">
                             Ações corretivas realizadas:
@@ -1521,7 +1534,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
                         </div>
                       )}
 
-                      {!isCompleted ? (
+                      {!isReadOnly ? (
                         <ChecklistItemNotes
                           itemId={item.id}
                           initialValue={item.notes}
