@@ -1235,9 +1235,17 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
             </CardHeader>
           </CollapsibleTrigger>
           <CollapsibleContent className="animate-accordion-down data-[state=closed]:animate-accordion-up">
-            {!isCompleted && (
+            {!isReadOnly && (
               <div className="px-4 sm:px-6 pb-3 space-y-3">
             <div className="space-y-2 pt-1">
+              {isCompleted && canEditCompleted && (
+                <div className="flex items-start gap-2 text-xs p-2 rounded border border-amber-300 bg-amber-50 dark:bg-amber-950/30 text-amber-800 dark:text-amber-300">
+                  <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                  <span>
+                    <strong>Modo edição:</strong> este checklist já foi concluído. Alterações serão salvas mesmo assim.
+                  </span>
+                </div>
+              )}
               <div className="flex items-center justify-center text-xs">
                 {getSyncStatusDisplay()}
               </div>
@@ -1250,15 +1258,17 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
                   </div>
                   <Progress value={progress} className="h-2" />
                 </div>
-                <Button
-                  onClick={() => setIsConfirmCompleteOpen(true)}
-                  disabled={completeChecklistMutation.isPending || !isAllAnswered || !navigator.onLine}
-                  className="shrink-0"
-                  size="default"
-                >
-                  <CheckCircle2 className="h-4 w-4 mr-1.5" />
-                  Concluir
-                </Button>
+                {!isCompleted && (
+                  <Button
+                    onClick={() => setIsConfirmCompleteOpen(true)}
+                    disabled={completeChecklistMutation.isPending || !isAllAnswered || !navigator.onLine}
+                    className="shrink-0"
+                    size="default"
+                  >
+                    <CheckCircle2 className="h-4 w-4 mr-1.5" />
+                    Concluir
+                  </Button>
+                )}
               </div>
               <div className="flex justify-end">
                 <Button
@@ -1273,13 +1283,13 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
                 </Button>
               </div>
 
-              {!navigator.onLine && isAllAnswered && (
+              {!isCompleted && !navigator.onLine && isAllAnswered && (
                 <p className="text-xs text-amber-600 text-center">⚠️ Reconecte para concluir</p>
               )}
-              {hasIncompleteFailures && isAllAnswered && navigator.onLine && (
+              {!isCompleted && hasIncompleteFailures && isAllAnswered && navigator.onLine && (
                 <p className="text-xs text-amber-600 text-center">⚠️ Existem falhas sem tratativas</p>
               )}
-              {!isAllAnswered && (
+              {!isCompleted && !isAllAnswered && (
                 <p className="text-xs text-muted-foreground text-center">Responda todos os itens para concluir</p>
               )}
             </div>
