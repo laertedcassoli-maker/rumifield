@@ -63,6 +63,7 @@ type ChecklistStatus = 'em_andamento' | 'concluido';
 
 export default function ChecklistExecution({ preventiveId, routeTemplateId, onStatusChange }: ChecklistExecutionProps) {
   const { user } = useAuth();
+  const canEditCompleted = useCanEditCompletedChecklist();
   const queryClient = useQueryClient();
   const [isSelectTemplateOpen, setIsSelectTemplateOpen] = useState(false);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
