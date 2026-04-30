@@ -1152,6 +1152,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
   );
   const progress = totalItems > 0 ? (answeredItems / totalItems) * 100 : 0;
   const isCompleted = existingChecklist.status === 'concluido';
+  const isReadOnly = isCompleted && !canEditCompleted;
   const allAnswered = answeredItems === totalItems;
 
   const hasIncompleteFailures = blocks.some(block => 
