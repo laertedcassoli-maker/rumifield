@@ -1534,7 +1534,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
                         </div>
                       )}
 
-                      {!isCompleted ? (
+                      {!isReadOnly ? (
                         <ChecklistItemNotes
                           itemId={item.id}
                           initialValue={item.notes}
