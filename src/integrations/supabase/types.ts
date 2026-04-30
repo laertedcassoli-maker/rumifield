@@ -3775,6 +3775,10 @@ export type Database = {
         Returns: undefined
       }
       can_delete_peca: { Args: { _peca_id: string }; Returns: boolean }
+      can_edit_completed_checklist: {
+        Args: { _user_id: string }
+        Returns: boolean
+      }
       duplicate_checklist_template: {
         Args: { p_template_id: string }
         Returns: string
