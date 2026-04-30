@@ -1481,7 +1481,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
                                         key={action.id}
                                         label={action.action_label}
                                         selected={isSelected}
-                                        disabled={isCompleted}
+                                        disabled={isReadOnly}
                                         loading={isProcessing}
                                         variant="success"
                                         onClick={() => {
