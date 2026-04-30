@@ -434,8 +434,8 @@ export default function AtendimentoPreventivo() {
             if (trocaActions && trocaActions.length > 0) {
               const itemIdsWithTroca = [...new Set(trocaActions.map(a => a.exec_item_id))];
 
-              // Step 4: Check which items have linked parts (server + local Dexie)
-              // Check parts linked via exec_item_id (automatic parts)
+              const itemNameById = new Map((failedItems || []).map(i => [i.id, i.item_name_snapshot] as const));
+
               const { data: linkedParts } = await supabase
                 .from('preventive_part_consumption')
                 .select('exec_item_id')
@@ -443,25 +443,54 @@ export default function AtendimentoPreventivo() {
                 .in('exec_item_id', itemIdsWithTroca);
 
               const itemIdsWithParts = new Set((linkedParts || []).map(p => p.exec_item_id));
-
-
               const itemsWithoutParts = itemIdsWithTroca.filter(id => !itemIdsWithParts.has(id));
 
-              // If there are still unlinked troca items, check if manual parts cover them
               if (itemsWithoutParts.length > 0) {
+                const { data: selectedNcs } = await supabase
+                  .from('preventive_checklist_item_nonconformities')
+                  .select('exec_item_id, template_nonconformity_id')
+                  .in('exec_item_id', itemsWithoutParts);
+
+                const ncToItem = new Map<string, string>();
+                const allNcIds: string[] = [];
+                for (const row of selectedNcs || []) {
+                  if (row.template_nonconformity_id) {
+                    ncToItem.set(row.template_nonconformity_id, row.exec_item_id);
+                    allNcIds.push(row.template_nonconformity_id);
+                  }
+                }
+
+                const expectedPartByItem = new Map<string, Set<string>>();
+                if (allNcIds.length > 0) {
+                  const { data: ncParts } = await supabase
+                    .from('checklist_nonconformity_parts')
+                    .select('nonconformity_id, part_id')
+                    .in('nonconformity_id', allNcIds);
+                  for (const row of ncParts || []) {
+                    const itemId = ncToItem.get(row.nonconformity_id);
+                    if (!itemId) continue;
+                    if (!expectedPartByItem.has(itemId)) expectedPartByItem.set(itemId, new Set());
+                    expectedPartByItem.get(itemId)!.add(row.part_id);
+                  }
+                }
+
                 const { data: manualParts } = await supabase
                   .from('preventive_part_consumption')
-                  .select('id')
+                  .select('part_id')
                   .eq('preventive_id', routeItem.preventiveId)
                   .is('exec_item_id', null);
+                const manualPartIds = new Set((manualParts || []).map(p => p.part_id));
 
-                const totalManualParts = manualParts?.length || 0;
-                const stillMissing = itemsWithoutParts.length - totalManualParts;
+                const stillMissingItems: string[] = [];
+                for (const itemId of itemsWithoutParts) {
+                  const expected = expectedPartByItem.get(itemId);
+                  if (expected && [...expected].some(pid => manualPartIds.has(pid))) continue;
+                  stillMissingItems.push(itemId);
+                }
 
-                if (stillMissing > 0) {
-                  blockingErrors.push(
-                    'Existem itens no checklist com troca de peça que ainda não possuem peça vinculada. Adicione uma peça para cada item antes de finalizar a visita.'
-                  );
+                if (stillMissingItems.length > 0) {
+                  const names = stillMissingItems.map(id => itemNameById.get(id) || id).join(', ');
+                  blockingErrors.push(`Faltam peças vinculadas para os itens: ${names}. Adicione a peça correspondente antes de finalizar.`);
                 }
               }
 
