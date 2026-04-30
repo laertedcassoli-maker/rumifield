@@ -1341,21 +1341,21 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex items-start gap-2 min-w-0 flex-1 flex-wrap">
                             <span className="font-medium">{item.item_name_snapshot}</span>
-                            {needsTreatment && !isCompleted && (
+                            {needsTreatment && !isReadOnly && (
                               <Badge variant="destructive" className="shrink-0 text-xs animate-pulse">
                                 Pendente
                               </Badge>
                             )}
-                            {needsPart && !isCompleted && (
+                            {needsPart && !isReadOnly && (
                               <Badge variant="outline" className="shrink-0 text-xs border-amber-500 text-amber-600 bg-amber-50 dark:bg-amber-950/30">
                                 <Package className="h-3 w-3 mr-1" />
                                 Peça pendente
                               </Badge>
                             )}
                           </div>
-                          {isCompleted && <StatusBadge status={item.status} />}
+                          {isReadOnly && <StatusBadge status={item.status} />}
                         </div>
-                        {!isCompleted && (
+                        {!isReadOnly && (
                           <ChecklistItemStatusButtons
                             value={item.status}
                             onChange={(status) => {
