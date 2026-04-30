@@ -1446,7 +1446,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
                                         key={nc.id}
                                         label={nc.nonconformity_label}
                                         selected={isSelected}
-                                        disabled={isCompleted}
+                                        disabled={isReadOnly}
                                         loading={isProcessing}
                                         variant="danger"
                                         onClick={() => {
