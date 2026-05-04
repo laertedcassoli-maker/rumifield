@@ -38,14 +38,47 @@ interface FetchedReport {
 }
 
 async function fetchReport(token: string): Promise<FetchedReport> {
-  const { data: corrective, error } = await supabase
+  // Token may live on either corrective_maintenance OR preventive_maintenance
+  // (legacy/checkout writes it on preventive_maintenance with notes "CORR-VISIT-<visitId>")
+  let corrective: any = null;
+
+  const { data: cmDirect, error: cmErr } = await supabase
     .from('corrective_maintenance')
     .select('id, visit_id, client_id, checkin_at, checkout_at, notes, public_token')
     .eq('public_token', token)
     .maybeSingle();
+  if (cmErr) throw cmErr;
+  corrective = cmDirect;
 
-  if (error) throw error;
-  if (!corrective) throw new Error('Relatório não encontrado');
+  if (!corrective) {
+    const { data: pmRow, error: pmErr } = await supabase
+      .from('preventive_maintenance')
+      .select('id, client_id, notes, public_token')
+      .eq('public_token', token)
+      .maybeSingle();
+    if (pmErr) throw pmErr;
+    if (!pmRow) throw new Error('Relatório não encontrado');
+
+    const visitMatch = (pmRow.notes || '').match(/CORR-VISIT-([0-9a-f-]{36})/i);
+    if (!visitMatch) throw new Error('Visita corretiva não encontrada para o relatório');
+    const visitId = visitMatch[1];
+
+    const { data: cmByVisit } = await supabase
+      .from('corrective_maintenance')
+      .select('id, visit_id, client_id, checkin_at, checkout_at, notes, public_token')
+      .eq('visit_id', visitId)
+      .maybeSingle();
+
+    corrective = cmByVisit || {
+      id: pmRow.id,
+      visit_id: visitId,
+      client_id: pmRow.client_id,
+      checkin_at: null,
+      checkout_at: null,
+      notes: pmRow.notes,
+      public_token: token,
+    };
+  }
 
   const { data: visitData } = await supabase
     .from('ticket_visits')
