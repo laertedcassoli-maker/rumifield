@@ -1001,44 +1001,56 @@ export default function ExecucaoVisitaCorretiva() {
                 </div>
                 
                 {visit.publicToken && (
-                  <div className="flex gap-2 pt-2">
+                  <div className="flex gap-2 pt-2 flex-wrap">
                     <Button
                       variant="outline"
-                      className="flex-1"
+                      className="flex-1 min-w-[140px]"
+                      disabled={sharingPdf !== null}
                       onClick={async () => {
-                        const origin = window.location.hostname.includes('lovableproject.com')
-                          ? 'https://rumifield.lovable.app'
-                          : window.location.origin;
-                        const url = `${origin}/relatorio-corretivo/${visit.publicToken}`;
-                        if (navigator.share) {
-                          try { await navigator.share({ title: 'Relatório de Visita', url }); } catch {}
-                        } else {
-                          await navigator.clipboard.writeText(url);
-                          toast({ title: 'Link copiado!' });
+                        setSharingPdf('produtor');
+                        try {
+                          const result = await shareCorrectivePdf({
+                            token: visit.publicToken!,
+                            isInternal: false,
+                            clientName: visit.client?.nome,
+                          });
+                          if (result === 'downloaded') {
+                            toast({ title: 'PDF gerado', description: 'O arquivo foi baixado para compartilhar manualmente.' });
+                          }
+                        } catch (err) {
+                          toast({ variant: 'destructive', title: 'Erro ao gerar PDF', description: (err as Error).message || 'Tente novamente.' });
+                        } finally {
+                          setSharingPdf(null);
                         }
                       }}
                     >
-                      <Share2 className="h-4 w-4 mr-2" />
-                      Produtor
+                      {sharingPdf === 'produtor' ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <User className="h-4 w-4 mr-2" />}
+                      Produtor (PDF)
                     </Button>
                     <Button
                       variant="outline"
-                      className="flex-1"
+                      className="flex-1 min-w-[140px]"
+                      disabled={sharingPdf !== null}
                       onClick={async () => {
-                        const origin = window.location.hostname.includes('lovableproject.com')
-                          ? 'https://rumifield.lovable.app'
-                          : window.location.origin;
-                        const url = `${origin}/relatorio-corretivo/${visit.publicToken}/interno`;
-                        if (navigator.share) {
-                          try { await navigator.share({ title: 'Relatório Interno', url }); } catch {}
-                        } else {
-                          await navigator.clipboard.writeText(url);
-                          toast({ title: 'Link copiado!' });
+                        setSharingPdf('interno');
+                        try {
+                          const result = await shareCorrectivePdf({
+                            token: visit.publicToken!,
+                            isInternal: true,
+                            clientName: visit.client?.nome,
+                          });
+                          if (result === 'downloaded') {
+                            toast({ title: 'PDF gerado', description: 'O arquivo foi baixado para compartilhar manualmente.' });
+                          }
+                        } catch (err) {
+                          toast({ variant: 'destructive', title: 'Erro ao gerar PDF', description: (err as Error).message || 'Tente novamente.' });
+                        } finally {
+                          setSharingPdf(null);
                         }
                       }}
                     >
-                      <Share2 className="h-4 w-4 mr-2" />
-                      Time Interno
+                      {sharingPdf === 'interno' ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <FileText className="h-4 w-4 mr-2" />}
+                      Time Interno (PDF)
                     </Button>
                   </div>
                 )}
