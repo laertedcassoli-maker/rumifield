@@ -459,39 +459,39 @@ export async function generateCorrectivePdf(token: string, isInternal: boolean):
   return { blob, filename };
 }
 
-export async function shareCorrectivePdf(opts: { token: string; isInternal: boolean; clientName?: string }): Promise<'shared' | 'downloaded'> {
+export async function shareCorrectivePdf(opts: { token: string; isInternal: boolean; clientName?: string }): Promise<'shared' | 'link-copied'> {
   const { blob, filename } = await generateCorrectivePdf(opts.token, opts.isInternal);
-  const file = new File([blob], filename, { type: 'application/pdf' });
 
-  const shareData: ShareData = {
-    title: `Relatório - ${opts.clientName || 'Visita Corretiva'}`,
-    text: opts.isInternal ? 'Relatório interno da visita corretiva' : 'Relatório da visita corretiva',
-    files: [file],
-  };
+  // Upload to public bucket (upsert so regenerating overwrites the same file)
+  const objectPath = `corretiva/${opts.token}${opts.isInternal ? '_interno' : ''}.pdf`;
+  const { error: upErr } = await supabase.storage
+    .from('relatorios-publicos')
+    .upload(objectPath, blob, { contentType: 'application/pdf', upsert: true });
+  if (upErr) throw new Error(`Falha ao publicar PDF: ${upErr.message}`);
+
+  const { data: pub } = supabase.storage.from('relatorios-publicos').getPublicUrl(objectPath);
+  // Cache-bust so destinatários sempre vejam a versão mais recente
+  const publicUrl = `${pub.publicUrl}?v=${Date.now()}`;
+
+  const title = `Relatório - ${opts.clientName || 'Visita Corretiva'}`;
+  const text = `${opts.isInternal ? 'Relatório interno' : 'Relatório'} da visita corretiva${opts.clientName ? ' - ' + opts.clientName : ''}:\n${publicUrl}`;
 
   const hasShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function';
-  const canShareFiles = hasShare
-    && typeof navigator.canShare === 'function'
-    && navigator.canShare(shareData);
-
-  if (canShareFiles) {
+  if (hasShare) {
     try {
-      await navigator.share(shareData);
+      await navigator.share({ title, text, url: publicUrl });
       return 'shared';
     } catch (err) {
       const name = (err as Error).name;
       if (name === 'AbortError') return 'shared';
-      // fall through to download
+      // fall through to clipboard
     }
   }
 
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-  return 'downloaded';
+  try {
+    await navigator.clipboard.writeText(publicUrl);
+  } catch {
+    // ignore — caller mostra toast com a URL via retorno se quiser
+  }
+  return 'link-copied';
 }
