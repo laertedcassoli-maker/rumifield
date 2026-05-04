@@ -56,6 +56,30 @@ export default function AtendimentoPreventivo() {
   const [showWarningDialog, setShowWarningDialog] = useState(false);
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
   const [checklistStatus, setChecklistStatus] = useState<'not_started' | 'in_progress' | 'completed'>('not_started');
+  const [sharingPdf, setSharingPdf] = useState<null | 'produtor' | 'interno'>(null);
+
+  const handleSharePdf = async (kind: 'produtor' | 'interno') => {
+    if (!routeItem?.publicToken) return;
+    setSharingPdf(kind);
+    try {
+      const result = await sharePreventivePdf({
+        token: routeItem.publicToken,
+        isInternal: kind === 'interno',
+        clientName: routeItem.client?.nome,
+      });
+      if (result === 'downloaded') {
+        toast({ title: 'PDF gerado', description: 'O arquivo foi baixado para compartilhar manualmente.' });
+      }
+    } catch (err) {
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao gerar PDF',
+        description: (err as Error).message || 'Tente novamente.',
+      });
+    } finally {
+      setSharingPdf(null);
+    }
+  };
 
   const isAdminOrCoordinator = role === 'admin' || role === 'coordenador_servicos';
 
