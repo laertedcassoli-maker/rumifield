@@ -659,40 +659,36 @@ export default function ExecucaoRota() {
                       </Link>
                       {item.public_token && (
                         <button
+                          disabled={sharingPdfId === item.id}
                           onClick={async () => {
-                            const baseUrl = window.location.hostname.includes('lovableproject.com') 
-                              ? 'https://rumifield.lovable.app' 
-                              : window.location.origin;
-                            const url = `${baseUrl}/relatorio/${item.public_token}`;
-                            const shareData = {
-                              title: `Relatório - ${item.client_name}`,
-                              text: `Confira o relatório da visita preventiva: ${url}`,
-                              url
-                            };
-                            
-                            const canNativeShare = typeof navigator.share === 'function' && 
-                              (!navigator.canShare || navigator.canShare(shareData));
-                            
-                            if (canNativeShare) {
-                              try {
-                                await navigator.share(shareData);
-                                return;
-                              } catch (err) {
-                                if ((err as Error).name === 'AbortError') return;
-                              }
-                            }
-                            
+                            setSharingPdfId(item.id);
                             try {
-                              await navigator.clipboard.writeText(url);
-                              toast({ title: 'Link copiado!', description: 'Cole no WhatsApp para enviar' });
-                            } catch {
-                              toast({ title: 'Link do relatório', description: url });
+                              const result = await sharePreventivePdf({
+                                token: item.public_token!,
+                                isInternal: false,
+                                clientName: item.client_name,
+                              });
+                              if (result === 'downloaded') {
+                                toast({ title: 'PDF gerado', description: 'Arquivo baixado para compartilhar manualmente.' });
+                              }
+                            } catch (err) {
+                              toast({
+                                variant: 'destructive',
+                                title: 'Erro ao gerar PDF',
+                                description: (err as Error).message || 'Tente novamente.',
+                              });
+                            } finally {
+                              setSharingPdfId(null);
                             }
                           }}
-                          className="flex-1 flex items-center justify-center gap-2 py-3 text-sm text-muted-foreground hover:bg-muted/50 active:bg-muted transition-colors"
+                          className="flex-1 flex items-center justify-center gap-2 py-3 text-sm text-muted-foreground hover:bg-muted/50 active:bg-muted transition-colors disabled:opacity-50"
                         >
-                          <Share2 className="h-4 w-4" />
-                          Compartilhar
+                          {sharingPdfId === item.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Share2 className="h-4 w-4" />
+                          )}
+                          {sharingPdfId === item.id ? 'Gerando...' : 'Compartilhar PDF'}
                         </button>
                       )}
                     </>
