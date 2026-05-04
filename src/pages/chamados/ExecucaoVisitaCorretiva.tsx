@@ -19,8 +19,11 @@ import {
   AlertTriangle,
   Play,
   Wrench,
-  Share2
+  Share2,
+  User,
+  FileText
 } from 'lucide-react';
+import { shareCorrectivePdf } from '@/lib/corrective-report-pdf';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
