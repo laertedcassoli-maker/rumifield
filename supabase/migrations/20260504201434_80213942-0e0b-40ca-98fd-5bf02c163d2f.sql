@@ -1,0 +1,1 @@
+UPDATE public.pecas SET ativo = true WHERE codigo IN ('PRD00634','PRD00636');
