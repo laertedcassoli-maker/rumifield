@@ -469,8 +469,8 @@ export async function shareCorrectivePdf(opts: { token: string; isInternal: bool
     files: [file],
   };
 
-  const canShareFiles = typeof navigator !== 'undefined'
-    && typeof navigator.share === 'function'
+  const hasShare = typeof navigator !== 'undefined' && typeof navigator.share === 'function';
+  const canShareFiles = hasShare
     && typeof navigator.canShare === 'function'
     && navigator.canShare(shareData);
 
@@ -479,7 +479,9 @@ export async function shareCorrectivePdf(opts: { token: string; isInternal: bool
       await navigator.share(shareData);
       return 'shared';
     } catch (err) {
-      if ((err as Error).name === 'AbortError') return 'shared';
+      const name = (err as Error).name;
+      if (name === 'AbortError') return 'shared';
+      // fall through to download
     }
   }
 
