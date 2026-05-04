@@ -1014,8 +1014,10 @@ export default function ExecucaoVisitaCorretiva() {
                             isInternal: false,
                             clientName: visit.client?.nome,
                           });
-                          if (result === 'downloaded') {
-                            toast({ title: 'PDF gerado', description: 'O arquivo foi baixado para compartilhar manualmente.' });
+                          if (result === 'link-copied') {
+                            toast({ title: 'Link copiado', description: 'O link do relatório foi copiado para a área de transferência.' });
+                          } else {
+                            toast({ title: 'Link compartilhado', description: 'O link do PDF foi enviado.' });
                           }
                         } catch (err) {
                           toast({ variant: 'destructive', title: 'Erro ao gerar PDF', description: (err as Error).message || 'Tente novamente.' });
