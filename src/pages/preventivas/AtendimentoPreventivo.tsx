@@ -28,6 +28,7 @@ import ChecklistExecution from '@/components/preventivas/ChecklistExecution';
 import VisitMediaUpload from '@/components/preventivas/VisitMediaUpload';
 import ConsumedPartsBlock from '@/components/preventivas/ConsumedPartsBlock';
 import ObservationsBlock from '@/components/preventivas/ObservationsBlock';
+import { sharePreventivePdf } from '@/lib/preventive-report-pdf';
 import {
   AlertDialog,
   AlertDialogAction,
