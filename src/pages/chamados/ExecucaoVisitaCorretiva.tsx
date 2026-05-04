@@ -67,6 +67,7 @@ export default function ExecucaoVisitaCorretiva() {
 
   // Bug #4: Reactive online state
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+  const [sharingPdf, setSharingPdf] = useState<null | 'produtor' | 'interno'>(null);
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
