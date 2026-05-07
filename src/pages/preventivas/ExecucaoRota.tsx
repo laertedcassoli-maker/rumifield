@@ -95,7 +95,7 @@ export default function ExecucaoRota() {
   const queryClient = useQueryClient();
   const [checkinItem, setCheckinItem] = useState<RouteItem | null>(null);
   const [cancelItem, setCancelItem] = useState<RouteItem | null>(null);
-  const [sharingPdfId, setSharingPdfId] = useState<string | null>(null);
+  
 
   const isAdminOrCoordinator = role === 'admin' || role === 'coordenador_servicos';
 
