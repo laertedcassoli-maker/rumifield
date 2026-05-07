@@ -1005,29 +1005,34 @@ export default function ExecucaoVisitaCorretiva() {
                     <Button
                       variant="outline"
                       className="flex-1 min-w-[140px]"
-                      disabled={sharingPdf !== null}
                       onClick={async () => {
-                        setSharingPdf('produtor');
-                        try {
-                          const result = await shareCorrectivePdf({
-                            token: visit.publicToken!,
-                            isInternal: false,
-                            clientName: visit.client?.nome,
-                          });
-                          if (result === 'link-copied') {
-                            toast({ title: 'Link copiado', description: 'O link do relatório foi copiado para a área de transferência.' });
-                          } else {
-                            toast({ title: 'Link compartilhado', description: 'O link do PDF foi enviado.' });
+                        const baseUrl = window.location.hostname.includes('lovableproject.com')
+                          ? 'https://rumifield.lovable.app'
+                          : window.location.origin;
+                        const url = `${baseUrl}/relatorio-corretivo/${visit.publicToken}`;
+                        const shareData = {
+                          title: `Relatório - ${visit.client?.nome || ''}`,
+                          text: `Confira o relatório da visita corretiva: ${url}`,
+                          url,
+                        };
+                        if (typeof navigator.share === 'function' && (typeof navigator.canShare !== 'function' || navigator.canShare(shareData))) {
+                          try {
+                            await navigator.share(shareData);
+                            return;
+                          } catch (err) {
+                            if ((err as Error).name === 'AbortError') return;
                           }
-                        } catch (err) {
-                          toast({ variant: 'destructive', title: 'Erro ao gerar PDF', description: (err as Error).message || 'Tente novamente.' });
-                        } finally {
-                          setSharingPdf(null);
+                        }
+                        try {
+                          await navigator.clipboard.writeText(url);
+                          toast({ title: 'Link copiado!', description: 'Cole no WhatsApp para enviar' });
+                        } catch {
+                          window.prompt('Copie o link:', url);
                         }
                       }}
                     >
-                      {sharingPdf === 'produtor' ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <User className="h-4 w-4 mr-2" />}
-                      Produtor (PDF)
+                      <Share2 className="h-4 w-4 mr-2" />
+                      Compartilhar
                     </Button>
                     <Button
                       variant="outline"
