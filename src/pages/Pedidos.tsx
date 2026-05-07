@@ -364,6 +364,19 @@ export default function Pedidos() {
   const updateItem = (index: number, field: 'peca_id' | 'quantidade', value: string | number) => {
     const newItens = [...itens];
     newItens[index] = { ...newItens[index], [field]: value };
+
+    // Regra: ao adicionar PRD00605, vincular automaticamente PRD00639 (qtd 3)
+    if (field === 'peca_id' && pecas) {
+      const trigger = pecas.find(p => p.codigo === 'PRD00605');
+      const linked = pecas.find(p => p.codigo === 'PRD00639');
+      if (trigger && linked && value === trigger.id) {
+        const alreadyHasLinked = newItens.some(i => i.peca_id === linked.id);
+        if (!alreadyHasLinked) {
+          newItens.push({ peca_id: linked.id, quantidade: 3 });
+        }
+      }
+    }
+
     setItens(newItens);
   };
 
@@ -382,7 +395,17 @@ export default function Pedidos() {
   };
 
   const removeItem = (index: number) => {
-    setItens(itens.filter((_, i) => i !== index));
+    const removed = itens[index];
+    let newItens = itens.filter((_, i) => i !== index);
+    // Se removeu PRD00605, remove também PRD00639 quando estiver com qty 3 (sinal do auto-link)
+    if (pecas && removed) {
+      const trigger = pecas.find(p => p.codigo === 'PRD00605');
+      const linked = pecas.find(p => p.codigo === 'PRD00639');
+      if (trigger && linked && removed.peca_id === trigger.id) {
+        newItens = newItens.filter(i => !(i.peca_id === linked.id && i.quantidade === 3));
+      }
+    }
+    setItens(newItens);
   };
 
   const getPecaLabel = (pecaId: string) => {
@@ -502,8 +525,17 @@ export default function Pedidos() {
         const { error: deleteError } = await supabase.from('pedido_itens').delete().eq('pedido_id', editingPedido.id);
         if (deleteError) throw deleteError;
 
-        // Create new items
-        const newItens = itens.map(item => ({
+        // Create new items — PRD00639 antes de PRD00605 para que o trigger não duplique
+        const triggerCode = pecas?.find(p => p.codigo === 'PRD00605');
+        const linkedCode = pecas?.find(p => p.codigo === 'PRD00639');
+        const sortedItens = [...itens].sort((a, b) => {
+          if (linkedCode && a.peca_id === linkedCode.id) return -1;
+          if (linkedCode && b.peca_id === linkedCode.id) return 1;
+          if (triggerCode && a.peca_id === triggerCode.id) return 1;
+          if (triggerCode && b.peca_id === triggerCode.id) return -1;
+          return 0;
+        });
+        const newItens = sortedItens.map(item => ({
           pedido_id: editingPedido.id,
           peca_id: item.peca_id,
           quantidade: item.quantidade,
@@ -530,7 +562,17 @@ export default function Pedidos() {
         if (pedidoError) throw pedidoError;
 
         // Create items
-        const newItens = itens.map(item => ({
+        // Create items — PRD00639 antes de PRD00605 para que o trigger não duplique
+        const triggerCode2 = pecas?.find(p => p.codigo === 'PRD00605');
+        const linkedCode2 = pecas?.find(p => p.codigo === 'PRD00639');
+        const sortedItens2 = [...itens].sort((a, b) => {
+          if (linkedCode2 && a.peca_id === linkedCode2.id) return -1;
+          if (linkedCode2 && b.peca_id === linkedCode2.id) return 1;
+          if (triggerCode2 && a.peca_id === triggerCode2.id) return 1;
+          if (triggerCode2 && b.peca_id === triggerCode2.id) return -1;
+          return 0;
+        });
+        const newItens = sortedItens2.map(item => ({
           pedido_id: pedido.id,
           peca_id: item.peca_id,
           quantidade: item.quantidade,

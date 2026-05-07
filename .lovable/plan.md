@@ -1,26 +1,43 @@
-# Sincronização automática de peças (Omie)
+## Objetivo
 
-## Situação atual
+Sempre que **PRD00605** for adicionada a uma solicitação de peças, incluir automaticamente **PRD00639** com quantidade **3** — sem duplicar e mantendo persistência no banco.
 
-A sincronização de peças do Omie já é automática, mas roda apenas **3 vezes por semana** (segunda, quarta e sexta, às 12h). Por isso, quando o usuário cadastra uma peça nova no Omie, ela pode demorar **até 2 dias** para aparecer no sistema.
+## Onde aplicar (frontend)
 
-A sincronização manual (botão "Sincronizar com Omie" na tela de Peças) continua funcionando normalmente.
+A automação roda em **dois pontos** que adicionam itens:
 
-## Mudança proposta
+1. **`src/pages/Pedidos.tsx`** — diálogo "Criar Novo" (função `updateItem` quando seta `peca_id` em ~linha 1000) e também no `addItem`.
+2. **`src/components/pedidos/EditarPedidoSolicitado.tsx`** — editor de pedido transmitido (função `updateNewItem` em ~linha 372).
 
-Reagendar o cron job `sync-omie-pecas-auto` para rodar **a cada 1 hora**, todos os dias. Assim, qualquer peça nova cadastrada no Omie aparece no sistema em no máximo ~1 hora, sem ação manual.
+### Lógica em ambos
 
-A função `sync-omie-pecas` já é idempotente (faz upsert por `omie_codigo`, reativa peças que voltaram, desativa as que sumiram), então rodar com frequência alta é seguro.
+Após selecionar uma peça num item:
+- Se a peça selecionada for **PRD00605**:
+  - Verificar se já existe linha com **PRD00639** (em `itens` + `newItems` + items existentes não cancelados).
+  - Se **não** existir → adicionar uma nova linha com `peca_id = PRD00639` e `quantidade = 3`.
+  - Se **existir** → não fazer nada (sem duplicar, sem alterar quantidade já lançada).
 
-## Detalhes técnicos
+Ao **remover** o item da PRD00605:
+- Se houver linha de PRD00639 **com quantidade exatamente 3** e que tenha sido adicionada nesta sessão (não veio do banco), remover também. Caso contrário, manter (usuário pode ter alterado manualmente).
 
-- Migration alterando o schedule do job pg_cron:
-  - de `0 12 * * 1,3,5` (3x/semana ao meio-dia)
-  - para `0 * * * *` (a cada hora cheia)
-- Usar `cron.unschedule('sync-omie-pecas-auto')` + `cron.schedule(...)` com a mesma chamada `net.http_post` já existente.
-- Nenhuma mudança no edge function nem no frontend.
+Para identificar as peças por código (e não por ID hard-coded), buscar via `pecas?.find(p => p.codigo === 'PRD00605')` — já temos `pecas` carregadas no componente.
 
-## Observações
+## Backend (garantia de consistência)
 
-- Caso prefira intervalo diferente (ex: a cada 30 min, a cada 2h, ou apenas em horário comercial), é só ajustar o cron expression.
-- O botão de sincronização manual continua disponível para casos urgentes.
+Criar **trigger SQL** em `pedido_itens` (AFTER INSERT) que:
+- Se `peca_id` corresponde à peça com `codigo = 'PRD00605'`, e o mesmo `pedido_id` ainda **não** tem item da peça `PRD00639`, insere automaticamente um item com `peca_id` da PRD00639 e `quantidade = 3`.
+- Idempotente: a verificação de existência impede duplicação em qualquer cenário (UI, importação futura, edge function, SQL direto).
+
+Dessa forma, mesmo que algum fluxo futuro insira PRD00605 sem passar pela UI, a regra continua valendo.
+
+## Critério de sucesso
+
+- Adicionar PRD00605 manualmente → linha PRD00639 (qty 3) aparece automaticamente na UI.
+- Salvar a solicitação → ao reabrir, ambas as peças estão lá com quantidades corretas.
+- Adicionar PRD00605 quando PRD00639 já existe → nada é duplicado.
+- Remover PRD00605 (recém adicionada na sessão) → PRD00639 (qty 3) também sai da UI.
+- Inserir PRD00605 via SQL/edge function → trigger garante que PRD00639 também é gravada.
+
+## Observação
+
+Os códigos PRD00605 e PRD00639 ficarão como referência por **código** (não ID). Caso amanhã queira generalizar (ex.: cadastro de "peças vinculadas" no admin), abrimos uma tabela de regras — por ora, a regra fica explícita no front + trigger.
