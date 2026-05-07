@@ -395,7 +395,17 @@ export default function Pedidos() {
   };
 
   const removeItem = (index: number) => {
-    setItens(itens.filter((_, i) => i !== index));
+    const removed = itens[index];
+    let newItens = itens.filter((_, i) => i !== index);
+    // Se removeu PRD00605, remove também PRD00639 quando estiver com qty 3 (sinal do auto-link)
+    if (pecas && removed) {
+      const trigger = pecas.find(p => p.codigo === 'PRD00605');
+      const linked = pecas.find(p => p.codigo === 'PRD00639');
+      if (trigger && linked && removed.peca_id === trigger.id) {
+        newItens = newItens.filter(i => !(i.peca_id === linked.id && i.quantidade === 3));
+      }
+    }
+    setItens(newItens);
   };
 
   const getPecaLabel = (pecaId: string) => {
