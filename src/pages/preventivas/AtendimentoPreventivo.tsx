@@ -792,15 +792,35 @@ export default function AtendimentoPreventivo() {
               <Button
                 variant="outline"
                 className="flex-1 min-w-[140px]"
-                disabled={sharingPdf !== null}
-                onClick={() => handleSharePdf('produtor')}
+                onClick={async () => {
+                  if (!routeItem?.publicToken) return;
+                  const baseUrl = window.location.hostname.includes('lovableproject.com')
+                    ? 'https://rumifield.lovable.app'
+                    : window.location.origin;
+                  const url = `${baseUrl}/relatorio/${routeItem.publicToken}`;
+                  const shareData = {
+                    title: `Relatório - ${routeItem.client?.nome || ''}`,
+                    text: `Confira o relatório da visita preventiva: ${url}`,
+                    url,
+                  };
+                  if (typeof navigator.share === 'function' && (typeof navigator.canShare !== 'function' || navigator.canShare(shareData))) {
+                    try {
+                      await navigator.share(shareData);
+                      return;
+                    } catch (err) {
+                      if ((err as Error).name === 'AbortError') return;
+                    }
+                  }
+                  try {
+                    await navigator.clipboard.writeText(url);
+                    toast({ title: 'Link copiado!', description: 'Cole no WhatsApp para enviar' });
+                  } catch {
+                    window.prompt('Copie o link:', url);
+                  }
+                }}
               >
-                {sharingPdf === 'produtor' ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <User className="h-4 w-4 mr-2" />
-                )}
-                Produtor (PDF)
+                <User className="h-4 w-4 mr-2" />
+                Produtor
               </Button>
 
               <Button
