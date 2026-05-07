@@ -562,7 +562,17 @@ export default function Pedidos() {
         if (pedidoError) throw pedidoError;
 
         // Create items
-        const newItens = itens.map(item => ({
+        // Create items — PRD00639 antes de PRD00605 para que o trigger não duplique
+        const triggerCode2 = pecas?.find(p => p.codigo === 'PRD00605');
+        const linkedCode2 = pecas?.find(p => p.codigo === 'PRD00639');
+        const sortedItens2 = [...itens].sort((a, b) => {
+          if (linkedCode2 && a.peca_id === linkedCode2.id) return -1;
+          if (linkedCode2 && b.peca_id === linkedCode2.id) return 1;
+          if (triggerCode2 && a.peca_id === triggerCode2.id) return 1;
+          if (triggerCode2 && b.peca_id === triggerCode2.id) return -1;
+          return 0;
+        });
+        const newItens = sortedItens2.map(item => ({
           pedido_id: pedido.id,
           peca_id: item.peca_id,
           quantidade: item.quantidade,
