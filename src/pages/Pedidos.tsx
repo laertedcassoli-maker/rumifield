@@ -364,6 +364,19 @@ export default function Pedidos() {
   const updateItem = (index: number, field: 'peca_id' | 'quantidade', value: string | number) => {
     const newItens = [...itens];
     newItens[index] = { ...newItens[index], [field]: value };
+
+    // Regra: ao adicionar PRD00605, vincular automaticamente PRD00639 (qtd 3)
+    if (field === 'peca_id' && pecas) {
+      const trigger = pecas.find(p => p.codigo === 'PRD00605');
+      const linked = pecas.find(p => p.codigo === 'PRD00639');
+      if (trigger && linked && value === trigger.id) {
+        const alreadyHasLinked = newItens.some(i => i.peca_id === linked.id);
+        if (!alreadyHasLinked) {
+          newItens.push({ peca_id: linked.id, quantidade: 3 });
+        }
+      }
+    }
+
     setItens(newItens);
   };
 
