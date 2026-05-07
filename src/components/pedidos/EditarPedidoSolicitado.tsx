@@ -100,12 +100,38 @@ export default function EditarPedidoSolicitado({ pedido, onSaved, onCancel }: Ed
     setNewItems(prev => {
       const copy = [...prev];
       copy[index] = { ...copy[index], [field]: value };
+
+      // Regra: ao adicionar PRD00605, vincular automaticamente PRD00639 (qtd 3)
+      if (field === 'peca_id' && pecas) {
+        const trigger = pecas.find(p => p.codigo === 'PRD00605');
+        const linked = pecas.find(p => p.codigo === 'PRD00639');
+        if (trigger && linked && value === trigger.id) {
+          const alreadyLinked =
+            activeItems.some(i => i.peca_id === linked.id) ||
+            copy.some(i => i.peca_id === linked.id);
+          if (!alreadyLinked) {
+            copy.push({ peca_id: linked.id, quantidade: 3 });
+          }
+        }
+      }
+
       return copy;
     });
   };
 
   const removeNewItem = (index: number) => {
-    setNewItems(prev => prev.filter((_, i) => i !== index));
+    setNewItems(prev => {
+      const removed = prev[index];
+      let next = prev.filter((_, i) => i !== index);
+      if (pecas && removed) {
+        const trigger = pecas.find(p => p.codigo === 'PRD00605');
+        const linked = pecas.find(p => p.codigo === 'PRD00639');
+        if (trigger && linked && removed.peca_id === trigger.id) {
+          next = next.filter(i => !(i.peca_id === linked.id && i.quantidade === 3));
+        }
+      }
+      return next;
+    });
   };
 
   const loadHistory = useCallback(async () => {
