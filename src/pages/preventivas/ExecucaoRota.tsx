@@ -674,10 +674,15 @@ export default function ExecucaoRota() {
                                 return;
                               } catch (err) {
                                 if ((err as Error).name === 'AbortError') return;
+                                // fall through to clipboard fallback for other errors
                               }
                             }
-                            await navigator.clipboard.writeText(url);
-                            toast({ title: 'Link copiado!', description: 'Cole no WhatsApp para enviar' });
+                            try {
+                              await navigator.clipboard.writeText(url);
+                              toast({ title: 'Link copiado!', description: 'Cole no WhatsApp para enviar' });
+                            } catch {
+                              window.prompt('Copie o link:', url);
+                            }
                           }}
                           className="flex-1 flex items-center justify-center gap-2 py-3 text-sm text-muted-foreground hover:bg-muted/50 active:bg-muted transition-colors"
                         >
