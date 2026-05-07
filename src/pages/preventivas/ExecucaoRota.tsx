@@ -658,36 +658,31 @@ export default function ExecucaoRota() {
                       </Link>
                       {item.public_token && (
                         <button
-                          disabled={sharingPdfId === item.id}
                           onClick={async () => {
-                            setSharingPdfId(item.id);
-                            try {
-                              const result = await sharePreventivePdf({
-                                token: item.public_token!,
-                                isInternal: false,
-                                clientName: item.client_name,
-                              });
-                              if (result === 'downloaded') {
-                                toast({ title: 'PDF gerado', description: 'Arquivo baixado para compartilhar manualmente.' });
+                            const baseUrl = window.location.hostname.includes('lovableproject.com')
+                              ? 'https://rumifield.lovable.app'
+                              : window.location.origin;
+                            const url = `${baseUrl}/relatorio/${item.public_token}`;
+                            const shareData = {
+                              title: `Relatório - ${item.client_name}`,
+                              text: `Confira o relatório da visita preventiva: ${url}`,
+                              url,
+                            };
+                            if (typeof navigator.share === 'function' && (typeof navigator.canShare !== 'function' || navigator.canShare(shareData))) {
+                              try {
+                                await navigator.share(shareData);
+                                return;
+                              } catch (err) {
+                                if ((err as Error).name === 'AbortError') return;
                               }
-                            } catch (err) {
-                              toast({
-                                variant: 'destructive',
-                                title: 'Erro ao gerar PDF',
-                                description: (err as Error).message || 'Tente novamente.',
-                              });
-                            } finally {
-                              setSharingPdfId(null);
                             }
+                            await navigator.clipboard.writeText(url);
+                            toast({ title: 'Link copiado!', description: 'Cole no WhatsApp para enviar' });
                           }}
-                          className="flex-1 flex items-center justify-center gap-2 py-3 text-sm text-muted-foreground hover:bg-muted/50 active:bg-muted transition-colors disabled:opacity-50"
+                          className="flex-1 flex items-center justify-center gap-2 py-3 text-sm text-muted-foreground hover:bg-muted/50 active:bg-muted transition-colors"
                         >
-                          {sharingPdfId === item.id ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : (
-                            <Share2 className="h-4 w-4" />
-                          )}
-                          {sharingPdfId === item.id ? 'Gerando...' : 'Compartilhar PDF'}
+                          <Share2 className="h-4 w-4" />
+                          Compartilhar
                         </button>
                       )}
                     </>
