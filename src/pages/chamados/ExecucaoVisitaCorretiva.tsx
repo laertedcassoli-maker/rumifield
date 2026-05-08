@@ -135,26 +135,21 @@ export default function ExecucaoVisitaCorretiva() {
 
       let internalNotes: string | null = visitData.internal_notes;
       let publicNotes: string | null = visitData.public_notes;
-      let publicToken: string | null = null;
 
       if (existingPm) {
         preventiveId = existingPm.id;
         internalNotes = existingPm.internal_notes || visitData.internal_notes;
         publicNotes = existingPm.public_notes || visitData.public_notes;
-        publicToken = existingPm.public_token;
       }
 
-      // Always pull the public_token from corrective_maintenance (where the
-      // public corrective report is keyed). The preventive_maintenance token
-      // above does not match the /relatorio-corretivo/:token route.
-      if (preventiveId) {
-        const { data: cm } = await supabase
-          .from('corrective_maintenance')
-          .select('public_token')
-          .eq('id', preventiveId)
-          .maybeSingle();
-        if (cm?.public_token) publicToken = cm.public_token;
-      }
+      const { data: correctiveReport, error: correctiveReportError } = await supabase
+        .from('corrective_maintenance')
+        .select('public_token')
+        .eq('visit_id', visitData.id)
+        .maybeSingle();
+      if (correctiveReportError) throw correctiveReportError;
+
+      const publicToken = correctiveReport?.public_token || null;
 
       // Check checklist status
       if (preventiveId) {
@@ -252,6 +247,25 @@ export default function ExecucaoVisitaCorretiva() {
         if (pmError) throw pmError;
         preventiveId = newPm.id;
       }
+
+      const checkinAt = new Date().toISOString();
+
+      const { error: correctiveError } = await supabase
+        .from('corrective_maintenance')
+        .upsert(
+          {
+            visit_id: visitId,
+            client_id: visit?.client_id,
+            checklist_template_id: visit?.checklist_template_id || null,
+            status: 'em_andamento',
+            checkin_at: checkinAt,
+            checkin_lat: lat,
+            checkin_lon: lon,
+            notes: `Visita Corretiva ${visit?.visit_code || ''} - ${visit?.ticket?.ticket_code || 'Chamado'}`.trim(),
+          },
+          { onConflict: 'visit_id' }
+        );
+      if (correctiveError) throw correctiveError;
 
       // BLOCKING: Timeline entry
       const { error: tlError } = await supabase.from('ticket_timeline').insert({
@@ -355,11 +369,11 @@ export default function ExecucaoVisitaCorretiva() {
 
       try {
         // Update corrective_maintenance (idempotent: reuse existing public_token)
-        if (visit.preventiveId) {
+        if (visit.id) {
           const { data: cmCurrent, error: cmFetchError } = await supabase
             .from('corrective_maintenance')
             .select('public_token')
-            .eq('id', visit.preventiveId)
+            .eq('visit_id', visit.id)
             .maybeSingle();
           if (cmFetchError) throw cmFetchError;
 
@@ -367,14 +381,20 @@ export default function ExecucaoVisitaCorretiva() {
 
           const { error: cmError } = await supabase
             .from('corrective_maintenance')
-            .update({
+            .upsert({
+              visit_id: visit.id,
+              client_id: visit.client_id,
+              checklist_template_id: visit.checklist_template_id || null,
               status: 'concluida',
+              checkin_at: visit.checkin_at,
+              checkin_lat: visit.checkin_lat,
+              checkin_lon: visit.checkin_lon,
               checkout_at: new Date().toISOString(),
               checkout_lat: lat,
               checkout_lon: lon,
+              notes: `Visita Corretiva ${visit.visit_code} - ${visit.ticket?.ticket_code || 'Chamado'}`,
               public_token: publicToken,
-            })
-            .eq('id', visit.preventiveId);
+            }, { onConflict: 'visit_id' });
           if (cmError) throw cmError;
         }
 
@@ -617,6 +637,48 @@ export default function ExecucaoVisitaCorretiva() {
       });
     },
   });
+
+  const ensureCorrectiveReportToken = async () => {
+    if (!visit) throw new Error('Visita não encontrada');
+
+    const { data: existingReport, error: fetchError } = await supabase
+      .from('corrective_maintenance')
+      .select('public_token')
+      .eq('visit_id', visit.id)
+      .maybeSingle();
+    if (fetchError) throw fetchError;
+    if (existingReport?.public_token) return existingReport.public_token;
+
+    const publicToken = crypto.randomUUID();
+    const status = visit.status === 'finalizada'
+      ? 'concluida'
+      : visit.checkin_at
+        ? 'em_andamento'
+        : 'pendente';
+
+    const { error: upsertError } = await supabase
+      .from('corrective_maintenance')
+      .upsert({
+        visit_id: visit.id,
+        client_id: visit.client_id,
+        checklist_template_id: visit.checklist_template_id || null,
+        status,
+        checkin_at: visit.checkin_at,
+        checkin_lat: visit.checkin_lat,
+        checkin_lon: visit.checkin_lon,
+        checkout_at: visit.checkout_at,
+        notes: `Visita Corretiva ${visit.visit_code} - ${visit.ticket?.ticket_code || 'Chamado'}`,
+        public_token: publicToken,
+      }, { onConflict: 'visit_id' });
+    if (upsertError) throw upsertError;
+
+    queryClient.setQueryData(['corrective-visit-execution', visitId], (old: any) => {
+      if (!old) return old;
+      return { ...old, publicToken };
+    });
+
+    return publicToken;
+  };
 
   const canAccess = isAdminOrCoordinator || visit?.field_technician_user_id === user?.id;
   const isVisitCompleted = visit?.status === 'finalizada' || !!completedResult;
@@ -1010,8 +1072,7 @@ export default function ExecucaoVisitaCorretiva() {
                   </div>
                 </div>
                 
-                {visit.publicToken && (
-                  <div className="flex gap-2 pt-2">
+                <div className="flex gap-2 pt-2">
                     <Button
                       variant="outline"
                       className="flex-1"
@@ -1020,17 +1081,23 @@ export default function ExecucaoVisitaCorretiva() {
                         const origin = window.location.hostname.includes('lovableproject.com')
                           ? 'https://rumifield.lovable.app'
                           : window.location.origin;
-                        const url = `${origin}/relatorio-corretivo/${visit.publicToken}`;
                         setSharingTarget('produtor');
                         try {
+                          const publicToken = await ensureCorrectiveReportToken();
+                          const url = `${origin}/relatorio-corretivo/${publicToken}`;
                           const result = await shareReportWithPdf({
                             url,
                             title: 'Relatório de Visita',
                             text: `Confira o relatório: ${url}`,
-                            fileName: buildReportFileName('relatorio-corretivo', visit.publicToken),
+                            fileName: buildReportFileName('relatorio-corretivo', publicToken),
                           });
                           if (result.outcome === 'downloaded' || result.outcome === 'copied') {
-                            toast({ title: 'Link copiado!' });
+                            toast({
+                              title: result.outcome === 'downloaded' ? 'PDF baixado' : 'Link copiado!',
+                              description: result.copiedToClipboard
+                                ? 'O link foi copiado para a área de transferência.'
+                                : 'Seu navegador não abriu o compartilhamento nativo; use o PDF baixado.',
+                            });
                           }
                         } catch (err) {
                           toast({ variant: 'destructive', title: 'Erro ao compartilhar', description: (err as Error).message });
@@ -1050,17 +1117,23 @@ export default function ExecucaoVisitaCorretiva() {
                         const origin = window.location.hostname.includes('lovableproject.com')
                           ? 'https://rumifield.lovable.app'
                           : window.location.origin;
-                        const url = `${origin}/relatorio-corretivo/${visit.publicToken}/interno`;
                         setSharingTarget('interno');
                         try {
+                          const publicToken = await ensureCorrectiveReportToken();
+                          const url = `${origin}/relatorio-corretivo/${publicToken}/interno`;
                           const result = await shareReportWithPdf({
                             url,
                             title: 'Relatório Interno',
                             text: `Relatório interno: ${url}`,
-                            fileName: buildReportFileName('relatorio-corretivo-interno', visit.publicToken),
+                            fileName: buildReportFileName('relatorio-corretivo-interno', publicToken),
                           });
                           if (result.outcome === 'downloaded' || result.outcome === 'copied') {
-                            toast({ title: 'Link copiado!' });
+                            toast({
+                              title: result.outcome === 'downloaded' ? 'PDF baixado' : 'Link copiado!',
+                              description: result.copiedToClipboard
+                                ? 'O link foi copiado para a área de transferência.'
+                                : 'Seu navegador não abriu o compartilhamento nativo; use o PDF baixado.',
+                            });
                           }
                         } catch (err) {
                           toast({ variant: 'destructive', title: 'Erro ao compartilhar', description: (err as Error).message });
@@ -1073,7 +1146,6 @@ export default function ExecucaoVisitaCorretiva() {
                       Time Interno
                     </Button>
                   </div>
-                )}
 
                 <div className="flex gap-2 pt-2">
                   <Button 

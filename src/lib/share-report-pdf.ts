@@ -11,6 +11,7 @@ export interface ShareReportArgs {
 export interface ShareReportResult {
   /** 'shared-with-file' | 'shared-link-only' | 'downloaded' | 'copied' */
   outcome: 'shared-with-file' | 'shared-link-only' | 'downloaded' | 'copied';
+  copiedToClipboard?: boolean;
 }
 
 function slugify(s: string) {
@@ -175,6 +176,27 @@ function downloadFile(file: File) {
   setTimeout(() => URL.revokeObjectURL(objUrl), 1000);
 }
 
+function isUserCancelledShare(err: unknown) {
+  const error = err as Error | undefined;
+  const name = error?.name || '';
+  const message = (error?.message || '').toLowerCase();
+  return name === 'AbortError' && (
+    message.includes('cancel') ||
+    message.includes('canceled') ||
+    message.includes('cancelled') ||
+    message.includes('aborted')
+  );
+}
+
+async function copyToClipboard(text: string) {
+  try {
+    await navigator.clipboard.writeText(text);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Share a report URL together with a generated PDF snapshot of the same URL.
  * Falls back to link-only share, then to PDF download + clipboard copy.
@@ -186,11 +208,9 @@ export async function shareReportWithPdf(args: ShareReportArgs): Promise<ShareRe
   try {
     file = await buildPdfFile(url, fileName);
   } catch (err) {
-    // Could not build PDF — fall back to link-only share immediately.
     console.warn('[shareReportWithPdf] PDF generation failed, falling back to link share', err);
   }
 
-  // Try native share with file
   if (file && typeof navigator.share === 'function') {
     const filePayload: ShareData = { title, text, url, files: [file] } as ShareData;
     // @ts-ignore
@@ -200,15 +220,14 @@ export async function shareReportWithPdf(args: ShareReportArgs): Promise<ShareRe
         await navigator.share(filePayload);
         return { outcome: 'shared-with-file' };
       } catch (err) {
-        if ((err as Error).name === 'AbortError') {
+        if (isUserCancelledShare(err)) {
           return { outcome: 'shared-with-file' };
         }
-        // continue to fallback
+        console.warn('[shareReportWithPdf] Native file share failed, using fallback', err);
       }
     }
   }
 
-  // Fallback 1: native share with link only (preserves current behavior)
   if (typeof navigator.share === 'function') {
     const linkPayload: ShareData = { title, text, url };
     // @ts-ignore
@@ -216,23 +235,21 @@ export async function shareReportWithPdf(args: ShareReportArgs): Promise<ShareRe
     if (canShare) {
       try {
         await navigator.share(linkPayload);
-        // Also offer the PDF as a download so the user has both
         if (file) downloadFile(file);
         return { outcome: 'shared-link-only' };
       } catch (err) {
-        if ((err as Error).name === 'AbortError') {
+        if (isUserCancelledShare(err)) {
           return { outcome: 'shared-link-only' };
         }
+        console.warn('[shareReportWithPdf] Native link share failed, using fallback', err);
       }
     }
   }
 
-  // Fallback 2: download PDF + copy link
   if (file) downloadFile(file);
-  try {
-    await navigator.clipboard.writeText(url);
-    return { outcome: file ? 'downloaded' : 'copied' };
-  } catch {
-    return { outcome: file ? 'downloaded' : 'copied' };
-  }
+  const copiedToClipboard = await copyToClipboard(url);
+  return {
+    outcome: file ? 'downloaded' : 'copied',
+    copiedToClipboard,
+  };
 }

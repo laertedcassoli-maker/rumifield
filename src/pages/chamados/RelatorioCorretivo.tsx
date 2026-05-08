@@ -313,7 +313,12 @@ export default function RelatorioCorretivo() {
         fileName: buildReportFileName(report?.corrective.client.nome || 'relatorio-corretivo'),
       });
       if (result.outcome === 'downloaded' || result.outcome === 'copied') {
-        toast({ title: 'Link copiado!' });
+        toast({
+          title: result.outcome === 'downloaded' ? 'PDF baixado' : 'Link copiado!',
+          description: result.copiedToClipboard
+            ? 'O link foi copiado para a área de transferência.'
+            : 'Seu navegador não abriu o compartilhamento nativo; use o PDF baixado.',
+        });
       }
     } catch (e) {
       toast({ variant: 'destructive', title: 'Erro ao compartilhar', description: (e as Error).message });
