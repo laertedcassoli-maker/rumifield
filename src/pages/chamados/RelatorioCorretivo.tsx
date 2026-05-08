@@ -26,6 +26,7 @@ import { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import logoRumiFlow from '@/assets/logo-rumiflow.png';
 import logoRumina from '@/assets/logo-rumina.png';
+import { shareReportWithPdf, buildReportFileName } from '@/lib/share-report-pdf';
 
 interface ReportData {
   corrective: {
