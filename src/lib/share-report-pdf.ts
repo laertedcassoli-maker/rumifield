@@ -30,7 +30,7 @@ export function buildReportFileName(prefix: string, code?: string | null): strin
   return parts.filter(Boolean).join('-') + '.pdf';
 }
 
-async function waitForIframeReady(iframe: HTMLIFrameElement, timeoutMs = 20000): Promise<void> {
+async function waitForIframeReady(iframe: HTMLIFrameElement, timeoutMs = 25000): Promise<void> {
   await new Promise<void>((resolve, reject) => {
     const timeout = setTimeout(() => reject(new Error('Tempo esgotado ao carregar relatório')), timeoutMs);
     iframe.addEventListener(
@@ -51,7 +51,19 @@ async function waitForIframeReady(iframe: HTMLIFrameElement, timeoutMs = 20000):
     );
   });
 
-  const doc = iframe.contentDocument;
+  // Give the SPA inside the iframe time to mount and fetch data
+  await new Promise((r) => setTimeout(r, 800));
+
+  let doc: Document | null = null;
+  for (let i = 0; i < 20; i++) {
+    try {
+      doc = iframe.contentDocument;
+      if (doc && doc.body && doc.body.children.length > 0) break;
+    } catch {
+      // cross-origin (shouldn't happen for same-origin)
+    }
+    await new Promise((r) => setTimeout(r, 250));
+  }
   if (!doc) throw new Error('Não foi possível acessar o conteúdo do relatório');
 
   // Wait for fonts
