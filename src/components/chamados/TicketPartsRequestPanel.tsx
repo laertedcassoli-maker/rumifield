@@ -76,6 +76,8 @@ export default function TicketPartsRequestPanel({
     enabled: open,
   });
 
+  useRealtimePecas([['parts-catalog-active']]);
+
   // Filter parts
   const filteredParts = availableParts?.filter(part => {
     if (!partSearch) return true;
