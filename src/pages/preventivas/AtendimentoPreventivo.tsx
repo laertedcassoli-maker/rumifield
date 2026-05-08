@@ -28,7 +28,6 @@ import ChecklistExecution from '@/components/preventivas/ChecklistExecution';
 import VisitMediaUpload from '@/components/preventivas/VisitMediaUpload';
 import ConsumedPartsBlock from '@/components/preventivas/ConsumedPartsBlock';
 import ObservationsBlock from '@/components/preventivas/ObservationsBlock';
-import { sharePreventivePdf } from '@/lib/preventive-report-pdf';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -56,30 +55,6 @@ export default function AtendimentoPreventivo() {
   const [showWarningDialog, setShowWarningDialog] = useState(false);
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
   const [checklistStatus, setChecklistStatus] = useState<'not_started' | 'in_progress' | 'completed'>('not_started');
-  const [sharingPdf, setSharingPdf] = useState<null | 'produtor' | 'interno'>(null);
-
-  const handleSharePdf = async (kind: 'produtor' | 'interno') => {
-    if (!routeItem?.publicToken) return;
-    setSharingPdf(kind);
-    try {
-      const result = await sharePreventivePdf({
-        token: routeItem.publicToken,
-        isInternal: kind === 'interno',
-        clientName: routeItem.client?.nome,
-      });
-      if (result === 'downloaded') {
-        toast({ title: 'PDF gerado', description: 'O arquivo foi baixado para compartilhar manualmente.' });
-      }
-    } catch (err) {
-      toast({
-        variant: 'destructive',
-        title: 'Erro ao gerar PDF',
-        description: (err as Error).message || 'Tente novamente.',
-      });
-    } finally {
-      setSharingPdf(null);
-    }
-  };
 
   const isAdminOrCoordinator = role === 'admin' || role === 'coordenador_servicos';
 
@@ -788,22 +763,25 @@ export default function AtendimentoPreventivo() {
               Compartilhe o relatório com o produtor ou sua equipe:
             </p>
             
-            <div className="flex gap-2 flex-wrap">
+            <div className="flex gap-2">
               <Button
                 variant="outline"
-                className="flex-1 min-w-[140px]"
+                className="flex-1"
                 onClick={async () => {
-                  if (!routeItem?.publicToken) return;
-                  const baseUrl = window.location.hostname.includes('lovableproject.com')
-                    ? 'https://rumifield.lovable.app'
+                  const baseUrl = window.location.hostname.includes('lovableproject.com') 
+                    ? 'https://rumifield.lovable.app' 
                     : window.location.origin;
                   const url = `${baseUrl}/relatorio/${routeItem.publicToken}`;
                   const shareData = {
-                    title: `Relatório - ${routeItem.client?.nome || ''}`,
+                    title: `Relatório - ${routeItem.client?.nome}`,
                     text: `Confira o relatório da visita preventiva: ${url}`,
-                    url,
+                    url
                   };
-                  if (typeof navigator.share === 'function' && (typeof navigator.canShare !== 'function' || navigator.canShare(shareData))) {
+                  
+                  const canNativeShare = typeof navigator.share === 'function' && 
+                    (!navigator.canShare || navigator.canShare(shareData));
+                  
+                  if (canNativeShare) {
                     try {
                       await navigator.share(shareData);
                       return;
@@ -811,30 +789,55 @@ export default function AtendimentoPreventivo() {
                       if ((err as Error).name === 'AbortError') return;
                     }
                   }
+                  
                   try {
                     await navigator.clipboard.writeText(url);
                     toast({ title: 'Link copiado!', description: 'Cole no WhatsApp para enviar' });
                   } catch {
-                    window.prompt('Copie o link:', url);
+                    toast({ title: 'Link do relatório', description: url });
                   }
                 }}
               >
                 <User className="h-4 w-4 mr-2" />
                 Produtor
               </Button>
-
+              
               <Button
                 variant="outline"
-                className="flex-1 min-w-[140px]"
-                disabled={sharingPdf !== null}
-                onClick={() => handleSharePdf('interno')}
+                className="flex-1"
+                onClick={async () => {
+                  const baseUrl = window.location.hostname.includes('lovableproject.com') 
+                    ? 'https://rumifield.lovable.app' 
+                    : window.location.origin;
+                  const url = `${baseUrl}/relatorio/${routeItem.publicToken}/interno`;
+                  const shareData = {
+                    title: `Relatório Interno - ${routeItem.client?.nome}`,
+                    text: `Relatório interno da visita preventiva: ${url}`,
+                    url
+                  };
+                  
+                  const canNativeShare = typeof navigator.share === 'function' && 
+                    (!navigator.canShare || navigator.canShare(shareData));
+                  
+                  if (canNativeShare) {
+                    try {
+                      await navigator.share(shareData);
+                      return;
+                    } catch (err) {
+                      if ((err as Error).name === 'AbortError') return;
+                    }
+                  }
+                  
+                  try {
+                    await navigator.clipboard.writeText(url);
+                    toast({ title: 'Link copiado!', description: 'Cole para compartilhar com a equipe' });
+                  } catch {
+                    toast({ title: 'Link do relatório', description: url });
+                  }
+                }}
               >
-                {sharingPdf === 'interno' ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <FileText className="h-4 w-4 mr-2" />
-                )}
-                Time Interno (PDF)
+                <FileText className="h-4 w-4 mr-2" />
+                Time Interno
               </Button>
             </div>
           </CardContent>

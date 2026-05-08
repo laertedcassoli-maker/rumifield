@@ -95,7 +95,6 @@ export default function ExecucaoRota() {
   const queryClient = useQueryClient();
   const [checkinItem, setCheckinItem] = useState<RouteItem | null>(null);
   const [cancelItem, setCancelItem] = useState<RouteItem | null>(null);
-  
 
   const isAdminOrCoordinator = role === 'admin' || role === 'coordenador_servicos';
 
@@ -659,29 +658,33 @@ export default function ExecucaoRota() {
                       {item.public_token && (
                         <button
                           onClick={async () => {
-                            const baseUrl = window.location.hostname.includes('lovableproject.com')
-                              ? 'https://rumifield.lovable.app'
+                            const baseUrl = window.location.hostname.includes('lovableproject.com') 
+                              ? 'https://rumifield.lovable.app' 
                               : window.location.origin;
                             const url = `${baseUrl}/relatorio/${item.public_token}`;
                             const shareData = {
                               title: `Relatório - ${item.client_name}`,
                               text: `Confira o relatório da visita preventiva: ${url}`,
-                              url,
+                              url
                             };
-                            if (typeof navigator.share === 'function' && (typeof navigator.canShare !== 'function' || navigator.canShare(shareData))) {
+                            
+                            const canNativeShare = typeof navigator.share === 'function' && 
+                              (!navigator.canShare || navigator.canShare(shareData));
+                            
+                            if (canNativeShare) {
                               try {
                                 await navigator.share(shareData);
                                 return;
                               } catch (err) {
                                 if ((err as Error).name === 'AbortError') return;
-                                // fall through to clipboard fallback for other errors
                               }
                             }
+                            
                             try {
                               await navigator.clipboard.writeText(url);
                               toast({ title: 'Link copiado!', description: 'Cole no WhatsApp para enviar' });
                             } catch {
-                              window.prompt('Copie o link:', url);
+                              toast({ title: 'Link do relatório', description: url });
                             }
                           }}
                           className="flex-1 flex items-center justify-center gap-2 py-3 text-sm text-muted-foreground hover:bg-muted/50 active:bg-muted transition-colors"

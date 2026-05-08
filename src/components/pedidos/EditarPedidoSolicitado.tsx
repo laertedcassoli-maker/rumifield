@@ -100,38 +100,12 @@ export default function EditarPedidoSolicitado({ pedido, onSaved, onCancel }: Ed
     setNewItems(prev => {
       const copy = [...prev];
       copy[index] = { ...copy[index], [field]: value };
-
-      // Regra: ao adicionar PRD00605, vincular automaticamente PRD00639 (qtd 3)
-      if (field === 'peca_id' && pecas) {
-        const trigger = pecas.find(p => p.codigo === 'PRD00605');
-        const linked = pecas.find(p => p.codigo === 'PRD00639');
-        if (trigger && linked && value === trigger.id) {
-          const alreadyLinked =
-            activeItems.some(i => i.peca_id === linked.id) ||
-            copy.some(i => i.peca_id === linked.id);
-          if (!alreadyLinked) {
-            copy.push({ peca_id: linked.id, quantidade: 3 });
-          }
-        }
-      }
-
       return copy;
     });
   };
 
   const removeNewItem = (index: number) => {
-    setNewItems(prev => {
-      const removed = prev[index];
-      let next = prev.filter((_, i) => i !== index);
-      if (pecas && removed) {
-        const trigger = pecas.find(p => p.codigo === 'PRD00605');
-        const linked = pecas.find(p => p.codigo === 'PRD00639');
-        if (trigger && linked && removed.peca_id === trigger.id) {
-          next = next.filter(i => !(i.peca_id === linked.id && i.quantidade === 3));
-        }
-      }
-      return next;
-    });
+    setNewItems(prev => prev.filter((_, i) => i !== index));
   };
 
   const loadHistory = useCallback(async () => {
@@ -209,30 +183,9 @@ export default function EditarPedidoSolicitado({ pedido, onSaved, onCancel }: Ed
         });
       }
 
-      // 3. Add new items — ordenar PRD00639 antes de PRD00605 e pular se já existir (trigger pode ter inserido)
-      const triggerPeca = pecas?.find(p => p.codigo === 'PRD00605');
-      const linkedPeca = pecas?.find(p => p.codigo === 'PRD00639');
-      const sortedNewItems = [...newItems].sort((a, b) => {
-        if (linkedPeca && a.peca_id === linkedPeca.id) return -1;
-        if (linkedPeca && b.peca_id === linkedPeca.id) return 1;
-        if (triggerPeca && a.peca_id === triggerPeca.id) return 1;
-        if (triggerPeca && b.peca_id === triggerPeca.id) return -1;
-        return 0;
-      });
-
-      for (const newItem of sortedNewItems) {
+      // 3. Add new items
+      for (const newItem of newItems) {
         if (!newItem.peca_id) continue;
-
-        // Skip if already exists in pedido (trigger may have auto-inserted it)
-        const { data: existing } = await supabase
-          .from('pedido_itens')
-          .select('id')
-          .eq('pedido_id', pedido.id)
-          .eq('peca_id', newItem.peca_id)
-          .is('cancelled_at', null)
-          .maybeSingle();
-        if (existing) continue;
-
         const peca = pecas?.find(p => p.id === newItem.peca_id);
 
         const { data: inserted, error } = await supabase

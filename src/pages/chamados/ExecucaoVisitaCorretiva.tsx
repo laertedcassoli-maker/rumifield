@@ -19,11 +19,8 @@ import {
   AlertTriangle,
   Play,
   Wrench,
-  Share2,
-  User,
-  FileText
+  Share2
 } from 'lucide-react';
-import { shareCorrectivePdf } from '@/lib/corrective-report-pdf';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
@@ -67,7 +64,6 @@ export default function ExecucaoVisitaCorretiva() {
 
   // Bug #4: Reactive online state
   const [isOnline, setIsOnline] = useState(navigator.onLine);
-  const [sharingPdf, setSharingPdf] = useState<null | 'produtor' | 'interno'>(null);
   useEffect(() => {
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
@@ -1001,65 +997,44 @@ export default function ExecucaoVisitaCorretiva() {
                 </div>
                 
                 {visit.publicToken && (
-                  <div className="flex gap-2 pt-2 flex-wrap">
+                  <div className="flex gap-2 pt-2">
                     <Button
                       variant="outline"
-                      className="flex-1 min-w-[140px]"
+                      className="flex-1"
                       onClick={async () => {
-                        const baseUrl = window.location.hostname.includes('lovableproject.com')
+                        const origin = window.location.hostname.includes('lovableproject.com')
                           ? 'https://rumifield.lovable.app'
                           : window.location.origin;
-                        const url = `${baseUrl}/relatorio-corretivo/${visit.publicToken}`;
-                        const shareData = {
-                          title: `Relatório - ${visit.client?.nome || ''}`,
-                          text: `Confira o relatório da visita corretiva: ${url}`,
-                          url,
-                        };
-                        if (typeof navigator.share === 'function' && (typeof navigator.canShare !== 'function' || navigator.canShare(shareData))) {
-                          try {
-                            await navigator.share(shareData);
-                            return;
-                          } catch (err) {
-                            if ((err as Error).name === 'AbortError') return;
-                          }
-                        }
-                        try {
+                        const url = `${origin}/relatorio-corretivo/${visit.publicToken}`;
+                        if (navigator.share) {
+                          try { await navigator.share({ title: 'Relatório de Visita', url }); } catch {}
+                        } else {
                           await navigator.clipboard.writeText(url);
-                          toast({ title: 'Link copiado!', description: 'Cole no WhatsApp para enviar' });
-                        } catch {
-                          window.prompt('Copie o link:', url);
+                          toast({ title: 'Link copiado!' });
                         }
                       }}
                     >
                       <Share2 className="h-4 w-4 mr-2" />
-                      Compartilhar
+                      Produtor
                     </Button>
                     <Button
                       variant="outline"
-                      className="flex-1 min-w-[140px]"
-                      disabled={sharingPdf !== null}
+                      className="flex-1"
                       onClick={async () => {
-                        setSharingPdf('interno');
-                        try {
-                          const result = await shareCorrectivePdf({
-                            token: visit.publicToken!,
-                            isInternal: true,
-                            clientName: visit.client?.nome,
-                          });
-                          if (result === 'link-copied') {
-                            toast({ title: 'Link copiado', description: 'O link do relatório interno foi copiado.' });
-                          } else {
-                            toast({ title: 'Link compartilhado', description: 'O link do PDF interno foi enviado.' });
-                          }
-                        } catch (err) {
-                          toast({ variant: 'destructive', title: 'Erro ao gerar PDF', description: (err as Error).message || 'Tente novamente.' });
-                        } finally {
-                          setSharingPdf(null);
+                        const origin = window.location.hostname.includes('lovableproject.com')
+                          ? 'https://rumifield.lovable.app'
+                          : window.location.origin;
+                        const url = `${origin}/relatorio-corretivo/${visit.publicToken}/interno`;
+                        if (navigator.share) {
+                          try { await navigator.share({ title: 'Relatório Interno', url }); } catch {}
+                        } else {
+                          await navigator.clipboard.writeText(url);
+                          toast({ title: 'Link copiado!' });
                         }
                       }}
                     >
-                      {sharingPdf === 'interno' ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <FileText className="h-4 w-4 mr-2" />}
-                      Time Interno (PDF)
+                      <Share2 className="h-4 w-4 mr-2" />
+                      Time Interno
                     </Button>
                   </div>
                 )}
