@@ -361,6 +361,26 @@ export default function Pedidos() {
     }
   };
 
+  // Códigos de peças com vínculo automático
+  const AUTO_LINK_TRIGGER_CODE = 'PRD00605';
+  const AUTO_LINK_TARGET_CODE = 'PRD00639';
+  const AUTO_LINK_TARGET_QTY = 3;
+
+  const findPecaIdByCodigo = (codigo: string) => pecas?.find(p => p.codigo === codigo)?.id;
+
+  /** Garante PRD00639 (qty 3) na lista quando há PRD00605. */
+  const applyAutoLinks = (list: { peca_id: string; quantidade: number }[]) => {
+    const triggerId = findPecaIdByCodigo(AUTO_LINK_TRIGGER_CODE);
+    const targetId = findPecaIdByCodigo(AUTO_LINK_TARGET_CODE);
+    if (!triggerId || !targetId) return list;
+    const hasTrigger = list.some(i => i.peca_id === triggerId);
+    const hasTarget = list.some(i => i.peca_id === targetId);
+    if (hasTrigger && !hasTarget) {
+      return [...list, { peca_id: targetId, quantidade: AUTO_LINK_TARGET_QTY }];
+    }
+    return list;
+  };
+
   const addItem = () => {
     setItens([...itens, { peca_id: '', quantidade: 1 }]);
   };
@@ -368,7 +388,7 @@ export default function Pedidos() {
   const updateItem = (index: number, field: 'peca_id' | 'quantidade', value: string | number) => {
     const newItens = [...itens];
     newItens[index] = { ...newItens[index], [field]: value };
-    setItens(newItens);
+    setItens(applyAutoLinks(newItens));
   };
 
   const incrementQuantity = (index: number) => {
@@ -386,8 +406,17 @@ export default function Pedidos() {
   };
 
   const removeItem = (index: number) => {
-    setItens(itens.filter((_, i) => i !== index));
+    const removed = itens[index];
+    const triggerId = findPecaIdByCodigo(AUTO_LINK_TRIGGER_CODE);
+    const targetId = findPecaIdByCodigo(AUTO_LINK_TARGET_CODE);
+    let next = itens.filter((_, i) => i !== index);
+    // Se removeu PRD00605, remove também PRD00639 vinculada
+    if (removed?.peca_id && removed.peca_id === triggerId && targetId) {
+      next = next.filter(i => i.peca_id !== targetId);
+    }
+    setItens(next);
   };
+
 
   const getPecaLabel = (pecaId: string) => {
     const peca = pecas?.find(p => p.id === pecaId);
