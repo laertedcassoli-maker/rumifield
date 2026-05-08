@@ -301,20 +301,24 @@ export default function RelatorioCorretivo() {
     }
   }, [report?.media, imageLoadAttempted]);
 
+  const [isSharing, setIsSharing] = useState(false);
   const handleShare = async () => {
     const url = window.location.href;
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: `Relatório Corretiva - ${report?.corrective.client.nome}`,
-          url
-        });
-      } catch {
-        // User cancelled
+    setIsSharing(true);
+    try {
+      const result = await shareReportWithPdf({
+        url,
+        title: `Relatório Corretiva - ${report?.corrective.client.nome}`,
+        text: `Confira o relatório: ${url}`,
+        fileName: buildReportFileName(report?.corrective.client.nome || 'relatorio-corretivo'),
+      });
+      if (result.outcome === 'downloaded' || result.outcome === 'copied') {
+        toast({ title: 'Link copiado!' });
       }
-    } else {
-      await navigator.clipboard.writeText(url);
-      toast({ title: 'Link copiado!' });
+    } catch (e) {
+      toast({ variant: 'destructive', title: 'Erro ao compartilhar', description: (e as Error).message });
+    } finally {
+      setIsSharing(false);
     }
   };
 
