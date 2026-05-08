@@ -28,6 +28,7 @@ import { CheckinDialog } from '@/components/preventivas/CheckinDialog';
 import { CancelarVisitaDialog } from '@/components/preventivas/CancelarVisitaDialog';
 import { useOfflineQuery } from '@/hooks/useOfflineQuery';
 import { offlineDb } from '@/lib/offline-db';
+import { shareReportWithPdf, buildReportFileName } from '@/lib/share-report-pdf';
 
 const ONLINE_TIMEOUT_MS = 3000;
 
