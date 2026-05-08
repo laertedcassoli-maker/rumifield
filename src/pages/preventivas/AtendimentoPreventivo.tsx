@@ -56,6 +56,7 @@ export default function AtendimentoPreventivo() {
   const [showWarningDialog, setShowWarningDialog] = useState(false);
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
   const [checklistStatus, setChecklistStatus] = useState<'not_started' | 'in_progress' | 'completed'>('not_started');
+  const [sharingTarget, setSharingTarget] = useState<'produtor' | 'interno' | null>(null);
 
   const isAdminOrCoordinator = role === 'admin' || role === 'coordenador_servicos';
 
