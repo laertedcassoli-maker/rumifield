@@ -45,6 +45,8 @@ export default function EditarPedidoSolicitado({ pedido, onSaved, onCancel }: Ed
     staleTime: 60_000,
   });
 
+  useRealtimePecas([['pedidos-pecas']]);
+
   // Local state for editing
   const [items, setItems] = useState<any[]>(() =>
     (pedido.pedido_itens || []).map((it: any) => ({ ...it, _cancelled: !!it.cancelled_at }))
