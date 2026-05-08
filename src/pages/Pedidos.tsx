@@ -27,6 +27,7 @@ import PedidoKanban from '@/components/pedidos/PedidoKanban';
 import MultiAssetField from '@/components/pedidos/MultiAssetField';
 import EditarPedidoSolicitado from '@/components/pedidos/EditarPedidoSolicitado';
 import type { PedidoComItens, PedidoItem } from '@/types/pedidos';
+import { useRealtimePecas } from '@/hooks/useRealtimePecas';
 
 const statusColors: Record<string, string> = {
   rascunho: 'bg-muted text-muted-foreground border-muted-foreground/30',
