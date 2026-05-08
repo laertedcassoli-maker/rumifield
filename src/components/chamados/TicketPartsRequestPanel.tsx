@@ -26,6 +26,7 @@ import {
   ShoppingCart
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useRealtimePecas } from '@/hooks/useRealtimePecas';
 
 interface TicketPartsRequestPanelProps {
   open: boolean;
