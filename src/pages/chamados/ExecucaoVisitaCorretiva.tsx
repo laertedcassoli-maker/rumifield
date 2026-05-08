@@ -144,6 +144,18 @@ export default function ExecucaoVisitaCorretiva() {
         publicToken = existingPm.public_token;
       }
 
+      // Always pull the public_token from corrective_maintenance (where the
+      // public corrective report is keyed). The preventive_maintenance token
+      // above does not match the /relatorio-corretivo/:token route.
+      if (preventiveId) {
+        const { data: cm } = await supabase
+          .from('corrective_maintenance')
+          .select('public_token')
+          .eq('id', preventiveId)
+          .maybeSingle();
+        if (cm?.public_token) publicToken = cm.public_token;
+      }
+
       // Check checklist status
       if (preventiveId) {
         const { data: checklist } = await supabase
