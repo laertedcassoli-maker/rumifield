@@ -39,6 +39,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { shareReportWithPdf, buildReportFileName } from '@/lib/share-report-pdf';
 
 interface ValidationResult {
   canProceed: boolean;
