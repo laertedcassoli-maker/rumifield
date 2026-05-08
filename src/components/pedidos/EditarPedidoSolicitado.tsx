@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import { useRealtimePecas } from '@/hooks/useRealtimePecas';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
@@ -44,6 +45,8 @@ export default function EditarPedidoSolicitado({ pedido, onSaved, onCancel }: Ed
     },
     staleTime: 60_000,
   });
+
+  useRealtimePecas([['pedidos-pecas']]);
 
   // Local state for editing
   const [items, setItems] = useState<any[]>(() =>

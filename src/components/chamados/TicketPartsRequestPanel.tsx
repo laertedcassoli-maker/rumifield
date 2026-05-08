@@ -26,6 +26,7 @@ import {
   ShoppingCart
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useRealtimePecas } from '@/hooks/useRealtimePecas';
 
 interface TicketPartsRequestPanelProps {
   open: boolean;
@@ -74,6 +75,8 @@ export default function TicketPartsRequestPanel({
     },
     enabled: open,
   });
+
+  useRealtimePecas([['parts-catalog-active']]);
 
   // Filter parts
   const filteredParts = availableParts?.filter(part => {
