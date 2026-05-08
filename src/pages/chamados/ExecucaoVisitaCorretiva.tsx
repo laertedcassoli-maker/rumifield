@@ -1030,7 +1030,12 @@ export default function ExecucaoVisitaCorretiva() {
                             fileName: buildReportFileName('relatorio-corretivo', visit.publicToken),
                           });
                           if (result.outcome === 'downloaded' || result.outcome === 'copied') {
-                            toast({ title: 'Link copiado!' });
+                            toast({
+                              title: result.outcome === 'downloaded' ? 'PDF baixado' : 'Link copiado!',
+                              description: result.copiedToClipboard
+                                ? 'O link foi copiado para a área de transferência.'
+                                : 'Seu navegador não abriu o compartilhamento nativo; use o PDF baixado.',
+                            });
                           }
                         } catch (err) {
                           toast({ variant: 'destructive', title: 'Erro ao compartilhar', description: (err as Error).message });
@@ -1060,7 +1065,12 @@ export default function ExecucaoVisitaCorretiva() {
                             fileName: buildReportFileName('relatorio-corretivo-interno', visit.publicToken),
                           });
                           if (result.outcome === 'downloaded' || result.outcome === 'copied') {
-                            toast({ title: 'Link copiado!' });
+                            toast({
+                              title: result.outcome === 'downloaded' ? 'PDF baixado' : 'Link copiado!',
+                              description: result.copiedToClipboard
+                                ? 'O link foi copiado para a área de transferência.'
+                                : 'Seu navegador não abriu o compartilhamento nativo; use o PDF baixado.',
+                            });
                           }
                         } catch (err) {
                           toast({ variant: 'destructive', title: 'Erro ao compartilhar', description: (err as Error).message });
