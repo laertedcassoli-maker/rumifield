@@ -88,8 +88,8 @@ async function waitForIframeReady(iframe: HTMLIFrameElement, timeoutMs = 25000):
     )
   );
 
-  // Extra settle for React renders / async data
-  await new Promise((r) => setTimeout(r, 1500));
+  // Extra settle for React renders / async data (queries, images post-fetch)
+  await new Promise((r) => setTimeout(r, 3500));
 }
 
 async function generatePdfBlobFromIframe(iframe: HTMLIFrameElement): Promise<Blob> {
