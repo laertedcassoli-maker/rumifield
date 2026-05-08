@@ -26,6 +26,7 @@ import { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import logoRumiFlow from '@/assets/logo-rumiflow.png';
 import logoRumina from '@/assets/logo-rumina.png';
+import { shareReportWithPdf, buildReportFileName } from '@/lib/share-report-pdf';
 
 interface ReportData {
   corrective: {
@@ -300,20 +301,24 @@ export default function RelatorioCorretivo() {
     }
   }, [report?.media, imageLoadAttempted]);
 
+  const [isSharing, setIsSharing] = useState(false);
   const handleShare = async () => {
     const url = window.location.href;
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: `Relatório Corretiva - ${report?.corrective.client.nome}`,
-          url
-        });
-      } catch {
-        // User cancelled
+    setIsSharing(true);
+    try {
+      const result = await shareReportWithPdf({
+        url,
+        title: `Relatório Corretiva - ${report?.corrective.client.nome}`,
+        text: `Confira o relatório: ${url}`,
+        fileName: buildReportFileName(report?.corrective.client.nome || 'relatorio-corretivo'),
+      });
+      if (result.outcome === 'downloaded' || result.outcome === 'copied') {
+        toast({ title: 'Link copiado!' });
       }
-    } else {
-      await navigator.clipboard.writeText(url);
-      toast({ title: 'Link copiado!' });
+    } catch (e) {
+      toast({ variant: 'destructive', title: 'Erro ao compartilhar', description: (e as Error).message });
+    } finally {
+      setIsSharing(false);
     }
   };
 
@@ -388,8 +393,8 @@ export default function RelatorioCorretivo() {
               <Wrench className="h-5 w-5" />
               <span className="font-bold">Relatório de Visita Corretiva</span>
             </div>
-            <Button variant="outline" size="sm" onClick={handleShare}>
-              <Share2 className="h-4 w-4 mr-1" />
+            <Button variant="outline" size="sm" onClick={handleShare} disabled={isSharing}>
+              {isSharing ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Share2 className="h-4 w-4 mr-1" />}
               Compartilhar
             </Button>
           </div>

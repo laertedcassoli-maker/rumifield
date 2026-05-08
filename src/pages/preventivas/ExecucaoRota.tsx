@@ -28,6 +28,7 @@ import { CheckinDialog } from '@/components/preventivas/CheckinDialog';
 import { CancelarVisitaDialog } from '@/components/preventivas/CancelarVisitaDialog';
 import { useOfflineQuery } from '@/hooks/useOfflineQuery';
 import { offlineDb } from '@/lib/offline-db';
+import { shareReportWithPdf, buildReportFileName } from '@/lib/share-report-pdf';
 
 const ONLINE_TIMEOUT_MS = 3000;
 
@@ -95,6 +96,7 @@ export default function ExecucaoRota() {
   const queryClient = useQueryClient();
   const [checkinItem, setCheckinItem] = useState<RouteItem | null>(null);
   const [cancelItem, setCancelItem] = useState<RouteItem | null>(null);
+  const [sharingItemId, setSharingItemId] = useState<string | null>(null);
 
   const isAdminOrCoordinator = role === 'admin' || role === 'coordenador_servicos';
 
@@ -657,39 +659,32 @@ export default function ExecucaoRota() {
                       </Link>
                       {item.public_token && (
                         <button
+                          disabled={sharingItemId === item.id}
                           onClick={async () => {
-                            const baseUrl = window.location.hostname.includes('lovableproject.com') 
-                              ? 'https://rumifield.lovable.app' 
+                            const baseUrl = window.location.hostname.includes('lovableproject.com')
+                              ? 'https://rumifield.lovable.app'
                               : window.location.origin;
                             const url = `${baseUrl}/relatorio/${item.public_token}`;
-                            const shareData = {
-                              title: `Relatório - ${item.client_name}`,
-                              text: `Confira o relatório da visita preventiva: ${url}`,
-                              url
-                            };
-                            
-                            const canNativeShare = typeof navigator.share === 'function' && 
-                              (!navigator.canShare || navigator.canShare(shareData));
-                            
-                            if (canNativeShare) {
-                              try {
-                                await navigator.share(shareData);
-                                return;
-                              } catch (err) {
-                                if ((err as Error).name === 'AbortError') return;
-                              }
-                            }
-                            
+                            setSharingItemId(item.id);
                             try {
-                              await navigator.clipboard.writeText(url);
-                              toast({ title: 'Link copiado!', description: 'Cole no WhatsApp para enviar' });
-                            } catch {
-                              toast({ title: 'Link do relatório', description: url });
+                              const result = await shareReportWithPdf({
+                                url,
+                                title: `Relatório - ${item.client_name}`,
+                                text: `Confira o relatório da visita preventiva: ${url}`,
+                                fileName: buildReportFileName(item.client_name || 'visita', item.public_token),
+                              });
+                              if (result.outcome === 'downloaded' || result.outcome === 'copied') {
+                                toast({ title: 'Link copiado!', description: 'Cole no WhatsApp para enviar' });
+                              }
+                            } catch (err) {
+                              toast({ variant: 'destructive', title: 'Erro ao compartilhar', description: (err as Error).message });
+                            } finally {
+                              setSharingItemId(null);
                             }
                           }}
-                          className="flex-1 flex items-center justify-center gap-2 py-3 text-sm text-muted-foreground hover:bg-muted/50 active:bg-muted transition-colors"
+                          className="flex-1 flex items-center justify-center gap-2 py-3 text-sm text-muted-foreground hover:bg-muted/50 active:bg-muted transition-colors disabled:opacity-60"
                         >
-                          <Share2 className="h-4 w-4" />
+                          {sharingItemId === item.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Share2 className="h-4 w-4" />}
                           Compartilhar
                         </button>
                       )}
