@@ -767,76 +767,62 @@ export default function AtendimentoPreventivo() {
               <Button
                 variant="outline"
                 className="flex-1"
+                disabled={sharingTarget !== null}
                 onClick={async () => {
-                  const baseUrl = window.location.hostname.includes('lovableproject.com') 
-                    ? 'https://rumifield.lovable.app' 
+                  const baseUrl = window.location.hostname.includes('lovableproject.com')
+                    ? 'https://rumifield.lovable.app'
                     : window.location.origin;
                   const url = `${baseUrl}/relatorio/${routeItem.publicToken}`;
-                  const shareData = {
-                    title: `Relatório - ${routeItem.client?.nome}`,
-                    text: `Confira o relatório da visita preventiva: ${url}`,
-                    url
-                  };
-                  
-                  const canNativeShare = typeof navigator.share === 'function' && 
-                    (!navigator.canShare || navigator.canShare(shareData));
-                  
-                  if (canNativeShare) {
-                    try {
-                      await navigator.share(shareData);
-                      return;
-                    } catch (err) {
-                      if ((err as Error).name === 'AbortError') return;
-                    }
-                  }
-                  
+                  setSharingTarget('produtor');
                   try {
-                    await navigator.clipboard.writeText(url);
-                    toast({ title: 'Link copiado!', description: 'Cole no WhatsApp para enviar' });
-                  } catch {
-                    toast({ title: 'Link do relatório', description: url });
+                    const result = await shareReportWithPdf({
+                      url,
+                      title: `Relatório - ${routeItem.client?.nome}`,
+                      text: `Confira o relatório da visita preventiva: ${url}`,
+                      fileName: buildReportFileName(routeItem.client?.nome || 'visita', routeItem.publicToken),
+                    });
+                    if (result.outcome === 'downloaded' || result.outcome === 'copied') {
+                      toast({ title: 'Link copiado!', description: 'Cole no WhatsApp para enviar' });
+                    }
+                  } catch (err) {
+                    toast({ variant: 'destructive', title: 'Erro ao compartilhar', description: (err as Error).message });
+                  } finally {
+                    setSharingTarget(null);
                   }
                 }}
               >
-                <User className="h-4 w-4 mr-2" />
+                {sharingTarget === 'produtor' ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <User className="h-4 w-4 mr-2" />}
                 Produtor
               </Button>
               
               <Button
                 variant="outline"
                 className="flex-1"
+                disabled={sharingTarget !== null}
                 onClick={async () => {
-                  const baseUrl = window.location.hostname.includes('lovableproject.com') 
-                    ? 'https://rumifield.lovable.app' 
+                  const baseUrl = window.location.hostname.includes('lovableproject.com')
+                    ? 'https://rumifield.lovable.app'
                     : window.location.origin;
                   const url = `${baseUrl}/relatorio/${routeItem.publicToken}/interno`;
-                  const shareData = {
-                    title: `Relatório Interno - ${routeItem.client?.nome}`,
-                    text: `Relatório interno da visita preventiva: ${url}`,
-                    url
-                  };
-                  
-                  const canNativeShare = typeof navigator.share === 'function' && 
-                    (!navigator.canShare || navigator.canShare(shareData));
-                  
-                  if (canNativeShare) {
-                    try {
-                      await navigator.share(shareData);
-                      return;
-                    } catch (err) {
-                      if ((err as Error).name === 'AbortError') return;
-                    }
-                  }
-                  
+                  setSharingTarget('interno');
                   try {
-                    await navigator.clipboard.writeText(url);
-                    toast({ title: 'Link copiado!', description: 'Cole para compartilhar com a equipe' });
-                  } catch {
-                    toast({ title: 'Link do relatório', description: url });
+                    const result = await shareReportWithPdf({
+                      url,
+                      title: `Relatório Interno - ${routeItem.client?.nome}`,
+                      text: `Relatório interno da visita preventiva: ${url}`,
+                      fileName: buildReportFileName(`${routeItem.client?.nome || 'visita'}-interno`, routeItem.publicToken),
+                    });
+                    if (result.outcome === 'downloaded' || result.outcome === 'copied') {
+                      toast({ title: 'Link copiado!', description: 'Cole para compartilhar com a equipe' });
+                    }
+                  } catch (err) {
+                    toast({ variant: 'destructive', title: 'Erro ao compartilhar', description: (err as Error).message });
+                  } finally {
+                    setSharingTarget(null);
                   }
                 }}
               >
-                <FileText className="h-4 w-4 mr-2" />
+                {sharingTarget === 'interno' ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <FileText className="h-4 w-4 mr-2" />}
                 Time Interno
               </Button>
             </div>
