@@ -97,6 +97,9 @@ export default function Pedidos() {
     staleTime: 60_000,
   });
 
+  // Realtime: refresh part catalog when pecas table changes
+  useRealtimePecas([['pedidos-pecas']]);
+
   // Fetch pedidos from Supabase
   const { data: pedidos, isLoading } = useQuery({
     queryKey: ['pedidos', user?.id, viewAll, isAdmin],
