@@ -1003,39 +1003,61 @@ export default function ExecucaoVisitaCorretiva() {
                     <Button
                       variant="outline"
                       className="flex-1"
+                      disabled={sharingTarget !== null}
                       onClick={async () => {
                         const origin = window.location.hostname.includes('lovableproject.com')
                           ? 'https://rumifield.lovable.app'
                           : window.location.origin;
                         const url = `${origin}/relatorio-corretivo/${visit.publicToken}`;
-                        if (navigator.share) {
-                          try { await navigator.share({ title: 'Relatório de Visita', url }); } catch {}
-                        } else {
-                          await navigator.clipboard.writeText(url);
-                          toast({ title: 'Link copiado!' });
+                        setSharingTarget('produtor');
+                        try {
+                          const result = await shareReportWithPdf({
+                            url,
+                            title: 'Relatório de Visita',
+                            text: `Confira o relatório: ${url}`,
+                            fileName: buildReportFileName('relatorio-corretivo', visit.publicToken),
+                          });
+                          if (result.outcome === 'downloaded' || result.outcome === 'copied') {
+                            toast({ title: 'Link copiado!' });
+                          }
+                        } catch (err) {
+                          toast({ variant: 'destructive', title: 'Erro ao compartilhar', description: (err as Error).message });
+                        } finally {
+                          setSharingTarget(null);
                         }
                       }}
                     >
-                      <Share2 className="h-4 w-4 mr-2" />
+                      {sharingTarget === 'produtor' ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Share2 className="h-4 w-4 mr-2" />}
                       Produtor
                     </Button>
                     <Button
                       variant="outline"
                       className="flex-1"
+                      disabled={sharingTarget !== null}
                       onClick={async () => {
                         const origin = window.location.hostname.includes('lovableproject.com')
                           ? 'https://rumifield.lovable.app'
                           : window.location.origin;
                         const url = `${origin}/relatorio-corretivo/${visit.publicToken}/interno`;
-                        if (navigator.share) {
-                          try { await navigator.share({ title: 'Relatório Interno', url }); } catch {}
-                        } else {
-                          await navigator.clipboard.writeText(url);
-                          toast({ title: 'Link copiado!' });
+                        setSharingTarget('interno');
+                        try {
+                          const result = await shareReportWithPdf({
+                            url,
+                            title: 'Relatório Interno',
+                            text: `Relatório interno: ${url}`,
+                            fileName: buildReportFileName('relatorio-corretivo-interno', visit.publicToken),
+                          });
+                          if (result.outcome === 'downloaded' || result.outcome === 'copied') {
+                            toast({ title: 'Link copiado!' });
+                          }
+                        } catch (err) {
+                          toast({ variant: 'destructive', title: 'Erro ao compartilhar', description: (err as Error).message });
+                        } finally {
+                          setSharingTarget(null);
                         }
                       }}
                     >
-                      <Share2 className="h-4 w-4 mr-2" />
+                      {sharingTarget === 'interno' ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Share2 className="h-4 w-4 mr-2" />}
                       Time Interno
                     </Button>
                   </div>
