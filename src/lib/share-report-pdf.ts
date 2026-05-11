@@ -12,6 +12,7 @@ export interface ShareReportResult {
   /** 'shared-with-file' | 'shared-link-only' | 'downloaded' | 'copied' */
   outcome: 'shared-with-file' | 'shared-link-only' | 'downloaded' | 'copied';
   copiedToClipboard?: boolean;
+  pdfGenerated?: boolean;
 }
 
 export function buildReportShareUrl(path: string): string {
@@ -212,7 +213,9 @@ export async function shareReportWithPdf(args: ShareReportArgs): Promise<ShareRe
   const url = new URL(args.url, window.location.href).toString();
 
   let file: File | null = null;
-  if (new URL(url).origin === window.location.origin) {
+  const sameOrigin = new URL(url).origin === window.location.origin;
+
+  if (sameOrigin) {
     try {
       file = await buildPdfFile(url, fileName);
     } catch (err) {
@@ -222,6 +225,8 @@ export async function shareReportWithPdf(args: ShareReportArgs): Promise<ShareRe
     console.warn('[shareReportWithPdf] Skipping PDF generation for cross-origin URL', url);
   }
 
+  const pdfGenerated = !!file;
+
   if (file && typeof navigator.share === 'function') {
     const filePayload: ShareData = { title, text, url, files: [file] } as ShareData;
     // @ts-ignore
@@ -229,10 +234,10 @@ export async function shareReportWithPdf(args: ShareReportArgs): Promise<ShareRe
     if (canShareFiles) {
       try {
         await navigator.share(filePayload);
-        return { outcome: 'shared-with-file' };
+        return { outcome: 'shared-with-file', pdfGenerated };
       } catch (err) {
         if (isUserCancelledShare(err)) {
-          return { outcome: 'shared-with-file' };
+          return { outcome: 'shared-with-file', pdfGenerated };
         }
         console.warn('[shareReportWithPdf] Native file share failed, using fallback', err);
       }
@@ -247,10 +252,10 @@ export async function shareReportWithPdf(args: ShareReportArgs): Promise<ShareRe
       try {
         await navigator.share(linkPayload);
         if (file) downloadFile(file);
-        return { outcome: 'shared-link-only' };
+        return { outcome: 'shared-link-only', pdfGenerated };
       } catch (err) {
         if (isUserCancelledShare(err)) {
-          return { outcome: 'shared-link-only' };
+          return { outcome: 'shared-link-only', pdfGenerated };
         }
         console.warn('[shareReportWithPdf] Native link share failed, using fallback', err);
       }
@@ -262,5 +267,6 @@ export async function shareReportWithPdf(args: ShareReportArgs): Promise<ShareRe
   return {
     outcome: file ? 'downloaded' : 'copied',
     copiedToClipboard,
+    pdfGenerated,
   };
 }
