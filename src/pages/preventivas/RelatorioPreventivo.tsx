@@ -317,7 +317,7 @@ export default function RelatorioPreventivo() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="min-h-screen flex items-center justify-center bg-background" data-report-loading="true">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
@@ -325,7 +325,7 @@ export default function RelatorioPreventivo() {
 
   if (error || !report) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-background p-6 text-center">
+      <div className="min-h-screen flex flex-col items-center justify-center bg-background p-6 text-center" data-report-error="true">
         <AlertTriangle className="h-16 w-16 text-destructive mb-4" />
         <h1 className="text-xl font-bold mb-2">Relatório não encontrado</h1>
         <p className="text-muted-foreground">O link pode estar incorreto ou expirado.</p>
