@@ -183,6 +183,36 @@ function downloadFile(file: File) {
   setTimeout(() => URL.revokeObjectURL(objUrl), 1000);
 }
 
+function isShareSupported() {
+  return typeof navigator !== 'undefined' && typeof navigator.share === 'function';
+}
+
+function isFileShareSupported(file: File, title: string, text: string, url: string) {
+  if (!isShareSupported()) return false;
+  const payload: ShareData = { title, text, url, files: [file] } as ShareData;
+  // @ts-ignore
+  if (typeof navigator.canShare !== 'function') return true;
+  try {
+    // @ts-ignore
+    return navigator.canShare(payload);
+  } catch {
+    return false;
+  }
+}
+
+function isLinkShareSupported(title: string, text: string, url: string) {
+  if (!isShareSupported()) return false;
+  const payload: ShareData = { title, text, url };
+  // @ts-ignore
+  if (typeof navigator.canShare !== 'function') return true;
+  try {
+    // @ts-ignore
+    return navigator.canShare(payload);
+  } catch {
+    return true;
+  }
+}
+
 function isUserCancelledShare(err: unknown) {
   const error = err as Error | undefined;
   const name = error?.name || '';
@@ -226,39 +256,31 @@ export async function shareReportWithPdf(args: ShareReportArgs): Promise<ShareRe
   }
 
   const pdfGenerated = !!file;
+  const canShareFile = !!file && isFileShareSupported(file, title, text, url);
+  const canShareLink = isLinkShareSupported(title, text, url);
 
-  if (file && typeof navigator.share === 'function') {
-    const filePayload: ShareData = { title, text, url, files: [file] } as ShareData;
-    // @ts-ignore
-    const canShareFiles = !navigator.canShare || navigator.canShare(filePayload);
-    if (canShareFiles) {
-      try {
-        await navigator.share(filePayload);
+  if (canShareFile && file) {
+    try {
+      await navigator.share({ title, text, url, files: [file] } as ShareData);
+      return { outcome: 'shared-with-file', pdfGenerated };
+    } catch (err) {
+      if (isUserCancelledShare(err)) {
         return { outcome: 'shared-with-file', pdfGenerated };
-      } catch (err) {
-        if (isUserCancelledShare(err)) {
-          return { outcome: 'shared-with-file', pdfGenerated };
-        }
-        console.warn('[shareReportWithPdf] Native file share failed, using fallback', err);
       }
+      console.warn('[shareReportWithPdf] Native file share failed, using fallback', err);
     }
   }
 
-  if (typeof navigator.share === 'function') {
-    const linkPayload: ShareData = { title, text, url };
-    // @ts-ignore
-    const canShare = !navigator.canShare || navigator.canShare(linkPayload);
-    if (canShare) {
-      try {
-        await navigator.share(linkPayload);
-        if (file) downloadFile(file);
+  if (canShareLink) {
+    try {
+      await navigator.share({ title, text, url });
+      if (file) downloadFile(file);
+      return { outcome: 'shared-link-only', pdfGenerated };
+    } catch (err) {
+      if (isUserCancelledShare(err)) {
         return { outcome: 'shared-link-only', pdfGenerated };
-      } catch (err) {
-        if (isUserCancelledShare(err)) {
-          return { outcome: 'shared-link-only', pdfGenerated };
-        }
-        console.warn('[shareReportWithPdf] Native link share failed, using fallback', err);
       }
+      console.warn('[shareReportWithPdf] Native link share failed, using fallback', err);
     }
   }
 
