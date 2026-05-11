@@ -37,55 +37,53 @@ export function buildReportFileName(prefix: string, code?: string | null): strin
 }
 
 async function waitForIframeReady(iframe: HTMLIFrameElement, timeoutMs = 60000): Promise<void> {
-  await new Promise<void>((resolve, reject) => {
-    const timeout = setTimeout(() => reject(new Error('Tempo esgotado ao carregar relatório')), timeoutMs);
-    iframe.addEventListener(
-      'load',
-      () => {
-        clearTimeout(timeout);
-        resolve();
-      },
-      { once: true }
-    );
-    iframe.addEventListener(
-      'error',
-      () => {
-        clearTimeout(timeout);
-        reject(new Error('Falha ao carregar relatório'));
-      },
-      { once: true }
-    );
-  });
+  const waitStart = Date.now();
 
-  // Wait for SPA to mount
-  await new Promise((r) => setTimeout(r, 500));
-
-  let doc: Document | null = null;
-  for (let i = 0; i < 40; i++) {
+  for (let i = 0; i < 240; i++) {
     try {
-      doc = iframe.contentDocument;
-      if (doc && doc.body && doc.body.children.length > 0) break;
+      const doc = iframe.contentDocument;
+      const href = iframe.contentWindow?.location?.href || '';
+      const isLoaded = doc?.readyState === 'complete';
+      const hasAppContent = !!doc?.body && doc.body.children.length > 0;
+      const hasResolvedRoute = href !== 'about:blank';
+
+      if (isLoaded && hasAppContent && hasResolvedRoute) {
+        break;
+      }
     } catch {}
+
+    if (Date.now() - waitStart > timeoutMs) {
+      throw new Error('Tempo esgotado ao carregar relatório');
+    }
+
     await new Promise((r) => setTimeout(r, 250));
   }
-  if (!doc) throw new Error('Não foi possível acessar o conteúdo do relatório');
 
-  // Poll for the report's explicit readiness flag (set by RelatorioPreventivo / RelatorioCorretivo
-  // once data + media signed URLs have loaded). Falls back to a long settle if absent.
-  const win = iframe.contentWindow as any;
-  const readyDeadline = Date.now() + timeoutMs;
+  const doc = iframe.contentDocument;
+  if (!doc?.body || doc.body.children.length === 0) {
+    throw new Error('Não foi possível acessar o conteúdo do relatório');
+  }
+
+  const win = iframe.contentWindow as (Window & { __REPORT_READY__?: boolean }) | null;
+  const readyDeadline = Date.now() + Math.max(timeoutMs - (Date.now() - waitStart), 15000);
+
   while (Date.now() < readyDeadline) {
-    if (win && win.__REPORT_READY__ === true) break;
+    const readyFlag = !!win?.__REPORT_READY__;
+    const loadingNode = doc.querySelector('[data-report-loading="true"]');
+    const hasMeaningfulContent = doc.body.scrollHeight > 400 || doc.body.innerText.trim().length > 120;
+
+    if (readyFlag || (!loadingNode && hasMeaningfulContent)) {
+      break;
+    }
+
     await new Promise((r) => setTimeout(r, 250));
   }
 
-  // Wait for fonts
   try {
     // @ts-ignore
-    if (doc.fonts && doc.fonts.ready) await doc.fonts.ready;
+    if (doc.fonts?.ready) await doc.fonts.ready;
   } catch {}
 
-  // Wait for all images to actually finish loading
   const imgs = Array.from(doc.images || []);
   await Promise.all(
     imgs.map(
@@ -100,7 +98,6 @@ async function waitForIframeReady(iframe: HTMLIFrameElement, timeoutMs = 60000):
     )
   );
 
-  // Final settle for any post-image layout shifts
   await new Promise((r) => setTimeout(r, 800));
 }
 
@@ -143,7 +140,6 @@ async function generatePdfBlobFromIframe(iframe: HTMLIFrameElement): Promise<Blo
 }
 
 async function buildPdfFile(url: string, fileName: string): Promise<File> {
-  // Strip hash and ensure absolute URL
   const iframe = document.createElement('iframe');
   iframe.style.position = 'fixed';
   iframe.style.left = '-10000px';
@@ -153,12 +149,12 @@ async function buildPdfFile(url: string, fileName: string): Promise<File> {
   iframe.style.border = '0';
   iframe.style.opacity = '0';
   iframe.setAttribute('aria-hidden', 'true');
-  iframe.src = url;
 
   document.body.appendChild(iframe);
+  iframe.src = url;
+
   try {
     await waitForIframeReady(iframe);
-    // After ready, expand iframe to full content height for accurate capture
     const doc = iframe.contentDocument!;
     const fullHeight = Math.max(
       doc.body.scrollHeight,
@@ -166,7 +162,6 @@ async function buildPdfFile(url: string, fileName: string): Promise<File> {
       800
     );
     iframe.style.height = `${fullHeight}px`;
-    // Let layout settle after resize
     await new Promise((r) => setTimeout(r, 300));
 
     const blob = await generatePdfBlobFromIframe(iframe);
