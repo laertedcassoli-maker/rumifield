@@ -301,6 +301,18 @@ export default function RelatorioCorretivo() {
     }
   }, [report?.media, imageLoadAttempted]);
 
+  // Signal readiness for PDF capture (used by shareReportWithPdf iframe)
+  useEffect(() => {
+    if (isLoading || !report) return;
+    const hasMedia = (report.media?.length ?? 0) > 0;
+    if (hasMedia && !imageLoadAttempted) return;
+    const t = setTimeout(() => {
+      (window as any).__REPORT_READY__ = true;
+      window.dispatchEvent(new Event('report-ready'));
+    }, 600);
+    return () => clearTimeout(t);
+  }, [isLoading, report, imageLoadAttempted, imageUrls]);
+
   const [isSharing, setIsSharing] = useState(false);
   const handleShare = async () => {
     const url = window.location.href;
