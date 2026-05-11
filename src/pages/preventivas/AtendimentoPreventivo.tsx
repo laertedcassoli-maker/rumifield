@@ -780,7 +780,7 @@ export default function AtendimentoPreventivo() {
                       text: `Confira o relatório da visita preventiva: ${url}`,
                       fileName: buildReportFileName(routeItem.client?.nome || 'visita', routeItem.publicToken),
                     });
-                    if (result.outcome === 'downloaded' || result.outcome === 'copied') {
+                    if (result.outcome === 'downloaded' || result.outcome === 'copied' || !result.pdfGenerated) {
                       toast({ title: 'Link copiado!', description: 'Cole no WhatsApp para enviar' });
                     }
                   } catch (err) {
@@ -808,7 +808,7 @@ export default function AtendimentoPreventivo() {
                       text: `Relatório interno da visita preventiva: ${url}`,
                       fileName: buildReportFileName(`${routeItem.client?.nome || 'visita'}-interno`, routeItem.publicToken),
                     });
-                    if (result.outcome === 'downloaded' || result.outcome === 'copied') {
+                    if (result.outcome === 'downloaded' || result.outcome === 'copied' || !result.pdfGenerated) {
                       toast({ title: 'Link copiado!', description: 'Cole para compartilhar com a equipe' });
                     }
                   } catch (err) {

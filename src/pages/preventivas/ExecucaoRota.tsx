@@ -670,7 +670,7 @@ export default function ExecucaoRota() {
                                 text: `Confira o relatório da visita preventiva: ${url}`,
                                 fileName: buildReportFileName(item.client_name || 'visita', item.public_token),
                               });
-                              if (result.outcome === 'downloaded' || result.outcome === 'copied') {
+                              if (result.outcome === 'downloaded' || result.outcome === 'copied' || !result.pdfGenerated) {
                                 toast({ title: 'Link copiado!', description: 'Cole no WhatsApp para enviar' });
                               }
                             } catch (err) {
