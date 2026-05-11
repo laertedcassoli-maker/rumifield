@@ -39,7 +39,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { shareReportWithPdf, buildReportFileName } from '@/lib/share-report-pdf';
+import { shareReportWithPdf, buildReportFileName, buildReportShareUrl } from '@/lib/share-report-pdf';
 
 interface ValidationResult {
   canProceed: boolean;
@@ -1078,13 +1078,10 @@ export default function ExecucaoVisitaCorretiva() {
                       className="flex-1"
                       disabled={sharingTarget !== null}
                       onClick={async () => {
-                        const origin = window.location.hostname.includes('lovableproject.com')
-                          ? 'https://rumifield.lovable.app'
-                          : window.location.origin;
                         setSharingTarget('produtor');
                         try {
                           const publicToken = await ensureCorrectiveReportToken();
-                          const url = `${origin}/relatorio-corretivo/${publicToken}`;
+                          const url = buildReportShareUrl(`/relatorio-corretivo/${publicToken}`);
                           const result = await shareReportWithPdf({
                             url,
                             title: 'Relatório de Visita',
@@ -1114,13 +1111,10 @@ export default function ExecucaoVisitaCorretiva() {
                       className="flex-1"
                       disabled={sharingTarget !== null}
                       onClick={async () => {
-                        const origin = window.location.hostname.includes('lovableproject.com')
-                          ? 'https://rumifield.lovable.app'
-                          : window.location.origin;
                         setSharingTarget('interno');
                         try {
                           const publicToken = await ensureCorrectiveReportToken();
-                          const url = `${origin}/relatorio-corretivo/${publicToken}/interno`;
+                          const url = buildReportShareUrl(`/relatorio-corretivo/${publicToken}/interno`);
                           const result = await shareReportWithPdf({
                             url,
                             title: 'Relatório Interno',
