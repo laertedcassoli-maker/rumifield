@@ -37,83 +37,65 @@ export function buildReportFileName(prefix: string, code?: string | null): strin
   return parts.filter(Boolean).join('-') + '.pdf';
 }
 
-async function waitForIframeReady(iframe: HTMLIFrameElement, timeoutMs = 60000): Promise<void> {
+async function waitForIframeReady(iframe: HTMLIFrameElement, timeoutMs = 18000): Promise<void> {
   const waitStart = Date.now();
 
-  for (let i = 0; i < 240; i++) {
+  // Phase 1: wait for iframe document to exist & route to resolve
+  while (Date.now() - waitStart < Math.min(timeoutMs, 8000)) {
     try {
       const doc = iframe.contentDocument;
       const href = iframe.contentWindow?.location?.href || '';
-      const isLoaded = doc?.readyState === 'complete';
       const hasAppContent = !!doc?.body && doc.body.children.length > 0;
       const hasResolvedRoute = href !== 'about:blank';
-
-      if (isLoaded && hasAppContent && hasResolvedRoute) {
-        break;
-      }
+      if (hasAppContent && hasResolvedRoute) break;
     } catch {}
-
-    if (Date.now() - waitStart > timeoutMs) {
-      throw new Error('Tempo esgotado ao carregar relatório');
-    }
-
-    await new Promise((r) => setTimeout(r, 250));
+    await new Promise((r) => setTimeout(r, 200));
   }
 
   const doc = iframe.contentDocument;
-  if (!doc?.body || doc.body.children.length === 0) {
-    throw new Error('Não foi possível acessar o conteúdo do relatório');
-  }
+  if (!doc?.body) throw new Error('Conteúdo do relatório indisponível');
 
   const win = iframe.contentWindow as (Window & { __REPORT_READY__?: boolean }) | null;
-  const readyDeadline = Date.now() + Math.max(timeoutMs - (Date.now() - waitStart), 15000);
 
-  while (Date.now() < readyDeadline) {
-    const loadingNode = doc.querySelector('[data-report-loading="true"]');
-    const readyNode = doc.querySelector('[data-report-ready="true"]');
+  // Phase 2: wait for ready marker OR error marker
+  while (Date.now() - waitStart < timeoutMs) {
     const errorNode = doc.querySelector('[data-report-error="true"]');
+    if (errorNode) throw new Error('Relatório indisponível para gerar PDF');
+
+    const readyNode = doc.querySelector('[data-report-ready="true"]');
+    const loadingNode = doc.querySelector('[data-report-loading="true"]');
     const readyFlag = !!win?.__REPORT_READY__;
 
-    if (errorNode) {
-      throw new Error('Relatório indisponível para gerar PDF');
-    }
-
-    if (!loadingNode && readyNode && readyFlag) {
-      break;
-    }
-
-    await new Promise((r) => setTimeout(r, 250));
+    if (readyNode && !loadingNode && readyFlag) break;
+    await new Promise((r) => setTimeout(r, 200));
   }
 
-  if (!doc.querySelector('[data-report-ready="true"]') || !win?.__REPORT_READY__) {
-    throw new Error('Tempo esgotado ao preparar relatório para PDF');
+  if (!doc.querySelector('[data-report-ready="true"]')) {
+    throw new Error('Tempo esgotado ao preparar relatório');
   }
 
   try {
     // @ts-ignore
-    if (doc.fonts?.ready) await doc.fonts.ready;
+    if (doc.fonts?.ready) await Promise.race([doc.fonts.ready, new Promise(r => setTimeout(r, 1500))]);
   } catch {}
 
+  // Wait for images (max 6s)
   const imgs = Array.from(doc.images || []);
-  await Promise.all(
-    imgs.map(
-      (img) =>
-        new Promise<void>((res) => {
-          if (img.complete && img.naturalWidth > 0) return res();
-          const done = () => res();
-          img.addEventListener('load', done, { once: true });
-          img.addEventListener('error', done, { once: true });
-          setTimeout(done, 15000);
-        })
-    )
-  );
+  await Promise.race([
+    Promise.all(
+      imgs.map(
+        (img) =>
+          new Promise<void>((res) => {
+            if (img.complete && img.naturalWidth > 0) return res();
+            img.addEventListener('load', () => res(), { once: true });
+            img.addEventListener('error', () => res(), { once: true });
+          })
+      )
+    ),
+    new Promise((r) => setTimeout(r, 6000)),
+  ]);
 
-  await new Promise<void>((resolve) => {
-    const schedule = win?.requestAnimationFrame?.bind(win) ?? requestAnimationFrame;
-    schedule(() => schedule(() => resolve()));
-  });
-
-  await new Promise((r) => setTimeout(r, 800));
+  await new Promise((r) => setTimeout(r, 250));
 }
 
 async function generatePdfBlobFromIframe(iframe: HTMLIFrameElement): Promise<Blob> {
