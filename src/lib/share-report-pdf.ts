@@ -69,15 +69,24 @@ async function waitForIframeReady(iframe: HTMLIFrameElement, timeoutMs = 60000):
   const readyDeadline = Date.now() + Math.max(timeoutMs - (Date.now() - waitStart), 15000);
 
   while (Date.now() < readyDeadline) {
-    const readyFlag = !!win?.__REPORT_READY__;
     const loadingNode = doc.querySelector('[data-report-loading="true"]');
-    const hasMeaningfulContent = doc.body.scrollHeight > 400 || doc.body.innerText.trim().length > 120;
+    const readyNode = doc.querySelector('[data-report-ready="true"]');
+    const errorNode = doc.querySelector('[data-report-error="true"]');
+    const readyFlag = !!win?.__REPORT_READY__;
 
-    if (readyFlag || (!loadingNode && hasMeaningfulContent)) {
+    if (errorNode) {
+      throw new Error('Relatório indisponível para gerar PDF');
+    }
+
+    if (!loadingNode && readyNode && readyFlag) {
       break;
     }
 
     await new Promise((r) => setTimeout(r, 250));
+  }
+
+  if (!doc.querySelector('[data-report-ready="true"]') || !win?.__REPORT_READY__) {
+    throw new Error('Tempo esgotado ao preparar relatório para PDF');
   }
 
   try {
@@ -98,6 +107,11 @@ async function waitForIframeReady(iframe: HTMLIFrameElement, timeoutMs = 60000):
         })
     )
   );
+
+  await new Promise<void>((resolve) => {
+    const schedule = win?.requestAnimationFrame?.bind(win) ?? requestAnimationFrame;
+    schedule(() => schedule(() => resolve()));
+  });
 
   await new Promise((r) => setTimeout(r, 800));
 }
