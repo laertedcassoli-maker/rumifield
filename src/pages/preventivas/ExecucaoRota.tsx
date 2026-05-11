@@ -28,7 +28,7 @@ import { CheckinDialog } from '@/components/preventivas/CheckinDialog';
 import { CancelarVisitaDialog } from '@/components/preventivas/CancelarVisitaDialog';
 import { useOfflineQuery } from '@/hooks/useOfflineQuery';
 import { offlineDb } from '@/lib/offline-db';
-import { shareReportWithPdf, buildReportFileName } from '@/lib/share-report-pdf';
+import { shareReportWithPdf, buildReportFileName, buildReportShareUrl } from '@/lib/share-report-pdf';
 
 const ONLINE_TIMEOUT_MS = 3000;
 
@@ -661,10 +661,7 @@ export default function ExecucaoRota() {
                         <button
                           disabled={sharingItemId === item.id}
                           onClick={async () => {
-                            const baseUrl = window.location.hostname.includes('lovableproject.com')
-                              ? 'https://rumifield.lovable.app'
-                              : window.location.origin;
-                            const url = `${baseUrl}/relatorio/${item.public_token}`;
+                            const url = buildReportShareUrl(`/relatorio/${item.public_token}`);
                             setSharingItemId(item.id);
                             try {
                               const result = await shareReportWithPdf({
