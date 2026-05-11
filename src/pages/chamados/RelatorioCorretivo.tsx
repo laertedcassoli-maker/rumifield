@@ -298,11 +298,14 @@ export default function RelatorioCorretivo() {
         setImageLoadAttempted(true);
       };
       loadUrls();
+    } else if (report && report.media.length === 0 && !imageLoadAttempted) {
+      setImageLoadAttempted(true);
     }
   }, [report?.media, imageLoadAttempted]);
 
   // Signal readiness for PDF capture (used by shareReportWithPdf iframe)
   useEffect(() => {
+    (window as any).__REPORT_READY__ = false;
     if (isLoading || !report) return;
     const hasMedia = (report.media?.length ?? 0) > 0;
     if (hasMedia && !imageLoadAttempted) return;
@@ -429,7 +432,7 @@ export default function RelatorioCorretivo() {
         </div>
       </header>
 
-      <main className="max-w-2xl mx-auto p-4 space-y-4">
+      <main className="max-w-2xl mx-auto p-4 space-y-4" data-report-ready="true">
         {/* Visit Info Card */}
         <Card>
           <CardContent className="p-4">
