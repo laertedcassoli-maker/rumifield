@@ -302,7 +302,7 @@ export default function RelatorioPreventivo() {
         text: `Confira o relatório: ${url}`,
         fileName: buildReportFileName(report?.preventive.client.nome || 'relatorio', report?.preventive.public_token),
       });
-      if (result.outcome === 'downloaded' || result.outcome === 'copied') {
+      if (result.outcome === 'downloaded' || result.outcome === 'copied' || !result.pdfGenerated) {
         toast({ title: 'Link copiado!' });
       }
     } catch (e) {

@@ -1088,7 +1088,7 @@ export default function ExecucaoVisitaCorretiva() {
                             text: `Confira o relatório: ${url}`,
                             fileName: buildReportFileName('relatorio-corretivo', publicToken),
                           });
-                          if (result.outcome === 'downloaded' || result.outcome === 'copied') {
+                          if (result.outcome === 'downloaded' || result.outcome === 'copied' || !result.pdfGenerated) {
                             toast({
                               title: result.outcome === 'downloaded' ? 'PDF baixado' : 'Link copiado!',
                               description: result.copiedToClipboard
@@ -1121,7 +1121,7 @@ export default function ExecucaoVisitaCorretiva() {
                             text: `Relatório interno: ${url}`,
                             fileName: buildReportFileName('relatorio-corretivo-interno', publicToken),
                           });
-                          if (result.outcome === 'downloaded' || result.outcome === 'copied') {
+                          if (result.outcome === 'downloaded' || result.outcome === 'copied' || !result.pdfGenerated) {
                             toast({
                               title: result.outcome === 'downloaded' ? 'PDF baixado' : 'Link copiado!',
                               description: result.copiedToClipboard

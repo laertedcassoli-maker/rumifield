@@ -324,7 +324,7 @@ export default function RelatorioCorretivo() {
         text: `Confira o relatório: ${url}`,
         fileName: buildReportFileName(report?.corrective.client.nome || 'relatorio-corretivo'),
       });
-      if (result.outcome === 'downloaded' || result.outcome === 'copied') {
+      if (result.outcome === 'downloaded' || result.outcome === 'copied' || !result.pdfGenerated) {
         toast({
           title: result.outcome === 'downloaded' ? 'PDF baixado' : 'Link copiado!',
           description: result.copiedToClipboard
