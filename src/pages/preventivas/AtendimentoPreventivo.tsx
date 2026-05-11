@@ -38,7 +38,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { shareReportWithPdf, buildReportFileName } from '@/lib/share-report-pdf';
+import { shareReportWithPdf, buildReportFileName, buildReportShareUrl } from '@/lib/share-report-pdf';
 
 interface ValidationResult {
   canProceed: boolean;
@@ -771,10 +771,7 @@ export default function AtendimentoPreventivo() {
                 className="flex-1"
                 disabled={sharingTarget !== null}
                 onClick={async () => {
-                  const baseUrl = window.location.hostname.includes('lovableproject.com')
-                    ? 'https://rumifield.lovable.app'
-                    : window.location.origin;
-                  const url = `${baseUrl}/relatorio/${routeItem.publicToken}`;
+                  const url = buildReportShareUrl(`/relatorio/${routeItem.publicToken}`);
                   setSharingTarget('produtor');
                   try {
                     const result = await shareReportWithPdf({
@@ -802,10 +799,7 @@ export default function AtendimentoPreventivo() {
                 className="flex-1"
                 disabled={sharingTarget !== null}
                 onClick={async () => {
-                  const baseUrl = window.location.hostname.includes('lovableproject.com')
-                    ? 'https://rumifield.lovable.app'
-                    : window.location.origin;
-                  const url = `${baseUrl}/relatorio/${routeItem.publicToken}/interno`;
+                  const url = buildReportShareUrl(`/relatorio/${routeItem.publicToken}/interno`);
                   setSharingTarget('interno');
                   try {
                     const result = await shareReportWithPdf({
