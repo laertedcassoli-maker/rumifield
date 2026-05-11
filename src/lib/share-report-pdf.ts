@@ -237,13 +237,21 @@ async function copyToClipboard(text: string) {
 export async function shareReportWithPdf(args: ShareReportArgs): Promise<ShareReportResult> {
   const { title, text, fileName } = args;
   const url = new URL(args.url, window.location.href).toString();
+  console.log('[shareReportWithPdf] start', { url, fileName });
 
   let file: File | null = null;
   const sameOrigin = new URL(url).origin === window.location.origin;
 
   if (sameOrigin) {
     try {
-      file = await buildPdfFile(url, fileName);
+      // Hard cap on PDF generation so the UI never appears stuck
+      file = await Promise.race([
+        buildPdfFile(url, fileName),
+        new Promise<File>((_, reject) =>
+          setTimeout(() => reject(new Error('PDF generation timeout')), 25000)
+        ),
+      ]);
+      console.log('[shareReportWithPdf] PDF generated', file.size, 'bytes');
     } catch (err) {
       console.warn('[shareReportWithPdf] PDF generation failed, falling back to link share', err);
     }
@@ -257,6 +265,7 @@ export async function shareReportWithPdf(args: ShareReportArgs): Promise<ShareRe
 
   if (canShareFile && file) {
     try {
+      console.log('[shareReportWithPdf] attempting native share with file');
       await navigator.share({ title, text, url, files: [file] } as ShareData);
       return { outcome: 'shared-with-file', pdfGenerated };
     } catch (err) {
@@ -269,6 +278,7 @@ export async function shareReportWithPdf(args: ShareReportArgs): Promise<ShareRe
 
   if (canShareLink) {
     try {
+      console.log('[shareReportWithPdf] attempting native share with link only');
       await navigator.share({ title, text, url });
       if (file) downloadFile(file);
       return { outcome: 'shared-link-only', pdfGenerated };
@@ -280,6 +290,7 @@ export async function shareReportWithPdf(args: ShareReportArgs): Promise<ShareRe
     }
   }
 
+  console.log('[shareReportWithPdf] using download/clipboard fallback');
   if (file) downloadFile(file);
   const copiedToClipboard = await copyToClipboard(url);
   return {
