@@ -36,7 +36,7 @@ export function buildReportFileName(prefix: string, code?: string | null): strin
   return parts.filter(Boolean).join('-') + '.pdf';
 }
 
-async function waitForIframeReady(iframe: HTMLIFrameElement, timeoutMs = 25000): Promise<void> {
+async function waitForIframeReady(iframe: HTMLIFrameElement, timeoutMs = 60000): Promise<void> {
   await new Promise<void>((resolve, reject) => {
     const timeout = setTimeout(() => reject(new Error('Tempo esgotado ao carregar relatório')), timeoutMs);
     iframe.addEventListener(
@@ -57,20 +57,27 @@ async function waitForIframeReady(iframe: HTMLIFrameElement, timeoutMs = 25000):
     );
   });
 
-  // Give the SPA inside the iframe time to mount and fetch data
-  await new Promise((r) => setTimeout(r, 800));
+  // Wait for SPA to mount
+  await new Promise((r) => setTimeout(r, 500));
 
   let doc: Document | null = null;
-  for (let i = 0; i < 20; i++) {
+  for (let i = 0; i < 40; i++) {
     try {
       doc = iframe.contentDocument;
       if (doc && doc.body && doc.body.children.length > 0) break;
-    } catch {
-      // cross-origin (shouldn't happen for same-origin)
-    }
+    } catch {}
     await new Promise((r) => setTimeout(r, 250));
   }
   if (!doc) throw new Error('Não foi possível acessar o conteúdo do relatório');
+
+  // Poll for the report's explicit readiness flag (set by RelatorioPreventivo / RelatorioCorretivo
+  // once data + media signed URLs have loaded). Falls back to a long settle if absent.
+  const win = iframe.contentWindow as any;
+  const readyDeadline = Date.now() + timeoutMs;
+  while (Date.now() < readyDeadline) {
+    if (win && win.__REPORT_READY__ === true) break;
+    await new Promise((r) => setTimeout(r, 250));
+  }
 
   // Wait for fonts
   try {
@@ -78,7 +85,7 @@ async function waitForIframeReady(iframe: HTMLIFrameElement, timeoutMs = 25000):
     if (doc.fonts && doc.fonts.ready) await doc.fonts.ready;
   } catch {}
 
-  // Wait for images
+  // Wait for all images to actually finish loading
   const imgs = Array.from(doc.images || []);
   await Promise.all(
     imgs.map(
@@ -88,14 +95,13 @@ async function waitForIframeReady(iframe: HTMLIFrameElement, timeoutMs = 25000):
           const done = () => res();
           img.addEventListener('load', done, { once: true });
           img.addEventListener('error', done, { once: true });
-          // Safety timeout per image
-          setTimeout(done, 8000);
+          setTimeout(done, 15000);
         })
     )
   );
 
-  // Extra settle for React renders / async data (queries, images post-fetch)
-  await new Promise((r) => setTimeout(r, 3500));
+  // Final settle for any post-image layout shifts
+  await new Promise((r) => setTimeout(r, 800));
 }
 
 async function generatePdfBlobFromIframe(iframe: HTMLIFrameElement): Promise<Blob> {
