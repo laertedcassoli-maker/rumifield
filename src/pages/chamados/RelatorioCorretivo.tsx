@@ -170,19 +170,22 @@ export default function RelatorioCorretivo() {
         technicianName = tech?.nome || null;
       }
 
-      // Fetch checklist (reusing preventive checklist structure via corrective_maintenance)
-      const { data: pmData } = await supabase
-        .from('preventive_maintenance')
-        .select('id')
-        .eq('id', corrective.id)
-        .maybeSingle();
+      // Fetch linked preventive maintenance record used by checklist, notes, parts and media
+      const { data: linkedPreventive } = visitData?.id
+        ? await supabase
+            .from('preventive_maintenance')
+            .select('id, public_notes, internal_notes')
+            .eq('client_id', corrective.client_id)
+            .ilike('notes', `%CORR-VISIT-${visitData.id}%`)
+            .maybeSingle()
+        : { data: null };
 
       let checklistData = null;
-      if (pmData) {
+      if (linkedPreventive?.id) {
         const { data: checklist } = await supabase
           .from('preventive_checklists')
           .select('id, status, started_at, completed_at')
-          .eq('preventive_id', pmData.id)
+          .eq('preventive_id', linkedPreventive.id)
           .maybeSingle();
 
         if (checklist) {
@@ -226,33 +229,16 @@ export default function RelatorioCorretivo() {
         }
       }
 
-      // Fetch parts (from corrective's linked preventive_maintenance id)
-      // The corrective_maintenance.id might be same as preventive_maintenance.id for corrective visits
-      // Let's check the visit_id link
-      let preventiveId = corrective.id;
-      
-      // Actually for corrective visits, preventive_maintenance is linked via corrective_maintenance
-      // Let's query by the preventive_maintenance that has the same visit_id
-      const { data: pmByVisit } = await supabase
-        .from('corrective_maintenance')
-        .select('id')
-        .eq('visit_id', corrective.visit_id)
-        .maybeSingle();
-      
-      if (pmByVisit) {
-        preventiveId = pmByVisit.id;
-      }
-
       const { data: parts } = await supabase
         .from('preventive_part_consumption')
         .select('id, part_name_snapshot, part_code_snapshot, quantity, stock_source')
-        .eq('preventive_id', preventiveId);
+        .eq('preventive_id', linkedPreventive?.id || '00000000-0000-0000-0000-000000000000');
 
       // Fetch media
       const { data: media } = await supabase
         .from('preventive_visit_media')
         .select('id, file_path, file_name, file_type, caption')
-        .eq('preventive_id', preventiveId);
+        .eq('preventive_id', linkedPreventive?.id || '00000000-0000-0000-0000-000000000000');
 
       return {
         corrective: {
@@ -262,8 +248,8 @@ export default function RelatorioCorretivo() {
           result: visitData?.result || null,
           checkin_at: corrective.checkin_at,
           checkout_at: corrective.checkout_at,
-          public_notes: visitData?.public_notes || null,
-          internal_notes: visitData?.internal_notes || corrective.notes,
+          public_notes: linkedPreventive?.public_notes || visitData?.public_notes || null,
+          internal_notes: linkedPreventive?.internal_notes || visitData?.internal_notes || corrective.notes,
           visit_summary: visitData?.visit_summary || null,
           client,
           ticket,
@@ -344,7 +330,7 @@ export default function RelatorioCorretivo() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="min-h-screen flex items-center justify-center bg-background" data-report-loading="true">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
@@ -352,7 +338,7 @@ export default function RelatorioCorretivo() {
 
   if (error || !report) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-background p-6 text-center">
+      <div className="min-h-screen flex flex-col items-center justify-center bg-background p-6 text-center" data-report-error="true">
         <AlertTriangle className="h-16 w-16 text-destructive mb-4" />
         <h1 className="text-xl font-bold mb-2">Relatório não encontrado</h1>
         <p className="text-muted-foreground">O link pode estar incorreto ou expirado.</p>
