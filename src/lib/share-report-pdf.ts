@@ -14,6 +14,11 @@ export interface ShareReportResult {
   copiedToClipboard?: boolean;
 }
 
+export function buildReportShareUrl(path: string): string {
+  const normalizedPath = path.startsWith('/') ? path : `/${path}`;
+  return new URL(normalizedPath, window.location.origin).toString();
+}
+
 function slugify(s: string) {
   return s
     .toLowerCase()
@@ -202,13 +207,18 @@ async function copyToClipboard(text: string) {
  * Falls back to link-only share, then to PDF download + clipboard copy.
  */
 export async function shareReportWithPdf(args: ShareReportArgs): Promise<ShareReportResult> {
-  const { url, title, text, fileName } = args;
+  const { title, text, fileName } = args;
+  const url = new URL(args.url, window.location.href).toString();
 
   let file: File | null = null;
-  try {
-    file = await buildPdfFile(url, fileName);
-  } catch (err) {
-    console.warn('[shareReportWithPdf] PDF generation failed, falling back to link share', err);
+  if (new URL(url).origin === window.location.origin) {
+    try {
+      file = await buildPdfFile(url, fileName);
+    } catch (err) {
+      console.warn('[shareReportWithPdf] PDF generation failed, falling back to link share', err);
+    }
+  } else {
+    console.warn('[shareReportWithPdf] Skipping PDF generation for cross-origin URL', url);
   }
 
   if (file && typeof navigator.share === 'function') {
