@@ -28,6 +28,7 @@ const origemConfig: Record<string, { label: string; className: string }> = {
 
 const tipoEnvioConfig: Record<string, { label: string; icon: React.ReactNode; className: string }> = {
   envio_fisico: { label: 'Envio Físico', icon: <Truck className="h-3 w-3" />, className: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' },
+  envio_pelo_tecnico: { label: 'Envio pelo Técnico', icon: <User className="h-3 w-3" />, className: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400' },
   apenas_nf: { label: 'Apenas NF', icon: <FileText className="h-3 w-3" />, className: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400' },
 };
 

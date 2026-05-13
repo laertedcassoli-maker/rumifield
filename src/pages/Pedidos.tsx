@@ -1501,7 +1501,13 @@ export default function Pedidos() {
                             Apenas NF
                           </Badge>
                         )}
-                        {pedido.tipo_envio && pedido.tipo_envio !== 'apenas_nf' && (
+                        {pedido.tipo_envio === 'envio_pelo_tecnico' && (
+                          <Badge variant="outline" className="text-xs gap-1">
+                            <User className="h-3 w-3" />
+                            Envio pelo Técnico
+                          </Badge>
+                        )}
+                        {pedido.tipo_envio === 'envio_fisico' && (
                           <Badge variant="outline" className="text-xs gap-1">
                             <Truck className="h-3 w-3" />
                             Envio Físico
