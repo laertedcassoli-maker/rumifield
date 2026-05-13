@@ -1901,6 +1901,7 @@ export type Database = {
           origem: string | null
           pedido_code: string | null
           preventive_id: string | null
+          solenoide_modelo: string | null
           solicitante_id: string
           status: Database["public"]["Enums"]["pedido_status"]
           tipo_envio: string | null
@@ -1920,6 +1921,7 @@ export type Database = {
           origem?: string | null
           pedido_code?: string | null
           preventive_id?: string | null
+          solenoide_modelo?: string | null
           solicitante_id: string
           status?: Database["public"]["Enums"]["pedido_status"]
           tipo_envio?: string | null
@@ -1939,6 +1941,7 @@ export type Database = {
           origem?: string | null
           pedido_code?: string | null
           preventive_id?: string | null
+          solenoide_modelo?: string | null
           solicitante_id?: string
           status?: Database["public"]["Enums"]["pedido_status"]
           tipo_envio?: string | null

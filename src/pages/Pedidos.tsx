@@ -54,7 +54,7 @@ export default function Pedidos() {
   const [open, setOpen] = useState(false);
   const [editingPedido, setEditingPedido] = useState<any>(null);
   const [viewingPedido, setViewingPedido] = useState<any>(null);
-  const [form, setForm] = useState({ cliente_id: '', observacoes: '', urgencia: 'normal', tipo_envio: '' });
+  const [form, setForm] = useState({ cliente_id: '', observacoes: '', urgencia: 'normal', tipo_envio: '', solenoide_modelo: '' });
   const [itens, setItens] = useState<{ peca_id: string; quantidade: number }[]>([]);
   const [viewAll, setViewAll] = useState(false);
   const [solicitanteFilter, setSolicitanteFilter] = useState<string>('all');
@@ -352,7 +352,7 @@ export default function Pedidos() {
       toast({ title: 'Rascunho excluído!' });
       setOpen(false);
       setEditingPedido(null);
-      setForm({ cliente_id: '', observacoes: '', urgencia: 'normal', tipo_envio: '' });
+      setForm({ cliente_id: '', observacoes: '', urgencia: 'normal', tipo_envio: '', solenoide_modelo: '' });
       setItens([]);
     } catch (error: any) {
       toast({ variant: 'destructive', title: 'Erro ao excluir', description: error.message });
@@ -365,8 +365,12 @@ export default function Pedidos() {
   const AUTO_LINK_TRIGGER_CODE = 'PRD00605';
   const AUTO_LINK_TARGET_CODE = 'PRD00639';
   const AUTO_LINK_TARGET_QTY = 3;
+  const SOLENOIDE_CODE = 'PRD00605';
 
   const findPecaIdByCodigo = (codigo: string) => pecas?.find(p => p.codigo === codigo)?.id;
+
+  const solenoideId = findPecaIdByCodigo(SOLENOIDE_CODE);
+  const hasSolenoide = !!solenoideId && itens.some(i => i.peca_id === solenoideId);
 
   /** Garante PRD00639 (qty 3) na lista quando há PRD00605. */
   const applyAutoLinks = (list: { peca_id: string; quantidade: number }[]) => {
@@ -414,6 +418,10 @@ export default function Pedidos() {
     if (removed?.peca_id && removed.peca_id === triggerId && targetId) {
       next = next.filter(i => i.peca_id !== targetId);
     }
+    // Se removeu a solenóide PRD00605, limpa o modelo selecionado
+    if (removed?.peca_id && solenoideId && removed.peca_id === solenoideId) {
+      setForm((f) => ({ ...f, solenoide_modelo: '' }));
+    }
     setItens(next);
   };
 
@@ -436,6 +444,7 @@ export default function Pedidos() {
       observacoes: pedido.observacoes || '',
       urgencia: pedido.urgencia || 'normal',
       tipo_envio: pedido.tipo_envio || '',
+      solenoide_modelo: (pedido as any).solenoide_modelo || '',
     });
     setItens(
       pedido.pedido_itens?.map((item: any) => ({
@@ -499,7 +508,7 @@ export default function Pedidos() {
     setOpen(isOpen);
     if (!isOpen) {
       setEditingPedido(null);
-      setForm({ cliente_id: '', observacoes: '', urgencia: 'normal', tipo_envio: '' });
+      setForm({ cliente_id: '', observacoes: '', urgencia: 'normal', tipo_envio: '', solenoide_modelo: '' });
       setItens([]);
       setShowConfirmation(false);
       setClienteSearch('');
@@ -517,6 +526,10 @@ export default function Pedidos() {
       toast({ variant: 'destructive', title: 'Adicione pelo menos uma peça válida' });
       return;
     }
+    if (hasSolenoide && !form.solenoide_modelo) {
+      toast({ variant: 'destructive', title: 'Selecione o Modelo (2x ou 3x) da solenóide' });
+      return;
+    }
     setShowConfirmation(true);
   };
 
@@ -528,7 +541,8 @@ export default function Pedidos() {
         const { error: pedidoError } = await supabase.from('pedidos').update({
           cliente_id: form.cliente_id,
           observacoes: form.observacoes || null,
-        }).eq('id', editingPedido.id);
+          solenoide_modelo: hasSolenoide ? form.solenoide_modelo : null,
+        } as any).eq('id', editingPedido.id);
         if (pedidoError) throw pedidoError;
 
         // Delete old items
@@ -557,7 +571,8 @@ export default function Pedidos() {
             tipo_envio: form.tipo_envio || null,
             urgencia: form.urgencia,
             status: 'rascunho',
-          })
+            solenoide_modelo: hasSolenoide ? form.solenoide_modelo : null,
+          } as any)
           .select('id')
           .single();
         if (pedidoError) throw pedidoError;
@@ -580,7 +595,7 @@ export default function Pedidos() {
       }
       setOpen(false);
       setEditingPedido(null);
-      setForm({ cliente_id: '', observacoes: '', urgencia: 'normal', tipo_envio: '' });
+      setForm({ cliente_id: '', observacoes: '', urgencia: 'normal', tipo_envio: '', solenoide_modelo: '' });
       setItens([]);
       setShowConfirmation(false);
       setClienteSearch('');
@@ -1107,6 +1122,22 @@ export default function Pedidos() {
                       })}
                     </div>
                   </div>
+
+                  {/* Modelo da Solenóide (PRD00605) */}
+                  {hasSolenoide && (
+                    <div className="space-y-2">
+                      <Label>Modelo <span className="text-destructive">*</span></Label>
+                      <ToggleGroup
+                        type="single"
+                        value={form.solenoide_modelo}
+                        onValueChange={(v) => v && setForm({ ...form, solenoide_modelo: v })}
+                        className="justify-start"
+                      >
+                        <ToggleGroupItem value="2x" className="text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">Modelo 2x</ToggleGroupItem>
+                        <ToggleGroupItem value="3x" className="text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">Modelo 3x</ToggleGroupItem>
+                      </ToggleGroup>
+                    </div>
+                  )}
 
                   {/* Urgência */}
                   <div className="space-y-2">
