@@ -52,7 +52,7 @@ serve(async (req) => {
     // Get existing clients by cod_imilk (including inactive ones)
     const { data: existingClients, error: fetchError } = await supabase
       .from('clientes')
-      .select('id, cod_imilk, status');
+      .select('id, cod_imilk, status, cidade, estado');
 
     if (fetchError) {
       console.error('Error fetching existing clients:', fetchError);
