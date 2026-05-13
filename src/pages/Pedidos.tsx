@@ -522,6 +522,10 @@ export default function Pedidos() {
       toast({ variant: 'destructive', title: 'Adicione pelo menos uma peça válida' });
       return;
     }
+    if (hasSolenoide && !form.solenoide_modelo) {
+      toast({ variant: 'destructive', title: 'Selecione o Modelo (2x ou 3x) da solenóide' });
+      return;
+    }
     setShowConfirmation(true);
   };
 
@@ -533,7 +537,8 @@ export default function Pedidos() {
         const { error: pedidoError } = await supabase.from('pedidos').update({
           cliente_id: form.cliente_id,
           observacoes: form.observacoes || null,
-        }).eq('id', editingPedido.id);
+          solenoide_modelo: hasSolenoide ? form.solenoide_modelo : null,
+        } as any).eq('id', editingPedido.id);
         if (pedidoError) throw pedidoError;
 
         // Delete old items
