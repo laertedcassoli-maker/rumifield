@@ -418,6 +418,10 @@ export default function Pedidos() {
     if (removed?.peca_id && removed.peca_id === triggerId && targetId) {
       next = next.filter(i => i.peca_id !== targetId);
     }
+    // Se removeu a solenóide PRD00605, limpa o modelo selecionado
+    if (removed?.peca_id && solenoideId && removed.peca_id === solenoideId) {
+      setForm((f) => ({ ...f, solenoide_modelo: '' }));
+    }
     setItens(next);
   };
 
