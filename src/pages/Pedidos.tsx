@@ -1119,6 +1119,22 @@ export default function Pedidos() {
                     </div>
                   </div>
 
+                  {/* Modelo da Solenóide (PRD00605) */}
+                  {hasSolenoide && (
+                    <div className="space-y-2">
+                      <Label>Modelo <span className="text-destructive">*</span></Label>
+                      <ToggleGroup
+                        type="single"
+                        value={form.solenoide_modelo}
+                        onValueChange={(v) => v && setForm({ ...form, solenoide_modelo: v })}
+                        className="justify-start"
+                      >
+                        <ToggleGroupItem value="2x" className="text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">Modelo 2x</ToggleGroupItem>
+                        <ToggleGroupItem value="3x" className="text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">Modelo 3x</ToggleGroupItem>
+                      </ToggleGroup>
+                    </div>
+                  )}
+
                   {/* Urgência */}
                   <div className="space-y-2">
                     <Label>Urgência</Label>
