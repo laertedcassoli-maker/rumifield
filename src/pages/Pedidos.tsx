@@ -365,8 +365,12 @@ export default function Pedidos() {
   const AUTO_LINK_TRIGGER_CODE = 'PRD00605';
   const AUTO_LINK_TARGET_CODE = 'PRD00639';
   const AUTO_LINK_TARGET_QTY = 3;
+  const SOLENOIDE_CODE = 'PRD00605';
 
   const findPecaIdByCodigo = (codigo: string) => pecas?.find(p => p.codigo === codigo)?.id;
+
+  const solenoideId = findPecaIdByCodigo(SOLENOIDE_CODE);
+  const hasSolenoide = !!solenoideId && itens.some(i => i.peca_id === solenoideId);
 
   /** Garante PRD00639 (qty 3) na lista quando há PRD00605. */
   const applyAutoLinks = (list: { peca_id: string; quantidade: number }[]) => {
