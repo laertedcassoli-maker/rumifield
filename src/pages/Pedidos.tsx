@@ -352,7 +352,7 @@ export default function Pedidos() {
       toast({ title: 'Rascunho excluído!' });
       setOpen(false);
       setEditingPedido(null);
-      setForm({ cliente_id: '', observacoes: '', urgencia: 'normal', tipo_envio: '' });
+      setForm({ cliente_id: '', observacoes: '', urgencia: 'normal', tipo_envio: '', solenoide_modelo: '' });
       setItens([]);
     } catch (error: any) {
       toast({ variant: 'destructive', title: 'Erro ao excluir', description: error.message });
@@ -436,6 +436,7 @@ export default function Pedidos() {
       observacoes: pedido.observacoes || '',
       urgencia: pedido.urgencia || 'normal',
       tipo_envio: pedido.tipo_envio || '',
+      solenoide_modelo: (pedido as any).solenoide_modelo || '',
     });
     setItens(
       pedido.pedido_itens?.map((item: any) => ({
@@ -499,7 +500,7 @@ export default function Pedidos() {
     setOpen(isOpen);
     if (!isOpen) {
       setEditingPedido(null);
-      setForm({ cliente_id: '', observacoes: '', urgencia: 'normal', tipo_envio: '' });
+      setForm({ cliente_id: '', observacoes: '', urgencia: 'normal', tipo_envio: '', solenoide_modelo: '' });
       setItens([]);
       setShowConfirmation(false);
       setClienteSearch('');
@@ -580,7 +581,7 @@ export default function Pedidos() {
       }
       setOpen(false);
       setEditingPedido(null);
-      setForm({ cliente_id: '', observacoes: '', urgencia: 'normal', tipo_envio: '' });
+      setForm({ cliente_id: '', observacoes: '', urgencia: 'normal', tipo_envio: '', solenoide_modelo: '' });
       setItens([]);
       setShowConfirmation(false);
       setClienteSearch('');
