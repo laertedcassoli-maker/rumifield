@@ -168,7 +168,7 @@ export default function Pedidos() {
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [dateFilter, setDateFilter] = useState<'30' | 'all'>('30');
-  const [tipoEnvioFilter, setTipoEnvioFilter] = useState<'all' | 'envio' | 'apenas_nf'>('all');
+  const [tipoEnvioFilter, setTipoEnvioFilter] = useState<'all' | 'envio' | 'apenas_nf' | 'envio_pelo_tecnico'>('all');
   const [tipoLogisticaFilter, setTipoLogisticaFilter] = useState<'all' | 'correios' | 'entrega_propria'>('all');
   const [sortField, setSortField] = useState<'created_at' | 'cliente' | 'status'>('created_at');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
@@ -238,6 +238,8 @@ export default function Pedidos() {
           matchesTipoEnvio = pedido.tipo_envio === 'envio_fisico';
         } else if (tipoEnvioFilter === 'apenas_nf') {
           matchesTipoEnvio = pedido.tipo_envio === 'apenas_nf';
+        } else if (tipoEnvioFilter === 'envio_pelo_tecnico') {
+          matchesTipoEnvio = pedido.tipo_envio === 'envio_pelo_tecnico';
         }
 
         let matchesTipoLogistica = true;
@@ -1177,6 +1179,10 @@ export default function Pedidos() {
                         <Truck className="h-3 w-3" />
                         Envio Físico
                       </ToggleGroupItem>
+                      <ToggleGroupItem value="envio_pelo_tecnico" className="text-xs gap-1">
+                        <User className="h-3 w-3" />
+                        Envio pelo Técnico
+                      </ToggleGroupItem>
                       <ToggleGroupItem value="apenas_nf" className="text-xs gap-1">
                         <FileText className="h-3 w-3" />
                         Apenas NF
@@ -1353,6 +1359,15 @@ export default function Pedidos() {
                     >
                       <Truck className="h-3 w-3" />
                       Envio Físico
+                    </Button>
+                    <Button
+                      variant={tipoEnvioFilter === 'envio_pelo_tecnico' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setTipoEnvioFilter(tipoEnvioFilter === 'envio_pelo_tecnico' ? 'all' : 'envio_pelo_tecnico')}
+                      className="h-7 text-xs gap-1"
+                    >
+                      <User className="h-3 w-3" />
+                      Envio pelo Técnico
                     </Button>
                     <Button
                       variant={tipoEnvioFilter === 'apenas_nf' ? 'default' : 'outline'}
