@@ -496,6 +496,13 @@ export type Database = {
           estado: string | null
           fazenda: string | null
           id: string
+          imilk_csm: string | null
+          imilk_data_proximo_faturamento: string | null
+          imilk_id_contrato: number | null
+          imilk_plano_congelado: boolean | null
+          imilk_produto: string | null
+          imilk_valor: number | null
+          imilk_valor_bruto: number | null
           latitude: number | null
           link_maps: string | null
           longitude: number | null
@@ -523,6 +530,13 @@ export type Database = {
           estado?: string | null
           fazenda?: string | null
           id?: string
+          imilk_csm?: string | null
+          imilk_data_proximo_faturamento?: string | null
+          imilk_id_contrato?: number | null
+          imilk_plano_congelado?: boolean | null
+          imilk_produto?: string | null
+          imilk_valor?: number | null
+          imilk_valor_bruto?: number | null
           latitude?: number | null
           link_maps?: string | null
           longitude?: number | null
@@ -550,6 +564,13 @@ export type Database = {
           estado?: string | null
           fazenda?: string | null
           id?: string
+          imilk_csm?: string | null
+          imilk_data_proximo_faturamento?: string | null
+          imilk_id_contrato?: number | null
+          imilk_plano_congelado?: boolean | null
+          imilk_produto?: string | null
+          imilk_valor?: number | null
+          imilk_valor_bruto?: number | null
           latitude?: number | null
           link_maps?: string | null
           longitude?: number | null

@@ -52,7 +52,7 @@ serve(async (req) => {
     // Get existing clients by cod_imilk (including inactive ones)
     const { data: existingClients, error: fetchError } = await supabase
       .from('clientes')
-      .select('id, cod_imilk, status');
+      .select('id, cod_imilk, status, cidade, estado');
 
     if (fetchError) {
       console.error('Error fetching existing clients:', fetchError);
@@ -61,7 +61,7 @@ serve(async (req) => {
 
     // Map of cod_imilk -> { id, status }
     const existingCodIlmilkMap = new Map(
-      existingClients?.filter(c => c.cod_imilk).map(c => [c.cod_imilk, { id: c.id, status: c.status }]) || []
+      existingClients?.filter(c => c.cod_imilk).map(c => [c.cod_imilk, { id: c.id, status: c.status, cidade: c.cidade, estado: c.estado }]) || []
     );
 
     // Set of cod_imilk from iMilk API (active contracts)
@@ -73,30 +73,58 @@ serve(async (req) => {
     let deactivated = 0;
     let errors: string[] = [];
 
+    // Helpers
+    const toNumber = (v: unknown): number | null => {
+      if (v === null || v === undefined || v === '') return null;
+      const n = typeof v === 'number' ? v : parseFloat(String(v));
+      return Number.isFinite(n) ? n : null;
+    };
+    const toDate = (v: unknown): string | null => {
+      if (!v) return null;
+      const d = new Date(String(v));
+      return Number.isNaN(d.getTime()) ? null : d.toISOString().split('T')[0];
+    };
+
     // Process clients from iMilk
     for (const imilkCliente of imilkClientes) {
       try {
-        // Map iMilk fields to local fields based on actual API response
-        const clienteData = {
-          nome: imilkCliente.nome_cliente || 'Sem nome',
-          cod_imilk: String(imilkCliente.id_cliente || ''),
-        };
-
-        if (!clienteData.cod_imilk) {
+        const codImilk = String(imilkCliente.id_cliente || '');
+        if (!codImilk) {
           console.log('Skipping client without cod_imilk:', imilkCliente);
           continue;
         }
 
-        imilkCodSet.add(clienteData.cod_imilk);
+        imilkCodSet.add(codImilk);
 
-        const existing = existingCodIlmilkMap.get(clienteData.cod_imilk);
+        // iMilk-only metadata fields (always overwritten — source of truth = iMilk)
+        const imilkMetadata = {
+          imilk_id_contrato: imilkCliente.id_contrato ?? null,
+          imilk_produto: imilkCliente.produto ?? null,
+          imilk_csm: imilkCliente.csm ?? null,
+          imilk_valor: toNumber(imilkCliente.valor),
+          imilk_valor_bruto: toNumber(imilkCliente.valor_bruto),
+          imilk_plano_congelado: typeof imilkCliente.plano_congelado === 'boolean' ? imilkCliente.plano_congelado : null,
+          imilk_data_proximo_faturamento: toDate(imilkCliente.data_proximo_faturamento),
+        };
+
+        const existing = existingCodIlmilkMap.get(codImilk);
 
         if (existing) {
-          // Update existing client - also reactivate if was inactive
+          // Update existing client - reactivate if was inactive, fill empty cidade/estado, sync iMilk metadata
           const updateData: Record<string, unknown> = {
-            ...clienteData,
+            nome: imilkCliente.nome_cliente || 'Sem nome',
+            cod_imilk: codImilk,
             updated_at: new Date().toISOString(),
+            ...imilkMetadata,
           };
+
+          // Only fill cidade/estado if currently empty (preserve manual edits)
+          if (!existing.cidade && imilkCliente.city) {
+            updateData.cidade = imilkCliente.city;
+          }
+          if (!existing.estado && imilkCliente.state) {
+            updateData.estado = imilkCliente.state;
+          }
 
           // Reactivate if the client was inactive (they're back in iMilk)
           if (existing.status === 'inativo') {
@@ -111,23 +139,27 @@ serve(async (req) => {
 
           if (updateError) {
             console.error('Error updating client:', updateError);
-            errors.push(`Update error for ${clienteData.cod_imilk}: ${updateError.message}`);
+            errors.push(`Update error for ${codImilk}: ${updateError.message}`);
           } else {
             updated++;
           }
         } else {
-          // Insert new client
+          // Insert new client - fill cidade/estado and iMilk metadata from start
           const { error: insertError } = await supabase
             .from('clientes')
             .insert({
-              ...clienteData,
+              nome: imilkCliente.nome_cliente || 'Sem nome',
+              cod_imilk: codImilk,
+              cidade: imilkCliente.city || null,
+              estado: imilkCliente.state || null,
+              ...imilkMetadata,
               status: 'ativo',
-              data_ativacao_rumiflow: new Date().toISOString().split('T')[0], // Today's date
+              data_ativacao_rumiflow: new Date().toISOString().split('T')[0],
             });
 
           if (insertError) {
             console.error('Error inserting client:', insertError);
-            errors.push(`Insert error for ${clienteData.cod_imilk}: ${insertError.message}`);
+            errors.push(`Insert error for ${codImilk}: ${insertError.message}`);
           } else {
             created++;
           }
