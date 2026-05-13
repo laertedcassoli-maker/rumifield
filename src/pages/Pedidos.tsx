@@ -567,7 +567,8 @@ export default function Pedidos() {
             tipo_envio: form.tipo_envio || null,
             urgencia: form.urgencia,
             status: 'rascunho',
-          })
+            solenoide_modelo: hasSolenoide ? form.solenoide_modelo : null,
+          } as any)
           .select('id')
           .single();
         if (pedidoError) throw pedidoError;
