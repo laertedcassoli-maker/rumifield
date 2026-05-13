@@ -304,23 +304,10 @@ serve(async (req) => {
       }
     }
 
-    // IMPORTANT: Mark parts as inactive if they're no longer in Omie (NEVER DELETE)
-    for (const [omie_codigo, existing] of existingOmieCodigoMap) {
-      if (!omieCodigoSet.has(omie_codigo) && existing.ativo !== false) {
-        const { error: deactivateError } = await supabase
-          .from('pecas')
-          .update({ ativo: false })
-          .eq('id', existing.id);
-
-        if (deactivateError) {
-          console.error('Error deactivating part:', deactivateError);
-          errors.push(`Deactivate error for ${omie_codigo}: ${deactivateError.message}`);
-        } else {
-          deactivated++;
-          console.log(`Deactivated part ${omie_codigo} (not in Omie anymore)`);
-        }
-      }
-    }
+    // NOTE: Não desativamos mais peças que não aparecem na resposta atual da Omie.
+    // A ausência em uma sincronização pode ser causada por filtro/paginação/instabilidade
+    // da API e não significa que a peça deva sumir dos seletores. A desativação fica
+    // restrita ao gerenciamento manual em Cadastros > Peças.
 
     console.log(`Sync completed: ${created} created, ${updated} updated, ${reactivated} reactivated, ${deactivated} deactivated, ${errors.length} errors`);
 
