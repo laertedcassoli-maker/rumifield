@@ -54,7 +54,7 @@ export default function Pedidos() {
   const [open, setOpen] = useState(false);
   const [editingPedido, setEditingPedido] = useState<any>(null);
   const [viewingPedido, setViewingPedido] = useState<any>(null);
-  const [form, setForm] = useState({ cliente_id: '', observacoes: '', urgencia: 'normal', tipo_envio: '' });
+  const [form, setForm] = useState({ cliente_id: '', observacoes: '', urgencia: 'normal', tipo_envio: '', solenoide_modelo: '' });
   const [itens, setItens] = useState<{ peca_id: string; quantidade: number }[]>([]);
   const [viewAll, setViewAll] = useState(false);
   const [solicitanteFilter, setSolicitanteFilter] = useState<string>('all');
