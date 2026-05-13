@@ -1,34 +1,36 @@
-## Objetivo
+## Problema
 
-Quando o usuário adicionar a peça **PRD00605** (Solenóide) em **Novo Pedido / Pedido em rascunho**, exibir uma nova seção **"Modelo"** logo acima de **Urgência**, com duas opções: **Modelo 2x** e **Modelo 3x**. O valor deve ser obrigatório quando a peça estiver no pedido e ser persistido no banco.
+A tela **Cadastro > Tags de Chamados** só permite que usuários com papel `admin` criem/editem/excluam tags. As políticas RLS atuais da tabela `ticket_tags` (e da tabela relacionada `ticket_tag_links`) restringem `INSERT/UPDATE/DELETE` exclusivamente a admins, então o Phelipe (coordenador de serviços) recebe erro ao salvar.
 
-Nenhuma outra regra existente (ex.: vínculo automático PRD00605 → PRD00639) será alterada.
+## Solução
 
-## Mudanças
+Ampliar as políticas de gestão de tags para incluir também os papéis de coordenação, usando a função já existente `is_admin_or_coordinator(auth.uid())`, que cobre:
+- admin
+- coordenador_rplus
+- coordenador_servicos
+- coordenador_logistica
 
-### 1. Banco (migração)
+Nenhuma alteração de UI ou de lógica de aplicação é necessária — somente migração no banco.
 
-Adicionar coluna na tabela `pedidos`:
+## Migração proposta
 
-- `solenoide_modelo` text NULL — aceita apenas `'2x'` ou `'3x'` (validado via CHECK).
+```sql
+-- ticket_tags
+DROP POLICY IF EXISTS "Admins can manage ticket_tags" ON public.ticket_tags;
 
-```text
-pedidos
- └── solenoide_modelo  text  null   -- '2x' | '3x'
+CREATE POLICY "Admins and coordinators can manage ticket_tags"
+ON public.ticket_tags
+FOR ALL
+USING (public.is_admin_or_coordinator(auth.uid()))
+WITH CHECK (public.is_admin_or_coordinator(auth.uid()));
+
+-- ticket_tag_links (mesma lógica, pois TicketTags.tsx faz DELETE em links ao excluir tag)
+-- Verificar/ajustar políticas equivalentes se existir restrição apenas para admin.
 ```
 
-### 2. UI — `src/pages/Pedidos.tsx`
+## Validação
 
-- Adicionar `solenoide_modelo: ''` ao estado `form` (e nos resets existentes).
-- Calcular `hasSolenoide` a partir de `itens` + catálogo de peças (procurando `codigo === 'PRD00605'`).
-- Renderizar nova seção **"Modelo"** (ToggleGroup `2x` / `3x`) imediatamente **acima** do bloco Urgência, apenas quando `hasSolenoide` for verdadeiro.
-- Em `handleShowConfirmation`: se `hasSolenoide && !form.solenoide_modelo` → toast destrutivo "Selecione o Modelo (2x ou 3x) da solenóide".
-- Em `handleSubmit`:
-  - INSERT: incluir `solenoide_modelo: hasSolenoide ? form.solenoide_modelo : null`.
-  - UPDATE (rascunho): atualizar o mesmo campo.
-- Em `handleEditPedido`: hidratar `form.solenoide_modelo` a partir de `pedido.solenoide_modelo || ''`.
-- Se o usuário remover a peça PRD00605 do pedido, limpar `form.solenoide_modelo`.
-
-### 3. Fora do escopo
-
-- `EditarPedidoSolicitado` (edição após transmitido), Kanban, exibição em listagens — não serão alterados nesta etapa para respeitar "não alterar nenhuma outra regra existente". Posso incluir depois se desejar.
+Após aplicar:
+1. Logar como Phelipe (coordenador de serviços).
+2. Cadastro > Tags de Chamados → criar, editar, ativar/desativar e excluir uma tag.
+3. Confirmar ausência de erro e persistência no banco.
