@@ -40,6 +40,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { shareReportWithPdf, buildReportFileName, buildReportShareUrl } from '@/lib/share-report-pdf';
+import SolenoideModeloDialog, { SOLENOIDE_TRIGGER_CODE } from '@/components/pedidos/SolenoideModeloDialog';
 
 interface ValidationResult {
   canProceed: boolean;
@@ -63,6 +64,8 @@ export default function ExecucaoVisitaCorretiva() {
   const [sharingTarget, setSharingTarget] = useState<'produtor' | 'interno' | null>(null);
   const [isCheckingIn, setIsCheckingIn] = useState(false);
   const [completedResult, setCompletedResult] = useState<'resolvido' | 'parcial' | 'aguardando_peca' | null>(null);
+  const [showSolenoideDialog, setShowSolenoideDialog] = useState(false);
+  const [solenoideModelo, setSolenoideModelo] = useState<'2x' | '3x' | null>(null);
 
   // Bug #4: Reactive online state
   const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -400,6 +403,13 @@ export default function ExecucaoVisitaCorretiva() {
 
         // Auto-create pedidos for consumed parts
         if (visit.preventiveId && user) {
+          // Resolve trigger peca id once for solenoide_modelo persistence
+          const { data: triggerPart } = await supabase
+            .from('pecas')
+            .select('id')
+            .eq('codigo', SOLENOIDE_TRIGGER_CODE)
+            .maybeSingle();
+          const triggerPartId = triggerPart?.id || null;
           // Pedido for parts with stock_source = 'novo_pedido' (envio_fisico)
           const { data: novoPedidoParts, error: novoPedidoPartsError } = await supabase
             .from('preventive_part_consumption')
@@ -420,6 +430,7 @@ export default function ExecucaoVisitaCorretiva() {
             if (existingPedidoError) throw existingPedidoError;
 
             if (!existingPedido) {
+              const hasTrigger = !!triggerPartId && novoPedidoParts.some(p => p.part_id === triggerPartId);
               const { data: pedido, error: pedidoError } = await supabase
                 .from('pedidos')
                 .insert({
@@ -430,6 +441,7 @@ export default function ExecucaoVisitaCorretiva() {
                   origem: 'corretiva',
                   tipo_envio: 'envio_fisico',
                   urgencia: 'normal',
+                  solenoide_modelo: hasTrigger ? solenoideModelo : null,
                 } as any)
                 .select('id')
                 .single();
@@ -475,6 +487,7 @@ export default function ExecucaoVisitaCorretiva() {
             if (existingPedidoNFError) throw existingPedidoNFError;
 
             if (!existingPedidoNF) {
+              const hasTriggerNF = !!triggerPartId && tecnicoPartsForNF.some(p => p.part_id === triggerPartId);
               const { data: pedidoNF, error: pedidoNFError } = await supabase
                 .from('pedidos')
                 .insert({
@@ -485,6 +498,7 @@ export default function ExecucaoVisitaCorretiva() {
                   origem: 'corretiva',
                   tipo_envio: 'apenas_nf',
                   urgencia: 'normal',
+                  solenoide_modelo: hasTriggerNF ? solenoideModelo : null,
                 } as any)
                 .select('id')
                 .single();
@@ -684,6 +698,28 @@ export default function ExecucaoVisitaCorretiva() {
   const isVisitCompleted = visit?.status === 'finalizada' || !!completedResult;
   const hasCheckedIn = !!visit?.checkin_at;
   const canFinishVisit = checklistStatus === 'completed';
+
+  // Detect if PRD00605 is among consumed parts (requires modelo on checkout)
+  const { data: hasSolenoideConsumed } = useQuery({
+    queryKey: ['corrective-has-solenoide', visit?.preventiveId],
+    queryFn: async () => {
+      if (!visit?.preventiveId) return false;
+      const { data: trig } = await supabase
+        .from('pecas')
+        .select('id')
+        .eq('codigo', SOLENOIDE_TRIGGER_CODE)
+        .maybeSingle();
+      if (!trig?.id) return false;
+      const { count } = await supabase
+        .from('preventive_part_consumption')
+        .select('id', { count: 'exact', head: true })
+        .eq('preventive_id', visit.preventiveId)
+        .eq('part_id', trig.id);
+      return (count || 0) > 0;
+    },
+    enabled: !!visit?.preventiveId,
+    refetchInterval: 5000,
+  });
 
   // Validation function for encerrar
   const validateBeforeComplete = async (): Promise<ValidationResult> => {
@@ -1308,7 +1344,16 @@ export default function ExecucaoVisitaCorretiva() {
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => setSelectedResult(null)}>Cancelar</AlertDialogCancel>
             <AlertDialogAction 
-              onClick={() => selectedResult && completeMutation.mutate(selectedResult)}
+              onClick={(e) => {
+                if (!selectedResult) return;
+                if (hasSolenoideConsumed && !solenoideModelo) {
+                  e.preventDefault();
+                  setShowCompleteDialog(false);
+                  setShowSolenoideDialog(true);
+                  return;
+                }
+                completeMutation.mutate(selectedResult);
+              }}
               disabled={completeMutation.isPending || !selectedResult}
             >
               {completeMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
@@ -1317,6 +1362,20 @@ export default function ExecucaoVisitaCorretiva() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Solenoide Modelo Dialog (PRD00605) */}
+      <SolenoideModeloDialog
+        open={showSolenoideDialog}
+        onOpenChange={setShowSolenoideDialog}
+        initialValue={solenoideModelo}
+        onConfirm={(modelo) => {
+          setSolenoideModelo(modelo);
+          setShowSolenoideDialog(false);
+          if (selectedResult) completeMutation.mutate(selectedResult);
+        }}
+        description="A peça PRD00605 foi consumida nesta visita. Selecione o modelo (2x ou 3x) antes de encerrar."
+      />
+
     </div>
   );
 }

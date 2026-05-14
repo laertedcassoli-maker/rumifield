@@ -194,7 +194,16 @@ export default function AtendimentoPreventivo() {
           .eq('preventive_id', routeItem.preventiveId)
           .eq('stock_source', 'novo_pedido');
 
+        // Resolve trigger peca id once for solenoide_modelo persistence
+        const { data: triggerPart } = await supabase
+          .from('pecas')
+          .select('id')
+          .eq('codigo', SOLENOIDE_TRIGGER_CODE)
+          .maybeSingle();
+        const triggerPartId = triggerPart?.id || null;
+
         if (novoPedidoParts && novoPedidoParts.length > 0 && user) {
+          const hasTrigger = !!triggerPartId && novoPedidoParts.some(p => p.part_id === triggerPartId);
           const { data: pedido, error: pedidoError } = await supabase
             .from('pedidos')
             .insert({
@@ -205,6 +214,7 @@ export default function AtendimentoPreventivo() {
               origem: 'preventiva',
               tipo_envio: 'envio_fisico',
               urgencia: 'normal',
+              solenoide_modelo: hasTrigger ? solenoideModelo : null,
             } as any)
             .select('id')
             .single();
@@ -232,6 +242,7 @@ export default function AtendimentoPreventivo() {
           .eq('stock_source', 'tecnico');
 
         if (tecnicoPartsForNF && tecnicoPartsForNF.length > 0 && user) {
+          const hasTriggerNF = !!triggerPartId && tecnicoPartsForNF.some(p => p.part_id === triggerPartId);
           const { data: pedidoNF, error: pedidoNFError } = await supabase
             .from('pedidos')
             .insert({
@@ -242,6 +253,7 @@ export default function AtendimentoPreventivo() {
               origem: 'preventiva',
               tipo_envio: 'apenas_nf',
               urgencia: 'normal',
+              solenoide_modelo: hasTriggerNF ? solenoideModelo : null,
             } as any)
             .select('id')
             .single();
@@ -378,6 +390,28 @@ export default function AtendimentoPreventivo() {
     checklistStatus !== 'completed' &&
     checklistProgress?.status === 'em_andamento';
   const showFinalizeChecklistReminder = allItemsAnswered && checklistNotFinalized;
+
+  // Detect if PRD00605 is among consumed parts (requires modelo)
+  const { data: hasSolenoideConsumed } = useQuery({
+    queryKey: ['preventive-has-solenoide', routeItem?.preventiveId],
+    queryFn: async () => {
+      if (!routeItem?.preventiveId) return false;
+      const { data: trig } = await supabase
+        .from('pecas')
+        .select('id')
+        .eq('codigo', SOLENOIDE_TRIGGER_CODE)
+        .maybeSingle();
+      if (!trig?.id) return false;
+      const { count } = await supabase
+        .from('preventive_part_consumption')
+        .select('id', { count: 'exact', head: true })
+        .eq('preventive_id', routeItem.preventiveId)
+        .eq('part_id', trig.id);
+      return (count || 0) > 0;
+    },
+    enabled: !!routeItem?.preventiveId,
+    refetchInterval: 5000,
+  });
 
   // Validation function for encerrar
   const validateBeforeComplete = async (): Promise<ValidationResult> => {
@@ -903,7 +937,15 @@ export default function AtendimentoPreventivo() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction 
-              onClick={() => completeMutation.mutate()}
+              onClick={(e) => {
+                if (hasSolenoideConsumed && !solenoideModelo) {
+                  e.preventDefault();
+                  setShowCompleteDialog(false);
+                  setShowSolenoideDialog(true);
+                  return;
+                }
+                completeMutation.mutate();
+              }}
               disabled={completeMutation.isPending}
             >
               {completeMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
@@ -912,6 +954,21 @@ export default function AtendimentoPreventivo() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Solenoide Modelo Dialog (PRD00605) */}
+      <SolenoideModeloDialog
+        open={showSolenoideDialog}
+        onOpenChange={setShowSolenoideDialog}
+        initialValue={solenoideModelo}
+        onConfirm={(modelo) => {
+          setSolenoideModelo(modelo);
+          setShowSolenoideDialog(false);
+          // Resume completion
+          completeMutation.mutate();
+        }}
+        description="A peça PRD00605 foi consumida nesta visita. Selecione o modelo (2x ou 3x) antes de encerrar."
+      />
+
     </div>
   );
 }
