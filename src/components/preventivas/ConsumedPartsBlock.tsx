@@ -645,6 +645,27 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
                       </div>
                     )}
 
+                    {/* Modelo do Solenóide - apenas para PRD00605 */}
+                    {selectedPart?.codigo === 'PRD00605' && (
+                      <div className="space-y-2">
+                        <Label>
+                          Modelo do Solenóide <span className="text-destructive">*</span>
+                        </Label>
+                        <ToggleGroup
+                          type="single"
+                          value={dialogSolenoideModelo}
+                          onValueChange={(v) => v && setDialogSolenoideModelo(v as '2x' | '3x')}
+                          className="justify-start"
+                        >
+                          <ToggleGroupItem value="2x" className="font-mono">2x</ToggleGroupItem>
+                          <ToggleGroupItem value="3x" className="font-mono">3x</ToggleGroupItem>
+                        </ToggleGroup>
+                        <p className="text-xs text-muted-foreground">
+                          Necessário para gerar o pedido de reposição.
+                        </p>
+                      </div>
+                    )}
+
                     {/* Notes */}
                     <div className="space-y-2">
                       <Label>Observação</Label>
