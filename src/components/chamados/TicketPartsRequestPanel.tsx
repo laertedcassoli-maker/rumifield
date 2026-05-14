@@ -106,38 +106,74 @@ export default function TicketPartsRequestPanel({
     return acc;
   }, {} as Record<string, typeof filteredParts>);
 
+  // PRD00605 -> PRD00639 ×3 auto-link
+  const findPart = (codigo: string) => availableParts?.find(p => p.codigo === codigo);
+
+  const applyAutoLinks = (list: PartItem[]): PartItem[] => {
+    const trigger = findPart(SOLENOIDE_TRIGGER_CODE);
+    const target = findPart(SOLENOIDE_TARGET_CODE);
+    if (!trigger || !target) return list;
+
+    const without = list.filter(i => i.peca_id !== target.id);
+    const totalTrigger = without
+      .filter(i => i.peca_id === trigger.id)
+      .reduce((s, i) => s + i.quantidade, 0);
+    const targetQty = totalTrigger * SOLENOIDE_TARGET_QTY;
+    if (targetQty <= 0) return without;
+    return [
+      ...without,
+      {
+        peca_id: target.id,
+        codigo: target.codigo,
+        nome: target.nome,
+        quantidade: targetQty,
+      },
+    ];
+  };
+
+  const triggerPart = findPart(SOLENOIDE_TRIGGER_CODE);
+  const targetPart = findPart(SOLENOIDE_TARGET_CODE);
+  const hasSolenoide = !!triggerPart && items.some(i => i.peca_id === triggerPart.id);
+  const isAutoLinked = (peca_id: string) => !!targetPart && peca_id === targetPart.id && hasSolenoide;
+
   const addPart = (part: typeof availableParts[0]) => {
     const existing = items.find(i => i.peca_id === part.id);
+    let next: PartItem[];
     if (existing) {
-      setItems(items.map(i => 
-        i.peca_id === part.id 
-          ? { ...i, quantidade: i.quantidade + 1 }
-          : i
-      ));
+      next = items.map(i =>
+        i.peca_id === part.id ? { ...i, quantidade: i.quantidade + 1 } : i
+      );
     } else {
-      setItems([...items, {
+      next = [...items, {
         peca_id: part.id,
         codigo: part.codigo,
         nome: part.nome,
         quantidade: 1,
-      }]);
+      }];
     }
+    setItems(applyAutoLinks(next));
     setPartPopoverOpen(false);
     setPartSearch('');
   };
 
   const updateQuantity = (pecaId: string, quantidade: number) => {
+    if (isAutoLinked(pecaId)) return;
+    let next: PartItem[];
     if (quantidade < 1) {
-      setItems(items.filter(i => i.peca_id !== pecaId));
+      next = items.filter(i => i.peca_id !== pecaId);
     } else {
-      setItems(items.map(i => 
-        i.peca_id === pecaId ? { ...i, quantidade } : i
-      ));
+      next = items.map(i => (i.peca_id === pecaId ? { ...i, quantidade } : i));
     }
+    setItems(applyAutoLinks(next));
   };
 
   const removePart = (pecaId: string) => {
-    setItems(items.filter(i => i.peca_id !== pecaId));
+    if (isAutoLinked(pecaId)) return;
+    const next = items.filter(i => i.peca_id !== pecaId);
+    if (triggerPart && pecaId === triggerPart.id) {
+      setSolenoideModelo('');
+    }
+    setItems(applyAutoLinks(next));
   };
 
   // Create parts request mutation
