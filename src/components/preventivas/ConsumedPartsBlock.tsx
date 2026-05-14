@@ -357,6 +357,10 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
           return [...(old || []), newPart];
         });
       }
+      // Persist Solenoide model selection (used by checkout to skip prompt)
+      if (selectedPart?.codigo === 'PRD00605' && (dialogSolenoideModelo === '2x' || dialogSolenoideModelo === '3x')) {
+        try { sessionStorage.setItem(`solenoide_modelo_${preventiveId}`, dialogSolenoideModelo); } catch (_) {}
+      }
       queryClient.invalidateQueries({ queryKey: ['preventive-consumed-parts', preventiveId], refetchType: 'none' });
       toast({ title: 'Peça adicionada!' });
       resetAddDialog();
