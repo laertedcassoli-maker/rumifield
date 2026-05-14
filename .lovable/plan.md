@@ -1,36 +1,37 @@
 ## Objetivo
-Garantir que qualquer peça cadastrada no catálogo possa ser adicionada ou vinculada em todos os fluxos relevantes, sem depender de estoque, e impedir que peças válidas desapareçam indevidamente do catálogo.
+Tornar o vínculo automático entre **PRD00605** e **PRD00639** proporcional: a quantidade de PRD00639 no pedido deve ser sempre `quantidade total de PRD00605 × 3`, atualizando-se em tempo real conforme o usuário aumenta, diminui ou remove a peça gatilho.
 
-## O que vou implementar
-1. **Corrigir a origem do problema no sincronismo do catálogo**
-   - Ajustar a rotina de sincronização de peças para não desativar automaticamente itens cadastrados só porque não vieram na resposta atual da integração.
-   - Preservar a disponibilidade de peças já cadastradas no catálogo, tratando `ativo` como critério de disponibilidade funcional e `quantidade_estoque` apenas como informação.
+## Comportamento esperado
+- Adicionar 1× PRD00605 → cria PRD00639 com qty 3
+- Aumentar para 2× PRD00605 → PRD00639 vira qty 6
+- Diminuir para 1× PRD00605 → PRD00639 volta para qty 3
+- Remover PRD00605 → remove PRD00639
+- Vale para qualquer ponto de entrada: criação manual, edição de rascunho, edição de pedido já transmitido e qualquer importação futura (garantido pelo trigger no banco)
+- Usuário não pode editar manualmente a quantidade de PRD00639 enquanto houver PRD00605 (ela é derivada)
 
-2. **Reativar e preservar as peças afetadas**
-   - Reativar as peças de exemplo identificadas (`PRD00634`, `PRD00636`, `PRD00607`) para que voltem a aparecer imediatamente nos seletores.
-   - Validar se a regra cobre também outras peças que foram desativadas pelo mesmo comportamento.
+## O que vou ajustar
 
-3. **Padronizar os fluxos que adicionam/vinculam peças**
-   - Revisar os fluxos de pedidos, edição de pedidos, solicitações em chamados e consumos/vínculos em preventivas para garantir consistência no catálogo exibido.
-   - Manter como critério único de exibição a peça estar cadastrada e ativa no catálogo, sem qualquer bloqueio por estoque zero.
+### 1. Frontend — `src/pages/Pedidos.tsx`
+- Atualizar `applyAutoLinks` para **recalcular** a qty de PRD00639 com base na soma das quantidades de PRD00605 na lista (`total_605 * 3`), não apenas inserir uma vez.
+- Disparar `applyAutoLinks` também em `incrementQuantity`, `decrementQuantity` e em qualquer alteração de quantidade da peça gatilho.
+- Em `removeItem`, manter o comportamento atual (remove PRD00639 quando o último PRD00605 sai).
+- Bloquear edição manual da linha de PRD00639 (campo de quantidade desabilitado e botões +/− ocultos) enquanto existir PRD00605 na lista, com tooltip explicando o vínculo.
 
-4. **Validar o comportamento ponta a ponta**
-   - Confirmar que os códigos informados passam a aparecer nos fluxos principais.
-   - Verificar que criação e edição continuam funcionando sem regressão nos filtros existentes.
+### 2. Frontend — `src/components/pedidos/EditarPedidoSolicitado.tsx`
+- Replicar a mesma lógica proporcional para que pedidos já transmitidos também respeitem a regra ao serem editados.
 
-## Detalhes técnicos
-- Hoje os fluxos já consultam peças com filtro `ativo = true`; o problema encontrado não está no estoque e sim no fato de que os códigos informados estão salvos com `ativo = false`.
-- Situação atual encontrada no banco:
-  - `PRD00634` — cadastrada, estoque `0`, porém inativa
-  - `PRD00636` — cadastrada, estoque `0`, porém inativa
-  - `PRD00607` — cadastrada, estoque `0`, porém inativa
-- A função de sincronização atual marca como inativas as peças que não aparecem no retorno da integração, o que explica o desaparecimento desses itens em todos os seletores.
-- A implementação deve combinar:
-  - ajuste no código da sincronização
-  - ajuste de dados para reativar as peças afetadas
-  - checagem dos componentes que consomem o catálogo para manter comportamento uniforme
+### 3. Backend — função `public.auto_link_pedido_pecas` (trigger em `pedido_itens`)
+- Trocar a função atual (que só insere qty fixa 3 no INSERT) por uma versão que rode em **INSERT, UPDATE e DELETE** e sempre reconcilie:
+  - Calcula `total_605 = SUM(quantidade)` de PRD00605 no pedido.
+  - Se `total_605 > 0`: faz `UPSERT` de PRD00639 com `quantidade = total_605 * 3`.
+  - Se `total_605 = 0`: remove a linha de PRD00639 do pedido.
+- Garantir que o trigger ignore alterações feitas pelo próprio trigger em PRD00639 (evitar recursão), por exemplo checando o código da peça antes de recalcular.
+- Recriar o trigger para os três eventos (`AFTER INSERT OR UPDATE OR DELETE`).
+
+### 4. Saneamento de dados existentes
+- Rodar uma reconciliação única em todos os pedidos não finalizados que já contêm PRD00605, ajustando a qty de PRD00639 para `total_605 * 3` (ou inserindo/removendo conforme o caso), para alinhar pedidos criados antes deste ajuste.
 
 ## Resultado esperado
-- Peças com estoque `0` continuam disponíveis para adicionar/vincular.
-- Peças cadastradas não somem dos fluxos por desativação indevida da sincronização.
-- Os códigos `PRD00634`, `PRD00636` e `PRD00607` passam a aparecer normalmente onde o usuário precisa selecionar peças.
+- Quantidade de PRD00639 sempre proporcional (×3) à quantidade total de PRD00605 no mesmo pedido, em qualquer fluxo.
+- Sem necessidade de intervenção manual do usuário sobre PRD00639.
+- Trigger no banco garante consistência mesmo para integrações/importações futuras.
