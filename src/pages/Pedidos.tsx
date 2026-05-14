@@ -1110,7 +1110,8 @@ export default function Pedidos() {
                                   size="icon"
                                   className="h-9 w-9"
                                   onClick={() => decrementQuantity(index)}
-                                  disabled={item.quantidade <= 1}
+                                  disabled={item.quantidade <= 1 || isAutoLinked}
+                                  title={isAutoLinked ? 'Quantidade vinculada automaticamente ao PRD00605 (×3)' : undefined}
                                 >
                                   <Minus className="h-4 w-4" />
                                 </Button>
@@ -1123,17 +1124,26 @@ export default function Pedidos() {
                                   size="icon"
                                   className="h-9 w-9"
                                   onClick={() => incrementQuantity(index)}
+                                  disabled={isAutoLinked}
+                                  title={isAutoLinked ? 'Quantidade vinculada automaticamente ao PRD00605 (×3)' : undefined}
                                 >
                                   <Plus className="h-4 w-4" />
                                 </Button>
+                                {isAutoLinked && (
+                                  <span className="ml-2 text-[11px] text-muted-foreground">
+                                    Vinculado ao PRD00605 (×3)
+                                  </span>
+                                )}
                               </div>
-                              
+
                               <Button
                                 type="button"
                                 variant="ghost"
                                 size="sm"
                                 className="h-8 text-destructive hover:text-destructive"
                                 onClick={() => removeItem(index)}
+                                disabled={isAutoLinked}
+                                title={isAutoLinked ? 'Remova o PRD00605 para excluir esta peça vinculada' : undefined}
                               >
                                 <Trash2 className="h-4 w-4 mr-1" />
                                 Remover
