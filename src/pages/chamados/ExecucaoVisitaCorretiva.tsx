@@ -1353,6 +1353,14 @@ export default function ExecucaoVisitaCorretiva() {
               onClick={(e) => {
                 if (!selectedResult) return;
                 if (hasSolenoideConsumed && !solenoideModelo) {
+                  const stored = visit?.preventiveId
+                    ? sessionStorage.getItem(`solenoide_modelo_${visit.preventiveId}`)
+                    : null;
+                  if (stored === '2x' || stored === '3x') {
+                    setSolenoideModelo(stored);
+                    completeMutation.mutate(selectedResult);
+                    return;
+                  }
                   e.preventDefault();
                   setShowCompleteDialog(false);
                   setShowSolenoideDialog(true);
