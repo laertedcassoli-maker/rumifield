@@ -9,10 +9,16 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { cn } from '@/lib/utils';
 import { Plus, Minus, X, Loader2, Save, Undo2, ImageIcon, History, Clock } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import {
+  SOLENOIDE_TRIGGER_CODE,
+  SOLENOIDE_TARGET_CODE,
+  SOLENOIDE_TARGET_QTY,
+} from '@/components/pedidos/SolenoideModeloDialog';
 
 interface EditarPedidoSolicitadoProps {
   pedido: any;
