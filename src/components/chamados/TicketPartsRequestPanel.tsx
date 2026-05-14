@@ -347,36 +347,69 @@ export default function TicketPartsRequestPanel({
             <div className="space-y-2">
               <Label>Peças Selecionadas ({items.length})</Label>
               <div className="space-y-2 max-h-[300px] overflow-y-auto">
-                {items.map(item => (
-                  <div 
-                    key={item.peca_id} 
-                    className="flex items-center gap-3 p-3 border rounded-lg"
-                  >
-                    <Package className="h-4 w-4 text-muted-foreground shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <div className="font-mono text-xs text-muted-foreground">{item.codigo}</div>
-                      <div className="text-sm truncate">{item.nome}</div>
+                {items.map(item => {
+                  const linked = isAutoLinked(item.peca_id);
+                  return (
+                    <div
+                      key={item.peca_id}
+                      className="flex items-center gap-3 p-3 border rounded-lg"
+                    >
+                      <Package className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <div className="font-mono text-xs text-muted-foreground">{item.codigo}</div>
+                        <div className="text-sm truncate">{item.nome}</div>
+                        {linked && (
+                          <div className="text-[10px] text-primary mt-0.5">
+                            Vinculado ao {SOLENOIDE_TRIGGER_CODE} (×{SOLENOIDE_TARGET_QTY})
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="number"
+                          min={1}
+                          value={item.quantidade}
+                          onChange={(e) => updateQuantity(item.peca_id, parseInt(e.target.value) || 1)}
+                          className="w-16 h-8 text-center"
+                          disabled={linked}
+                          title={linked ? `Quantidade vinculada ao ${SOLENOIDE_TRIGGER_CODE} (×${SOLENOIDE_TARGET_QTY})` : undefined}
+                        />
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-destructive hover:text-destructive"
+                          onClick={() => removePart(item.peca_id)}
+                          disabled={linked}
+                          title={linked ? `Remova o ${SOLENOIDE_TRIGGER_CODE} para excluir esta peça vinculada` : undefined}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Input
-                        type="number"
-                        min={1}
-                        value={item.quantidade}
-                        onChange={(e) => updateQuantity(item.peca_id, parseInt(e.target.value) || 1)}
-                        className="w-16 h-8 text-center"
-                      />
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-destructive hover:text-destructive"
-                        onClick={() => removePart(item.peca_id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
+            </div>
+          )}
+
+          {/* Modelo do Solenóide (PRD00605) */}
+          {hasSolenoide && (
+            <div className="space-y-2 p-3 rounded-lg border bg-muted/40">
+              <Label className="text-sm">
+                Modelo do Solenóide <span className="text-destructive">*</span>
+              </Label>
+              <ToggleGroup
+                type="single"
+                value={solenoideModelo}
+                onValueChange={(v) => v && setSolenoideModelo(v as '2x' | '3x')}
+                className="justify-start"
+              >
+                <ToggleGroupItem value="2x" className="font-mono">2x</ToggleGroupItem>
+                <ToggleGroupItem value="3x" className="font-mono">3x</ToggleGroupItem>
+              </ToggleGroup>
+              <p className="text-[11px] text-muted-foreground">
+                Obrigatório quando a peça {SOLENOIDE_TRIGGER_CODE} está no pedido.
+              </p>
             </div>
           )}
 
