@@ -380,16 +380,30 @@ export default function Pedidos() {
     return normalizePecaCode(codigoPeca) === normalizePecaCode(SOLENOIDE_CODE);
   });
 
-  /** Garante PRD00639 (qty 3) na lista quando há PRD00605. */
+  /**
+   * Mantém a quantidade de PRD00639 sempre proporcional (×3) à soma das
+   * quantidades de PRD00605 no pedido. Insere quando precisa, atualiza
+   * conforme a qty muda e remove quando não há mais PRD00605.
+   */
   const applyAutoLinks = (list: { peca_id: string; quantidade: number }[]) => {
     const triggerId = findPecaIdByCodigo(AUTO_LINK_TRIGGER_CODE);
     const targetId = findPecaIdByCodigo(AUTO_LINK_TARGET_CODE);
     if (!triggerId || !targetId) return list;
-    const hasTrigger = list.some(i => i.peca_id === triggerId);
-    const hasTarget = list.some(i => i.peca_id === targetId);
-    if (hasTrigger && !hasTarget) {
-      return [...list, { peca_id: targetId, quantidade: AUTO_LINK_TARGET_QTY }];
+    const totalTrigger = list
+      .filter(i => i.peca_id === triggerId)
+      .reduce((sum, i) => sum + (Number(i.quantidade) || 0), 0);
+    const targetQty = totalTrigger * AUTO_LINK_TARGET_QTY;
+    const targetIdx = list.findIndex(i => i.peca_id === targetId);
+    if (targetQty > 0) {
+      if (targetIdx >= 0) {
+        if (list[targetIdx].quantidade === targetQty) return list;
+        const next = [...list];
+        next[targetIdx] = { ...next[targetIdx], quantidade: targetQty };
+        return next;
+      }
+      return [...list, { peca_id: targetId, quantidade: targetQty }];
     }
+    if (targetIdx >= 0) return list.filter((_, i) => i !== targetIdx);
     return list;
   };
 
@@ -406,31 +420,27 @@ export default function Pedidos() {
   const incrementQuantity = (index: number) => {
     const newItens = [...itens];
     newItens[index] = { ...newItens[index], quantidade: newItens[index].quantidade + 1 };
-    setItens(newItens);
+    setItens(applyAutoLinks(newItens));
   };
 
   const decrementQuantity = (index: number) => {
     const newItens = [...itens];
     if (newItens[index].quantidade > 1) {
       newItens[index] = { ...newItens[index], quantidade: newItens[index].quantidade - 1 };
-      setItens(newItens);
+      setItens(applyAutoLinks(newItens));
     }
   };
 
   const removeItem = (index: number) => {
     const removed = itens[index];
-    const triggerId = findPecaIdByCodigo(AUTO_LINK_TRIGGER_CODE);
-    const targetId = findPecaIdByCodigo(AUTO_LINK_TARGET_CODE);
-    let next = itens.filter((_, i) => i !== index);
-    // Se removeu PRD00605, remove também PRD00639 vinculada
-    if (removed?.peca_id && removed.peca_id === triggerId && targetId) {
-      next = next.filter(i => i.peca_id !== targetId);
-    }
+    const solenoideIdLocal = solenoideId;
+    const next = itens.filter((_, i) => i !== index);
     // Se removeu a solenóide PRD00605, limpa o modelo selecionado
-    if (removed?.peca_id && solenoideId && removed.peca_id === solenoideId) {
+    if (removed?.peca_id && solenoideIdLocal && removed.peca_id === solenoideIdLocal) {
       setForm((f) => ({ ...f, solenoide_modelo: '' }));
     }
-    setItens(next);
+    // applyAutoLinks recalcula PRD00639 (remove se não há mais PRD00605, ajusta qty caso contrário)
+    setItens(applyAutoLinks(next));
   };
 
 
@@ -991,7 +1001,11 @@ export default function Pedidos() {
                         const selectedPecaIds = itens.map(i => i.peca_id).filter(id => id !== item.peca_id);
                         const availablePecas = pecas?.filter(p => !selectedPecaIds.includes(p.id)) || [];
                         const selectedPeca = pecas?.find(p => p.id === item.peca_id);
-                        
+                        const triggerIdLocal = findPecaIdByCodigo(AUTO_LINK_TRIGGER_CODE);
+                        const targetIdLocal = findPecaIdByCodigo(AUTO_LINK_TARGET_CODE);
+                        const hasTriggerInList = !!triggerIdLocal && itens.some(i => i.peca_id === triggerIdLocal);
+                        const isAutoLinked = !!targetIdLocal && item.peca_id === targetIdLocal && hasTriggerInList;
+
                         return (
                           <div key={index} className="p-2 rounded-lg border bg-muted/30 space-y-2">
                             {selectedPeca ? (
@@ -1096,7 +1110,8 @@ export default function Pedidos() {
                                   size="icon"
                                   className="h-9 w-9"
                                   onClick={() => decrementQuantity(index)}
-                                  disabled={item.quantidade <= 1}
+                                  disabled={item.quantidade <= 1 || isAutoLinked}
+                                  title={isAutoLinked ? 'Quantidade vinculada automaticamente ao PRD00605 (×3)' : undefined}
                                 >
                                   <Minus className="h-4 w-4" />
                                 </Button>
@@ -1109,17 +1124,26 @@ export default function Pedidos() {
                                   size="icon"
                                   className="h-9 w-9"
                                   onClick={() => incrementQuantity(index)}
+                                  disabled={isAutoLinked}
+                                  title={isAutoLinked ? 'Quantidade vinculada automaticamente ao PRD00605 (×3)' : undefined}
                                 >
                                   <Plus className="h-4 w-4" />
                                 </Button>
+                                {isAutoLinked && (
+                                  <span className="ml-2 text-[11px] text-muted-foreground">
+                                    Vinculado ao PRD00605 (×3)
+                                  </span>
+                                )}
                               </div>
-                              
+
                               <Button
                                 type="button"
                                 variant="ghost"
                                 size="sm"
                                 className="h-8 text-destructive hover:text-destructive"
                                 onClick={() => removeItem(index)}
+                                disabled={isAutoLinked}
+                                title={isAutoLinked ? 'Remova o PRD00605 para excluir esta peça vinculada' : undefined}
                               >
                                 <Trash2 className="h-4 w-4 mr-1" />
                                 Remover
