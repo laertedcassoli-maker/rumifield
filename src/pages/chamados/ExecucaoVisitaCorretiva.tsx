@@ -64,6 +64,8 @@ export default function ExecucaoVisitaCorretiva() {
   const [sharingTarget, setSharingTarget] = useState<'produtor' | 'interno' | null>(null);
   const [isCheckingIn, setIsCheckingIn] = useState(false);
   const [completedResult, setCompletedResult] = useState<'resolvido' | 'parcial' | 'aguardando_peca' | null>(null);
+  const [showSolenoideDialog, setShowSolenoideDialog] = useState(false);
+  const [solenoideModelo, setSolenoideModelo] = useState<'2x' | '3x' | null>(null);
 
   // Bug #4: Reactive online state
   const [isOnline, setIsOnline] = useState(navigator.onLine);
