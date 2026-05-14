@@ -937,7 +937,15 @@ export default function AtendimentoPreventivo() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction 
-              onClick={() => completeMutation.mutate()}
+              onClick={(e) => {
+                if (hasSolenoideConsumed && !solenoideModelo) {
+                  e.preventDefault();
+                  setShowCompleteDialog(false);
+                  setShowSolenoideDialog(true);
+                  return;
+                }
+                completeMutation.mutate();
+              }}
               disabled={completeMutation.isPending}
             >
               {completeMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
@@ -946,6 +954,21 @@ export default function AtendimentoPreventivo() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Solenoide Modelo Dialog (PRD00605) */}
+      <SolenoideModeloDialog
+        open={showSolenoideDialog}
+        onOpenChange={setShowSolenoideDialog}
+        initialValue={solenoideModelo}
+        onConfirm={(modelo) => {
+          setSolenoideModelo(modelo);
+          setShowSolenoideDialog(false);
+          // Resume completion
+          completeMutation.mutate();
+        }}
+        description="A peça PRD00605 foi consumida nesta visita. Selecione o modelo (2x ou 3x) antes de encerrar."
+      />
+
     </div>
   );
 }
