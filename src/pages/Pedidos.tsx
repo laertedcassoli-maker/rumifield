@@ -1723,6 +1723,16 @@ export default function Pedidos() {
                 )}
               </div>
 
+              {/* Modelo do Solenoide */}
+              {(viewingPedido as any).solenoide_modelo && (
+                <div className="p-3 rounded-lg bg-muted/50 border flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">Modelo do Solenoide</span>
+                  <Badge variant="secondary" className="font-mono">
+                    {(viewingPedido as any).solenoide_modelo}
+                  </Badge>
+                </div>
+              )}
+
               {/* Data */}
               <div className="flex gap-4 text-sm">
                 <div>
