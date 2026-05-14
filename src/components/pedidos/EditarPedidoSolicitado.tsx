@@ -354,6 +354,7 @@ export default function EditarPedidoSolicitado({ pedido, onSaved, onCancel }: Ed
             const peca = pecas?.find(p => p.id === item.peca_id) || item.pecas;
             const currentQty = qtyChanges[item.id] ?? item.quantidade;
             const qtyChanged = qtyChanges[item.id] !== undefined;
+            const linked = isAutoLinkedItem(item.peca_id);
 
             return (
               <div key={item.id} className="flex items-center gap-2 p-2 rounded-lg border bg-card">
@@ -370,21 +371,26 @@ export default function EditarPedidoSolicitado({ pedido, onSaved, onCancel }: Ed
                 <div className="flex-1 min-w-0">
                   <span className="font-mono text-xs font-medium">{peca?.codigo}</span>
                   <p className="text-xs text-muted-foreground truncate">{peca?.nome}</p>
+                  {linked && (
+                    <p className="text-[10px] text-primary">
+                      Vinculado ao {SOLENOIDE_TRIGGER_CODE} (×{SOLENOIDE_TARGET_QTY})
+                    </p>
+                  )}
                 </div>
 
                 {/* Quantity controls */}
                 <div className="flex items-center gap-1 shrink-0">
-                  <Button type="button" variant="outline" size="icon" className="h-7 w-7" onClick={() => handleQtyChange(item.id, currentQty - 1)} disabled={currentQty <= 1}>
+                  <Button type="button" variant="outline" size="icon" className="h-7 w-7" onClick={() => handleQtyChange(item.id, currentQty - 1)} disabled={currentQty <= 1 || linked}>
                     <Minus className="h-3 w-3" />
                   </Button>
                   <span className={cn("w-8 text-center font-bold text-sm", qtyChanged && "text-warning")}>{currentQty}</span>
-                  <Button type="button" variant="outline" size="icon" className="h-7 w-7" onClick={() => handleQtyChange(item.id, currentQty + 1)}>
+                  <Button type="button" variant="outline" size="icon" className="h-7 w-7" onClick={() => handleQtyChange(item.id, currentQty + 1)} disabled={linked}>
                     <Plus className="h-3 w-3" />
                   </Button>
                 </div>
 
                 {/* Cancel button */}
-                <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive shrink-0" onClick={() => handleCancelItem(item.id)}>
+                <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive shrink-0" onClick={() => handleCancelItem(item.id)} disabled={linked}>
                   <X className="h-4 w-4" />
                 </Button>
               </div>
