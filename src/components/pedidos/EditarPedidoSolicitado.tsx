@@ -9,10 +9,16 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { cn } from '@/lib/utils';
 import { Plus, Minus, X, Loader2, Save, Undo2, ImageIcon, History, Clock } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import {
+  SOLENOIDE_TRIGGER_CODE,
+  SOLENOIDE_TARGET_CODE,
+  SOLENOIDE_TARGET_QTY,
+} from '@/components/pedidos/SolenoideModeloDialog';
 
 interface EditarPedidoSolicitadoProps {
   pedido: any;
@@ -60,9 +66,29 @@ export default function EditarPedidoSolicitado({ pedido, onSaved, onCancel }: Ed
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [pecaSearches, setPecaSearches] = useState<Record<number, string>>({});
   const [imagePreview, setImagePreview] = useState<{ url: string; nome: string } | null>(null);
+  const [solenoideModelo, setSolenoideModelo] = useState<'' | '2x' | '3x'>(
+    (pedido?.solenoide_modelo === '2x' || pedido?.solenoide_modelo === '3x') ? pedido.solenoide_modelo : ''
+  );
 
   const activeItems = items.filter(i => !i._cancelled);
   const cancelledItems = items.filter(i => i._cancelled);
+
+  // PRD00605/PRD00639 helpers
+  const findPart = (codigo: string) => pecas?.find(p => p.codigo === codigo);
+  const triggerPart = findPart(SOLENOIDE_TRIGGER_CODE);
+  const targetPart = findPart(SOLENOIDE_TARGET_CODE);
+
+  const triggerQtyTotal = activeItems
+    .filter(i => triggerPart && i.peca_id === triggerPart.id)
+    .reduce((s, i) => s + (qtyChanges[i.id] ?? i.quantidade), 0)
+    + newItems
+      .filter(i => triggerPart && i.peca_id === triggerPart.id)
+      .reduce((s, i) => s + i.quantidade, 0);
+  const hasSolenoide = triggerQtyTotal > 0;
+  const expectedTargetQty = triggerQtyTotal * SOLENOIDE_TARGET_QTY;
+
+  const isAutoLinkedItem = (peca_id: string) =>
+    !!targetPart && peca_id === targetPart.id && hasSolenoide;
 
   // Items already in use (to prevent duplicates)
   const usedPecaIds = [
@@ -70,13 +96,21 @@ export default function EditarPedidoSolicitado({ pedido, onSaved, onCancel }: Ed
     ...newItems.map(i => i.peca_id),
   ];
 
-  const hasChanges = 
+  const solenoideModeloChanged = solenoideModelo !== (pedido?.solenoide_modelo || '');
+
+  const hasChanges =
     items.some(i => i._cancelled && !i.cancelled_at) ||
     newItems.length > 0 ||
-    Object.keys(qtyChanges).length > 0;
+    Object.keys(qtyChanges).length > 0 ||
+    solenoideModeloChanged;
 
   const handleCancelItem = (itemId: string) => {
+    const item = items.find(i => i.id === itemId);
+    if (item && isAutoLinkedItem(item.peca_id)) return;
     setItems(prev => prev.map(i => i.id === itemId ? { ...i, _cancelled: true } : i));
+    if (triggerPart && item?.peca_id === triggerPart.id) {
+      setSolenoideModelo('');
+    }
   };
 
   const handleUncancelItem = (itemId: string) => {
@@ -85,6 +119,8 @@ export default function EditarPedidoSolicitado({ pedido, onSaved, onCancel }: Ed
 
   const handleQtyChange = (itemId: string, newQty: number) => {
     if (newQty < 1) return;
+    const item = items.find(i => i.id === itemId);
+    if (item && isAutoLinkedItem(item.peca_id)) return;
     const original = pedido.pedido_itens?.find((i: any) => i.id === itemId);
     if (original && original.quantidade === newQty) {
       const next = { ...qtyChanges };
@@ -137,9 +173,28 @@ export default function EditarPedidoSolicitado({ pedido, onSaved, onCancel }: Ed
 
   const handleSave = async () => {
     if (!user) return;
+
+    if (hasSolenoide && !solenoideModelo) {
+      toast({
+        variant: 'destructive',
+        title: 'Selecione o modelo do solenóide',
+        description: 'Escolha 2x ou 3x antes de salvar.',
+      });
+      return;
+    }
+
     setIsSaving(true);
     try {
       const logs: any[] = [];
+
+      // 0. Persist solenoide_modelo (or clear it if PRD00605 removed)
+      if (solenoideModeloChanged) {
+        const { error: pedidoUpdateError } = await supabase
+          .from('pedidos')
+          .update({ solenoide_modelo: hasSolenoide ? solenoideModelo : null } as any)
+          .eq('id', pedido.id);
+        if (pedidoUpdateError) throw pedidoUpdateError;
+      }
 
       // 1. Cancel items (soft delete)
       const newlyCancelled = items.filter(i => i._cancelled && !i.cancelled_at);
@@ -260,6 +315,30 @@ export default function EditarPedidoSolicitado({ pedido, onSaved, onCancel }: Ed
 
   return (
     <div className="flex-1 min-h-0 flex flex-col space-y-3 overflow-y-auto">
+      {/* Modelo do Solenóide */}
+      {(hasSolenoide || pedido?.solenoide_modelo) && (
+        <div className="space-y-2 p-3 rounded-lg border bg-muted/40">
+          <Label className="text-sm">
+            Modelo do Solenóide{hasSolenoide && <span className="text-destructive"> *</span>}
+          </Label>
+          <ToggleGroup
+            type="single"
+            value={solenoideModelo}
+            onValueChange={(v) => v && setSolenoideModelo(v as '2x' | '3x')}
+            className="justify-start"
+            disabled={!hasSolenoide}
+          >
+            <ToggleGroupItem value="2x" className="font-mono">2x</ToggleGroupItem>
+            <ToggleGroupItem value="3x" className="font-mono">3x</ToggleGroupItem>
+          </ToggleGroup>
+          {hasSolenoide && (
+            <p className="text-[11px] text-muted-foreground">
+              Obrigatório quando a peça {SOLENOIDE_TRIGGER_CODE} está no pedido.
+            </p>
+          )}
+        </div>
+      )}
+
       {/* Active Items */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
@@ -275,6 +354,7 @@ export default function EditarPedidoSolicitado({ pedido, onSaved, onCancel }: Ed
             const peca = pecas?.find(p => p.id === item.peca_id) || item.pecas;
             const currentQty = qtyChanges[item.id] ?? item.quantidade;
             const qtyChanged = qtyChanges[item.id] !== undefined;
+            const linked = isAutoLinkedItem(item.peca_id);
 
             return (
               <div key={item.id} className="flex items-center gap-2 p-2 rounded-lg border bg-card">
@@ -291,21 +371,26 @@ export default function EditarPedidoSolicitado({ pedido, onSaved, onCancel }: Ed
                 <div className="flex-1 min-w-0">
                   <span className="font-mono text-xs font-medium">{peca?.codigo}</span>
                   <p className="text-xs text-muted-foreground truncate">{peca?.nome}</p>
+                  {linked && (
+                    <p className="text-[10px] text-primary">
+                      Vinculado ao {SOLENOIDE_TRIGGER_CODE} (×{SOLENOIDE_TARGET_QTY})
+                    </p>
+                  )}
                 </div>
 
                 {/* Quantity controls */}
                 <div className="flex items-center gap-1 shrink-0">
-                  <Button type="button" variant="outline" size="icon" className="h-7 w-7" onClick={() => handleQtyChange(item.id, currentQty - 1)} disabled={currentQty <= 1}>
+                  <Button type="button" variant="outline" size="icon" className="h-7 w-7" onClick={() => handleQtyChange(item.id, currentQty - 1)} disabled={currentQty <= 1 || linked}>
                     <Minus className="h-3 w-3" />
                   </Button>
                   <span className={cn("w-8 text-center font-bold text-sm", qtyChanged && "text-warning")}>{currentQty}</span>
-                  <Button type="button" variant="outline" size="icon" className="h-7 w-7" onClick={() => handleQtyChange(item.id, currentQty + 1)}>
+                  <Button type="button" variant="outline" size="icon" className="h-7 w-7" onClick={() => handleQtyChange(item.id, currentQty + 1)} disabled={linked}>
                     <Plus className="h-3 w-3" />
                   </Button>
                 </div>
 
                 {/* Cancel button */}
-                <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive shrink-0" onClick={() => handleCancelItem(item.id)}>
+                <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive shrink-0" onClick={() => handleCancelItem(item.id)} disabled={linked}>
                   <X className="h-4 w-4" />
                 </Button>
               </div>

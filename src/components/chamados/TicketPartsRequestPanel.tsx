@@ -27,6 +27,13 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useRealtimePecas } from '@/hooks/useRealtimePecas';
+import SolenoideModeloDialog, {
+  SOLENOIDE_TRIGGER_CODE,
+  SOLENOIDE_TARGET_CODE,
+  SOLENOIDE_TARGET_QTY,
+} from '@/components/pedidos/SolenoideModeloDialog';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { Badge } from '@/components/ui/badge';
 
 interface TicketPartsRequestPanelProps {
   open: boolean;
@@ -56,8 +63,10 @@ export default function TicketPartsRequestPanel({
 
   const [items, setItems] = useState<PartItem[]>([]);
   const [observacoes, setObservacoes] = useState('');
+  const [solenoideModelo, setSolenoideModelo] = useState<'' | '2x' | '3x'>('');
   const [partPopoverOpen, setPartPopoverOpen] = useState(false);
   const [partSearch, setPartSearch] = useState('');
+  const [showSolenoideDialog, setShowSolenoideDialog] = useState(false);
 
   // Fetch active parts
   const { data: availableParts } = useQuery({
@@ -97,38 +106,74 @@ export default function TicketPartsRequestPanel({
     return acc;
   }, {} as Record<string, typeof filteredParts>);
 
+  // PRD00605 -> PRD00639 ×3 auto-link
+  const findPart = (codigo: string) => availableParts?.find(p => p.codigo === codigo);
+
+  const applyAutoLinks = (list: PartItem[]): PartItem[] => {
+    const trigger = findPart(SOLENOIDE_TRIGGER_CODE);
+    const target = findPart(SOLENOIDE_TARGET_CODE);
+    if (!trigger || !target) return list;
+
+    const without = list.filter(i => i.peca_id !== target.id);
+    const totalTrigger = without
+      .filter(i => i.peca_id === trigger.id)
+      .reduce((s, i) => s + i.quantidade, 0);
+    const targetQty = totalTrigger * SOLENOIDE_TARGET_QTY;
+    if (targetQty <= 0) return without;
+    return [
+      ...without,
+      {
+        peca_id: target.id,
+        codigo: target.codigo,
+        nome: target.nome,
+        quantidade: targetQty,
+      },
+    ];
+  };
+
+  const triggerPart = findPart(SOLENOIDE_TRIGGER_CODE);
+  const targetPart = findPart(SOLENOIDE_TARGET_CODE);
+  const hasSolenoide = !!triggerPart && items.some(i => i.peca_id === triggerPart.id);
+  const isAutoLinked = (peca_id: string) => !!targetPart && peca_id === targetPart.id && hasSolenoide;
+
   const addPart = (part: typeof availableParts[0]) => {
     const existing = items.find(i => i.peca_id === part.id);
+    let next: PartItem[];
     if (existing) {
-      setItems(items.map(i => 
-        i.peca_id === part.id 
-          ? { ...i, quantidade: i.quantidade + 1 }
-          : i
-      ));
+      next = items.map(i =>
+        i.peca_id === part.id ? { ...i, quantidade: i.quantidade + 1 } : i
+      );
     } else {
-      setItems([...items, {
+      next = [...items, {
         peca_id: part.id,
         codigo: part.codigo,
         nome: part.nome,
         quantidade: 1,
-      }]);
+      }];
     }
+    setItems(applyAutoLinks(next));
     setPartPopoverOpen(false);
     setPartSearch('');
   };
 
   const updateQuantity = (pecaId: string, quantidade: number) => {
+    if (isAutoLinked(pecaId)) return;
+    let next: PartItem[];
     if (quantidade < 1) {
-      setItems(items.filter(i => i.peca_id !== pecaId));
+      next = items.filter(i => i.peca_id !== pecaId);
     } else {
-      setItems(items.map(i => 
-        i.peca_id === pecaId ? { ...i, quantidade } : i
-      ));
+      next = items.map(i => (i.peca_id === pecaId ? { ...i, quantidade } : i));
     }
+    setItems(applyAutoLinks(next));
   };
 
   const removePart = (pecaId: string) => {
-    setItems(items.filter(i => i.peca_id !== pecaId));
+    if (isAutoLinked(pecaId)) return;
+    const next = items.filter(i => i.peca_id !== pecaId);
+    if (triggerPart && pecaId === triggerPart.id) {
+      setSolenoideModelo('');
+    }
+    setItems(applyAutoLinks(next));
   };
 
   // Create parts request mutation
@@ -146,6 +191,7 @@ export default function TicketPartsRequestPanel({
           observacoes: observacoes || null,
           origem: 'chamado',
           urgencia: 'normal',
+          solenoide_modelo: hasSolenoide ? solenoideModelo || null : null,
         } as any)
         .select('id')
         .single();
@@ -202,6 +248,7 @@ export default function TicketPartsRequestPanel({
       toast({ title: 'Solicitação de peças criada!' });
       setItems([]);
       setObservacoes('');
+      setSolenoideModelo('');
       onOpenChange(false);
     },
     onError: (error: Error) => {
@@ -216,7 +263,20 @@ export default function TicketPartsRequestPanel({
   const handleClose = () => {
     setItems([]);
     setObservacoes('');
+    setSolenoideModelo('');
     onOpenChange(false);
+  };
+
+  const handleSubmit = () => {
+    if (hasSolenoide && !solenoideModelo) {
+      toast({
+        variant: 'destructive',
+        title: 'Selecione o modelo do solenóide',
+        description: 'Escolha 2x ou 3x antes de criar a solicitação.',
+      });
+      return;
+    }
+    createRequest.mutate();
   };
 
   return (
@@ -287,36 +347,69 @@ export default function TicketPartsRequestPanel({
             <div className="space-y-2">
               <Label>Peças Selecionadas ({items.length})</Label>
               <div className="space-y-2 max-h-[300px] overflow-y-auto">
-                {items.map(item => (
-                  <div 
-                    key={item.peca_id} 
-                    className="flex items-center gap-3 p-3 border rounded-lg"
-                  >
-                    <Package className="h-4 w-4 text-muted-foreground shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <div className="font-mono text-xs text-muted-foreground">{item.codigo}</div>
-                      <div className="text-sm truncate">{item.nome}</div>
+                {items.map(item => {
+                  const linked = isAutoLinked(item.peca_id);
+                  return (
+                    <div
+                      key={item.peca_id}
+                      className="flex items-center gap-3 p-3 border rounded-lg"
+                    >
+                      <Package className="h-4 w-4 text-muted-foreground shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <div className="font-mono text-xs text-muted-foreground">{item.codigo}</div>
+                        <div className="text-sm truncate">{item.nome}</div>
+                        {linked && (
+                          <div className="text-[10px] text-primary mt-0.5">
+                            Vinculado ao {SOLENOIDE_TRIGGER_CODE} (×{SOLENOIDE_TARGET_QTY})
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="number"
+                          min={1}
+                          value={item.quantidade}
+                          onChange={(e) => updateQuantity(item.peca_id, parseInt(e.target.value) || 1)}
+                          className="w-16 h-8 text-center"
+                          disabled={linked}
+                          title={linked ? `Quantidade vinculada ao ${SOLENOIDE_TRIGGER_CODE} (×${SOLENOIDE_TARGET_QTY})` : undefined}
+                        />
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-destructive hover:text-destructive"
+                          onClick={() => removePart(item.peca_id)}
+                          disabled={linked}
+                          title={linked ? `Remova o ${SOLENOIDE_TRIGGER_CODE} para excluir esta peça vinculada` : undefined}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      <Input
-                        type="number"
-                        min={1}
-                        value={item.quantidade}
-                        onChange={(e) => updateQuantity(item.peca_id, parseInt(e.target.value) || 1)}
-                        className="w-16 h-8 text-center"
-                      />
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-destructive hover:text-destructive"
-                        onClick={() => removePart(item.peca_id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
+            </div>
+          )}
+
+          {/* Modelo do Solenóide (PRD00605) */}
+          {hasSolenoide && (
+            <div className="space-y-2 p-3 rounded-lg border bg-muted/40">
+              <Label className="text-sm">
+                Modelo do Solenóide <span className="text-destructive">*</span>
+              </Label>
+              <ToggleGroup
+                type="single"
+                value={solenoideModelo}
+                onValueChange={(v) => v && setSolenoideModelo(v as '2x' | '3x')}
+                className="justify-start"
+              >
+                <ToggleGroupItem value="2x" className="font-mono">2x</ToggleGroupItem>
+                <ToggleGroupItem value="3x" className="font-mono">3x</ToggleGroupItem>
+              </ToggleGroup>
+              <p className="text-[11px] text-muted-foreground">
+                Obrigatório quando a peça {SOLENOIDE_TRIGGER_CODE} está no pedido.
+              </p>
             </div>
           )}
 
@@ -342,7 +435,7 @@ export default function TicketPartsRequestPanel({
             </Button>
             <Button
               className="flex-1"
-              onClick={() => createRequest.mutate()}
+              onClick={handleSubmit}
               disabled={items.length === 0 || createRequest.isPending}
             >
               {createRequest.isPending ? (

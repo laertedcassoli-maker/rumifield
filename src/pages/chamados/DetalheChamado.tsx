@@ -319,6 +319,8 @@ export default function DetalheChamado() {
             status,
             cliente_id,
             created_at,
+            pedido_code,
+            solenoide_modelo,
             pedido_itens(
               id,
               quantidade,
@@ -732,6 +734,14 @@ export default function DetalheChamado() {
                           {(pr.pedidos as any)?.status || 'Pendente'}
                         </Badge>
                       </div>
+                      {(pr.pedidos as any)?.solenoide_modelo && (
+                        <div className="mb-2 flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground">Modelo do Solenóide:</span>
+                          <Badge variant="secondary" className="font-mono">
+                            {(pr.pedidos as any).solenoide_modelo}
+                          </Badge>
+                        </div>
+                      )}
                       <div className="space-y-1">
                         {(pr.pedidos as any)?.pedido_itens?.map((item: any) => (
                           <div key={item.id} className="text-sm flex items-center gap-2">

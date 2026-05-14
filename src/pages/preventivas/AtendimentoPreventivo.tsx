@@ -39,6 +39,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { shareReportWithPdf, buildReportFileName, buildReportShareUrl } from '@/lib/share-report-pdf';
+import SolenoideModeloDialog, { SOLENOIDE_TRIGGER_CODE } from '@/components/pedidos/SolenoideModeloDialog';
 
 interface ValidationResult {
   canProceed: boolean;
@@ -54,6 +55,8 @@ export default function AtendimentoPreventivo() {
   const queryClient = useQueryClient();
   const [showCompleteDialog, setShowCompleteDialog] = useState(false);
   const [showWarningDialog, setShowWarningDialog] = useState(false);
+  const [showSolenoideDialog, setShowSolenoideDialog] = useState(false);
+  const [solenoideModelo, setSolenoideModelo] = useState<'2x' | '3x' | null>(null);
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
   const [checklistStatus, setChecklistStatus] = useState<'not_started' | 'in_progress' | 'completed'>('not_started');
   const [sharingTarget, setSharingTarget] = useState<'produtor' | 'interno' | null>(null);
