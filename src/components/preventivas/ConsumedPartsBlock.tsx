@@ -687,7 +687,11 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
                     </Button>
                     <Button
                       onClick={() => addManualPartMutation.mutate()}
-                      disabled={!selectedPartId || addManualPartMutation.isPending}
+                      disabled={
+                        !selectedPartId ||
+                        addManualPartMutation.isPending ||
+                        (selectedPart?.codigo === 'PRD00605' && !dialogSolenoideModelo)
+                      }
                     >
                       {addManualPartMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                       Adicionar
