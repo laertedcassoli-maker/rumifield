@@ -435,7 +435,7 @@ export default function TicketPartsRequestPanel({
             </Button>
             <Button
               className="flex-1"
-              onClick={() => createRequest.mutate()}
+              onClick={handleSubmit}
               disabled={items.length === 0 || createRequest.isPending}
             >
               {createRequest.isPending ? (
