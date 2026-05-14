@@ -434,6 +434,10 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
         try { sessionStorage.setItem(`solenoide_modelo_${preventiveId}`, dialogSolenoideModelo); } catch (_) {}
       }
       queryClient.invalidateQueries({ queryKey: ['preventive-consumed-parts', preventiveId], refetchType: 'none' });
+      // Auto-vínculo PRD00605 → PRD00639 (×3)
+      if (selectedPart?.codigo === SOLENOIDE_TRIGGER_CODE) {
+        syncSolenoidLink().catch((e) => console.error('[solenoid sync] add', e));
+      }
       toast({ title: 'Peça adicionada!' });
       resetAddDialog();
     },
