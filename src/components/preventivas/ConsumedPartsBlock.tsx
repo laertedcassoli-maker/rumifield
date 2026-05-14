@@ -221,6 +221,14 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
   const SOLENOIDE_TARGET_CODE = 'PRD00639';
   const SOLENOIDE_TARGET_QTY = 3;
   const SOLENOIDE_LINK_MARKER = '[AUTO PRD00605→PRD00639 x3]';
+  // Linha individual: cada PRD00605 gera uma linha PRD00639 separada (×3),
+  // preservando rastreabilidade da origem (auto via não-conformidade vs. manual).
+  const buildMarker = (triggerRowId: string) => `${SOLENOIDE_LINK_MARKER} src=${triggerRowId}`;
+  const extractSrcId = (notes: string | null | undefined): string | null => {
+    if (!notes || !notes.startsWith(SOLENOIDE_LINK_MARKER)) return null;
+    const m = notes.match(/src=([0-9a-f-]{36})/i);
+    return m ? m[1] : null;
+  };
 
   const syncSolenoidLink = async () => {
     if (!isOnline) return;
@@ -234,59 +242,113 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
 
     const { data: triggerRows } = await supabase
       .from('preventive_part_consumption')
-      .select('id, quantity')
+      .select('id, quantity, exec_nonconformity_id, is_manual')
       .eq('preventive_id', preventiveId)
       .eq('part_id', trigger.id);
-    const totalTrigger = (triggerRows || []).reduce((s: number, r: any) => s + Number(r.quantity || 0), 0);
-    const targetQty = totalTrigger * SOLENOIDE_TARGET_QTY;
 
-    const { data: existingRows } = await supabase
+    const { data: existingTargets } = await supabase
       .from('preventive_part_consumption')
       .select('id, quantity, notes')
       .eq('preventive_id', preventiveId)
       .eq('part_id', target.id)
       .like('notes', `${SOLENOIDE_LINK_MARKER}%`);
-    const existing = (existingRows || [])[0];
 
-    if (targetQty <= 0) {
-      if (existing) {
-        await supabase.from('preventive_part_consumption').delete().eq('id', existing.id);
+    const triggers = triggerRows || [];
+    const targets = existingTargets || [];
+
+    // Index targets by source trigger id
+    const targetBySrc = new Map<string, { id: string; quantity: number }>();
+    const orphans: string[] = [];
+    for (const t of targets) {
+      const src = extractSrcId(t.notes as string | null);
+      if (!src || !triggers.some((tr: any) => tr.id === src)) {
+        orphans.push(t.id as string);
+      } else {
+        targetBySrc.set(src, { id: t.id as string, quantity: Number(t.quantity || 0) });
       }
-    } else if (existing) {
-      if (Number(existing.quantity) !== targetQty) {
+    }
+
+    // Delete orphans (their source PRD00605 was removed)
+    if (orphans.length > 0) {
+      await supabase.from('preventive_part_consumption').delete().in('id', orphans);
+    }
+
+    // Ensure each trigger row has its own target row with qty = trigger.qty * 3
+    for (const tr of triggers) {
+      const desiredQty = Number(tr.quantity || 0) * SOLENOIDE_TARGET_QTY;
+      if (desiredQty <= 0) continue;
+      const existing = targetBySrc.get(tr.id as string);
+      if (!existing) {
+        await (supabase as any).from('preventive_part_consumption').insert({
+          id: crypto.randomUUID(),
+          preventive_id: preventiveId,
+          part_id: target.id,
+          part_code_snapshot: target.codigo,
+          part_name_snapshot: target.nome,
+          quantity: desiredQty,
+          stock_source: 'novo_pedido',
+          is_manual: true,
+          notes: buildMarker(tr.id as string),
+        });
+      } else if (existing.quantity !== desiredQty) {
         await supabase
           .from('preventive_part_consumption')
-          .update({ quantity: targetQty })
+          .update({ quantity: desiredQty })
           .eq('id', existing.id);
       }
-    } else {
-      await (supabase as any).from('preventive_part_consumption').insert({
-        id: crypto.randomUUID(),
-        preventive_id: preventiveId,
-        part_id: target.id,
-        part_code_snapshot: target.codigo,
-        part_name_snapshot: target.nome,
-        quantity: targetQty,
-        stock_source: 'novo_pedido',
-        is_manual: true,
-        notes: SOLENOIDE_LINK_MARKER,
-      });
     }
+
     await queryClient.invalidateQueries({ queryKey: ['preventive-consumed-parts', preventiveId] });
   };
 
-  // Identify the auto-linked PRD00639 row in the current list (so UI can lock it)
-  const linkedTargetRowId = (() => {
-    const hasTrigger = parts?.some((p: any) => p.part_code_snapshot === SOLENOIDE_TRIGGER_CODE);
-    if (!hasTrigger) return null;
-    const target = parts?.find(
+  // Identify all auto-linked PRD00639 rows in the current list (so UI can lock each one)
+  const linkedTargetRowIds = (() => {
+    const set = new Set<string>();
+    for (const p of parts || []) {
+      if (
+        (p as any).part_code_snapshot === SOLENOIDE_TARGET_CODE &&
+        typeof (p as any).notes === 'string' &&
+        ((p as any).notes as string).startsWith(SOLENOIDE_LINK_MARKER)
+      ) {
+        set.add((p as any).id);
+      }
+    }
+    return set;
+  })();
+
+  // Reconcile auto-link whenever parts change (covers PRD00605 inserted via checklist non-conformity flow).
+  // Only triggers sync when current target rows don't match the expected per-trigger 1:1 mapping.
+  const reconcileRef = useRef(false);
+  useEffect(() => {
+    if (!parts || !isOnline || reconcileRef.current) return;
+    const triggerRows = parts.filter((p: any) => p.part_code_snapshot === SOLENOIDE_TRIGGER_CODE);
+    const targetRows = parts.filter(
       (p: any) =>
         p.part_code_snapshot === SOLENOIDE_TARGET_CODE &&
         typeof p.notes === 'string' &&
-        p.notes.startsWith(SOLENOIDE_LINK_MARKER),
+        (p.notes as string).startsWith(SOLENOIDE_LINK_MARKER),
     );
-    return target?.id || null;
-  })();
+    const triggerIds = new Set(triggerRows.map((t: any) => t.id));
+    const expected = triggerRows.map((t: any) => ({ src: t.id as string, qty: Number(t.quantity || 0) * SOLENOIDE_TARGET_QTY }));
+    let needsSync = false;
+    for (const tg of targetRows) {
+      const src = extractSrcId((tg as any).notes);
+      if (!src || !triggerIds.has(src)) { needsSync = true; break; }
+    }
+    if (!needsSync) {
+      for (const e of expected) {
+        const match = targetRows.find((tg: any) => extractSrcId((tg as any).notes) === e.src);
+        if (!match || Number((match as any).quantity) !== e.qty) { needsSync = true; break; }
+      }
+    }
+    if (needsSync) {
+      reconcileRef.current = true;
+      syncSolenoidLink()
+        .catch((err) => console.error('[solenoid reconcile]', err))
+        .finally(() => { reconcileRef.current = false; });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [parts, isOnline]);
 
   // Update stock source mutation
   const updateStockSourceMutation = useMutation({
@@ -566,7 +628,7 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
                       key={part.id}
                       part={part}
                       isCompleted={isCompleted}
-                      isLinked={part.id === linkedTargetRowId}
+                      isLinked={linkedTargetRowIds.has(part.id)}
                       linkedLabel={`Vinculado ao ${SOLENOIDE_TRIGGER_CODE} (×${SOLENOIDE_TARGET_QTY})`}
                       onStockSourceChange={handleStockSourceChange}
                       onAssetCodeChange={handleAssetCodeChange}
