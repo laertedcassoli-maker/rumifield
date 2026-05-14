@@ -319,6 +319,8 @@ export default function DetalheChamado() {
             status,
             cliente_id,
             created_at,
+            pedido_code,
+            solenoide_modelo,
             pedido_itens(
               id,
               quantidade,
