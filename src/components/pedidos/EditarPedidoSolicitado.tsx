@@ -66,9 +66,29 @@ export default function EditarPedidoSolicitado({ pedido, onSaved, onCancel }: Ed
   const [loadingHistory, setLoadingHistory] = useState(false);
   const [pecaSearches, setPecaSearches] = useState<Record<number, string>>({});
   const [imagePreview, setImagePreview] = useState<{ url: string; nome: string } | null>(null);
+  const [solenoideModelo, setSolenoideModelo] = useState<'' | '2x' | '3x'>(
+    (pedido?.solenoide_modelo === '2x' || pedido?.solenoide_modelo === '3x') ? pedido.solenoide_modelo : ''
+  );
 
   const activeItems = items.filter(i => !i._cancelled);
   const cancelledItems = items.filter(i => i._cancelled);
+
+  // PRD00605/PRD00639 helpers
+  const findPart = (codigo: string) => pecas?.find(p => p.codigo === codigo);
+  const triggerPart = findPart(SOLENOIDE_TRIGGER_CODE);
+  const targetPart = findPart(SOLENOIDE_TARGET_CODE);
+
+  const triggerQtyTotal = activeItems
+    .filter(i => triggerPart && i.peca_id === triggerPart.id)
+    .reduce((s, i) => s + (qtyChanges[i.id] ?? i.quantidade), 0)
+    + newItems
+      .filter(i => triggerPart && i.peca_id === triggerPart.id)
+      .reduce((s, i) => s + i.quantidade, 0);
+  const hasSolenoide = triggerQtyTotal > 0;
+  const expectedTargetQty = triggerQtyTotal * SOLENOIDE_TARGET_QTY;
+
+  const isAutoLinkedItem = (peca_id: string) =>
+    !!targetPart && peca_id === targetPart.id && hasSolenoide;
 
   // Items already in use (to prevent duplicates)
   const usedPecaIds = [
@@ -76,13 +96,21 @@ export default function EditarPedidoSolicitado({ pedido, onSaved, onCancel }: Ed
     ...newItems.map(i => i.peca_id),
   ];
 
-  const hasChanges = 
+  const solenoideModeloChanged = solenoideModelo !== (pedido?.solenoide_modelo || '');
+
+  const hasChanges =
     items.some(i => i._cancelled && !i.cancelled_at) ||
     newItems.length > 0 ||
-    Object.keys(qtyChanges).length > 0;
+    Object.keys(qtyChanges).length > 0 ||
+    solenoideModeloChanged;
 
   const handleCancelItem = (itemId: string) => {
+    const item = items.find(i => i.id === itemId);
+    if (item && isAutoLinkedItem(item.peca_id)) return;
     setItems(prev => prev.map(i => i.id === itemId ? { ...i, _cancelled: true } : i));
+    if (triggerPart && item?.peca_id === triggerPart.id) {
+      setSolenoideModelo('');
+    }
   };
 
   const handleUncancelItem = (itemId: string) => {
@@ -91,6 +119,8 @@ export default function EditarPedidoSolicitado({ pedido, onSaved, onCancel }: Ed
 
   const handleQtyChange = (itemId: string, newQty: number) => {
     if (newQty < 1) return;
+    const item = items.find(i => i.id === itemId);
+    if (item && isAutoLinkedItem(item.peca_id)) return;
     const original = pedido.pedido_itens?.find((i: any) => i.id === itemId);
     if (original && original.quantidade === newQty) {
       const next = { ...qtyChanges };
