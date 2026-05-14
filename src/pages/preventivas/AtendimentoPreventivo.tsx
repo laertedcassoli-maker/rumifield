@@ -391,6 +391,28 @@ export default function AtendimentoPreventivo() {
     checklistProgress?.status === 'em_andamento';
   const showFinalizeChecklistReminder = allItemsAnswered && checklistNotFinalized;
 
+  // Detect if PRD00605 is among consumed parts (requires modelo)
+  const { data: hasSolenoideConsumed } = useQuery({
+    queryKey: ['preventive-has-solenoide', routeItem?.preventiveId],
+    queryFn: async () => {
+      if (!routeItem?.preventiveId) return false;
+      const { data: trig } = await supabase
+        .from('pecas')
+        .select('id')
+        .eq('codigo', SOLENOIDE_TRIGGER_CODE)
+        .maybeSingle();
+      if (!trig?.id) return false;
+      const { count } = await supabase
+        .from('preventive_part_consumption')
+        .select('id', { count: 'exact', head: true })
+        .eq('preventive_id', routeItem.preventiveId)
+        .eq('part_id', trig.id);
+      return (count || 0) > 0;
+    },
+    enabled: !!routeItem?.preventiveId,
+    refetchInterval: 5000,
+  });
+
   // Validation function for encerrar
   const validateBeforeComplete = async (): Promise<ValidationResult> => {
     const blockingErrors: string[] = [];
