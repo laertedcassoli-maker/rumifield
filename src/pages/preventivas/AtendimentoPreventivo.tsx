@@ -939,6 +939,15 @@ export default function AtendimentoPreventivo() {
             <AlertDialogAction 
               onClick={(e) => {
                 if (hasSolenoideConsumed && !solenoideModelo) {
+                  // Try to recover the model previously chosen in the manual add dialog
+                  const stored = routeItem?.preventiveId
+                    ? sessionStorage.getItem(`solenoide_modelo_${routeItem.preventiveId}`)
+                    : null;
+                  if (stored === '2x' || stored === '3x') {
+                    setSolenoideModelo(stored);
+                    completeMutation.mutate();
+                    return;
+                  }
                   e.preventDefault();
                   setShowCompleteDialog(false);
                   setShowSolenoideDialog(true);
