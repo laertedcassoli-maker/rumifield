@@ -430,6 +430,7 @@ export default function ExecucaoVisitaCorretiva() {
             if (existingPedidoError) throw existingPedidoError;
 
             if (!existingPedido) {
+              const hasTrigger = !!triggerPartId && novoPedidoParts.some(p => p.part_id === triggerPartId);
               const { data: pedido, error: pedidoError } = await supabase
                 .from('pedidos')
                 .insert({
@@ -440,6 +441,7 @@ export default function ExecucaoVisitaCorretiva() {
                   origem: 'corretiva',
                   tipo_envio: 'envio_fisico',
                   urgencia: 'normal',
+                  solenoide_modelo: hasTrigger ? solenoideModelo : null,
                 } as any)
                 .select('id')
                 .single();
