@@ -1344,7 +1344,16 @@ export default function ExecucaoVisitaCorretiva() {
           <AlertDialogFooter>
             <AlertDialogCancel onClick={() => setSelectedResult(null)}>Cancelar</AlertDialogCancel>
             <AlertDialogAction 
-              onClick={() => selectedResult && completeMutation.mutate(selectedResult)}
+              onClick={(e) => {
+                if (!selectedResult) return;
+                if (hasSolenoideConsumed && !solenoideModelo) {
+                  e.preventDefault();
+                  setShowCompleteDialog(false);
+                  setShowSolenoideDialog(true);
+                  return;
+                }
+                completeMutation.mutate(selectedResult);
+              }}
               disabled={completeMutation.isPending || !selectedResult}
             >
               {completeMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
@@ -1353,6 +1362,20 @@ export default function ExecucaoVisitaCorretiva() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Solenoide Modelo Dialog (PRD00605) */}
+      <SolenoideModeloDialog
+        open={showSolenoideDialog}
+        onOpenChange={setShowSolenoideDialog}
+        initialValue={solenoideModelo}
+        onConfirm={(modelo) => {
+          setSolenoideModelo(modelo);
+          setShowSolenoideDialog(false);
+          if (selectedResult) completeMutation.mutate(selectedResult);
+        }}
+        description="A peça PRD00605 foi consumida nesta visita. Selecione o modelo (2x ou 3x) antes de encerrar."
+      />
+
     </div>
   );
 }
