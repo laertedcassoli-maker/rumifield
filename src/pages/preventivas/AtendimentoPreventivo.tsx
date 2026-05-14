@@ -242,6 +242,7 @@ export default function AtendimentoPreventivo() {
           .eq('stock_source', 'tecnico');
 
         if (tecnicoPartsForNF && tecnicoPartsForNF.length > 0 && user) {
+          const hasTriggerNF = !!triggerPartId && tecnicoPartsForNF.some(p => p.part_id === triggerPartId);
           const { data: pedidoNF, error: pedidoNFError } = await supabase
             .from('pedidos')
             .insert({
@@ -252,6 +253,7 @@ export default function AtendimentoPreventivo() {
               origem: 'preventiva',
               tipo_envio: 'apenas_nf',
               urgencia: 'normal',
+              solenoide_modelo: hasTriggerNF ? solenoideModelo : null,
             } as any)
             .select('id')
             .single();
