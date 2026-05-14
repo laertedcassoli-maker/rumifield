@@ -27,6 +27,13 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useRealtimePecas } from '@/hooks/useRealtimePecas';
+import SolenoideModeloDialog, {
+  SOLENOIDE_TRIGGER_CODE,
+  SOLENOIDE_TARGET_CODE,
+  SOLENOIDE_TARGET_QTY,
+} from '@/components/pedidos/SolenoideModeloDialog';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { Badge } from '@/components/ui/badge';
 
 interface TicketPartsRequestPanelProps {
   open: boolean;
