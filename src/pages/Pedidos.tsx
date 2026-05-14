@@ -1001,7 +1001,11 @@ export default function Pedidos() {
                         const selectedPecaIds = itens.map(i => i.peca_id).filter(id => id !== item.peca_id);
                         const availablePecas = pecas?.filter(p => !selectedPecaIds.includes(p.id)) || [];
                         const selectedPeca = pecas?.find(p => p.id === item.peca_id);
-                        
+                        const triggerIdLocal = findPecaIdByCodigo(AUTO_LINK_TRIGGER_CODE);
+                        const targetIdLocal = findPecaIdByCodigo(AUTO_LINK_TARGET_CODE);
+                        const hasTriggerInList = !!triggerIdLocal && itens.some(i => i.peca_id === triggerIdLocal);
+                        const isAutoLinked = !!targetIdLocal && item.peca_id === targetIdLocal && hasTriggerInList;
+
                         return (
                           <div key={index} className="p-2 rounded-lg border bg-muted/30 space-y-2">
                             {selectedPeca ? (
