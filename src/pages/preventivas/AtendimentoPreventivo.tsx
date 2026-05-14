@@ -194,7 +194,16 @@ export default function AtendimentoPreventivo() {
           .eq('preventive_id', routeItem.preventiveId)
           .eq('stock_source', 'novo_pedido');
 
+        // Resolve trigger peca id once for solenoide_modelo persistence
+        const { data: triggerPart } = await supabase
+          .from('pecas')
+          .select('id')
+          .eq('codigo', SOLENOIDE_TRIGGER_CODE)
+          .maybeSingle();
+        const triggerPartId = triggerPart?.id || null;
+
         if (novoPedidoParts && novoPedidoParts.length > 0 && user) {
+          const hasTrigger = !!triggerPartId && novoPedidoParts.some(p => p.part_id === triggerPartId);
           const { data: pedido, error: pedidoError } = await supabase
             .from('pedidos')
             .insert({
@@ -205,6 +214,7 @@ export default function AtendimentoPreventivo() {
               origem: 'preventiva',
               tipo_envio: 'envio_fisico',
               urgencia: 'normal',
+              solenoide_modelo: hasTrigger ? solenoideModelo : null,
             } as any)
             .select('id')
             .single();
