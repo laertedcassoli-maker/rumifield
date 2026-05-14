@@ -173,9 +173,28 @@ export default function EditarPedidoSolicitado({ pedido, onSaved, onCancel }: Ed
 
   const handleSave = async () => {
     if (!user) return;
+
+    if (hasSolenoide && !solenoideModelo) {
+      toast({
+        variant: 'destructive',
+        title: 'Selecione o modelo do solenóide',
+        description: 'Escolha 2x ou 3x antes de salvar.',
+      });
+      return;
+    }
+
     setIsSaving(true);
     try {
       const logs: any[] = [];
+
+      // 0. Persist solenoide_modelo (or clear it if PRD00605 removed)
+      if (solenoideModeloChanged) {
+        const { error: pedidoUpdateError } = await supabase
+          .from('pedidos')
+          .update({ solenoide_modelo: hasSolenoide ? solenoideModelo : null } as any)
+          .eq('id', pedido.id);
+        if (pedidoUpdateError) throw pedidoUpdateError;
+      }
 
       // 1. Cancel items (soft delete)
       const newlyCancelled = items.filter(i => i._cancelled && !i.cancelled_at);
