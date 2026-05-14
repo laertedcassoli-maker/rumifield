@@ -699,6 +699,28 @@ export default function ExecucaoVisitaCorretiva() {
   const hasCheckedIn = !!visit?.checkin_at;
   const canFinishVisit = checklistStatus === 'completed';
 
+  // Detect if PRD00605 is among consumed parts (requires modelo on checkout)
+  const { data: hasSolenoideConsumed } = useQuery({
+    queryKey: ['corrective-has-solenoide', visit?.preventiveId],
+    queryFn: async () => {
+      if (!visit?.preventiveId) return false;
+      const { data: trig } = await supabase
+        .from('pecas')
+        .select('id')
+        .eq('codigo', SOLENOIDE_TRIGGER_CODE)
+        .maybeSingle();
+      if (!trig?.id) return false;
+      const { count } = await supabase
+        .from('preventive_part_consumption')
+        .select('id', { count: 'exact', head: true })
+        .eq('preventive_id', visit.preventiveId)
+        .eq('part_id', trig.id);
+      return (count || 0) > 0;
+    },
+    enabled: !!visit?.preventiveId,
+    refetchInterval: 5000,
+  });
+
   // Validation function for encerrar
   const validateBeforeComplete = async (): Promise<ValidationResult> => {
     const blockingErrors: string[] = [];
