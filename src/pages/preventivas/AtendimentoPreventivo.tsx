@@ -166,6 +166,12 @@ export default function AtendimentoPreventivo() {
   const completeMutation = useMutation({
     mutationFn: async () => {
       if (!routeItem) throw new Error('Item não encontrado');
+      // Fallback: pick up modelo previously chosen in manual add dialog
+      const storedModelo = routeItem.preventiveId
+        ? sessionStorage.getItem(`solenoide_modelo_${routeItem.preventiveId}`)
+        : null;
+      const effectiveSolenoideModelo: '2x' | '3x' | null =
+        solenoideModelo ?? ((storedModelo === '2x' || storedModelo === '3x') ? storedModelo : null);
 
       // Update route item status to executado
       const { error: itemError } = await supabase
@@ -214,7 +220,7 @@ export default function AtendimentoPreventivo() {
               origem: 'preventiva',
               tipo_envio: 'envio_fisico',
               urgencia: 'normal',
-              solenoide_modelo: hasTrigger ? solenoideModelo : null,
+              solenoide_modelo: hasTrigger ? effectiveSolenoideModelo : null,
             } as any)
             .select('id')
             .single();
@@ -253,7 +259,7 @@ export default function AtendimentoPreventivo() {
               origem: 'preventiva',
               tipo_envio: 'apenas_nf',
               urgencia: 'normal',
-              solenoide_modelo: hasTriggerNF ? solenoideModelo : null,
+              solenoide_modelo: hasTriggerNF ? effectiveSolenoideModelo : null,
             } as any)
             .select('id')
             .single();
@@ -939,6 +945,15 @@ export default function AtendimentoPreventivo() {
             <AlertDialogAction 
               onClick={(e) => {
                 if (hasSolenoideConsumed && !solenoideModelo) {
+                  // Try to recover the model previously chosen in the manual add dialog
+                  const stored = routeItem?.preventiveId
+                    ? sessionStorage.getItem(`solenoide_modelo_${routeItem.preventiveId}`)
+                    : null;
+                  if (stored === '2x' || stored === '3x') {
+                    setSolenoideModelo(stored);
+                    completeMutation.mutate();
+                    return;
+                  }
                   e.preventDefault();
                   setShowCompleteDialog(false);
                   setShowSolenoideDialog(true);

@@ -61,6 +61,11 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
   const [notes, setNotes] = useState('');
   const [stockSource, setStockSource] = useState<'tecnico' | 'fazenda' | 'novo_pedido'>('tecnico');
   const [dialogAssetCode, setDialogAssetCode] = useState('');
+  const [dialogSolenoideModelo, setDialogSolenoideModelo] = useState<'2x' | '3x' | ''>(() => {
+    if (typeof window === 'undefined') return '';
+    const v = sessionStorage.getItem(`solenoide_modelo_${preventiveId}`);
+    return (v === '2x' || v === '3x') ? v : '';
+  });
   const [deleteConfirmPartId, setDeleteConfirmPartId] = useState<string | null>(null);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const { toast } = useToast();
@@ -352,6 +357,10 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
           return [...(old || []), newPart];
         });
       }
+      // Persist Solenoide model selection (used by checkout to skip prompt)
+      if (selectedPart?.codigo === 'PRD00605' && (dialogSolenoideModelo === '2x' || dialogSolenoideModelo === '3x')) {
+        try { sessionStorage.setItem(`solenoide_modelo_${preventiveId}`, dialogSolenoideModelo); } catch (_) {}
+      }
       queryClient.invalidateQueries({ queryKey: ['preventive-consumed-parts', preventiveId], refetchType: 'none' });
       toast({ title: 'Peça adicionada!' });
       resetAddDialog();
@@ -640,6 +649,27 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
                       </div>
                     )}
 
+                    {/* Modelo do Solenóide - apenas para PRD00605 */}
+                    {selectedPart?.codigo === 'PRD00605' && (
+                      <div className="space-y-2">
+                        <Label>
+                          Modelo do Solenóide <span className="text-destructive">*</span>
+                        </Label>
+                        <ToggleGroup
+                          type="single"
+                          value={dialogSolenoideModelo}
+                          onValueChange={(v) => v && setDialogSolenoideModelo(v as '2x' | '3x')}
+                          className="justify-start"
+                        >
+                          <ToggleGroupItem value="2x" className="font-mono">2x</ToggleGroupItem>
+                          <ToggleGroupItem value="3x" className="font-mono">3x</ToggleGroupItem>
+                        </ToggleGroup>
+                        <p className="text-xs text-muted-foreground">
+                          Necessário para gerar o pedido de reposição.
+                        </p>
+                      </div>
+                    )}
+
                     {/* Notes */}
                     <div className="space-y-2">
                       <Label>Observação</Label>
@@ -657,7 +687,11 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
                     </Button>
                     <Button
                       onClick={() => addManualPartMutation.mutate()}
-                      disabled={!selectedPartId || addManualPartMutation.isPending}
+                      disabled={
+                        !selectedPartId ||
+                        addManualPartMutation.isPending ||
+                        (selectedPart?.codigo === 'PRD00605' && !dialogSolenoideModelo)
+                      }
                     >
                       {addManualPartMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                       Adicionar
