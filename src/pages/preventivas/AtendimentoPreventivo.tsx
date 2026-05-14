@@ -166,6 +166,12 @@ export default function AtendimentoPreventivo() {
   const completeMutation = useMutation({
     mutationFn: async () => {
       if (!routeItem) throw new Error('Item não encontrado');
+      // Fallback: pick up modelo previously chosen in manual add dialog
+      const storedModelo = routeItem.preventiveId
+        ? sessionStorage.getItem(`solenoide_modelo_${routeItem.preventiveId}`)
+        : null;
+      const effectiveSolenoideModelo: '2x' | '3x' | null =
+        solenoideModelo ?? ((storedModelo === '2x' || storedModelo === '3x') ? storedModelo : null);
 
       // Update route item status to executado
       const { error: itemError } = await supabase
