@@ -316,6 +316,40 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
     return set;
   })();
 
+  // Reconcile auto-link whenever parts change (covers PRD00605 inserted via checklist non-conformity flow).
+  // Only triggers sync when current target rows don't match the expected per-trigger 1:1 mapping.
+  const reconcileRef = useRef(false);
+  useEffect(() => {
+    if (!parts || !isOnline || reconcileRef.current) return;
+    const triggerRows = parts.filter((p: any) => p.part_code_snapshot === SOLENOIDE_TRIGGER_CODE);
+    const targetRows = parts.filter(
+      (p: any) =>
+        p.part_code_snapshot === SOLENOIDE_TARGET_CODE &&
+        typeof p.notes === 'string' &&
+        (p.notes as string).startsWith(SOLENOIDE_LINK_MARKER),
+    );
+    const triggerIds = new Set(triggerRows.map((t: any) => t.id));
+    const expected = triggerRows.map((t: any) => ({ src: t.id as string, qty: Number(t.quantity || 0) * SOLENOIDE_TARGET_QTY }));
+    let needsSync = false;
+    for (const tg of targetRows) {
+      const src = extractSrcId((tg as any).notes);
+      if (!src || !triggerIds.has(src)) { needsSync = true; break; }
+    }
+    if (!needsSync) {
+      for (const e of expected) {
+        const match = targetRows.find((tg: any) => extractSrcId((tg as any).notes) === e.src);
+        if (!match || Number((match as any).quantity) !== e.qty) { needsSync = true; break; }
+      }
+    }
+    if (needsSync) {
+      reconcileRef.current = true;
+      syncSolenoidLink()
+        .catch((err) => console.error('[solenoid reconcile]', err))
+        .finally(() => { reconcileRef.current = false; });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [parts, isOnline]);
+
   // Update stock source mutation
   const updateStockSourceMutation = useMutation({
     mutationFn: async ({ partId, stockSource }: { partId: string; stockSource: string }) => {
