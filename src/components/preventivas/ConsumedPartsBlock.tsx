@@ -61,6 +61,11 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
   const [notes, setNotes] = useState('');
   const [stockSource, setStockSource] = useState<'tecnico' | 'fazenda' | 'novo_pedido'>('tecnico');
   const [dialogAssetCode, setDialogAssetCode] = useState('');
+  const [dialogSolenoideModelo, setDialogSolenoideModelo] = useState<'2x' | '3x' | ''>(() => {
+    if (typeof window === 'undefined') return '';
+    const v = sessionStorage.getItem(`solenoide_modelo_${preventiveId}`);
+    return (v === '2x' || v === '3x') ? v : '';
+  });
   const [deleteConfirmPartId, setDeleteConfirmPartId] = useState<string | null>(null);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const { toast } = useToast();
