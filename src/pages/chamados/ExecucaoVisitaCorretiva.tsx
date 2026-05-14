@@ -324,6 +324,12 @@ export default function ExecucaoVisitaCorretiva() {
   const completeMutation = useMutation({
     mutationFn: async (result: 'resolvido' | 'parcial' | 'aguardando_peca') => {
       if (!visit) throw new Error('Visita não encontrada');
+      // Fallback: pick up modelo previously chosen in the manual add dialog
+      const storedModelo = visit.preventiveId
+        ? sessionStorage.getItem(`solenoide_modelo_${visit.preventiveId}`)
+        : null;
+      const effectiveSolenoideModelo: '2x' | '3x' | null =
+        solenoideModelo ?? ((storedModelo === '2x' || storedModelo === '3x') ? storedModelo : null);
 
       // Bug #4: Check connectivity
       if (!navigator.onLine) {
