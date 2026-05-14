@@ -1,30 +1,41 @@
 ## Objetivo
-Exibir o **Modelo de Solenoide (2x/3x)** na tela de **Detalhes do Pedido**, hoje apenas salvo no banco mas invisível na visualização.
+Estender as regras da PRD00605 ↔ PRD00639 (vínculo automático ×3) e do **Modelo de Solenoide (2x/3x)** para todas as telas onde uma peça pode ser solicitada e para todas as visualizações de detalhes de pedido.
 
-## Alteração
+## Telas afetadas
 
-### `src/pages/Pedidos.tsx` — bloco de visualização (`viewingPedido`, ~linhas 1717-1734)
-Adicionar, logo após o card de Cliente (e ao lado/abaixo da data de criação), uma linha/badge condicional:
+### Solicitação de peças (entrada)
+1. **`src/components/chamados/TicketPartsRequestPanel.tsx`** — solicitação manual a partir de um chamado.
+2. **`src/components/pedidos/EditarPedidoSolicitado.tsx`** — edição de rascunho/solicitação existente.
+3. **`src/pages/preventivas/AtendimentoPreventivo.tsx`** — checkout de visita preventiva (cria pedidos automáticos).
+4. **`src/pages/chamados/ExecucaoVisitaCorretiva.tsx`** — checkout de visita corretiva (cria pedidos automáticos).
 
-- Se `viewingPedido.solenoide_modelo` estiver preenchido (`'2x'` ou `'3x'`), renderizar um bloco rotulado **"Modelo do Solenoide"** mostrando o valor em destaque (ex.: badge `2x` ou `3x`).
-- Caso contrário, não renderiza nada (mantém compatibilidade com pedidos antigos sem PRD00605).
+### Visualização de detalhes do pedido
+5. **`src/pages/chamados/DetalheChamado.tsx`** — bloco de pedidos vinculados ao chamado.
+6. **`src/components/pedidos/EditarPedidoSolicitado.tsx`** — também precisa exibir/editar o modelo.
+7. *(Já feito: `src/pages/Pedidos.tsx` viewingPedido.)*
 
-Exemplo de marcação a inserir:
-```tsx
-{viewingPedido.solenoide_modelo && (
-  <div className="p-3 rounded-lg bg-muted/50 border flex items-center justify-between">
-    <span className="text-sm text-muted-foreground">Modelo do Solenoide</span>
-    <Badge variant="secondary" className="font-mono">
-      {viewingPedido.solenoide_modelo}
-    </Badge>
-  </div>
-)}
-```
+## Comportamento padrão (replicar em todas as entradas)
 
-Nenhuma outra mudança é necessária:
-- A coluna já é persistida no `INSERT`/`UPDATE` do rascunho.
-- A query de listagem (`select('*')` em `pedidos`) já traz o campo, então `viewingPedido.solenoide_modelo` está disponível.
-- Tipagem (`src/integrations/supabase/types.ts`) já contém `solenoide_modelo`.
+- **Auto-vínculo PRD00605 → PRD00639 ×3:** ao adicionar/alterar/remover PRD00605, recalcular PRD00639 = qty(PRD00605) × 3. Já garantido no banco pelo trigger `auto_link_pedido_pecas`, mas refletir visualmente no carrinho de cada tela.
+- **Bloqueio de edição manual da PRD00639** quando vinculada (badge "Vinculado ao PRD00605 (×3)", botões de qty/remover desabilitados).
+- **Seletor de Modelo (2x / 3x)** obrigatório quando houver PRD00605 entre os itens; persistido na coluna `pedidos.solenoide_modelo` no insert/update.
+  - No `TicketPartsRequestPanel`, adicionar `solenoide_modelo` no INSERT do `pedidos`.
+  - No `EditarPedidoSolicitado`, exibir/editar e salvar `solenoide_modelo`.
+  - No checkout de **AtendimentoPreventivo** e **ExecucaoVisitaCorretiva**, antes de criar o pedido, abrir um passo/diálogo extra perguntando o modelo quando PRD00605 estiver entre as peças consumidas; bloquear o checkout até a escolha; gravar `solenoide_modelo` no INSERT do pedido gerado.
+- **Validação:** botão de salvar/finalizar continua clicável; em caso de modelo ausente, mostrar toast explícito (padrão UX do projeto).
+
+## Visualização do modelo
+
+Renderizar bloco "Modelo do Solenoide" (badge `2x`/`3x`) sempre que `pedido.solenoide_modelo` estiver preenchido em:
+- `DetalheChamado.tsx` no card de cada pedido vinculado (após o status, antes da lista de itens).
+- `EditarPedidoSolicitado.tsx` no topo do rascunho (com o seletor 2x/3x quando PRD00605 estiver presente).
+- `Pedidos.tsx` viewingPedido (já implementado, manter).
+
+## Backend
+
+Nenhuma migração nova necessária:
+- Coluna `pedidos.solenoide_modelo` já existe.
+- Trigger `auto_link_pedido_pecas` já cobre INSERT/UPDATE/DELETE em qualquer fluxo.
 
 ## Resultado
-Ao abrir **Pedidos > Detalhes do pedido**, quando houver PRD00605 no pedido, o modelo escolhido (2x ou 3x) aparece logo abaixo das informações do cliente.
+Independente de onde o usuário cria/edita um pedido (chamado, preventiva, corretiva, edição manual), o vínculo PRD00605→PRD00639 ×3 e o modelo 2x/3x se aplicam de forma consistente, e o modelo selecionado aparece em todos os pontos de visualização do pedido.
