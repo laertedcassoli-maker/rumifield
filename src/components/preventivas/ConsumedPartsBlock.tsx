@@ -466,6 +466,7 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
       if (error) throw error;
     },
     onSuccess: (_, partId) => {
+      const deleted = parts?.find((p: any) => p.id === partId);
       // Cancel in-flight queries and remove from cache immediately
       queryClient.cancelQueries({ queryKey: ['preventive-consumed-parts', preventiveId] });
       queryClient.setQueryData(['preventive-consumed-parts', preventiveId], (old: any[]) => {
@@ -473,6 +474,10 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
         return old.filter((p: any) => p.id !== partId);
       });
       queryClient.invalidateQueries({ queryKey: ['preventive-consumed-parts', preventiveId], refetchType: 'none' });
+      // Auto-vínculo: ressincroniza PRD00639 quando PRD00605 é removido
+      if (deleted?.part_code_snapshot === SOLENOIDE_TRIGGER_CODE) {
+        syncSolenoidLink().catch((e) => console.error('[solenoid sync] delete', e));
+      }
       toast({ title: 'Peça removida com sucesso' });
     },
     onError: (error: Error) => {
