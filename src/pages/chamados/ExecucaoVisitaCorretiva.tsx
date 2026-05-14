@@ -487,6 +487,7 @@ export default function ExecucaoVisitaCorretiva() {
             if (existingPedidoNFError) throw existingPedidoNFError;
 
             if (!existingPedidoNF) {
+              const hasTriggerNF = !!triggerPartId && tecnicoPartsForNF.some(p => p.part_id === triggerPartId);
               const { data: pedidoNF, error: pedidoNFError } = await supabase
                 .from('pedidos')
                 .insert({
@@ -497,6 +498,7 @@ export default function ExecucaoVisitaCorretiva() {
                   origem: 'corretiva',
                   tipo_envio: 'apenas_nf',
                   urgencia: 'normal',
+                  solenoide_modelo: hasTriggerNF ? solenoideModelo : null,
                 } as any)
                 .select('id')
                 .single();
