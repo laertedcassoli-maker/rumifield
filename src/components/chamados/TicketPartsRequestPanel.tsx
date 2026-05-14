@@ -63,8 +63,10 @@ export default function TicketPartsRequestPanel({
 
   const [items, setItems] = useState<PartItem[]>([]);
   const [observacoes, setObservacoes] = useState('');
+  const [solenoideModelo, setSolenoideModelo] = useState<'' | '2x' | '3x'>('');
   const [partPopoverOpen, setPartPopoverOpen] = useState(false);
   const [partSearch, setPartSearch] = useState('');
+  const [showSolenoideDialog, setShowSolenoideDialog] = useState(false);
 
   // Fetch active parts
   const { data: availableParts } = useQuery({
