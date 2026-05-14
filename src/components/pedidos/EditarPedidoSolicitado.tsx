@@ -348,12 +348,6 @@ export default function EditarPedidoSolicitado({ pedido, onSaved, onCancel }: Ed
             Adicionar Item
           </Button>
         </div>
-          <Label>Itens do Pedido</Label>
-          <Button type="button" size="sm" onClick={addNewItem} className="bg-success hover:bg-success/90 text-success-foreground h-7 text-xs">
-            <Plus className="mr-1 h-3 w-3" />
-            Adicionar Item
-          </Button>
-        </div>
 
         <div className="space-y-2 max-h-[40vh] overflow-y-auto">
           {activeItems.map((item) => {
