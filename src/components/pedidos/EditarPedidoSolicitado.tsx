@@ -315,9 +315,39 @@ export default function EditarPedidoSolicitado({ pedido, onSaved, onCancel }: Ed
 
   return (
     <div className="flex-1 min-h-0 flex flex-col space-y-3 overflow-y-auto">
+      {/* Modelo do Solenóide */}
+      {(hasSolenoide || pedido?.solenoide_modelo) && (
+        <div className="space-y-2 p-3 rounded-lg border bg-muted/40">
+          <Label className="text-sm">
+            Modelo do Solenóide{hasSolenoide && <span className="text-destructive"> *</span>}
+          </Label>
+          <ToggleGroup
+            type="single"
+            value={solenoideModelo}
+            onValueChange={(v) => v && setSolenoideModelo(v as '2x' | '3x')}
+            className="justify-start"
+            disabled={!hasSolenoide}
+          >
+            <ToggleGroupItem value="2x" className="font-mono">2x</ToggleGroupItem>
+            <ToggleGroupItem value="3x" className="font-mono">3x</ToggleGroupItem>
+          </ToggleGroup>
+          {hasSolenoide && (
+            <p className="text-[11px] text-muted-foreground">
+              Obrigatório quando a peça {SOLENOIDE_TRIGGER_CODE} está no pedido.
+            </p>
+          )}
+        </div>
+      )}
+
       {/* Active Items */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
+          <Label>Itens do Pedido</Label>
+          <Button type="button" size="sm" onClick={addNewItem} className="bg-success hover:bg-success/90 text-success-foreground h-7 text-xs">
+            <Plus className="mr-1 h-3 w-3" />
+            Adicionar Item
+          </Button>
+        </div>
           <Label>Itens do Pedido</Label>
           <Button type="button" size="sm" onClick={addNewItem} className="bg-success hover:bg-success/90 text-success-foreground h-7 text-xs">
             <Plus className="mr-1 h-3 w-3" />
