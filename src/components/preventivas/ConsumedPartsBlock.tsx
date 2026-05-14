@@ -216,6 +216,78 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
 
   const selectedPart = availableParts?.find(p => p.id === selectedPartId);
 
+  // ============ Auto-vínculo PRD00605 → PRD00639 (×3) ============
+  const SOLENOIDE_TRIGGER_CODE = 'PRD00605';
+  const SOLENOIDE_TARGET_CODE = 'PRD00639';
+  const SOLENOIDE_TARGET_QTY = 3;
+  const SOLENOIDE_LINK_MARKER = '[AUTO PRD00605→PRD00639 x3]';
+
+  const syncSolenoidLink = async () => {
+    if (!isOnline) return;
+    const { data: pecas } = await supabase
+      .from('pecas')
+      .select('id, codigo, nome')
+      .in('codigo', [SOLENOIDE_TRIGGER_CODE, SOLENOIDE_TARGET_CODE]);
+    const trigger = pecas?.find((p: any) => p.codigo === SOLENOIDE_TRIGGER_CODE);
+    const target = pecas?.find((p: any) => p.codigo === SOLENOIDE_TARGET_CODE);
+    if (!trigger || !target) return;
+
+    const { data: triggerRows } = await supabase
+      .from('preventive_part_consumption')
+      .select('id, quantity')
+      .eq('preventive_id', preventiveId)
+      .eq('part_id', trigger.id);
+    const totalTrigger = (triggerRows || []).reduce((s: number, r: any) => s + Number(r.quantity || 0), 0);
+    const targetQty = totalTrigger * SOLENOIDE_TARGET_QTY;
+
+    const { data: existingRows } = await supabase
+      .from('preventive_part_consumption')
+      .select('id, quantity, notes')
+      .eq('preventive_id', preventiveId)
+      .eq('part_id', target.id)
+      .like('notes', `${SOLENOIDE_LINK_MARKER}%`);
+    const existing = (existingRows || [])[0];
+
+    if (targetQty <= 0) {
+      if (existing) {
+        await supabase.from('preventive_part_consumption').delete().eq('id', existing.id);
+      }
+    } else if (existing) {
+      if (Number(existing.quantity) !== targetQty) {
+        await supabase
+          .from('preventive_part_consumption')
+          .update({ quantity: targetQty })
+          .eq('id', existing.id);
+      }
+    } else {
+      await (supabase as any).from('preventive_part_consumption').insert({
+        id: crypto.randomUUID(),
+        preventive_id: preventiveId,
+        part_id: target.id,
+        part_code_snapshot: target.codigo,
+        part_name_snapshot: target.nome,
+        quantity: targetQty,
+        stock_source: 'novo_pedido',
+        is_manual: true,
+        notes: SOLENOIDE_LINK_MARKER,
+      });
+    }
+    await queryClient.invalidateQueries({ queryKey: ['preventive-consumed-parts', preventiveId] });
+  };
+
+  // Identify the auto-linked PRD00639 row in the current list (so UI can lock it)
+  const linkedTargetRowId = (() => {
+    const hasTrigger = parts?.some((p: any) => p.part_code_snapshot === SOLENOIDE_TRIGGER_CODE);
+    if (!hasTrigger) return null;
+    const target = parts?.find(
+      (p: any) =>
+        p.part_code_snapshot === SOLENOIDE_TARGET_CODE &&
+        typeof p.notes === 'string' &&
+        p.notes.startsWith(SOLENOIDE_LINK_MARKER),
+    );
+    return target?.id || null;
+  })();
+
   // Update stock source mutation
   const updateStockSourceMutation = useMutation({
     mutationFn: async ({ partId, stockSource }: { partId: string; stockSource: string }) => {
