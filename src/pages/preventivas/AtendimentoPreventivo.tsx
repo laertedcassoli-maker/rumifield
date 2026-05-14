@@ -39,6 +39,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { shareReportWithPdf, buildReportFileName, buildReportShareUrl } from '@/lib/share-report-pdf';
+import SolenoideModeloDialog, { SOLENOIDE_TRIGGER_CODE } from '@/components/pedidos/SolenoideModeloDialog';
 
 interface ValidationResult {
   canProceed: boolean;
