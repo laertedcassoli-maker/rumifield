@@ -403,6 +403,13 @@ export default function ExecucaoVisitaCorretiva() {
 
         // Auto-create pedidos for consumed parts
         if (visit.preventiveId && user) {
+          // Resolve trigger peca id once for solenoide_modelo persistence
+          const { data: triggerPart } = await supabase
+            .from('pecas')
+            .select('id')
+            .eq('codigo', SOLENOIDE_TRIGGER_CODE)
+            .maybeSingle();
+          const triggerPartId = triggerPart?.id || null;
           // Pedido for parts with stock_source = 'novo_pedido' (envio_fisico)
           const { data: novoPedidoParts, error: novoPedidoPartsError } = await supabase
             .from('preventive_part_consumption')
