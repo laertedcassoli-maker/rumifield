@@ -216,6 +216,78 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
 
   const selectedPart = availableParts?.find(p => p.id === selectedPartId);
 
+  // ============ Auto-vínculo PRD00605 → PRD00639 (×3) ============
+  const SOLENOIDE_TRIGGER_CODE = 'PRD00605';
+  const SOLENOIDE_TARGET_CODE = 'PRD00639';
+  const SOLENOIDE_TARGET_QTY = 3;
+  const SOLENOIDE_LINK_MARKER = '[AUTO PRD00605→PRD00639 x3]';
+
+  const syncSolenoidLink = async () => {
+    if (!isOnline) return;
+    const { data: pecas } = await supabase
+      .from('pecas')
+      .select('id, codigo, nome')
+      .in('codigo', [SOLENOIDE_TRIGGER_CODE, SOLENOIDE_TARGET_CODE]);
+    const trigger = pecas?.find((p: any) => p.codigo === SOLENOIDE_TRIGGER_CODE);
+    const target = pecas?.find((p: any) => p.codigo === SOLENOIDE_TARGET_CODE);
+    if (!trigger || !target) return;
+
+    const { data: triggerRows } = await supabase
+      .from('preventive_part_consumption')
+      .select('id, quantity')
+      .eq('preventive_id', preventiveId)
+      .eq('part_id', trigger.id);
+    const totalTrigger = (triggerRows || []).reduce((s: number, r: any) => s + Number(r.quantity || 0), 0);
+    const targetQty = totalTrigger * SOLENOIDE_TARGET_QTY;
+
+    const { data: existingRows } = await supabase
+      .from('preventive_part_consumption')
+      .select('id, quantity, notes')
+      .eq('preventive_id', preventiveId)
+      .eq('part_id', target.id)
+      .like('notes', `${SOLENOIDE_LINK_MARKER}%`);
+    const existing = (existingRows || [])[0];
+
+    if (targetQty <= 0) {
+      if (existing) {
+        await supabase.from('preventive_part_consumption').delete().eq('id', existing.id);
+      }
+    } else if (existing) {
+      if (Number(existing.quantity) !== targetQty) {
+        await supabase
+          .from('preventive_part_consumption')
+          .update({ quantity: targetQty })
+          .eq('id', existing.id);
+      }
+    } else {
+      await (supabase as any).from('preventive_part_consumption').insert({
+        id: crypto.randomUUID(),
+        preventive_id: preventiveId,
+        part_id: target.id,
+        part_code_snapshot: target.codigo,
+        part_name_snapshot: target.nome,
+        quantity: targetQty,
+        stock_source: 'novo_pedido',
+        is_manual: true,
+        notes: SOLENOIDE_LINK_MARKER,
+      });
+    }
+    await queryClient.invalidateQueries({ queryKey: ['preventive-consumed-parts', preventiveId] });
+  };
+
+  // Identify the auto-linked PRD00639 row in the current list (so UI can lock it)
+  const linkedTargetRowId = (() => {
+    const hasTrigger = parts?.some((p: any) => p.part_code_snapshot === SOLENOIDE_TRIGGER_CODE);
+    if (!hasTrigger) return null;
+    const target = parts?.find(
+      (p: any) =>
+        p.part_code_snapshot === SOLENOIDE_TARGET_CODE &&
+        typeof p.notes === 'string' &&
+        p.notes.startsWith(SOLENOIDE_LINK_MARKER),
+    );
+    return target?.id || null;
+  })();
+
   // Update stock source mutation
   const updateStockSourceMutation = useMutation({
     mutationFn: async ({ partId, stockSource }: { partId: string; stockSource: string }) => {
@@ -362,6 +434,10 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
         try { sessionStorage.setItem(`solenoide_modelo_${preventiveId}`, dialogSolenoideModelo); } catch (_) {}
       }
       queryClient.invalidateQueries({ queryKey: ['preventive-consumed-parts', preventiveId], refetchType: 'none' });
+      // Auto-vínculo PRD00605 → PRD00639 (×3)
+      if (selectedPart?.codigo === SOLENOIDE_TRIGGER_CODE) {
+        syncSolenoidLink().catch((e) => console.error('[solenoid sync] add', e));
+      }
       toast({ title: 'Peça adicionada!' });
       resetAddDialog();
     },
@@ -390,6 +466,7 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
       if (error) throw error;
     },
     onSuccess: (_, partId) => {
+      const deleted = parts?.find((p: any) => p.id === partId);
       // Cancel in-flight queries and remove from cache immediately
       queryClient.cancelQueries({ queryKey: ['preventive-consumed-parts', preventiveId] });
       queryClient.setQueryData(['preventive-consumed-parts', preventiveId], (old: any[]) => {
@@ -397,6 +474,10 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
         return old.filter((p: any) => p.id !== partId);
       });
       queryClient.invalidateQueries({ queryKey: ['preventive-consumed-parts', preventiveId], refetchType: 'none' });
+      // Auto-vínculo: ressincroniza PRD00639 quando PRD00605 é removido
+      if (deleted?.part_code_snapshot === SOLENOIDE_TRIGGER_CODE) {
+        syncSolenoidLink().catch((e) => console.error('[solenoid sync] delete', e));
+      }
       toast({ title: 'Peça removida com sucesso' });
     },
     onError: (error: Error) => {
@@ -485,6 +566,8 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
                       key={part.id}
                       part={part}
                       isCompleted={isCompleted}
+                      isLinked={part.id === linkedTargetRowId}
+                      linkedLabel={`Vinculado ao ${SOLENOIDE_TRIGGER_CODE} (×${SOLENOIDE_TARGET_QTY})`}
                       onStockSourceChange={handleStockSourceChange}
                       onAssetCodeChange={handleAssetCodeChange}
                       onNotesChange={(partId, notes) => updateNotesMutation.mutate({ partId, notes })}
@@ -920,13 +1003,15 @@ function AssetCodeSelect({ value, onChange, onBlurSave, partId }: { value: strin
 interface PartItemProps {
   part: ConsumedPart & { is_asset?: boolean };
   isCompleted: boolean;
+  isLinked?: boolean;
+  linkedLabel?: string;
   onStockSourceChange: (partId: string, value: string) => void;
   onAssetCodeChange: (partId: string, code: string) => void;
   onNotesChange: (partId: string, notes: string) => void;
   onDelete: (partId: string) => void;
 }
 
-function PartItem({ part, isCompleted, onStockSourceChange, onAssetCodeChange, onNotesChange, onDelete }: PartItemProps) {
+function PartItem({ part, isCompleted, isLinked, linkedLabel, onStockSourceChange, onAssetCodeChange, onNotesChange, onDelete }: PartItemProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [localNotes, setLocalNotes] = useState(part.notes || '');
   const [localAssetCode, setLocalAssetCode] = useState(part.asset_unique_code || '');
@@ -937,7 +1022,7 @@ function PartItem({ part, isCompleted, onStockSourceChange, onAssetCodeChange, o
   };
 
   return (
-    <div className="border rounded-lg p-3 space-y-2">
+    <div className={cn("border rounded-lg p-3 space-y-2", isLinked && "border-primary/40 bg-primary/5")}>
       {/* Part Info */}
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
@@ -948,9 +1033,14 @@ function PartItem({ part, isCompleted, onStockSourceChange, onAssetCodeChange, o
             <Badge variant="secondary" className="shrink-0">
               Qtd: {part.quantity}
             </Badge>
-            {part.is_manual && (
+            {part.is_manual && !isLinked && (
               <Badge variant="outline" className="text-xs shrink-0 bg-amber-500/10 text-amber-600 border-amber-500/30">
                 Manual
+              </Badge>
+            )}
+            {isLinked && (
+              <Badge variant="outline" className="text-[10px] shrink-0 bg-primary/10 text-primary border-primary/30">
+                {linkedLabel || 'Vinculado'}
               </Badge>
             )}
           </div>
@@ -958,13 +1048,15 @@ function PartItem({ part, isCompleted, onStockSourceChange, onAssetCodeChange, o
             {part.part_name_snapshot}
           </p>
         </div>
-        {/* Delete button for all parts */}
+        {/* Delete button for all parts (locked when linked) */}
         {!isCompleted && (
           <Button
             variant="ghost"
             size="icon"
             className="h-7 w-7 text-destructive shrink-0"
             onClick={() => onDelete(part.id)}
+            disabled={isLinked}
+            title={isLinked ? 'Esta peça é gerada automaticamente. Remova o PRD00605 para excluí-la.' : undefined}
           >
             <Trash2 className="h-3.5 w-3.5" />
           </Button>
