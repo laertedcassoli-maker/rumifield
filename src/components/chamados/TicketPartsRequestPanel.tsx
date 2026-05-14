@@ -191,6 +191,7 @@ export default function TicketPartsRequestPanel({
           observacoes: observacoes || null,
           origem: 'chamado',
           urgencia: 'normal',
+          solenoide_modelo: hasSolenoide ? solenoideModelo || null : null,
         } as any)
         .select('id')
         .single();
