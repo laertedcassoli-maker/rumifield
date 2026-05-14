@@ -248,6 +248,7 @@ export default function TicketPartsRequestPanel({
       toast({ title: 'Solicitação de peças criada!' });
       setItems([]);
       setObservacoes('');
+      setSolenoideModelo('');
       onOpenChange(false);
     },
     onError: (error: Error) => {
@@ -262,7 +263,20 @@ export default function TicketPartsRequestPanel({
   const handleClose = () => {
     setItems([]);
     setObservacoes('');
+    setSolenoideModelo('');
     onOpenChange(false);
+  };
+
+  const handleSubmit = () => {
+    if (hasSolenoide && !solenoideModelo) {
+      toast({
+        variant: 'destructive',
+        title: 'Selecione o modelo do solenóide',
+        description: 'Escolha 2x ou 3x antes de criar a solicitação.',
+      });
+      return;
+    }
+    createRequest.mutate();
   };
 
   return (
