@@ -1003,13 +1003,15 @@ function AssetCodeSelect({ value, onChange, onBlurSave, partId }: { value: strin
 interface PartItemProps {
   part: ConsumedPart & { is_asset?: boolean };
   isCompleted: boolean;
+  isLinked?: boolean;
+  linkedLabel?: string;
   onStockSourceChange: (partId: string, value: string) => void;
   onAssetCodeChange: (partId: string, code: string) => void;
   onNotesChange: (partId: string, notes: string) => void;
   onDelete: (partId: string) => void;
 }
 
-function PartItem({ part, isCompleted, onStockSourceChange, onAssetCodeChange, onNotesChange, onDelete }: PartItemProps) {
+function PartItem({ part, isCompleted, isLinked, linkedLabel, onStockSourceChange, onAssetCodeChange, onNotesChange, onDelete }: PartItemProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [localNotes, setLocalNotes] = useState(part.notes || '');
   const [localAssetCode, setLocalAssetCode] = useState(part.asset_unique_code || '');
@@ -1020,7 +1022,7 @@ function PartItem({ part, isCompleted, onStockSourceChange, onAssetCodeChange, o
   };
 
   return (
-    <div className="border rounded-lg p-3 space-y-2">
+    <div className={cn("border rounded-lg p-3 space-y-2", isLinked && "border-primary/40 bg-primary/5")}>
       {/* Part Info */}
       <div className="flex items-start justify-between gap-2">
         <div className="flex-1 min-w-0">
@@ -1031,9 +1033,14 @@ function PartItem({ part, isCompleted, onStockSourceChange, onAssetCodeChange, o
             <Badge variant="secondary" className="shrink-0">
               Qtd: {part.quantity}
             </Badge>
-            {part.is_manual && (
+            {part.is_manual && !isLinked && (
               <Badge variant="outline" className="text-xs shrink-0 bg-amber-500/10 text-amber-600 border-amber-500/30">
                 Manual
+              </Badge>
+            )}
+            {isLinked && (
+              <Badge variant="outline" className="text-[10px] shrink-0 bg-primary/10 text-primary border-primary/30">
+                {linkedLabel || 'Vinculado'}
               </Badge>
             )}
           </div>
@@ -1041,13 +1048,15 @@ function PartItem({ part, isCompleted, onStockSourceChange, onAssetCodeChange, o
             {part.part_name_snapshot}
           </p>
         </div>
-        {/* Delete button for all parts */}
+        {/* Delete button for all parts (locked when linked) */}
         {!isCompleted && (
           <Button
             variant="ghost"
             size="icon"
             className="h-7 w-7 text-destructive shrink-0"
             onClick={() => onDelete(part.id)}
+            disabled={isLinked}
+            title={isLinked ? 'Esta peça é gerada automaticamente. Remova o PRD00605 para excluí-la.' : undefined}
           >
             <Trash2 className="h-3.5 w-3.5" />
           </Button>
