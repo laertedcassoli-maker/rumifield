@@ -220,7 +220,7 @@ export default function AtendimentoPreventivo() {
               origem: 'preventiva',
               tipo_envio: 'envio_fisico',
               urgencia: 'normal',
-              solenoide_modelo: hasTrigger ? solenoideModelo : null,
+              solenoide_modelo: hasTrigger ? effectiveSolenoideModelo : null,
             } as any)
             .select('id')
             .single();
@@ -259,7 +259,7 @@ export default function AtendimentoPreventivo() {
               origem: 'preventiva',
               tipo_envio: 'apenas_nf',
               urgencia: 'normal',
-              solenoide_modelo: hasTriggerNF ? solenoideModelo : null,
+              solenoide_modelo: hasTriggerNF ? effectiveSolenoideModelo : null,
             } as any)
             .select('id')
             .single();
