@@ -542,10 +542,10 @@ export default function RelatorioCorretivo() {
                 if (block.items.length === 0) return null;
 
                 return (
-                  <div key={block.id} className="space-y-2">
+                  <div key={block.id} className="space-y-2" data-pdf-subsection="checklist-block">
                     <h4 className="font-medium text-sm text-muted-foreground">{block.block_name_snapshot}</h4>
                     {block.items.map(item => (
-                      <div key={item.id} className={`p-2 rounded-lg ${item.status === 'N' ? 'bg-destructive/10' : 'bg-muted/50'}`}>
+                      <div key={item.id} data-pdf-subsection="checklist-item" className={`p-2 rounded-lg ${item.status === 'N' ? 'bg-destructive/10' : 'bg-muted/50'}`}>
                         <div className="flex items-start gap-2">
                           <StatusIcon status={item.status} />
                           <div className="flex-1 min-w-0">
@@ -599,7 +599,7 @@ export default function RelatorioCorretivo() {
             <CardContent>
               <div className="space-y-2">
                 {parts.map(part => (
-                  <div key={part.id} className="flex justify-between items-center p-2 bg-muted/50 rounded-lg">
+                  <div key={part.id} data-pdf-subsection="part-item" className="flex justify-between items-center p-2 bg-muted/50 rounded-lg">
                     <div>
                       <p className="text-sm font-medium">{part.part_name_snapshot}</p>
                       <p className="text-xs text-muted-foreground">{part.part_code_snapshot}</p>
@@ -631,12 +631,14 @@ export default function RelatorioCorretivo() {
             <CardContent>
               <div className="grid grid-cols-2 gap-2">
                 {media.map(m => (
-                  <div key={m.id} className="relative aspect-square rounded-lg overflow-hidden bg-muted">
+                  <div key={m.id} data-pdf-subsection="media-item" className="relative aspect-square rounded-lg overflow-hidden bg-muted">
                     {m.file_type.startsWith('image/') ? (
                       imageUrls[m.id] ? (
                         <img
                           src={imageUrls[m.id]}
                           alt={m.caption || m.file_name}
+                          crossOrigin={isPdfCapture ? 'anonymous' : undefined}
+                          loading={isPdfCapture ? 'eager' : 'lazy'}
                           className="w-full h-full object-cover"
                         />
                       ) : (
