@@ -375,7 +375,7 @@ export default function RelatorioPreventivo() {
               <Wrench className="h-5 w-5" />
               <span className="font-bold">Relatório de Visita</span>
             </div>
-            <Button variant="outline" size="sm" onClick={handleShare} disabled={isSharing}>
+            <Button variant="outline" size="sm" onClick={handleShare} disabled={isSharing} data-pdf-hide="true">
               {isSharing ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Share2 className="h-4 w-4 mr-1" />}
               Compartilhar
             </Button>
