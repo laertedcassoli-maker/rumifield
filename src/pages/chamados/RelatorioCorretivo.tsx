@@ -376,11 +376,7 @@ export default function RelatorioCorretivo() {
     const r = corrective.result ? resultLabels[corrective.result] : null;
     if (!r) return null;
     if (isPdfCapture) {
-      return (
-        <span className="inline-flex max-w-full rounded-md border px-2 py-1 text-xs font-medium break-words bg-muted text-foreground">
-          {r.label}
-        </span>
-      );
+      return <p className="font-medium text-sm break-words">{r.label}</p>;
     }
     return <Badge variant={r.variant}>{r.label}</Badge>;
   };
