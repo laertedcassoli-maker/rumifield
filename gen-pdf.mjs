@@ -1,7 +1,7 @@
 import { chromium } from 'playwright';
 import fs from 'fs';
 
-const URL = 'https://rumifield.lovable.app/relatorio/f2733b08-f3a9-4c6c-a358-b8e234329cfb';
+const URL = 'https://id-preview--93d2c41a-b447-4249-ae06-ee5b8fb38914.lovable.app/relatorio/f2733b08-f3a9-4c6c-a358-b8e234329cfb';
 const OUT = '/mnt/documents/relatorio-preventivo-modelo.pdf';
 
 const browser = await chromium.launch({ headless: true, executablePath: '/bin/chromium', args: ['--no-sandbox'] });
