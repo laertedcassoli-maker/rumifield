@@ -37,7 +37,63 @@ export function buildReportFileName(prefix: string, code?: string | null): strin
   return parts.filter(Boolean).join('-') + '.pdf';
 }
 
-async function waitForIframeReady(iframe: HTMLIFrameElement, timeoutMs = 18000): Promise<void> {
+// ============================================================
+// A4 layout constants (mm)
+// ============================================================
+const A4_W = 210;
+const A4_H = 297;
+const MARGIN_X = 10;
+const MARGIN_TOP = 14;
+const MARGIN_BOTTOM = 12;
+const CONTENT_W = A4_W - MARGIN_X * 2;
+const CONTENT_H = A4_H - MARGIN_TOP - MARGIN_BOTTOM;
+const SECTION_GAP = 4;
+const H2C_SCALE = 2;
+
+// ============================================================
+// Image CORS handling: rewrite cross-origin <img> tags to use
+// crossOrigin="anonymous" so html2canvas can rasterize them.
+// ============================================================
+async function rewriteImagesForCors(doc: Document): Promise<void> {
+  const imgs = Array.from(doc.images);
+  const reloadPromises: Promise<void>[] = [];
+
+  for (const img of imgs) {
+    const src = img.src;
+    if (!src || src.startsWith('data:') || src.startsWith('blob:')) continue;
+    try {
+      const u = new URL(src, doc.baseURI);
+      const sameOrigin = u.origin === doc.location.origin;
+      if (sameOrigin) continue;
+    } catch {
+      continue;
+    }
+    if (img.crossOrigin === 'anonymous') continue;
+
+    reloadPromises.push(
+      new Promise<void>((resolve) => {
+        const originalSrc = img.src;
+        const done = () => resolve();
+        img.crossOrigin = 'anonymous';
+        // Force re-fetch with the new crossOrigin attribute
+        img.src = '';
+        img.addEventListener('load', done, { once: true });
+        img.addEventListener('error', done, { once: true });
+        // Reassign (cache-busted to ensure a fresh CORS request)
+        const sep = originalSrc.includes('?') ? '&' : '?';
+        img.src = `${originalSrc}${sep}_pdf=1`;
+        // Safety timeout
+        setTimeout(done, 8000);
+      }),
+    );
+  }
+
+  if (reloadPromises.length > 0) {
+    await Promise.all(reloadPromises);
+  }
+}
+
+async function waitForIframeReady(iframe: HTMLIFrameElement, timeoutMs = 20000): Promise<void> {
   const waitStart = Date.now();
 
   // Phase 1: wait for iframe document to exist & route to resolve
@@ -55,7 +111,19 @@ async function waitForIframeReady(iframe: HTMLIFrameElement, timeoutMs = 18000):
   const doc = iframe.contentDocument;
   if (!doc?.body) throw new Error('Conteúdo do relatório indisponível');
 
-  const win = iframe.contentWindow as (Window & { __REPORT_READY__?: boolean }) | null;
+  const win = iframe.contentWindow as (Window & { __REPORT_READY__?: boolean; __PDF_CAPTURE__?: boolean }) | null;
+  if (win) win.__PDF_CAPTURE__ = true;
+
+  // Inject capture-only styles: hide UI controls and force responsive images
+  try {
+    const style = doc.createElement('style');
+    style.setAttribute('data-pdf-style', 'true');
+    style.textContent = `
+      [data-pdf-hide]{display:none !important;}
+      img{max-width:100% !important;height:auto;}
+    `;
+    doc.head.appendChild(style);
+  } catch {}
 
   // Phase 2: wait for ready marker OR error marker
   while (Date.now() - waitStart < timeoutMs) {
@@ -79,7 +147,10 @@ async function waitForIframeReady(iframe: HTMLIFrameElement, timeoutMs = 18000):
     if (doc.fonts?.ready) await Promise.race([doc.fonts.ready, new Promise(r => setTimeout(r, 1500))]);
   } catch {}
 
-  // Wait for images (max 6s)
+  // Force CORS on cross-origin images so html2canvas can rasterize them
+  await rewriteImagesForCors(doc);
+
+  // Wait for all images to load (max 10s)
   const imgs = Array.from(doc.images || []);
   await Promise.race([
     Promise.all(
@@ -89,48 +160,135 @@ async function waitForIframeReady(iframe: HTMLIFrameElement, timeoutMs = 18000):
             if (img.complete && img.naturalWidth > 0) return res();
             img.addEventListener('load', () => res(), { once: true });
             img.addEventListener('error', () => res(), { once: true });
-          })
-      )
+          }),
+      ),
     ),
-    new Promise((r) => setTimeout(r, 6000)),
+    new Promise((r) => setTimeout(r, 10000)),
   ]);
 
-  await new Promise((r) => setTimeout(r, 250));
+  await new Promise((r) => setTimeout(r, 300));
+}
+
+// ============================================================
+// Section-based PDF rendering
+// ============================================================
+async function captureSection(section: HTMLElement): Promise<HTMLCanvasElement> {
+  return await html2canvas(section, {
+    useCORS: true,
+    allowTaint: false,
+    backgroundColor: '#ffffff',
+    scale: H2C_SCALE,
+    logging: false,
+    windowWidth: section.ownerDocument.documentElement.clientWidth,
+  });
+}
+
+function drawFooter(pdf: jsPDF, pageNum: number, totalPages: number) {
+  pdf.setFont('helvetica', 'normal');
+  pdf.setFontSize(8);
+  pdf.setTextColor(140, 140, 140);
+  const year = new Date().getFullYear();
+  pdf.text(`© RumiField ${year}`, MARGIN_X, A4_H - 6);
+  const pageStr = `Página ${pageNum} de ${totalPages}`;
+  const w = pdf.getTextWidth(pageStr);
+  pdf.text(pageStr, A4_W - MARGIN_X - w, A4_H - 6);
+  pdf.setTextColor(0, 0, 0);
 }
 
 async function generatePdfBlobFromIframe(iframe: HTMLIFrameElement): Promise<Blob> {
   const doc = iframe.contentDocument;
   if (!doc || !doc.body) throw new Error('Conteúdo do relatório indisponível');
 
-  const target = doc.body;
-  const canvas = await html2canvas(target, {
-    useCORS: true,
-    allowTaint: false,
-    backgroundColor: '#ffffff',
-    scale: 2,
-    windowWidth: 1024,
-    windowHeight: target.scrollHeight,
-  });
+  // Find sections to render
+  const root = doc.querySelector('[data-pdf-root]') || doc.body;
+  const sectionNodes = Array.from(
+    root.querySelectorAll<HTMLElement>('[data-pdf-section]'),
+  );
+
+  // Fallback: if the page wasn't instrumented, capture the whole body as one section
+  const sections: HTMLElement[] = sectionNodes.length > 0 ? sectionNodes : [doc.body];
 
   const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
-  const pageWidth = pdf.internal.pageSize.getWidth();
-  const pageHeight = pdf.internal.pageSize.getHeight();
+  let currentY = MARGIN_TOP;
+  let pageIndex = 0;
 
-  const imgWidth = pageWidth;
-  const imgHeight = (canvas.height * imgWidth) / canvas.width;
+  for (let i = 0; i < sections.length; i++) {
+    const section = sections[i];
+    if (!section.offsetWidth || !section.offsetHeight) continue;
 
-  let heightLeft = imgHeight;
-  let position = 0;
-  const imgData = canvas.toDataURL('image/jpeg', 0.92);
+    let canvas: HTMLCanvasElement;
+    try {
+      canvas = await captureSection(section);
+    } catch (err) {
+      console.warn('[pdf] section capture failed', i, err);
+      continue;
+    }
 
-  pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight, undefined, 'FAST');
-  heightLeft -= pageHeight;
+    // px (at scale H2C_SCALE) -> mm at our target content width
+    const widthPx = canvas.width / H2C_SCALE;
+    const heightPx = canvas.height / H2C_SCALE;
+    const sectionWidthMm = CONTENT_W;
+    const ratio = sectionWidthMm / widthPx;
+    const sectionHeightMm = heightPx * ratio;
 
-  while (heightLeft > 0) {
-    position = heightLeft - imgHeight;
-    pdf.addPage();
-    pdf.addImage(imgData, 'JPEG', 0, position, imgWidth, imgHeight, undefined, 'FAST');
-    heightLeft -= pageHeight;
+    if (sectionHeightMm <= CONTENT_H) {
+      // Section fits on a single page — paginate if needed
+      const remaining = A4_H - MARGIN_BOTTOM - currentY;
+      if (sectionHeightMm > remaining && currentY > MARGIN_TOP) {
+        pdf.addPage();
+        pageIndex++;
+        currentY = MARGIN_TOP;
+      }
+      const imgData = canvas.toDataURL('image/jpeg', 0.92);
+      pdf.addImage(imgData, 'JPEG', MARGIN_X, currentY, sectionWidthMm, sectionHeightMm, undefined, 'FAST');
+      currentY += sectionHeightMm + SECTION_GAP;
+    } else {
+      // Section is taller than a full page — slice it vertically into page-sized chunks.
+      // We use a temporary canvas to extract slices from the source canvas.
+      const sliceHeightMm = CONTENT_H; // each slice fills a full page
+      const sliceHeightPx = Math.floor(sliceHeightMm / ratio); // px in original (unscaled) coords
+      const sliceHeightPxScaled = sliceHeightPx * H2C_SCALE;
+
+      // Start the oversized section on a fresh page if anything is already on the current one
+      if (currentY > MARGIN_TOP) {
+        pdf.addPage();
+        pageIndex++;
+        currentY = MARGIN_TOP;
+      }
+
+      let offsetPx = 0; // in scaled canvas coords
+      while (offsetPx < canvas.height) {
+        const sliceH = Math.min(sliceHeightPxScaled, canvas.height - offsetPx);
+        const sliceCanvas = doc.createElement('canvas');
+        sliceCanvas.width = canvas.width;
+        sliceCanvas.height = sliceH;
+        const ctx = sliceCanvas.getContext('2d');
+        if (!ctx) break;
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, sliceCanvas.width, sliceCanvas.height);
+        ctx.drawImage(canvas, 0, -offsetPx);
+
+        const sliceImg = sliceCanvas.toDataURL('image/jpeg', 0.92);
+        const sliceHmm = (sliceH / H2C_SCALE) * ratio;
+        pdf.addImage(sliceImg, 'JPEG', MARGIN_X, MARGIN_TOP, sectionWidthMm, sliceHmm, undefined, 'FAST');
+
+        offsetPx += sliceH;
+        if (offsetPx < canvas.height) {
+          pdf.addPage();
+          pageIndex++;
+        } else {
+          // Last slice — leave currentY so next section may fit alongside
+          currentY = MARGIN_TOP + sliceHmm + SECTION_GAP;
+        }
+      }
+    }
+  }
+
+  // Draw footer on every page
+  const totalPages = pdf.getNumberOfPages();
+  for (let p = 1; p <= totalPages; p++) {
+    pdf.setPage(p);
+    drawFooter(pdf, p, totalPages);
   }
 
   return pdf.output('blob');
@@ -141,7 +299,9 @@ async function buildPdfFile(url: string, fileName: string): Promise<File> {
   iframe.style.position = 'fixed';
   iframe.style.left = '-10000px';
   iframe.style.top = '0';
-  iframe.style.width = '1024px';
+  // Use a width close to the report's max-w-2xl (672px) + padding so html2canvas
+  // captures the mobile-first layout the report was designed for.
+  iframe.style.width = '760px';
   iframe.style.height = '800px';
   iframe.style.border = '0';
   iframe.style.opacity = '0';
@@ -156,10 +316,10 @@ async function buildPdfFile(url: string, fileName: string): Promise<File> {
     const fullHeight = Math.max(
       doc.body.scrollHeight,
       doc.documentElement.scrollHeight,
-      800
+      800,
     );
     iframe.style.height = `${fullHeight}px`;
-    await new Promise((r) => setTimeout(r, 300));
+    await new Promise((r) => setTimeout(r, 400));
 
     const blob = await generatePdfBlobFromIframe(iframe);
     return new File([blob], fileName, { type: 'application/pdf' });
@@ -248,7 +408,7 @@ export async function shareReportWithPdf(args: ShareReportArgs): Promise<ShareRe
       file = await Promise.race([
         buildPdfFile(url, fileName),
         new Promise<File>((_, reject) =>
-          setTimeout(() => reject(new Error('PDF generation timeout')), 25000)
+          setTimeout(() => reject(new Error('PDF generation timeout')), 35000),
         ),
       ]);
       console.log('[shareReportWithPdf] PDF generated', file.size, 'bytes');

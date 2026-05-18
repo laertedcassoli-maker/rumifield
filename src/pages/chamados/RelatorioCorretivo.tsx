@@ -384,9 +384,9 @@ export default function RelatorioCorretivo() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-muted/30 to-background">
+    <div className="min-h-screen bg-gradient-to-b from-muted/30 to-background" data-pdf-root="true">
       {/* Header */}
-      <header className="bg-white border-b py-4 px-4">
+      <header className="bg-white border-b py-4 px-4" data-pdf-section="header">
         <div className="max-w-2xl mx-auto">
           {/* Logos */}
           <div className="flex items-center justify-between mb-3">
@@ -399,7 +399,7 @@ export default function RelatorioCorretivo() {
               <Wrench className="h-5 w-5" />
               <span className="font-bold">Relatório de Visita Corretiva</span>
             </div>
-            <Button variant="outline" size="sm" onClick={handleShare} disabled={isSharing}>
+            <Button variant="outline" size="sm" onClick={handleShare} disabled={isSharing} data-pdf-hide="true">
               {isSharing ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Share2 className="h-4 w-4 mr-1" />}
               Compartilhar
             </Button>
@@ -420,7 +420,7 @@ export default function RelatorioCorretivo() {
 
       <main className="max-w-2xl mx-auto p-4 space-y-4" data-report-ready="true">
         {/* Visit Info Card */}
-        <Card>
+        <Card data-pdf-section="visit-info">
           <CardContent className="p-4">
             <div className="grid grid-cols-2 gap-4">
               {/* Visit Code */}
@@ -496,7 +496,7 @@ export default function RelatorioCorretivo() {
 
         {/* Visit Summary */}
         {corrective.visit_summary && (
-          <Card>
+          <Card data-pdf-section="visit-summary">
             <CardHeader className="pb-2">
               <CardTitle className="text-base">Resumo da Visita</CardTitle>
             </CardHeader>
@@ -508,7 +508,7 @@ export default function RelatorioCorretivo() {
 
         {/* Checklist Summary */}
         {checklist && (
-          <Card>
+          <Card data-pdf-section="checklist">
             <CardHeader className="pb-2">
               <CardTitle className="text-base">Check-list de Verificação</CardTitle>
             </CardHeader>
@@ -581,7 +581,7 @@ export default function RelatorioCorretivo() {
 
         {/* Parts Consumption */}
         {parts.length > 0 && (
-          <Card>
+          <Card data-pdf-section="parts">
             <CardHeader className="pb-2">
               <CardTitle className="text-base flex items-center gap-2">
                 <Wrench className="h-4 w-4" />
@@ -613,7 +613,7 @@ export default function RelatorioCorretivo() {
 
         {/* Media Gallery */}
         {media.length > 0 && (
-          <Card>
+          <Card data-pdf-section="media">
             <CardHeader className="pb-2">
               <CardTitle className="text-base flex items-center gap-2">
                 <Camera className="h-4 w-4" />
@@ -663,7 +663,7 @@ export default function RelatorioCorretivo() {
 
         {/* Public Notes */}
         {corrective.public_notes && (
-          <Card>
+          <Card data-pdf-section="public-notes">
             <CardHeader className="pb-2">
               <CardTitle className="text-base">Observações</CardTitle>
             </CardHeader>
@@ -675,7 +675,7 @@ export default function RelatorioCorretivo() {
 
         {/* Internal Notes (only for internal view) */}
         {isInternal && corrective.internal_notes && (
-          <Card className="border-dashed">
+          <Card data-pdf-section="internal-notes" className="border-dashed">
             <CardHeader className="pb-2">
               <CardTitle className="text-base text-muted-foreground">Observações Internas</CardTitle>
             </CardHeader>
@@ -686,7 +686,7 @@ export default function RelatorioCorretivo() {
         )}
 
         {/* Footer */}
-        <div className="text-center py-6 text-xs text-muted-foreground">
+        <div className="text-center py-6 text-xs text-muted-foreground" data-pdf-section="footer">
           <p>Relatório gerado automaticamente pelo sistema RumiField</p>
           <p className="mt-1">© {new Date().getFullYear()} Rumina Tecnologia</p>
         </div>

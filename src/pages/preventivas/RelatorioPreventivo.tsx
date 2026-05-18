@@ -360,9 +360,9 @@ export default function RelatorioPreventivo() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-muted/30 to-background">
+    <div className="min-h-screen bg-gradient-to-b from-muted/30 to-background" data-pdf-root="true">
       {/* Header */}
-      <header className="bg-white border-b py-4 px-4">
+      <header className="bg-white border-b py-4 px-4" data-pdf-section="header">
         <div className="max-w-2xl mx-auto">
           {/* Logos */}
           <div className="flex items-center justify-between mb-3">
@@ -375,7 +375,7 @@ export default function RelatorioPreventivo() {
               <Wrench className="h-5 w-5" />
               <span className="font-bold">Relatório de Visita</span>
             </div>
-            <Button variant="outline" size="sm" onClick={handleShare} disabled={isSharing}>
+            <Button variant="outline" size="sm" onClick={handleShare} disabled={isSharing} data-pdf-hide="true">
               {isSharing ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Share2 className="h-4 w-4 mr-1" />}
               Compartilhar
             </Button>
@@ -396,7 +396,7 @@ export default function RelatorioPreventivo() {
 
       <main className="max-w-2xl mx-auto p-4 space-y-4" data-report-ready="true">
         {/* Visit Info Card */}
-        <Card>
+        <Card data-pdf-section="visit-info">
           <CardContent className="p-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="flex items-center gap-2">
@@ -464,7 +464,7 @@ export default function RelatorioPreventivo() {
 
         {/* Checklist Summary */}
         {checklist && (
-          <Card>
+          <Card data-pdf-section="checklist">
             <CardHeader className="pb-2">
               <CardTitle className="text-base">Resumo do Check-list</CardTitle>
             </CardHeader>
@@ -538,7 +538,7 @@ export default function RelatorioPreventivo() {
 
         {/* Parts Consumed */}
         {parts.length > 0 && (
-          <Card>
+          <Card data-pdf-section="parts">
             <CardHeader className="pb-2">
               <CardTitle className="text-base flex items-center gap-2">
                 <Wrench className="h-4 w-4" />
@@ -589,7 +589,7 @@ export default function RelatorioPreventivo() {
 
         {/* Photos */}
         {media.length > 0 && (
-          <Card>
+          <Card data-pdf-section="photos">
             <CardHeader className="pb-2">
               <CardTitle className="text-base flex items-center gap-2">
                 <Camera className="h-4 w-4" />
@@ -630,7 +630,7 @@ export default function RelatorioPreventivo() {
 
         {/* Observations */}
         {(preventive.public_notes || (isInternal && preventive.internal_notes)) && (
-          <Card>
+          <Card data-pdf-section="observations">
             <CardHeader className="pb-2">
               <CardTitle className="text-base flex items-center gap-2">
                 <FileText className="h-4 w-4" />
@@ -656,7 +656,7 @@ export default function RelatorioPreventivo() {
         )}
 
         {/* Footer */}
-        <footer className="text-center text-xs text-muted-foreground py-6">
+        <footer className="text-center text-xs text-muted-foreground py-6" data-pdf-section="footer">
           <p>Relatório gerado automaticamente</p>
           <p className="mt-1">© RumiField {new Date().getFullYear()}</p>
         </footer>
