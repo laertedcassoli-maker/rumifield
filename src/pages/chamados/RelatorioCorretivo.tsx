@@ -420,7 +420,7 @@ export default function RelatorioCorretivo() {
 
       <main className="max-w-2xl mx-auto p-4 space-y-4" data-report-ready="true">
         {/* Visit Info Card */}
-        <Card>
+        <Card data-pdf-section="visit-info">
           <CardContent className="p-4">
             <div className="grid grid-cols-2 gap-4">
               {/* Visit Code */}
@@ -496,7 +496,7 @@ export default function RelatorioCorretivo() {
 
         {/* Visit Summary */}
         {corrective.visit_summary && (
-          <Card>
+          <Card data-pdf-section="visit-summary">
             <CardHeader className="pb-2">
               <CardTitle className="text-base">Resumo da Visita</CardTitle>
             </CardHeader>
@@ -508,7 +508,7 @@ export default function RelatorioCorretivo() {
 
         {/* Checklist Summary */}
         {checklist && (
-          <Card>
+          <Card data-pdf-section="checklist">
             <CardHeader className="pb-2">
               <CardTitle className="text-base">Check-list de Verificação</CardTitle>
             </CardHeader>
@@ -581,7 +581,7 @@ export default function RelatorioCorretivo() {
 
         {/* Parts Consumption */}
         {parts.length > 0 && (
-          <Card>
+          <Card data-pdf-section="parts">
             <CardHeader className="pb-2">
               <CardTitle className="text-base flex items-center gap-2">
                 <Wrench className="h-4 w-4" />
@@ -613,7 +613,7 @@ export default function RelatorioCorretivo() {
 
         {/* Media Gallery */}
         {media.length > 0 && (
-          <Card>
+          <Card data-pdf-section="media">
             <CardHeader className="pb-2">
               <CardTitle className="text-base flex items-center gap-2">
                 <Camera className="h-4 w-4" />
@@ -663,7 +663,7 @@ export default function RelatorioCorretivo() {
 
         {/* Public Notes */}
         {corrective.public_notes && (
-          <Card>
+          <Card data-pdf-section="public-notes">
             <CardHeader className="pb-2">
               <CardTitle className="text-base">Observações</CardTitle>
             </CardHeader>
@@ -675,7 +675,7 @@ export default function RelatorioCorretivo() {
 
         {/* Internal Notes (only for internal view) */}
         {isInternal && corrective.internal_notes && (
-          <Card className="border-dashed">
+          <Card data-pdf-section="internal-notes" className="border-dashed">
             <CardHeader className="pb-2">
               <CardTitle className="text-base text-muted-foreground">Observações Internas</CardTitle>
             </CardHeader>
