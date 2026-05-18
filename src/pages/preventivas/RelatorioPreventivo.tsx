@@ -612,6 +612,8 @@ export default function RelatorioPreventivo() {
                       <img 
                         src={imageUrls[m.id]} 
                         alt={m.caption || m.file_name}
+                        crossOrigin={isPdfCapture ? 'anonymous' : undefined}
+                        loading={isPdfCapture ? 'eager' : 'lazy'}
                         className="w-full h-full object-cover"
                       />
                     ) : imageLoadAttempted ? (
