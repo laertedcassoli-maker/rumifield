@@ -563,9 +563,7 @@ export default function RelatorioPreventivo() {
                         <span>{part.part_code_snapshot}</span>
                         {part.stock_source && (
                           isPdfCapture ? (
-                            <span className="inline-flex rounded-md border px-2 py-1 text-xs text-foreground bg-muted">
-                              {part.stock_source === 'tecnico' ? 'Est. Técnico' : 'Est. Fazenda'}
-                            </span>
+                            <span>• {part.stock_source === 'tecnico' ? 'Est. Técnico' : 'Est. Fazenda'}</span>
                           ) : (
                             <Badge variant="outline" className="text-xs h-5">
                               {part.stock_source === 'tecnico' ? 'Est. Técnico' : 'Est. Fazenda'}

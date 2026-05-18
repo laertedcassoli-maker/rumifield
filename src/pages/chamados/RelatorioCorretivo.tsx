@@ -376,11 +376,7 @@ export default function RelatorioCorretivo() {
     const r = corrective.result ? resultLabels[corrective.result] : null;
     if (!r) return null;
     if (isPdfCapture) {
-      return (
-        <span className="inline-flex max-w-full rounded-md border px-2 py-1 text-xs font-medium break-words bg-muted text-foreground">
-          {r.label}
-        </span>
-      );
+      return <p className="font-medium text-sm break-words">{r.label}</p>;
     }
     return <Badge variant={r.variant}>{r.label}</Badge>;
   };
@@ -561,34 +557,36 @@ export default function RelatorioCorretivo() {
                             {item.nonconformities.length > 0 && (
                               <div className="mt-1">
                                 <p className="text-xs text-muted-foreground">Não conformidades:</p>
-                                {uniqueByLabel(item.nonconformities, 'nonconformity_label_snapshot').map(nc => (
-                                  isPdfCapture ? (
-                                    <span key={nc.id} className="mr-1 mt-1 inline-flex max-w-full rounded-md border border-destructive px-2 py-1 text-xs text-destructive break-words align-top">
-                                      {nc.nonconformity_label_snapshot}
-                                    </span>
-                                  ) : (
+                                {isPdfCapture ? (
+                                  <p className="text-xs text-destructive break-words">
+                                    {uniqueByLabel(item.nonconformities, 'nonconformity_label_snapshot')
+                                      .map(nc => nc.nonconformity_label_snapshot).join(' • ')}
+                                  </p>
+                                ) : (
+                                  uniqueByLabel(item.nonconformities, 'nonconformity_label_snapshot').map(nc => (
                                     <Badge key={nc.id} variant="outline" className="mr-1 mt-1 text-xs border-destructive text-destructive">
                                       {nc.nonconformity_label_snapshot}
                                     </Badge>
-                                  )
-                                ))}
+                                  ))
+                                )}
                               </div>
                             )}
                             
                             {item.actions.length > 0 && (
                               <div className="mt-1">
                                 <p className="text-xs text-muted-foreground">Ações corretivas:</p>
-                                {uniqueByLabel(item.actions, 'action_label_snapshot').map(action => (
-                                  isPdfCapture ? (
-                                    <span key={action.id} className="mr-1 mt-1 inline-flex max-w-full rounded-md border border-green-600 px-2 py-1 text-xs text-green-700 break-words align-top">
-                                      {action.action_label_snapshot}
-                                    </span>
-                                  ) : (
+                                {isPdfCapture ? (
+                                  <p className="text-xs text-green-700 break-words">
+                                    {uniqueByLabel(item.actions, 'action_label_snapshot')
+                                      .map(a => a.action_label_snapshot).join(' • ')}
+                                  </p>
+                                ) : (
+                                  uniqueByLabel(item.actions, 'action_label_snapshot').map(action => (
                                     <Badge key={action.id} variant="outline" className="mr-1 mt-1 text-xs border-green-600 text-green-600">
                                       {action.action_label_snapshot}
                                     </Badge>
-                                  )
-                                ))}
+                                  ))
+                                )}
                               </div>
                             )}
 
@@ -625,9 +623,7 @@ export default function RelatorioCorretivo() {
                         <span>{part.part_code_snapshot}</span>
                         {isInternal && part.stock_source && (
                           isPdfCapture ? (
-                            <span className="inline-flex rounded-md border px-2 py-1 text-xs text-foreground bg-muted">
-                              {part.stock_source === 'tecnico' ? 'Técnico' : 'Fazenda'}
-                            </span>
+                            <span>• {part.stock_source === 'tecnico' ? 'Técnico' : 'Fazenda'}</span>
                           ) : (
                             <Badge variant="outline" className="text-xs">
                               {part.stock_source === 'tecnico' ? 'Técnico' : 'Fazenda'}
