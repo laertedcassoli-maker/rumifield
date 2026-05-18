@@ -1,15 +1,16 @@
 import { chromium } from 'playwright';
 import fs from 'fs';
 
-const URL = 'https://id-preview--93d2c41a-b447-4249-ae06-ee5b8fb38914.lovable.app/relatorio/f2733b08-f3a9-4c6c-a358-b8e234329cfb';
+const URL = `https://93d2c41a-b447-4249-ae06-ee5b8fb38914.lovableproject.com/relatorio/f2733b08-f3a9-4c6c-a358-b8e234329cfb?__lovable_token=${process.env.LOVABLE_TOKEN || ''}`;
 const OUT = '/mnt/documents/relatorio-preventivo-modelo-v3.pdf';
 
 const browser = await chromium.launch({ headless: true, executablePath: '/bin/chromium', args: ['--no-sandbox'] });
 const ctx = await browser.newContext({ viewport: { width: 760, height: 1200 }, deviceScaleFactor: 2 });
 const page = await ctx.newPage();
-await page.goto(URL, { waitUntil: 'domcontentloaded', timeout: 60000 });
-await page.waitForFunction(() => !!document.querySelector('[data-report-ready="true"]'), { timeout: 30000 });
-await page.waitForTimeout(1200);
+page.on('console', (msg) => console.log('[page]', msg.type(), msg.text()));
+await page.goto(URL, { waitUntil: 'networkidle', timeout: 90000 });
+await page.waitForSelector('[data-report-ready="true"]', { timeout: 45000 });
+await page.waitForTimeout(1500);
 await page.addScriptTag({ url: 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js' });
 await page.addScriptTag({ url: 'https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js' });
 const fullH = await page.evaluate(() => document.documentElement.scrollHeight);
