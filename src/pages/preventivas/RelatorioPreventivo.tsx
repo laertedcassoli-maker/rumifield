@@ -548,7 +548,7 @@ export default function RelatorioPreventivo() {
             <CardContent>
               <div className="space-y-2">
                 {parts.map(part => (
-                  <div key={part.id} className="flex items-center justify-between p-2 bg-muted/50 rounded-lg">
+                  <div key={part.id} data-pdf-subsection="part-item" className="flex items-center justify-between p-2 bg-muted/50 rounded-lg">
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium">{part.part_name_snapshot}</p>
                       <div className="flex items-center gap-2 text-xs text-muted-foreground">
