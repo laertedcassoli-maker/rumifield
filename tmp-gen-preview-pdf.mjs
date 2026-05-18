@@ -1,15 +1,15 @@
 import { chromium } from 'playwright';
 import fs from 'fs';
 
-const URL = 'https://id-preview--93d2c41a-b447-4249-ae06-ee5b8fb38914.lovable.app/relatorio/f2733b08-f3a9-4c6c-a358-b8e234329cfb';
-const OUT = '/mnt/documents/relatorio-preventivo-modelo-v3.pdf';
+const URL = `https://93d2c41a-b447-4249-ae06-ee5b8fb38914.lovableproject.com/relatorio/f2733b08-f3a9-4c6c-a358-b8e234329cfb?__lovable_token=${process.env.LOVABLE_TOKEN || ''}`;
+const OUT = '/mnt/documents/relatorio-preventivo-modelo-v4.pdf';
 
 const browser = await chromium.launch({ headless: true, executablePath: '/bin/chromium', args: ['--no-sandbox'] });
 const ctx = await browser.newContext({ viewport: { width: 760, height: 1200 }, deviceScaleFactor: 2 });
 const page = await ctx.newPage();
-await page.goto(URL, { waitUntil: 'domcontentloaded', timeout: 60000 });
-await page.waitForFunction(() => !!document.querySelector('[data-report-ready="true"]'), { timeout: 30000 });
-await page.waitForTimeout(1200);
+await page.goto(URL, { waitUntil: 'networkidle', timeout: 90000 });
+await page.waitForSelector('[data-report-ready="true"]', { timeout: 45000 });
+await page.waitForTimeout(1500);
 await page.addScriptTag({ url: 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js' });
 await page.addScriptTag({ url: 'https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js' });
 const fullH = await page.evaluate(() => document.documentElement.scrollHeight);
@@ -31,18 +31,15 @@ const base64 = await page.evaluate(async () => {
   const sections = Array.from(root.querySelectorAll('[data-pdf-section]')).filter((node) => node.getAttribute('data-pdf-section') !== 'footer');
   const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
   let currentY = MARGIN_TOP;
-
   const captureSection = (section) => h2c(section, {
     useCORS: true,
     allowTaint: false,
     backgroundColor: '#ffffff',
     scale: SCALE,
-    foreignObjectRendering: true,
     imageTimeout: 15000,
     logging: false,
     windowWidth: section.ownerDocument.documentElement.clientWidth,
   });
-
   const findFirstLevelSubsections = (root) => {
     const out = [];
     const walk = (el) => {
@@ -54,7 +51,6 @@ const base64 = await page.evaluate(async () => {
     walk(root);
     return out;
   };
-
   const sliceCanvasToPages = (canvas, ratio) => {
     const sliceHeightPxScaled = Math.floor(usableContentHeight / ratio) * SCALE;
     if (currentY > MARGIN_TOP) {
@@ -78,7 +74,6 @@ const base64 = await page.evaluate(async () => {
       else currentY = MARGIN_TOP + sliceHmm + GAP;
     }
   };
-
   const renderSection = async (section, depth = 0) => {
     if (!section.offsetWidth || !section.offsetHeight) return;
     const canvas = await captureSection(section);
@@ -86,7 +81,6 @@ const base64 = await page.evaluate(async () => {
     const heightPx = canvas.height / SCALE;
     const ratio = CONTENT_W / widthPx;
     const heightMm = heightPx * ratio;
-
     if (heightMm <= usableContentHeight) {
       const remaining = A4_H - MARGIN_BOTTOM - currentY - PAGE_SAFE_PADDING;
       if (heightMm > remaining && currentY > MARGIN_TOP) {
@@ -97,7 +91,6 @@ const base64 = await page.evaluate(async () => {
       currentY += heightMm + GAP;
       return;
     }
-
     if (depth < 4) {
       const subs = findFirstLevelSubsections(section);
       if (subs.length > 0) {
@@ -107,9 +100,7 @@ const base64 = await page.evaluate(async () => {
     }
     sliceCanvasToPages(canvas, ratio);
   };
-
   for (const section of sections) await renderSection(section);
-
   const total = pdf.getNumberOfPages();
   for (let p = 1; p <= total; p++) {
     pdf.setPage(p);
@@ -120,7 +111,6 @@ const base64 = await page.evaluate(async () => {
     const t = `Página ${p} de ${total}`;
     pdf.text(t, A4_W - MARGIN_X - pdf.getTextWidth(t), A4_H - 6);
   }
-
   const blob = pdf.output('blob');
   const buf = await blob.arrayBuffer();
   let bin = '';

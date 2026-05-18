@@ -183,7 +183,6 @@ async function captureSection(section: HTMLElement): Promise<HTMLCanvasElement> 
     allowTaint: false,
     backgroundColor: '#ffffff',
     scale: H2C_SCALE,
-    foreignObjectRendering: true,
     imageTimeout: 15000,
     logging: false,
     windowWidth: section.ownerDocument.documentElement.clientWidth,
