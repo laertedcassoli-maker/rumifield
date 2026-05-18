@@ -114,6 +114,17 @@ async function waitForIframeReady(iframe: HTMLIFrameElement, timeoutMs = 20000):
   const win = iframe.contentWindow as (Window & { __REPORT_READY__?: boolean; __PDF_CAPTURE__?: boolean }) | null;
   if (win) win.__PDF_CAPTURE__ = true;
 
+  // Inject capture-only styles: hide UI controls and force responsive images
+  try {
+    const style = doc.createElement('style');
+    style.setAttribute('data-pdf-style', 'true');
+    style.textContent = `
+      [data-pdf-hide]{display:none !important;}
+      img{max-width:100% !important;height:auto;}
+    `;
+    doc.head.appendChild(style);
+  } catch {}
+
   // Phase 2: wait for ready marker OR error marker
   while (Date.now() - waitStart < timeoutMs) {
     const errorNode = doc.querySelector('[data-report-error="true"]');
