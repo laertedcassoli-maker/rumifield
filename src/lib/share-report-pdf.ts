@@ -226,7 +226,7 @@ async function generatePdfBlobFromIframe(iframe: HTMLIFrameElement): Promise<Blo
   const root = doc.querySelector('[data-pdf-root]') || doc.body;
   const sectionNodes = Array.from(
     root.querySelectorAll<HTMLElement>('[data-pdf-section]'),
-  );
+  ).filter((node) => node.getAttribute('data-pdf-section') !== 'footer');
 
   // Fallback: if the page wasn't instrumented, capture the whole body as one section
   const sections: HTMLElement[] = sectionNodes.length > 0 ? sectionNodes : [doc.body];
