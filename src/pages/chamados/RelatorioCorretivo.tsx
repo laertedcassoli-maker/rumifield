@@ -686,7 +686,7 @@ export default function RelatorioCorretivo() {
         )}
 
         {/* Footer */}
-        <div className="text-center py-6 text-xs text-muted-foreground">
+        <div className="text-center py-6 text-xs text-muted-foreground" data-pdf-section="footer">
           <p>Relatório gerado automaticamente pelo sistema RumiField</p>
           <p className="mt-1">© {new Date().getFullYear()} Rumina Tecnologia</p>
         </div>

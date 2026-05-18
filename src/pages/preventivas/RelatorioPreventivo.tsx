@@ -656,7 +656,7 @@ export default function RelatorioPreventivo() {
         )}
 
         {/* Footer */}
-        <footer className="text-center text-xs text-muted-foreground py-6">
+        <footer className="text-center text-xs text-muted-foreground py-6" data-pdf-section="footer">
           <p>Relatório gerado automaticamente</p>
           <p className="mt-1">© RumiField {new Date().getFullYear()}</p>
         </footer>
