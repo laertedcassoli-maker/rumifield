@@ -19,36 +19,41 @@ await page.waitForTimeout(800);
 await page.addScriptTag({ url: 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js' });
 await page.addScriptTag({ url: 'https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js' });
 
-// Inject subsection markers retroactively to simulate post-deploy DOM
+// Inject markers retroactively (current production build lacks them)
 await page.evaluate(() => {
-  // Checklist: each block wrapper (div.space-y-2 under CardContent inside checklist section) and each item row
-  const checklist = document.querySelector('[data-pdf-section="checklist"]');
-  if (checklist) {
-    const cardContent = checklist.querySelector('.space-y-3');
-    if (cardContent) {
-      Array.from(cardContent.children).forEach(child => {
-        if (child.classList.contains('space-y-2')) {
-          child.setAttribute('data-pdf-subsection', 'checklist-block');
-          // items inside
-          Array.from(child.children).forEach(c => {
-            if (c.classList.contains('rounded-lg') || c.classList.contains('p-2')) {
-              c.setAttribute('data-pdf-subsection', 'checklist-item');
-            }
-          });
-        }
-      });
-    }
-  }
-  // Parts: each row
-  const parts = document.querySelector('[data-pdf-section="parts"]');
-  if (parts) {
-    parts.querySelectorAll('.flex.items-center.justify-between').forEach(el => el.setAttribute('data-pdf-subsection', 'part-item'));
-  }
-  // Photos
-  const photos = document.querySelector('[data-pdf-section="photos"]');
-  if (photos) {
-    photos.querySelectorAll('.aspect-square').forEach(el => el.setAttribute('data-pdf-subsection', 'photo'));
-  }
+  const main = document.querySelector('main') || document.body;
+  main.setAttribute('data-pdf-root', 'true');
+  // Each top-level Card and header inside main becomes a section
+  const cards = main.querySelectorAll('header, [class*="rounded-lg"][class*="border"][class*="bg-card"], .border.bg-card');
+  // Fallback: top-level children of main
+  const topChildren = Array.from(main.children);
+  topChildren.forEach(c => {
+    if (c.children.length > 0) c.setAttribute('data-pdf-section', 'auto');
+  });
+  // Hide share button
+  document.querySelectorAll('button').forEach(b => {
+    if (/Compartilhar/i.test(b.textContent || '')) b.setAttribute('data-pdf-hide', 'true');
+  });
+  // Subsection markers
+  document.querySelectorAll('[data-pdf-section]').forEach(section => {
+    // checklist blocks: divs that contain h4 + multiple item divs
+    section.querySelectorAll('.space-y-2').forEach(blk => {
+      const h4 = blk.querySelector(':scope > h4');
+      const items = blk.querySelectorAll(':scope > .rounded-lg, :scope > .p-2');
+      if (h4 && items.length > 0) {
+        blk.setAttribute('data-pdf-subsection', 'checklist-block');
+        items.forEach(i => i.setAttribute('data-pdf-subsection', 'checklist-item'));
+      }
+    });
+    // parts rows
+    section.querySelectorAll('.flex.items-center.justify-between.p-2').forEach(el => el.setAttribute('data-pdf-subsection', 'part-item'));
+    // photos
+    section.querySelectorAll('.aspect-square').forEach(el => el.setAttribute('data-pdf-subsection', 'photo'));
+  });
+  // Inject hide styles
+  const s = document.createElement('style');
+  s.textContent = '[data-pdf-hide]{display:none !important;} img{max-width:100% !important;height:auto;}';
+  document.head.appendChild(s);
 });
 
 // Resize viewport to full page height before capture
