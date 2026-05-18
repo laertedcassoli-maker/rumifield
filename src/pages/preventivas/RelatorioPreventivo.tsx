@@ -101,6 +101,7 @@ export default function RelatorioPreventivo() {
   const { toast } = useToast();
   const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
   const [imageLoadAttempted, setImageLoadAttempted] = useState(false);
+  const [isPdfCapture, setIsPdfCapture] = useState(() => Boolean((window as any).__PDF_CAPTURE__));
   
   const isInternal = type === 'interno';
 
@@ -294,6 +295,13 @@ export default function RelatorioPreventivo() {
     return () => clearTimeout(t);
   }, [isLoading, report, imageLoadAttempted, imageUrls]);
 
+  useEffect(() => {
+    const syncPdfMode = () => setIsPdfCapture(Boolean((window as any).__PDF_CAPTURE__));
+    syncPdfMode();
+    window.addEventListener('report-pdf-mode', syncPdfMode);
+    return () => window.removeEventListener('report-pdf-mode', syncPdfMode);
+  }, []);
+
   const [isSharing, setIsSharing] = useState(false);
   const handleShare = async () => {
     const url = window.location.href;
@@ -360,7 +368,7 @@ export default function RelatorioPreventivo() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-muted/30 to-background" data-pdf-root="true">
+    <div className="min-h-screen bg-gradient-to-b from-muted/30 to-background" data-pdf-root="true" data-pdf-capture={isPdfCapture ? 'true' : 'false'}>
       {/* Header */}
       <header className="bg-white border-b py-4 px-4" data-pdf-section="header">
         <div className="max-w-2xl mx-auto">
