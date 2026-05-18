@@ -599,7 +599,7 @@ export default function RelatorioPreventivo() {
             <CardContent>
               <div className="grid grid-cols-2 gap-2">
                 {media.map(m => (
-                  <div key={m.id} className="relative aspect-square rounded-lg overflow-hidden bg-muted">
+                  <div key={m.id} data-pdf-subsection="photo" className="relative aspect-square rounded-lg overflow-hidden bg-muted">
                     {imageUrls[m.id] ? (
                       <img 
                         src={imageUrls[m.id]} 
