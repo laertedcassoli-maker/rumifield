@@ -49,6 +49,7 @@ const CONTENT_W = A4_W - MARGIN_X * 2;
 const CONTENT_H = A4_H - MARGIN_TOP - MARGIN_BOTTOM;
 const SECTION_GAP = 4;
 const H2C_SCALE = 2;
+const PAGE_SAFE_PADDING = 2;
 
 // ============================================================
 // Image CORS handling: rewrite cross-origin <img> tags to use
@@ -112,7 +113,10 @@ async function waitForIframeReady(iframe: HTMLIFrameElement, timeoutMs = 20000):
   if (!doc?.body) throw new Error('Conteúdo do relatório indisponível');
 
   const win = iframe.contentWindow as (Window & { __REPORT_READY__?: boolean; __PDF_CAPTURE__?: boolean }) | null;
-  if (win) win.__PDF_CAPTURE__ = true;
+  if (win) {
+    win.__PDF_CAPTURE__ = true;
+    win.dispatchEvent(new Event('report-pdf-mode'));
+  }
 
   // Inject capture-only styles: hide UI controls and force responsive images
   try {
@@ -121,6 +125,7 @@ async function waitForIframeReady(iframe: HTMLIFrameElement, timeoutMs = 20000):
     style.textContent = `
       [data-pdf-hide]{display:none !important;}
       img{max-width:100% !important;height:auto;}
+      body{-webkit-font-smoothing:antialiased;text-rendering:geometricPrecision;}
     `;
     doc.head.appendChild(style);
   } catch {}
@@ -178,6 +183,8 @@ async function captureSection(section: HTMLElement): Promise<HTMLCanvasElement> 
     allowTaint: false,
     backgroundColor: '#ffffff',
     scale: H2C_SCALE,
+    foreignObjectRendering: true,
+    imageTimeout: 15000,
     logging: false,
     windowWidth: section.ownerDocument.documentElement.clientWidth,
   });
@@ -219,17 +226,18 @@ async function generatePdfBlobFromIframe(iframe: HTMLIFrameElement): Promise<Blo
   const root = doc.querySelector('[data-pdf-root]') || doc.body;
   const sectionNodes = Array.from(
     root.querySelectorAll<HTMLElement>('[data-pdf-section]'),
-  );
+  ).filter((node) => node.getAttribute('data-pdf-section') !== 'footer');
 
   // Fallback: if the page wasn't instrumented, capture the whole body as one section
   const sections: HTMLElement[] = sectionNodes.length > 0 ? sectionNodes : [doc.body];
 
   const pdf = new jsPDF({ unit: 'mm', format: 'a4', orientation: 'portrait' });
   const state = { currentY: MARGIN_TOP };
+  const usableContentHeight = CONTENT_H - PAGE_SAFE_PADDING;
 
   // Slice an oversized canvas vertically into page-sized chunks (last resort).
   const sliceCanvasToPages = (canvas: HTMLCanvasElement, ratio: number) => {
-    const sliceHeightPxScaled = Math.floor(CONTENT_H / ratio) * H2C_SCALE;
+    const sliceHeightPxScaled = Math.floor(usableContentHeight / ratio) * H2C_SCALE;
     if (state.currentY > MARGIN_TOP) {
       pdf.addPage();
       state.currentY = MARGIN_TOP;
@@ -272,8 +280,8 @@ async function generatePdfBlobFromIframe(iframe: HTMLIFrameElement): Promise<Blo
     const ratio = CONTENT_W / widthPx;
     const heightMm = heightPx * ratio;
 
-    if (heightMm <= CONTENT_H) {
-      const remaining = A4_H - MARGIN_BOTTOM - state.currentY;
+    if (heightMm <= usableContentHeight) {
+      const remaining = A4_H - MARGIN_BOTTOM - state.currentY - PAGE_SAFE_PADDING;
       if (heightMm > remaining && state.currentY > MARGIN_TOP) {
         pdf.addPage();
         state.currentY = MARGIN_TOP;

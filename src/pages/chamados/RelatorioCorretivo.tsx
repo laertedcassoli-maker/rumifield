@@ -98,6 +98,7 @@ export default function RelatorioCorretivo() {
   const { toast } = useToast();
   const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
   const [imageLoadAttempted, setImageLoadAttempted] = useState(false);
+  const [isPdfCapture, setIsPdfCapture] = useState(() => Boolean((window as any).__PDF_CAPTURE__));
   
   const isInternal = type === 'interno';
 
@@ -302,6 +303,13 @@ export default function RelatorioCorretivo() {
     return () => clearTimeout(t);
   }, [isLoading, report, imageLoadAttempted, imageUrls]);
 
+  useEffect(() => {
+    const syncPdfMode = () => setIsPdfCapture(Boolean((window as any).__PDF_CAPTURE__));
+    syncPdfMode();
+    window.addEventListener('report-pdf-mode', syncPdfMode);
+    return () => window.removeEventListener('report-pdf-mode', syncPdfMode);
+  }, []);
+
   const [isSharing, setIsSharing] = useState(false);
   const handleShare = async () => {
     const url = window.location.href;
@@ -367,6 +375,13 @@ export default function RelatorioCorretivo() {
     };
     const r = corrective.result ? resultLabels[corrective.result] : null;
     if (!r) return null;
+    if (isPdfCapture) {
+      return (
+        <span className="inline-flex max-w-full rounded-md border px-2 py-1 text-xs font-medium break-words bg-muted text-foreground">
+          {r.label}
+        </span>
+      );
+    }
     return <Badge variant={r.variant}>{r.label}</Badge>;
   };
 
@@ -384,7 +399,7 @@ export default function RelatorioCorretivo() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-muted/30 to-background" data-pdf-root="true">
+    <div className="min-h-screen bg-gradient-to-b from-muted/30 to-background" data-pdf-root="true" data-pdf-capture={isPdfCapture ? 'true' : 'false'}>
       {/* Header */}
       <header className="bg-white border-b py-4 px-4" data-pdf-section="header">
         <div className="max-w-2xl mx-auto">
@@ -534,10 +549,10 @@ export default function RelatorioCorretivo() {
                 if (block.items.length === 0) return null;
 
                 return (
-                  <div key={block.id} className="space-y-2">
+                  <div key={block.id} className="space-y-2" data-pdf-subsection="checklist-block">
                     <h4 className="font-medium text-sm text-muted-foreground">{block.block_name_snapshot}</h4>
                     {block.items.map(item => (
-                      <div key={item.id} className={`p-2 rounded-lg ${item.status === 'N' ? 'bg-destructive/10' : 'bg-muted/50'}`}>
+                      <div key={item.id} data-pdf-subsection="checklist-item" className={`p-2 rounded-lg ${item.status === 'N' ? 'bg-destructive/10' : 'bg-muted/50'}`}>
                         <div className="flex items-start gap-2">
                           <StatusIcon status={item.status} />
                           <div className="flex-1 min-w-0">
@@ -547,9 +562,15 @@ export default function RelatorioCorretivo() {
                               <div className="mt-1">
                                 <p className="text-xs text-muted-foreground">Não conformidades:</p>
                                 {uniqueByLabel(item.nonconformities, 'nonconformity_label_snapshot').map(nc => (
-                                  <Badge key={nc.id} variant="outline" className="mr-1 mt-1 text-xs border-destructive text-destructive">
-                                    {nc.nonconformity_label_snapshot}
-                                  </Badge>
+                                  isPdfCapture ? (
+                                    <span key={nc.id} className="mr-1 mt-1 inline-flex max-w-full rounded-md border border-destructive px-2 py-1 text-xs text-destructive break-words align-top">
+                                      {nc.nonconformity_label_snapshot}
+                                    </span>
+                                  ) : (
+                                    <Badge key={nc.id} variant="outline" className="mr-1 mt-1 text-xs border-destructive text-destructive">
+                                      {nc.nonconformity_label_snapshot}
+                                    </Badge>
+                                  )
                                 ))}
                               </div>
                             )}
@@ -558,9 +579,15 @@ export default function RelatorioCorretivo() {
                               <div className="mt-1">
                                 <p className="text-xs text-muted-foreground">Ações corretivas:</p>
                                 {uniqueByLabel(item.actions, 'action_label_snapshot').map(action => (
-                                  <Badge key={action.id} variant="outline" className="mr-1 mt-1 text-xs border-green-600 text-green-600">
-                                    {action.action_label_snapshot}
-                                  </Badge>
+                                  isPdfCapture ? (
+                                    <span key={action.id} className="mr-1 mt-1 inline-flex max-w-full rounded-md border border-green-600 px-2 py-1 text-xs text-green-700 break-words align-top">
+                                      {action.action_label_snapshot}
+                                    </span>
+                                  ) : (
+                                    <Badge key={action.id} variant="outline" className="mr-1 mt-1 text-xs border-green-600 text-green-600">
+                                      {action.action_label_snapshot}
+                                    </Badge>
+                                  )
                                 ))}
                               </div>
                             )}
@@ -591,18 +618,26 @@ export default function RelatorioCorretivo() {
             <CardContent>
               <div className="space-y-2">
                 {parts.map(part => (
-                  <div key={part.id} className="flex justify-between items-center p-2 bg-muted/50 rounded-lg">
+                  <div key={part.id} data-pdf-subsection="part-item" className="flex justify-between items-center p-2 bg-muted/50 rounded-lg">
                     <div>
                       <p className="text-sm font-medium">{part.part_name_snapshot}</p>
-                      <p className="text-xs text-muted-foreground">{part.part_code_snapshot}</p>
+                      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                        <span>{part.part_code_snapshot}</span>
+                        {isInternal && part.stock_source && (
+                          isPdfCapture ? (
+                            <span className="inline-flex rounded-md border px-2 py-1 text-xs text-foreground bg-muted">
+                              {part.stock_source === 'tecnico' ? 'Técnico' : 'Fazenda'}
+                            </span>
+                          ) : (
+                            <Badge variant="outline" className="text-xs">
+                              {part.stock_source === 'tecnico' ? 'Técnico' : 'Fazenda'}
+                            </Badge>
+                          )
+                        )}
+                      </div>
                     </div>
                     <div className="text-right">
                       <p className="font-medium">{part.quantity}x</p>
-                      {isInternal && part.stock_source && (
-                        <Badge variant="outline" className="text-xs">
-                          {part.stock_source === 'tecnico' ? 'Técnico' : 'Fazenda'}
-                        </Badge>
-                      )}
                     </div>
                   </div>
                 ))}
@@ -623,12 +658,14 @@ export default function RelatorioCorretivo() {
             <CardContent>
               <div className="grid grid-cols-2 gap-2">
                 {media.map(m => (
-                  <div key={m.id} className="relative aspect-square rounded-lg overflow-hidden bg-muted">
+                  <div key={m.id} data-pdf-subsection="media-item" className="relative aspect-square rounded-lg overflow-hidden bg-muted">
                     {m.file_type.startsWith('image/') ? (
                       imageUrls[m.id] ? (
                         <img
                           src={imageUrls[m.id]}
                           alt={m.caption || m.file_name}
+                          crossOrigin={isPdfCapture ? 'anonymous' : undefined}
+                          loading={isPdfCapture ? 'eager' : 'lazy'}
                           className="w-full h-full object-cover"
                         />
                       ) : (
@@ -686,7 +723,7 @@ export default function RelatorioCorretivo() {
         )}
 
         {/* Footer */}
-        <div className="text-center py-6 text-xs text-muted-foreground" data-pdf-section="footer">
+        <div className="text-center py-6 text-xs text-muted-foreground" data-pdf-section="footer" data-pdf-hide="true">
           <p>Relatório gerado automaticamente pelo sistema RumiField</p>
           <p className="mt-1">© {new Date().getFullYear()} Rumina Tecnologia</p>
         </div>

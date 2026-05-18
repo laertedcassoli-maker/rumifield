@@ -101,6 +101,7 @@ export default function RelatorioPreventivo() {
   const { toast } = useToast();
   const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
   const [imageLoadAttempted, setImageLoadAttempted] = useState(false);
+  const [isPdfCapture, setIsPdfCapture] = useState(() => Boolean((window as any).__PDF_CAPTURE__));
   
   const isInternal = type === 'interno';
 
@@ -294,6 +295,13 @@ export default function RelatorioPreventivo() {
     return () => clearTimeout(t);
   }, [isLoading, report, imageLoadAttempted, imageUrls]);
 
+  useEffect(() => {
+    const syncPdfMode = () => setIsPdfCapture(Boolean((window as any).__PDF_CAPTURE__));
+    syncPdfMode();
+    window.addEventListener('report-pdf-mode', syncPdfMode);
+    return () => window.removeEventListener('report-pdf-mode', syncPdfMode);
+  }, []);
+
   const [isSharing, setIsSharing] = useState(false);
   const handleShare = async () => {
     const url = window.location.href;
@@ -360,7 +368,7 @@ export default function RelatorioPreventivo() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-muted/30 to-background" data-pdf-root="true">
+    <div className="min-h-screen bg-gradient-to-b from-muted/30 to-background" data-pdf-root="true" data-pdf-capture={isPdfCapture ? 'true' : 'false'}>
       {/* Header */}
       <header className="bg-white border-b py-4 px-4" data-pdf-section="header">
         <div className="max-w-2xl mx-auto">
@@ -551,12 +559,18 @@ export default function RelatorioPreventivo() {
                   <div key={part.id} data-pdf-subsection="part-item" className="flex items-center justify-between p-2 bg-muted/50 rounded-lg">
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium">{part.part_name_snapshot}</p>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                         <span>{part.part_code_snapshot}</span>
                         {part.stock_source && (
-                          <Badge variant="outline" className="text-xs h-5">
-                            {part.stock_source === 'tecnico' ? 'Est. Técnico' : 'Est. Fazenda'}
-                          </Badge>
+                          isPdfCapture ? (
+                            <span className="inline-flex rounded-md border px-2 py-1 text-xs text-foreground bg-muted">
+                              {part.stock_source === 'tecnico' ? 'Est. Técnico' : 'Est. Fazenda'}
+                            </span>
+                          ) : (
+                            <Badge variant="outline" className="text-xs h-5">
+                              {part.stock_source === 'tecnico' ? 'Est. Técnico' : 'Est. Fazenda'}
+                            </Badge>
+                          )
                         )}
                       </div>
                     </div>
@@ -604,6 +618,8 @@ export default function RelatorioPreventivo() {
                       <img 
                         src={imageUrls[m.id]} 
                         alt={m.caption || m.file_name}
+                        crossOrigin={isPdfCapture ? 'anonymous' : undefined}
+                        loading={isPdfCapture ? 'eager' : 'lazy'}
                         className="w-full h-full object-cover"
                       />
                     ) : imageLoadAttempted ? (
@@ -656,7 +672,7 @@ export default function RelatorioPreventivo() {
         )}
 
         {/* Footer */}
-        <footer className="text-center text-xs text-muted-foreground py-6" data-pdf-section="footer">
+        <footer className="text-center text-xs text-muted-foreground py-6" data-pdf-section="footer" data-pdf-hide="true">
           <p>Relatório gerado automaticamente</p>
           <p className="mt-1">© RumiField {new Date().getFullYear()}</p>
         </footer>
