@@ -559,12 +559,18 @@ export default function RelatorioPreventivo() {
                   <div key={part.id} data-pdf-subsection="part-item" className="flex items-center justify-between p-2 bg-muted/50 rounded-lg">
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium">{part.part_name_snapshot}</p>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                         <span>{part.part_code_snapshot}</span>
                         {part.stock_source && (
-                          <Badge variant="outline" className="text-xs h-5">
-                            {part.stock_source === 'tecnico' ? 'Est. Técnico' : 'Est. Fazenda'}
-                          </Badge>
+                          isPdfCapture ? (
+                            <span className="inline-flex rounded-md border px-2 py-1 text-xs text-foreground bg-muted">
+                              {part.stock_source === 'tecnico' ? 'Est. Técnico' : 'Est. Fazenda'}
+                            </span>
+                          ) : (
+                            <Badge variant="outline" className="text-xs h-5">
+                              {part.stock_source === 'tecnico' ? 'Est. Técnico' : 'Est. Fazenda'}
+                            </Badge>
+                          )
                         )}
                       </div>
                     </div>
@@ -666,7 +672,7 @@ export default function RelatorioPreventivo() {
         )}
 
         {/* Footer */}
-        <footer className="text-center text-xs text-muted-foreground py-6" data-pdf-section="footer">
+        <footer className="text-center text-xs text-muted-foreground py-6" data-pdf-section="footer" data-pdf-hide="true">
           <p>Relatório gerado automaticamente</p>
           <p className="mt-1">© RumiField {new Date().getFullYear()}</p>
         </footer>
