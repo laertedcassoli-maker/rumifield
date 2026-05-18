@@ -2,7 +2,7 @@ import { chromium } from 'playwright';
 import fs from 'fs';
 
 const URL = 'https://rumifield.lovable.app/relatorio/f2733b08-f3a9-4c6c-a358-b8e234329cfb';
-const OUT = '/mnt/documents/relatorio-preventivo-modelo.pdf';
+const OUT = '/mnt/documents/relatorio-preventivo-modelo-v2.pdf';
 
 const browser = await chromium.launch({ headless: true, executablePath: '/bin/chromium', args: ['--no-sandbox'] });
 const ctx = await browser.newContext({ viewport: { width: 760, height: 1200 }, deviceScaleFactor: 2 });
