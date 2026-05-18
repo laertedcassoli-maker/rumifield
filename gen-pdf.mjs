@@ -19,6 +19,38 @@ await page.waitForTimeout(800);
 await page.addScriptTag({ url: 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js' });
 await page.addScriptTag({ url: 'https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js' });
 
+// Inject subsection markers retroactively to simulate post-deploy DOM
+await page.evaluate(() => {
+  // Checklist: each block wrapper (div.space-y-2 under CardContent inside checklist section) and each item row
+  const checklist = document.querySelector('[data-pdf-section="checklist"]');
+  if (checklist) {
+    const cardContent = checklist.querySelector('.space-y-3');
+    if (cardContent) {
+      Array.from(cardContent.children).forEach(child => {
+        if (child.classList.contains('space-y-2')) {
+          child.setAttribute('data-pdf-subsection', 'checklist-block');
+          // items inside
+          Array.from(child.children).forEach(c => {
+            if (c.classList.contains('rounded-lg') || c.classList.contains('p-2')) {
+              c.setAttribute('data-pdf-subsection', 'checklist-item');
+            }
+          });
+        }
+      });
+    }
+  }
+  // Parts: each row
+  const parts = document.querySelector('[data-pdf-section="parts"]');
+  if (parts) {
+    parts.querySelectorAll('.flex.items-center.justify-between').forEach(el => el.setAttribute('data-pdf-subsection', 'part-item'));
+  }
+  // Photos
+  const photos = document.querySelector('[data-pdf-section="photos"]');
+  if (photos) {
+    photos.querySelectorAll('.aspect-square').forEach(el => el.setAttribute('data-pdf-subsection', 'photo'));
+  }
+});
+
 // Resize viewport to full page height before capture
 const fullH = await page.evaluate(() => document.documentElement.scrollHeight);
 await page.setViewportSize({ width: 760, height: Math.min(fullH, 20000) });
