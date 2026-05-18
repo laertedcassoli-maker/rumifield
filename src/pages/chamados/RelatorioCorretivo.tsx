@@ -375,6 +375,13 @@ export default function RelatorioCorretivo() {
     };
     const r = corrective.result ? resultLabels[corrective.result] : null;
     if (!r) return null;
+    if (isPdfCapture) {
+      return (
+        <span className="inline-flex max-w-full rounded-md border px-2 py-1 text-xs font-medium break-words bg-muted text-foreground">
+          {r.label}
+        </span>
+      );
+    }
     return <Badge variant={r.variant}>{r.label}</Badge>;
   };
 
@@ -555,9 +562,15 @@ export default function RelatorioCorretivo() {
                               <div className="mt-1">
                                 <p className="text-xs text-muted-foreground">Não conformidades:</p>
                                 {uniqueByLabel(item.nonconformities, 'nonconformity_label_snapshot').map(nc => (
-                                  <Badge key={nc.id} variant="outline" className="mr-1 mt-1 text-xs border-destructive text-destructive">
-                                    {nc.nonconformity_label_snapshot}
-                                  </Badge>
+                                  isPdfCapture ? (
+                                    <span key={nc.id} className="mr-1 mt-1 inline-flex max-w-full rounded-md border border-destructive px-2 py-1 text-xs text-destructive break-words align-top">
+                                      {nc.nonconformity_label_snapshot}
+                                    </span>
+                                  ) : (
+                                    <Badge key={nc.id} variant="outline" className="mr-1 mt-1 text-xs border-destructive text-destructive">
+                                      {nc.nonconformity_label_snapshot}
+                                    </Badge>
+                                  )
                                 ))}
                               </div>
                             )}
@@ -566,9 +579,15 @@ export default function RelatorioCorretivo() {
                               <div className="mt-1">
                                 <p className="text-xs text-muted-foreground">Ações corretivas:</p>
                                 {uniqueByLabel(item.actions, 'action_label_snapshot').map(action => (
-                                  <Badge key={action.id} variant="outline" className="mr-1 mt-1 text-xs border-green-600 text-green-600">
-                                    {action.action_label_snapshot}
-                                  </Badge>
+                                  isPdfCapture ? (
+                                    <span key={action.id} className="mr-1 mt-1 inline-flex max-w-full rounded-md border border-green-600 px-2 py-1 text-xs text-green-700 break-words align-top">
+                                      {action.action_label_snapshot}
+                                    </span>
+                                  ) : (
+                                    <Badge key={action.id} variant="outline" className="mr-1 mt-1 text-xs border-green-600 text-green-600">
+                                      {action.action_label_snapshot}
+                                    </Badge>
+                                  )
                                 ))}
                               </div>
                             )}
@@ -602,15 +621,23 @@ export default function RelatorioCorretivo() {
                   <div key={part.id} data-pdf-subsection="part-item" className="flex justify-between items-center p-2 bg-muted/50 rounded-lg">
                     <div>
                       <p className="text-sm font-medium">{part.part_name_snapshot}</p>
-                      <p className="text-xs text-muted-foreground">{part.part_code_snapshot}</p>
+                      <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                        <span>{part.part_code_snapshot}</span>
+                        {isInternal && part.stock_source && (
+                          isPdfCapture ? (
+                            <span className="inline-flex rounded-md border px-2 py-1 text-xs text-foreground bg-muted">
+                              {part.stock_source === 'tecnico' ? 'Técnico' : 'Fazenda'}
+                            </span>
+                          ) : (
+                            <Badge variant="outline" className="text-xs">
+                              {part.stock_source === 'tecnico' ? 'Técnico' : 'Fazenda'}
+                            </Badge>
+                          )
+                        )}
+                      </div>
                     </div>
                     <div className="text-right">
                       <p className="font-medium">{part.quantity}x</p>
-                      {isInternal && part.stock_source && (
-                        <Badge variant="outline" className="text-xs">
-                          {part.stock_source === 'tecnico' ? 'Técnico' : 'Fazenda'}
-                        </Badge>
-                      )}
                     </div>
                   </div>
                 ))}
@@ -696,7 +723,7 @@ export default function RelatorioCorretivo() {
         )}
 
         {/* Footer */}
-        <div className="text-center py-6 text-xs text-muted-foreground" data-pdf-section="footer">
+        <div className="text-center py-6 text-xs text-muted-foreground" data-pdf-section="footer" data-pdf-hide="true">
           <p>Relatório gerado automaticamente pelo sistema RumiField</p>
           <p className="mt-1">© {new Date().getFullYear()} Rumina Tecnologia</p>
         </div>
