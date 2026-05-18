@@ -9,7 +9,7 @@ const ctx = await browser.newContext({ viewport: { width: 760, height: 1200 }, d
 const page = await ctx.newPage();
 page.on('console', m => console.log('[page]', m.type(), m.text()));
 
-await page.goto(URL, { waitUntil: 'networkidle', timeout: 60000 });
+await page.goto(URL, { waitUntil: 'domcontentloaded', timeout: 60000 });
 
 // Wait for report-ready marker
 await page.waitForFunction(() => !!document.querySelector('[data-report-ready="true"]'), { timeout: 30000 });
