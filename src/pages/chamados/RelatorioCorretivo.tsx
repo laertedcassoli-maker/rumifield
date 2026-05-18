@@ -623,9 +623,7 @@ export default function RelatorioCorretivo() {
                         <span>{part.part_code_snapshot}</span>
                         {isInternal && part.stock_source && (
                           isPdfCapture ? (
-                            <span className="inline-flex rounded-md border px-2 py-1 text-xs text-foreground bg-muted">
-                              {part.stock_source === 'tecnico' ? 'Técnico' : 'Fazenda'}
-                            </span>
+                            <span>• {part.stock_source === 'tecnico' ? 'Técnico' : 'Fazenda'}</span>
                           ) : (
                             <Badge variant="outline" className="text-xs">
                               {part.stock_source === 'tecnico' ? 'Técnico' : 'Fazenda'}
