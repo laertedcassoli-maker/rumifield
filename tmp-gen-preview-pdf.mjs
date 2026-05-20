@@ -13,7 +13,7 @@ const ctx = await browser.newContext({ viewport: { width: 760, height: 1200 }, d
 const page = await ctx.newPage();
 page.on('console', (m) => console.log('[page]', m.type(), m.text()));
 await page.goto(URL, { waitUntil: 'domcontentloaded', timeout: 90000 });
-await page.waitForSelector('[data-report-ready="true"]', { timeout: 45000 });
+await page.waitForFunction(() => { const n = document.querySelector('[data-report-ready]'); return n?.getAttribute('data-report-ready') === 'true'; }, { timeout: 90000 });
 await page.waitForTimeout(1500);
 await page.addScriptTag({ url: 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js' });
 await page.addScriptTag({ url: 'https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js' });
