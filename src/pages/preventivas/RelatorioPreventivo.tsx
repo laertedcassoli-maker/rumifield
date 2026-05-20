@@ -609,12 +609,12 @@ export default function RelatorioPreventivo() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-2 gap-2">
-                {media.map(m => (
-                  <div key={m.id} data-pdf-subsection="photo" className="relative aspect-square rounded-lg overflow-hidden bg-muted">
+              {(() => {
+                const renderItem = (m: typeof media[number]) => (
+                  <div key={m.id} className="relative aspect-square rounded-lg overflow-hidden bg-muted">
                     {imageUrls[m.id] ? (
-                      <img 
-                        src={imageUrls[m.id]} 
+                      <img
+                        src={imageUrls[m.id]}
                         alt={m.caption || m.file_name}
                         crossOrigin={isPdfCapture ? 'anonymous' : undefined}
                         loading={isPdfCapture ? 'eager' : 'lazy'}
@@ -636,9 +636,27 @@ export default function RelatorioPreventivo() {
                       </div>
                     )}
                   </div>
-                ))}
-              </div>
+                );
+
+                if (isPdfCapture) {
+                  const rows: typeof media[] = [];
+                  for (let i = 0; i < media.length; i += 2) rows.push(media.slice(i, i + 2));
+                  return (
+                    <div className="space-y-2">
+                      {rows.map((row, idx) => (
+                        <div key={idx} data-pdf-subsection="photo-row" className="grid grid-cols-2 gap-2">
+                          {row.map(renderItem)}
+                          {row.length === 1 && <div />}
+                        </div>
+                      ))}
+                    </div>
+                  );
+                }
+
+                return <div className="grid grid-cols-2 gap-2">{media.map(renderItem)}</div>;
+              })()}
             </CardContent>
+
           </Card>
         )}
 
