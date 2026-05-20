@@ -48,7 +48,12 @@ const MARGIN_BOTTOM = 14;
 const CONTENT_W = A4_W - MARGIN_X * 2;
 const CONTENT_H = A4_H - MARGIN_TOP - MARGIN_BOTTOM;
 const SECTION_GAP = 3;
-const SUBSECTION_GAP = 2;
+const SUBSECTION_GAP = 1.5;
+// Extra millimetres added to each captured leaf height. html2canvas captures
+// based on offsetHeight (line-height), which excludes letter descenders —
+// without this bleed the next leaf's white background clips characters like
+// 'g', 'p', 'y' from the previous leaf.
+const LEAF_BLEED_MM = 1.2;
 const H2C_SCALE = 2;
 // Extra vertical buffer to absorb any sub-pixel rounding between html2canvas
 // and jsPDF measurements, preventing the last line of a block from being
