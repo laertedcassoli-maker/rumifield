@@ -333,15 +333,6 @@ async function generatePdfBlobFromIframe(iframe: HTMLIFrameElement): Promise<Blo
 }
 
 
-  // Draw footer on every page
-  const totalPages = pdf.getNumberOfPages();
-  for (let p = 1; p <= totalPages; p++) {
-    pdf.setPage(p);
-    drawFooter(pdf, p, totalPages);
-  }
-
-  return pdf.output('blob');
-}
 
 async function buildPdfFile(url: string, fileName: string): Promise<File> {
   const iframe = document.createElement('iframe');
