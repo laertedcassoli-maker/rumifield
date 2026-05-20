@@ -238,83 +238,100 @@ async function generatePdfBlobFromIframe(iframe: HTMLIFrameElement): Promise<Blo
   const state = { currentY: MARGIN_TOP };
   const usableContentHeight = CONTENT_H - PAGE_SAFE_PADDING;
 
-  // Slice an oversized canvas vertically into page-sized chunks (last resort).
-  const sliceCanvasToPages = (canvas: HTMLCanvasElement, ratio: number) => {
-    const sliceHeightPxScaled = Math.floor(usableContentHeight / ratio) * H2C_SCALE;
-    if (state.currentY > MARGIN_TOP) {
+  const ensureNewPageIfNeeded = (neededMm: number) => {
+    const remaining = A4_H - MARGIN_BOTTOM - state.currentY - PAGE_SAFE_PADDING;
+    if (neededMm > remaining && state.currentY > MARGIN_TOP) {
       pdf.addPage();
       state.currentY = MARGIN_TOP;
     }
-    let offsetPx = 0;
-    while (offsetPx < canvas.height) {
-      const sliceH = Math.min(sliceHeightPxScaled, canvas.height - offsetPx);
-      const sliceCanvas = doc.createElement('canvas');
-      sliceCanvas.width = canvas.width;
-      sliceCanvas.height = sliceH;
-      const ctx = sliceCanvas.getContext('2d');
-      if (!ctx) break;
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, sliceCanvas.width, sliceCanvas.height);
-      ctx.drawImage(canvas, 0, -offsetPx);
-      const sliceHmm = (sliceH / H2C_SCALE) * ratio;
-      pdf.addImage(
-        sliceCanvas.toDataURL('image/jpeg', 0.92),
-        'JPEG', MARGIN_X, MARGIN_TOP, CONTENT_W, sliceHmm, undefined, 'FAST',
-      );
-      offsetPx += sliceH;
-      if (offsetPx < canvas.height) pdf.addPage();
-      else state.currentY = MARGIN_TOP + sliceHmm + SECTION_GAP;
-    }
   };
 
-  // Render a section (recursively splits into subsections if it overflows a page).
-  const renderSection = async (section: HTMLElement, depth = 0): Promise<void> => {
-    if (!section.offsetWidth || !section.offsetHeight) return;
+  const placeCanvas = (canvas: HTMLCanvasElement, heightMm: number) => {
+    pdf.addImage(
+      canvas.toDataURL('image/jpeg', 0.92),
+      'JPEG',
+      MARGIN_X,
+      state.currentY,
+      CONTENT_W,
+      heightMm,
+      undefined,
+      'FAST',
+    );
+    state.currentY += heightMm;
+  };
 
+  // Render a node: prefer atomic subsections so page breaks fall on safe gaps.
+  // Only rasterize the whole node when it has no further subsections.
+  const renderNode = async (node: HTMLElement, depth = 0): Promise<void> => {
+    if (!node.offsetWidth || !node.offsetHeight) return;
+
+    const subs = findFirstLevelSubsections(node);
+
+    // If there are deeper subsections, render them one-by-one with safe breaks.
+    if (subs.length > 0 && depth < 6) {
+      for (let i = 0; i < subs.length; i++) {
+        await renderNode(subs[i], depth + 1);
+        if (i < subs.length - 1) state.currentY += SUBSECTION_GAP;
+      }
+      return;
+    }
+
+    // Leaf: capture the whole node.
     let canvas: HTMLCanvasElement;
     try {
-      canvas = await captureSection(section);
+      canvas = await captureSection(node);
     } catch (err) {
-      console.warn('[pdf] section capture failed', err);
+      console.warn('[pdf] leaf capture failed', err);
       return;
     }
     const widthPx = canvas.width / H2C_SCALE;
     const heightPx = canvas.height / H2C_SCALE;
     const ratio = CONTENT_W / widthPx;
-    const heightMm = heightPx * ratio;
+    let heightMm = heightPx * ratio;
 
-    if (heightMm <= usableContentHeight) {
-      const remaining = A4_H - MARGIN_BOTTOM - state.currentY - PAGE_SAFE_PADDING;
-      if (heightMm > remaining && state.currentY > MARGIN_TOP) {
+    // If the leaf alone is taller than a full page, scale it down to fit a
+    // single page. This is intentionally a degraded mode for pathological
+    // content (e.g. a massive note paragraph) — but it never cuts text.
+    if (heightMm > usableContentHeight) {
+      if (state.currentY > MARGIN_TOP) {
         pdf.addPage();
         state.currentY = MARGIN_TOP;
       }
+      const scaledWidth = (CONTENT_W * usableContentHeight) / heightMm;
+      const xOffset = MARGIN_X + (CONTENT_W - scaledWidth) / 2;
       pdf.addImage(
         canvas.toDataURL('image/jpeg', 0.92),
-        'JPEG', MARGIN_X, state.currentY, CONTENT_W, heightMm, undefined, 'FAST',
+        'JPEG',
+        xOffset,
+        state.currentY,
+        scaledWidth,
+        usableContentHeight,
+        undefined,
+        'FAST',
       );
-      state.currentY += heightMm + SECTION_GAP;
+      state.currentY += usableContentHeight;
       return;
     }
 
-    // Section is taller than a page. Try to break it down by subsections first.
-    if (depth < 4) {
-      const subs = findFirstLevelSubsections(section);
-      if (subs.length > 0) {
-        for (const sub of subs) {
-          await renderSection(sub, depth + 1);
-        }
-        return;
-      }
-    }
-
-    // No subsections — last resort: slice the canvas at page boundaries.
-    sliceCanvasToPages(canvas, ratio);
+    ensureNewPageIfNeeded(heightMm);
+    placeCanvas(canvas, heightMm);
   };
 
   for (const section of sections) {
-    await renderSection(section);
+    await renderNode(section);
+    state.currentY += SECTION_GAP;
   }
+
+  // Draw footer on every page
+  const totalPages = pdf.getNumberOfPages();
+  for (let p = 1; p <= totalPages; p++) {
+    pdf.setPage(p);
+    drawFooter(pdf, p, totalPages);
+  }
+
+  return pdf.output('blob');
+}
+
 
   // Draw footer on every page
   const totalPages = pdf.getNumberOfPages();
