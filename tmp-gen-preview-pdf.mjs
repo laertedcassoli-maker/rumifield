@@ -5,7 +5,7 @@ const TOKEN = process.env.REPORT_TOKEN || '8bf90180-10ca-43af-9c51-f3984b3d20d5'
 const KIND = process.env.REPORT_KIND || 'corretivo'; // 'corretivo' | 'preventivo'
 const TYPE = process.env.REPORT_TYPE || 'interno';
 const path = KIND === 'corretivo' ? `relatorio-corretivo/${TOKEN}/${TYPE}` : `relatorio/${TOKEN}/${TYPE}`;
-const URL = `https://93d2c41a-b447-4249-ae06-ee5b8fb38914.lovableproject.com/${path}?__lovable_token=${process.env.LOVABLE_TOKEN || ''}`;
+const URL = `https://rumifield.lovable.app/${path}?__lovable_token=${process.env.LOVABLE_TOKEN || ''}`;
 const OUT = process.env.OUT || `/mnt/documents/relatorio-${KIND}-modelo-v5.pdf`;
 
 const browser = await chromium.launch({ headless: true, executablePath: '/bin/chromium', args: ['--no-sandbox'] });
