@@ -291,6 +291,12 @@ export default function RelatorioCorretivo() {
     enabled: !!token,
   });
 
+  useEffect(() => {
+    setImageUrls({});
+    setImageFailedIds([]);
+    setImageLoadAttempted(false);
+  }, [report?.media]);
+
   // Generate signed URLs for media after data loads
   useEffect(() => {
     if (report?.media?.length && !imageLoadAttempted) {
