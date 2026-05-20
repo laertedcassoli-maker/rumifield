@@ -302,7 +302,7 @@ async function generatePdfBlobFromIframe(iframe: HTMLIFrameElement): Promise<Blo
 
   // Capture a single node as one image, scaling down if it exceeds a full page.
   const renderLeaf = async (node: HTMLElement): Promise<number> => {
-    if (!node.offsetWidth || !node.offsetHeight) return;
+    if (!node.offsetWidth || !node.offsetHeight) return 0;
     let canvas: HTMLCanvasElement;
     try {
       canvas = await captureSection(node);
