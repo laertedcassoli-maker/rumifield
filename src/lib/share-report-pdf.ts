@@ -221,6 +221,11 @@ function findFirstLevelSubsections(root: HTMLElement): HTMLElement[] {
   return out;
 }
 
+function containsSubsections(node: HTMLElement): boolean {
+  return !!node.querySelector('[data-pdf-subsection]');
+}
+
+
 async function generatePdfBlobFromIframe(iframe: HTMLIFrameElement): Promise<Blob> {
   const doc = iframe.contentDocument;
   if (!doc || !doc.body) throw new Error('Conteúdo do relatório indisponível');
