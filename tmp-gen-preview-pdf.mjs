@@ -27,7 +27,7 @@ const base64 = await page.evaluate(async () => {
   const CONTENT_H = A4_H - MARGIN_TOP - MARGIN_BOTTOM;
   const PAGE_SAFE_PADDING = 6;
   const usableContentHeight = CONTENT_H - PAGE_SAFE_PADDING;
-  const SECTION_GAP = 3, SUBSECTION_GAP = 2, SCALE = 2;
+  const SECTION_GAP = 3, SUBSECTION_GAP = 1.5, LEAF_BLEED_MM = 1.2, SCALE = 2;
 
   window.__PDF_CAPTURE__ = true;
   window.dispatchEvent(new Event('report-pdf-mode'));
