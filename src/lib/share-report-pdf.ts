@@ -44,12 +44,16 @@ const A4_W = 210;
 const A4_H = 297;
 const MARGIN_X = 10;
 const MARGIN_TOP = 14;
-const MARGIN_BOTTOM = 12;
+const MARGIN_BOTTOM = 14;
 const CONTENT_W = A4_W - MARGIN_X * 2;
 const CONTENT_H = A4_H - MARGIN_TOP - MARGIN_BOTTOM;
-const SECTION_GAP = 4;
+const SECTION_GAP = 3;
+const SUBSECTION_GAP = 2;
 const H2C_SCALE = 2;
-const PAGE_SAFE_PADDING = 2;
+// Extra vertical buffer to absorb any sub-pixel rounding between html2canvas
+// and jsPDF measurements, preventing the last line of a block from being
+// clipped at the page edge.
+const PAGE_SAFE_PADDING = 6;
 
 // ============================================================
 // Image CORS handling: rewrite cross-origin <img> tags to use
