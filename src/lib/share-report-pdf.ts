@@ -187,6 +187,9 @@ async function waitForIframeReady(iframe: HTMLIFrameElement, timeoutMs = 20000):
 // Section-based PDF rendering
 // ============================================================
 async function captureSection(section: HTMLElement): Promise<HTMLCanvasElement> {
+  // Add a few extra pixels of height so html2canvas doesn't crop letter
+  // descenders ('g', 'p', 'y') that hang below the line-box offsetHeight.
+  const extraPx = 6;
   return await html2canvas(section, {
     useCORS: true,
     allowTaint: false,
@@ -195,6 +198,8 @@ async function captureSection(section: HTMLElement): Promise<HTMLCanvasElement> 
     imageTimeout: 15000,
     logging: false,
     windowWidth: section.ownerDocument.documentElement.clientWidth,
+    height: section.offsetHeight + extraPx,
+    windowHeight: section.ownerDocument.documentElement.clientHeight + extraPx,
   });
 }
 
