@@ -499,6 +499,7 @@ export async function shareReportWithPdf(args: ShareReportArgs): Promise<ShareRe
   console.log('[shareReportWithPdf] start', { url, fileName });
 
   let file: File | null = null;
+  let pdfGenerationError: Error | null = null;
   const sameOrigin = new URL(url).origin === window.location.origin;
 
   if (sameOrigin) {
@@ -513,12 +514,17 @@ export async function shareReportWithPdf(args: ShareReportArgs): Promise<ShareRe
       console.log('[shareReportWithPdf] PDF generated', file.size, 'bytes');
     } catch (err) {
       console.warn('[shareReportWithPdf] PDF generation failed, falling back to link share', err);
+      pdfGenerationError = err instanceof Error ? err : new Error('Falha ao gerar o PDF do relatório');
     }
   } else {
     console.warn('[shareReportWithPdf] Skipping PDF generation for cross-origin URL', url);
   }
 
   const pdfGenerated = !!file;
+  if (sameOrigin && !file) {
+    throw pdfGenerationError ?? new Error('Não foi possível gerar o PDF do relatório');
+  }
+
   const canShareFile = !!file && isFileShareSupported(file, title, text, url);
   const canShareLink = isLinkShareSupported(title, text, url);
 
@@ -535,11 +541,21 @@ export async function shareReportWithPdf(args: ShareReportArgs): Promise<ShareRe
     }
   }
 
+  if (file) {
+    console.log('[shareReportWithPdf] file share unsupported, using download/clipboard fallback');
+    downloadFile(file);
+    const copiedToClipboard = await copyToClipboard(url);
+    return {
+      outcome: 'downloaded',
+      copiedToClipboard,
+      pdfGenerated: true,
+    };
+  }
+
   if (canShareLink) {
     try {
       console.log('[shareReportWithPdf] attempting native share with link only');
       await navigator.share({ title, text, url });
-      if (file) downloadFile(file);
       return { outcome: 'shared-link-only', pdfGenerated };
     } catch (err) {
       if (isUserCancelledShare(err)) {
