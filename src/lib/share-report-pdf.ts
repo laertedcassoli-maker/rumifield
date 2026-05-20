@@ -265,23 +265,9 @@ async function generatePdfBlobFromIframe(iframe: HTMLIFrameElement): Promise<Blo
     state.currentY += heightMm;
   };
 
-  // Render a node: prefer atomic subsections so page breaks fall on safe gaps.
-  // Only rasterize the whole node when it has no further subsections.
-  const renderNode = async (node: HTMLElement, depth = 0): Promise<void> => {
+  // Capture a single node as one image, scaling down if it exceeds a full page.
+  const renderLeaf = async (node: HTMLElement): Promise<void> => {
     if (!node.offsetWidth || !node.offsetHeight) return;
-
-    const subs = findFirstLevelSubsections(node);
-
-    // If there are deeper subsections, render them one-by-one with safe breaks.
-    if (subs.length > 0 && depth < 6) {
-      for (let i = 0; i < subs.length; i++) {
-        await renderNode(subs[i], depth + 1);
-        if (i < subs.length - 1) state.currentY += SUBSECTION_GAP;
-      }
-      return;
-    }
-
-    // Leaf: capture the whole node.
     let canvas: HTMLCanvasElement;
     try {
       canvas = await captureSection(node);
@@ -292,12 +278,10 @@ async function generatePdfBlobFromIframe(iframe: HTMLIFrameElement): Promise<Blo
     const widthPx = canvas.width / H2C_SCALE;
     const heightPx = canvas.height / H2C_SCALE;
     const ratio = CONTENT_W / widthPx;
-    let heightMm = heightPx * ratio;
+    const heightMm = heightPx * ratio;
 
-    // If the leaf alone is taller than a full page, scale it down to fit a
-    // single page. This is intentionally a degraded mode for pathological
-    // content (e.g. a massive note paragraph) — but it never cuts text.
     if (heightMm > usableContentHeight) {
+      // Pathological oversized leaf: scale down to fit a single page (never cut).
       if (state.currentY > MARGIN_TOP) {
         pdf.addPage();
         state.currentY = MARGIN_TOP;
@@ -321,6 +305,34 @@ async function generatePdfBlobFromIframe(iframe: HTMLIFrameElement): Promise<Blo
     ensureNewPageIfNeeded(heightMm);
     placeCanvas(canvas, heightMm);
   };
+
+  // Walk a node: if it contains marked subsections, descend into direct
+  // children — capturing non-subsection children as their own leaves so
+  // headers/stats/separators remain in the output. Otherwise capture whole.
+  const renderNode = async (node: HTMLElement, depth = 0): Promise<void> => {
+    if (!node.offsetWidth || !node.offsetHeight) return;
+
+    if (depth >= 8 || !containsSubsections(node)) {
+      await renderLeaf(node);
+      return;
+    }
+
+    const children = Array.from(node.children).filter(
+      (c): c is HTMLElement => c instanceof HTMLElement,
+    );
+
+    for (let i = 0; i < children.length; i++) {
+      const child = children[i];
+      if (!child.offsetWidth || !child.offsetHeight) continue;
+      if (containsSubsections(child) || child.hasAttribute('data-pdf-subsection')) {
+        await renderNode(child, depth + 1);
+      } else {
+        await renderLeaf(child);
+      }
+      if (i < children.length - 1) state.currentY += SUBSECTION_GAP;
+    }
+  };
+
 
   for (const section of sections) {
     await renderNode(section);
