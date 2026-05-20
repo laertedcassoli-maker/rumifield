@@ -98,7 +98,9 @@ export default function RelatorioCorretivo() {
   const { toast } = useToast();
   const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
   const [imageLoadAttempted, setImageLoadAttempted] = useState(false);
+  const [imageFailedIds, setImageFailedIds] = useState<string[]>([]);
   const [isPdfCapture, setIsPdfCapture] = useState(() => Boolean((window as any).__PDF_CAPTURE__));
+  const [isReportReadyForPdf, setIsReportReadyForPdf] = useState(false);
   
   const isInternal = type === 'interno';
 
@@ -124,101 +126,137 @@ export default function RelatorioCorretivo() {
       if (cmError) throw cmError;
       if (!corrective) throw new Error('Relatório não encontrado');
 
-      // Fetch visit details
-      const { data: visitData } = await supabase
-        .from('ticket_visits')
-        .select(`
-          id,
-          visit_code,
-          ticket_id,
-          field_technician_user_id,
-          result,
-          visit_summary,
-          public_notes,
-          internal_notes
-        `)
-        .eq('id', corrective.visit_id)
-        .maybeSingle();
+      const [visitResponse, clientResponse] = await Promise.all([
+        supabase
+          .from('ticket_visits')
+          .select(`
+            id,
+            visit_code,
+            ticket_id,
+            field_technician_user_id,
+            result,
+            visit_summary,
+            public_notes,
+            internal_notes
+          `)
+          .eq('id', corrective.visit_id)
+          .maybeSingle(),
+        supabase
+          .from('clientes')
+          .select('nome, fazenda, cidade, estado')
+          .eq('id', corrective.client_id)
+          .maybeSingle(),
+      ]);
 
-      // Fetch client
-      const { data: clientData } = await supabase
-        .from('clientes')
-        .select('nome, fazenda, cidade, estado')
-        .eq('id', corrective.client_id)
-        .maybeSingle();
+      if (visitResponse.error) throw visitResponse.error;
+      if (clientResponse.error) throw clientResponse.error;
+
+      const visitData = visitResponse.data;
+      const clientData = clientResponse.data;
 
       const client = clientData || { nome: 'Cliente', fazenda: null, cidade: null, estado: null };
 
-      // Fetch ticket
-      let ticket = null;
-      if (visitData?.ticket_id) {
-        const { data: ticketData } = await supabase
-          .from('technical_tickets')
-          .select('ticket_code, title')
-          .eq('id', visitData.ticket_id)
-          .maybeSingle();
-        ticket = ticketData;
-      }
+      const [ticketResponse, technicianResponse, linkedPreventiveResponse] = await Promise.all([
+        visitData?.ticket_id
+          ? supabase
+              .from('technical_tickets')
+              .select('ticket_code, title')
+              .eq('id', visitData.ticket_id)
+              .maybeSingle()
+          : Promise.resolve({ data: null, error: null }),
+        visitData?.field_technician_user_id
+          ? supabase
+              .from('profiles')
+              .select('nome')
+              .eq('id', visitData.field_technician_user_id)
+              .maybeSingle()
+          : Promise.resolve({ data: null, error: null }),
+        visitData?.id
+          ? supabase
+              .from('preventive_maintenance')
+              .select('id, public_notes, internal_notes')
+              .eq('client_id', corrective.client_id)
+              .ilike('notes', `%CORR-VISIT-${visitData.id}%`)
+              .maybeSingle()
+          : Promise.resolve({ data: null, error: null }),
+      ]);
 
-      // Fetch technician
-      let technicianName = null;
-      if (visitData?.field_technician_user_id) {
-        const { data: tech } = await supabase
-          .from('profiles')
-          .select('nome')
-          .eq('id', visitData.field_technician_user_id)
-          .maybeSingle();
-        technicianName = tech?.nome || null;
-      }
+      if (ticketResponse.error) throw ticketResponse.error;
+      if (technicianResponse.error) throw technicianResponse.error;
+      if (linkedPreventiveResponse.error) throw linkedPreventiveResponse.error;
 
-      // Fetch linked preventive maintenance record used by checklist, notes, parts and media
-      const { data: linkedPreventive } = visitData?.id
-        ? await supabase
-            .from('preventive_maintenance')
-            .select('id, public_notes, internal_notes')
-            .eq('client_id', corrective.client_id)
-            .ilike('notes', `%CORR-VISIT-${visitData.id}%`)
-            .maybeSingle()
-        : { data: null };
+      const ticket = ticketResponse.data;
+      const technicianName = technicianResponse.data?.nome || null;
+      const linkedPreventive = linkedPreventiveResponse.data;
 
       let checklistData = null;
+      let parts: ReportData['parts'] = [];
+      let media: ReportData['media'] = [];
+
       if (linkedPreventive?.id) {
-        const { data: checklist } = await supabase
-          .from('preventive_checklists')
-          .select('id, status, started_at, completed_at')
-          .eq('preventive_id', linkedPreventive.id)
-          .maybeSingle();
+        const [checklistResponse, partsResponse, mediaResponse] = await Promise.all([
+          supabase
+            .from('preventive_checklists')
+            .select('id, status, started_at, completed_at')
+            .eq('preventive_id', linkedPreventive.id)
+            .maybeSingle(),
+          supabase
+            .from('preventive_part_consumption')
+            .select('id, part_name_snapshot, part_code_snapshot, quantity, stock_source')
+            .eq('preventive_id', linkedPreventive.id),
+          supabase
+            .from('preventive_visit_media')
+            .select('id, file_path, file_name, file_type, caption')
+            .eq('preventive_id', linkedPreventive.id),
+        ]);
+
+        if (checklistResponse.error) throw checklistResponse.error;
+        if (partsResponse.error) throw partsResponse.error;
+        if (mediaResponse.error) throw mediaResponse.error;
+
+        parts = partsResponse.data || [];
+        media = mediaResponse.data || [];
+
+        const checklist = checklistResponse.data;
 
         if (checklist) {
-          const { data: blocks } = await supabase
+          const { data: blocks, error: blocksError } = await supabase
             .from('preventive_checklist_blocks')
             .select('id, block_name_snapshot, order_index')
             .eq('checklist_id', checklist.id)
             .order('order_index');
 
+          if (blocksError) throw blocksError;
+
           if (blocks) {
             const blocksWithItems = await Promise.all(blocks.map(async (block) => {
-              const { data: items } = await supabase
+              const { data: items, error: itemsError } = await supabase
                 .from('preventive_checklist_items')
                 .select('id, item_name_snapshot, status, notes, order_index')
                 .eq('exec_block_id', block.id)
                 .order('order_index');
 
-              const itemsWithDetails = await Promise.all((items || []).map(async (item) => {
-                const { data: nonconformities } = await supabase
-                  .from('preventive_checklist_item_nonconformities')
-                  .select('id, nonconformity_label_snapshot')
-                  .eq('exec_item_id', item.id);
+              if (itemsError) throw itemsError;
 
-                const { data: actions } = await supabase
-                  .from('preventive_checklist_item_actions')
-                  .select('id, action_label_snapshot')
-                  .eq('exec_item_id', item.id);
+              const itemsWithDetails = await Promise.all((items || []).map(async (item) => {
+                const [nonconformitiesResponse, actionsResponse] = await Promise.all([
+                  supabase
+                    .from('preventive_checklist_item_nonconformities')
+                    .select('id, nonconformity_label_snapshot')
+                    .eq('exec_item_id', item.id),
+                  supabase
+                    .from('preventive_checklist_item_actions')
+                    .select('id, action_label_snapshot')
+                    .eq('exec_item_id', item.id),
+                ]);
+
+                if (nonconformitiesResponse.error) throw nonconformitiesResponse.error;
+                if (actionsResponse.error) throw actionsResponse.error;
 
                 return {
                   ...item,
-                  nonconformities: nonconformities || [],
-                  actions: actions || []
+                  nonconformities: nonconformitiesResponse.data || [],
+                  actions: actionsResponse.data || []
                 };
               }));
 
@@ -229,17 +267,6 @@ export default function RelatorioCorretivo() {
           }
         }
       }
-
-      const { data: parts } = await supabase
-        .from('preventive_part_consumption')
-        .select('id, part_name_snapshot, part_code_snapshot, quantity, stock_source')
-        .eq('preventive_id', linkedPreventive?.id || '00000000-0000-0000-0000-000000000000');
-
-      // Fetch media
-      const { data: media } = await supabase
-        .from('preventive_visit_media')
-        .select('id, file_path, file_name, file_type, caption')
-        .eq('preventive_id', linkedPreventive?.id || '00000000-0000-0000-0000-000000000000');
 
       return {
         corrective: {
@@ -264,11 +291,18 @@ export default function RelatorioCorretivo() {
     enabled: !!token,
   });
 
+  useEffect(() => {
+    setImageUrls({});
+    setImageFailedIds([]);
+    setImageLoadAttempted(false);
+  }, [report?.media]);
+
   // Generate signed URLs for media after data loads
   useEffect(() => {
     if (report?.media?.length && !imageLoadAttempted) {
       const loadUrls = async () => {
         const urls: Record<string, string> = {};
+        const failedIds: string[] = [];
         for (const m of report.media) {
           try {
             const { data: signedUrl, error } = await supabase.storage
@@ -276,16 +310,21 @@ export default function RelatorioCorretivo() {
               .createSignedUrl(m.file_path, 3600);
             if (signedUrl && !error) {
               urls[m.id] = signedUrl.signedUrl;
+            } else {
+              failedIds.push(m.id);
             }
           } catch (e) {
             console.error('Error loading media', m.id, e);
+            failedIds.push(m.id);
           }
         }
         setImageUrls(urls);
+        setImageFailedIds(failedIds);
         setImageLoadAttempted(true);
       };
       loadUrls();
     } else if (report && report.media.length === 0 && !imageLoadAttempted) {
+      setImageFailedIds([]);
       setImageLoadAttempted(true);
     }
   }, [report?.media, imageLoadAttempted]);
@@ -293,15 +332,37 @@ export default function RelatorioCorretivo() {
   // Signal readiness for PDF capture (used by shareReportWithPdf iframe)
   useEffect(() => {
     (window as any).__REPORT_READY__ = false;
+    setIsReportReadyForPdf(false);
     if (isLoading || !report) return;
     const hasMedia = (report.media?.length ?? 0) > 0;
-    if (hasMedia && !imageLoadAttempted) return;
+    const resolvedMediaCount = Object.keys(imageUrls).length + imageFailedIds.length;
+    if (hasMedia && (!imageLoadAttempted || resolvedMediaCount < report.media.length)) return;
+
+    const requiredSections = [
+      'header',
+      'visit-info',
+      ...(report.corrective.visit_summary ? ['visit-summary'] : []),
+      ...(report.checklist ? ['checklist'] : []),
+      ...(report.parts.length > 0 ? ['parts'] : []),
+      ...(report.media.length > 0 ? ['media'] : []),
+      ...(report.corrective.public_notes ? ['public-notes'] : []),
+      ...(isInternal && report.corrective.internal_notes ? ['internal-notes'] : []),
+    ];
+
     const t = setTimeout(() => {
+      const missingSections = requiredSections.filter((section) => !document.querySelector(`[data-pdf-section="${section}"]`));
+      const renderedMediaItems = document.querySelectorAll('[data-report-media-item="true"]').length;
+      const readyMediaItems = document.querySelectorAll('[data-report-media-ready="true"]').length;
+      const mediaReady = report.media.length === 0 || (renderedMediaItems >= report.media.length && readyMediaItems >= report.media.length);
+
+      if (missingSections.length > 0 || !mediaReady) return;
+
+      setIsReportReadyForPdf(true);
       (window as any).__REPORT_READY__ = true;
       window.dispatchEvent(new Event('report-ready'));
     }, 600);
     return () => clearTimeout(t);
-  }, [isLoading, report, imageLoadAttempted, imageUrls]);
+  }, [isLoading, report, imageLoadAttempted, imageUrls, imageFailedIds, isInternal]);
 
   useEffect(() => {
     const syncPdfMode = () => setIsPdfCapture(Boolean((window as any).__PDF_CAPTURE__));
@@ -429,7 +490,11 @@ export default function RelatorioCorretivo() {
         </div>
       </header>
 
-      <main className="max-w-2xl mx-auto p-4 space-y-4" data-report-ready="true">
+      <main
+        className="max-w-2xl mx-auto p-4 space-y-4"
+        data-report-ready={isReportReadyForPdf ? 'true' : 'false'}
+        data-report-media-count={media.length}
+      >
         {/* Visit Info Card */}
         <Card data-pdf-section="visit-info">
           <CardContent className="p-4">
@@ -654,7 +719,12 @@ export default function RelatorioCorretivo() {
             <CardContent>
               {(() => {
                 const renderItem = (m: typeof media[number]) => (
-                  <div key={m.id} className="relative aspect-square rounded-lg overflow-hidden bg-muted">
+                  <div
+                    key={m.id}
+                    className="relative aspect-square rounded-lg overflow-hidden bg-muted"
+                    data-report-media-item="true"
+                    data-report-media-ready={imageUrls[m.id] || imageFailedIds.includes(m.id) ? 'true' : 'false'}
+                  >
                     {m.file_type.startsWith('image/') ? (
                       imageUrls[m.id] ? (
                         <img

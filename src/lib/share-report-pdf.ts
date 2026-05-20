@@ -235,10 +235,35 @@ function containsSubsections(node: HTMLElement): boolean {
   return !!node.querySelector('[data-pdf-subsection]');
 }
 
+function describePdfNode(node: HTMLElement): string {
+  return (
+    node.getAttribute('data-pdf-section') ||
+    node.getAttribute('data-pdf-subsection') ||
+    node.tagName.toLowerCase()
+  );
+}
+
+function validateReportCaptureState(doc: Document) {
+  const readyNode = doc.querySelector('[data-report-ready="true"]');
+  if (!readyNode) {
+    throw new Error('O relatório ainda não terminou de carregar para exportação');
+  }
+
+  const mediaCount = Number((readyNode as HTMLElement).getAttribute('data-report-media-count') || '0');
+  if (mediaCount > 0) {
+    const renderedMedia = doc.querySelectorAll('[data-report-media-item="true"]').length;
+    const readyMedia = doc.querySelectorAll('[data-report-media-ready="true"]').length;
+    if (renderedMedia < mediaCount || readyMedia < mediaCount) {
+      throw new Error('As mídias do relatório ainda não terminaram de carregar');
+    }
+  }
+}
+
 
 async function generatePdfBlobFromIframe(iframe: HTMLIFrameElement): Promise<Blob> {
   const doc = iframe.contentDocument;
   if (!doc || !doc.body) throw new Error('Conteúdo do relatório indisponível');
+  validateReportCaptureState(doc);
 
   // Find sections to render
   const root = doc.querySelector('[data-pdf-root]') || doc.body;
@@ -276,14 +301,13 @@ async function generatePdfBlobFromIframe(iframe: HTMLIFrameElement): Promise<Blo
   };
 
   // Capture a single node as one image, scaling down if it exceeds a full page.
-  const renderLeaf = async (node: HTMLElement): Promise<void> => {
-    if (!node.offsetWidth || !node.offsetHeight) return;
+  const renderLeaf = async (node: HTMLElement): Promise<number> => {
+    if (!node.offsetWidth || !node.offsetHeight) return 0;
     let canvas: HTMLCanvasElement;
     try {
       canvas = await captureSection(node);
     } catch (err) {
-      console.warn('[pdf] leaf capture failed', err);
-      return;
+      throw new Error(`Falha ao capturar o bloco "${describePdfNode(node)}" para o PDF`);
     }
     const widthPx = canvas.width / H2C_SCALE;
     const heightPx = canvas.height / H2C_SCALE;
@@ -309,45 +333,51 @@ async function generatePdfBlobFromIframe(iframe: HTMLIFrameElement): Promise<Blo
         'FAST',
       );
       state.currentY += usableContentHeight;
-      return;
+      return 1;
     }
 
     const advance = heightMm + LEAF_BLEED_MM;
     ensureNewPageIfNeeded(advance);
     placeCanvas(canvas, heightMm);
     state.currentY += LEAF_BLEED_MM;
+    return 1;
   };
 
   // Walk a node: if it contains marked subsections, descend into direct
   // children — capturing non-subsection children as their own leaves so
   // headers/stats/separators remain in the output. Otherwise capture whole.
-  const renderNode = async (node: HTMLElement, depth = 0): Promise<void> => {
-    if (!node.offsetWidth || !node.offsetHeight) return;
+  const renderNode = async (node: HTMLElement, depth = 0): Promise<number> => {
+    if (!node.offsetWidth || !node.offsetHeight) return 0;
 
     if (depth >= 8 || !containsSubsections(node)) {
-      await renderLeaf(node);
-      return;
+      return renderLeaf(node);
     }
 
     const children = Array.from(node.children).filter(
       (c): c is HTMLElement => c instanceof HTMLElement,
     );
 
+    let renderedLeaves = 0;
     for (let i = 0; i < children.length; i++) {
       const child = children[i];
       if (!child.offsetWidth || !child.offsetHeight) continue;
       if (containsSubsections(child) || child.hasAttribute('data-pdf-subsection')) {
-        await renderNode(child, depth + 1);
+        renderedLeaves += await renderNode(child, depth + 1);
       } else {
-        await renderLeaf(child);
+        renderedLeaves += await renderLeaf(child);
       }
       if (i < children.length - 1) state.currentY += SUBSECTION_GAP;
     }
+
+    return renderedLeaves;
   };
 
 
   for (const section of sections) {
-    await renderNode(section);
+    const renderedLeaves = await renderNode(section);
+    if (renderedLeaves === 0) {
+      throw new Error(`A seção "${describePdfNode(section)}" não foi renderizada no PDF`);
+    }
     state.currentY += SECTION_GAP;
   }
 
