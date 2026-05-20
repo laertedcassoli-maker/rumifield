@@ -500,7 +500,7 @@ export default function RelatorioPreventivo() {
 
                 return (
                   <div key={block.id} className="space-y-2" data-pdf-subsection="checklist-block">
-                    <h4 className="font-medium text-sm text-muted-foreground">{block.block_name_snapshot}</h4>
+                    <h4 data-pdf-subsection="checklist-block-title" className="font-medium text-sm text-muted-foreground">{block.block_name_snapshot}</h4>
                     {block.items.map(item => (
                       <div key={item.id} data-pdf-subsection="checklist-item" className={`p-2 rounded-lg ${item.status === 'N' ? 'bg-destructive/10' : 'bg-muted/50'}`}>
                         <div className="flex items-start gap-2">
