@@ -46,6 +46,8 @@ const base64 = await page.evaluate(async () => {
     useCORS: true, allowTaint: false, backgroundColor: '#ffffff', scale: SCALE,
     imageTimeout: 15000, logging: false,
     windowWidth: el.ownerDocument.documentElement.clientWidth,
+    height: el.offsetHeight + 6,
+    windowHeight: el.ownerDocument.documentElement.clientHeight + 6,
   });
   const containsSub = (n) => !!n.querySelector('[data-pdf-subsection]');
   const ensure = (need) => {
@@ -71,8 +73,10 @@ const base64 = await page.evaluate(async () => {
       state.currentY += usableContentHeight;
       return;
     }
-    ensure(heightMm);
+    const advance = heightMm + LEAF_BLEED_MM;
+    ensure(advance);
     place(canvas, heightMm);
+    state.currentY += LEAF_BLEED_MM;
   };
   const renderNode = async (node, depth = 0) => {
     if (!node.offsetWidth || !node.offsetHeight) return;
