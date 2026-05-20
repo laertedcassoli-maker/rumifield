@@ -546,7 +546,7 @@ export default function RelatorioCorretivo() {
 
                 return (
                   <div key={block.id} className="space-y-2" data-pdf-subsection="checklist-block">
-                    <h4 className="font-medium text-sm text-muted-foreground">{block.block_name_snapshot}</h4>
+                    <h4 data-pdf-subsection="checklist-block-title" className="font-medium text-sm text-muted-foreground">{block.block_name_snapshot}</h4>
                     {block.items.map(item => (
                       <div key={item.id} data-pdf-subsection="checklist-item" className={`p-2 rounded-lg ${item.status === 'N' ? 'bg-destructive/10' : 'bg-muted/50'}`}>
                         <div className="flex items-start gap-2">
@@ -652,9 +652,9 @@ export default function RelatorioCorretivo() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-2 gap-2">
-                {media.map(m => (
-                  <div key={m.id} data-pdf-subsection="media-item" className="relative aspect-square rounded-lg overflow-hidden bg-muted">
+              {(() => {
+                const renderItem = (m: typeof media[number]) => (
+                  <div key={m.id} className="relative aspect-square rounded-lg overflow-hidden bg-muted">
                     {m.file_type.startsWith('image/') ? (
                       imageUrls[m.id] ? (
                         <img
@@ -671,11 +671,7 @@ export default function RelatorioCorretivo() {
                       )
                     ) : (
                       imageUrls[m.id] ? (
-                        <video
-                          src={imageUrls[m.id]}
-                          controls
-                          className="w-full h-full object-cover"
-                        />
+                        <video src={imageUrls[m.id]} controls className="w-full h-full object-cover" />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-muted-foreground text-xs">
                           Vídeo indisponível
@@ -688,9 +684,27 @@ export default function RelatorioCorretivo() {
                       </div>
                     )}
                   </div>
-                ))}
-              </div>
+                );
+
+                if (isPdfCapture) {
+                  const rows: typeof media[] = [];
+                  for (let i = 0; i < media.length; i += 2) rows.push(media.slice(i, i + 2));
+                  return (
+                    <div className="space-y-2">
+                      {rows.map((row, idx) => (
+                        <div key={idx} data-pdf-subsection="media-row" className="grid grid-cols-2 gap-2">
+                          {row.map(renderItem)}
+                          {row.length === 1 && <div />}
+                        </div>
+                      ))}
+                    </div>
+                  );
+                }
+
+                return <div className="grid grid-cols-2 gap-2">{media.map(renderItem)}</div>;
+              })()}
             </CardContent>
+
           </Card>
         )}
 

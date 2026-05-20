@@ -44,12 +44,21 @@ const A4_W = 210;
 const A4_H = 297;
 const MARGIN_X = 10;
 const MARGIN_TOP = 14;
-const MARGIN_BOTTOM = 12;
+const MARGIN_BOTTOM = 14;
 const CONTENT_W = A4_W - MARGIN_X * 2;
 const CONTENT_H = A4_H - MARGIN_TOP - MARGIN_BOTTOM;
-const SECTION_GAP = 4;
+const SECTION_GAP = 3;
+const SUBSECTION_GAP = 1.5;
+// Extra millimetres added to each captured leaf height. html2canvas captures
+// based on offsetHeight (line-height), which excludes letter descenders —
+// without this bleed the next leaf's white background clips characters like
+// 'g', 'p', 'y' from the previous leaf.
+const LEAF_BLEED_MM = 1.2;
 const H2C_SCALE = 2;
-const PAGE_SAFE_PADDING = 2;
+// Extra vertical buffer to absorb any sub-pixel rounding between html2canvas
+// and jsPDF measurements, preventing the last line of a block from being
+// clipped at the page edge.
+const PAGE_SAFE_PADDING = 6;
 
 // ============================================================
 // Image CORS handling: rewrite cross-origin <img> tags to use
@@ -178,6 +187,9 @@ async function waitForIframeReady(iframe: HTMLIFrameElement, timeoutMs = 20000):
 // Section-based PDF rendering
 // ============================================================
 async function captureSection(section: HTMLElement): Promise<HTMLCanvasElement> {
+  // Add a few extra pixels of height so html2canvas doesn't crop letter
+  // descenders ('g', 'p', 'y') that hang below the line-box offsetHeight.
+  const extraPx = 6;
   return await html2canvas(section, {
     useCORS: true,
     allowTaint: false,
@@ -186,6 +198,8 @@ async function captureSection(section: HTMLElement): Promise<HTMLCanvasElement> 
     imageTimeout: 15000,
     logging: false,
     windowWidth: section.ownerDocument.documentElement.clientWidth,
+    height: section.offsetHeight + extraPx,
+    windowHeight: section.ownerDocument.documentElement.clientHeight + extraPx,
   });
 }
 
@@ -217,6 +231,11 @@ function findFirstLevelSubsections(root: HTMLElement): HTMLElement[] {
   return out;
 }
 
+function containsSubsections(node: HTMLElement): boolean {
+  return !!node.querySelector('[data-pdf-subsection]');
+}
+
+
 async function generatePdfBlobFromIframe(iframe: HTMLIFrameElement): Promise<Blob> {
   const doc = iframe.contentDocument;
   if (!doc || !doc.body) throw new Error('Conteúdo do relatório indisponível');
@@ -234,44 +253,36 @@ async function generatePdfBlobFromIframe(iframe: HTMLIFrameElement): Promise<Blo
   const state = { currentY: MARGIN_TOP };
   const usableContentHeight = CONTENT_H - PAGE_SAFE_PADDING;
 
-  // Slice an oversized canvas vertically into page-sized chunks (last resort).
-  const sliceCanvasToPages = (canvas: HTMLCanvasElement, ratio: number) => {
-    const sliceHeightPxScaled = Math.floor(usableContentHeight / ratio) * H2C_SCALE;
-    if (state.currentY > MARGIN_TOP) {
+  const ensureNewPageIfNeeded = (neededMm: number) => {
+    const remaining = A4_H - MARGIN_BOTTOM - state.currentY - PAGE_SAFE_PADDING;
+    if (neededMm > remaining && state.currentY > MARGIN_TOP) {
       pdf.addPage();
       state.currentY = MARGIN_TOP;
     }
-    let offsetPx = 0;
-    while (offsetPx < canvas.height) {
-      const sliceH = Math.min(sliceHeightPxScaled, canvas.height - offsetPx);
-      const sliceCanvas = doc.createElement('canvas');
-      sliceCanvas.width = canvas.width;
-      sliceCanvas.height = sliceH;
-      const ctx = sliceCanvas.getContext('2d');
-      if (!ctx) break;
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, sliceCanvas.width, sliceCanvas.height);
-      ctx.drawImage(canvas, 0, -offsetPx);
-      const sliceHmm = (sliceH / H2C_SCALE) * ratio;
-      pdf.addImage(
-        sliceCanvas.toDataURL('image/jpeg', 0.92),
-        'JPEG', MARGIN_X, MARGIN_TOP, CONTENT_W, sliceHmm, undefined, 'FAST',
-      );
-      offsetPx += sliceH;
-      if (offsetPx < canvas.height) pdf.addPage();
-      else state.currentY = MARGIN_TOP + sliceHmm + SECTION_GAP;
-    }
   };
 
-  // Render a section (recursively splits into subsections if it overflows a page).
-  const renderSection = async (section: HTMLElement, depth = 0): Promise<void> => {
-    if (!section.offsetWidth || !section.offsetHeight) return;
+  const placeCanvas = (canvas: HTMLCanvasElement, heightMm: number) => {
+    pdf.addImage(
+      canvas.toDataURL('image/jpeg', 0.92),
+      'JPEG',
+      MARGIN_X,
+      state.currentY,
+      CONTENT_W,
+      heightMm,
+      undefined,
+      'FAST',
+    );
+    state.currentY += heightMm;
+  };
 
+  // Capture a single node as one image, scaling down if it exceeds a full page.
+  const renderLeaf = async (node: HTMLElement): Promise<void> => {
+    if (!node.offsetWidth || !node.offsetHeight) return;
     let canvas: HTMLCanvasElement;
     try {
-      canvas = await captureSection(section);
+      canvas = await captureSection(node);
     } catch (err) {
-      console.warn('[pdf] section capture failed', err);
+      console.warn('[pdf] leaf capture failed', err);
       return;
     }
     const widthPx = canvas.width / H2C_SCALE;
@@ -279,37 +290,65 @@ async function generatePdfBlobFromIframe(iframe: HTMLIFrameElement): Promise<Blo
     const ratio = CONTENT_W / widthPx;
     const heightMm = heightPx * ratio;
 
-    if (heightMm <= usableContentHeight) {
-      const remaining = A4_H - MARGIN_BOTTOM - state.currentY - PAGE_SAFE_PADDING;
-      if (heightMm > remaining && state.currentY > MARGIN_TOP) {
+    if (heightMm > usableContentHeight) {
+      // Pathological oversized leaf: scale down to fit a single page (never cut).
+      if (state.currentY > MARGIN_TOP) {
         pdf.addPage();
         state.currentY = MARGIN_TOP;
       }
+      const scaledWidth = (CONTENT_W * usableContentHeight) / heightMm;
+      const xOffset = MARGIN_X + (CONTENT_W - scaledWidth) / 2;
       pdf.addImage(
         canvas.toDataURL('image/jpeg', 0.92),
-        'JPEG', MARGIN_X, state.currentY, CONTENT_W, heightMm, undefined, 'FAST',
+        'JPEG',
+        xOffset,
+        state.currentY,
+        scaledWidth,
+        usableContentHeight,
+        undefined,
+        'FAST',
       );
-      state.currentY += heightMm + SECTION_GAP;
+      state.currentY += usableContentHeight;
       return;
     }
 
-    // Section is taller than a page. Try to break it down by subsections first.
-    if (depth < 4) {
-      const subs = findFirstLevelSubsections(section);
-      if (subs.length > 0) {
-        for (const sub of subs) {
-          await renderSection(sub, depth + 1);
-        }
-        return;
-      }
-    }
-
-    // No subsections — last resort: slice the canvas at page boundaries.
-    sliceCanvasToPages(canvas, ratio);
+    const advance = heightMm + LEAF_BLEED_MM;
+    ensureNewPageIfNeeded(advance);
+    placeCanvas(canvas, heightMm);
+    state.currentY += LEAF_BLEED_MM;
   };
 
+  // Walk a node: if it contains marked subsections, descend into direct
+  // children — capturing non-subsection children as their own leaves so
+  // headers/stats/separators remain in the output. Otherwise capture whole.
+  const renderNode = async (node: HTMLElement, depth = 0): Promise<void> => {
+    if (!node.offsetWidth || !node.offsetHeight) return;
+
+    if (depth >= 8 || !containsSubsections(node)) {
+      await renderLeaf(node);
+      return;
+    }
+
+    const children = Array.from(node.children).filter(
+      (c): c is HTMLElement => c instanceof HTMLElement,
+    );
+
+    for (let i = 0; i < children.length; i++) {
+      const child = children[i];
+      if (!child.offsetWidth || !child.offsetHeight) continue;
+      if (containsSubsections(child) || child.hasAttribute('data-pdf-subsection')) {
+        await renderNode(child, depth + 1);
+      } else {
+        await renderLeaf(child);
+      }
+      if (i < children.length - 1) state.currentY += SUBSECTION_GAP;
+    }
+  };
+
+
   for (const section of sections) {
-    await renderSection(section);
+    await renderNode(section);
+    state.currentY += SECTION_GAP;
   }
 
   // Draw footer on every page
@@ -321,6 +360,8 @@ async function generatePdfBlobFromIframe(iframe: HTMLIFrameElement): Promise<Blo
 
   return pdf.output('blob');
 }
+
+
 
 async function buildPdfFile(url: string, fileName: string): Promise<File> {
   const iframe = document.createElement('iframe');
