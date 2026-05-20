@@ -307,8 +307,10 @@ async function generatePdfBlobFromIframe(iframe: HTMLIFrameElement): Promise<Blo
       return;
     }
 
-    ensureNewPageIfNeeded(heightMm);
+    const advance = heightMm + LEAF_BLEED_MM;
+    ensureNewPageIfNeeded(advance);
     placeCanvas(canvas, heightMm);
+    state.currentY += LEAF_BLEED_MM;
   };
 
   // Walk a node: if it contains marked subsections, descend into direct
