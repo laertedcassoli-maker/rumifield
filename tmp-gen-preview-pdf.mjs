@@ -12,7 +12,7 @@ const browser = await chromium.launch({ headless: true, executablePath: '/bin/ch
 const ctx = await browser.newContext({ viewport: { width: 760, height: 1200 }, deviceScaleFactor: 2 });
 const page = await ctx.newPage();
 page.on('console', (m) => console.log('[page]', m.type(), m.text()));
-await page.goto(URL, { waitUntil: 'networkidle', timeout: 90000 });
+await page.goto(URL, { waitUntil: 'domcontentloaded', timeout: 90000 });
 await page.waitForSelector('[data-report-ready="true"]', { timeout: 45000 });
 await page.waitForTimeout(1500);
 await page.addScriptTag({ url: 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js' });
