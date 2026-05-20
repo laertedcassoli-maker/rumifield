@@ -1,0 +1,11 @@
+import { chromium } from 'playwright';
+const browser = await chromium.launch({ headless: true, executablePath: '/bin/chromium', args: ['--no-sandbox'] });
+const ctx = await browser.newContext({ viewport: { width: 760, height: 1200 } });
+const page = await ctx.newPage();
+page.on('console', (m) => console.log('[console]', m.type(), m.text()));
+page.on('pageerror', (e) => console.log('[pageerror]', e.message));
+await page.goto('https://rumifield.lovable.app/relatorio-corretivo/8bf90180-10ca-43af-9c51-f3984b3d20d5/interno', { waitUntil: 'domcontentloaded', timeout: 60000 });
+await page.waitForTimeout(8000);
+const html = await page.evaluate(() => ({ ready: !!document.querySelector('[data-report-ready]'), error: !!document.querySelector('[data-report-error]'), loading: !!document.querySelector('[data-report-loading]'), bodyText: document.body.innerText.slice(0, 500) }));
+console.log(html);
+await browser.close();
