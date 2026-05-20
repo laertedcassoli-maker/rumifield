@@ -484,7 +484,11 @@ export default function RelatorioCorretivo() {
         </div>
       </header>
 
-      <main className="max-w-2xl mx-auto p-4 space-y-4" data-report-ready="true">
+      <main
+        className="max-w-2xl mx-auto p-4 space-y-4"
+        data-report-ready={isReportReadyForPdf ? 'true' : 'false'}
+        data-report-media-count={media.length}
+      >
         {/* Visit Info Card */}
         <Card data-pdf-section="visit-info">
           <CardContent className="p-4">
@@ -709,7 +713,12 @@ export default function RelatorioCorretivo() {
             <CardContent>
               {(() => {
                 const renderItem = (m: typeof media[number]) => (
-                  <div key={m.id} className="relative aspect-square rounded-lg overflow-hidden bg-muted">
+                  <div
+                    key={m.id}
+                    className="relative aspect-square rounded-lg overflow-hidden bg-muted"
+                    data-report-media-item="true"
+                    data-report-media-ready={imageUrls[m.id] || imageFailedIds.includes(m.id) ? 'true' : 'false'}
+                  >
                     {m.file_type.startsWith('image/') ? (
                       imageUrls[m.id] ? (
                         <img
