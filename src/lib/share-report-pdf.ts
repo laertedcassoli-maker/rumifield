@@ -13,6 +13,7 @@ export interface ShareReportArgs {
 export interface ShareReportResult {
   /** 'shared-with-file' | 'shared-link-only' | 'downloaded' | 'copied' */
   outcome: 'shared-with-file' | 'shared-link-only' | 'downloaded' | 'copied';
+  cancelled?: boolean;
   copiedToClipboard?: boolean;
   pdfGenerated?: boolean;
   pdfStatus?: 'ready' | 'pending' | 'failed' | 'skipped';
@@ -556,7 +557,7 @@ export async function shareReportWithPdf(args: ShareReportArgs): Promise<ShareRe
       return { outcome: 'shared-link-only', pdfGenerated: false, pdfStatus: sameOrigin ? 'pending' : 'skipped' };
     } catch (err) {
       if (isUserCancelledShare(err)) {
-        return { outcome: 'shared-link-only', pdfGenerated: false, pdfStatus: sameOrigin ? 'pending' : 'skipped' };
+        return { outcome: 'shared-link-only', cancelled: true, pdfGenerated: false, pdfStatus: 'skipped' };
       }
       console.warn('[shareReportWithPdf] Native link share failed, using fallback', err);
     }
