@@ -117,7 +117,9 @@ async function waitForIframeReady(iframe: HTMLIFrameElement, timeoutMs = 20000):
       const hasAppContent = !!doc?.body && doc.body.children.length > 0;
       const hasResolvedRoute = href !== 'about:blank';
       if (hasAppContent && hasResolvedRoute) break;
-    } catch {}
+    } catch {
+      void 0;
+    }
     await new Promise((r) => setTimeout(r, 200));
   }
 
@@ -140,7 +142,9 @@ async function waitForIframeReady(iframe: HTMLIFrameElement, timeoutMs = 20000):
       body{-webkit-font-smoothing:antialiased;text-rendering:geometricPrecision;}
     `;
     doc.head.appendChild(style);
-  } catch {}
+  } catch {
+    void 0;
+  }
 
   // Phase 2: wait for ready marker OR error marker
   while (Date.now() - waitStart < timeoutMs) {
@@ -160,9 +164,11 @@ async function waitForIframeReady(iframe: HTMLIFrameElement, timeoutMs = 20000):
   }
 
   try {
-    // @ts-ignore
-    if (doc.fonts?.ready) await Promise.race([doc.fonts.ready, new Promise(r => setTimeout(r, 1500))]);
-  } catch {}
+    const fontSet = (doc as Document & { fonts?: FontFaceSet }).fonts;
+    if (fontSet?.ready) await Promise.race([fontSet.ready, new Promise((r) => setTimeout(r, 1500))]);
+  } catch {
+    void 0;
+  }
 
   // Force CORS on cross-origin images so html2canvas can rasterize them
   await rewriteImagesForCors(doc);
@@ -484,27 +490,13 @@ function isShareSupported() {
   return typeof navigator !== 'undefined' && typeof navigator.share === 'function';
 }
 
-function isFileShareSupported(file: File, title: string, text: string, url: string) {
-  if (!isShareSupported()) return false;
-  const payload: ShareData = { title, text, url, files: [file] } as ShareData;
-  // @ts-ignore
-  if (typeof navigator.canShare !== 'function') return true;
-  try {
-    // @ts-ignore
-    return navigator.canShare(payload);
-  } catch {
-    return false;
-  }
-}
-
 function isLinkShareSupported(title: string, text: string, url: string) {
   if (!isShareSupported()) return false;
   const payload: ShareData = { title, text, url };
-  // @ts-ignore
-  if (typeof navigator.canShare !== 'function') return true;
+  const nav = navigator as Navigator & { canShare?: (data?: ShareData) => boolean };
+  if (typeof nav.canShare !== 'function') return true;
   try {
-    // @ts-ignore
-    return navigator.canShare(payload);
+    return nav.canShare(payload);
   } catch {
     return true;
   }
