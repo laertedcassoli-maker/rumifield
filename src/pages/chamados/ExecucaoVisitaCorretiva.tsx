@@ -1129,14 +1129,20 @@ export default function ExecucaoVisitaCorretiva() {
                             title: 'Relatório de Visita',
                             text: `Confira o relatório: ${url}`,
                             fileName: buildReportFileName('relatorio-corretivo', publicToken),
+                            onPdfReady: () => {
+                              toast({ title: 'PDF pronto', description: 'O download do PDF foi iniciado.' });
+                            },
+                            onPdfFailed: (error) => {
+                              toast({ variant: 'destructive', title: 'Link gerado, mas o PDF falhou', description: error.message });
+                            },
                           });
-                          if (result.outcome === 'downloaded' || result.outcome === 'copied' || !result.pdfGenerated) {
+                          if (result.pdfStatus === 'pending') {
                             toast({
-                              title: result.outcome === 'downloaded' ? 'PDF baixado' : 'Link copiado!',
-                              description: result.copiedToClipboard
-                                ? 'O link foi copiado para a área de transferência.'
-                                : 'Seu navegador não abriu o compartilhamento nativo; use o PDF baixado.',
+                              title: result.copiedToClipboard ? 'Link copiado!' : 'Link gerado!',
+                              description: 'O link já está pronto. Aguarde enquanto o PDF termina de ser gerado.',
                             });
+                          } else if (result.outcome === 'copied') {
+                            toast({ title: 'Link copiado!', description: 'O PDF não será gerado para este link.' });
                           }
                         } catch (err) {
                           toast({ variant: 'destructive', title: 'Erro ao compartilhar', description: (err as Error).message });
@@ -1162,14 +1168,20 @@ export default function ExecucaoVisitaCorretiva() {
                             title: 'Relatório Interno',
                             text: `Relatório interno: ${url}`,
                             fileName: buildReportFileName('relatorio-corretivo-interno', publicToken),
+                            onPdfReady: () => {
+                              toast({ title: 'PDF pronto', description: 'O download do PDF foi iniciado.' });
+                            },
+                            onPdfFailed: (error) => {
+                              toast({ variant: 'destructive', title: 'Link gerado, mas o PDF falhou', description: error.message });
+                            },
                           });
-                          if (result.outcome === 'downloaded' || result.outcome === 'copied' || !result.pdfGenerated) {
+                          if (result.pdfStatus === 'pending') {
                             toast({
-                              title: result.outcome === 'downloaded' ? 'PDF baixado' : 'Link copiado!',
-                              description: result.copiedToClipboard
-                                ? 'O link foi copiado para a área de transferência.'
-                                : 'Seu navegador não abriu o compartilhamento nativo; use o PDF baixado.',
+                              title: result.copiedToClipboard ? 'Link copiado!' : 'Link gerado!',
+                              description: 'O link já está pronto. Aguarde enquanto o PDF termina de ser gerado.',
                             });
+                          } else if (result.outcome === 'copied') {
+                            toast({ title: 'Link copiado!', description: 'O PDF não será gerado para este link.' });
                           }
                         } catch (err) {
                           toast({ variant: 'destructive', title: 'Erro ao compartilhar', description: (err as Error).message });
