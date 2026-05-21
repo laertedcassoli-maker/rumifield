@@ -6,13 +6,17 @@ export interface ShareReportArgs {
   title: string;
   text: string;
   fileName: string;
+  onPdfReady?: (result: { file: File; action: 'downloaded' | 'shared-with-file' }) => void;
+  onPdfFailed?: (error: Error) => void;
 }
 
 export interface ShareReportResult {
   /** 'shared-with-file' | 'shared-link-only' | 'downloaded' | 'copied' */
   outcome: 'shared-with-file' | 'shared-link-only' | 'downloaded' | 'copied';
+  cancelled?: boolean;
   copiedToClipboard?: boolean;
   pdfGenerated?: boolean;
+  pdfStatus?: 'ready' | 'pending' | 'failed' | 'skipped';
 }
 
 export function buildReportShareUrl(path: string): string {
@@ -114,7 +118,9 @@ async function waitForIframeReady(iframe: HTMLIFrameElement, timeoutMs = 20000):
       const hasAppContent = !!doc?.body && doc.body.children.length > 0;
       const hasResolvedRoute = href !== 'about:blank';
       if (hasAppContent && hasResolvedRoute) break;
-    } catch {}
+    } catch {
+      void 0;
+    }
     await new Promise((r) => setTimeout(r, 200));
   }
 
@@ -137,7 +143,9 @@ async function waitForIframeReady(iframe: HTMLIFrameElement, timeoutMs = 20000):
       body{-webkit-font-smoothing:antialiased;text-rendering:geometricPrecision;}
     `;
     doc.head.appendChild(style);
-  } catch {}
+  } catch {
+    void 0;
+  }
 
   // Phase 2: wait for ready marker OR error marker
   while (Date.now() - waitStart < timeoutMs) {
@@ -157,9 +165,11 @@ async function waitForIframeReady(iframe: HTMLIFrameElement, timeoutMs = 20000):
   }
 
   try {
-    // @ts-ignore
-    if (doc.fonts?.ready) await Promise.race([doc.fonts.ready, new Promise(r => setTimeout(r, 1500))]);
-  } catch {}
+    const fontSet = (doc as Document & { fonts?: FontFaceSet }).fonts;
+    if (fontSet?.ready) await Promise.race([fontSet.ready, new Promise((r) => setTimeout(r, 1500))]);
+  } catch {
+    void 0;
+  }
 
   // Force CORS on cross-origin images so html2canvas can rasterize them
   await rewriteImagesForCors(doc);
@@ -427,6 +437,45 @@ async function buildPdfFile(url: string, fileName: string): Promise<File> {
   }
 }
 
+function isRetryablePdfError(err: unknown) {
+  const message = err instanceof Error ? err.message.toLowerCase() : String(err).toLowerCase();
+  return (
+    message.includes('não terminou de carregar') ||
+    message.includes('tempo esgotado ao preparar relatório') ||
+    message.includes('a seção') ||
+    message.includes('as mídias do relatório') ||
+    message.includes('indisponível para gerar pdf') ||
+    message.includes('pdf generation timeout')
+  );
+}
+
+async function buildPdfFileWithRetry(url: string, fileName: string): Promise<File> {
+  const delays = [0, 1200, 2500, 4000];
+  let lastError: Error | null = null;
+
+  for (let attempt = 0; attempt < delays.length; attempt++) {
+    if (delays[attempt] > 0) {
+      await new Promise((resolve) => setTimeout(resolve, delays[attempt]));
+    }
+
+    try {
+      return await Promise.race([
+        buildPdfFile(url, fileName),
+        new Promise<File>((_, reject) =>
+          setTimeout(() => reject(new Error('PDF generation timeout')), 35000),
+        ),
+      ]);
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error('Falha ao gerar o PDF do relatório');
+      if (!isRetryablePdfError(err) || attempt === delays.length - 1) {
+        throw lastError;
+      }
+    }
+  }
+
+  throw lastError ?? new Error('Falha ao gerar o PDF do relatório');
+}
+
 function downloadFile(file: File) {
   const objUrl = URL.createObjectURL(file);
   const a = document.createElement('a');
@@ -442,27 +491,13 @@ function isShareSupported() {
   return typeof navigator !== 'undefined' && typeof navigator.share === 'function';
 }
 
-function isFileShareSupported(file: File, title: string, text: string, url: string) {
-  if (!isShareSupported()) return false;
-  const payload: ShareData = { title, text, url, files: [file] } as ShareData;
-  // @ts-ignore
-  if (typeof navigator.canShare !== 'function') return true;
-  try {
-    // @ts-ignore
-    return navigator.canShare(payload);
-  } catch {
-    return false;
-  }
-}
-
 function isLinkShareSupported(title: string, text: string, url: string) {
   if (!isShareSupported()) return false;
   const payload: ShareData = { title, text, url };
-  // @ts-ignore
-  if (typeof navigator.canShare !== 'function') return true;
+  const nav = navigator as Navigator & { canShare?: (data?: ShareData) => boolean };
+  if (typeof nav.canShare !== 'function') return true;
   try {
-    // @ts-ignore
-    return navigator.canShare(payload);
+    return nav.canShare(payload);
   } catch {
     return true;
   }
@@ -494,83 +529,61 @@ async function copyToClipboard(text: string) {
  * Falls back to link-only share, then to PDF download + clipboard copy.
  */
 export async function shareReportWithPdf(args: ShareReportArgs): Promise<ShareReportResult> {
-  const { title, text, fileName } = args;
+  const { title, text, fileName, onPdfReady, onPdfFailed } = args;
   const url = new URL(args.url, window.location.href).toString();
   console.log('[shareReportWithPdf] start', { url, fileName });
 
-  let file: File | null = null;
-  let pdfGenerationError: Error | null = null;
   const sameOrigin = new URL(url).origin === window.location.origin;
-
-  if (sameOrigin) {
-    try {
-      // Hard cap on PDF generation so the UI never appears stuck
-      file = await Promise.race([
-        buildPdfFile(url, fileName),
-        new Promise<File>((_, reject) =>
-          setTimeout(() => reject(new Error('PDF generation timeout')), 35000),
-        ),
-      ]);
-      console.log('[shareReportWithPdf] PDF generated', file.size, 'bytes');
-    } catch (err) {
-      console.warn('[shareReportWithPdf] PDF generation failed, falling back to link share', err);
-      pdfGenerationError = err instanceof Error ? err : new Error('Falha ao gerar o PDF do relatório');
-    }
-  } else {
-    console.warn('[shareReportWithPdf] Skipping PDF generation for cross-origin URL', url);
-  }
-
-  const pdfGenerated = !!file;
-  if (sameOrigin && !file) {
-    throw pdfGenerationError ?? new Error('Não foi possível gerar o PDF do relatório');
-  }
-
-  const canShareFile = !!file && isFileShareSupported(file, title, text, url);
   const canShareLink = isLinkShareSupported(title, text, url);
-
-  if (canShareFile && file) {
-    try {
-      console.log('[shareReportWithPdf] attempting native share with file');
-      await navigator.share({ title, text, url, files: [file] } as ShareData);
-      return { outcome: 'shared-with-file', pdfGenerated };
-    } catch (err) {
-      if (isUserCancelledShare(err)) {
-        return { outcome: 'shared-with-file', pdfGenerated };
-      }
-      console.warn('[shareReportWithPdf] Native file share failed, using fallback', err);
-    }
-  }
-
-  if (file) {
-    console.log('[shareReportWithPdf] file share unsupported, using download/clipboard fallback');
-    downloadFile(file);
-    const copiedToClipboard = await copyToClipboard(url);
-    return {
-      outcome: 'downloaded',
-      copiedToClipboard,
-      pdfGenerated: true,
-    };
-  }
 
   if (canShareLink) {
     try {
       console.log('[shareReportWithPdf] attempting native share with link only');
       await navigator.share({ title, text, url });
-      return { outcome: 'shared-link-only', pdfGenerated };
+      if (sameOrigin) {
+        void buildPdfFileWithRetry(url, fileName)
+          .then(async (file) => {
+            console.log('[shareReportWithPdf] PDF generated in background', file.size, 'bytes');
+            downloadFile(file);
+            onPdfReady?.({ file, action: 'downloaded' });
+          })
+          .catch((err) => {
+            console.warn('[shareReportWithPdf] Background PDF generation failed', err);
+            onPdfFailed?.(err instanceof Error ? err : new Error('Falha ao gerar o PDF do relatório'));
+          });
+      } else {
+        console.warn('[shareReportWithPdf] Skipping PDF generation for cross-origin URL', url);
+      }
+      return { outcome: 'shared-link-only', pdfGenerated: false, pdfStatus: sameOrigin ? 'pending' : 'skipped' };
     } catch (err) {
       if (isUserCancelledShare(err)) {
-        return { outcome: 'shared-link-only', pdfGenerated };
+        return { outcome: 'shared-link-only', cancelled: true, pdfGenerated: false, pdfStatus: 'skipped' };
       }
       console.warn('[shareReportWithPdf] Native link share failed, using fallback', err);
     }
   }
 
-  console.log('[shareReportWithPdf] using download/clipboard fallback');
-  if (file) downloadFile(file);
+  console.log('[shareReportWithPdf] using clipboard fallback for link');
   const copiedToClipboard = await copyToClipboard(url);
+  if (sameOrigin) {
+    void buildPdfFileWithRetry(url, fileName)
+      .then((file) => {
+        console.log('[shareReportWithPdf] PDF generated in background', file.size, 'bytes');
+        downloadFile(file);
+        onPdfReady?.({ file, action: 'downloaded' });
+      })
+      .catch((err) => {
+        console.warn('[shareReportWithPdf] Background PDF generation failed', err);
+        onPdfFailed?.(err instanceof Error ? err : new Error('Falha ao gerar o PDF do relatório'));
+      });
+  } else {
+    console.warn('[shareReportWithPdf] Skipping PDF generation for cross-origin URL', url);
+  }
+
   return {
-    outcome: file ? 'downloaded' : 'copied',
+    outcome: 'copied',
     copiedToClipboard,
-    pdfGenerated,
+    pdfGenerated: false,
+    pdfStatus: sameOrigin ? 'pending' : 'skipped',
   };
 }

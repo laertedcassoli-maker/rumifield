@@ -822,8 +822,17 @@ export default function AtendimentoPreventivo() {
                       title: `Relatório - ${routeItem.client?.nome}`,
                       text: `Confira o relatório da visita preventiva: ${url}`,
                       fileName: buildReportFileName(routeItem.client?.nome || 'visita', routeItem.publicToken),
+                      onPdfReady: () => {
+                        toast({ title: 'PDF pronto', description: 'O download do PDF foi iniciado.' });
+                      },
+                      onPdfFailed: (error) => {
+                        toast({ variant: 'destructive', title: 'Link gerado, mas o PDF falhou', description: error.message });
+                      },
                     });
-                    if (result.outcome === 'downloaded' || result.outcome === 'copied' || !result.pdfGenerated) {
+                    if (result.cancelled) return;
+                    if (result.pdfStatus === 'pending') {
+                      toast({ title: result.copiedToClipboard ? 'Link copiado!' : 'Link gerado!', description: 'O link já está pronto. Aguarde enquanto o PDF termina de ser gerado.' });
+                    } else if (result.outcome === 'copied') {
                       toast({ title: 'Link copiado!', description: 'Cole no WhatsApp para enviar' });
                     }
                   } catch (err) {
@@ -850,8 +859,17 @@ export default function AtendimentoPreventivo() {
                       title: `Relatório Interno - ${routeItem.client?.nome}`,
                       text: `Relatório interno da visita preventiva: ${url}`,
                       fileName: buildReportFileName(`${routeItem.client?.nome || 'visita'}-interno`, routeItem.publicToken),
+                      onPdfReady: () => {
+                        toast({ title: 'PDF pronto', description: 'O download do PDF foi iniciado.' });
+                      },
+                      onPdfFailed: (error) => {
+                        toast({ variant: 'destructive', title: 'Link gerado, mas o PDF falhou', description: error.message });
+                      },
                     });
-                    if (result.outcome === 'downloaded' || result.outcome === 'copied' || !result.pdfGenerated) {
+                    if (result.cancelled) return;
+                    if (result.pdfStatus === 'pending') {
+                      toast({ title: result.copiedToClipboard ? 'Link copiado!' : 'Link gerado!', description: 'O link já está pronto. Aguarde enquanto o PDF termina de ser gerado.' });
+                    } else if (result.outcome === 'copied') {
                       toast({ title: 'Link copiado!', description: 'Cole para compartilhar com a equipe' });
                     }
                   } catch (err) {

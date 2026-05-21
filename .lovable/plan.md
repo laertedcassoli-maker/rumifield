@@ -1,51 +1,47 @@
-# Plano para corrigir o PDF incompleto do relatório corretivo
-
 ## Objetivo
-Garantir que o PDF do relatório corretivo saia completo, com checklist, peças, observações e fotografias, sem gerar arquivo parcial de 1 página.
-
-## Diagnóstico confirmado
-- O PDF enviado tem só **1 página** e mostra apenas o topo do relatório + observações.
-- No banco, esse relatório está vinculado a uma preventiva com:
-  - **7 mídias**
-  - **4 peças**
-  - **1 checklist concluído**
-- Ou seja: **as informações existem**, mas estão sendo perdidas antes ou durante a geração do PDF.
+Fazer o compartilhamento sempre liberar o link primeiro e tratar o PDF como uma etapa assíncrona: se o link estiver pronto antes, o usuário recebe confirmação imediata e vê uma mensagem pedindo para aguardar o término do PDF.
 
 ## O que vou implementar
-1. **Blindar o carregamento do relatório corretivo**
-   - Reestruturar a montagem dos dados em `RelatorioCorretivo.tsx` para carregar preventiva vinculada, checklist, peças e mídias com verificações explícitas.
-   - Remover quedas silenciosas para array vazio quando houver vínculo e algum trecho falhar.
-   - Carregar blocos relacionados em paralelo para reduzir variações de timing.
+1. **Separar o fluxo de link e PDF no utilitário de compartilhamento**
+   - Ajustar `src/lib/share-report-pdf.ts` para não lançar erro fatal quando a captura do PDF falhar ou ainda não estiver pronta.
+   - Retornar um resultado explícito com estados como: `link-ready`, `pdf-ready`, `pdf-pending`, `pdf-failed`.
+   - Garantir que o link seja copiado/compartilhado assim que estiver disponível, independentemente do PDF.
 
-2. **Só liberar o PDF quando o conteúdo estiver realmente pronto**
-   - Ajustar a lógica de `data-report-ready` para só sinalizar pronto quando:
-     - os dados principais estiverem resolvidos
-     - a lista de mídias estiver resolvida
-     - as URLs assinadas das fotos estiverem carregadas (ou com fallback explícito por item)
-     - as seções esperadas estiverem montadas no DOM
-   - Se o relatório estiver incompleto no momento da captura, o gerador vai abortar com erro claro em vez de baixar PDF faltando conteúdo.
+2. **Adicionar geração de PDF em segundo plano no cliente**
+   - Iniciar a geração do PDF depois que o link já tiver sido exibido/copiado.
+   - Se o PDF terminar com sucesso, baixar automaticamente ou compartilhar o arquivo quando suportado.
+   - Se demorar mais que o esperado, manter a UI responsiva e informar que o PDF ainda está sendo preparado.
 
-3. **Fortalecer a captura no `share-report-pdf.ts`**
-   - Validar seções obrigatórias antes de montar o PDF.
-   - Evitar que uma falha de captura em uma seção faça aquela parte “sumir” sem aviso.
-   - Tratar a galeria de mídia como blocos estáveis para não perder fotos durante o raster.
-   - Manter fallback visual por item quando uma mídia específica não puder ser renderizada, sem descartar a seção inteira.
+3. **Ajustar mensagens e toasts nas telas que usam compartilhamento**
+   - Atualizar os fluxos em:
+     - `src/pages/chamados/ExecucaoVisitaCorretiva.tsx`
+     - `src/pages/chamados/RelatorioCorretivo.tsx`
+     - `src/pages/preventivas/AtendimentoPreventivo.tsx`
+     - pontos equivalentes preventivos/corretivos que já usam `shareReportWithPdf`
+   - Novo comportamento:
+     - mensagem 1: “Link gerado/copiado com sucesso”
+     - mensagem 2, se necessário: “O PDF está sendo gerado, aguarde alguns instantes”
+     - mensagem 3, quando concluir: “PDF pronto” ou download iniciado
+   - Evitar toast destrutivo quando o problema for apenas atraso do PDF.
 
-4. **Garantir QA do arquivo final**
-   - Gerar um novo PDF modelo.
-   - Converter todas as páginas em imagem.
-   - Conferir visualmente página por página se checklist, peças e fotografias aparecem por completo e sem cortes.
+4. **Preservar validações do PDF sem bloquear o link**
+   - Manter a checagem de seções obrigatórias (`checklist`, fotos etc.), mas tratá-la como status do PDF, não como falha total do compartilhamento.
+   - Se a seção ainda não estiver renderizada, o sistema entra em `pdf-pending` e pode tentar novamente por um curto período antes de marcar `pdf-failed`.
 
-## Arquivos previstos
-- `src/pages/chamados/RelatorioCorretivo.tsx`
-- `src/lib/share-report-pdf.ts`
-- script temporário de geração/QA do PDF modelo
+5. **Validação final do fluxo**
+   - Verificar o caso mostrado no erro “A seção \"checklist\" não foi renderizada no PDF”.
+   - Confirmar que, nesse cenário, o usuário ainda recebe o link imediatamente e não fica bloqueado por erro.
+   - Confirmar que, quando o relatório completa a renderização, o PDF é de fato gerado e entregue.
 
 ## Detalhes técnicos
-- Vou trocar a montagem sequencial mais frágil por uma resolução mais determinística dos dados relacionados.
-- Vou diferenciar “sem dados” de “falha ao carregar dados”, para o PDF nunca parecer válido quando estiver incompleto.
-- A captura vai passar a validar presença real das seções esperadas no DOM antes de renderizar.
-- As mídias continuarão com `useCORS`, mas com estado de prontidão mais rígido para impedir geração antecipada.
+- O problema atual é estrutural: `shareReportWithPdf` aborta o fluxo inteiro quando `buildPdfFile()` falha, então a UI cai em `catch` e mostra erro mesmo quando o link já existe.
+- Vou transformar esse utilitário em um fluxo em duas fases:
+  1. resolver/compartilhar/copiar o link
+  2. processar o PDF sem derrubar a fase 1
+- Onde houver compartilhamento nativo com arquivo, ele continuará sendo usado quando o PDF já estiver pronto; caso contrário, o app cai para link imediato + conclusão posterior do PDF.
 
 ## Resultado esperado
-Ao compartilhar/baixar o relatório corretivo interno, o PDF deve sair com todas as informações do atendimento, incluindo as **fotografias**, e com paginação completa.
+Ao tocar em compartilhar:
+- o **link** é sempre gerado e disponibilizado primeiro;
+- se o **PDF** ainda não estiver pronto, o usuário vê um aviso para aguardar;
+- quando o **PDF** terminar, ele é baixado/compartilhado sem transformar o fluxo inteiro em erro.
