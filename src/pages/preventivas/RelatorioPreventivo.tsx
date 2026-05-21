@@ -312,8 +312,16 @@ export default function RelatorioPreventivo() {
         title: `Relatório Preventiva - ${report?.preventive.client.nome}`,
         text: `Confira o relatório: ${url}`,
         fileName: buildReportFileName(report?.preventive.client.nome || 'relatorio', report?.preventive.public_token),
+        onPdfReady: () => {
+          toast({ title: 'PDF pronto', description: 'O download do PDF foi iniciado.' });
+        },
+        onPdfFailed: (error) => {
+          toast({ variant: 'destructive', title: 'Link gerado, mas o PDF falhou', description: error.message });
+        },
       });
-      if (result.outcome === 'downloaded' || result.outcome === 'copied' || !result.pdfGenerated) {
+      if (result.pdfStatus === 'pending') {
+        toast({ title: result.copiedToClipboard ? 'Link copiado!' : 'Link gerado!', description: 'O link já está pronto. Aguarde enquanto o PDF termina de ser gerado.' });
+      } else if (result.outcome === 'copied') {
         toast({ title: 'Link copiado!' });
       }
     } catch (e) {
