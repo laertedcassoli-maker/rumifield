@@ -1136,6 +1136,7 @@ export default function ExecucaoVisitaCorretiva() {
                               toast({ variant: 'destructive', title: 'Link gerado, mas o PDF falhou', description: error.message });
                             },
                           });
+                          if (result.cancelled) return;
                           if (result.pdfStatus === 'pending') {
                             toast({
                               title: result.copiedToClipboard ? 'Link copiado!' : 'Link gerado!',
@@ -1175,6 +1176,7 @@ export default function ExecucaoVisitaCorretiva() {
                               toast({ variant: 'destructive', title: 'Link gerado, mas o PDF falhou', description: error.message });
                             },
                           });
+                          if (result.cancelled) return;
                           if (result.pdfStatus === 'pending') {
                             toast({
                               title: result.copiedToClipboard ? 'Link copiado!' : 'Link gerado!',

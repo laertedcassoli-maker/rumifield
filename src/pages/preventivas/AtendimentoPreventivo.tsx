@@ -829,6 +829,7 @@ export default function AtendimentoPreventivo() {
                         toast({ variant: 'destructive', title: 'Link gerado, mas o PDF falhou', description: error.message });
                       },
                     });
+                    if (result.cancelled) return;
                     if (result.pdfStatus === 'pending') {
                       toast({ title: result.copiedToClipboard ? 'Link copiado!' : 'Link gerado!', description: 'O link já está pronto. Aguarde enquanto o PDF termina de ser gerado.' });
                     } else if (result.outcome === 'copied') {
@@ -865,6 +866,7 @@ export default function AtendimentoPreventivo() {
                         toast({ variant: 'destructive', title: 'Link gerado, mas o PDF falhou', description: error.message });
                       },
                     });
+                    if (result.cancelled) return;
                     if (result.pdfStatus === 'pending') {
                       toast({ title: result.copiedToClipboard ? 'Link copiado!' : 'Link gerado!', description: 'O link já está pronto. Aguarde enquanto o PDF termina de ser gerado.' });
                     } else if (result.outcome === 'copied') {
