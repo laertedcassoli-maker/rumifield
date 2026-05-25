@@ -1,4 +1,4 @@
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -18,6 +18,7 @@ import {
   Camera,
   FileText,
   Share2,
+  Download,
   AlertTriangle
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
@@ -101,7 +102,8 @@ export default function RelatorioCorretivo() {
   const [imageFailedIds, setImageFailedIds] = useState<string[]>([]);
   const [isPdfCapture, setIsPdfCapture] = useState(() => Boolean((window as any).__PDF_CAPTURE__));
   const [isReportReadyForPdf, setIsReportReadyForPdf] = useState(false);
-  
+  const [searchParams] = useSearchParams();
+
   const isInternal = type === 'interno';
 
   const { data: report, isLoading, error } = useQuery({
