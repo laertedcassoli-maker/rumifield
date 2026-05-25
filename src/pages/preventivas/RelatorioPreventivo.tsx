@@ -265,14 +265,34 @@ export default function RelatorioPreventivo() {
         const urls: Record<string, string> = {};
         for (const m of report.media) {
           try {
-            const { data: signedUrl, error } = await supabase.storage
+            // Tenta signed URL primeiro
+            const { data: signedData, error } = await supabase.storage
               .from('preventive-media')
               .createSignedUrl(m.file_path, 3600);
-            if (signedUrl && !error) {
-              urls[m.id] = signedUrl.signedUrl;
+
+            if (signedData && !error) {
+              urls[m.id] = signedData.signedUrl;
+            } else {
+              // Fallback: URL pública (funciona se o bucket tiver acesso público)
+              const { data: publicData } = supabase.storage
+                .from('preventive-media')
+                .getPublicUrl(m.file_path);
+
+              if (publicData?.publicUrl) {
+                urls[m.id] = publicData.publicUrl;
+              }
             }
-          } catch (e) {
-            console.error('Error loading media', m.id, e);
+          } catch {
+            // Tenta URL pública como último recurso
+            try {
+              const { data: publicData } = supabase.storage
+                .from('preventive-media')
+                .getPublicUrl(m.file_path);
+
+              if (publicData?.publicUrl) {
+                urls[m.id] = publicData.publicUrl;
+              }
+            } catch { /* não foi possível carregar a imagem */ }
           }
         }
         setImageUrls(urls);
