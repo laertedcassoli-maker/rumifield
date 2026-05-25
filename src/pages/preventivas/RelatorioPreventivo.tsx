@@ -1,4 +1,4 @@
-import { useParams } from 'react-router-dom';
+import { useParams, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -18,6 +18,7 @@ import {
   Camera,
   FileText,
   Share2,
+  Download,
   AlertTriangle
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
@@ -102,6 +103,7 @@ export default function RelatorioPreventivo() {
   const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
   const [imageLoadAttempted, setImageLoadAttempted] = useState(false);
   const [isPdfCapture, setIsPdfCapture] = useState(() => Boolean((window as any).__PDF_CAPTURE__));
+  const [searchParams] = useSearchParams();
   
   const isInternal = type === 'interno';
 
@@ -332,6 +334,57 @@ export default function RelatorioPreventivo() {
     }
   };
 
+  const handleDownloadPdf = async () => {
+    const { dismiss } = toast({
+      title: 'Gerando PDF...',
+      description: 'Aguarde, isso pode levar alguns segundos.',
+      duration: 30000,
+    });
+    try {
+      const imgElements = document.querySelectorAll('#report-content img');
+      await Promise.all(
+        Array.from(imgElements).map(async (img) => {
+          const htmlImg = img as HTMLImageElement;
+          if (!htmlImg.src || htmlImg.src.startsWith('data:')) return;
+          try {
+            const response = await fetch(htmlImg.src);
+            const blob = await response.blob();
+            const base64 = await new Promise<string>((resolve) => {
+              const reader = new FileReader();
+              reader.onloadend = () => resolve(reader.result as string);
+              reader.readAsDataURL(blob);
+            });
+            htmlImg.src = base64;
+          } catch { /* mantém src original */ }
+        })
+      );
+      await new Promise((r) => setTimeout(r, 500));
+      const html2pdf = (await import('html2pdf.js')).default;
+      const element = document.getElementById('report-content');
+      const filename = `relatorio-preventivo-${report.preventive.public_token.slice(0, 8)}-${format(new Date(), 'yyyy-MM-dd')}.pdf`;
+      await html2pdf().set({
+        margin: [10, 10, 10, 10],
+        filename,
+        image: { type: 'jpeg', quality: 0.92 },
+        html2canvas: { scale: 2, useCORS: true, allowTaint: true, logging: false, imageTimeout: 15000 },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+        pagebreak: { mode: ['avoid-all', 'css', 'legacy'] },
+      } as any).from(element).save();
+      dismiss();
+      toast({ title: 'PDF gerado com sucesso!' });
+    } catch {
+      dismiss();
+      toast({ title: 'Erro ao gerar PDF', description: 'Tente novamente.', variant: 'destructive' });
+    }
+  };
+
+  useEffect(() => {
+    if (searchParams.get('acao') === 'pdf' && report && imageLoadAttempted) {
+      handleDownloadPdf();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, report, imageLoadAttempted]);
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background" data-report-loading="true">
@@ -377,7 +430,7 @@ export default function RelatorioPreventivo() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-muted/30 to-background" data-pdf-root="true" data-pdf-capture={isPdfCapture ? 'true' : 'false'}>
+    <div id="report-content" className="min-h-screen bg-gradient-to-b from-muted/30 to-background" data-pdf-root="true" data-pdf-capture={isPdfCapture ? 'true' : 'false'}>
       {/* Header */}
       <header className="bg-white border-b py-4 px-4" data-pdf-section="header">
         <div className="max-w-2xl mx-auto">
@@ -392,10 +445,16 @@ export default function RelatorioPreventivo() {
               <Wrench className="h-5 w-5" />
               <span className="font-bold">Relatório de Visita</span>
             </div>
-            <Button variant="outline" size="sm" onClick={handleShare} disabled={isSharing} data-pdf-hide="true">
-              {isSharing ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Share2 className="h-4 w-4 mr-1" />}
-              Compartilhar
-            </Button>
+            <div className="flex gap-2" data-pdf-hide="true">
+              <Button variant="outline" size="sm" onClick={handleShare} disabled={isSharing}>
+                {isSharing ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Share2 className="h-4 w-4 mr-1" />}
+                Compartilhar
+              </Button>
+              <Button variant="outline" size="sm" onClick={handleDownloadPdf}>
+                <Download className="h-4 w-4 mr-1" />
+                Baixar PDF
+              </Button>
+            </div>
           </div>
           
           <h1 className="text-xl font-bold text-foreground">{preventive.client.nome}</h1>
@@ -413,7 +472,7 @@ export default function RelatorioPreventivo() {
 
       <main className="max-w-2xl mx-auto p-4 space-y-4" data-report-ready="true">
         {/* Visit Info Card */}
-        <Card data-pdf-section="visit-info">
+        <Card data-pdf-section="visit-info" className="break-inside-avoid">
           <CardContent className="p-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="flex items-center gap-2">
@@ -481,7 +540,7 @@ export default function RelatorioPreventivo() {
 
         {/* Checklist Summary */}
         {checklist && (
-          <Card data-pdf-section="checklist">
+          <Card data-pdf-section="checklist" className="break-inside-avoid">
             <CardHeader className="pb-2">
               <CardTitle className="text-base">Resumo do Check-list</CardTitle>
             </CardHeader>
@@ -511,7 +570,7 @@ export default function RelatorioPreventivo() {
                   <div key={block.id} className="space-y-2" data-pdf-subsection="checklist-block">
                     <h4 data-pdf-subsection="checklist-block-title" className="font-medium text-sm text-muted-foreground">{block.block_name_snapshot}</h4>
                     {block.items.map(item => (
-                      <div key={item.id} data-pdf-subsection="checklist-item" className={`p-2 rounded-lg ${item.status === 'N' ? 'bg-destructive/10' : 'bg-muted/50'}`}>
+                      <div key={item.id} data-pdf-subsection="checklist-item" className={`p-2 rounded-lg break-inside-avoid ${item.status === 'N' ? 'bg-destructive/10' : 'bg-muted/50'}`}>
                         <div className="flex items-start gap-2">
                           <StatusIcon status={item.status} />
                           <div className="flex-1 min-w-0">
@@ -555,7 +614,7 @@ export default function RelatorioPreventivo() {
 
         {/* Parts Consumed */}
         {parts.length > 0 && (
-          <Card data-pdf-section="parts">
+          <Card data-pdf-section="parts" className="break-inside-avoid">
             <CardHeader className="pb-2">
               <CardTitle className="text-base flex items-center gap-2">
                 <Wrench className="h-4 w-4" />
@@ -610,7 +669,7 @@ export default function RelatorioPreventivo() {
 
         {/* Photos */}
         {media.length > 0 && (
-          <Card data-pdf-section="photos">
+          <Card data-pdf-section="photos" className="break-inside-avoid">
             <CardHeader className="pb-2">
               <CardTitle className="text-base flex items-center gap-2">
                 <Camera className="h-4 w-4" />
@@ -620,7 +679,7 @@ export default function RelatorioPreventivo() {
             <CardContent>
               {(() => {
                 const renderItem = (m: typeof media[number]) => (
-                  <div key={m.id} className="relative aspect-square rounded-lg overflow-hidden bg-muted">
+                  <div key={m.id} className="relative aspect-square rounded-lg overflow-hidden bg-muted break-inside-avoid">
                     {imageUrls[m.id] ? (
                       <img
                         src={imageUrls[m.id]}
@@ -662,7 +721,7 @@ export default function RelatorioPreventivo() {
                   );
                 }
 
-                return <div className="grid grid-cols-2 gap-2">{media.map(renderItem)}</div>;
+                return <div className="grid grid-cols-2 gap-3 print:grid-cols-1">{media.map(renderItem)}</div>;
               })()}
             </CardContent>
 
@@ -671,7 +730,7 @@ export default function RelatorioPreventivo() {
 
         {/* Observations */}
         {(preventive.public_notes || (isInternal && preventive.internal_notes)) && (
-          <Card data-pdf-section="observations">
+          <Card data-pdf-section="observations" className="break-inside-avoid">
             <CardHeader className="pb-2">
               <CardTitle className="text-base flex items-center gap-2">
                 <FileText className="h-4 w-4" />
