@@ -659,48 +659,6 @@ export default function ExecucaoVisitaCorretiva() {
     },
   });
 
-  const ensureCorrectiveReportToken = async () => {
-    if (!visit) throw new Error('Visita não encontrada');
-
-    const { data: existingReport, error: fetchError } = await supabase
-      .from('corrective_maintenance')
-      .select('public_token')
-      .eq('visit_id', visit.id)
-      .maybeSingle();
-    if (fetchError) throw fetchError;
-    if (existingReport?.public_token) return existingReport.public_token;
-
-    const publicToken = crypto.randomUUID();
-    const status = visit.status === 'finalizada'
-      ? 'concluida'
-      : visit.checkin_at
-        ? 'em_andamento'
-        : 'pendente';
-
-    const { error: upsertError } = await supabase
-      .from('corrective_maintenance')
-      .upsert({
-        visit_id: visit.id,
-        client_id: visit.client_id,
-        checklist_template_id: visit.checklist_template_id || null,
-        status,
-        checkin_at: visit.checkin_at,
-        checkin_lat: visit.checkin_lat,
-        checkin_lon: visit.checkin_lon,
-        checkout_at: visit.checkout_at,
-        notes: `Visita Corretiva ${visit.visit_code} - ${visit.ticket?.ticket_code || 'Chamado'}`,
-        public_token: publicToken,
-      }, { onConflict: 'visit_id' });
-    if (upsertError) throw upsertError;
-
-    queryClient.setQueryData(['corrective-visit-execution', visitId], (old: any) => {
-      if (!old) return old;
-      return { ...old, publicToken };
-    });
-
-    return publicToken;
-  };
-
   const canAccess = isAdminOrCoordinator || visit?.field_technician_user_id === user?.id;
   const isVisitCompleted = visit?.status === 'finalizada' || !!completedResult;
   const hasCheckedIn = !!visit?.checkin_at;
