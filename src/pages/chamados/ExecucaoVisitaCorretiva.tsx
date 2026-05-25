@@ -19,10 +19,7 @@ import {
   AlertTriangle,
   Play,
   Wrench,
-  Share2,
-  ExternalLink,
-  Link2,
-  Download
+  Share2
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -42,6 +39,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { shareReportWithPdf, buildReportFileName, buildReportShareUrl } from '@/lib/share-report-pdf';
 import SolenoideModeloDialog, { SOLENOIDE_TRIGGER_CODE } from '@/components/pedidos/SolenoideModeloDialog';
 
 interface ValidationResult {
@@ -63,6 +61,7 @@ export default function ExecucaoVisitaCorretiva() {
   const [selectedResult, setSelectedResult] = useState<'resolvido' | 'parcial' | 'aguardando_peca' | null>(null);
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
   const [checklistStatus, setChecklistStatus] = useState<'not_started' | 'in_progress' | 'completed'>('not_started');
+  const [sharingTarget, setSharingTarget] = useState<'produtor' | 'interno' | null>(null);
   const [isCheckingIn, setIsCheckingIn] = useState(false);
   const [completedResult, setCompletedResult] = useState<'resolvido' | 'parcial' | 'aguardando_peca' | null>(null);
   const [showSolenoideDialog, setShowSolenoideDialog] = useState(false);
@@ -659,6 +658,48 @@ export default function ExecucaoVisitaCorretiva() {
     },
   });
 
+  const ensureCorrectiveReportToken = async () => {
+    if (!visit) throw new Error('Visita não encontrada');
+
+    const { data: existingReport, error: fetchError } = await supabase
+      .from('corrective_maintenance')
+      .select('public_token')
+      .eq('visit_id', visit.id)
+      .maybeSingle();
+    if (fetchError) throw fetchError;
+    if (existingReport?.public_token) return existingReport.public_token;
+
+    const publicToken = crypto.randomUUID();
+    const status = visit.status === 'finalizada'
+      ? 'concluida'
+      : visit.checkin_at
+        ? 'em_andamento'
+        : 'pendente';
+
+    const { error: upsertError } = await supabase
+      .from('corrective_maintenance')
+      .upsert({
+        visit_id: visit.id,
+        client_id: visit.client_id,
+        checklist_template_id: visit.checklist_template_id || null,
+        status,
+        checkin_at: visit.checkin_at,
+        checkin_lat: visit.checkin_lat,
+        checkin_lon: visit.checkin_lon,
+        checkout_at: visit.checkout_at,
+        notes: `Visita Corretiva ${visit.visit_code} - ${visit.ticket?.ticket_code || 'Chamado'}`,
+        public_token: publicToken,
+      }, { onConflict: 'visit_id' });
+    if (upsertError) throw upsertError;
+
+    queryClient.setQueryData(['corrective-visit-execution', visitId], (old: any) => {
+      if (!old) return old;
+      return { ...old, publicToken };
+    });
+
+    return publicToken;
+  };
+
   const canAccess = isAdminOrCoordinator || visit?.field_technician_user_id === user?.id;
   const isVisitCompleted = visit?.status === 'finalizada' || !!completedResult;
   const hasCheckedIn = !!visit?.checkin_at;
@@ -1073,51 +1114,88 @@ export default function ExecucaoVisitaCorretiva() {
                   </div>
                 </div>
                 
-                <div className="flex flex-wrap gap-2 pt-2">
-                  {(() => {
-                    const origin = window.location.hostname.includes('lovableproject.com')
-                      ? 'https://rumifield.lovable.app'
-                      : window.location.origin;
-                    const urlPublica = `${origin}/relatorio-corretivo/${visit.publicToken}`;
-                    return (
-                      <>
-                        <Button
-                          variant="outline"
-                          className="flex-1 min-w-0"
-                          onClick={() => {
-                            window.open(urlPublica, '_blank');
-                            toast({ title: 'Relatório aberto em nova aba' });
-                          }}
-                        >
-                          <ExternalLink className="h-4 w-4 mr-2 shrink-0" />
-                          Abrir Relatório
-                        </Button>
-                        <Button
-                          variant="outline"
-                          className="flex-1 min-w-0"
-                          onClick={() => {
-                            navigator.clipboard.writeText(urlPublica);
-                            toast({ title: 'Link copiado!' });
-                          }}
-                        >
-                          <Link2 className="h-4 w-4 mr-2 shrink-0" />
-                          Copiar link
-                        </Button>
-                        <Button
-                          variant="outline"
-                          className="flex-1 min-w-0"
-                          onClick={() => {
-                            window.open(`${urlPublica}?acao=pdf`, '_blank');
-                            toast({ title: 'Abrindo relatório para download do PDF...' });
-                          }}
-                        >
-                          <Download className="h-4 w-4 mr-2 shrink-0" />
-                          Baixar PDF
-                        </Button>
-                      </>
-                    );
-                  })()}
-                </div>
+                <div className="flex gap-2 pt-2">
+                    <Button
+                      variant="outline"
+                      className="flex-1"
+                      disabled={sharingTarget !== null}
+                      onClick={async () => {
+                        setSharingTarget('produtor');
+                        try {
+                          const publicToken = await ensureCorrectiveReportToken();
+                          const url = buildReportShareUrl(`/relatorio-corretivo/${publicToken}`);
+                          const result = await shareReportWithPdf({
+                            url,
+                            title: 'Relatório de Visita',
+                            text: `Confira o relatório: ${url}`,
+                            fileName: buildReportFileName('relatorio-corretivo', publicToken),
+                            onPdfReady: () => {
+                              toast({ title: 'PDF pronto', description: 'O download do PDF foi iniciado.' });
+                            },
+                            onPdfFailed: (error) => {
+                              toast({ variant: 'destructive', title: 'Link gerado, mas o PDF falhou', description: error.message });
+                            },
+                          });
+                          if (result.cancelled) return;
+                          if (result.pdfStatus === 'pending') {
+                            toast({
+                              title: result.copiedToClipboard ? 'Link copiado!' : 'Link gerado!',
+                              description: 'O link já está pronto. Aguarde enquanto o PDF termina de ser gerado.',
+                            });
+                          } else if (result.outcome === 'copied') {
+                            toast({ title: 'Link copiado!', description: 'O PDF não será gerado para este link.' });
+                          }
+                        } catch (err) {
+                          toast({ variant: 'destructive', title: 'Erro ao compartilhar', description: (err as Error).message });
+                        } finally {
+                          setSharingTarget(null);
+                        }
+                      }}
+                    >
+                      {sharingTarget === 'produtor' ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Share2 className="h-4 w-4 mr-2" />}
+                      Produtor
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="flex-1"
+                      disabled={sharingTarget !== null}
+                      onClick={async () => {
+                        setSharingTarget('interno');
+                        try {
+                          const publicToken = await ensureCorrectiveReportToken();
+                          const url = buildReportShareUrl(`/relatorio-corretivo/${publicToken}/interno`);
+                          const result = await shareReportWithPdf({
+                            url,
+                            title: 'Relatório Interno',
+                            text: `Relatório interno: ${url}`,
+                            fileName: buildReportFileName('relatorio-corretivo-interno', publicToken),
+                            onPdfReady: () => {
+                              toast({ title: 'PDF pronto', description: 'O download do PDF foi iniciado.' });
+                            },
+                            onPdfFailed: (error) => {
+                              toast({ variant: 'destructive', title: 'Link gerado, mas o PDF falhou', description: error.message });
+                            },
+                          });
+                          if (result.cancelled) return;
+                          if (result.pdfStatus === 'pending') {
+                            toast({
+                              title: result.copiedToClipboard ? 'Link copiado!' : 'Link gerado!',
+                              description: 'O link já está pronto. Aguarde enquanto o PDF termina de ser gerado.',
+                            });
+                          } else if (result.outcome === 'copied') {
+                            toast({ title: 'Link copiado!', description: 'O PDF não será gerado para este link.' });
+                          }
+                        } catch (err) {
+                          toast({ variant: 'destructive', title: 'Erro ao compartilhar', description: (err as Error).message });
+                        } finally {
+                          setSharingTarget(null);
+                        }
+                      }}
+                    >
+                      {sharingTarget === 'interno' ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Share2 className="h-4 w-4 mr-2" />}
+                      Time Interno
+                    </Button>
+                  </div>
 
                 <div className="flex gap-2 pt-2">
                   <Button 
