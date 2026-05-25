@@ -406,6 +406,57 @@ export default function RelatorioCorretivo() {
     }
   };
 
+  const handleDownloadPdf = async () => {
+    const { dismiss } = toast({
+      title: 'Gerando PDF...',
+      description: 'Aguarde, isso pode levar alguns segundos.',
+      duration: 30000,
+    });
+    try {
+      const imgElements = document.querySelectorAll('#report-content img');
+      await Promise.all(
+        Array.from(imgElements).map(async (img) => {
+          const htmlImg = img as HTMLImageElement;
+          if (!htmlImg.src || htmlImg.src.startsWith('data:')) return;
+          try {
+            const response = await fetch(htmlImg.src);
+            const blob = await response.blob();
+            const base64 = await new Promise<string>((resolve) => {
+              const reader = new FileReader();
+              reader.onloadend = () => resolve(reader.result as string);
+              reader.readAsDataURL(blob);
+            });
+            htmlImg.src = base64;
+          } catch { /* mantém src original */ }
+        })
+      );
+      await new Promise((r) => setTimeout(r, 500));
+      const html2pdf = (await import('html2pdf.js')).default;
+      const element = document.getElementById('report-content');
+      const filename = `relatorio-${report.corrective.visit_code}-${format(new Date(), 'yyyy-MM-dd')}.pdf`;
+      await html2pdf().set({
+        margin: [10, 10, 10, 10],
+        filename,
+        image: { type: 'jpeg', quality: 0.92 },
+        html2canvas: { scale: 2, useCORS: true, allowTaint: true, logging: false, imageTimeout: 15000 },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+        pagebreak: { mode: ['avoid-all', 'css', 'legacy'] },
+      }).from(element).save();
+      dismiss();
+      toast({ title: 'PDF gerado com sucesso!' });
+    } catch {
+      dismiss();
+      toast({ title: 'Erro ao gerar PDF', description: 'Tente novamente.', variant: 'destructive' });
+    }
+  };
+
+  useEffect(() => {
+    if (searchParams.get('acao') === 'pdf' && report && imageLoadAttempted) {
+      handleDownloadPdf();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, report, imageLoadAttempted]);
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background" data-report-loading="true">
