@@ -514,6 +514,8 @@ export default function RelatorioCorretivo() {
 
   return (
     <div id="report-content" className="min-h-screen bg-gradient-to-b from-muted/30 to-background" data-pdf-root="true" data-pdf-capture={isPdfCapture ? 'true' : 'false'}>
+      <style>{printStyles}</style>
+
       {/* Header */}
       <header className="bg-white border-b py-4 px-4" data-pdf-section="header">
         <div className="max-w-2xl mx-auto">
