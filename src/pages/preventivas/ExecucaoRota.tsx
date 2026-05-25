@@ -661,30 +661,46 @@ export default function ExecucaoRota() {
                       {item.public_token && (
                         <>
                           <button
-                            onClick={async () => {
+                          onClick={async () => {
+                            const urlProdutor = `${window.location.hostname.includes('lovableproject.com') ? 'https://rumifield.lovable.app' : window.location.origin}/relatorio/${item.public_token}`;
+                            if (navigator.share) {
                               try {
                                 await navigator.share({
                                   title: 'Relatório de Visita',
                                   text: 'Segue o relatório da visita preventiva.',
-                                  url: `${window.location.hostname.includes('lovableproject.com') ? 'https://rumifield.lovable.app' : window.location.origin}/relatorio/${item.public_token}`
+                                  url: urlProdutor
                                 });
-                              } catch {}
-                            }}
+                                return;
+                              } catch {
+                                // usuário cancelou ou share falhou — cai no fallback abaixo
+                              }
+                            }
+                            await navigator.clipboard.writeText(urlProdutor);
+                            toast({ title: 'Link copiado!', description: 'Cole no WhatsApp para compartilhar.' });
+                          }}
                             className="flex-1 flex items-center justify-center gap-2 py-3 text-sm text-muted-foreground hover:bg-muted/50 active:bg-muted transition-colors"
                           >
                             <Share2 className="h-4 w-4" />
                             Produtor
                           </button>
                           <button
-                            onClick={async () => {
+                          onClick={async () => {
+                            const urlInterno = `${window.location.hostname.includes('lovableproject.com') ? 'https://rumifield.lovable.app' : window.location.origin}/relatorio/${item.public_token}/interno`;
+                            if (navigator.share) {
                               try {
                                 await navigator.share({
                                   title: 'Relatório Interno',
                                   text: 'Relatório interno da visita preventiva.',
-                                  url: `${window.location.hostname.includes('lovableproject.com') ? 'https://rumifield.lovable.app' : window.location.origin}/relatorio/${item.public_token}/interno`
+                                  url: urlInterno
                                 });
-                              } catch {}
-                            }}
+                                return;
+                              } catch {
+                                // usuário cancelou ou share falhou — cai no fallback abaixo
+                              }
+                            }
+                            await navigator.clipboard.writeText(urlInterno);
+                            toast({ title: 'Link copiado!', description: 'Cole no WhatsApp para compartilhar.' });
+                          }}
                             className="flex-1 flex items-center justify-center gap-2 py-3 text-sm text-muted-foreground hover:bg-muted/50 active:bg-muted transition-colors"
                           >
                             <Share2 className="h-4 w-4" />

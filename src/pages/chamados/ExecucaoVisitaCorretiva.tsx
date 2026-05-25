@@ -1127,13 +1127,20 @@ export default function ExecucaoVisitaCorretiva() {
                     variant="outline"
                     className="flex-1"
                     onClick={async () => {
-                      try {
-                        await navigator.share({
-                          title: 'Relatório de Visita',
-                          text: 'Segue o relatório da visita corretiva.',
-                          url: urlProdutor
-                        });
-                      } catch {}
+                      if (navigator.share) {
+                        try {
+                          await navigator.share({
+                            title: 'Relatório de Visita',
+                            text: 'Segue o relatório da visita corretiva.',
+                            url: urlProdutor
+                          });
+                          return;
+                        } catch {
+                          // usuário cancelou ou share falhou — cai no fallback abaixo
+                        }
+                      }
+                      await navigator.clipboard.writeText(urlProdutor);
+                      toast({ title: 'Link copiado!', description: 'Cole no WhatsApp para compartilhar.' });
                     }}
                   >
                     <Share2 className="h-4 w-4 mr-2" />
@@ -1143,13 +1150,20 @@ export default function ExecucaoVisitaCorretiva() {
                     variant="outline"
                     className="flex-1"
                     onClick={async () => {
-                      try {
-                        await navigator.share({
-                          title: 'Relatório Interno',
-                          text: 'Relatório interno da visita corretiva.',
-                          url: urlInterno
-                        });
-                      } catch {}
+                      if (navigator.share) {
+                        try {
+                          await navigator.share({
+                            title: 'Relatório Interno',
+                            text: 'Relatório interno da visita corretiva.',
+                            url: urlInterno
+                          });
+                          return;
+                        } catch {
+                          // usuário cancelou ou share falhou — cai no fallback abaixo
+                        }
+                      }
+                      await navigator.clipboard.writeText(urlInterno);
+                      toast({ title: 'Link copiado!', description: 'Cole no WhatsApp para compartilhar.' });
                     }}
                   >
                     <Share2 className="h-4 w-4 mr-2" />
