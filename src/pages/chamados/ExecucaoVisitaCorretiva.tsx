@@ -19,6 +19,7 @@ import {
   AlertTriangle,
   Play,
   Wrench,
+  Share2,
   ExternalLink,
   Link2,
   Download
