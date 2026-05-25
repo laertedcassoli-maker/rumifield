@@ -19,7 +19,10 @@ import {
   AlertTriangle,
   Play,
   Wrench,
-  Share2
+  Share2,
+  ExternalLink,
+  Link2,
+  Download
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
