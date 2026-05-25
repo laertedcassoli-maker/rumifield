@@ -695,6 +695,35 @@ export default function ExecucaoRota() {
                     </>
                   )}
                 </div>
+
+                {attendanceStatus === 'concluida' && item.public_token && (
+                  <div className="flex gap-2 p-3 border-t">
+                    <Button
+                      variant="outline"
+                      className="flex-1"
+                      onClick={async () => {
+                        const urlProdutor = `${window.location.hostname.includes('lovableproject.com') ? 'https://rumifield.lovable.app' : window.location.origin}/relatorio/${item.public_token}`;
+                        await navigator.clipboard.writeText(urlProdutor);
+                        toast({ title: 'Link copiado!' });
+                      }}
+                    >
+                      <Link2 className="h-4 w-4 mr-2" />
+                      Copiar link
+                    </Button>
+                    <Button
+                      variant="outline"
+                      className="flex-1"
+                      onClick={() => {
+                        const urlProdutor = `${window.location.hostname.includes('lovableproject.com') ? 'https://rumifield.lovable.app' : window.location.origin}/relatorio/${item.public_token}`;
+                        window.open(`${urlProdutor}?acao=pdf`, '_blank');
+                        toast({ title: 'Abrindo relatório para download...' });
+                      }}
+                    >
+                      <Download className="h-4 w-4 mr-2" />
+                      Baixar PDF
+                    </Button>
+                  </div>
+                )}
               </CardContent>
             </Card>
           );
