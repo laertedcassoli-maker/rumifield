@@ -429,60 +429,19 @@ export default function RelatorioCorretivo() {
     }
   };
 
-  const handleDownloadPdf = async () => {
-    const { dismiss } = toast({
-      title: 'Gerando PDF...',
-      description: 'Aguarde, isso pode levar alguns segundos.',
-      duration: 30000,
-    });
-    try {
-      const imgElements = document.querySelectorAll('#report-content img');
-      await Promise.all(
-        Array.from(imgElements).map(async (img) => {
-          const htmlImg = img as HTMLImageElement;
-          if (!htmlImg.src || htmlImg.src.startsWith('data:')) return;
-          try {
-            const response = await fetch(htmlImg.src);
-            const blob = await response.blob();
-            const base64 = await new Promise<string>((resolve) => {
-              const reader = new FileReader();
-              reader.onloadend = () => resolve(reader.result as string);
-              reader.readAsDataURL(blob);
-            });
-            htmlImg.src = base64;
-          } catch { /* mantém src original */ }
-        })
-      );
-      await new Promise((r) => setTimeout(r, 500));
-      const html2pdf = (await import('html2pdf.js')).default;
-      const element = document.getElementById('report-content');
-      const filename = `relatorio-${report.corrective.visit_code}-${format(new Date(), 'yyyy-MM-dd')}.pdf`;
-      await html2pdf().set({
-        margin: [10, 10, 10, 10],
-        filename,
-        image: { type: 'jpeg', quality: 0.92 },
-        html2canvas: { scale: 2, useCORS: true, allowTaint: true, logging: false, imageTimeout: 15000 },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-        pagebreak: { mode: ['avoid-all', 'css', 'legacy'] },
-      } as any).from(element).save();
-      dismiss();
-      toast({ title: 'PDF gerado com sucesso!' });
-    } catch {
-      dismiss();
-      toast({ title: 'Erro ao gerar PDF', description: 'Tente novamente.', variant: 'destructive' });
-    }
+  const handleDownloadPdf = () => {
+    window.print();
   };
 
   useEffect(() => {
-    if (searchParams.get('acao') !== 'pdf') return;
-    if (!report) return;
-    // Aguarda um tempo para garantir que as imagens tentaram carregar
-    const timer = setTimeout(() => {
-      handleDownloadPdf();
-    }, 2000);
-    return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (searchParams.get('acao') === 'pdf' && report) {
+      const timer = setTimeout(() => {
+        window.print();
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
   }, [report, searchParams]);
+
 
   if (isLoading) {
     return (
@@ -507,6 +466,17 @@ export default function RelatorioCorretivo() {
   const okItems = checklist?.blocks.reduce((acc, b) => acc + b.items.filter(i => i.status === 'S').length, 0) || 0;
   const failItems = checklist?.blocks.reduce((acc, b) => acc + b.items.filter(i => i.status === 'N').length, 0) || 0;
   const naItems = checklist?.blocks.reduce((acc, b) => acc + b.items.filter(i => i.status === 'NA').length, 0) || 0;
+
+  const printStyles = `
+    @media print {
+      .no-print { display: none !important; }
+      * { box-shadow: none !important; }
+      body { background: white !important; }
+      img { max-width: 100% !important; break-inside: avoid; }
+      .card { break-inside: avoid; page-break-inside: avoid; }
+    }
+  `;
+
 
   const StatusIcon = ({ status }: { status: string | null }) => {
     if (status === 'S') return <CheckCircle2 className="h-4 w-4 text-green-600" />;
@@ -544,6 +514,8 @@ export default function RelatorioCorretivo() {
 
   return (
     <div id="report-content" className="min-h-screen bg-gradient-to-b from-muted/30 to-background" data-pdf-root="true" data-pdf-capture={isPdfCapture ? 'true' : 'false'}>
+      <style>{printStyles}</style>
+
       {/* Header */}
       <header className="bg-white border-b py-4 px-4" data-pdf-section="header">
         <div className="max-w-2xl mx-auto">
@@ -558,7 +530,7 @@ export default function RelatorioCorretivo() {
               <Wrench className="h-5 w-5" />
               <span className="font-bold">Relatório de Visita Corretiva</span>
             </div>
-            <div className="flex gap-2" data-pdf-hide="true">
+            <div className="flex gap-2 no-print" data-pdf-hide="true">
               <Button variant="outline" size="sm" onClick={handleShare} disabled={isSharing}>
                 {isSharing ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Share2 className="h-4 w-4 mr-1" />}
                 Compartilhar
