@@ -562,7 +562,7 @@ export default function RelatorioCorretivo() {
         data-report-media-count={media.length}
       >
         {/* Visit Info Card */}
-        <Card data-pdf-section="visit-info">
+        <Card data-pdf-section="visit-info" className="break-inside-avoid">
           <CardContent className="p-4">
             <div className="grid grid-cols-2 gap-4">
               {/* Visit Code */}
@@ -638,7 +638,7 @@ export default function RelatorioCorretivo() {
 
         {/* Visit Summary */}
         {corrective.visit_summary && (
-          <Card data-pdf-section="visit-summary">
+          <Card data-pdf-section="visit-summary" className="break-inside-avoid">
             <CardHeader className="pb-2">
               <CardTitle className="text-base">Resumo da Visita</CardTitle>
             </CardHeader>
@@ -650,7 +650,7 @@ export default function RelatorioCorretivo() {
 
         {/* Checklist Summary */}
         {checklist && (
-          <Card data-pdf-section="checklist">
+          <Card data-pdf-section="checklist" className="break-inside-avoid">
             <CardHeader className="pb-2">
               <CardTitle className="text-base">Check-list de Verificação</CardTitle>
             </CardHeader>
@@ -679,7 +679,7 @@ export default function RelatorioCorretivo() {
                   <div key={block.id} className="space-y-2" data-pdf-subsection="checklist-block">
                     <h4 data-pdf-subsection="checklist-block-title" className="font-medium text-sm text-muted-foreground">{block.block_name_snapshot}</h4>
                     {block.items.map(item => (
-                      <div key={item.id} data-pdf-subsection="checklist-item" className={`p-2 rounded-lg ${item.status === 'N' ? 'bg-destructive/10' : 'bg-muted/50'}`}>
+                      <div key={item.id} data-pdf-subsection="checklist-item" className={`p-2 rounded-lg break-inside-avoid ${item.status === 'N' ? 'bg-destructive/10' : 'bg-muted/50'}`}>
                         <div className="flex items-start gap-2">
                           <StatusIcon status={item.status} />
                           <div className="flex-1 min-w-0">
@@ -737,7 +737,7 @@ export default function RelatorioCorretivo() {
 
         {/* Parts Consumption */}
         {parts.length > 0 && (
-          <Card data-pdf-section="parts">
+          <Card data-pdf-section="parts" className="break-inside-avoid">
             <CardHeader className="pb-2">
               <CardTitle className="text-base flex items-center gap-2">
                 <Wrench className="h-4 w-4" />
@@ -775,7 +775,7 @@ export default function RelatorioCorretivo() {
 
         {/* Media Gallery */}
         {media.length > 0 && (
-          <Card data-pdf-section="media">
+          <Card data-pdf-section="media" className="break-inside-avoid">
             <CardHeader className="pb-2">
               <CardTitle className="text-base flex items-center gap-2">
                 <Camera className="h-4 w-4" />
@@ -787,7 +787,7 @@ export default function RelatorioCorretivo() {
                 const renderItem = (m: typeof media[number]) => (
                   <div
                     key={m.id}
-                    className="relative aspect-square rounded-lg overflow-hidden bg-muted"
+                    className="relative aspect-square rounded-lg overflow-hidden bg-muted break-inside-avoid"
                     data-report-media-item="true"
                     data-report-media-ready={imageUrls[m.id] || imageFailedIds.includes(m.id) ? 'true' : 'false'}
                   >
@@ -837,7 +837,7 @@ export default function RelatorioCorretivo() {
                   );
                 }
 
-                return <div className="grid grid-cols-2 gap-2">{media.map(renderItem)}</div>;
+                return <div className="grid grid-cols-2 gap-3 print:grid-cols-1">{media.map(renderItem)}</div>;
               })()}
             </CardContent>
 
@@ -846,7 +846,7 @@ export default function RelatorioCorretivo() {
 
         {/* Public Notes */}
         {corrective.public_notes && (
-          <Card data-pdf-section="public-notes">
+          <Card data-pdf-section="public-notes" className="break-inside-avoid">
             <CardHeader className="pb-2">
               <CardTitle className="text-base">Observações</CardTitle>
             </CardHeader>
@@ -858,7 +858,7 @@ export default function RelatorioCorretivo() {
 
         {/* Internal Notes (only for internal view) */}
         {isInternal && corrective.internal_notes && (
-          <Card data-pdf-section="internal-notes" className="border-dashed">
+          <Card data-pdf-section="internal-notes" className="border-dashed break-inside-avoid">
             <CardHeader className="pb-2">
               <CardTitle className="text-base text-muted-foreground">Observações Internas</CardTitle>
             </CardHeader>
