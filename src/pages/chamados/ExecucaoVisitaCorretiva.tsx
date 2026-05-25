@@ -19,7 +19,10 @@ import {
   AlertTriangle,
   Play,
   Wrench,
-  Share2
+  Share2,
+  ExternalLink,
+  Link2,
+  Download
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -1114,88 +1117,74 @@ export default function ExecucaoVisitaCorretiva() {
                   </div>
                 </div>
                 
-                <div className="flex gap-2 pt-2">
-                    <Button
-                      variant="outline"
-                      className="flex-1"
-                      disabled={sharingTarget !== null}
-                      onClick={async () => {
-                        setSharingTarget('produtor');
-                        try {
-                          const publicToken = await ensureCorrectiveReportToken();
-                          const url = buildReportShareUrl(`/relatorio-corretivo/${publicToken}`);
-                          const result = await shareReportWithPdf({
-                            url,
-                            title: 'Relatório de Visita',
-                            text: `Confira o relatório: ${url}`,
-                            fileName: buildReportFileName('relatorio-corretivo', publicToken),
-                            onPdfReady: () => {
-                              toast({ title: 'PDF pronto', description: 'O download do PDF foi iniciado.' });
-                            },
-                            onPdfFailed: (error) => {
-                              toast({ variant: 'destructive', title: 'Link gerado, mas o PDF falhou', description: error.message });
-                            },
-                          });
-                          if (result.cancelled) return;
-                          if (result.pdfStatus === 'pending') {
-                            toast({
-                              title: result.copiedToClipboard ? 'Link copiado!' : 'Link gerado!',
-                              description: 'O link já está pronto. Aguarde enquanto o PDF termina de ser gerado.',
-                            });
-                          } else if (result.outcome === 'copied') {
-                            toast({ title: 'Link copiado!', description: 'O PDF não será gerado para este link.' });
-                          }
-                        } catch (err) {
-                          toast({ variant: 'destructive', title: 'Erro ao compartilhar', description: (err as Error).message });
-                        } finally {
-                          setSharingTarget(null);
-                        }
-                      }}
-                    >
-                      {sharingTarget === 'produtor' ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Share2 className="h-4 w-4 mr-2" />}
-                      Produtor
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="flex-1"
-                      disabled={sharingTarget !== null}
-                      onClick={async () => {
-                        setSharingTarget('interno');
-                        try {
-                          const publicToken = await ensureCorrectiveReportToken();
-                          const url = buildReportShareUrl(`/relatorio-corretivo/${publicToken}/interno`);
-                          const result = await shareReportWithPdf({
-                            url,
-                            title: 'Relatório Interno',
-                            text: `Relatório interno: ${url}`,
-                            fileName: buildReportFileName('relatorio-corretivo-interno', publicToken),
-                            onPdfReady: () => {
-                              toast({ title: 'PDF pronto', description: 'O download do PDF foi iniciado.' });
-                            },
-                            onPdfFailed: (error) => {
-                              toast({ variant: 'destructive', title: 'Link gerado, mas o PDF falhou', description: error.message });
-                            },
-                          });
-                          if (result.cancelled) return;
-                          if (result.pdfStatus === 'pending') {
-                            toast({
-                              title: result.copiedToClipboard ? 'Link copiado!' : 'Link gerado!',
-                              description: 'O link já está pronto. Aguarde enquanto o PDF termina de ser gerado.',
-                            });
-                          } else if (result.outcome === 'copied') {
-                            toast({ title: 'Link copiado!', description: 'O PDF não será gerado para este link.' });
-                          }
-                        } catch (err) {
-                          toast({ variant: 'destructive', title: 'Erro ao compartilhar', description: (err as Error).message });
-                        } finally {
-                          setSharingTarget(null);
-                        }
-                      }}
-                    >
-                      {sharingTarget === 'interno' ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <Share2 className="h-4 w-4 mr-2" />}
-                      Time Interno
-                    </Button>
-                  </div>
+                {(() => {
+                  const origin = window.location.hostname.includes('lovableproject.com')
+                    ? 'https://rumifield.lovable.app'
+                    : window.location.origin;
+                  const urlProdutor = `${origin}/relatorio-corretivo/${visit.publicToken}`;
+                  const urlInterno = `${origin}/relatorio-corretivo/${visit.publicToken}/interno`;
+                  return (
+                    <div className="space-y-3 pt-2">
+                      <Button
+                        variant="default"
+                        className="w-full"
+                        onClick={() => {
+                          window.open(urlProdutor, '_blank');
+                          toast({ title: 'Relatório aberto em nova aba' });
+                        }}
+                      >
+                        <ExternalLink className="h-4 w-4 mr-2" />
+                        Abrir Relatório
+                      </Button>
+                      <div className="space-y-1">
+                        <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Produtor</p>
+                        <div className="flex gap-2">
+                          <Button variant="outline" className="flex-1" onClick={async () => {
+                            if (navigator.share) {
+                              try { await navigator.share({ title: 'Relatório de Visita', url: urlProdutor }); } catch {}
+                            } else {
+                              await navigator.clipboard.writeText(urlProdutor);
+                              toast({ title: 'Link copiado!', description: 'Cole no WhatsApp para enviar ao produtor.' });
+                            }
+                          }}>
+                            <Link2 className="h-4 w-4 mr-2" />
+                            Copiar link
+                          </Button>
+                          <Button variant="outline" className="flex-1" onClick={() => {
+                            window.open(`${urlProdutor}?acao=pdf`, '_blank');
+                            toast({ title: 'Abrindo relatório para download...' });
+                          }}>
+                            <Download className="h-4 w-4 mr-2" />
+                            Baixar PDF
+                          </Button>
+                        </div>
+                      </div>
+                      <div className="space-y-1">
+                        <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Time Interno</p>
+                        <div className="flex gap-2">
+                          <Button variant="outline" className="flex-1" onClick={async () => {
+                            if (navigator.share) {
+                              try { await navigator.share({ title: 'Relatório Interno', url: urlInterno }); } catch {}
+                            } else {
+                              await navigator.clipboard.writeText(urlInterno);
+                              toast({ title: 'Link copiado!', description: 'Cole para compartilhar com a equipe.' });
+                            }
+                          }}>
+                            <Link2 className="h-4 w-4 mr-2" />
+                            Copiar link
+                          </Button>
+                          <Button variant="outline" className="flex-1" onClick={() => {
+                            window.open(`${urlInterno}?acao=pdf`, '_blank');
+                            toast({ title: 'Abrindo relatório para download...' });
+                          }}>
+                            <Download className="h-4 w-4 mr-2" />
+                            Baixar PDF
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
 
                 <div className="flex gap-2 pt-2">
                   <Button 
