@@ -411,6 +411,16 @@ export default function RelatorioPreventivo() {
     return Array.from(map.values());
   };
 
+  const printStyles = `
+  @media print {
+    .no-print { display: none !important; }
+    * { box-shadow: none !important; }
+    body { background: white !important; }
+    img { max-width: 100% !important; break-inside: avoid; }
+    .card { break-inside: avoid; page-break-inside: avoid; }
+  }
+`;
+
   return (
     <div id="report-content" className="min-h-screen bg-gradient-to-b from-muted/30 to-background" data-pdf-root="true" data-pdf-capture={isPdfCapture ? 'true' : 'false'}>
       {/* Header */}
