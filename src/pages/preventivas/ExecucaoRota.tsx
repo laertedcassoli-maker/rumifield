@@ -658,41 +658,38 @@ export default function ExecucaoRota() {
                         Ver resumo
                       </Link>
                       {item.public_token && (
-                        <button
-                          disabled={sharingItemId === item.id}
-                          onClick={async () => {
-                            const url = buildReportShareUrl(`/relatorio/${item.public_token}`);
-                            setSharingItemId(item.id);
-                            try {
-                              const result = await shareReportWithPdf({
-                                url,
-                                title: `Relatório - ${item.client_name}`,
-                                text: `Confira o relatório da visita preventiva: ${url}`,
-                                fileName: buildReportFileName(item.client_name || 'visita', item.public_token),
-                                onPdfReady: () => {
-                                  toast({ title: 'PDF pronto', description: 'O download do PDF foi iniciado.' });
-                                },
-                                onPdfFailed: (error) => {
-                                  toast({ variant: 'destructive', title: 'Link gerado, mas o PDF falhou', description: error.message });
-                                },
-                              });
-                              if (result.cancelled) return;
-                              if (result.pdfStatus === 'pending') {
-                                toast({ title: result.copiedToClipboard ? 'Link copiado!' : 'Link gerado!', description: 'O link já está pronto. Aguarde enquanto o PDF termina de ser gerado.' });
-                              } else if (result.outcome === 'copied') {
-                                toast({ title: 'Link copiado!', description: 'Cole no WhatsApp para enviar' });
-                              }
-                            } catch (err) {
-                              toast({ variant: 'destructive', title: 'Erro ao compartilhar', description: (err as Error).message });
-                            } finally {
-                              setSharingItemId(null);
-                            }
-                          }}
-                          className="flex-1 flex items-center justify-center gap-2 py-3 text-sm text-muted-foreground hover:bg-muted/50 active:bg-muted transition-colors disabled:opacity-60"
-                        >
-                          {sharingItemId === item.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Share2 className="h-4 w-4" />}
-                          Compartilhar
-                        </button>
+                        <>
+                          <button
+                            onClick={async () => {
+                              try {
+                                await navigator.share({
+                                  title: 'Relatório de Visita',
+                                  text: 'Segue o relatório da visita preventiva.',
+                                  url: `${window.location.hostname.includes('lovableproject.com') ? 'https://rumifield.lovable.app' : window.location.origin}/relatorio/${item.public_token}`
+                                });
+                              } catch {}
+                            }}
+                            className="flex-1 flex items-center justify-center gap-2 py-3 text-sm text-muted-foreground hover:bg-muted/50 active:bg-muted transition-colors"
+                          >
+                            <Share2 className="h-4 w-4" />
+                            Produtor
+                          </button>
+                          <button
+                            onClick={async () => {
+                              try {
+                                await navigator.share({
+                                  title: 'Relatório Interno',
+                                  text: 'Relatório interno da visita preventiva.',
+                                  url: `${window.location.hostname.includes('lovableproject.com') ? 'https://rumifield.lovable.app' : window.location.origin}/relatorio/${item.public_token}/interno`
+                                });
+                              } catch {}
+                            }}
+                            className="flex-1 flex items-center justify-center gap-2 py-3 text-sm text-muted-foreground hover:bg-muted/50 active:bg-muted transition-colors"
+                          >
+                            <Share2 className="h-4 w-4" />
+                            Time Interno
+                          </button>
+                        </>
                       )}
                     </>
                   )}
