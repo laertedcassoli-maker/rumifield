@@ -441,7 +441,7 @@ export default function RelatorioCorretivo() {
         html2canvas: { scale: 2, useCORS: true, allowTaint: true, logging: false, imageTimeout: 15000 },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
         pagebreak: { mode: ['avoid-all', 'css', 'legacy'] },
-      }).from(element).save();
+      } as any).from(element).save();
       dismiss();
       toast({ title: 'PDF gerado com sucesso!' });
     } catch {
