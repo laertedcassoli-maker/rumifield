@@ -1,42 +1,87 @@
-## Objetivo
-Replicar no RelatorioPreventivo.tsx a funcionalidade de download PDF já implementada no RelatorioCorretivo.tsx, com as adaptações necessárias para o contexto preventivo.
+## Contexto
+Atualmente os botões "Produtor" e "Time Interno" na tela de execução de visita corretiva usam a função `shareReportWithPdf` (de `@/lib/share-report-pdf`), que tenta gerar PDF, copiar link e compartilhar ao mesmo tempo. O usuário quer simplificar: os botões de "Produtor" e "Time Interno" devem apenas chamar `navigator.share` nativo, e novos botões "Copiar link" e "Baixar PDF" devem ser adicionados separadamente.
 
-## Alterações em `src/pages/preventivas/RelatorioPreventivo.tsx`
+## Arquivo-alvo
+`src/pages/chamados/ExecucaoVisitaCorretiva.tsx`
 
-### 1. Importações adicionais
-- Adicionar `useSearchParams` do `react-router-dom`
-- Adicionar `Download` do `lucide-react`
+## Alterações
 
-### 2. Hook de search params
-- Declarar `const [searchParams] = useSearchParams()` após os estados existentes
+### 1. Imports
+- Adicionar `Link2` e `Download` à importação do `lucide-react`.
+- Remover `shareReportWithPdf`, `buildReportFileName`, `buildReportShareUrl` da importação de `@/lib/share-report-pdf` (não serão mais utilizados).
 
-### 3. Função `handleDownloadPdf`
-- Implementar com mesma lógica do RelatorioCorretivo.tsx:
-  1. Exibir toast "Gerando PDF..." (30s)
-  2. Converter todas as `<img>` dentro de `#report-content` para base64 (fetch → blob → FileReader), ignorando src que já comece com `data:`
-  3. Aguardar 500ms
-  4. Gerar PDF via `html2pdf.js` com configuração idêntica (A4, jpeg 0.92, scale 2, useCORS, pagebreak avoid-all/css/legacy)
-  5. Filename: `relatorio-preventivo-${report.preventive.public_token.slice(0, 8)}-${format(new Date(), 'yyyy-MM-dd')}.pdf`
-  6. Dismiss do toast e feedback de sucesso/erro
+### 2. Variáveis de URL
+Adicionar após as declarações de estado (próximo às outras variáveis derivadas):
+```ts
+const origin = window.location.hostname.includes('lovableproject.com')
+  ? 'https://rumifield.lovable.app'
+  : window.location.origin;
+const urlProdutor = `${origin}/relatorio-corretivo/${visit.publicToken}`;
+const urlInterno = `${origin}/relatorio-corretivo/${visit.publicToken}/interno`;
+```
 
-### 4. useEffect para PDF via parâmetro de URL
-- Disparar `handleDownloadPdf()` quando `searchParams.get('acao') === 'pdf'` e `report && imageLoadAttempted`
+### 3. Botão "Produtor" (linha ~1118)
+Substituir o `onClick` atual (que usa `shareReportWithPdf`) por:
+```tsx
+onClick={async () => {
+  try {
+    await navigator.share({
+      title: 'Relatório de Visita',
+      text: 'Segue o relatório da visita corretiva.',
+      url: urlProdutor
+    });
+  } catch {}
+}}
+```
+- Manter `variant="outline"`, `className="flex-1"`, ícone `Share2`, label "Produtor".
+- Remover o `disabled={sharingTarget !== null}` e o estado de loading nesse botão (já que agora é só `navigator.share`).
 
-### 5. Wrapper `id="report-content"`
-- Envolver `<header>` + `<main>` em `<div id="report-content" className="min-h-screen bg-gradient-to-b from-muted/30 to-background">`
-- Transferir `data-pdf-root` e `data-pdf-capture` do div externo para o novo wrapper
+### 4. Botão "Time Interno" (linha ~1158)
+Substituir o `onClick` atual por:
+```tsx
+onClick={async () => {
+  try {
+    await navigator.share({
+      title: 'Relatório Interno',
+      text: 'Relatório interno da visita corretiva.',
+      url: urlInterno
+    });
+  } catch {}
+}}
+```
+- Manter estilo, ícone e label. Remover `disabled` e loading.
 
-### 6. Botões no header
-- Substituir o botão único "Compartilhar" por um container `flex gap-2` com:
-  - Botão "Compartilhar" (Share2)
-  - Botão "Baixar PDF" (Download) — chama `handleDownloadPdf`
+### 5. Nova linha de botões: "Copiar link" e "Baixar PDF"
+Inserir entre a linha "Produtor/Time Interno" e a linha "Ver Chamado/Minhas Rotas":
+```tsx
+<div className="flex gap-2">
+  <Button
+    variant="outline"
+    className="flex-1"
+    onClick={async () => {
+      await navigator.clipboard.writeText(urlProdutor);
+      toast({ title: 'Link copiado!' });
+    }}
+  >
+    <Link2 className="h-4 w-4 mr-2" />
+    Copiar link
+  </Button>
+  <Button
+    variant="outline"
+    className="flex-1"
+    onClick={() => {
+      window.open(`${urlProdutor}?acao=pdf`, '_blank');
+      toast({ title: 'Abrindo relatório para download...' });
+    }}
+  >
+    <Download className="h-4 w-4 mr-2" />
+    Baixar PDF
+  </Button>
+</div>
+```
 
-### 7. Ajustes de layout para impressão PDF
-- Adicionar `break-inside-avoid` em cada `<Card>` do main (visit-info, checklist, parts, photos, observations)
-- Adicionar `break-inside-avoid` em cada item do checklist (`<div key={item.id} className="p-2 rounded-lg ...">`)
-- Adicionar `break-inside-avoid` em cada foto/vídeo (`<div key={m.id} className="relative aspect-square ...">`)
-- Grid de fotos: alterar `grid grid-cols-2 gap-2` para `grid grid-cols-2 gap-3 print:grid-cols-1`
+### 6. Botões "Ver Chamado" e "Minhas Rotas"
+Permanecer exatamente como estão.
 
-## Fora do escopo
-- Nenhuma alteração em queries, estados, lógica de signed URLs, ou outros componentes
-- `html2pdf.js` já está instalado e tipado (`src/types/html2pdf.d.ts` já existe)
+## Fora de escopo
+- Nenhuma alteração em queries, estados, mutations, validações, diálogos ou outras seções do arquivo.
