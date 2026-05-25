@@ -16,10 +16,11 @@ import {
   ClipboardCheck,
   LogOut,
   AlertTriangle,
-  Share2,
   User,
   FileText,
-  WifiOff
+  WifiOff,
+  Link2,
+  Download
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -38,7 +39,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { shareReportWithPdf, buildReportFileName, buildReportShareUrl } from '@/lib/share-report-pdf';
+
 import SolenoideModeloDialog, { SOLENOIDE_TRIGGER_CODE } from '@/components/pedidos/SolenoideModeloDialog';
 
 interface ValidationResult {
@@ -59,7 +60,7 @@ export default function AtendimentoPreventivo() {
   const [solenoideModelo, setSolenoideModelo] = useState<'2x' | '3x' | null>(null);
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
   const [checklistStatus, setChecklistStatus] = useState<'not_started' | 'in_progress' | 'completed'>('not_started');
-  const [sharingTarget, setSharingTarget] = useState<'produtor' | 'interno' | null>(null);
+  
 
   const isAdminOrCoordinator = role === 'admin' || role === 'coordenador_servicos';
 
@@ -796,7 +797,13 @@ export default function AtendimentoPreventivo() {
       )}
 
       {/* Share Section - When Visit is Completed */}
-      {isVisitCompleted && routeItem.publicToken && (
+      {isVisitCompleted && routeItem.publicToken && (() => {
+        const baseUrl = window.location.hostname.includes('lovableproject.com')
+          ? 'https://rumifield.lovable.app'
+          : window.location.origin;
+        const urlProdutor = `${baseUrl}/relatorio/${routeItem.publicToken}`;
+        const urlInterno = `${baseUrl}/relatorio/${routeItem.publicToken}/interno`;
+        return (
         <Card>
           <CardContent className="p-4 space-y-4">
             <div className="flex items-center gap-3">
@@ -812,80 +819,66 @@ export default function AtendimentoPreventivo() {
               <Button
                 variant="outline"
                 className="flex-1"
-                disabled={sharingTarget !== null}
                 onClick={async () => {
-                  const url = buildReportShareUrl(`/relatorio/${routeItem.publicToken}`);
-                  setSharingTarget('produtor');
                   try {
-                    const result = await shareReportWithPdf({
-                      url,
-                      title: `Relatório - ${routeItem.client?.nome}`,
-                      text: `Confira o relatório da visita preventiva: ${url}`,
-                      fileName: buildReportFileName(routeItem.client?.nome || 'visita', routeItem.publicToken),
-                      onPdfReady: () => {
-                        toast({ title: 'PDF pronto', description: 'O download do PDF foi iniciado.' });
-                      },
-                      onPdfFailed: (error) => {
-                        toast({ variant: 'destructive', title: 'Link gerado, mas o PDF falhou', description: error.message });
-                      },
+                    await navigator.share({
+                      title: 'Relatório de Visita Preventiva',
+                      text: 'Segue o relatório da visita preventiva.',
+                      url: urlProdutor
                     });
-                    if (result.cancelled) return;
-                    if (result.pdfStatus === 'pending') {
-                      toast({ title: result.copiedToClipboard ? 'Link copiado!' : 'Link gerado!', description: 'O link já está pronto. Aguarde enquanto o PDF termina de ser gerado.' });
-                    } else if (result.outcome === 'copied') {
-                      toast({ title: 'Link copiado!', description: 'Cole no WhatsApp para enviar' });
-                    }
-                  } catch (err) {
-                    toast({ variant: 'destructive', title: 'Erro ao compartilhar', description: (err as Error).message });
-                  } finally {
-                    setSharingTarget(null);
-                  }
+                  } catch {}
                 }}
               >
-                {sharingTarget === 'produtor' ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <User className="h-4 w-4 mr-2" />}
+                <User className="h-4 w-4 mr-2" />
                 Produtor
               </Button>
               
               <Button
                 variant="outline"
                 className="flex-1"
-                disabled={sharingTarget !== null}
                 onClick={async () => {
-                  const url = buildReportShareUrl(`/relatorio/${routeItem.publicToken}/interno`);
-                  setSharingTarget('interno');
                   try {
-                    const result = await shareReportWithPdf({
-                      url,
-                      title: `Relatório Interno - ${routeItem.client?.nome}`,
-                      text: `Relatório interno da visita preventiva: ${url}`,
-                      fileName: buildReportFileName(`${routeItem.client?.nome || 'visita'}-interno`, routeItem.publicToken),
-                      onPdfReady: () => {
-                        toast({ title: 'PDF pronto', description: 'O download do PDF foi iniciado.' });
-                      },
-                      onPdfFailed: (error) => {
-                        toast({ variant: 'destructive', title: 'Link gerado, mas o PDF falhou', description: error.message });
-                      },
+                    await navigator.share({
+                      title: 'Relatório Interno',
+                      text: 'Relatório interno da visita preventiva.',
+                      url: urlInterno
                     });
-                    if (result.cancelled) return;
-                    if (result.pdfStatus === 'pending') {
-                      toast({ title: result.copiedToClipboard ? 'Link copiado!' : 'Link gerado!', description: 'O link já está pronto. Aguarde enquanto o PDF termina de ser gerado.' });
-                    } else if (result.outcome === 'copied') {
-                      toast({ title: 'Link copiado!', description: 'Cole para compartilhar com a equipe' });
-                    }
-                  } catch (err) {
-                    toast({ variant: 'destructive', title: 'Erro ao compartilhar', description: (err as Error).message });
-                  } finally {
-                    setSharingTarget(null);
-                  }
+                  } catch {}
                 }}
               >
-                {sharingTarget === 'interno' ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : <FileText className="h-4 w-4 mr-2" />}
+                <FileText className="h-4 w-4 mr-2" />
                 Time Interno
+              </Button>
+            </div>
+
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={async () => {
+                  await navigator.clipboard.writeText(urlProdutor);
+                  toast({ title: 'Link copiado!' });
+                }}
+              >
+                <Link2 className="h-4 w-4 mr-2" />
+                Copiar link
+              </Button>
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => {
+                  window.open(`${urlProdutor}?acao=pdf`, '_blank');
+                  toast({ title: 'Abrindo relatório para download...' });
+                }}
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Baixar PDF
               </Button>
             </div>
           </CardContent>
         </Card>
-      )}
+        );
+      })()}
 
       {/* Fixed Footer - Encerrar Visita */}
       {!isVisitCompleted && (
