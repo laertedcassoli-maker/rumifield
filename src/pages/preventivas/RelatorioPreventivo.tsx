@@ -423,6 +423,7 @@ export default function RelatorioPreventivo() {
 
   return (
     <div id="report-content" className="min-h-screen bg-gradient-to-b from-muted/30 to-background" data-pdf-root="true" data-pdf-capture={isPdfCapture ? 'true' : 'false'}>
+      <style>{printStyles}</style>
       {/* Header */}
       <header className="bg-white border-b py-4 px-4" data-pdf-section="header">
         <div className="max-w-2xl mx-auto">
@@ -437,7 +438,7 @@ export default function RelatorioPreventivo() {
               <Wrench className="h-5 w-5" />
               <span className="font-bold">Relatório de Visita</span>
             </div>
-            <div className="flex gap-2" data-pdf-hide="true">
+            <div className="flex gap-2 no-print" data-pdf-hide="true">
               <Button variant="outline" size="sm" onClick={handleShare} disabled={isSharing}>
                 {isSharing ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Share2 className="h-4 w-4 mr-1" />}
                 Compartilhar
