@@ -1,33 +1,42 @@
-## Contexto
-O arquivo `src/pages/chamados/ExecucaoVisitaCorretiva.tsx` contém uma seção "Visita Encerrada" com dois botões genéricos "Produtor" e "Time Interno" que usam a função `shareReportWithPdf`. O usuário solicitou um novo layout mais explícito e funcional.
+## Objetivo
+Replicar no RelatorioPreventivo.tsx a funcionalidade de download PDF já implementada no RelatorioCorretivo.tsx, com as adaptações necessárias para o contexto preventivo.
 
-## Alterações
+## Alterações em `src/pages/preventivas/RelatorioPreventivo.tsx`
 
-### 1. Imports
-Adicionar ao bloco de imports do lucide-react:
-- `ExternalLink`
-- `Link2`
-- `Download`
+### 1. Importações adicionais
+- Adicionar `useSearchParams` do `react-router-dom`
+- Adicionar `Download` do `lucide-react`
 
-### 2. Variáveis de URL
-Dentro do componente, adicionar as variáveis de URL mantendo a lógica de detecção de origem:
-```
-const origin = window.location.hostname.includes('lovableproject.com')
-  ? 'https://rumifield.lovable.app'
-  : window.location.origin;
-const urlProdutor = `${origin}/relatorio-corretivo/${visit.publicToken}`;
-const urlInterno = `${origin}/relatorio-corretivo/${visit.publicToken}/interno`;
-```
-**Nota:** o usuário especificou usar `visit.publicToken` diretamente nas URLs, não `ensureCorrectiveReportToken()` nem `buildReportShareUrl()`. Verificar se `visit.publicToken` está disponível naquele ponto do JSX (está, pois o bloco é condicional a `isVisitCompleted && visit.publicToken`).
+### 2. Hook de search params
+- Declarar `const [searchParams] = useSearchParams()` após os estados existentes
 
-### 3. Substituição do layout
-Substituir o bloco `<div className="flex gap-2 pt-2">` com os dois botões "Produtor" e "Time Interno" (aproximadamente linhas 1117-1198) pelo novo layout fornecido pelo usuário, que inclui:
-- Botão principal "Abrir Relatório" (abre URL pública em nova aba)
-- Seção "Produtor" com botões "Copiar link" (navigator.share ou clipboard) e "Baixar PDF" (abre `?acao=pdf` em nova aba)
-- Seção "Time Interno" com botões "Copiar link" e "Baixar PDF" similares
+### 3. Função `handleDownloadPdf`
+- Implementar com mesma lógica do RelatorioCorretivo.tsx:
+  1. Exibir toast "Gerando PDF..." (30s)
+  2. Converter todas as `<img>` dentro de `#report-content` para base64 (fetch → blob → FileReader), ignorando src que já comece com `data:`
+  3. Aguardar 500ms
+  4. Gerar PDF via `html2pdf.js` com configuração idêntica (A4, jpeg 0.92, scale 2, useCORS, pagebreak avoid-all/css/legacy)
+  5. Filename: `relatorio-preventivo-${report.preventive.public_token.slice(0, 8)}-${format(new Date(), 'yyyy-MM-dd')}.pdf`
+  6. Dismiss do toast e feedback de sucesso/erro
 
-### 4. Preservação
-Manter os botões "Ver Chamado" e "Minhas Rotas" (linhas ~1200-1221) exatamente como estão, abaixo do novo layout.
+### 4. useEffect para PDF via parâmetro de URL
+- Disparar `handleDownloadPdf()` quando `searchParams.get('acao') === 'pdf'` e `report && imageLoadAttempted`
 
-### Fora de escopo
-Não alterar queries, estados, mutações, lógica de checklist, lógica de peças, lógica de geolocalização, nem nenhum outro trecho do arquivo.
+### 5. Wrapper `id="report-content"`
+- Envolver `<header>` + `<main>` em `<div id="report-content" className="min-h-screen bg-gradient-to-b from-muted/30 to-background">`
+- Transferir `data-pdf-root` e `data-pdf-capture` do div externo para o novo wrapper
+
+### 6. Botões no header
+- Substituir o botão único "Compartilhar" por um container `flex gap-2` com:
+  - Botão "Compartilhar" (Share2)
+  - Botão "Baixar PDF" (Download) — chama `handleDownloadPdf`
+
+### 7. Ajustes de layout para impressão PDF
+- Adicionar `break-inside-avoid` em cada `<Card>` do main (visit-info, checklist, parts, photos, observations)
+- Adicionar `break-inside-avoid` em cada item do checklist (`<div key={item.id} className="p-2 rounded-lg ...">`)
+- Adicionar `break-inside-avoid` em cada foto/vídeo (`<div key={m.id} className="relative aspect-square ...">`)
+- Grid de fotos: alterar `grid grid-cols-2 gap-2` para `grid grid-cols-2 gap-3 print:grid-cols-1`
+
+## Fora do escopo
+- Nenhuma alteração em queries, estados, lógica de signed URLs, ou outros componentes
+- `html2pdf.js` já está instalado e tipado (`src/types/html2pdf.d.ts` já existe)
