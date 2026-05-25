@@ -359,14 +359,12 @@ export default function RelatorioPreventivo() {
   };
 
   useEffect(() => {
-    if (searchParams.get('acao') !== 'pdf') return;
-    if (!report) return;
-    // Aguarda um tempo para garantir que as imagens tentaram carregar
-    const timer = setTimeout(() => {
-      handleDownloadPdf();
-    }, 2000);
-    return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    if (searchParams.get('acao') === 'pdf' && report) {
+      const timer = setTimeout(() => {
+        window.print();
+      }, 1500);
+      return () => clearTimeout(timer);
+    }
   }, [report, searchParams]);
 
   if (isLoading) {
