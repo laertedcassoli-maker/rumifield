@@ -467,6 +467,17 @@ export default function RelatorioCorretivo() {
   const failItems = checklist?.blocks.reduce((acc, b) => acc + b.items.filter(i => i.status === 'N').length, 0) || 0;
   const naItems = checklist?.blocks.reduce((acc, b) => acc + b.items.filter(i => i.status === 'NA').length, 0) || 0;
 
+  const printStyles = `
+    @media print {
+      .no-print { display: none !important; }
+      * { box-shadow: none !important; }
+      body { background: white !important; }
+      img { max-width: 100% !important; break-inside: avoid; }
+      .card { break-inside: avoid; page-break-inside: avoid; }
+    }
+  `;
+
+
   const StatusIcon = ({ status }: { status: string | null }) => {
     if (status === 'S') return <CheckCircle2 className="h-4 w-4 text-green-600" />;
     if (status === 'N') return <XCircle className="h-4 w-4 text-destructive" />;
