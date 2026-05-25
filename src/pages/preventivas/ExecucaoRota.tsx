@@ -17,7 +17,8 @@ import {
   Eye,
   Navigation,
   AlertCircle,
-  Share2,
+  Link2,
+  Download,
   XCircle,
   WifiOff
 } from 'lucide-react';
