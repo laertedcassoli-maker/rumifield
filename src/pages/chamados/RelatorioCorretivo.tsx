@@ -307,7 +307,18 @@ export default function RelatorioCorretivo() {
     setImageUrls({});
     setImageFailedIds([]);
     setImageLoadAttempted(false);
+    setLoadedImageIds(new Set());
   }, [report?.media]);
+
+  // Mark images without resolved URL as "done" so PDF readiness doesn't stall
+  useEffect(() => {
+    if (!imageLoadAttempted || !report?.media) return;
+    report.media.forEach((m) => {
+      if (m.file_type?.startsWith('image/') && !imageUrls[m.id]) {
+        markImageDone(m.id);
+      }
+    });
+  }, [imageLoadAttempted, imageUrls, imageFailedIds, report?.media]);
 
   // Generate signed URLs for media after data loads
   useEffect(() => {
