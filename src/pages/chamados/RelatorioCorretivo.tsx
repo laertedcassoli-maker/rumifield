@@ -100,9 +100,19 @@ export default function RelatorioCorretivo() {
   const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
   const [imageLoadAttempted, setImageLoadAttempted] = useState(false);
   const [imageFailedIds, setImageFailedIds] = useState<string[]>([]);
+  const [loadedImageIds, setLoadedImageIds] = useState<Set<string>>(new Set());
   const [isPdfCapture, setIsPdfCapture] = useState(() => Boolean((window as any).__PDF_CAPTURE__));
   const [isReportReadyForPdf, setIsReportReadyForPdf] = useState(false);
   const [searchParams] = useSearchParams();
+
+  const markImageDone = (id: string) => {
+    setLoadedImageIds((prev) => {
+      if (prev.has(id)) return prev;
+      const next = new Set(prev);
+      next.add(id);
+      return next;
+    });
+  };
 
   const isInternal = type === 'interno';
 
