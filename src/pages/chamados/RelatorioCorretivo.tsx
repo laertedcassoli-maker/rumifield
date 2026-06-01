@@ -23,7 +23,7 @@ import {
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import logoRumiFlow from '@/assets/logo-rumiflow.png';
 import logoRumina from '@/assets/logo-rumina.png';
@@ -97,13 +97,15 @@ interface ReportData {
 export default function RelatorioCorretivo() {
   const { token, type } = useParams<{ token: string; type?: string }>();
   const { toast } = useToast();
+  const [searchParams] = useSearchParams();
+  const isPdfAction = searchParams.get('acao') === 'pdf';
   const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
   const [imageLoadAttempted, setImageLoadAttempted] = useState(false);
   const [imageFailedIds, setImageFailedIds] = useState<string[]>([]);
   const [loadedImageIds, setLoadedImageIds] = useState<Set<string>>(new Set());
   const [isPdfCapture, setIsPdfCapture] = useState(() => Boolean((window as any).__PDF_CAPTURE__));
   const [isReportReadyForPdf, setIsReportReadyForPdf] = useState(false);
-  const [searchParams] = useSearchParams();
+  const hasAutoPrintedRef = useRef(false);
 
   const markImageDone = (id: string) => {
     setLoadedImageIds((prev) => {
