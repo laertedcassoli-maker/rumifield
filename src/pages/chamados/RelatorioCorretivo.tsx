@@ -469,11 +469,46 @@ export default function RelatorioCorretivo() {
 
   const printStyles = `
     @media print {
-      .no-print { display: none !important; }
-      * { box-shadow: none !important; }
-      body { background: white !important; }
-      img { max-width: 100% !important; break-inside: avoid; }
-      .card { break-inside: avoid; page-break-inside: avoid; }
+      .no-print,
+      button,
+      [role="button"] {
+        display: none !important;
+        visibility: hidden !important;
+      }
+      * {
+        box-shadow: none !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      body, html {
+        background: white !important;
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+      .min-h-screen {
+        min-height: unset !important;
+      }
+      .card, [class*="rounded"] {
+        break-inside: avoid !important;
+        page-break-inside: avoid !important;
+      }
+      img {
+        max-width: 100% !important;
+        break-inside: avoid !important;
+      }
+      .grid-cols-2 {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr !important;
+      }
+      main > * {
+        margin-bottom: 8px !important;
+      }
+      .bg-muted\\/50 {
+        background-color: #f5f5f5 !important;
+      }
+      .bg-destructive\\/10 {
+        background-color: #fff0f0 !important;
+      }
     }
   `;
 
@@ -556,14 +591,14 @@ export default function RelatorioCorretivo() {
       </header>
 
       <main
-        className="max-w-2xl mx-auto p-4 space-y-4"
+        className="max-w-2xl mx-auto p-4 space-y-4 print:space-y-2"
         data-report-ready={isReportReadyForPdf ? 'true' : 'false'}
         data-report-media-count={media.length}
       >
         {/* Visit Info Card */}
         <Card data-pdf-section="visit-info" className="break-inside-avoid">
           <CardContent className="p-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-4 print:gap-2">
               {/* Visit Code */}
               <div className="flex items-center gap-2">
                 <FileText className="h-4 w-4 text-muted-foreground" />
@@ -575,7 +610,7 @@ export default function RelatorioCorretivo() {
 
               {/* Result */}
               {corrective.result && (
-                <div className="flex items-center gap-2">
+                <div className="flex items-center print:items-start gap-2">
                   <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
                   <div>
                     <p className="text-xs text-muted-foreground">Resultado</p>
@@ -736,7 +771,7 @@ export default function RelatorioCorretivo() {
 
         {/* Parts Consumption */}
         {parts.length > 0 && (
-          <Card data-pdf-section="parts" className="break-inside-avoid">
+          <Card data-pdf-section="parts" className="break-inside-avoid break-after-avoid">
             <CardHeader className="pb-2">
               <CardTitle className="text-base flex items-center gap-2">
                 <Wrench className="h-4 w-4" />
@@ -845,7 +880,7 @@ export default function RelatorioCorretivo() {
 
         {/* Public Notes */}
         {corrective.public_notes && (
-          <Card data-pdf-section="public-notes" className="break-inside-avoid">
+          <Card data-pdf-section="public-notes" className="break-inside-avoid break-after-avoid">
             <CardHeader className="pb-2">
               <CardTitle className="text-base">Observações</CardTitle>
             </CardHeader>
