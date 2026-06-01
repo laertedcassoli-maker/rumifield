@@ -429,16 +429,42 @@ export default function RelatorioCorretivo() {
     }
   };
 
-  const handleDownloadPdf = () => {
+  const waitForImages = async () => {
+    const root = document.getElementById('report-content');
+    if (!root) return;
+    const imgs = Array.from(root.querySelectorAll('img'));
+    await Promise.all(
+      imgs.map((img) =>
+        img.complete && img.naturalWidth > 0
+          ? Promise.resolve()
+          : new Promise<void>((res) => {
+              const done = () => res();
+              img.addEventListener('load', done, { once: true });
+              img.addEventListener('error', done, { once: true });
+              setTimeout(done, 8000);
+            })
+      )
+    );
+  };
+
+  const handleDownloadPdf = async () => {
+    await waitForImages();
+    await new Promise((r) => setTimeout(r, 200));
     window.print();
   };
 
   useEffect(() => {
     if (searchParams.get('acao') === 'pdf' && report) {
-      const timer = setTimeout(() => {
+      let cancelled = false;
+      (async () => {
+        await waitForImages();
+        if (cancelled) return;
+        await new Promise((r) => setTimeout(r, 300));
         window.print();
-      }, 1500);
-      return () => clearTimeout(timer);
+      })();
+      return () => {
+        cancelled = true;
+      };
     }
   }, [report, searchParams]);
 
