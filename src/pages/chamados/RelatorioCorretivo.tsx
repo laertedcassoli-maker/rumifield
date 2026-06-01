@@ -469,11 +469,46 @@ export default function RelatorioCorretivo() {
 
   const printStyles = `
     @media print {
-      .no-print { display: none !important; }
-      * { box-shadow: none !important; }
-      body { background: white !important; }
-      img { max-width: 100% !important; break-inside: avoid; }
-      .card { break-inside: avoid; page-break-inside: avoid; }
+      .no-print,
+      button,
+      [role="button"] {
+        display: none !important;
+        visibility: hidden !important;
+      }
+      * {
+        box-shadow: none !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+      body, html {
+        background: white !important;
+        margin: 0 !important;
+        padding: 0 !important;
+      }
+      .min-h-screen {
+        min-height: unset !important;
+      }
+      .card, [class*="rounded"] {
+        break-inside: avoid !important;
+        page-break-inside: avoid !important;
+      }
+      img {
+        max-width: 100% !important;
+        break-inside: avoid !important;
+      }
+      .grid-cols-2 {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr !important;
+      }
+      main > * {
+        margin-bottom: 8px !important;
+      }
+      .bg-muted\\/50 {
+        background-color: #f5f5f5 !important;
+      }
+      .bg-destructive\\/10 {
+        background-color: #fff0f0 !important;
+      }
     }
   `;
 
