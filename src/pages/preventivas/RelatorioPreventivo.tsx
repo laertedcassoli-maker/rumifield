@@ -403,6 +403,11 @@ export default function RelatorioPreventivo() {
     }
   }, [report, searchParams, imageUrls]);
 
+  const expectedMediaCount = report?.media?.length ?? 0;
+  const isPdfReady = !!report && (expectedMediaCount === 0 || Object.keys(imageUrls).length >= expectedMediaCount);
+
+
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background" data-report-loading="true">
