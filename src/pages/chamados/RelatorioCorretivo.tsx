@@ -416,11 +416,11 @@ export default function RelatorioCorretivo() {
   }, [isLoading, report, imageLoadAttempted, imageUrls, imageFailedIds, loadedImageIds, isInternal]);
 
   useEffect(() => {
-    const syncPdfMode = () => setIsPdfCapture(Boolean((window as any).__PDF_CAPTURE__));
+    const syncPdfMode = () => setIsPdfCapture(Boolean((window as any).__PDF_CAPTURE__) || isPdfAction);
     syncPdfMode();
     window.addEventListener('report-pdf-mode', syncPdfMode);
     return () => window.removeEventListener('report-pdf-mode', syncPdfMode);
-  }, []);
+  }, [isPdfAction]);
 
   const [isSharing, setIsSharing] = useState(false);
   const handleShare = async () => {
@@ -489,18 +489,29 @@ export default function RelatorioCorretivo() {
   };
 
   useEffect(() => {
-    if (searchParams.get('acao') === 'pdf' && report) {
-      let cancelled = false;
-      (async () => {
-        await waitForReportReady();
-        if (cancelled) return;
-        window.print();
-      })();
-      return () => {
-        cancelled = true;
-      };
-    }
-  }, [report, searchParams]);
+    hasAutoPrintedRef.current = false;
+  }, [token, isPdfAction]);
+
+  useEffect(() => {
+    if (!isPdfAction || !report || !isReportReadyForPdf || hasAutoPrintedRef.current) return;
+
+    let cancelled = false;
+    hasAutoPrintedRef.current = true;
+
+    (async () => {
+      await waitForReportReady(5000);
+      await new Promise((r) => setTimeout(r, 300));
+      if (cancelled) {
+        hasAutoPrintedRef.current = false;
+        return;
+      }
+      window.print();
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isPdfAction, report, isReportReadyForPdf]);
 
 
   if (isLoading) {
