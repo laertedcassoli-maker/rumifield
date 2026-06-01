@@ -886,7 +886,7 @@ export default function RelatorioCorretivo() {
                     key={m.id}
                     className="relative aspect-square rounded-lg overflow-hidden bg-muted break-inside-avoid"
                     data-report-media-item="true"
-                    data-report-media-ready={imageUrls[m.id] || imageFailedIds.includes(m.id) ? 'true' : 'false'}
+                    data-report-media-ready={loadedImageIds.has(m.id) || (imageLoadAttempted && !imageUrls[m.id]) ? 'true' : 'false'}
                   >
                     {m.file_type.startsWith('image/') ? (
                       imageUrls[m.id] ? (
@@ -894,7 +894,9 @@ export default function RelatorioCorretivo() {
                           src={imageUrls[m.id]}
                           alt={m.caption || m.file_name}
                           crossOrigin={isPdfCapture ? 'anonymous' : undefined}
-                          loading={isPdfCapture ? 'eager' : 'lazy'}
+                          loading="eager"
+                          onLoad={() => markImageDone(m.id)}
+                          onError={() => markImageDone(m.id)}
                           className="w-full h-full object-cover"
                         />
                       ) : (
