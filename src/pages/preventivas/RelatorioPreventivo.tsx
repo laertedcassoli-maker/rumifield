@@ -314,6 +314,21 @@ export default function RelatorioPreventivo() {
     }
   }, [report?.media, imageLoadAttempted]);
 
+  // Reset loaded set when media list changes
+  useEffect(() => {
+    setLoadedImageIds(new Set());
+  }, [report?.media]);
+
+  // Mark images whose URL could not be resolved as "done" so the PDF button can enable
+  useEffect(() => {
+    if (!imageLoadAttempted || !report?.media) return;
+    report.media.forEach((m) => {
+      if (m.file_type?.startsWith('image/') && !imageUrls[m.id]) {
+        markImageDone(m.id);
+      }
+    });
+  }, [imageLoadAttempted, imageUrls, report?.media]);
+
   // Signal readiness for PDF capture (used by shareReportWithPdf iframe)
   useEffect(() => {
     (window as any).__REPORT_READY__ = false;
