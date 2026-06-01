@@ -484,9 +484,9 @@ export default function RelatorioPreventivo() {
                 {isSharing ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Share2 className="h-4 w-4 mr-1" />}
                 Compartilhar
               </Button>
-              <Button variant="outline" size="sm" onClick={handleDownloadPdf}>
-                <Download className="h-4 w-4 mr-1" />
-                Baixar PDF
+              <Button variant="outline" size="sm" onClick={handleDownloadPdf} disabled={!isPdfReady}>
+                {isPdfReady ? <Download className="h-4 w-4 mr-1" /> : <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+                {isPdfReady ? 'Baixar PDF' : 'Carregando...'}
               </Button>
             </div>
           </div>
