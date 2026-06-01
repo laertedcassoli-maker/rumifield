@@ -598,7 +598,7 @@ export default function RelatorioCorretivo() {
         {/* Visit Info Card */}
         <Card data-pdf-section="visit-info" className="break-inside-avoid">
           <CardContent className="p-4">
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-4 print:gap-2">
               {/* Visit Code */}
               <div className="flex items-center gap-2">
                 <FileText className="h-4 w-4 text-muted-foreground" />
