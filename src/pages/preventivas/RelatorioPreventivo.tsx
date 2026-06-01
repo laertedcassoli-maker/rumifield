@@ -354,27 +354,38 @@ export default function RelatorioPreventivo() {
     }
   };
 
-  const waitForImages = async () => {
+  const waitForReportReady = async (timeoutMs = 15000) => {
+    const start = Date.now();
+    const expectedMedia = report?.media?.length ?? 0;
+    // 1) Wait until signed URLs are resolved for all media
+    while (Date.now() - start < timeoutMs) {
+      if (expectedMedia === 0) break;
+      if (Object.keys(imageUrls).length >= expectedMedia) break;
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    // 2) Wait for all <img> elements to actually finish loading
     const root = document.getElementById('report-content');
-    if (!root) return;
-    const imgs = Array.from(root.querySelectorAll('img'));
-    await Promise.all(
-      imgs.map((img) =>
-        img.complete && img.naturalWidth > 0
-          ? Promise.resolve()
-          : new Promise<void>((res) => {
-              const done = () => res();
-              img.addEventListener('load', done, { once: true });
-              img.addEventListener('error', done, { once: true });
-              setTimeout(done, 8000);
-            })
-      )
-    );
+    if (root) {
+      const imgs = Array.from(root.querySelectorAll('img'));
+      await Promise.all(
+        imgs.map((img) =>
+          img.complete && img.naturalWidth > 0
+            ? Promise.resolve()
+            : new Promise<void>((res) => {
+                const done = () => res();
+                img.addEventListener('load', done, { once: true });
+                img.addEventListener('error', done, { once: true });
+                setTimeout(done, 8000);
+              })
+        )
+      );
+    }
+    // 3) Small paint delay
+    await new Promise((r) => setTimeout(r, 250));
   };
 
   const handleDownloadPdf = async () => {
-    await waitForImages();
-    await new Promise((r) => setTimeout(r, 200));
+    await waitForReportReady();
     window.print();
   };
 
@@ -382,16 +393,15 @@ export default function RelatorioPreventivo() {
     if (searchParams.get('acao') === 'pdf' && report) {
       let cancelled = false;
       (async () => {
-        await waitForImages();
+        await waitForReportReady();
         if (cancelled) return;
-        await new Promise((r) => setTimeout(r, 300));
         window.print();
       })();
       return () => {
         cancelled = true;
       };
     }
-  }, [report, searchParams]);
+  }, [report, searchParams, imageUrls]);
 
   if (isLoading) {
     return (
