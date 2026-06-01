@@ -439,7 +439,12 @@ export default function RelatorioPreventivo() {
 
   const printStyles = `
   @media print {
-    .no-print { display: none !important; }
+    .no-print,
+    [data-sonner-toaster],
+    [data-radix-toast-viewport],
+    ol[data-radix-toast-viewport],
+    [role="status"],
+    [role="alert"] { display: none !important; visibility: hidden !important; }
     * { box-shadow: none !important; }
     body { background: white !important; }
     img { max-width: 100% !important; break-inside: avoid; }
