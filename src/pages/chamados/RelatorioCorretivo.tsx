@@ -381,8 +381,11 @@ export default function RelatorioCorretivo() {
     setIsReportReadyForPdf(false);
     if (isLoading || !report) return;
     const hasMedia = (report.media?.length ?? 0) > 0;
+    const imageMediaCount = report.media.filter((m) => m.file_type?.startsWith('image/')).length;
     const resolvedMediaCount = Object.keys(imageUrls).length + imageFailedIds.length;
     if (hasMedia && (!imageLoadAttempted || resolvedMediaCount < report.media.length)) return;
+    // Wait until every <img> reports load/error (or has no URL)
+    if (imageMediaCount > 0 && loadedImageIds.size < imageMediaCount) return;
 
     const requiredSections = [
       'header',
@@ -408,7 +411,7 @@ export default function RelatorioCorretivo() {
       window.dispatchEvent(new Event('report-ready'));
     }, 600);
     return () => clearTimeout(t);
-  }, [isLoading, report, imageLoadAttempted, imageUrls, imageFailedIds, isInternal]);
+  }, [isLoading, report, imageLoadAttempted, imageUrls, imageFailedIds, loadedImageIds, isInternal]);
 
   useEffect(() => {
     const syncPdfMode = () => setIsPdfCapture(Boolean((window as any).__PDF_CAPTURE__));
