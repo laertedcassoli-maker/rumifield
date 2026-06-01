@@ -100,9 +100,19 @@ export default function RelatorioCorretivo() {
   const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
   const [imageLoadAttempted, setImageLoadAttempted] = useState(false);
   const [imageFailedIds, setImageFailedIds] = useState<string[]>([]);
+  const [loadedImageIds, setLoadedImageIds] = useState<Set<string>>(new Set());
   const [isPdfCapture, setIsPdfCapture] = useState(() => Boolean((window as any).__PDF_CAPTURE__));
   const [isReportReadyForPdf, setIsReportReadyForPdf] = useState(false);
   const [searchParams] = useSearchParams();
+
+  const markImageDone = (id: string) => {
+    setLoadedImageIds((prev) => {
+      if (prev.has(id)) return prev;
+      const next = new Set(prev);
+      next.add(id);
+      return next;
+    });
+  };
 
   const isInternal = type === 'interno';
 
@@ -297,7 +307,18 @@ export default function RelatorioCorretivo() {
     setImageUrls({});
     setImageFailedIds([]);
     setImageLoadAttempted(false);
+    setLoadedImageIds(new Set());
   }, [report?.media]);
+
+  // Mark images without resolved URL as "done" so PDF readiness doesn't stall
+  useEffect(() => {
+    if (!imageLoadAttempted || !report?.media) return;
+    report.media.forEach((m) => {
+      if (m.file_type?.startsWith('image/') && !imageUrls[m.id]) {
+        markImageDone(m.id);
+      }
+    });
+  }, [imageLoadAttempted, imageUrls, imageFailedIds, report?.media]);
 
   // Generate signed URLs for media after data loads
   useEffect(() => {
@@ -360,8 +381,11 @@ export default function RelatorioCorretivo() {
     setIsReportReadyForPdf(false);
     if (isLoading || !report) return;
     const hasMedia = (report.media?.length ?? 0) > 0;
+    const imageMediaCount = report.media.filter((m) => m.file_type?.startsWith('image/')).length;
     const resolvedMediaCount = Object.keys(imageUrls).length + imageFailedIds.length;
     if (hasMedia && (!imageLoadAttempted || resolvedMediaCount < report.media.length)) return;
+    // Wait until every <img> reports load/error (or has no URL)
+    if (imageMediaCount > 0 && loadedImageIds.size < imageMediaCount) return;
 
     const requiredSections = [
       'header',
@@ -387,7 +411,7 @@ export default function RelatorioCorretivo() {
       window.dispatchEvent(new Event('report-ready'));
     }, 600);
     return () => clearTimeout(t);
-  }, [isLoading, report, imageLoadAttempted, imageUrls, imageFailedIds, isInternal]);
+  }, [isLoading, report, imageLoadAttempted, imageUrls, imageFailedIds, loadedImageIds, isInternal]);
 
   useEffect(() => {
     const syncPdfMode = () => setIsPdfCapture(Boolean((window as any).__PDF_CAPTURE__));
@@ -862,7 +886,7 @@ export default function RelatorioCorretivo() {
                     key={m.id}
                     className="relative aspect-square rounded-lg overflow-hidden bg-muted break-inside-avoid"
                     data-report-media-item="true"
-                    data-report-media-ready={imageUrls[m.id] || imageFailedIds.includes(m.id) ? 'true' : 'false'}
+                    data-report-media-ready={loadedImageIds.has(m.id) || (imageLoadAttempted && !imageUrls[m.id]) ? 'true' : 'false'}
                   >
                     {m.file_type.startsWith('image/') ? (
                       imageUrls[m.id] ? (
@@ -870,7 +894,9 @@ export default function RelatorioCorretivo() {
                           src={imageUrls[m.id]}
                           alt={m.caption || m.file_name}
                           crossOrigin={isPdfCapture ? 'anonymous' : undefined}
-                          loading={isPdfCapture ? 'eager' : 'lazy'}
+                          loading="eager"
+                          onLoad={() => markImageDone(m.id)}
+                          onError={() => markImageDone(m.id)}
                           className="w-full h-full object-cover"
                         />
                       ) : (
