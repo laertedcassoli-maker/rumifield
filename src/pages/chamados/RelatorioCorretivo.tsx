@@ -641,16 +641,18 @@ export default function RelatorioCorretivo() {
               <Wrench className="h-5 w-5" />
               <span className="font-bold">Relatório de Visita Corretiva</span>
             </div>
-            <div className="flex gap-2 no-print" data-pdf-hide="true">
-              <Button variant="outline" size="sm" onClick={handleShare} disabled={isSharing}>
-                {isSharing ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Share2 className="h-4 w-4 mr-1" />}
-                Compartilhar
-              </Button>
-              <Button variant="outline" size="sm" onClick={handleDownloadPdf} disabled={!isReportReadyForPdf}>
-                {isReportReadyForPdf ? <Download className="h-4 w-4 mr-1" /> : <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
-                {isReportReadyForPdf ? 'Baixar PDF' : 'Carregando...'}
-              </Button>
-            </div>
+            {!isPdfAction && (
+              <div className="flex gap-2 no-print" data-pdf-hide="true">
+                <Button variant="outline" size="sm" onClick={handleShare} disabled={isSharing}>
+                  {isSharing ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Share2 className="h-4 w-4 mr-1" />}
+                  Compartilhar
+                </Button>
+                <Button variant="outline" size="sm" onClick={handleDownloadPdf} disabled={!isReportReadyForPdf}>
+                  {isReportReadyForPdf ? <Download className="h-4 w-4 mr-1" /> : <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+                  {isReportReadyForPdf ? 'Baixar PDF' : 'Carregando...'}
+                </Button>
+              </div>
+            )}
           </div>
           
           <h1 className="text-xl font-bold text-foreground">{corrective.client.nome}</h1>
