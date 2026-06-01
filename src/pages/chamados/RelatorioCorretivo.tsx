@@ -880,7 +880,7 @@ export default function RelatorioCorretivo() {
 
         {/* Public Notes */}
         {corrective.public_notes && (
-          <Card data-pdf-section="public-notes" className="break-inside-avoid">
+          <Card data-pdf-section="public-notes" className="break-inside-avoid break-after-avoid">
             <CardHeader className="pb-2">
               <CardTitle className="text-base">Observações</CardTitle>
             </CardHeader>
