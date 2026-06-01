@@ -23,7 +23,7 @@ import {
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import logoRumiFlow from '@/assets/logo-rumiflow.png';
 import logoRumina from '@/assets/logo-rumina.png';
@@ -97,13 +97,15 @@ interface ReportData {
 export default function RelatorioCorretivo() {
   const { token, type } = useParams<{ token: string; type?: string }>();
   const { toast } = useToast();
+  const [searchParams] = useSearchParams();
+  const isPdfAction = searchParams.get('acao') === 'pdf';
   const [imageUrls, setImageUrls] = useState<Record<string, string>>({});
   const [imageLoadAttempted, setImageLoadAttempted] = useState(false);
   const [imageFailedIds, setImageFailedIds] = useState<string[]>([]);
   const [loadedImageIds, setLoadedImageIds] = useState<Set<string>>(new Set());
   const [isPdfCapture, setIsPdfCapture] = useState(() => Boolean((window as any).__PDF_CAPTURE__));
   const [isReportReadyForPdf, setIsReportReadyForPdf] = useState(false);
-  const [searchParams] = useSearchParams();
+  const hasAutoPrintedRef = useRef(false);
 
   const markImageDone = (id: string) => {
     setLoadedImageIds((prev) => {
@@ -414,11 +416,11 @@ export default function RelatorioCorretivo() {
   }, [isLoading, report, imageLoadAttempted, imageUrls, imageFailedIds, loadedImageIds, isInternal]);
 
   useEffect(() => {
-    const syncPdfMode = () => setIsPdfCapture(Boolean((window as any).__PDF_CAPTURE__));
+    const syncPdfMode = () => setIsPdfCapture(Boolean((window as any).__PDF_CAPTURE__) || isPdfAction);
     syncPdfMode();
     window.addEventListener('report-pdf-mode', syncPdfMode);
     return () => window.removeEventListener('report-pdf-mode', syncPdfMode);
-  }, []);
+  }, [isPdfAction]);
 
   const [isSharing, setIsSharing] = useState(false);
   const handleShare = async () => {
@@ -487,18 +489,29 @@ export default function RelatorioCorretivo() {
   };
 
   useEffect(() => {
-    if (searchParams.get('acao') === 'pdf' && report) {
-      let cancelled = false;
-      (async () => {
-        await waitForReportReady();
-        if (cancelled) return;
-        window.print();
-      })();
-      return () => {
-        cancelled = true;
-      };
-    }
-  }, [report, searchParams]);
+    hasAutoPrintedRef.current = false;
+  }, [token, isPdfAction]);
+
+  useEffect(() => {
+    if (!isPdfAction || !report || !isReportReadyForPdf || hasAutoPrintedRef.current) return;
+
+    let cancelled = false;
+    hasAutoPrintedRef.current = true;
+
+    (async () => {
+      await waitForReportReady(5000);
+      await new Promise((r) => setTimeout(r, 300));
+      if (cancelled) {
+        hasAutoPrintedRef.current = false;
+        return;
+      }
+      window.print();
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isPdfAction, report, isReportReadyForPdf]);
 
 
   if (isLoading) {
@@ -628,16 +641,18 @@ export default function RelatorioCorretivo() {
               <Wrench className="h-5 w-5" />
               <span className="font-bold">Relatório de Visita Corretiva</span>
             </div>
-            <div className="flex gap-2 no-print" data-pdf-hide="true">
-              <Button variant="outline" size="sm" onClick={handleShare} disabled={isSharing}>
-                {isSharing ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Share2 className="h-4 w-4 mr-1" />}
-                Compartilhar
-              </Button>
-              <Button variant="outline" size="sm" onClick={handleDownloadPdf} disabled={!isReportReadyForPdf}>
-                {isReportReadyForPdf ? <Download className="h-4 w-4 mr-1" /> : <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
-                {isReportReadyForPdf ? 'Baixar PDF' : 'Carregando...'}
-              </Button>
-            </div>
+            {!isPdfAction && (
+              <div className="flex gap-2 no-print" data-pdf-hide="true">
+                <Button variant="outline" size="sm" onClick={handleShare} disabled={isSharing}>
+                  {isSharing ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Share2 className="h-4 w-4 mr-1" />}
+                  Compartilhar
+                </Button>
+                <Button variant="outline" size="sm" onClick={handleDownloadPdf} disabled={!isReportReadyForPdf}>
+                  {isReportReadyForPdf ? <Download className="h-4 w-4 mr-1" /> : <Loader2 className="h-4 w-4 mr-1 animate-spin" />}
+                  {isReportReadyForPdf ? 'Baixar PDF' : 'Carregando...'}
+                </Button>
+              </div>
+            )}
           </div>
           
           <h1 className="text-xl font-bold text-foreground">{corrective.client.nome}</h1>
