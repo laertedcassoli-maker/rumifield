@@ -497,7 +497,12 @@ export default function RelatorioCorretivo() {
     @media print {
       .no-print,
       button,
-      [role="button"] {
+      [role="button"],
+      [data-sonner-toaster],
+      [data-radix-toast-viewport],
+      ol[data-radix-toast-viewport],
+      [role="status"],
+      [role="alert"] {
         display: none !important;
         visibility: hidden !important;
       }
