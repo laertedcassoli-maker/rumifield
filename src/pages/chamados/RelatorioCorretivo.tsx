@@ -591,7 +591,7 @@ export default function RelatorioCorretivo() {
       </header>
 
       <main
-        className="max-w-2xl mx-auto p-4 space-y-4"
+        className="max-w-2xl mx-auto p-4 space-y-4 print:space-y-2"
         data-report-ready={isReportReadyForPdf ? 'true' : 'false'}
         data-report-media-count={media.length}
       >
