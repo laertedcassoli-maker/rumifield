@@ -1187,8 +1187,11 @@ export default function ExecucaoVisitaCorretiva() {
                     variant="outline"
                     className="flex-1"
                     onClick={() => {
+                      toast({
+                        title: 'Gerando PDF...',
+                        description: 'O relatório será aberto em uma nova aba. Aguarde o carregamento completo das imagens antes de salvar o PDF.',
+                      });
                       window.open(`${urlProdutor}?acao=pdf`, '_blank');
-                      toast({ title: 'Abrindo relatório para download...' });
                     }}
                   >
                     <Download className="h-4 w-4 mr-2" />
