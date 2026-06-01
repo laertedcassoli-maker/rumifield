@@ -610,7 +610,7 @@ export default function RelatorioCorretivo() {
 
               {/* Result */}
               {corrective.result && (
-                <div className="flex items-center gap-2">
+                <div className="flex items-center print:items-start gap-2">
                   <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
                   <div>
                     <p className="text-xs text-muted-foreground">Resultado</p>
