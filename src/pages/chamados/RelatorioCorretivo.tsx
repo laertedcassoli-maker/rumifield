@@ -771,7 +771,7 @@ export default function RelatorioCorretivo() {
 
         {/* Parts Consumption */}
         {parts.length > 0 && (
-          <Card data-pdf-section="parts" className="break-inside-avoid">
+          <Card data-pdf-section="parts" className="break-inside-avoid break-after-avoid">
             <CardHeader className="pb-2">
               <CardTitle className="text-base flex items-center gap-2">
                 <Wrench className="h-4 w-4" />
