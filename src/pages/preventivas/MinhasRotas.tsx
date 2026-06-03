@@ -579,7 +579,7 @@ export default function MinhasRotas() {
             <div className="flex items-center justify-between text-sm text-muted-foreground mb-3">
               <span className="flex items-center gap-1">
                 <Calendar className="h-4 w-4" />
-                {format(parseISO(route.start_date), 'dd/MM', { locale: ptBR })} - {format(parseISO(route.end_date), 'dd/MM', { locale: ptBR })}
+                {safeFormat(route.start_date, 'dd/MM', '—')} - {safeFormat(route.end_date, 'dd/MM', '—')}
               </span>
               <span className="flex items-center gap-1">
                 <MapPin className="h-4 w-4" />
