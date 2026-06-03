@@ -23,8 +23,29 @@ import {
 } from 'lucide-react';
 import NovaVisitaDiretaDialog from '@/components/chamados/NovaVisitaDiretaDialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { format, isToday, isThisWeek, parseISO } from 'date-fns';
+import { format, isToday, isThisWeek, parseISO, isValid } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+
+const safeFormat = (value: string | null | undefined, pattern: string, fallback = 'Sem data') => {
+  if (!value) return fallback;
+  try {
+    const d = parseISO(value);
+    if (!isValid(d)) return fallback;
+    return format(d, pattern, { locale: ptBR });
+  } catch {
+    return fallback;
+  }
+};
+
+const safeParse = (value: string | null | undefined): Date | null => {
+  if (!value) return null;
+  try {
+    const d = parseISO(value);
+    return isValid(d) ? d : null;
+  } catch {
+    return null;
+  }
+};
 import { Link } from 'react-router-dom';
 import { useOfflineQuery } from '@/hooks/useOfflineQuery';
 import { offlineDb } from '@/lib/offline-db';
