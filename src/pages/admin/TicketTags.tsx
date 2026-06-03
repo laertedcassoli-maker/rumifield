@@ -258,6 +258,10 @@ export default function TicketTags() {
           )}
         </CardContent>
       </Card>
+        </TabsContent>
+      </Tabs>
+
+
 
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent>
