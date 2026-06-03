@@ -30,6 +30,7 @@ import {
   ChevronRight,
   Building2,
   User,
+  UserPlus,
 } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -69,6 +70,8 @@ interface TicketWithDetails {
   client_fazenda: string | null;
   assigned_technician_id: string | null;
   technician_name: string | null;
+  created_by_user_id: string | null;
+  creator_name: string | null;
   created_at: string;
   resolved_at: string | null;
   visits_count: number;
@@ -100,6 +103,7 @@ export default function ChamadosIndex() {
           status,
           client_id,
           assigned_technician_id,
+          created_by_user_id,
           created_at,
           resolved_at
         `)
@@ -118,13 +122,15 @@ export default function ChamadosIndex() {
       // Get unique client and technician IDs
       const clientIds = [...new Set(data.map(t => t.client_id))];
       const technicianIds = [...new Set(data.map(t => t.assigned_technician_id).filter(Boolean))] as string[];
+      const creatorIds = [...new Set(data.map(t => t.created_by_user_id).filter(Boolean))] as string[];
+      const allProfileIds = [...new Set([...technicianIds, ...creatorIds])];
       const ticketIds = data.map(t => t.id);
 
       // Fetch clients, profiles, and visit counts in parallel
       const [clientsResult, profilesResult, visitsResult] = await Promise.all([
         supabase.from('clientes').select('id, nome, fazenda').in('id', clientIds),
-        technicianIds.length > 0 
-          ? supabase.from('profiles').select('id, nome').in('id', technicianIds)
+        allProfileIds.length > 0 
+          ? supabase.from('profiles').select('id, nome').in('id', allProfileIds)
           : Promise.resolve({ data: [] }),
         supabase.from('ticket_visits').select('ticket_id').in('ticket_id', ticketIds)
       ]);
@@ -150,6 +156,9 @@ export default function ChamadosIndex() {
           client_fazenda: client?.fazenda || null,
           technician_name: ticket.assigned_technician_id 
             ? profilesMap.get(ticket.assigned_technician_id) || null 
+            : null,
+          creator_name: ticket.created_by_user_id
+            ? profilesMap.get(ticket.created_by_user_id) || null
             : null,
           visits_count: visitsCountMap.get(ticket.id) || 0,
         };
@@ -347,6 +356,7 @@ export default function ChamadosIndex() {
                   <TableHead>Prioridade</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Técnico</TableHead>
+                  <TableHead>Criado por</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
@@ -397,6 +407,16 @@ export default function ChamadosIndex() {
                         </div>
                       ) : (
                         <span className="text-muted-foreground">Não atribuído</span>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      {ticket.creator_name ? (
+                        <div className="flex items-center gap-2">
+                          <UserPlus className="h-4 w-4 text-muted-foreground" />
+                          <span>{ticket.creator_name}</span>
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
                       )}
                     </TableCell>
                     <TableCell className="text-right">
