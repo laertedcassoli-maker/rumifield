@@ -356,6 +356,7 @@ export default function ChamadosIndex() {
                   <TableHead>Prioridade</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead>Técnico</TableHead>
+                  <TableHead>Criado por</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
