@@ -46,13 +46,15 @@ export default function TicketTags() {
   const [editingTag, setEditingTag] = useState<TicketTag | null>(null);
   const [name, setName] = useState('');
   const [color, setColor] = useState('#3b82f6');
+  const [scope, setScope] = useState<'chamado' | 'oficina'>('chamado');
 
   const { data: tags, isLoading } = useQuery({
-    queryKey: ['ticket-tags-admin'],
+    queryKey: ['ticket-tags-admin', scope],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('ticket_tags')
         .select('*')
+        .eq('scope', scope)
         .order('order_index')
         .order('name');
       if (error) throw error;
@@ -72,7 +74,7 @@ export default function TicketTags() {
         const nextOrder = (tags?.length || 0);
         const { error } = await supabase
           .from('ticket_tags')
-          .insert({ name, color, order_index: nextOrder });
+          .insert({ name, color, order_index: nextOrder, scope });
         if (error) throw error;
       }
     },
