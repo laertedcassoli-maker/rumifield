@@ -23,8 +23,29 @@ import {
 } from 'lucide-react';
 import NovaVisitaDiretaDialog from '@/components/chamados/NovaVisitaDiretaDialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { format, isToday, isThisWeek, parseISO } from 'date-fns';
+import { format, isToday, isThisWeek, parseISO, isValid } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+
+const safeFormat = (value: string | null | undefined, pattern: string, fallback = 'Sem data') => {
+  if (!value) return fallback;
+  try {
+    const d = parseISO(value);
+    if (!isValid(d)) return fallback;
+    return format(d, pattern, { locale: ptBR });
+  } catch {
+    return fallback;
+  }
+};
+
+const safeParse = (value: string | null | undefined): Date | null => {
+  if (!value) return null;
+  try {
+    const d = parseISO(value);
+    return isValid(d) ? d : null;
+  } catch {
+    return null;
+  }
+};
 import { Link } from 'react-router-dom';
 import { useOfflineQuery } from '@/hooks/useOfflineQuery';
 import { offlineDb } from '@/lib/offline-db';
@@ -410,8 +431,9 @@ export default function MinhasRotas() {
       // Date filter
       const today = new Date();
       if (route.type === 'preventive') {
-        const startDate = parseISO(route.start_date);
-        const endDate = parseISO(route.end_date);
+        const startDate = safeParse(route.start_date);
+        const endDate = safeParse(route.end_date);
+        if (!startDate || !endDate) return filter === 'todas';
 
         switch (filter) {
           case 'hoje':
@@ -422,7 +444,8 @@ export default function MinhasRotas() {
             return true;
         }
       } else {
-        const scheduledDate = parseISO(route.scheduled_date);
+        const scheduledDate = safeParse(route.scheduled_date);
+        if (!scheduledDate) return filter === 'todas';
         switch (filter) {
           case 'hoje':
             return isToday(scheduledDate);
@@ -546,7 +569,7 @@ export default function MinhasRotas() {
                 {renderStatusBadge(route)}
                 {route.created_at && (
                   <span className="text-xs text-muted-foreground">
-                    Criada em {format(parseISO(route.created_at), 'dd/MM/yyyy', { locale: ptBR })}
+                    Criada em {safeFormat(route.created_at, 'dd/MM/yyyy', '—')}
                   </span>
                 )}
               </div>
@@ -556,7 +579,7 @@ export default function MinhasRotas() {
             <div className="flex items-center justify-between text-sm text-muted-foreground mb-3">
               <span className="flex items-center gap-1">
                 <Calendar className="h-4 w-4" />
-                {format(parseISO(route.start_date), 'dd/MM', { locale: ptBR })} - {format(parseISO(route.end_date), 'dd/MM', { locale: ptBR })}
+                {safeFormat(route.start_date, 'dd/MM', '—')} - {safeFormat(route.end_date, 'dd/MM', '—')}
               </span>
               <span className="flex items-center gap-1">
                 <MapPin className="h-4 w-4" />
@@ -642,7 +665,7 @@ export default function MinhasRotas() {
                 {renderStatusBadge(visit)}
                 {visit.created_at && (
                   <span className="text-xs text-muted-foreground">
-                    Criada em {format(parseISO(visit.created_at), 'dd/MM/yyyy', { locale: ptBR })}
+                    Criada em {safeFormat(visit.created_at, 'dd/MM/yyyy', '—')}
                   </span>
                 )}
               </div>
@@ -660,7 +683,7 @@ export default function MinhasRotas() {
             <div className="flex items-center justify-between text-sm text-muted-foreground">
               <span className="flex items-center gap-1">
                 <Calendar className="h-4 w-4" />
-                {format(parseISO(visit.scheduled_date), 'dd/MM/yyyy', { locale: ptBR })}
+                {safeFormat(visit.scheduled_date, 'dd/MM/yyyy')}
               </span>
               <span className="flex items-center gap-1 text-xs text-orange-600">
                 <AlertTriangle className="h-3 w-3" />
