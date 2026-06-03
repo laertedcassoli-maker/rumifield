@@ -72,7 +72,8 @@ export default function OrdensServico() {
         .from('work_orders')
         .select(`
           *,
-          activities:activity_id (id, name, execution_type, has_motor)
+          activities:activity_id (id, name, execution_type, has_motor),
+          work_order_tag_links(tag_id, ticket_tags(id, name, color))
         `)
         .order('created_at', { ascending: false });
       if (error) throw error;
