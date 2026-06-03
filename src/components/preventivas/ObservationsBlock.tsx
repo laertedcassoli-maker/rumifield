@@ -172,19 +172,25 @@ export default function ObservationsBlock({
               ) : (
                 <div className="space-y-2">
                   {internalLines.map((line, index) => (
-                    <div key={index} className="flex items-center gap-2">
-                      <span className="text-muted-foreground text-sm w-5 text-center">{index + 1}.</span>
-                      <Input
+                    <div key={index} className="flex items-start gap-2">
+                      <span className="text-muted-foreground text-sm w-5 text-center pt-2">{index + 1}.</span>
+                      <Textarea
                         value={line}
                         onChange={(e) => updateInternalLine(index, e.target.value)}
                         placeholder="Digite a observação..."
-                        className="flex-1 text-sm"
+                        className="flex-1 text-sm min-h-[60px] resize-none overflow-hidden"
+                        rows={2}
+                        onInput={(e) => {
+                          const el = e.currentTarget;
+                          el.style.height = 'auto';
+                          el.style.height = el.scrollHeight + 'px';
+                        }}
                       />
                       <Button
                         type="button"
                         variant="ghost"
                         size="icon"
-                        className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive"
+                        className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive mt-1"
                         onClick={() => removeInternalLine(index)}
                       >
                         <X className="h-4 w-4" />
