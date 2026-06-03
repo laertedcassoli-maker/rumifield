@@ -32,15 +32,24 @@ import {
   User,
   UserPlus,
 } from 'lucide-react';
-import { format, differenceInDays } from 'date-fns';
+import { format, differenceInHours } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Link } from 'react-router-dom';
 
-// Helper function to calculate duration in days
-const calculateDurationDays = (createdAt: string, resolvedAt?: string | null): number => {
+// Helper function to calculate duration in hours
+const calculateDuration = (createdAt: string, resolvedAt?: string | null): number => {
   const startDate = new Date(createdAt);
   const endDate = resolvedAt ? new Date(resolvedAt) : new Date();
-  return differenceInDays(endDate, startDate);
+  return differenceInHours(endDate, startDate);
+};
+
+const formatDuration = (hours: number): string => {
+  if (hours < 1) return 'Agora';
+  if (hours < 24) return `${hours}h`;
+  const days = Math.floor(hours / 24);
+  const remainingHours = hours % 24;
+  if (remainingHours === 0) return days === 1 ? '1 dia' : `${days} dias`;
+  return `${days}d ${remainingHours}h`;
 };
 
 const statusConfig = {
@@ -385,13 +394,13 @@ export default function ChamadosIndex() {
                     </TableCell>
                     <TableCell>
                       {(() => {
-                        const days = calculateDurationDays(ticket.created_at, ticket.resolved_at);
+                        const hours = calculateDuration(ticket.created_at, ticket.resolved_at);
                         const isResolved = ticket.status === 'resolvido' || ticket.status === 'cancelado';
                         return (
-                          <div className={`flex items-center gap-1.5 ${days > 7 && !isResolved ? 'text-warning' : days > 14 && !isResolved ? 'text-destructive' : 'text-muted-foreground'}`}>
+                          <div className={`flex items-center gap-1.5 ${hours > 48 && !isResolved ? 'text-warning' : hours > 168 && !isResolved ? 'text-destructive' : 'text-muted-foreground'}`}>
                             <Clock className="h-3.5 w-3.5" />
                             <span className="text-sm font-medium">
-                              {days === 0 ? 'Hoje' : days === 1 ? '1 dia' : `${days} dias`}
+                              {formatDuration(hours)}
                             </span>
                           </div>
                         );
