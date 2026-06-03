@@ -624,6 +624,33 @@ export function NovaOSDialog({ open, onOpenChange, onSuccess }: NovaOSDialogProp
           </div>
         </div>
 
+        {oficinaTags.length > 0 && (
+          <div className="space-y-2">
+            <Label>Tags</Label>
+            <div className="flex flex-wrap gap-2">
+              {oficinaTags.map(tag => (
+                <Badge
+                  key={tag.id}
+                  variant="outline"
+                  className="cursor-pointer select-none"
+                  style={
+                    selectedTagIds.includes(tag.id)
+                      ? { backgroundColor: tag.color, color: '#fff', borderColor: tag.color }
+                      : { borderColor: tag.color, color: tag.color }
+                  }
+                  onClick={() => setSelectedTagIds(prev =>
+                    prev.includes(tag.id) ? prev.filter(id => id !== tag.id) : [...prev, tag.id]
+                  )}
+                >
+                  {tag.name}
+                </Badge>
+              ))}
+            </div>
+          </div>
+        )}
+
+
+
         <div>
           <Label>Observações</Label>
           <Textarea
