@@ -147,14 +147,21 @@ export default function TicketTags() {
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Tags de Chamados</h1>
-          <p className="text-muted-foreground">Gerencie as tags disponíveis para categorizar chamados</p>
+          <h1 className="text-2xl font-bold">Tags</h1>
+          <p className="text-muted-foreground">Gerencie as tags disponíveis para chamados e ordens de serviço</p>
         </div>
         <Button onClick={openNew}>
           <Plus className="mr-2 h-4 w-4" />
           Nova Tag
         </Button>
       </div>
+
+      <Tabs value={scope} onValueChange={(v) => setScope(v as 'chamado' | 'oficina')}>
+        <TabsList>
+          <TabsTrigger value="chamado">Chamados Técnicos</TabsTrigger>
+          <TabsTrigger value="oficina">Ordens de Serviço</TabsTrigger>
+        </TabsList>
+        <TabsContent value={scope}>
 
       <Card>
         <CardHeader>
