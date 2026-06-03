@@ -62,6 +62,23 @@ export function NovaOSDialog({ open, onOpenChange, onSuccess }: NovaOSDialogProp
   const [notes, setNotes] = useState('');
   const [selectedClienteId, setSelectedClienteId] = useState('');
   const [clienteSearch, setClienteSearch] = useState('');
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+
+  // Fetch oficina tags
+  const { data: oficinaTags = [] } = useQuery({
+    queryKey: ['ticket-tags', 'oficina'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('ticket_tags')
+        .select('*')
+        .eq('scope', 'oficina')
+        .eq('is_active', true)
+        .order('order_index');
+      if (error) throw error;
+      return data as Array<{ id: string; name: string; color: string }>;
+    },
+    enabled: open,
+  });
 
   // Fetch activities
   const { data: activities = [] } = useQuery({
@@ -223,6 +240,13 @@ export function NovaOSDialog({ open, onOpenChange, onSuccess }: NovaOSDialogProp
         throw stepError;
       }
 
+      // Insert tag links
+      if (selectedTagIds.length > 0) {
+        await supabase.from('work_order_tag_links').insert(
+          selectedTagIds.map(tag_id => ({ work_order_id: osData.id, tag_id }))
+        );
+      }
+
       return osData;
     },
     onSuccess: () => {
@@ -245,6 +269,7 @@ export function NovaOSDialog({ open, onOpenChange, onSuccess }: NovaOSDialogProp
     setNotes('');
     setSelectedClienteId('');
     setClienteSearch('');
+    setSelectedTagIds([]);
   };
 
   // Auto-select activity when item is selected and there's only one matching activity
@@ -598,6 +623,33 @@ export function NovaOSDialog({ open, onOpenChange, onSuccess }: NovaOSDialogProp
             )}
           </div>
         </div>
+
+        {oficinaTags.length > 0 && (
+          <div className="space-y-2">
+            <Label>Tags</Label>
+            <div className="flex flex-wrap gap-2">
+              {oficinaTags.map(tag => (
+                <Badge
+                  key={tag.id}
+                  variant="outline"
+                  className="cursor-pointer select-none"
+                  style={
+                    selectedTagIds.includes(tag.id)
+                      ? { backgroundColor: tag.color, color: '#fff', borderColor: tag.color }
+                      : { borderColor: tag.color, color: tag.color }
+                  }
+                  onClick={() => setSelectedTagIds(prev =>
+                    prev.includes(tag.id) ? prev.filter(id => id !== tag.id) : [...prev, tag.id]
+                  )}
+                >
+                  {tag.name}
+                </Badge>
+              ))}
+            </div>
+          </div>
+        )}
+
+
 
         <div>
           <Label>Observações</Label>

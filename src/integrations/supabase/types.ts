@@ -3001,6 +3001,7 @@ export type Database = {
           is_active: boolean
           name: string
           order_index: number
+          scope: string
         }
         Insert: {
           color?: string
@@ -3009,6 +3010,7 @@ export type Database = {
           is_active?: boolean
           name: string
           order_index?: number
+          scope?: string
         }
         Update: {
           color?: string
@@ -3017,6 +3019,7 @@ export type Database = {
           is_active?: boolean
           name?: string
           order_index?: number
+          scope?: string
         }
         Relationships: []
       }
@@ -3560,6 +3563,42 @@ export type Database = {
           },
           {
             foreignKeyName: "work_order_parts_used_work_order_id_fkey"
+            columns: ["work_order_id"]
+            isOneToOne: false
+            referencedRelation: "work_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      work_order_tag_links: {
+        Row: {
+          created_at: string
+          id: string
+          tag_id: string
+          work_order_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          tag_id: string
+          work_order_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          tag_id?: string
+          work_order_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "work_order_tag_links_tag_id_fkey"
+            columns: ["tag_id"]
+            isOneToOne: false
+            referencedRelation: "ticket_tags"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "work_order_tag_links_work_order_id_fkey"
             columns: ["work_order_id"]
             isOneToOne: false
             referencedRelation: "work_orders"
