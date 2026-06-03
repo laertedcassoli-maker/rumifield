@@ -409,6 +409,16 @@ export default function ChamadosIndex() {
                         <span className="text-muted-foreground">Não atribuído</span>
                       )}
                     </TableCell>
+                    <TableCell>
+                      {ticket.creator_name ? (
+                        <div className="flex items-center gap-2">
+                          <UserPlus className="h-4 w-4 text-muted-foreground" />
+                          <span>{ticket.creator_name}</span>
+                        </div>
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </TableCell>
                     <TableCell className="text-right">
                       <Button variant="ghost" size="sm" asChild>
                         <Link to={`/chamados/${ticket.id}`}>
