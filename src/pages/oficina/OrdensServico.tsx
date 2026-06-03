@@ -386,6 +386,20 @@ export default function OrdensServico() {
                       <div className="flex-1 min-w-0 pr-2">
                         <p className="font-mono font-bold">{os.code}</p>
                         <p className="text-sm text-muted-foreground">{os.activities?.name}</p>
+                        {os.work_order_tag_links && os.work_order_tag_links.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {os.work_order_tag_links.map(link => (
+                              <Badge
+                                key={link.tag_id}
+                                variant="outline"
+                                className="text-xs py-0"
+                                style={{ borderColor: link.ticket_tags.color, color: link.ticket_tags.color }}
+                              >
+                                {link.ticket_tags.name}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
                         {os.item_info?.unique_code && (
                           <Badge variant="secondary" className="font-mono text-xs mt-1">
                             {os.item_info.unique_code}
