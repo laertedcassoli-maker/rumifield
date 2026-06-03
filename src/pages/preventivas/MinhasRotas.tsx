@@ -431,8 +431,9 @@ export default function MinhasRotas() {
       // Date filter
       const today = new Date();
       if (route.type === 'preventive') {
-        const startDate = parseISO(route.start_date);
-        const endDate = parseISO(route.end_date);
+        const startDate = safeParse(route.start_date);
+        const endDate = safeParse(route.end_date);
+        if (!startDate || !endDate) return filter === 'todas';
 
         switch (filter) {
           case 'hoje':
@@ -443,7 +444,8 @@ export default function MinhasRotas() {
             return true;
         }
       } else {
-        const scheduledDate = parseISO(route.scheduled_date);
+        const scheduledDate = safeParse(route.scheduled_date);
+        if (!scheduledDate) return filter === 'todas';
         switch (filter) {
           case 'hoje':
             return isToday(scheduledDate);
