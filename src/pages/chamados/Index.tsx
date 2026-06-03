@@ -157,6 +157,9 @@ export default function ChamadosIndex() {
           technician_name: ticket.assigned_technician_id 
             ? profilesMap.get(ticket.assigned_technician_id) || null 
             : null,
+          creator_name: ticket.created_by_user_id
+            ? profilesMap.get(ticket.created_by_user_id) || null
+            : null,
           visits_count: visitsCountMap.get(ticket.id) || 0,
         };
       }) as TicketWithDetails[];
