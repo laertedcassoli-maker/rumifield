@@ -100,6 +100,59 @@ export default function VisitMediaUpload({
     onStatusChange?.(items.length > 0);
   };
 
+  // Compress an image using Canvas API: max 1920px on longest side, JPEG quality 0.75
+  const compressImage = (file: File): Promise<Blob> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+      img.onload = () => {
+        try {
+          const MAX_DIM = 1920;
+          let { width, height } = img;
+          if (width > MAX_DIM || height > MAX_DIM) {
+            if (width >= height) {
+              height = Math.round((height * MAX_DIM) / width);
+              width = MAX_DIM;
+            } else {
+              width = Math.round((width * MAX_DIM) / height);
+              height = MAX_DIM;
+            }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) {
+            URL.revokeObjectURL(url);
+            reject(new Error('Canvas context unavailable'));
+            return;
+          }
+          ctx.drawImage(img, 0, 0, width, height);
+          canvas.toBlob(
+            (blob) => {
+              URL.revokeObjectURL(url);
+              if (!blob) {
+                reject(new Error('Falha ao gerar blob'));
+                return;
+              }
+              resolve(blob);
+            },
+            'image/jpeg',
+            0.75
+          );
+        } catch (err) {
+          URL.revokeObjectURL(url);
+          reject(err);
+        }
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        reject(new Error('Falha ao carregar imagem'));
+      };
+      img.src = url;
+    });
+  };
+
   // Handle file selection (from camera or gallery)
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const files = event.target.files;
@@ -121,15 +174,24 @@ export default function VisitMediaUpload({
           continue;
         }
 
-        // Generate unique file path
-        const fileExt = file.name.split('.').pop();
-        const fileName = `${crypto.randomUUID()}.${fileExt}`;
+        // Compress image before upload
+        let compressedBlob: Blob;
+        try {
+          compressedBlob = await compressImage(file);
+        } catch (err) {
+          console.error('Compression error:', err);
+          toast.error(`Erro ao comprimir ${file.name}`);
+          continue;
+        }
+
+        // Generate unique file path (always .jpg since output is JPEG)
+        const fileName = `${crypto.randomUUID()}.jpg`;
         const filePath = `${user.id}/${preventiveId}/${fileName}`;
 
         // Upload to storage
         const { error: uploadError } = await supabase.storage
           .from('preventive-media')
-          .upload(filePath, file);
+          .upload(filePath, compressedBlob, { contentType: 'image/jpeg' });
 
         if (uploadError) {
           console.error('Upload error:', uploadError);
@@ -145,8 +207,8 @@ export default function VisitMediaUpload({
             user_id: user.id,
             file_path: filePath,
             file_name: file.name,
-            file_type: file.type,
-            file_size: file.size,
+            file_type: 'image/jpeg',
+            file_size: compressedBlob.size,
           });
 
         if (dbError) {
