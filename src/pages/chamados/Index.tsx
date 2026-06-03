@@ -36,11 +36,20 @@ import { format, differenceInHours } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Link } from 'react-router-dom';
 
-// Helper function to calculate duration in days
-const calculateDurationDays = (createdAt: string, resolvedAt?: string | null): number => {
+// Helper function to calculate duration in hours
+const calculateDuration = (createdAt: string, resolvedAt?: string | null): number => {
   const startDate = new Date(createdAt);
   const endDate = resolvedAt ? new Date(resolvedAt) : new Date();
-  return differenceInDays(endDate, startDate);
+  return differenceInHours(endDate, startDate);
+};
+
+const formatDuration = (hours: number): string => {
+  if (hours < 1) return 'Agora';
+  if (hours < 24) return `${hours}h`;
+  const days = Math.floor(hours / 24);
+  const remainingHours = hours % 24;
+  if (remainingHours === 0) return days === 1 ? '1 dia' : `${days} dias`;
+  return `${days}d ${remainingHours}h`;
 };
 
 const statusConfig = {
