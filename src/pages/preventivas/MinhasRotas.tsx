@@ -569,7 +569,7 @@ export default function MinhasRotas() {
                 {renderStatusBadge(route)}
                 {route.created_at && (
                   <span className="text-xs text-muted-foreground">
-                    Criada em {format(parseISO(route.created_at), 'dd/MM/yyyy', { locale: ptBR })}
+                    Criada em {safeFormat(route.created_at, 'dd/MM/yyyy', '—')}
                   </span>
                 )}
               </div>
