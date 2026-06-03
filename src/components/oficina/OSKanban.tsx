@@ -34,6 +34,10 @@ interface WorkOrder {
     motor_replaced_at_meter_hours?: number;
   };
   parts_count?: number;
+  work_order_tag_links?: Array<{
+    tag_id: string;
+    ticket_tags: { id: string; name: string; color: string };
+  }>;
 }
 
 interface OSKanbanProps {
