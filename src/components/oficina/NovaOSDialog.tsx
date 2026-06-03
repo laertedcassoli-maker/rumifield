@@ -62,6 +62,23 @@ export function NovaOSDialog({ open, onOpenChange, onSuccess }: NovaOSDialogProp
   const [notes, setNotes] = useState('');
   const [selectedClienteId, setSelectedClienteId] = useState('');
   const [clienteSearch, setClienteSearch] = useState('');
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+
+  // Fetch oficina tags
+  const { data: oficinaTags = [] } = useQuery({
+    queryKey: ['ticket-tags', 'oficina'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('ticket_tags')
+        .select('*')
+        .eq('scope', 'oficina')
+        .eq('is_active', true)
+        .order('order_index');
+      if (error) throw error;
+      return data as Array<{ id: string; name: string; color: string }>;
+    },
+    enabled: open,
+  });
 
   // Fetch activities
   const { data: activities = [] } = useQuery({
