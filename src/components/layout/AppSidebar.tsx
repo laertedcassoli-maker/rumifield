@@ -101,7 +101,7 @@ export function AppSidebar() {
     { title: 'Produtos Químicos', icon: FlaskConical, url: '/admin/config?tab=quimicos', permKey: 'admin_cadastros' },
     { title: 'Catálogo de Peças', icon: Box, url: '/admin/config?tab=pecas', permKey: 'admin_cadastros' },
     { title: 'Config. CRM', icon: Briefcase, url: '/admin/crm', permKey: 'admin_cadastros' },
-    { title: 'Tags Chamados', icon: AlertTriangle, url: '/admin/ticket-tags', permKey: 'admin_cadastros' },
+    { title: 'Tags', icon: AlertTriangle, url: '/admin/ticket-tags', permKey: 'admin_cadastros' },
     { title: 'Templates Checklist', icon: ClipboardList, url: '/preventivas/checklists', permKey: 'admin_cadastros' },
     { title: 'Atividades Oficina', icon: ListChecks, url: '/oficina/atividades', permKey: 'oficina_atividades' },
     { title: 'Google Sheets', icon: Sheet, url: '/admin/config/google-sheets', permKey: 'admin_cadastros' },
