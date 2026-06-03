@@ -70,6 +70,8 @@ interface TicketWithDetails {
   client_fazenda: string | null;
   assigned_technician_id: string | null;
   technician_name: string | null;
+  created_by_user_id: string | null;
+  creator_name: string | null;
   created_at: string;
   resolved_at: string | null;
   visits_count: number;
