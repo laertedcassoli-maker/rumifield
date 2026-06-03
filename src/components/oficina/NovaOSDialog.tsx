@@ -240,6 +240,13 @@ export function NovaOSDialog({ open, onOpenChange, onSuccess }: NovaOSDialogProp
         throw stepError;
       }
 
+      // Insert tag links
+      if (selectedTagIds.length > 0) {
+        await supabase.from('work_order_tag_links').insert(
+          selectedTagIds.map(tag_id => ({ work_order_id: osData.id, tag_id }))
+        );
+      }
+
       return osData;
     },
     onSuccess: () => {
