@@ -683,7 +683,7 @@ export default function MinhasRotas() {
             <div className="flex items-center justify-between text-sm text-muted-foreground">
               <span className="flex items-center gap-1">
                 <Calendar className="h-4 w-4" />
-                {format(parseISO(visit.scheduled_date), 'dd/MM/yyyy', { locale: ptBR })}
+                {safeFormat(visit.scheduled_date, 'dd/MM/yyyy')}
               </span>
               <span className="flex items-center gap-1 text-xs text-orange-600">
                 <AlertTriangle className="h-3 w-3" />
