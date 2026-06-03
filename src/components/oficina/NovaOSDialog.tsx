@@ -269,6 +269,7 @@ export function NovaOSDialog({ open, onOpenChange, onSuccess }: NovaOSDialogProp
     setNotes('');
     setSelectedClienteId('');
     setClienteSearch('');
+    setSelectedTagIds([]);
   };
 
   // Auto-select activity when item is selected and there's only one matching activity
