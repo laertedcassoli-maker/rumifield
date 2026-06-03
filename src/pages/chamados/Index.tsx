@@ -122,13 +122,15 @@ export default function ChamadosIndex() {
       // Get unique client and technician IDs
       const clientIds = [...new Set(data.map(t => t.client_id))];
       const technicianIds = [...new Set(data.map(t => t.assigned_technician_id).filter(Boolean))] as string[];
+      const creatorIds = [...new Set(data.map(t => t.created_by_user_id).filter(Boolean))] as string[];
+      const allProfileIds = [...new Set([...technicianIds, ...creatorIds])];
       const ticketIds = data.map(t => t.id);
 
       // Fetch clients, profiles, and visit counts in parallel
       const [clientsResult, profilesResult, visitsResult] = await Promise.all([
         supabase.from('clientes').select('id, nome, fazenda').in('id', clientIds),
-        technicianIds.length > 0 
-          ? supabase.from('profiles').select('id, nome').in('id', technicianIds)
+        allProfileIds.length > 0 
+          ? supabase.from('profiles').select('id, nome').in('id', allProfileIds)
           : Promise.resolve({ data: [] }),
         supabase.from('ticket_visits').select('ticket_id').in('ticket_id', ticketIds)
       ]);
