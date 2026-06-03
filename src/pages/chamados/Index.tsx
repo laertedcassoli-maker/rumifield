@@ -30,6 +30,7 @@ import {
   ChevronRight,
   Building2,
   User,
+  UserPlus,
 } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
