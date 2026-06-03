@@ -103,6 +103,7 @@ export default function ChamadosIndex() {
           status,
           client_id,
           assigned_technician_id,
+          created_by_user_id,
           created_at,
           resolved_at
         `)
