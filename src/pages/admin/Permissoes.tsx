@@ -76,6 +76,11 @@ const groupActionColumns: Record<string, Array<{ key: keyof Permission; label: s
     { key: 'can_delete', label: 'Excluir' },
     { key: 'can_edit_finalized', label: 'Ed. Finalizado' },
   ],
+  minhas_rotas: [
+    { key: 'can_edit', label: 'Editar' },
+    { key: 'can_delete', label: 'Excluir' },
+    { key: 'can_edit_finalized', label: 'Ed. Finalizado' },
+  ],
   principal: [
     { key: 'can_edit_finalized', label: 'Ed. Finalizado' },
   ],
