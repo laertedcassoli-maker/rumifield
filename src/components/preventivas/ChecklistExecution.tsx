@@ -68,7 +68,10 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
   const { canEditFinalized } = useMenuPermissions();
   const canEditCompleted = canEditCompletedFn
     || canEditFinalized('minhas_rotas')
-    || canEditFinalized('preventivas');
+    || canEditFinalized('minhas_rotas_listagem')
+    || canEditFinalized('preventivas')
+    || canEditFinalized('chamados')
+    || canEditFinalized('chamados_detalhe');
   const queryClient = useQueryClient();
   const [isSelectTemplateOpen, setIsSelectTemplateOpen] = useState(false);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
