@@ -43,8 +43,9 @@ const menuGroupConfig: Record<string, { label: string; icon: typeof Home; order:
   crm: { label: 'CRM', icon: Briefcase, order: 2 },
   estoque: { label: 'Estoque Químicos', icon: Beaker, order: 3 },
   oficina: { label: 'Oficina', icon: Wrench, order: 4 },
-  chamados: { label: 'Chamados Técnicos', icon: AlertTriangle, order: 5 },
-  admin: { label: 'Administração', icon: Settings, order: 6 },
+  minhas_rotas: { label: 'Minhas Rotas', icon: Route, order: 5 },
+  chamados: { label: 'Chamados Técnicos', icon: AlertTriangle, order: 6 },
+  admin: { label: 'Administração', icon: Settings, order: 7 },
 };
 
 const roles = [
