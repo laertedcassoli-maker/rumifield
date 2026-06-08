@@ -105,11 +105,15 @@ function getAttendanceStatus(item: RouteItem): AttendanceStatus {
 
 export default function ExecucaoRota() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const { user, role } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { canDelete } = useMenuPermissions();
+  const canDeleteRoute = canDelete('minhas_rotas_listagem');
   const [checkinItem, setCheckinItem] = useState<RouteItem | null>(null);
   const [cancelItem, setCancelItem] = useState<RouteItem | null>(null);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   const isAdminOrCoordinator = role === 'admin' || role === 'coordenador_servicos';
 
