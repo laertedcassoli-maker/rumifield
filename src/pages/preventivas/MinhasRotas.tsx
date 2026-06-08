@@ -132,6 +132,44 @@ export default function MinhasRotas() {
   const [showNovaVisita, setShowNovaVisita] = useState(false);
 
   const isAdminOrCoordinator = role === 'admin' || role === 'coordenador_servicos';
+  const { canDelete } = useMenuPermissions();
+  const canDeleteRoute = canDelete('minhas_rotas_listagem');
+  const queryClient = useQueryClient();
+  const [deleteTarget, setDeleteTarget] = useState<
+    { type: 'route'; id: string; label: string }
+    | { type: 'visit'; id: string; label: string }
+    | null
+  >(null);
+
+  const deleteRouteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('preventive_routes').delete().eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success('Rota excluída com sucesso');
+      queryClient.invalidateQueries({ queryKey: ['my-preventive-routes'] });
+      setDeleteTarget(null);
+    },
+    onError: (err: Error) => {
+      toast.error('Erro ao excluir rota', { description: err.message });
+    },
+  });
+
+  const deleteVisitMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('ticket_visits').delete().eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success('Visita excluída com sucesso');
+      queryClient.invalidateQueries({ queryKey: ['my-corrective-visits'] });
+      setDeleteTarget(null);
+    },
+    onError: (err: Error) => {
+      toast.error('Erro ao excluir visita', { description: err.message });
+    },
+  });
 
   // Piracicaba/SP coordinates as default origin
   const DEFAULT_ORIGIN = { lat: -22.7249, lon: -47.6476, name: 'Piracicaba/SP' };
