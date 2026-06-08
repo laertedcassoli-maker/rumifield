@@ -281,7 +281,10 @@ export default function AdminPermissoes() {
                             <TableHeader>
                               <TableRow>
                                 <TableHead>Menu</TableHead>
-                                <TableHead className="w-24 text-center">Acesso</TableHead>
+                                <TableHead className="w-20 text-center">Acesso</TableHead>
+                                {(groupActionColumns[group] || []).map(col => (
+                                  <TableHead key={col.key} className="w-28 text-center">{col.label}</TableHead>
+                                ))}
                               </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -295,10 +298,20 @@ export default function AdminPermissoes() {
                                       disabled={updatePermission.isPending || (role === 'admin' && perm.menu_key === 'admin_permissoes')}
                                     />
                                   </TableCell>
+                                  {(groupActionColumns[group] || []).map(col => (
+                                    <TableCell key={col.key} className="text-center">
+                                      <Switch
+                                        checked={Boolean(perm[col.key])}
+                                        onCheckedChange={(v) => updatePermission.mutate({ id: perm.id, field: col.key as string, value: v })}
+                                        disabled={updatePermission.isPending || !perm.can_access}
+                                      />
+                                    </TableCell>
+                                  ))}
                                 </TableRow>
                               ))}
                             </TableBody>
                           </Table>
+
                         </CardContent>
                       </CollapsibleContent>
                     </Card>
