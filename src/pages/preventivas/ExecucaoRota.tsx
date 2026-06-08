@@ -542,6 +542,17 @@ export default function ExecucaoRota() {
               </span>
             </div>
           </div>
+          {canDeleteRoute && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="shrink-0 text-destructive hover:text-destructive border-destructive/40 hover:bg-destructive/10"
+              onClick={() => setShowDeleteDialog(true)}
+            >
+              <Trash2 className="h-4 w-4 mr-1.5" />
+              Excluir Rota
+            </Button>
+          )}
         </div>
       </div>
 
