@@ -17,6 +17,7 @@ import SelectableOptionCard from "./SelectableOptionCard";
 import ChecklistBlockNav from "./ChecklistBlockNav";
 import ChecklistItemNotes from "./ChecklistItemNotes";
 import { useCanEditCompletedChecklist } from "@/hooks/useCanEditCompletedChecklist";
+import { useMenuPermissions } from "@/hooks/useMenuPermissions";
 
 interface ChecklistExecutionProps {
   preventiveId: string;
