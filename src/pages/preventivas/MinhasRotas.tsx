@@ -593,6 +593,7 @@ export default function MinhasRotas() {
           </Button>
         )}
         <Link to={`/preventivas/execucao/${route.id}`} className="block">
+          <CardContent className="p-4">
             {/* Header row */}
             <div className="flex items-start justify-between gap-2 mb-3">
               <div className="min-w-0 flex-1">
