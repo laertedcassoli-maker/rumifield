@@ -2688,6 +2688,9 @@ export type Database = {
       role_menu_permissions: {
         Row: {
           can_access: boolean
+          can_delete: boolean
+          can_edit: boolean
+          can_edit_finalized: boolean
           created_at: string
           id: string
           menu_group: string
@@ -2698,6 +2701,9 @@ export type Database = {
         }
         Insert: {
           can_access?: boolean
+          can_delete?: boolean
+          can_edit?: boolean
+          can_edit_finalized?: boolean
           created_at?: string
           id?: string
           menu_group?: string
@@ -2708,6 +2714,9 @@ export type Database = {
         }
         Update: {
           can_access?: boolean
+          can_delete?: boolean
+          can_edit?: boolean
+          can_edit_finalized?: boolean
           created_at?: string
           id?: string
           menu_group?: string
