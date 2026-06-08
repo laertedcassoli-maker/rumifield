@@ -156,8 +156,9 @@ export default function AdminPermissoes() {
       toast({ variant: 'destructive', title: 'Apenas admins podem alterar permissões de admin' });
       return;
     }
-    updatePermission.mutate({ id: permission.id, can_access: !permission.can_access });
+    updatePermission.mutate({ id: permission.id, field: 'can_access', value: !permission.can_access });
   };
+
 
   const toggleGroup = (group: string) => {
     setOpenGroups(prev => ({ ...prev, [group]: !prev[group] }));
