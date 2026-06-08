@@ -23,6 +23,9 @@ interface ChecklistExecutionProps {
   preventiveId: string;
   routeTemplateId?: string;
   onStatusChange?: (status: 'not_started' | 'in_progress' | 'completed') => void;
+  /** When true, forces the checklist into read-only mode regardless of edit permissions.
+   *  Used by parent pages that gate completed-visit editing behind an explicit "Edit" toggle. */
+  forceReadOnly?: boolean;
 }
 
 interface AvailableAction {
@@ -62,7 +65,7 @@ interface ExecBlock {
 
 type ChecklistStatus = 'em_andamento' | 'concluido';
 
-export default function ChecklistExecution({ preventiveId, routeTemplateId, onStatusChange }: ChecklistExecutionProps) {
+export default function ChecklistExecution({ preventiveId, routeTemplateId, onStatusChange, forceReadOnly = false }: ChecklistExecutionProps) {
   const { user } = useAuth();
   const canEditCompletedFn = useCanEditCompletedChecklist();
   const { canEditFinalized } = useMenuPermissions();
@@ -1160,7 +1163,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
   );
   const progress = totalItems > 0 ? (answeredItems / totalItems) * 100 : 0;
   const isCompleted = existingChecklist.status === 'concluido';
-  const isReadOnly = isCompleted && !canEditCompleted;
+  const isReadOnly = forceReadOnly || (isCompleted && !canEditCompleted);
   const allAnswered = answeredItems === totalItems;
 
   const hasIncompleteFailures = blocks.some(block => 

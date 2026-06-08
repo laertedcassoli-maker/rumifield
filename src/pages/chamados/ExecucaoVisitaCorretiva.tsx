@@ -23,7 +23,10 @@ import {
   Wrench,
   Share2,
   Link2,
-  Download
+  Download,
+  Pencil,
+  X as XIcon,
+  Save
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -70,6 +73,8 @@ export default function ExecucaoVisitaCorretiva() {
   const [completedResult, setCompletedResult] = useState<'resolvido' | 'parcial' | 'aguardando_peca' | null>(null);
   const [showSolenoideDialog, setShowSolenoideDialog] = useState(false);
   const [solenoideModelo, setSolenoideModelo] = useState<'2x' | '3x' | null>(null);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [showExitEditDialog, setShowExitEditDialog] = useState(false);
 
   // Bug #4: Reactive online state
   const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -708,13 +713,15 @@ export default function ExecucaoVisitaCorretiva() {
   const isVisitCompleted = visit?.status === 'finalizada' || !!completedResult;
   const canEditCompletedFn = useCanEditCompletedChecklist();
   const { canEditFinalized } = useMenuPermissions();
-  const canEditCompleted = canEditCompletedFn
-    || canEditFinalized('chamados')
+  const canEditFinalizedVisit =
+    canEditCompletedFn
     || canEditFinalized('chamados_detalhe')
+    || canEditFinalized('chamados')
     || canEditFinalized('minhas_rotas')
     || canEditFinalized('minhas_rotas_listagem')
     || canEditFinalized('preventivas');
-  const effectiveCompleted = isVisitCompleted && !canEditCompleted;
+  // Option C: completed visit is read-only by default; "Edit" button opts in
+  const effectiveCompleted = isVisitCompleted && !isEditMode;
   const hasCheckedIn = !!visit?.checkin_at;
   const canFinishVisit = checklistStatus === 'completed';
 
@@ -976,9 +983,53 @@ export default function ExecucaoVisitaCorretiva() {
                 Encerrada
               </Badge>
             )}
+            {isVisitCompleted && canEditFinalizedVisit && !isEditMode && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setIsEditMode(true)}
+              >
+                <Pencil className="h-3.5 w-3.5 mr-1.5" />
+                Editar Visita
+              </Button>
+            )}
           </div>
         </div>
       </div>
+
+      {/* Edit mode banner */}
+      {isVisitCompleted && isEditMode && (
+        <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 flex items-center justify-between gap-3">
+          <div className="flex items-start gap-2 min-w-0">
+            <Pencil className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-amber-700 dark:text-amber-400">
+                Modo edição ativo
+              </p>
+              <p className="text-xs text-amber-700/90 dark:text-amber-400/90">
+                Alterações são salvas automaticamente. Clique em "Concluir edição" ao terminar.
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-2 shrink-0">
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setIsEditMode(false)}
+            >
+              <XIcon className="h-3.5 w-3.5 mr-1.5" />
+              Cancelar
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => setShowExitEditDialog(true)}
+            >
+              <Save className="h-3.5 w-3.5 mr-1.5" />
+              Concluir edição
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Info Card */}
       <Card>
@@ -1065,6 +1116,7 @@ export default function ExecucaoVisitaCorretiva() {
             <ChecklistExecution 
               preventiveId={visit.preventiveId}
               routeTemplateId={visit.checklist_template_id || undefined}
+              forceReadOnly={effectiveCompleted}
               onStatusChange={(status) => {
                 setChecklistStatus(status);
                 if (status === 'completed') {
@@ -1417,6 +1469,28 @@ export default function ExecucaoVisitaCorretiva() {
         }}
         description="A peça PRD00605 foi consumida nesta visita. Selecione o modelo (2x ou 3x) antes de encerrar."
       />
+
+      {/* Exit Edit Mode Confirmation */}
+      <AlertDialog open={showExitEditDialog} onOpenChange={setShowExitEditDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Concluir edição?</AlertDialogTitle>
+            <AlertDialogDescription>
+              As alterações já foram salvas automaticamente. Ao confirmar, a visita voltará ao modo somente leitura.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Continuar editando</AlertDialogCancel>
+            <AlertDialogAction onClick={() => {
+              setIsEditMode(false);
+              setShowExitEditDialog(false);
+              toast({ title: 'Edição concluída', description: 'A visita voltou ao modo somente leitura.' });
+            }}>
+              Confirmar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
     </div>
   );

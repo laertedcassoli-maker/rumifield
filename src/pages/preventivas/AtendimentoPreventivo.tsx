@@ -20,7 +20,10 @@ import {
   FileText,
   WifiOff,
   Link2,
-  Download
+  Download,
+  Pencil,
+  X as XIcon,
+  Save
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -29,6 +32,8 @@ import ChecklistExecution from '@/components/preventivas/ChecklistExecution';
 import VisitMediaUpload from '@/components/preventivas/VisitMediaUpload';
 import ConsumedPartsBlock from '@/components/preventivas/ConsumedPartsBlock';
 import ObservationsBlock from '@/components/preventivas/ObservationsBlock';
+import { useMenuPermissions } from '@/hooks/useMenuPermissions';
+import { useCanEditCompletedChecklist } from '@/hooks/useCanEditCompletedChecklist';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -60,9 +65,17 @@ export default function AtendimentoPreventivo() {
   const [solenoideModelo, setSolenoideModelo] = useState<'2x' | '3x' | null>(null);
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
   const [checklistStatus, setChecklistStatus] = useState<'not_started' | 'in_progress' | 'completed'>('not_started');
-  
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [showExitEditDialog, setShowExitEditDialog] = useState(false);
 
   const isAdminOrCoordinator = role === 'admin' || role === 'coordenador_servicos';
+  const canEditCompletedFn = useCanEditCompletedChecklist();
+  const { canEditFinalized } = useMenuPermissions();
+  const canEditFinalizedVisit =
+    canEditCompletedFn
+    || canEditFinalized('minhas_rotas_listagem')
+    || canEditFinalized('minhas_rotas')
+    || canEditFinalized('preventivas');
 
   // Fetch route item details
   const { data: routeItem, isLoading, error, refetch } = useQuery({
@@ -676,6 +689,8 @@ export default function AtendimentoPreventivo() {
   }
 
   const isVisitCompleted = routeItem.status === 'executado';
+  // Option C: completed visit is read-only by default; "Edit" button opts in
+  const effectiveCompleted = isVisitCompleted && !isEditMode;
 
   return (
     <div className="space-y-4 animate-fade-in w-full pb-24">
@@ -688,17 +703,63 @@ export default function AtendimentoPreventivo() {
               Voltar
             </Link>
           </Button>
-          {isVisitCompleted && (
-            <Badge
-              variant="outline"
-              className="bg-green-500/10 text-green-600 border-green-500/20"
-            >
-              <CheckCircle2 className="h-3 w-3 mr-1" />
-              Encerrada
-            </Badge>
-          )}
+          <div className="flex items-center gap-2">
+            {isVisitCompleted && (
+              <Badge
+                variant="outline"
+                className="bg-green-500/10 text-green-600 border-green-500/20"
+              >
+                <CheckCircle2 className="h-3 w-3 mr-1" />
+                Encerrada
+              </Badge>
+            )}
+            {isVisitCompleted && canEditFinalizedVisit && !isEditMode && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setIsEditMode(true)}
+              >
+                <Pencil className="h-3.5 w-3.5 mr-1.5" />
+                Editar Visita
+              </Button>
+            )}
+          </div>
         </div>
       </div>
+
+      {/* Edit mode banner */}
+      {isVisitCompleted && isEditMode && (
+        <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 flex items-center justify-between gap-3">
+          <div className="flex items-start gap-2 min-w-0">
+            <Pencil className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-amber-700 dark:text-amber-400">
+                Modo edição ativo
+              </p>
+              <p className="text-xs text-amber-700/90 dark:text-amber-400/90">
+                Alterações são salvas automaticamente. Clique em "Concluir edição" ao terminar.
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-2 shrink-0">
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setIsEditMode(false)}
+            >
+              <XIcon className="h-3.5 w-3.5 mr-1.5" />
+              Cancelar
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => setShowExitEditDialog(true)}
+            >
+              <Save className="h-3.5 w-3.5 mr-1.5" />
+              Concluir edição
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Info Card */}
       <Card>
@@ -752,6 +813,7 @@ export default function AtendimentoPreventivo() {
         <ChecklistExecution 
           preventiveId={routeItem.preventiveId}
           routeTemplateId={routeItem.route?.checklist_template_id || undefined}
+          forceReadOnly={effectiveCompleted}
           onStatusChange={(status) => {
             setChecklistStatus(status);
             if (status === 'completed') {
@@ -774,7 +836,7 @@ export default function AtendimentoPreventivo() {
       {routeItem.preventiveId && (
         <ConsumedPartsBlock 
           preventiveId={routeItem.preventiveId}
-          isCompleted={isVisitCompleted}
+          isCompleted={effectiveCompleted}
         />
       )}
 
@@ -784,7 +846,7 @@ export default function AtendimentoPreventivo() {
           preventiveId={routeItem.preventiveId}
           initialInternalNotes={routeItem.internalNotes}
           initialPublicNotes={routeItem.publicNotes}
-          isCompleted={isVisitCompleted}
+          isCompleted={effectiveCompleted}
         />
       )}
 
@@ -792,7 +854,7 @@ export default function AtendimentoPreventivo() {
       {routeItem.preventiveId && (
         <VisitMediaUpload 
           preventiveId={routeItem.preventiveId}
-          isCompleted={isVisitCompleted}
+          isCompleted={effectiveCompleted}
         />
       )}
 
@@ -1008,6 +1070,28 @@ export default function AtendimentoPreventivo() {
         }}
         description="A peça PRD00605 foi consumida nesta visita. Selecione o modelo (2x ou 3x) antes de encerrar."
       />
+
+      {/* Exit Edit Mode Confirmation */}
+      <AlertDialog open={showExitEditDialog} onOpenChange={setShowExitEditDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Concluir edição?</AlertDialogTitle>
+            <AlertDialogDescription>
+              As alterações já foram salvas automaticamente. Ao confirmar, a visita voltará ao modo somente leitura.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Continuar editando</AlertDialogCancel>
+            <AlertDialogAction onClick={() => {
+              setIsEditMode(false);
+              setShowExitEditDialog(false);
+              toast({ title: 'Edição concluída', description: 'A visita voltou ao modo somente leitura.' });
+            }}>
+              Confirmar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
     </div>
   );
