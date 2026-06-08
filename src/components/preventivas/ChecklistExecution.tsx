@@ -65,7 +65,7 @@ interface ExecBlock {
 
 type ChecklistStatus = 'em_andamento' | 'concluido';
 
-export default function ChecklistExecution({ preventiveId, routeTemplateId, onStatusChange }: ChecklistExecutionProps) {
+export default function ChecklistExecution({ preventiveId, routeTemplateId, onStatusChange, forceReadOnly = false }: ChecklistExecutionProps) {
   const { user } = useAuth();
   const canEditCompletedFn = useCanEditCompletedChecklist();
   const { canEditFinalized } = useMenuPermissions();
