@@ -76,6 +76,7 @@ export default function ExecucaoVisitaCorretiva() {
   const [solenoideModelo, setSolenoideModelo] = useState<'2x' | '3x' | null>(null);
   const [isEditMode, setIsEditMode] = useState(false);
   const [showExitEditDialog, setShowExitEditDialog] = useState(false);
+  const [showDeleteVisitDialog, setShowDeleteVisitDialog] = useState(false);
 
   // Bug #4: Reactive online state
   const [isOnline, setIsOnline] = useState(navigator.onLine);
