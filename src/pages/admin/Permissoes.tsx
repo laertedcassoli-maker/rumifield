@@ -64,7 +64,25 @@ interface Permission {
   menu_label: string;
   menu_group: string;
   can_access: boolean;
+  can_edit: boolean;
+  can_delete: boolean;
+  can_edit_finalized: boolean;
 }
+
+const groupActionColumns: Record<string, Array<{ key: keyof Permission; label: string }>> = {
+  chamados: [
+    { key: 'can_edit', label: 'Editar' },
+    { key: 'can_delete', label: 'Excluir' },
+    { key: 'can_edit_finalized', label: 'Ed. Finalizado' },
+  ],
+  principal: [
+    { key: 'can_edit_finalized', label: 'Ed. Finalizado' },
+  ],
+  oficina: [
+    { key: 'can_edit', label: 'Editar' },
+  ],
+};
+
 
 export default function AdminPermissoes() {
   const { role: currentUserRole } = useAuth();
