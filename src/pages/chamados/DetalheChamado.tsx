@@ -505,7 +505,6 @@ export default function DetalheChamado() {
         
         <div className="flex gap-2">
           {ticket.status !== 'resolvido' && ticket.status !== 'cancelado' && (
-          {ticket.status !== 'resolvido' && ticket.status !== 'cancelado' && (
             <Button variant="default" className="bg-green-600 hover:bg-green-700 text-white" onClick={() => setShowFinalizar(true)}>
               <CheckCircle2 className="mr-2 h-4 w-4" />
               Finalizar Chamado
