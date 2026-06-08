@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Shield, Loader2, ChevronDown, Home, Beaker, Wrench, Settings, AlertTriangle, BookOpen, Briefcase } from 'lucide-react';
+import { Shield, Loader2, ChevronDown, Home, Beaker, Wrench, Settings, AlertTriangle, BookOpen, Briefcase, Route } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
