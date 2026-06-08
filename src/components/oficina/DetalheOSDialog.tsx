@@ -1310,14 +1310,54 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
 
             {/* Observações - for completed OS */}
             {workOrder.status === 'concluido' && (
-              <div className="p-3 border rounded-lg bg-card space-y-1">
-                <p className="text-sm font-semibold flex items-center gap-2">
-                  <Pencil className="h-4 w-4" />
-                  Observações
-                </p>
-                <p className="text-sm whitespace-pre-wrap text-muted-foreground italic">
-                  {workOrder.notes || 'Nenhuma observação registrada'}
-                </p>
+              <div className="p-3 border rounded-lg bg-card space-y-2">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-semibold flex items-center gap-2">
+                    <Pencil className="h-4 w-4" />
+                    Observações
+                  </p>
+                  {canEditOS && !editingNotes && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={() => {
+                        setEditNotes(workOrder.notes || '');
+                        setEditingNotes(true);
+                      }}
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                </div>
+                {editingNotes ? (
+                  <div className="space-y-2">
+                    <Textarea
+                      value={editNotes}
+                      onChange={(e) => setEditNotes(e.target.value)}
+                      rows={3}
+                    />
+                    <div className="flex gap-2 justify-end">
+                      <Button variant="ghost" size="sm" onClick={() => setEditingNotes(false)}>
+                        <X className="mr-1 h-3.5 w-3.5" /> Cancelar
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={() => updateOSNotes.mutate(editNotes)}
+                        disabled={updateOSNotes.isPending}
+                      >
+                        {updateOSNotes.isPending
+                          ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                          : <Check className="mr-1 h-3.5 w-3.5" />}
+                        Salvar
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-sm whitespace-pre-wrap text-muted-foreground italic">
+                    {workOrder.notes || 'Nenhuma observação registrada'}
+                  </p>
+                )}
               </div>
             )}
 
