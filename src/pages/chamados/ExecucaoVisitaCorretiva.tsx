@@ -3,6 +3,8 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useMenuPermissions } from '@/hooks/useMenuPermissions';
+import { useCanEditCompletedChecklist } from '@/hooks/useCanEditCompletedChecklist';
 import { offlineChecklistDb } from '@/lib/offline-checklist-db';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -704,6 +706,15 @@ export default function ExecucaoVisitaCorretiva() {
 
   const canAccess = isAdminOrCoordinator || visit?.field_technician_user_id === user?.id;
   const isVisitCompleted = visit?.status === 'finalizada' || !!completedResult;
+  const canEditCompletedFn = useCanEditCompletedChecklist();
+  const { canEditFinalized } = useMenuPermissions();
+  const canEditCompleted = canEditCompletedFn
+    || canEditFinalized('chamados')
+    || canEditFinalized('chamados_detalhe')
+    || canEditFinalized('minhas_rotas')
+    || canEditFinalized('minhas_rotas_listagem')
+    || canEditFinalized('preventivas');
+  const effectiveCompleted = isVisitCompleted && !canEditCompleted;
   const hasCheckedIn = !!visit?.checkin_at;
   const canFinishVisit = checklistStatus === 'completed';
 
@@ -1076,7 +1087,7 @@ export default function ExecucaoVisitaCorretiva() {
           {visit.preventiveId && (
             <ConsumedPartsBlock 
               preventiveId={visit.preventiveId}
-              isCompleted={isVisitCompleted}
+              isCompleted={effectiveCompleted}
             />
           )}
 
@@ -1086,7 +1097,7 @@ export default function ExecucaoVisitaCorretiva() {
               preventiveId={visit.preventiveId}
               initialInternalNotes={visit.internalNotes}
               initialPublicNotes={visit.publicNotes}
-              isCompleted={isVisitCompleted}
+              isCompleted={effectiveCompleted}
             />
           )}
 
@@ -1094,7 +1105,7 @@ export default function ExecucaoVisitaCorretiva() {
           {visit.preventiveId && (
             <VisitMediaUpload 
               preventiveId={visit.preventiveId}
-              isCompleted={isVisitCompleted}
+              isCompleted={effectiveCompleted}
             />
           )}
 
