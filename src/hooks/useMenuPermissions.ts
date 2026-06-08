@@ -7,6 +7,9 @@ interface MenuPermission {
   menu_label: string;
   menu_group: string;
   can_access: boolean;
+  can_edit: boolean;
+  can_delete: boolean;
+  can_edit_finalized: boolean;
 }
 
 export function useMenuPermissions() {
@@ -16,13 +19,12 @@ export function useMenuPermissions() {
     queryKey: ['user-menu-permissions', role],
     queryFn: async () => {
       if (!role) return [];
-      
-      // @ts-ignore - Table not yet in types
+
       const { data, error } = await supabase
         .from('role_menu_permissions')
-        .select('menu_key, menu_label, menu_group, can_access')
+        .select('menu_key, menu_label, menu_group, can_access, can_edit, can_delete, can_edit_finalized')
         .eq('role', role);
-      
+
       if (error) throw error;
       return data as MenuPermission[];
     },
@@ -42,10 +44,34 @@ export function useMenuPermissions() {
     return menuKeys.some(key => canAccess(key));
   };
 
+  const canEdit = (menuKey: string): boolean => {
+    if (!permissions) return false;
+    const perm = permissions.find(p => p.menu_key === menuKey);
+    if (!perm) return role === 'admin';
+    return perm.can_edit;
+  };
+
+  const canDelete = (menuKey: string): boolean => {
+    if (!permissions) return false;
+    const perm = permissions.find(p => p.menu_key === menuKey);
+    if (!perm) return role === 'admin';
+    return perm.can_delete;
+  };
+
+  const canEditFinalized = (menuKey: string): boolean => {
+    if (!permissions) return false;
+    const perm = permissions.find(p => p.menu_key === menuKey);
+    if (!perm) return role === 'admin';
+    return perm.can_edit_finalized;
+  };
+
   return {
     permissions,
     isLoading,
     canAccess,
     canAccessAny,
+    canEdit,
+    canDelete,
+    canEditFinalized,
   };
 }
