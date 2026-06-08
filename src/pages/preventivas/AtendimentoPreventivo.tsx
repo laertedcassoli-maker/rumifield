@@ -813,6 +813,7 @@ export default function AtendimentoPreventivo() {
         <ChecklistExecution 
           preventiveId={routeItem.preventiveId}
           routeTemplateId={routeItem.route?.checklist_template_id || undefined}
+          forceReadOnly={effectiveCompleted}
           onStatusChange={(status) => {
             setChecklistStatus(status);
             if (status === 'completed') {
@@ -835,7 +836,7 @@ export default function AtendimentoPreventivo() {
       {routeItem.preventiveId && (
         <ConsumedPartsBlock 
           preventiveId={routeItem.preventiveId}
-          isCompleted={isVisitCompleted}
+          isCompleted={effectiveCompleted}
         />
       )}
 
@@ -845,7 +846,7 @@ export default function AtendimentoPreventivo() {
           preventiveId={routeItem.preventiveId}
           initialInternalNotes={routeItem.internalNotes}
           initialPublicNotes={routeItem.publicNotes}
-          isCompleted={isVisitCompleted}
+          isCompleted={effectiveCompleted}
         />
       )}
 
@@ -853,7 +854,7 @@ export default function AtendimentoPreventivo() {
       {routeItem.preventiveId && (
         <VisitMediaUpload 
           preventiveId={routeItem.preventiveId}
-          isCompleted={isVisitCompleted}
+          isCompleted={effectiveCompleted}
         />
       )}
 
