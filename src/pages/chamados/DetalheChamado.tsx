@@ -48,6 +48,7 @@ import NovaVisitaDialog from '@/components/chamados/NovaVisitaDialog';
 import NovaInteracaoDialog from '@/components/chamados/NovaInteracaoDialog';
 import TicketStatusStepper from '@/components/chamados/TicketStatusStepper';
 import FinalizarChamadoDialog from '@/components/chamados/FinalizarChamadoDialog';
+import { useMenuPermissions } from '@/hooks/useMenuPermissions';
 
 // Interaction type config
 const interactionTypeConfig = {
