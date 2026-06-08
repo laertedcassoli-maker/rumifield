@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useMenuPermissions } from '@/hooks/useMenuPermissions';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -89,6 +90,10 @@ export default function DetalheRota() {
   const [showFarmSelection, setShowFarmSelection] = useState(false);
 
   const isAdminOrCoordinator = role === 'admin' || role === 'coordenador_servicos';
+  const { canEdit, canDelete } = useMenuPermissions();
+  const canEditRoute = canEdit('minhas_rotas_listagem');
+  const canDeleteRoute = canDelete('minhas_rotas_listagem');
+
 
   // Fetch route details
   const { data: route, isLoading } = useQuery({
@@ -586,7 +591,7 @@ export default function DetalheRota() {
 
   const executedCount = route.items.filter((i: any) => i.status === 'executado').length;
   const totalCount = route.items.length;
-  const isEditable = route.status === 'em_elaboracao' && isAdminOrCoordinator;
+  const isEditable = route.status === 'em_elaboracao' && isAdminOrCoordinator && canEditRoute;
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -633,27 +638,29 @@ export default function DetalheRota() {
                 Finalizar Rota
               </Button>
             )}
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <Button variant="destructive" size="icon">
-                  <Trash2 className="h-4 w-4" />
-                </Button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Excluir rota?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Esta ação não pode ser desfeita. A rota e todos os seus itens serão removidos.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                  <AlertDialogAction onClick={() => deleteRoute.mutate()}>
-                    Excluir
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
+            {canDeleteRoute && (
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button variant="destructive" size="icon">
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Excluir rota?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Esta ação não pode ser desfeita. A rota e todos os seus itens serão removidos.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction onClick={() => deleteRoute.mutate()}>
+                      Excluir
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            )}
           </div>
         )}
       </div>

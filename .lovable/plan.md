@@ -1,11 +1,28 @@
-## Adicionar grupo "Minhas Rotas" na tela de Permissões
+## Objetivo
 
-### Migration (já aplicada)
-Inseridas 7 linhas em `role_menu_permissions` para `menu_key = 'minhas_rotas_listagem'` / `menu_group = 'minhas_rotas'` com defaults por perfil (admin total; coord. serviços edita; téc. campo só acessa; demais sem acesso).
+Em `src/pages/preventivas/DetalheRota.tsx`, gatear os botões existentes de editar e excluir rota pelas permissões dinâmicas de `minhas_rotas_listagem`, seguindo o padrão de `src/pages/chamados/DetalheChamado.tsx`.
 
-### Edições em `src/pages/admin/Permissoes.tsx`
-1. Importar `Route` de `lucide-react`.
-2. Em `menuGroupConfig`: adicionar `minhas_rotas: { label: 'Minhas Rotas', icon: Route, order: 5 }`, mover `chamados` para `order: 6` e `admin` para `order: 7`.
-3. Em `groupActionColumns`: adicionar `minhas_rotas` com as 3 colunas (`can_edit`, `can_delete`, `can_edit_finalized`).
+## Mudanças em `src/pages/preventivas/DetalheRota.tsx`
 
-Nenhuma alteração na entrada de nav `minhas_rotas` do grupo `principal`.
+1. **Importar o hook** `useMenuPermissions` (caminho `@/hooks/useMenuPermissions`).
+
+2. **Dentro do componente**, logo após os hooks existentes, adicionar:
+   ```ts
+   const { canEdit, canDelete } = useMenuPermissions();
+   const canEditRoute = canEdit('minhas_rotas_listagem');
+   const canDeleteRoute = canDelete('minhas_rotas_listagem');
+   ```
+
+3. **Gatear edição** (linha 589) — manter a regra de status `em_elaboracao` e a regra de papel, e adicionar `canEditRoute`:
+   ```ts
+   const isEditable = route.status === 'em_elaboracao' && isAdminOrCoordinator && canEditRoute;
+   ```
+   Isso já oculta/desabilita automaticamente toda a UI de edição existente que depende de `isEditable` (adicionar fazendas, remover itens, trocar template, etc., nas linhas 666, 724, 794, 818, 832, 838, 844, 884).
+
+4. **Gatear o botão excluir** (linhas 636–656) — envolver o `<AlertDialog>` da lixeira numa condicional `canDeleteRoute &&`, mantendo também o gate atual `isAdminOrCoordinator`. Resultado: o botão `Trash2` só aparece quando `isAdminOrCoordinator && canDeleteRoute`.
+
+## Fora do escopo
+
+- Nenhum botão novo será criado.
+- `MinhasRotas.tsx` não será alterado (não possui ações de editar/excluir).
+- Botões de transição de status (Finalizar Planejamento / Iniciar Execução / Finalizar Rota) permanecem inalterados — não são "editar" nem "excluir".
