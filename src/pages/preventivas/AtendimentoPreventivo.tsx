@@ -1071,6 +1071,28 @@ export default function AtendimentoPreventivo() {
         description="A peça PRD00605 foi consumida nesta visita. Selecione o modelo (2x ou 3x) antes de encerrar."
       />
 
+      {/* Exit Edit Mode Confirmation */}
+      <AlertDialog open={showExitEditDialog} onOpenChange={setShowExitEditDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Concluir edição?</AlertDialogTitle>
+            <AlertDialogDescription>
+              As alterações já foram salvas automaticamente. Ao confirmar, a visita voltará ao modo somente leitura.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Continuar editando</AlertDialogCancel>
+            <AlertDialogAction onClick={() => {
+              setIsEditMode(false);
+              setShowExitEditDialog(false);
+              toast({ title: 'Edição concluída', description: 'A visita voltou ao modo somente leitura.' });
+            }}>
+              Confirmar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
     </div>
   );
 }
