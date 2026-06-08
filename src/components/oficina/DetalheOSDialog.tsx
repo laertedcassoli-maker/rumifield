@@ -1308,14 +1308,20 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
                   <Label htmlFor="completion-notes" className="text-sm text-muted-foreground">
                     Observações (opcional)
                   </Label>
-                  <Textarea
-                    id="completion-notes"
-                    placeholder="Observações sobre a manutenção..."
-                    value={completionNotes}
-                    onChange={(e) => setCompletionNotes(e.target.value)}
-                    className="min-h-[60px] text-sm"
-                    rows={2}
-                  />
+                  {canEditOS ? (
+                    <Textarea
+                      id="completion-notes"
+                      placeholder="Observações sobre a manutenção..."
+                      value={completionNotes}
+                      onChange={(e) => setCompletionNotes(e.target.value)}
+                      className="min-h-[60px] text-sm"
+                      rows={2}
+                    />
+                  ) : (
+                    <p className="text-sm text-muted-foreground italic">
+                      {completionNotes || 'Sem permissão para editar observações.'}
+                    </p>
+                  )}
                 </div>
                 <Button
                   className="w-full"
