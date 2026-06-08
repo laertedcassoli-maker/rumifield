@@ -354,6 +354,23 @@ export default function ExecucaoRota() {
   };
 
   // Cancel visit mutation
+  const deleteRouteMutation = useMutation({
+    mutationFn: async () => {
+      if (!id) throw new Error('ID da rota inválido');
+      const { error } = await supabase.from('preventive_routes').delete().eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({ title: 'Rota excluída', description: 'A rota foi removida com sucesso.' });
+      queryClient.invalidateQueries({ queryKey: ['my-preventive-routes'] });
+      setShowDeleteDialog(false);
+      navigate('/preventivas/minhas-rotas');
+    },
+    onError: (err: Error) => {
+      toast({ title: 'Erro ao excluir rota', description: err.message, variant: 'destructive' });
+    },
+  });
+
   const cancelMutation = useMutation({
     mutationFn: async ({ itemId, clientId, justification }: { itemId: string; clientId: string; justification: string }) => {
       // 1. ALWAYS save locally first (instant)
