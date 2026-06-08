@@ -1087,7 +1087,7 @@ export default function ExecucaoVisitaCorretiva() {
           {visit.preventiveId && (
             <ConsumedPartsBlock 
               preventiveId={visit.preventiveId}
-              isCompleted={isVisitCompleted}
+              isCompleted={effectiveCompleted}
             />
           )}
 
@@ -1097,7 +1097,7 @@ export default function ExecucaoVisitaCorretiva() {
               preventiveId={visit.preventiveId}
               initialInternalNotes={visit.internalNotes}
               initialPublicNotes={visit.publicNotes}
-              isCompleted={isVisitCompleted}
+              isCompleted={effectiveCompleted}
             />
           )}
 
@@ -1105,7 +1105,7 @@ export default function ExecucaoVisitaCorretiva() {
           {visit.preventiveId && (
             <VisitMediaUpload 
               preventiveId={visit.preventiveId}
-              isCompleted={isVisitCompleted}
+              isCompleted={effectiveCompleted}
             />
           )}
 
