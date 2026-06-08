@@ -147,6 +147,8 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
   const [motorCodeConfirm, setMotorCodeConfirm] = useState('');
   const [motorCodeConfirmError, setMotorCodeConfirmError] = useState(false);
   const [completionNotes, setCompletionNotes] = useState('');
+  const [editingNotes, setEditingNotes] = useState(false);
+  const [editNotes, setEditNotes] = useState('');
 
   // FIX 4: Ref to protect localTotalSeconds from stale refetch after Stop
   const recentlyStoppedRef = useRef(false);
