@@ -706,6 +706,15 @@ export default function ExecucaoVisitaCorretiva() {
 
   const canAccess = isAdminOrCoordinator || visit?.field_technician_user_id === user?.id;
   const isVisitCompleted = visit?.status === 'finalizada' || !!completedResult;
+  const canEditCompletedFn = useCanEditCompletedChecklist();
+  const { canEditFinalized } = useMenuPermissions();
+  const canEditCompleted = canEditCompletedFn
+    || canEditFinalized('chamados')
+    || canEditFinalized('chamados_detalhe')
+    || canEditFinalized('minhas_rotas')
+    || canEditFinalized('minhas_rotas_listagem')
+    || canEditFinalized('preventivas');
+  const effectiveCompleted = isVisitCompleted && !canEditCompleted;
   const hasCheckedIn = !!visit?.checkin_at;
   const canFinishVisit = checklistStatus === 'completed';
 
