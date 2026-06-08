@@ -48,6 +48,7 @@ import NovaVisitaDialog from '@/components/chamados/NovaVisitaDialog';
 import NovaInteracaoDialog from '@/components/chamados/NovaInteracaoDialog';
 import TicketStatusStepper from '@/components/chamados/TicketStatusStepper';
 import FinalizarChamadoDialog from '@/components/chamados/FinalizarChamadoDialog';
+import { useMenuPermissions } from '@/hooks/useMenuPermissions';
 
 // Interaction type config
 const interactionTypeConfig = {
@@ -107,7 +108,10 @@ export default function DetalheChamado() {
     }
   }, [location.state]);
 
+  const { canEdit, canDelete, canEditFinalized } = useMenuPermissions();
   const isAdminOrCoordinator = role === 'admin' || role === 'coordenador_servicos';
+  const canEditTicket = canEdit('chamados_detalhe') || canEdit('chamados');
+  const canDeleteTicket = canDelete('chamados_detalhe') || canDelete('chamados');
 
   // Fetch ticket details
   const { data: ticket, isLoading } = useQuery({
@@ -125,7 +129,7 @@ export default function DetalheChamado() {
     enabled: !!id,
   });
 
-  const isEditable = ticket?.status === 'aberto' || ticket?.status === 'em_atendimento';
+  const isEditable = (ticket?.status === 'aberto' || ticket?.status === 'em_atendimento') && canEditTicket;
 
   // Fetch all active tags for editing
   const { data: allActiveTags } = useQuery({
@@ -504,6 +508,12 @@ export default function DetalheChamado() {
             <Button variant="default" className="bg-green-600 hover:bg-green-700 text-white" onClick={() => setShowFinalizar(true)}>
               <CheckCircle2 className="mr-2 h-4 w-4" />
               Finalizar Chamado
+            </Button>
+          )}
+          {ticket.status === 'resolvido' && canEditFinalized('chamados') && (
+            <Button variant="ghost" size="sm" className="text-amber-600 hover:text-amber-700">
+              <Pencil className="h-3.5 w-3.5 mr-1" />
+              Editar finalizado
             </Button>
           )}
           <Button variant="outline" onClick={() => setShowPartsPanel(true)}>

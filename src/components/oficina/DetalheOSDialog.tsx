@@ -16,6 +16,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { MotorSection } from './MotorSection';
+import { useMenuPermissions } from '@/hooks/useMenuPermissions';
 
 interface TimeEntryWithUser {
   id: string;
@@ -125,6 +126,8 @@ async function recalcTotalFromEntries(workOrderId: string): Promise<number> {
 export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: DetalheOSDialogProps) {
   const { user, role } = useAuth();
   const isAdmin = role === 'admin';
+  const { canEdit: canEditMenu } = useMenuPermissions();
+  const canEditOS = canEditMenu('oficina_os') || canEditMenu('oficina');
   const queryClient = useQueryClient();
   const [elapsedTime, setElapsedTime] = useState(workOrder.total_time_seconds);
   const [currentSessionTime, setCurrentSessionTime] = useState(0);
@@ -1305,14 +1308,20 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
                   <Label htmlFor="completion-notes" className="text-sm text-muted-foreground">
                     Observações (opcional)
                   </Label>
-                  <Textarea
-                    id="completion-notes"
-                    placeholder="Observações sobre a manutenção..."
-                    value={completionNotes}
-                    onChange={(e) => setCompletionNotes(e.target.value)}
-                    className="min-h-[60px] text-sm"
-                    rows={2}
-                  />
+                  {canEditOS ? (
+                    <Textarea
+                      id="completion-notes"
+                      placeholder="Observações sobre a manutenção..."
+                      value={completionNotes}
+                      onChange={(e) => setCompletionNotes(e.target.value)}
+                      className="min-h-[60px] text-sm"
+                      rows={2}
+                    />
+                  ) : (
+                    <p className="text-sm text-muted-foreground italic">
+                      {completionNotes || 'Sem permissão para editar observações.'}
+                    </p>
+                  )}
                 </div>
                 <Button
                   className="w-full"
