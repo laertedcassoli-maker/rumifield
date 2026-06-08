@@ -23,7 +23,10 @@ import {
   Wrench,
   Share2,
   Link2,
-  Download
+  Download,
+  Pencil,
+  X as XIcon,
+  Save
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
