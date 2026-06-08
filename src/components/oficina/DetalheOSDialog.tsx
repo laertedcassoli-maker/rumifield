@@ -126,6 +126,8 @@ async function recalcTotalFromEntries(workOrderId: string): Promise<number> {
 export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: DetalheOSDialogProps) {
   const { user, role } = useAuth();
   const isAdmin = role === 'admin';
+  const { canEdit: canEditMenu } = useMenuPermissions();
+  const canEditOS = canEditMenu('oficina_os') || canEditMenu('oficina');
   const queryClient = useQueryClient();
   const [elapsedTime, setElapsedTime] = useState(workOrder.total_time_seconds);
   const [currentSessionTime, setCurrentSessionTime] = useState(0);
