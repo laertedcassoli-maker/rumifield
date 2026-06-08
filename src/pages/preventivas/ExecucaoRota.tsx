@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -21,8 +21,20 @@ import {
   Link2,
   Download,
   XCircle,
-  WifiOff
+  WifiOff,
+  Trash2
 } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { useMenuPermissions } from '@/hooks/useMenuPermissions';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
@@ -93,11 +105,15 @@ function getAttendanceStatus(item: RouteItem): AttendanceStatus {
 
 export default function ExecucaoRota() {
   const { id } = useParams<{ id: string }>();
+  const navigate = useNavigate();
   const { user, role } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { canDelete } = useMenuPermissions();
+  const canDeleteRoute = canDelete('minhas_rotas_listagem');
   const [checkinItem, setCheckinItem] = useState<RouteItem | null>(null);
   const [cancelItem, setCancelItem] = useState<RouteItem | null>(null);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   const isAdminOrCoordinator = role === 'admin' || role === 'coordenador_servicos';
 
@@ -338,6 +354,23 @@ export default function ExecucaoRota() {
   };
 
   // Cancel visit mutation
+  const deleteRouteMutation = useMutation({
+    mutationFn: async () => {
+      if (!id) throw new Error('ID da rota inválido');
+      const { error } = await supabase.from('preventive_routes').delete().eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({ title: 'Rota excluída', description: 'A rota foi removida com sucesso.' });
+      queryClient.invalidateQueries({ queryKey: ['my-preventive-routes'] });
+      setShowDeleteDialog(false);
+      navigate('/preventivas/minhas-rotas');
+    },
+    onError: (err: Error) => {
+      toast({ title: 'Erro ao excluir rota', description: err.message, variant: 'destructive' });
+    },
+  });
+
   const cancelMutation = useMutation({
     mutationFn: async ({ itemId, clientId, justification }: { itemId: string; clientId: string; justification: string }) => {
       // 1. ALWAYS save locally first (instant)
@@ -509,6 +542,17 @@ export default function ExecucaoRota() {
               </span>
             </div>
           </div>
+          {canDeleteRoute && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="shrink-0 text-destructive hover:text-destructive border-destructive/40 hover:bg-destructive/10"
+              onClick={() => setShowDeleteDialog(true)}
+            >
+              <Trash2 className="h-4 w-4 mr-1.5" />
+              Excluir Rota
+            </Button>
+          )}
         </div>
       </div>
 
@@ -775,6 +819,30 @@ export default function ExecucaoRota() {
         onConfirm={handleCancelConfirm}
         isLoading={cancelMutation.isPending}
       />
+
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir rota {route?.route_code}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteRouteMutation.isPending}
+              onClick={(e) => {
+                e.preventDefault();
+                deleteRouteMutation.mutate();
+              }}
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

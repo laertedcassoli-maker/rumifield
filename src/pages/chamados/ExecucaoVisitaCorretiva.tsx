@@ -26,7 +26,8 @@ import {
   Download,
   Pencil,
   X as XIcon,
-  Save
+  Save,
+  Trash2
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -75,6 +76,7 @@ export default function ExecucaoVisitaCorretiva() {
   const [solenoideModelo, setSolenoideModelo] = useState<'2x' | '3x' | null>(null);
   const [isEditMode, setIsEditMode] = useState(false);
   const [showExitEditDialog, setShowExitEditDialog] = useState(false);
+  const [showDeleteVisitDialog, setShowDeleteVisitDialog] = useState(false);
 
   // Bug #4: Reactive online state
   const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -712,7 +714,8 @@ export default function ExecucaoVisitaCorretiva() {
   const canAccess = isAdminOrCoordinator || visit?.field_technician_user_id === user?.id;
   const isVisitCompleted = visit?.status === 'finalizada' || !!completedResult;
   const canEditCompletedFn = useCanEditCompletedChecklist();
-  const { canEditFinalized } = useMenuPermissions();
+  const { canEditFinalized, canDelete } = useMenuPermissions();
+  const canDeleteVisit = canDelete('chamados_detalhe') || canDelete('chamados');
   const canEditFinalizedVisit =
     canEditCompletedFn
     || canEditFinalized('chamados_detalhe')
@@ -926,6 +929,31 @@ export default function ExecucaoVisitaCorretiva() {
     setShowResultDialog(true);
   };
 
+  const deleteVisitMutation = useMutation({
+    mutationFn: async () => {
+      if (!visitId) throw new Error('ID da visita inválido');
+      const { error } = await supabase.from('ticket_visits').delete().eq('id', visitId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({ title: 'Visita excluída', description: 'A visita foi removida com sucesso.' });
+      queryClient.invalidateQueries({ queryKey: ['my-corrective-visits'] });
+      if (visit?.ticket_id) {
+        queryClient.invalidateQueries({ queryKey: ['ticket-timeline', visit.ticket_id] });
+        queryClient.invalidateQueries({ queryKey: ['ticket', visit.ticket_id] });
+      }
+      setShowDeleteVisitDialog(false);
+      if (visit?.ticket_id) {
+        navigate(`/chamados/${visit.ticket_id}`);
+      } else {
+        navigate('/preventivas/minhas-rotas');
+      }
+    },
+    onError: (err: Error) => {
+      toast({ title: 'Erro ao excluir visita', description: err.message, variant: 'destructive' });
+    },
+  });
+
   if (isLoading) {
     return (
       <div className="flex justify-center py-12">
@@ -991,6 +1019,17 @@ export default function ExecucaoVisitaCorretiva() {
               >
                 <Pencil className="h-3.5 w-3.5 mr-1.5" />
                 Editar Visita
+              </Button>
+            )}
+            {canDeleteVisit && !isEditMode && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-destructive hover:text-destructive border-destructive/40 hover:bg-destructive/10"
+                onClick={() => setShowDeleteVisitDialog(true)}
+              >
+                <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+                Excluir Visita
               </Button>
             )}
           </div>
@@ -1487,6 +1526,30 @@ export default function ExecucaoVisitaCorretiva() {
               toast({ title: 'Edição concluída', description: 'A visita voltou ao modo somente leitura.' });
             }}>
               Confirmar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={showDeleteVisitDialog} onOpenChange={setShowDeleteVisitDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir esta visita corretiva?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteVisitMutation.isPending}
+              onClick={(e) => {
+                e.preventDefault();
+                deleteVisitMutation.mutate();
+              }}
+            >
+              Excluir
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

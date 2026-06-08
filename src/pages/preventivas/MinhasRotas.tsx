@@ -1,6 +1,18 @@
 import { useState, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useMenuPermissions } from '@/hooks/useMenuPermissions';
+import { toast } from 'sonner';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -19,7 +31,8 @@ import {
   AlertTriangle,
   Wrench,
   Plus,
-  WifiOff
+  WifiOff,
+  Trash2
 } from 'lucide-react';
 import NovaVisitaDiretaDialog from '@/components/chamados/NovaVisitaDiretaDialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -119,6 +132,44 @@ export default function MinhasRotas() {
   const [showNovaVisita, setShowNovaVisita] = useState(false);
 
   const isAdminOrCoordinator = role === 'admin' || role === 'coordenador_servicos';
+  const { canDelete } = useMenuPermissions();
+  const canDeleteRoute = canDelete('minhas_rotas_listagem');
+  const queryClient = useQueryClient();
+  const [deleteTarget, setDeleteTarget] = useState<
+    { type: 'route'; id: string; label: string }
+    | { type: 'visit'; id: string; label: string }
+    | null
+  >(null);
+
+  const deleteRouteMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('preventive_routes').delete().eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success('Rota excluída com sucesso');
+      queryClient.invalidateQueries({ queryKey: ['my-preventive-routes'] });
+      setDeleteTarget(null);
+    },
+    onError: (err: Error) => {
+      toast.error('Erro ao excluir rota', { description: err.message });
+    },
+  });
+
+  const deleteVisitMutation = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from('ticket_visits').delete().eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success('Visita excluída com sucesso');
+      queryClient.invalidateQueries({ queryKey: ['my-corrective-visits'] });
+      setDeleteTarget(null);
+    },
+    onError: (err: Error) => {
+      toast.error('Erro ao excluir visita', { description: err.message });
+    },
+  });
 
   // Piracicaba/SP coordinates as default origin
   const DEFAULT_ORIGIN = { lat: -22.7249, lon: -47.6476, name: 'Piracicaba/SP' };
@@ -526,7 +577,21 @@ export default function MinhasRotas() {
   const renderPreventiveCard = (route: PreventiveRoute) => {
     const progress = getProgressPercentage(route.executed_farms, route.total_farms);
     return (
-      <Card key={route.id} className="overflow-hidden active:scale-[0.98] transition-transform">
+      <Card key={route.id} className="overflow-hidden active:scale-[0.98] transition-transform relative">
+        {canDeleteRoute && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="absolute top-2 right-2 z-10 h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setDeleteTarget({ type: 'route', id: route.id, label: route.code });
+            }}
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        )}
         <Link to={`/preventivas/execucao/${route.id}`} className="block">
           <CardContent className="p-4">
             {/* Header row */}
@@ -608,7 +673,21 @@ export default function MinhasRotas() {
 
   const renderCorrectiveCard = (visit: CorrectiveVisit) => {
     return (
-      <Card key={visit.id} className="overflow-hidden active:scale-[0.98] transition-transform">
+      <Card key={visit.id} className="overflow-hidden active:scale-[0.98] transition-transform relative">
+        {canDeleteRoute && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="absolute top-2 right-2 z-10 h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setDeleteTarget({ type: 'visit', id: visit.id, label: visit.code });
+            }}
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        )}
         <Link to={`/chamados/visita/${visit.id}`} className="block">
           <CardContent className="p-4">
             {/* Header row */}
@@ -874,6 +953,41 @@ export default function MinhasRotas() {
           open={showNovaVisita} 
           onOpenChange={setShowNovaVisita} 
         />
+
+        <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                {deleteTarget?.type === 'route'
+                  ? `Excluir rota ${deleteTarget.label}?`
+                  : 'Excluir visita corretiva?'}
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                {deleteTarget?.type === 'route'
+                  ? 'Esta ação não pode ser desfeita. Todos os dados da rota serão removidos.'
+                  : 'Esta ação não pode ser desfeita.'}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                disabled={deleteRouteMutation.isPending || deleteVisitMutation.isPending}
+                onClick={(e) => {
+                  e.preventDefault();
+                  if (!deleteTarget) return;
+                  if (deleteTarget.type === 'route') {
+                    deleteRouteMutation.mutate(deleteTarget.id);
+                  } else {
+                    deleteVisitMutation.mutate(deleteTarget.id);
+                  }
+                }}
+              >
+                Excluir
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </TooltipProvider>
   );
