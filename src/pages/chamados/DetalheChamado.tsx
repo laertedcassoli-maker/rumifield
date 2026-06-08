@@ -171,6 +171,26 @@ export default function DetalheChamado() {
     },
   });
 
+  // Update finalized ticket mutation
+  const updateFinalizedTicket = useMutation({
+    mutationFn: async ({ description, resolution_summary }: { description: string; resolution_summary: string }) => {
+      const { error } = await supabase
+        .from('technical_tickets')
+        .update({ description, resolution_summary })
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ticket-detail', id] });
+      queryClient.invalidateQueries({ queryKey: ['technical-tickets'] });
+      setEditingFinalized(false);
+      toast({ title: 'Chamado atualizado!' });
+    },
+    onError: (err: Error) => {
+      toast({ variant: 'destructive', title: 'Erro ao salvar', description: err.message });
+    },
+  });
+
   // Update priority mutation
   const updatePriority = useMutation({
     mutationFn: async (newPriority: string) => {
