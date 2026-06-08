@@ -591,7 +591,7 @@ export default function DetalheRota() {
 
   const executedCount = route.items.filter((i: any) => i.status === 'executado').length;
   const totalCount = route.items.length;
-  const isEditable = route.status === 'em_elaboracao' && isAdminOrCoordinator;
+  const isEditable = route.status === 'em_elaboracao' && isAdminOrCoordinator && canEditRoute;
 
   return (
     <div className="space-y-6 animate-fade-in">
