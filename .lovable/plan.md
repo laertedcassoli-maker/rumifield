@@ -1,28 +1,41 @@
-## Objetivo
+## Exclusão de Visitas Preventivas e Corretivas
 
-Em `src/pages/preventivas/DetalheRota.tsx`, gatear os botões existentes de editar e excluir rota pelas permissões dinâmicas de `minhas_rotas_listagem`, seguindo o padrão de `src/pages/chamados/DetalheChamado.tsx`.
+Adicionar exclusão (com confirmação) em 3 páginas, guardada por `canDelete` de `useMenuPermissions`.
 
-## Mudanças em `src/pages/preventivas/DetalheRota.tsx`
+### 1. `src/pages/preventivas/MinhasRotas.tsx`
+- Importar `useMenuPermissions`, `Trash2`, componentes `AlertDialog*`, `useMutation`, `supabase`, `toast`.
+- Derivar `canDeleteRoute = canDelete('minhas_rotas_listagem')`.
+- Estado local `deleteTarget: { type: 'route'|'visit'; id: string; label: string } | null`.
+- Duas mutations:
+  - `deleteRouteMutation`: `DELETE FROM preventive_routes WHERE id=...`, invalida `['my-preventive-routes']`.
+  - `deleteVisitMutation`: `DELETE FROM ticket_visits WHERE id=...`, invalida `['my-corrective-visits']`.
+- `renderPreventiveCard`: dentro do card, ao lado do conteúdo do `<Link>`, adicionar botão fora do Link (wrapper `relative` no card; botão `absolute top-2 right-2` `variant="ghost"` `size="icon"` `text-destructive hover:text-destructive`) com `Trash2`. `onClick` faz `preventDefault/stopPropagation` e seta `deleteTarget` com o `route_code`. Só renderiza se `canDeleteRoute`.
+- `renderCorrectiveCard`: idem, seta `deleteTarget` tipo `visit`.
+- Um único `AlertDialog` no final controlado por `deleteTarget`:
+  - Preventiva: título `Excluir rota {label}?`, desc "Esta ação não pode ser desfeita. Todos os dados da rota serão removidos."
+  - Corretiva: título `Excluir visita corretiva?`, desc "Esta ação não pode ser desfeita."
+  - `AlertDialogAction` chama a mutation correspondente; toast de sucesso/erro.
 
-1. **Importar o hook** `useMenuPermissions` (caminho `@/hooks/useMenuPermissions`).
+### 2. `src/pages/preventivas/ExecucaoRota.tsx`
+- Importar `useMenuPermissions`, `useNavigate`, `Trash2`, `AlertDialog*`, `useMutation`, `supabase`, `toast`.
+- `canDeleteRoute = canDelete('minhas_rotas_listagem')`.
+- No cabeçalho de ações da página, adicionar botão "Excluir Rota" (`Trash2`, `variant="outline"` com `text-destructive`) visível só se `canDeleteRoute`.
+- Estado `showDeleteDialog`; `AlertDialog` com título `Excluir rota {route_code}?` e desc "Esta ação não pode ser desfeita."
+- Confirmar → `DELETE FROM preventive_routes WHERE id=:id` (do `useParams`); em sucesso: toast + `navigate('/minhas-rotas')`.
 
-2. **Dentro do componente**, logo após os hooks existentes, adicionar:
-   ```ts
-   const { canEdit, canDelete } = useMenuPermissions();
-   const canEditRoute = canEdit('minhas_rotas_listagem');
-   const canDeleteRoute = canDelete('minhas_rotas_listagem');
-   ```
+### 3. `src/pages/chamados/ExecucaoVisitaCorretiva.tsx`
+- `useMenuPermissions` já importado. Adicionar `canDeleteVisit = canDelete('chamados_detalhe') || canDelete('chamados')`.
+- No cabeçalho, ao lado do botão "Editar Visita", adicionar botão "Excluir Visita" (`Trash2`) condicional a `canDeleteVisit`.
+- Estado `showDeleteDialog`; `AlertDialog` com título "Excluir esta visita corretiva?" e desc "Esta ação não pode ser desfeita."
+- Confirmar → `DELETE FROM ticket_visits WHERE id=:id`. Em sucesso: toast + `navigate` para o chamado pai (usar `ticket_id` já carregado na página, ex.: `/chamados/{ticketId}`).
 
-3. **Gatear edição** (linha 589) — manter a regra de status `em_elaboracao` e a regra de papel, e adicionar `canEditRoute`:
-   ```ts
-   const isEditable = route.status === 'em_elaboracao' && isAdminOrCoordinator && canEditRoute;
-   ```
-   Isso já oculta/desabilita automaticamente toda a UI de edição existente que depende de `isEditable` (adicionar fazendas, remover itens, trocar template, etc., nas linhas 666, 724, 794, 818, 832, 838, 844, 884).
+### Regras gerais
+- Botão de exclusão é ocultado (não desabilitado) quando sem permissão.
+- Cascade do banco cuida das dependências em `preventive_routes` e `ticket_visits`.
+- Tratamento de erro: toast com mensagem do Supabase; fechar dialog em sucesso.
+- Sem mudanças em lógica de execução/edição existente.
 
-4. **Gatear o botão excluir** (linhas 636–656) — envolver o `<AlertDialog>` da lixeira numa condicional `canDeleteRoute &&`, mantendo também o gate atual `isAdminOrCoordinator`. Resultado: o botão `Trash2` só aparece quando `isAdminOrCoordinator && canDeleteRoute`.
-
-## Fora do escopo
-
-- Nenhum botão novo será criado.
-- `MinhasRotas.tsx` não será alterado (não possui ações de editar/excluir).
-- Botões de transição de status (Finalizar Planejamento / Iniciar Execução / Finalizar Rota) permanecem inalterados — não são "editar" nem "excluir".
+### Arquivos editados
+- `src/pages/preventivas/MinhasRotas.tsx`
+- `src/pages/preventivas/ExecucaoRota.tsx`
+- `src/pages/chamados/ExecucaoVisitaCorretiva.tsx`
