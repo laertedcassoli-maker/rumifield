@@ -108,7 +108,10 @@ export default function DetalheChamado() {
     }
   }, [location.state]);
 
+  const { canEdit, canDelete, canEditFinalized } = useMenuPermissions();
   const isAdminOrCoordinator = role === 'admin' || role === 'coordenador_servicos';
+  const canEditTicket = canEdit('chamados_detalhe') || canEdit('chamados');
+  const canDeleteTicket = canDelete('chamados_detalhe') || canDelete('chamados');
 
   // Fetch ticket details
   const { data: ticket, isLoading } = useQuery({
