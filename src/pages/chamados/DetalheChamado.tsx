@@ -537,12 +537,6 @@ export default function DetalheChamado() {
               Finalizar Chamado
             </Button>
           )}
-          {ticket.status === 'resolvido' && canEditFinalized('chamados') && (
-            <Button variant="ghost" size="sm" className="text-amber-600 hover:text-amber-700">
-              <Pencil className="h-3.5 w-3.5 mr-1" />
-              Editar finalizado
-            </Button>
-          )}
           <Button variant="outline" onClick={() => setShowPartsPanel(true)}>
             <ShoppingCart className="mr-2 h-4 w-4" />
             Solicitar Peças
