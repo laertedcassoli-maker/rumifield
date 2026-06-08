@@ -100,6 +100,9 @@ export default function DetalheChamado() {
   const [editingPriority, setEditingPriority] = useState(false);
   const [editingTags, setEditingTags] = useState(false);
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+  const [editingFinalized, setEditingFinalized] = useState(false);
+  const [editFinalizedDescription, setEditFinalizedDescription] = useState('');
+  const [editFinalizedResolution, setEditFinalizedResolution] = useState('');
 
   useEffect(() => {
     if (location.state?.openVisita) {
@@ -112,6 +115,8 @@ export default function DetalheChamado() {
   const isAdminOrCoordinator = role === 'admin' || role === 'coordenador_servicos';
   const canEditTicket = canEdit('chamados_detalhe') || canEdit('chamados');
   const canDeleteTicket = canDelete('chamados_detalhe') || canDelete('chamados');
+  const canEditFinalizedTicket = canEditFinalized('chamados_detalhe') || canEditFinalized('chamados');
+
 
   // Fetch ticket details
   const { data: ticket, isLoading } = useQuery({
@@ -130,6 +135,8 @@ export default function DetalheChamado() {
   });
 
   const isEditable = (ticket?.status === 'aberto' || ticket?.status === 'em_atendimento') && canEditTicket;
+  const isFinalizedEditable = ticket?.status === 'resolvido' && canEditFinalizedTicket;
+
 
   // Fetch all active tags for editing
   const { data: allActiveTags } = useQuery({
@@ -161,6 +168,26 @@ export default function DetalheChamado() {
       queryClient.invalidateQueries({ queryKey: ['technical-tickets'] });
       setEditingDescription(false);
       toast({ title: 'Descrição atualizada!' });
+    },
+  });
+
+  // Update finalized ticket mutation
+  const updateFinalizedTicket = useMutation({
+    mutationFn: async ({ description, resolution_summary }: { description: string; resolution_summary: string }) => {
+      const { error } = await supabase
+        .from('technical_tickets')
+        .update({ description, resolution_summary })
+        .eq('id', id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ticket-detail', id] });
+      queryClient.invalidateQueries({ queryKey: ['technical-tickets'] });
+      setEditingFinalized(false);
+      toast({ title: 'Chamado atualizado!' });
+    },
+    onError: (err: Error) => {
+      toast({ variant: 'destructive', title: 'Erro ao salvar', description: err.message });
     },
   });
 
@@ -510,12 +537,6 @@ export default function DetalheChamado() {
               Finalizar Chamado
             </Button>
           )}
-          {ticket.status === 'resolvido' && canEditFinalized('chamados') && (
-            <Button variant="ghost" size="sm" className="text-amber-600 hover:text-amber-700">
-              <Pencil className="h-3.5 w-3.5 mr-1" />
-              Editar finalizado
-            </Button>
-          )}
           <Button variant="outline" onClick={() => setShowPartsPanel(true)}>
             <ShoppingCart className="mr-2 h-4 w-4" />
             Solicitar Peças
@@ -577,6 +598,70 @@ export default function DetalheChamado() {
               ) : (
                 <p className="text-sm text-muted-foreground italic">Sem descrição detalhada.</p>
               )}
+
+              {ticket.status === 'resolvido' && ticket.resolution_summary && !editingFinalized && (
+                <div className="pt-3 border-t">
+                  <p className="text-xs font-medium text-muted-foreground mb-1">Resumo da resolução</p>
+                  <p className="text-sm whitespace-pre-wrap">{ticket.resolution_summary}</p>
+                </div>
+              )}
+
+              {isFinalizedEditable && !editingFinalized && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="mt-2 text-amber-600 border-amber-300 hover:bg-amber-50"
+                  onClick={() => {
+                    setEditFinalizedDescription(ticket.description || '');
+                    setEditFinalizedResolution(ticket.resolution_summary || '');
+                    setEditingFinalized(true);
+                  }}
+                >
+                  <Pencil className="h-3.5 w-3.5 mr-1" />
+                  Editar chamado finalizado
+                </Button>
+              )}
+
+              {editingFinalized && (
+                <div className="space-y-3 mt-3 p-3 border border-amber-200 rounded-lg bg-amber-50/50">
+                  <p className="text-xs font-medium text-amber-700">⚠️ Editando chamado finalizado</p>
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-muted-foreground">Descrição</label>
+                    <Textarea
+                      value={editFinalizedDescription}
+                      onChange={(e) => setEditFinalizedDescription(e.target.value)}
+                      rows={3}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="text-xs font-medium text-muted-foreground">Resumo da resolução</label>
+                    <Textarea
+                      value={editFinalizedResolution}
+                      onChange={(e) => setEditFinalizedResolution(e.target.value)}
+                      rows={2}
+                    />
+                  </div>
+                  <div className="flex gap-2 justify-end">
+                    <Button variant="ghost" size="sm" onClick={() => setEditingFinalized(false)}>
+                      <X className="mr-1 h-3.5 w-3.5" /> Cancelar
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={() => updateFinalizedTicket.mutate({
+                        description: editFinalizedDescription,
+                        resolution_summary: editFinalizedResolution,
+                      })}
+                      disabled={updateFinalizedTicket.isPending}
+                    >
+                      {updateFinalizedTicket.isPending
+                        ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                        : <Check className="mr-1 h-3.5 w-3.5" />}
+                      Salvar
+                    </Button>
+                  </div>
+                </div>
+              )}
+
             </CardContent>
           </Card>
 

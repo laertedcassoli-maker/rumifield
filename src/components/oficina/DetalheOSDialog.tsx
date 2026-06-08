@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import { Play, Square, Plus, Trash2, Clock, Package, CheckCircle, Wrench, ChevronDown, ChevronRight, History, Search, Pencil } from 'lucide-react';
+import { Play, Square, Plus, Trash2, Clock, Package, CheckCircle, Wrench, ChevronDown, ChevronRight, History, Search, Pencil, Check, X, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -147,6 +147,8 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
   const [motorCodeConfirm, setMotorCodeConfirm] = useState('');
   const [motorCodeConfirmError, setMotorCodeConfirmError] = useState(false);
   const [completionNotes, setCompletionNotes] = useState('');
+  const [editingNotes, setEditingNotes] = useState(false);
+  const [editNotes, setEditNotes] = useState('');
 
   // FIX 4: Ref to protect localTotalSeconds from stale refetch after Stop
   const recentlyStoppedRef = useRef(false);
@@ -407,6 +409,26 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
   }, [effectiveTimeEntry?.id, effectiveTimeEntry?.status, localTotalSeconds]);
 
   // Start timer mutation
+  // Update notes for concluded OS
+  const updateOSNotes = useMutation({
+    mutationFn: async (notes: string) => {
+      const { error } = await supabase
+        .from('work_orders')
+        .update({ notes: notes.trim() || null })
+        .eq('id', workOrder.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['work-orders'] });
+      setEditingNotes(false);
+      onUpdate();
+      toast.success('Observações atualizadas!');
+    },
+    onError: (e: Error) => {
+      toast.error(e.message);
+    },
+  });
+
   const startTimerMutation = useMutation({
     mutationFn: async (entryMeterHours?: number) => {
       if (!user?.id) throw new Error('Usuário não autenticado');
@@ -1288,14 +1310,54 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
 
             {/* Observações - for completed OS */}
             {workOrder.status === 'concluido' && (
-              <div className="p-3 border rounded-lg bg-card space-y-1">
-                <p className="text-sm font-semibold flex items-center gap-2">
-                  <Pencil className="h-4 w-4" />
-                  Observações
-                </p>
-                <p className="text-sm whitespace-pre-wrap text-muted-foreground italic">
-                  {workOrder.notes || 'Nenhuma observação registrada'}
-                </p>
+              <div className="p-3 border rounded-lg bg-card space-y-2">
+                <div className="flex items-center justify-between">
+                  <p className="text-sm font-semibold flex items-center gap-2">
+                    <Pencil className="h-4 w-4" />
+                    Observações
+                  </p>
+                  {canEditOS && !editingNotes && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7"
+                      onClick={() => {
+                        setEditNotes(workOrder.notes || '');
+                        setEditingNotes(true);
+                      }}
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                  )}
+                </div>
+                {editingNotes ? (
+                  <div className="space-y-2">
+                    <Textarea
+                      value={editNotes}
+                      onChange={(e) => setEditNotes(e.target.value)}
+                      rows={3}
+                    />
+                    <div className="flex gap-2 justify-end">
+                      <Button variant="ghost" size="sm" onClick={() => setEditingNotes(false)}>
+                        <X className="mr-1 h-3.5 w-3.5" /> Cancelar
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={() => updateOSNotes.mutate(editNotes)}
+                        disabled={updateOSNotes.isPending}
+                      >
+                        {updateOSNotes.isPending
+                          ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
+                          : <Check className="mr-1 h-3.5 w-3.5" />}
+                        Salvar
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-sm whitespace-pre-wrap text-muted-foreground italic">
+                    {workOrder.notes || 'Nenhuma observação registrada'}
+                  </p>
+                )}
               </div>
             )}
 
