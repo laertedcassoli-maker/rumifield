@@ -135,6 +135,8 @@ export default function DetalheChamado() {
   });
 
   const isEditable = (ticket?.status === 'aberto' || ticket?.status === 'em_atendimento') && canEditTicket;
+  const isFinalizedEditable = ticket?.status === 'resolvido' && canEditFinalizedTicket;
+
 
   // Fetch all active tags for editing
   const { data: allActiveTags } = useQuery({
