@@ -409,6 +409,26 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
   }, [effectiveTimeEntry?.id, effectiveTimeEntry?.status, localTotalSeconds]);
 
   // Start timer mutation
+  // Update notes for concluded OS
+  const updateOSNotes = useMutation({
+    mutationFn: async (notes: string) => {
+      const { error } = await supabase
+        .from('work_orders')
+        .update({ notes: notes.trim() || null })
+        .eq('id', workOrder.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['work-orders'] });
+      setEditingNotes(false);
+      onUpdate();
+      toast.success('Observações atualizadas!');
+    },
+    onError: (e: Error) => {
+      toast.error(e.message);
+    },
+  });
+
   const startTimerMutation = useMutation({
     mutationFn: async (entryMeterHours?: number) => {
       if (!user?.id) throw new Error('Usuário não autenticado');
