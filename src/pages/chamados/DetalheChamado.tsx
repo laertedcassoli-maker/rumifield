@@ -100,6 +100,9 @@ export default function DetalheChamado() {
   const [editingPriority, setEditingPriority] = useState(false);
   const [editingTags, setEditingTags] = useState(false);
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+  const [editingFinalized, setEditingFinalized] = useState(false);
+  const [editFinalizedDescription, setEditFinalizedDescription] = useState('');
+  const [editFinalizedResolution, setEditFinalizedResolution] = useState('');
 
   useEffect(() => {
     if (location.state?.openVisita) {
@@ -112,6 +115,8 @@ export default function DetalheChamado() {
   const isAdminOrCoordinator = role === 'admin' || role === 'coordenador_servicos';
   const canEditTicket = canEdit('chamados_detalhe') || canEdit('chamados');
   const canDeleteTicket = canDelete('chamados_detalhe') || canDelete('chamados');
+  const canEditFinalizedTicket = canEditFinalized('chamados_detalhe') || canEditFinalized('chamados');
+
 
   // Fetch ticket details
   const { data: ticket, isLoading } = useQuery({
