@@ -953,6 +953,41 @@ export default function MinhasRotas() {
           open={showNovaVisita} 
           onOpenChange={setShowNovaVisita} 
         />
+
+        <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>
+                {deleteTarget?.type === 'route'
+                  ? `Excluir rota ${deleteTarget.label}?`
+                  : 'Excluir visita corretiva?'}
+              </AlertDialogTitle>
+              <AlertDialogDescription>
+                {deleteTarget?.type === 'route'
+                  ? 'Esta ação não pode ser desfeita. Todos os dados da rota serão removidos.'
+                  : 'Esta ação não pode ser desfeita.'}
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancelar</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                disabled={deleteRouteMutation.isPending || deleteVisitMutation.isPending}
+                onClick={(e) => {
+                  e.preventDefault();
+                  if (!deleteTarget) return;
+                  if (deleteTarget.type === 'route') {
+                    deleteRouteMutation.mutate(deleteTarget.id);
+                  } else {
+                    deleteVisitMutation.mutate(deleteTarget.id);
+                  }
+                }}
+              >
+                Excluir
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     </TooltipProvider>
   );
