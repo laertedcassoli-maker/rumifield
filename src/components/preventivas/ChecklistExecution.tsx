@@ -23,6 +23,9 @@ interface ChecklistExecutionProps {
   preventiveId: string;
   routeTemplateId?: string;
   onStatusChange?: (status: 'not_started' | 'in_progress' | 'completed') => void;
+  /** When true, forces the checklist into read-only mode regardless of edit permissions.
+   *  Used by parent pages that gate completed-visit editing behind an explicit "Edit" toggle. */
+  forceReadOnly?: boolean;
 }
 
 interface AvailableAction {
