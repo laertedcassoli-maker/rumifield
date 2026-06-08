@@ -577,9 +577,22 @@ export default function MinhasRotas() {
   const renderPreventiveCard = (route: PreventiveRoute) => {
     const progress = getProgressPercentage(route.executed_farms, route.total_farms);
     return (
-      <Card key={route.id} className="overflow-hidden active:scale-[0.98] transition-transform">
+      <Card key={route.id} className="overflow-hidden active:scale-[0.98] transition-transform relative">
+        {canDeleteRoute && (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="absolute top-2 right-2 z-10 h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              setDeleteTarget({ type: 'route', id: route.id, label: route.code });
+            }}
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        )}
         <Link to={`/preventivas/execucao/${route.id}`} className="block">
-          <CardContent className="p-4">
             {/* Header row */}
             <div className="flex items-start justify-between gap-2 mb-3">
               <div className="min-w-0 flex-1">
