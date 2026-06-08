@@ -17,6 +17,7 @@ import SelectableOptionCard from "./SelectableOptionCard";
 import ChecklistBlockNav from "./ChecklistBlockNav";
 import ChecklistItemNotes from "./ChecklistItemNotes";
 import { useCanEditCompletedChecklist } from "@/hooks/useCanEditCompletedChecklist";
+import { useMenuPermissions } from "@/hooks/useMenuPermissions";
 
 interface ChecklistExecutionProps {
   preventiveId: string;
@@ -63,7 +64,11 @@ type ChecklistStatus = 'em_andamento' | 'concluido';
 
 export default function ChecklistExecution({ preventiveId, routeTemplateId, onStatusChange }: ChecklistExecutionProps) {
   const { user } = useAuth();
-  const canEditCompleted = useCanEditCompletedChecklist();
+  const canEditCompletedFn = useCanEditCompletedChecklist();
+  const { canEditFinalized } = useMenuPermissions();
+  const canEditCompleted = canEditCompletedFn
+    || canEditFinalized('minhas_rotas')
+    || canEditFinalized('preventivas');
   const queryClient = useQueryClient();
   const [isSelectTemplateOpen, setIsSelectTemplateOpen] = useState(false);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
