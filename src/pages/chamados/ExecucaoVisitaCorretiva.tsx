@@ -983,9 +983,53 @@ export default function ExecucaoVisitaCorretiva() {
                 Encerrada
               </Badge>
             )}
+            {isVisitCompleted && canEditFinalizedVisit && !isEditMode && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setIsEditMode(true)}
+              >
+                <Pencil className="h-3.5 w-3.5 mr-1.5" />
+                Editar Visita
+              </Button>
+            )}
           </div>
         </div>
       </div>
+
+      {/* Edit mode banner */}
+      {isVisitCompleted && isEditMode && (
+        <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 flex items-center justify-between gap-3">
+          <div className="flex items-start gap-2 min-w-0">
+            <Pencil className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+            <div className="min-w-0">
+              <p className="text-sm font-semibold text-amber-700 dark:text-amber-400">
+                Modo edição ativo
+              </p>
+              <p className="text-xs text-amber-700/90 dark:text-amber-400/90">
+                Alterações são salvas automaticamente. Clique em "Concluir edição" ao terminar.
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-2 shrink-0">
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setIsEditMode(false)}
+            >
+              <XIcon className="h-3.5 w-3.5 mr-1.5" />
+              Cancelar
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => setShowExitEditDialog(true)}
+            >
+              <Save className="h-3.5 w-3.5 mr-1.5" />
+              Concluir edição
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Info Card */}
       <Card>
