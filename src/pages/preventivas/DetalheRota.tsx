@@ -90,6 +90,10 @@ export default function DetalheRota() {
   const [showFarmSelection, setShowFarmSelection] = useState(false);
 
   const isAdminOrCoordinator = role === 'admin' || role === 'coordenador_servicos';
+  const { canEdit, canDelete } = useMenuPermissions();
+  const canEditRoute = canEdit('minhas_rotas_listagem');
+  const canDeleteRoute = canDelete('minhas_rotas_listagem');
+
 
   // Fetch route details
   const { data: route, isLoading } = useQuery({
