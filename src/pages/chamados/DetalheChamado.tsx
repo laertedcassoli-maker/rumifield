@@ -129,7 +129,7 @@ export default function DetalheChamado() {
     enabled: !!id,
   });
 
-  const isEditable = ticket?.status === 'aberto' || ticket?.status === 'em_atendimento';
+  const isEditable = (ticket?.status === 'aberto' || ticket?.status === 'em_atendimento') && canEditTicket;
 
   // Fetch all active tags for editing
   const { data: allActiveTags } = useQuery({
