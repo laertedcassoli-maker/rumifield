@@ -1531,6 +1531,30 @@ export default function ExecucaoVisitaCorretiva() {
         </AlertDialogContent>
       </AlertDialog>
 
+      <AlertDialog open={showDeleteVisitDialog} onOpenChange={setShowDeleteVisitDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir esta visita corretiva?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteVisitMutation.isPending}
+              onClick={(e) => {
+                e.preventDefault();
+                deleteVisitMutation.mutate();
+              }}
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
     </div>
   );
 }
