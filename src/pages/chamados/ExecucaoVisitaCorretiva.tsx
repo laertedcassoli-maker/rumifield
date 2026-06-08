@@ -1021,6 +1021,17 @@ export default function ExecucaoVisitaCorretiva() {
                 Editar Visita
               </Button>
             )}
+            {canDeleteVisit && !isEditMode && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="text-destructive hover:text-destructive border-destructive/40 hover:bg-destructive/10"
+                onClick={() => setShowDeleteVisitDialog(true)}
+              >
+                <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+                Excluir Visita
+              </Button>
+            )}
           </div>
         </div>
       </div>
