@@ -505,9 +505,16 @@ export default function DetalheChamado() {
         
         <div className="flex gap-2">
           {ticket.status !== 'resolvido' && ticket.status !== 'cancelado' && (
+          {ticket.status !== 'resolvido' && ticket.status !== 'cancelado' && (
             <Button variant="default" className="bg-green-600 hover:bg-green-700 text-white" onClick={() => setShowFinalizar(true)}>
               <CheckCircle2 className="mr-2 h-4 w-4" />
               Finalizar Chamado
+            </Button>
+          )}
+          {ticket.status === 'resolvido' && canEditFinalized('chamados') && (
+            <Button variant="ghost" size="sm" className="text-amber-600 hover:text-amber-700">
+              <Pencil className="h-3.5 w-3.5 mr-1" />
+              Editar finalizado
             </Button>
           )}
           <Button variant="outline" onClick={() => setShowPartsPanel(true)}>
