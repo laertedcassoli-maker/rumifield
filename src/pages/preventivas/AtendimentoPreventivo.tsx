@@ -65,9 +65,17 @@ export default function AtendimentoPreventivo() {
   const [solenoideModelo, setSolenoideModelo] = useState<'2x' | '3x' | null>(null);
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
   const [checklistStatus, setChecklistStatus] = useState<'not_started' | 'in_progress' | 'completed'>('not_started');
-  
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [showExitEditDialog, setShowExitEditDialog] = useState(false);
 
   const isAdminOrCoordinator = role === 'admin' || role === 'coordenador_servicos';
+  const canEditCompletedFn = useCanEditCompletedChecklist();
+  const { canEditFinalized } = useMenuPermissions();
+  const canEditFinalizedVisit =
+    canEditCompletedFn
+    || canEditFinalized('minhas_rotas_listagem')
+    || canEditFinalized('minhas_rotas')
+    || canEditFinalized('preventivas');
 
   // Fetch route item details
   const { data: routeItem, isLoading, error, refetch } = useQuery({
