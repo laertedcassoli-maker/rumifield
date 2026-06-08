@@ -106,14 +106,14 @@ export default function AdminPermissoes() {
   });
 
   const updatePermission = useMutation({
-    mutationFn: async ({ id, can_access }: { id: string; can_access: boolean }) => {
-      // @ts-ignore - Table not yet in types
+    mutationFn: async ({ id, field, value }: { id: string; field: string; value: boolean }) => {
       const { error } = await supabase
         .from('role_menu_permissions')
-        .update({ can_access })
+        .update({ [field]: value })
         .eq('id', id);
       if (error) throw error;
     },
+
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['role-menu-permissions'] });
       queryClient.invalidateQueries({ queryKey: ['user-menu-permissions'] });
