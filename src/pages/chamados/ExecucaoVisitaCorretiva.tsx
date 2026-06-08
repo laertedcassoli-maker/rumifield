@@ -1116,6 +1116,7 @@ export default function ExecucaoVisitaCorretiva() {
             <ChecklistExecution 
               preventiveId={visit.preventiveId}
               routeTemplateId={visit.checklist_template_id || undefined}
+              forceReadOnly={effectiveCompleted}
               onStatusChange={(status) => {
                 setChecklistStatus(status);
                 if (status === 'completed') {
