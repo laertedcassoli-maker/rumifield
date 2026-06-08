@@ -64,7 +64,25 @@ interface Permission {
   menu_label: string;
   menu_group: string;
   can_access: boolean;
+  can_edit: boolean;
+  can_delete: boolean;
+  can_edit_finalized: boolean;
 }
+
+const groupActionColumns: Record<string, Array<{ key: keyof Permission; label: string }>> = {
+  chamados: [
+    { key: 'can_edit', label: 'Editar' },
+    { key: 'can_delete', label: 'Excluir' },
+    { key: 'can_edit_finalized', label: 'Ed. Finalizado' },
+  ],
+  principal: [
+    { key: 'can_edit_finalized', label: 'Ed. Finalizado' },
+  ],
+  oficina: [
+    { key: 'can_edit', label: 'Editar' },
+  ],
+};
+
 
 export default function AdminPermissoes() {
   const { role: currentUserRole } = useAuth();
@@ -88,14 +106,14 @@ export default function AdminPermissoes() {
   });
 
   const updatePermission = useMutation({
-    mutationFn: async ({ id, can_access }: { id: string; can_access: boolean }) => {
-      // @ts-ignore - Table not yet in types
+    mutationFn: async ({ id, field, value }: { id: string; field: string; value: boolean }) => {
       const { error } = await supabase
         .from('role_menu_permissions')
-        .update({ can_access })
+        .update({ [field]: value })
         .eq('id', id);
       if (error) throw error;
     },
+
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['role-menu-permissions'] });
       queryClient.invalidateQueries({ queryKey: ['user-menu-permissions'] });
@@ -138,8 +156,9 @@ export default function AdminPermissoes() {
       toast({ variant: 'destructive', title: 'Apenas admins podem alterar permissões de admin' });
       return;
     }
-    updatePermission.mutate({ id: permission.id, can_access: !permission.can_access });
+    updatePermission.mutate({ id: permission.id, field: 'can_access', value: !permission.can_access });
   };
+
 
   const toggleGroup = (group: string) => {
     setOpenGroups(prev => ({ ...prev, [group]: !prev[group] }));
@@ -262,7 +281,10 @@ export default function AdminPermissoes() {
                             <TableHeader>
                               <TableRow>
                                 <TableHead>Menu</TableHead>
-                                <TableHead className="w-24 text-center">Acesso</TableHead>
+                                <TableHead className="w-20 text-center">Acesso</TableHead>
+                                {(groupActionColumns[group] || []).map(col => (
+                                  <TableHead key={col.key} className="w-28 text-center">{col.label}</TableHead>
+                                ))}
                               </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -276,10 +298,20 @@ export default function AdminPermissoes() {
                                       disabled={updatePermission.isPending || (role === 'admin' && perm.menu_key === 'admin_permissoes')}
                                     />
                                   </TableCell>
+                                  {(groupActionColumns[group] || []).map(col => (
+                                    <TableCell key={col.key} className="text-center">
+                                      <Switch
+                                        checked={Boolean(perm[col.key])}
+                                        onCheckedChange={(v) => updatePermission.mutate({ id: perm.id, field: col.key as string, value: v })}
+                                        disabled={updatePermission.isPending || !perm.can_access}
+                                      />
+                                    </TableCell>
+                                  ))}
                                 </TableRow>
                               ))}
                             </TableBody>
                           </Table>
+
                         </CardContent>
                       </CollapsibleContent>
                     </Card>
