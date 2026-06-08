@@ -929,6 +929,31 @@ export default function ExecucaoVisitaCorretiva() {
     setShowResultDialog(true);
   };
 
+  const deleteVisitMutation = useMutation({
+    mutationFn: async () => {
+      if (!visitId) throw new Error('ID da visita inválido');
+      const { error } = await supabase.from('ticket_visits').delete().eq('id', visitId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({ title: 'Visita excluída', description: 'A visita foi removida com sucesso.' });
+      queryClient.invalidateQueries({ queryKey: ['my-corrective-visits'] });
+      if (visit?.ticket_id) {
+        queryClient.invalidateQueries({ queryKey: ['ticket-timeline', visit.ticket_id] });
+        queryClient.invalidateQueries({ queryKey: ['ticket', visit.ticket_id] });
+      }
+      setShowDeleteVisitDialog(false);
+      if (visit?.ticket_id) {
+        navigate(`/chamados/${visit.ticket_id}`);
+      } else {
+        navigate('/preventivas/minhas-rotas');
+      }
+    },
+    onError: (err: Error) => {
+      toast({ title: 'Erro ao excluir visita', description: err.message, variant: 'destructive' });
+    },
+  });
+
   if (isLoading) {
     return (
       <div className="flex justify-center py-12">
