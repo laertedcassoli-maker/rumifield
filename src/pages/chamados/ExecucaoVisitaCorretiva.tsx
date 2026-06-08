@@ -714,7 +714,8 @@ export default function ExecucaoVisitaCorretiva() {
   const canAccess = isAdminOrCoordinator || visit?.field_technician_user_id === user?.id;
   const isVisitCompleted = visit?.status === 'finalizada' || !!completedResult;
   const canEditCompletedFn = useCanEditCompletedChecklist();
-  const { canEditFinalized } = useMenuPermissions();
+  const { canEditFinalized, canDelete } = useMenuPermissions();
+  const canDeleteVisit = canDelete('chamados_detalhe') || canDelete('chamados');
   const canEditFinalizedVisit =
     canEditCompletedFn
     || canEditFinalized('chamados_detalhe')
