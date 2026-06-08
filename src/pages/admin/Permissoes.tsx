@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Shield, Loader2, ChevronDown, Home, Beaker, Wrench, Settings, AlertTriangle, BookOpen, Briefcase } from 'lucide-react';
+import { Shield, Loader2, ChevronDown, Home, Beaker, Wrench, Settings, AlertTriangle, BookOpen, Briefcase, Route } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
@@ -43,8 +43,9 @@ const menuGroupConfig: Record<string, { label: string; icon: typeof Home; order:
   crm: { label: 'CRM', icon: Briefcase, order: 2 },
   estoque: { label: 'Estoque Químicos', icon: Beaker, order: 3 },
   oficina: { label: 'Oficina', icon: Wrench, order: 4 },
-  chamados: { label: 'Chamados Técnicos', icon: AlertTriangle, order: 5 },
-  admin: { label: 'Administração', icon: Settings, order: 6 },
+  minhas_rotas: { label: 'Minhas Rotas', icon: Route, order: 5 },
+  chamados: { label: 'Chamados Técnicos', icon: AlertTriangle, order: 6 },
+  admin: { label: 'Administração', icon: Settings, order: 7 },
 };
 
 const roles = [
@@ -71,6 +72,11 @@ interface Permission {
 
 const groupActionColumns: Record<string, Array<{ key: keyof Permission; label: string }>> = {
   chamados: [
+    { key: 'can_edit', label: 'Editar' },
+    { key: 'can_delete', label: 'Excluir' },
+    { key: 'can_edit_finalized', label: 'Ed. Finalizado' },
+  ],
+  minhas_rotas: [
     { key: 'can_edit', label: 'Editar' },
     { key: 'can_delete', label: 'Excluir' },
     { key: 'can_edit_finalized', label: 'Ed. Finalizado' },
