@@ -103,7 +103,13 @@ interface TicketWithDetails {
 const ITEMS_PER_PAGE = 15;
 
 export default function ChamadosIndex() {
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { role, user } = useAuth();
+  const { canEdit, canDelete } = useMenuPermissions();
+  const canEditInList = canEdit('chamados_listagem');
+  const canDeleteInList = canDelete('chamados_listagem');
+  const [deleteTarget, setDeleteTarget] = useState(null);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
