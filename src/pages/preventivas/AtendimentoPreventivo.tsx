@@ -748,6 +748,17 @@ export default function AtendimentoPreventivo() {
                 Editar Visita
               </Button>
             )}
+            {canDeleteVisit && !isEditMode && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-destructive hover:text-destructive"
+                onClick={() => setShowDeleteDialog(true)}
+              >
+                <Trash2 className="h-4 w-4 mr-1.5" />
+                Excluir
+              </Button>
+            )}
           </div>
         </div>
       </div>
@@ -1113,6 +1124,27 @@ export default function AtendimentoPreventivo() {
               toast({ title: 'Edição concluída', description: 'A visita voltou ao modo somente leitura.' });
             }}>
               Confirmar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir esta visita preventiva?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação não pode ser desfeita. Os dados da visita serão removidos permanentemente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive hover:bg-destructive/90"
+              onClick={() => deleteVisitMutation.mutate()}
+              disabled={deleteVisitMutation.isPending}
+            >
+              {deleteVisitMutation.isPending ? 'Excluindo...' : 'Excluir'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
