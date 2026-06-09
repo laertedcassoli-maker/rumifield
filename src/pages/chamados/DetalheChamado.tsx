@@ -763,7 +763,7 @@ export default function DetalheChamado() {
                               </div>
                               <div className="flex justify-end mt-2">
                                 <Button variant="ghost" size="sm" asChild>
-                                  <Link to={`/chamados/visita/${entry.visit_data.id}`}>
+                                  <Link to={`/chamados/visita/${entry.visit_data.id}`} state={{ permissionContext: 'chamados' }}>
                                     <Eye className="mr-1 h-3.5 w-3.5" />
                                     Ver detalhes
                                   </Link>
