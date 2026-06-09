@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -106,11 +106,13 @@ function getAttendanceStatus(item: RouteItem): AttendanceStatus {
 export default function ExecucaoRota() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { state } = useLocation();
+  const permissionContext = (state as { permissionContext?: string } | null)?.permissionContext ?? 'minhas_rotas_listagem';
   const { user, role } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { canDelete } = useMenuPermissions();
-  const canDeleteRoute = canDelete('minhas_rotas_listagem');
+  const canDeleteRoute = canDelete(permissionContext);
   const [checkinItem, setCheckinItem] = useState<RouteItem | null>(null);
   const [cancelItem, setCancelItem] = useState<RouteItem | null>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);

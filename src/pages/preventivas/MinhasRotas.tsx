@@ -592,7 +592,7 @@ export default function MinhasRotas() {
             <Trash2 className="h-4 w-4" />
           </Button>
         )}
-        <Link to={`/preventivas/execucao/${route.id}`} className="block">
+        <Link to={`/preventivas/execucao/${route.id}`} state={{ permissionContext: 'minhas_rotas_listagem' }} className="block">
           <CardContent className={`p-4 ${canDeleteRoute ? 'pr-10' : ''}`}>
             {/* Header row */}
             <div className="flex items-start justify-between gap-2 mb-3">
@@ -688,7 +688,7 @@ export default function MinhasRotas() {
             <Trash2 className="h-4 w-4" />
           </Button>
         )}
-        <Link to={`/chamados/visita/${visit.id}`} className="block">
+        <Link to={`/chamados/visita/${visit.id}`} state={{ permissionContext: 'minhas_rotas_listagem' }} className="block">
           <CardContent className={`p-4 ${canDeleteRoute ? 'pr-10' : ''}`}>
             {/* Header row */}
             <div className="flex items-start justify-between gap-2 mb-3">

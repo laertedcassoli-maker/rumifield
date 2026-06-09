@@ -355,7 +355,7 @@ export default function AtendimentoPreventivo() {
         title: 'Visita encerrada!',
         description: 'A fazenda foi marcada como executada.',
       });
-      navigate(`/preventivas/execucao/${routeId}`);
+      navigate(`/preventivas/execucao/${routeId}`, { state: { permissionContext: 'minhas_rotas_listagem' } });
     },
     onError: (error: Error) => {
       toast({
@@ -670,7 +670,7 @@ export default function AtendimentoPreventivo() {
         <AlertCircle className="mx-auto h-10 w-10 text-destructive" />
         <h2 className="mt-3 font-semibold">Atendimento não encontrado</h2>
         <Button asChild className="mt-4" size="sm">
-          <Link to={`/preventivas/execucao/${routeId}`}>Voltar</Link>
+          <Link to={`/preventivas/execucao/${routeId}`} state={{ permissionContext: 'minhas_rotas_listagem' }}>Voltar</Link>
         </Button>
       </div>
     );
@@ -698,7 +698,7 @@ export default function AtendimentoPreventivo() {
       <div className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 py-2 -mx-4 px-4 sm:-mx-6 sm:px-6">
         <div className="flex items-center justify-between">
           <Button variant="ghost" size="sm" asChild className="-ml-2">
-            <Link to={`/preventivas/execucao/${routeId}`}>
+            <Link to={`/preventivas/execucao/${routeId}`} state={{ permissionContext: 'minhas_rotas_listagem' }}>
               <ArrowLeft className="h-4 w-4 mr-1" />
               Voltar
             </Link>

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -59,6 +59,8 @@ interface ValidationResult {
 export default function ExecucaoVisitaCorretiva() {
   const { visitId } = useParams<{ visitId: string }>();
   const navigate = useNavigate();
+  const { state: locationState } = useLocation();
+  const permissionContext = (locationState as { permissionContext?: string } | null)?.permissionContext ?? 'chamados';
   const { user, role } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -715,7 +717,7 @@ export default function ExecucaoVisitaCorretiva() {
   const isVisitCompleted = visit?.status === 'finalizada' || !!completedResult;
   const canEditCompletedFn = useCanEditCompletedChecklist();
   const { canEditFinalized, canDelete } = useMenuPermissions();
-  const canDeleteVisit = canDelete('chamados_detalhe') || canDelete('chamados');
+  const canDeleteVisit = canDelete(permissionContext);
   const canEditFinalizedVisit =
     canEditCompletedFn
     || canEditFinalized('chamados_detalhe')
