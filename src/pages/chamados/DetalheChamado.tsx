@@ -986,44 +986,28 @@ export default function DetalheChamado() {
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm font-medium">Tags</span>
-                  {isEditable && !editingTags && (
-                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => {
-                      setSelectedTagIds(ticketTags?.map((t: any) => t.id) || []);
-                      setEditingTags(true);
-                    }}>
-                      <Pencil className="h-3.5 w-3.5" />
-                    </Button>
-                  )}
                 </div>
-                {editingTags ? (
-                  <div className="space-y-2">
-                    <div className="space-y-1.5 max-h-40 overflow-y-auto">
-                      {allActiveTags?.map(tag => (
-                        <label key={tag.id} className="flex items-center gap-2 cursor-pointer">
-                          <Checkbox
-                            checked={selectedTagIds.includes(tag.id)}
-                            onCheckedChange={(checked) => {
-                              setSelectedTagIds(prev =>
-                                checked ? [...prev, tag.id] : prev.filter(id => id !== tag.id)
-                              );
-                            }}
-                          />
-                          <Badge variant="outline" className="text-xs" style={{ borderColor: tag.color, color: tag.color }}>
-                            {tag.name}
-                          </Badge>
-                        </label>
-                      ))}
-                      {!allActiveTags?.length && <p className="text-xs text-muted-foreground">Nenhuma tag ativa.</p>}
-                    </div>
-                    <div className="flex gap-2 justify-end">
-                      <Button variant="ghost" size="sm" onClick={() => setEditingTags(false)}>
-                        <X className="mr-1 h-3.5 w-3.5" /> Cancelar
-                      </Button>
-                      <Button size="sm" onClick={() => updateTags.mutate(selectedTagIds)} disabled={updateTags.isPending}>
-                        {updateTags.isPending ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <Check className="mr-1 h-3.5 w-3.5" />}
-                        Salvar
-                      </Button>
-                    </div>
+                {isEditMode ? (
+                  <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                    {allActiveTags?.map(tag => (
+                      <label key={tag.id} className="flex items-center gap-2 cursor-pointer">
+                        <Checkbox
+                          checked={editValues?.tagIds.includes(tag.id) ?? false}
+                          onCheckedChange={(checked) => {
+                            setEditValues(v => v && ({
+                              ...v,
+                              tagIds: checked
+                                ? [...v.tagIds, tag.id]
+                                : v.tagIds.filter(id => id !== tag.id),
+                            }));
+                          }}
+                        />
+                        <Badge variant="outline" className="text-xs" style={{ borderColor: tag.color, color: tag.color }}>
+                          {tag.name}
+                        </Badge>
+                      </label>
+                    ))}
+                    {!allActiveTags?.length && <p className="text-xs text-muted-foreground">Nenhuma tag ativa.</p>}
                   </div>
                 ) : ticketTags && ticketTags.length > 0 ? (
                   <div className="flex flex-wrap gap-1">
@@ -1042,16 +1026,11 @@ export default function DetalheChamado() {
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm font-medium">Prioridade</span>
-                  {isEditable && !editingPriority && (
-                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setEditingPriority(true)}>
-                      <Pencil className="h-3.5 w-3.5" />
-                    </Button>
-                  )}
                 </div>
-                {editingPriority ? (
+                {isEditMode ? (
                   <Select
-                    value={ticket.priority}
-                    onValueChange={(v) => updatePriority.mutate(v)}
+                    value={editValues?.priority ?? 'media'}
+                    onValueChange={(v) => setEditValues(prev => prev && ({ ...prev, priority: v }))}
                   >
                     <SelectTrigger className="h-8">
                       <SelectValue />
@@ -1079,23 +1058,42 @@ export default function DetalheChamado() {
               {isAdminOrCoordinator && (
                 <div>
                   <div className="text-sm font-medium mb-2">Técnico de Campo</div>
-                  <Select 
-                    value={ticket.assigned_technician_id || ''} 
-                    onValueChange={(v) => updateTechnician.mutate(v)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione um técnico" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {availableTechnicians?.map(tech => (
-                        <SelectItem key={tech.id} value={tech.id}>
-                          {tech.nome}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  {isEditMode && ticketIsActive ? (
+                    <Select
+                      value={editValues?.assignedTechnicianId || ''}
+                      onValueChange={(v) => setEditValues(prev => prev && ({ ...prev, assignedTechnicianId: v || null }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione um técnico" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableTechnicians?.map(tech => (
+                          <SelectItem key={tech.id} value={tech.id}>
+                            {tech.nome}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <Select
+                      value={ticket.assigned_technician_id || ''}
+                      onValueChange={(v) => updateTechnician.mutate(v)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione um técnico" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableTechnicians?.map(tech => (
+                          <SelectItem key={tech.id} value={tech.id}>
+                            {tech.nome}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
               )}
+
 
               {!isAdminOrCoordinator && technician && (
                 <div>
