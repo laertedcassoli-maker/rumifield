@@ -1,45 +1,25 @@
 ## Objetivo
-Propagar `permissionContext` via router `state` para que `ExecucaoRota` (preventiva) e `ExecucaoVisitaCorretiva` (corretiva) avaliem a permissão de exclusão segundo o módulo de origem.
+Propagar `permissionContext` do `ExecucaoRota` para `AtendimentoPreventivo` e adicionar exclusão de visita preventiva (item de rota) em `AtendimentoPreventivo`, respeitando o módulo de origem.
 
 ## Mudanças
 
-### 1. `src/pages/preventivas/MinhasRotas.tsx`
-- Card preventivo (linha 595): adicionar `state={{ permissionContext: 'minhas_rotas_listagem' }}` no `<Link to={`/preventivas/execucao/${route.id}`}>`.
-- Card corretivo (linha ~691): adicionar `state={{ permissionContext: 'minhas_rotas_listagem' }}` no `<Link to={`/chamados/visita/${visit.id}`}>`.
+### 1. `src/pages/preventivas/ExecucaoRota.tsx`
+Nos `<Link>` para `/preventivas/execucao/${id}/atendimento/${item.id}` (linhas ~688 e ~699 — incluindo o "Ver resumo"), adicionar `state={{ permissionContext }}` para propagar o contexto já lido via `useLocation`.
 
 ### 2. `src/pages/preventivas/AtendimentoPreventivo.tsx`
-- Linha 358 — `navigate(`/preventivas/execucao/${routeId}`, { state: { permissionContext: 'minhas_rotas_listagem' } });`
-- Linhas 673 e 701 — adicionar `state={{ permissionContext: 'minhas_rotas_listagem' }}` aos dois `<Link>`.
-
-### 3. `src/pages/chamados/DetalheChamado.tsx`
-- Linha ~766 — adicionar `state={{ permissionContext: 'chamados' }}` ao `<Link to={`/chamados/visita/${entry.visit_data.id}`}>`.
-
-### 4. `src/pages/preventivas/ExecucaoRota.tsx`
-- Linha 2 — adicionar `useLocation` ao import.
-- Após `const navigate = useNavigate();` (linha 108):
+- Import: adicionar `useLocation` ao import de `react-router-dom`; adicionar `Trash2` ao import de `lucide-react`; adicionar (se não houver) imports de `AlertDialog`, `AlertDialogAction`, `AlertDialogCancel`, `AlertDialogContent`, `AlertDialogDescription`, `AlertDialogFooter`, `AlertDialogHeader`, `AlertDialogTitle` de `@/components/ui/alert-dialog`.
+- Após o uso existente de `useMenuPermissions`, adicionar:
   ```tsx
   const { state } = useLocation();
   const permissionContext = (state as { permissionContext?: string } | null)?.permissionContext ?? 'minhas_rotas_listagem';
+  const { canDelete } = useMenuPermissions();
+  const canDeleteVisit = canDelete(permissionContext);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   ```
-- Linha 113 — substituir por `const canDeleteRoute = canDelete(permissionContext);`.
-
-### 5. `src/pages/chamados/ExecucaoVisitaCorretiva.tsx`
-- Linha 2 — adicionar `useLocation` ao import.
-- Após `const navigate = useNavigate();` (linha 61):
-  ```tsx
-  const { state } = useLocation();
-  const permissionContext = (state as { permissionContext?: string } | null)?.permissionContext ?? 'chamados';
-  ```
-- Linha 718 — substituir por `const canDeleteVisit = canDelete(permissionContext);`.
-
-## Resultado
-| Origem | Destino | permissionContext |
-|---|---|---|
-| MinhasRotas | ExecucaoRota | `minhas_rotas_listagem` |
-| AtendimentoPreventivo | ExecucaoRota | `minhas_rotas_listagem` |
-| MinhasRotas | ExecucaoVisitaCorretiva | `minhas_rotas_listagem` |
-| DetalheChamado | ExecucaoVisitaCorretiva | `chamados` |
-| URL direta | qualquer | fallback do módulo |
+- Adicionar mutation `deleteVisitMutation` que deleta de `preventive_route_items` por `itemId`; em `onSuccess`, toast + `navigate(`/preventivas/execucao/${routeId}`, { state: { permissionContext } })`.
+- No cabeçalho da página (sticky header onde já está o "Voltar"), adicionar botão `Excluir` (`variant="ghost"`, `size="sm"`, classe `text-destructive hover:text-destructive`) visível apenas se `canDeleteVisit`.
+- Adicionar `AlertDialog` de confirmação com título "Excluir esta visita preventiva?" e botão destrutivo chamando `deleteVisitMutation.mutate()`.
 
 ## Restrições
-Nenhuma outra lógica é alterada (apenas o cálculo de `canDeleteRoute`/`canDeleteVisit` e o `state` dos links/navigate).
+- Não alterar nenhuma outra lógica da página.
+- Permissão controlada pelo módulo de origem; URL direta cai no fallback `minhas_rotas_listagem`.
