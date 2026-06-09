@@ -72,13 +72,9 @@ export default function AtendimentoPreventivo() {
   const isAdminOrCoordinator = role === 'admin' || role === 'coordenador_servicos';
   const canEditCompletedFn = useCanEditCompletedChecklist();
   const { canEditFinalized, canDelete } = useMenuPermissions();
-  const canEditFinalizedVisit =
-    canEditCompletedFn
-    || canEditFinalized('minhas_rotas_listagem')
-    || canEditFinalized('minhas_rotas')
-    || canEditFinalized('preventivas');
   const { state: locationState } = useLocation();
   const permissionContext = (locationState as { permissionContext?: string } | null)?.permissionContext ?? 'minhas_rotas_listagem';
+  const canEditFinalizedVisit = canEditFinalized(permissionContext);
   const canDeleteVisit = canDelete(permissionContext);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 

@@ -718,13 +718,7 @@ export default function ExecucaoVisitaCorretiva() {
   const canEditCompletedFn = useCanEditCompletedChecklist();
   const { canEditFinalized, canDelete } = useMenuPermissions();
   const canDeleteVisit = canDelete(permissionContext);
-  const canEditFinalizedVisit =
-    canEditCompletedFn
-    || canEditFinalized('chamados_detalhe')
-    || canEditFinalized('chamados')
-    || canEditFinalized('minhas_rotas')
-    || canEditFinalized('minhas_rotas_listagem')
-    || canEditFinalized('preventivas');
+  const canEditFinalizedVisit = canEditFinalized(permissionContext);
   // Option C: completed visit is read-only by default; "Edit" button opts in
   const effectiveCompleted = isVisitCompleted && !isEditMode;
   const hasCheckedIn = !!visit?.checkin_at;
