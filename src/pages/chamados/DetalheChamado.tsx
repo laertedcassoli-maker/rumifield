@@ -610,6 +610,12 @@ export default function DetalheChamado() {
         </div>
         
         <div className="flex gap-2">
+          {canEnterEditMode && !isEditMode && (
+            <Button variant="outline" size="sm" onClick={enterEditMode}>
+              <Pencil className="h-3.5 w-3.5 mr-1.5" />
+              Editar Chamado
+            </Button>
+          )}
           {ticket.status !== 'resolvido' && ticket.status !== 'cancelado' && (
             <Button variant="default" className="bg-green-600 hover:bg-green-700 text-white" onClick={() => setShowFinalizar(true)}>
               <CheckCircle2 className="mr-2 h-4 w-4" />
@@ -636,6 +642,31 @@ export default function DetalheChamado() {
         updatedAt={ticket.updated_at}
         resolvedAt={ticket.resolved_at}
       />
+
+      {isEditMode && (
+        <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 flex items-center justify-between gap-3">
+          <div className="flex items-start gap-2 min-w-0">
+            <Pencil className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-semibold text-amber-700 dark:text-amber-400">Modo edição ativo</p>
+              <p className="text-xs text-amber-700/90 dark:text-amber-400/90">
+                Edite os campos abaixo. As alterações só serão salvas ao clicar em "Salvar alterações".
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-2 shrink-0">
+            <Button size="sm" variant="ghost"
+              onClick={() => { setIsEditMode(false); setEditValues(null); }}>
+              <X className="h-3.5 w-3.5 mr-1.5" /> Cancelar
+            </Button>
+            <Button size="sm" onClick={() => saveEditMutation.mutate()} disabled={saveEditMutation.isPending}>
+              <Save className="h-3.5 w-3.5 mr-1.5" />
+              {saveEditMutation.isPending ? 'Salvando...' : 'Salvar alterações'}
+            </Button>
+          </div>
+        </div>
+      )}
+
 
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Main Content */}
