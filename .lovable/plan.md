@@ -1,41 +1,45 @@
-## Exclusão de Visitas Preventivas e Corretivas
+## Objetivo
+Propagar `permissionContext` via router `state` para que `ExecucaoRota` (preventiva) e `ExecucaoVisitaCorretiva` (corretiva) avaliem a permissão de exclusão segundo o módulo de origem.
 
-Adicionar exclusão (com confirmação) em 3 páginas, guardada por `canDelete` de `useMenuPermissions`.
+## Mudanças
 
 ### 1. `src/pages/preventivas/MinhasRotas.tsx`
-- Importar `useMenuPermissions`, `Trash2`, componentes `AlertDialog*`, `useMutation`, `supabase`, `toast`.
-- Derivar `canDeleteRoute = canDelete('minhas_rotas_listagem')`.
-- Estado local `deleteTarget: { type: 'route'|'visit'; id: string; label: string } | null`.
-- Duas mutations:
-  - `deleteRouteMutation`: `DELETE FROM preventive_routes WHERE id=...`, invalida `['my-preventive-routes']`.
-  - `deleteVisitMutation`: `DELETE FROM ticket_visits WHERE id=...`, invalida `['my-corrective-visits']`.
-- `renderPreventiveCard`: dentro do card, ao lado do conteúdo do `<Link>`, adicionar botão fora do Link (wrapper `relative` no card; botão `absolute top-2 right-2` `variant="ghost"` `size="icon"` `text-destructive hover:text-destructive`) com `Trash2`. `onClick` faz `preventDefault/stopPropagation` e seta `deleteTarget` com o `route_code`. Só renderiza se `canDeleteRoute`.
-- `renderCorrectiveCard`: idem, seta `deleteTarget` tipo `visit`.
-- Um único `AlertDialog` no final controlado por `deleteTarget`:
-  - Preventiva: título `Excluir rota {label}?`, desc "Esta ação não pode ser desfeita. Todos os dados da rota serão removidos."
-  - Corretiva: título `Excluir visita corretiva?`, desc "Esta ação não pode ser desfeita."
-  - `AlertDialogAction` chama a mutation correspondente; toast de sucesso/erro.
+- Card preventivo (linha 595): adicionar `state={{ permissionContext: 'minhas_rotas_listagem' }}` no `<Link to={`/preventivas/execucao/${route.id}`}>`.
+- Card corretivo (linha ~691): adicionar `state={{ permissionContext: 'minhas_rotas_listagem' }}` no `<Link to={`/chamados/visita/${visit.id}`}>`.
 
-### 2. `src/pages/preventivas/ExecucaoRota.tsx`
-- Importar `useMenuPermissions`, `useNavigate`, `Trash2`, `AlertDialog*`, `useMutation`, `supabase`, `toast`.
-- `canDeleteRoute = canDelete('minhas_rotas_listagem')`.
-- No cabeçalho de ações da página, adicionar botão "Excluir Rota" (`Trash2`, `variant="outline"` com `text-destructive`) visível só se `canDeleteRoute`.
-- Estado `showDeleteDialog`; `AlertDialog` com título `Excluir rota {route_code}?` e desc "Esta ação não pode ser desfeita."
-- Confirmar → `DELETE FROM preventive_routes WHERE id=:id` (do `useParams`); em sucesso: toast + `navigate('/minhas-rotas')`.
+### 2. `src/pages/preventivas/AtendimentoPreventivo.tsx`
+- Linha 358 — `navigate(`/preventivas/execucao/${routeId}`, { state: { permissionContext: 'minhas_rotas_listagem' } });`
+- Linhas 673 e 701 — adicionar `state={{ permissionContext: 'minhas_rotas_listagem' }}` aos dois `<Link>`.
 
-### 3. `src/pages/chamados/ExecucaoVisitaCorretiva.tsx`
-- `useMenuPermissions` já importado. Adicionar `canDeleteVisit = canDelete('chamados_detalhe') || canDelete('chamados')`.
-- No cabeçalho, ao lado do botão "Editar Visita", adicionar botão "Excluir Visita" (`Trash2`) condicional a `canDeleteVisit`.
-- Estado `showDeleteDialog`; `AlertDialog` com título "Excluir esta visita corretiva?" e desc "Esta ação não pode ser desfeita."
-- Confirmar → `DELETE FROM ticket_visits WHERE id=:id`. Em sucesso: toast + `navigate` para o chamado pai (usar `ticket_id` já carregado na página, ex.: `/chamados/{ticketId}`).
+### 3. `src/pages/chamados/DetalheChamado.tsx`
+- Linha ~766 — adicionar `state={{ permissionContext: 'chamados' }}` ao `<Link to={`/chamados/visita/${entry.visit_data.id}`}>`.
 
-### Regras gerais
-- Botão de exclusão é ocultado (não desabilitado) quando sem permissão.
-- Cascade do banco cuida das dependências em `preventive_routes` e `ticket_visits`.
-- Tratamento de erro: toast com mensagem do Supabase; fechar dialog em sucesso.
-- Sem mudanças em lógica de execução/edição existente.
+### 4. `src/pages/preventivas/ExecucaoRota.tsx`
+- Linha 2 — adicionar `useLocation` ao import.
+- Após `const navigate = useNavigate();` (linha 108):
+  ```tsx
+  const { state } = useLocation();
+  const permissionContext = (state as { permissionContext?: string } | null)?.permissionContext ?? 'minhas_rotas_listagem';
+  ```
+- Linha 113 — substituir por `const canDeleteRoute = canDelete(permissionContext);`.
 
-### Arquivos editados
-- `src/pages/preventivas/MinhasRotas.tsx`
-- `src/pages/preventivas/ExecucaoRota.tsx`
-- `src/pages/chamados/ExecucaoVisitaCorretiva.tsx`
+### 5. `src/pages/chamados/ExecucaoVisitaCorretiva.tsx`
+- Linha 2 — adicionar `useLocation` ao import.
+- Após `const navigate = useNavigate();` (linha 61):
+  ```tsx
+  const { state } = useLocation();
+  const permissionContext = (state as { permissionContext?: string } | null)?.permissionContext ?? 'chamados';
+  ```
+- Linha 718 — substituir por `const canDeleteVisit = canDelete(permissionContext);`.
+
+## Resultado
+| Origem | Destino | permissionContext |
+|---|---|---|
+| MinhasRotas | ExecucaoRota | `minhas_rotas_listagem` |
+| AtendimentoPreventivo | ExecucaoRota | `minhas_rotas_listagem` |
+| MinhasRotas | ExecucaoVisitaCorretiva | `minhas_rotas_listagem` |
+| DetalheChamado | ExecucaoVisitaCorretiva | `chamados` |
+| URL direta | qualquer | fallback do módulo |
+
+## Restrições
+Nenhuma outra lógica é alterada (apenas o cálculo de `canDeleteRoute`/`canDeleteVisit` e o `state` dos links/navigate).
