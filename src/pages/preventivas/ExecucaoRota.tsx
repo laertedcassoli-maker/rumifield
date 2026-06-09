@@ -688,6 +688,7 @@ export default function ExecucaoRota() {
                   {attendanceStatus === 'em_atendimento' && (
                     <Link
                       to={`/preventivas/execucao/${id}/atendimento/${item.id}`}
+                      state={{ permissionContext }}
                       className="flex-1 flex items-center justify-center gap-2 py-3 text-sm font-medium text-warning hover:bg-warning/5 active:bg-warning/10 transition-colors"
                     >
                       <Play className="h-4 w-4" />
@@ -699,6 +700,7 @@ export default function ExecucaoRota() {
                     <>
                       <Link
                         to={`/preventivas/execucao/${id}/atendimento/${item.id}`}
+                        state={{ permissionContext }}
                         className="flex-1 flex items-center justify-center gap-2 py-3 text-sm text-muted-foreground hover:bg-muted/50 active:bg-muted transition-colors"
                       >
                         <Eye className="h-4 w-4" />
