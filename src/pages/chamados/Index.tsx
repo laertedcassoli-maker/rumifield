@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent } from '@/components/ui/card';
@@ -20,6 +20,8 @@ import {
   Loader2, 
   Plus,
   Eye,
+  Pencil,
+  Trash2,
   Ticket,
   AlertTriangle,
   Clock,
@@ -34,7 +36,19 @@ import {
 } from 'lucide-react';
 import { format, differenceInHours } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
+import { useMenuPermissions } from '@/hooks/useMenuPermissions';
+import { toast } from 'sonner';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 // Helper function to calculate duration in hours
 const calculateDuration = (createdAt: string, resolvedAt?: string | null): number => {
@@ -89,7 +103,13 @@ interface TicketWithDetails {
 const ITEMS_PER_PAGE = 15;
 
 export default function ChamadosIndex() {
+  const navigate = useNavigate();
+  const queryClient = useQueryClient();
   const { role, user } = useAuth();
+  const { canEdit, canDelete } = useMenuPermissions();
+  const canEditInList = canEdit('chamados_listagem');
+  const canDeleteInList = canDelete('chamados_listagem');
+  const [deleteTarget, setDeleteTarget] = useState(null);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
@@ -178,6 +198,23 @@ export default function ChamadosIndex() {
     refetchOnMount: 'always',
     refetchOnWindowFocus: true,
   });
+
+  const deleteTicketMutation = useMutation({
+    mutationFn: async (ticketId: string) => {
+      const { error } = await supabase.from('technical_tickets').delete().eq('id', ticketId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['technical-tickets'] });
+      setDeleteTarget(null);
+      toast.success('Chamado excluído com sucesso');
+    },
+    onError: (err: Error) => {
+      toast.error('Erro ao excluir', { description: err.message });
+    },
+  });
+
+
 
 
   // Filter and paginate
@@ -434,6 +471,16 @@ export default function ChamadosIndex() {
                           <Eye className="h-4 w-4" />
                         </Link>
                       </Button>
+                      {canEditInList && (
+                        <Button variant="ghost" size="sm" onClick={() => navigate(`/chamados/${ticket.id}`, { state: { openEdit: true } })}>
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      )}
+                      {canDeleteInList && (
+                        <Button variant="ghost" size="sm" onClick={() => setDeleteTarget(ticket.id)}>
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -493,6 +540,27 @@ export default function ChamadosIndex() {
           </CardContent>
         </Card>
       )}
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir chamado?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação não pode ser desfeita. O chamado e todas as visitas associadas serão excluídos permanentemente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive hover:bg-destructive/90"
+              onClick={() => deleteTarget && deleteTicketMutation.mutate(deleteTarget)}
+              disabled={deleteTicketMutation.isPending}
+            >
+              {deleteTicketMutation.isPending ? 'Excluindo...' : 'Excluir'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
