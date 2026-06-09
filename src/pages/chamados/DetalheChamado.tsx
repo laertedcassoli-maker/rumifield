@@ -105,18 +105,21 @@ export default function DetalheChamado() {
   const [editFinalizedDescription, setEditFinalizedDescription] = useState('');
   const [editFinalizedResolution, setEditFinalizedResolution] = useState('');
 
-  useEffect(() => {
-    if (location.state?.openVisita) {
-      setShowNovaVisita(true);
-      window.history.replaceState({}, document.title);
-    }
-  }, [location.state]);
+  // Unified edit mode
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editValues, setEditValues] = useState<{
+    description: string;
+    priority: string;
+    tagIds: string[];
+    assignedTechnicianId: string | null;
+    resolutionSummary: string;
+  } | null>(null);
 
   const { canEdit, canDelete, canEditFinalized } = useMenuPermissions();
   const isAdminOrCoordinator = role === 'admin' || role === 'coordenador_servicos';
-  const canEditTicket = canEdit('chamados_detalhe') || canEdit('chamados');
-  const canDeleteTicket = canDelete('chamados_detalhe') || canDelete('chamados');
-  const canEditFinalizedTicket = canEditFinalized('chamados_detalhe') || canEditFinalized('chamados');
+  const canEditTicket = canEdit('chamados_listagem');
+  const canDeleteTicket = canDelete('chamados_listagem');
+  const canEditFinalizedTicket = canEditFinalized('chamados_listagem');
 
 
   // Fetch ticket details
