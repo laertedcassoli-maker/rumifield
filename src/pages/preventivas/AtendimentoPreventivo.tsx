@@ -746,13 +746,13 @@ export default function AtendimentoPreventivo() {
             )}
             {canDeleteVisit && !isEditMode && (
               <Button
-                variant="ghost"
                 size="sm"
-                className="text-destructive hover:text-destructive"
+                variant="outline"
+                className="text-destructive hover:text-destructive border-destructive/40 hover:bg-destructive/10"
                 onClick={() => setShowDeleteDialog(true)}
               >
-                <Trash2 className="h-4 w-4 mr-1.5" />
-                Excluir
+                <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+                Excluir Visita
               </Button>
             )}
           </div>
