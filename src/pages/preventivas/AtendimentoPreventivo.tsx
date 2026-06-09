@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -23,7 +23,8 @@ import {
   Download,
   Pencil,
   X as XIcon,
-  Save
+  Save,
+  Trash2
 } from 'lucide-react';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -70,12 +71,16 @@ export default function AtendimentoPreventivo() {
 
   const isAdminOrCoordinator = role === 'admin' || role === 'coordenador_servicos';
   const canEditCompletedFn = useCanEditCompletedChecklist();
-  const { canEditFinalized } = useMenuPermissions();
+  const { canEditFinalized, canDelete } = useMenuPermissions();
   const canEditFinalizedVisit =
     canEditCompletedFn
     || canEditFinalized('minhas_rotas_listagem')
     || canEditFinalized('minhas_rotas')
     || canEditFinalized('preventivas');
+  const { state: locationState } = useLocation();
+  const permissionContext = (locationState as { permissionContext?: string } | null)?.permissionContext ?? 'minhas_rotas_listagem';
+  const canDeleteVisit = canDelete(permissionContext);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   // Fetch route item details
   const { data: routeItem, isLoading, error, refetch } = useQuery({
@@ -355,7 +360,7 @@ export default function AtendimentoPreventivo() {
         title: 'Visita encerrada!',
         description: 'A fazenda foi marcada como executada.',
       });
-      navigate(`/preventivas/execucao/${routeId}`, { state: { permissionContext: 'minhas_rotas_listagem' } });
+      navigate(`/preventivas/execucao/${routeId}`, { state: { permissionContext } });
     },
     onError: (error: Error) => {
       toast({
@@ -363,6 +368,26 @@ export default function AtendimentoPreventivo() {
         description: error.message,
         variant: 'destructive',
       });
+    },
+  });
+
+  // Delete visit (route item) mutation
+  const deleteVisitMutation = useMutation({
+    mutationFn: async () => {
+      const { error } = await supabase
+        .from('preventive_route_items')
+        .delete()
+        .eq('id', itemId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast({ title: 'Visita excluída com sucesso' });
+      queryClient.invalidateQueries({ queryKey: ['route-execution', routeId] });
+      queryClient.invalidateQueries({ queryKey: ['route-execution-items', routeId] });
+      navigate(`/preventivas/execucao/${routeId}`, { state: { permissionContext } });
+    },
+    onError: () => {
+      toast({ variant: 'destructive', title: 'Erro ao excluir visita' });
     },
   });
 
@@ -698,7 +723,7 @@ export default function AtendimentoPreventivo() {
       <div className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 py-2 -mx-4 px-4 sm:-mx-6 sm:px-6">
         <div className="flex items-center justify-between">
           <Button variant="ghost" size="sm" asChild className="-ml-2">
-            <Link to={`/preventivas/execucao/${routeId}`} state={{ permissionContext: 'minhas_rotas_listagem' }}>
+            <Link to={`/preventivas/execucao/${routeId}`} state={{ permissionContext }}>
               <ArrowLeft className="h-4 w-4 mr-1" />
               Voltar
             </Link>
@@ -721,6 +746,17 @@ export default function AtendimentoPreventivo() {
               >
                 <Pencil className="h-3.5 w-3.5 mr-1.5" />
                 Editar Visita
+              </Button>
+            )}
+            {canDeleteVisit && !isEditMode && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-destructive hover:text-destructive"
+                onClick={() => setShowDeleteDialog(true)}
+              >
+                <Trash2 className="h-4 w-4 mr-1.5" />
+                Excluir
               </Button>
             )}
           </div>
@@ -1088,6 +1124,27 @@ export default function AtendimentoPreventivo() {
               toast({ title: 'Edição concluída', description: 'A visita voltou ao modo somente leitura.' });
             }}>
               Confirmar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir esta visita preventiva?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação não pode ser desfeita. Os dados da visita serão removidos permanentemente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive hover:bg-destructive/90"
+              onClick={() => deleteVisitMutation.mutate()}
+              disabled={deleteVisitMutation.isPending}
+            >
+              {deleteVisitMutation.isPending ? 'Excluindo...' : 'Excluir'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
