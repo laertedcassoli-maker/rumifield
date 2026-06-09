@@ -207,10 +207,10 @@ export default function ChamadosIndex() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['technical-tickets'] });
       setDeleteTarget(null);
-      toast({ title: 'Chamado excluído com sucesso' });
+      toast.success('Chamado excluído com sucesso');
     },
     onError: (err: Error) => {
-      toast({ variant: 'destructive', title: 'Erro ao excluir', description: err.message });
+      toast.error('Erro ao excluir', { description: err.message });
     },
   });
 
