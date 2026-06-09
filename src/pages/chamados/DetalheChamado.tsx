@@ -673,107 +673,44 @@ export default function DetalheChamado() {
         <div className="lg:col-span-2 space-y-6">
           {/* Problem Description */}
           <Card>
-            <CardHeader className="pb-3 flex flex-row items-center justify-between">
+            <CardHeader className="pb-3">
               <CardTitle>Descrição do Problema</CardTitle>
-              {isEditable && !editingDescription && (
-                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => {
-                  setEditDescription(ticket.description || '');
-                  setEditingDescription(true);
-                }}>
-                  <Pencil className="h-4 w-4" />
-                </Button>
-              )}
             </CardHeader>
             <CardContent className="space-y-3">
               <p className="text-base font-medium text-foreground">{ticket.title}</p>
-              {editingDescription ? (
-                <div className="space-y-2">
-                  <Textarea
-                    value={editDescription}
-                    onChange={(e) => setEditDescription(e.target.value)}
-                    rows={4}
-                  />
-                  <div className="flex gap-2 justify-end">
-                    <Button variant="ghost" size="sm" onClick={() => setEditingDescription(false)}>
-                      <X className="mr-1 h-3.5 w-3.5" /> Cancelar
-                    </Button>
-                    <Button size="sm" onClick={() => updateDescription.mutate(editDescription)} disabled={updateDescription.isPending}>
-                      {updateDescription.isPending ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <Check className="mr-1 h-3.5 w-3.5" />}
-                      Salvar
-                    </Button>
-                  </div>
-                </div>
+              {isEditMode ? (
+                <Textarea
+                  value={editValues?.description ?? ''}
+                  onChange={(e) => setEditValues(v => v && ({ ...v, description: e.target.value }))}
+                  rows={4}
+                />
               ) : ticket.description ? (
                 <p className="text-muted-foreground whitespace-pre-wrap">{ticket.description}</p>
               ) : (
                 <p className="text-sm text-muted-foreground italic">Sem descrição detalhada.</p>
               )}
 
-              {ticket.status === 'resolvido' && ticket.resolution_summary && !editingFinalized && (
+              {ticket.status === 'resolvido' && ticket.resolution_summary && !isEditMode && (
                 <div className="pt-3 border-t">
                   <p className="text-xs font-medium text-muted-foreground mb-1">Resumo da resolução</p>
                   <p className="text-sm whitespace-pre-wrap">{ticket.resolution_summary}</p>
                 </div>
               )}
 
-              {isFinalizedEditable && !editingFinalized && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="mt-2 text-amber-600 border-amber-300 hover:bg-amber-50"
-                  onClick={() => {
-                    setEditFinalizedDescription(ticket.description || '');
-                    setEditFinalizedResolution(ticket.resolution_summary || '');
-                    setEditingFinalized(true);
-                  }}
-                >
-                  <Pencil className="h-3.5 w-3.5 mr-1" />
-                  Editar chamado finalizado
-                </Button>
-              )}
-
-              {editingFinalized && (
-                <div className="space-y-3 mt-3 p-3 border border-amber-200 rounded-lg bg-amber-50/50">
-                  <p className="text-xs font-medium text-amber-700">⚠️ Editando chamado finalizado</p>
-                  <div className="space-y-1">
-                    <label className="text-xs font-medium text-muted-foreground">Descrição</label>
-                    <Textarea
-                      value={editFinalizedDescription}
-                      onChange={(e) => setEditFinalizedDescription(e.target.value)}
-                      rows={3}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-xs font-medium text-muted-foreground">Resumo da resolução</label>
-                    <Textarea
-                      value={editFinalizedResolution}
-                      onChange={(e) => setEditFinalizedResolution(e.target.value)}
-                      rows={2}
-                    />
-                  </div>
-                  <div className="flex gap-2 justify-end">
-                    <Button variant="ghost" size="sm" onClick={() => setEditingFinalized(false)}>
-                      <X className="mr-1 h-3.5 w-3.5" /> Cancelar
-                    </Button>
-                    <Button
-                      size="sm"
-                      onClick={() => updateFinalizedTicket.mutate({
-                        description: editFinalizedDescription,
-                        resolution_summary: editFinalizedResolution,
-                      })}
-                      disabled={updateFinalizedTicket.isPending}
-                    >
-                      {updateFinalizedTicket.isPending
-                        ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
-                        : <Check className="mr-1 h-3.5 w-3.5" />}
-                      Salvar
-                    </Button>
-                  </div>
+              {isEditMode && ticketIsFinalized && (
+                <div className="pt-3 border-t space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">Resumo da resolução</label>
+                  <Textarea
+                    value={editValues?.resolutionSummary ?? ''}
+                    onChange={(e) => setEditValues(v => v && ({ ...v, resolutionSummary: e.target.value }))}
+                    rows={3}
+                  />
                 </div>
               )}
 
             </CardContent>
           </Card>
+
 
           {/* Timeline / Interações - Movido para cima */}
           <Card>
