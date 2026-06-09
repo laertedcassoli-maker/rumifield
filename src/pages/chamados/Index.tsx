@@ -20,6 +20,8 @@ import {
   Loader2, 
   Plus,
   Eye,
+  Pencil,
+  Trash2,
   Ticket,
   AlertTriangle,
   Clock,
