@@ -32,7 +32,8 @@ import {
   CheckCircle2,
   Pencil,
   Check,
-  X
+  X,
+  Save
 } from 'lucide-react';
 import { format, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -104,18 +105,21 @@ export default function DetalheChamado() {
   const [editFinalizedDescription, setEditFinalizedDescription] = useState('');
   const [editFinalizedResolution, setEditFinalizedResolution] = useState('');
 
-  useEffect(() => {
-    if (location.state?.openVisita) {
-      setShowNovaVisita(true);
-      window.history.replaceState({}, document.title);
-    }
-  }, [location.state]);
+  // Unified edit mode
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [editValues, setEditValues] = useState<{
+    description: string;
+    priority: string;
+    tagIds: string[];
+    assignedTechnicianId: string | null;
+    resolutionSummary: string;
+  } | null>(null);
 
   const { canEdit, canDelete, canEditFinalized } = useMenuPermissions();
   const isAdminOrCoordinator = role === 'admin' || role === 'coordenador_servicos';
-  const canEditTicket = canEdit('chamados_detalhe') || canEdit('chamados');
-  const canDeleteTicket = canDelete('chamados_detalhe') || canDelete('chamados');
-  const canEditFinalizedTicket = canEditFinalized('chamados_detalhe') || canEditFinalized('chamados');
+  const canEditTicket = canEdit('chamados_listagem');
+  const canDeleteTicket = canDelete('chamados_listagem');
+  const canEditFinalizedTicket = canEditFinalized('chamados_listagem');
 
 
   // Fetch ticket details
@@ -137,6 +141,12 @@ export default function DetalheChamado() {
   const isEditable = (ticket?.status === 'aberto' || ticket?.status === 'em_atendimento') && canEditTicket;
   const isFinalizedEditable = ticket?.status === 'resolvido' && canEditFinalizedTicket;
 
+  const ticketIsActive = ['aberto', 'em_atendimento', 'aguardando_peca'].includes(ticket?.status || '');
+  const ticketIsFinalized = ['resolvido', 'cancelado'].includes(ticket?.status || '');
+  const canEnterEditMode = (ticketIsActive && canEditTicket) || (ticketIsFinalized && canEditFinalizedTicket);
+
+
+
 
   // Fetch all active tags for editing
   const { data: allActiveTags } = useQuery({
@@ -151,7 +161,7 @@ export default function DetalheChamado() {
       if (error) throw error;
       return data || [];
     },
-    enabled: editingTags,
+    enabled: editingTags || isEditMode,
   });
 
   // Update description mutation
@@ -290,6 +300,75 @@ export default function DetalheChamado() {
     },
     enabled: !!id,
   });
+
+  const enterEditMode = () => {
+    setEditValues({
+      description: ticket?.description || '',
+      priority: ticket?.priority || 'media',
+      tagIds: ticketTags?.map((t: any) => t.id) || [],
+      assignedTechnicianId: ticket?.assigned_technician_id || null,
+      resolutionSummary: ticket?.resolution_summary || '',
+    });
+    setIsEditMode(true);
+  };
+
+  useEffect(() => {
+    if (location.state?.openVisita) {
+      setShowNovaVisita(true);
+      window.history.replaceState({}, document.title);
+    }
+    if (location.state?.openEdit && canEnterEditMode) {
+      enterEditMode();
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state, canEnterEditMode, ticket?.id]);
+
+  const saveEditMutation = useMutation({
+    mutationFn: async () => {
+      if (!editValues) return;
+      const { error } = await supabase
+        .from('technical_tickets')
+        .update({
+          description: editValues.description,
+          priority: editValues.priority as any,
+          assigned_technician_id: editValues.assignedTechnicianId,
+          ...(ticketIsFinalized && { resolution_summary: editValues.resolutionSummary }),
+        })
+        .eq('id', id);
+      if (error) throw error;
+
+      const currentTagIds = ticketTags?.map((t: any) => t.id) || [];
+      const toAdd = editValues.tagIds.filter(tid => !currentTagIds.includes(tid));
+      const toRemove = currentTagIds.filter((tid: string) => !editValues.tagIds.includes(tid));
+      if (toAdd.length) {
+        const { error: addErr } = await supabase
+          .from('ticket_tag_links')
+          .insert(toAdd.map(tag_id => ({ ticket_id: id!, tag_id })));
+        if (addErr) throw addErr;
+      }
+      if (toRemove.length) {
+        const { error: remErr } = await supabase
+          .from('ticket_tag_links')
+          .delete()
+          .eq('ticket_id', id!)
+          .in('tag_id', toRemove);
+        if (remErr) throw remErr;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ticket-detail', id] });
+      queryClient.invalidateQueries({ queryKey: ['technical-tickets'] });
+      queryClient.invalidateQueries({ queryKey: ['ticket-tags', id] });
+      setIsEditMode(false);
+      setEditValues(null);
+      toast({ title: 'Chamado atualizado com sucesso' });
+    },
+    onError: (err: Error) => {
+      toast({ variant: 'destructive', title: 'Erro ao salvar', description: err.message });
+    },
+  });
+
+
 
   // Fetch assigned technician
   const { data: technician } = useQuery({
@@ -531,6 +610,12 @@ export default function DetalheChamado() {
         </div>
         
         <div className="flex gap-2">
+          {canEnterEditMode && !isEditMode && (
+            <Button variant="outline" size="sm" onClick={enterEditMode}>
+              <Pencil className="h-3.5 w-3.5 mr-1.5" />
+              Editar Chamado
+            </Button>
+          )}
           {ticket.status !== 'resolvido' && ticket.status !== 'cancelado' && (
             <Button variant="default" className="bg-green-600 hover:bg-green-700 text-white" onClick={() => setShowFinalizar(true)}>
               <CheckCircle2 className="mr-2 h-4 w-4" />
@@ -558,112 +643,74 @@ export default function DetalheChamado() {
         resolvedAt={ticket.resolved_at}
       />
 
+      {isEditMode && (
+        <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 flex items-center justify-between gap-3">
+          <div className="flex items-start gap-2 min-w-0">
+            <Pencil className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm font-semibold text-amber-700 dark:text-amber-400">Modo edição ativo</p>
+              <p className="text-xs text-amber-700/90 dark:text-amber-400/90">
+                Edite os campos abaixo. As alterações só serão salvas ao clicar em "Salvar alterações".
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-2 shrink-0">
+            <Button size="sm" variant="ghost"
+              onClick={() => { setIsEditMode(false); setEditValues(null); }}>
+              <X className="h-3.5 w-3.5 mr-1.5" /> Cancelar
+            </Button>
+            <Button size="sm" onClick={() => saveEditMutation.mutate()} disabled={saveEditMutation.isPending}>
+              <Save className="h-3.5 w-3.5 mr-1.5" />
+              {saveEditMutation.isPending ? 'Salvando...' : 'Salvar alterações'}
+            </Button>
+          </div>
+        </div>
+      )}
+
+
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Main Content */}
         <div className="lg:col-span-2 space-y-6">
           {/* Problem Description */}
           <Card>
-            <CardHeader className="pb-3 flex flex-row items-center justify-between">
+            <CardHeader className="pb-3">
               <CardTitle>Descrição do Problema</CardTitle>
-              {isEditable && !editingDescription && (
-                <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => {
-                  setEditDescription(ticket.description || '');
-                  setEditingDescription(true);
-                }}>
-                  <Pencil className="h-4 w-4" />
-                </Button>
-              )}
             </CardHeader>
             <CardContent className="space-y-3">
               <p className="text-base font-medium text-foreground">{ticket.title}</p>
-              {editingDescription ? (
-                <div className="space-y-2">
-                  <Textarea
-                    value={editDescription}
-                    onChange={(e) => setEditDescription(e.target.value)}
-                    rows={4}
-                  />
-                  <div className="flex gap-2 justify-end">
-                    <Button variant="ghost" size="sm" onClick={() => setEditingDescription(false)}>
-                      <X className="mr-1 h-3.5 w-3.5" /> Cancelar
-                    </Button>
-                    <Button size="sm" onClick={() => updateDescription.mutate(editDescription)} disabled={updateDescription.isPending}>
-                      {updateDescription.isPending ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <Check className="mr-1 h-3.5 w-3.5" />}
-                      Salvar
-                    </Button>
-                  </div>
-                </div>
+              {isEditMode ? (
+                <Textarea
+                  value={editValues?.description ?? ''}
+                  onChange={(e) => setEditValues(v => v && ({ ...v, description: e.target.value }))}
+                  rows={4}
+                />
               ) : ticket.description ? (
                 <p className="text-muted-foreground whitespace-pre-wrap">{ticket.description}</p>
               ) : (
                 <p className="text-sm text-muted-foreground italic">Sem descrição detalhada.</p>
               )}
 
-              {ticket.status === 'resolvido' && ticket.resolution_summary && !editingFinalized && (
+              {ticket.status === 'resolvido' && ticket.resolution_summary && !isEditMode && (
                 <div className="pt-3 border-t">
                   <p className="text-xs font-medium text-muted-foreground mb-1">Resumo da resolução</p>
                   <p className="text-sm whitespace-pre-wrap">{ticket.resolution_summary}</p>
                 </div>
               )}
 
-              {isFinalizedEditable && !editingFinalized && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="mt-2 text-amber-600 border-amber-300 hover:bg-amber-50"
-                  onClick={() => {
-                    setEditFinalizedDescription(ticket.description || '');
-                    setEditFinalizedResolution(ticket.resolution_summary || '');
-                    setEditingFinalized(true);
-                  }}
-                >
-                  <Pencil className="h-3.5 w-3.5 mr-1" />
-                  Editar chamado finalizado
-                </Button>
-              )}
-
-              {editingFinalized && (
-                <div className="space-y-3 mt-3 p-3 border border-amber-200 rounded-lg bg-amber-50/50">
-                  <p className="text-xs font-medium text-amber-700">⚠️ Editando chamado finalizado</p>
-                  <div className="space-y-1">
-                    <label className="text-xs font-medium text-muted-foreground">Descrição</label>
-                    <Textarea
-                      value={editFinalizedDescription}
-                      onChange={(e) => setEditFinalizedDescription(e.target.value)}
-                      rows={3}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-xs font-medium text-muted-foreground">Resumo da resolução</label>
-                    <Textarea
-                      value={editFinalizedResolution}
-                      onChange={(e) => setEditFinalizedResolution(e.target.value)}
-                      rows={2}
-                    />
-                  </div>
-                  <div className="flex gap-2 justify-end">
-                    <Button variant="ghost" size="sm" onClick={() => setEditingFinalized(false)}>
-                      <X className="mr-1 h-3.5 w-3.5" /> Cancelar
-                    </Button>
-                    <Button
-                      size="sm"
-                      onClick={() => updateFinalizedTicket.mutate({
-                        description: editFinalizedDescription,
-                        resolution_summary: editFinalizedResolution,
-                      })}
-                      disabled={updateFinalizedTicket.isPending}
-                    >
-                      {updateFinalizedTicket.isPending
-                        ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" />
-                        : <Check className="mr-1 h-3.5 w-3.5" />}
-                      Salvar
-                    </Button>
-                  </div>
+              {isEditMode && ticketIsFinalized && (
+                <div className="pt-3 border-t space-y-1">
+                  <label className="text-xs font-medium text-muted-foreground">Resumo da resolução</label>
+                  <Textarea
+                    value={editValues?.resolutionSummary ?? ''}
+                    onChange={(e) => setEditValues(v => v && ({ ...v, resolutionSummary: e.target.value }))}
+                    rows={3}
+                  />
                 </div>
               )}
 
             </CardContent>
           </Card>
+
 
           {/* Timeline / Interações - Movido para cima */}
           <Card>
@@ -939,44 +986,28 @@ export default function DetalheChamado() {
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm font-medium">Tags</span>
-                  {isEditable && !editingTags && (
-                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => {
-                      setSelectedTagIds(ticketTags?.map((t: any) => t.id) || []);
-                      setEditingTags(true);
-                    }}>
-                      <Pencil className="h-3.5 w-3.5" />
-                    </Button>
-                  )}
                 </div>
-                {editingTags ? (
-                  <div className="space-y-2">
-                    <div className="space-y-1.5 max-h-40 overflow-y-auto">
-                      {allActiveTags?.map(tag => (
-                        <label key={tag.id} className="flex items-center gap-2 cursor-pointer">
-                          <Checkbox
-                            checked={selectedTagIds.includes(tag.id)}
-                            onCheckedChange={(checked) => {
-                              setSelectedTagIds(prev =>
-                                checked ? [...prev, tag.id] : prev.filter(id => id !== tag.id)
-                              );
-                            }}
-                          />
-                          <Badge variant="outline" className="text-xs" style={{ borderColor: tag.color, color: tag.color }}>
-                            {tag.name}
-                          </Badge>
-                        </label>
-                      ))}
-                      {!allActiveTags?.length && <p className="text-xs text-muted-foreground">Nenhuma tag ativa.</p>}
-                    </div>
-                    <div className="flex gap-2 justify-end">
-                      <Button variant="ghost" size="sm" onClick={() => setEditingTags(false)}>
-                        <X className="mr-1 h-3.5 w-3.5" /> Cancelar
-                      </Button>
-                      <Button size="sm" onClick={() => updateTags.mutate(selectedTagIds)} disabled={updateTags.isPending}>
-                        {updateTags.isPending ? <Loader2 className="mr-1 h-3.5 w-3.5 animate-spin" /> : <Check className="mr-1 h-3.5 w-3.5" />}
-                        Salvar
-                      </Button>
-                    </div>
+                {isEditMode ? (
+                  <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                    {allActiveTags?.map(tag => (
+                      <label key={tag.id} className="flex items-center gap-2 cursor-pointer">
+                        <Checkbox
+                          checked={editValues?.tagIds.includes(tag.id) ?? false}
+                          onCheckedChange={(checked) => {
+                            setEditValues(v => v && ({
+                              ...v,
+                              tagIds: checked
+                                ? [...v.tagIds, tag.id]
+                                : v.tagIds.filter(id => id !== tag.id),
+                            }));
+                          }}
+                        />
+                        <Badge variant="outline" className="text-xs" style={{ borderColor: tag.color, color: tag.color }}>
+                          {tag.name}
+                        </Badge>
+                      </label>
+                    ))}
+                    {!allActiveTags?.length && <p className="text-xs text-muted-foreground">Nenhuma tag ativa.</p>}
                   </div>
                 ) : ticketTags && ticketTags.length > 0 ? (
                   <div className="flex flex-wrap gap-1">
@@ -995,16 +1026,11 @@ export default function DetalheChamado() {
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-sm font-medium">Prioridade</span>
-                  {isEditable && !editingPriority && (
-                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setEditingPriority(true)}>
-                      <Pencil className="h-3.5 w-3.5" />
-                    </Button>
-                  )}
                 </div>
-                {editingPriority ? (
+                {isEditMode ? (
                   <Select
-                    value={ticket.priority}
-                    onValueChange={(v) => updatePriority.mutate(v)}
+                    value={editValues?.priority ?? 'media'}
+                    onValueChange={(v) => setEditValues(prev => prev && ({ ...prev, priority: v }))}
                   >
                     <SelectTrigger className="h-8">
                       <SelectValue />
@@ -1032,23 +1058,42 @@ export default function DetalheChamado() {
               {isAdminOrCoordinator && (
                 <div>
                   <div className="text-sm font-medium mb-2">Técnico de Campo</div>
-                  <Select 
-                    value={ticket.assigned_technician_id || ''} 
-                    onValueChange={(v) => updateTechnician.mutate(v)}
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione um técnico" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {availableTechnicians?.map(tech => (
-                        <SelectItem key={tech.id} value={tech.id}>
-                          {tech.nome}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  {isEditMode && ticketIsActive ? (
+                    <Select
+                      value={editValues?.assignedTechnicianId || ''}
+                      onValueChange={(v) => setEditValues(prev => prev && ({ ...prev, assignedTechnicianId: v || null }))}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione um técnico" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableTechnicians?.map(tech => (
+                          <SelectItem key={tech.id} value={tech.id}>
+                            {tech.nome}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    <Select
+                      value={ticket.assigned_technician_id || ''}
+                      onValueChange={(v) => updateTechnician.mutate(v)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Selecione um técnico" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableTechnicians?.map(tech => (
+                          <SelectItem key={tech.id} value={tech.id}>
+                            {tech.nome}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  )}
                 </div>
               )}
+
 
               {!isAdminOrCoordinator && technician && (
                 <div>
