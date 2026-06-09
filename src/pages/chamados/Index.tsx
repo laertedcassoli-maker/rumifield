@@ -199,6 +199,23 @@ export default function ChamadosIndex() {
     refetchOnWindowFocus: true,
   });
 
+  const deleteTicketMutation = useMutation({
+    mutationFn: async (ticketId: string) => {
+      const { error } = await supabase.from('technical_tickets').delete().eq('id', ticketId);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['technical-tickets'] });
+      setDeleteTarget(null);
+      toast({ title: 'Chamado excluído com sucesso' });
+    },
+    onError: (err: Error) => {
+      toast({ variant: 'destructive', title: 'Erro ao excluir', description: err.message });
+    },
+  });
+
+
+
 
   // Filter and paginate
   const filteredTickets = useMemo(() => {
