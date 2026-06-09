@@ -161,7 +161,7 @@ export default function DetalheChamado() {
       if (error) throw error;
       return data || [];
     },
-    enabled: editingTags,
+    enabled: editingTags || isEditMode,
   });
 
   // Update description mutation
