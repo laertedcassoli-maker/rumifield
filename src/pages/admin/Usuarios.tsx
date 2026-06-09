@@ -175,11 +175,16 @@ export default function AdminUsuarios() {
 
   const updateRole = useMutation({
     mutationFn: async ({ userId, newRole }: { userId: string; newRole: string }) => {
-      const { error } = await supabase
+      const { error: deleteError } = await supabase
         .from('user_roles')
-        .update({ role: newRole as AppRole })
+        .delete()
         .eq('user_id', userId);
-      if (error) throw error;
+      if (deleteError) throw deleteError;
+
+      const { error: insertError } = await supabase
+        .from('user_roles')
+        .insert({ user_id: userId, role: newRole as AppRole });
+      if (insertError) throw insertError;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['usuarios-admin'] });
