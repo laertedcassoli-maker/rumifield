@@ -301,6 +301,75 @@ export default function DetalheChamado() {
     enabled: !!id,
   });
 
+  const enterEditMode = () => {
+    setEditValues({
+      description: ticket?.description || '',
+      priority: ticket?.priority || 'media',
+      tagIds: ticketTags?.map((t: any) => t.id) || [],
+      assignedTechnicianId: ticket?.assigned_technician_id || null,
+      resolutionSummary: ticket?.resolution_summary || '',
+    });
+    setIsEditMode(true);
+  };
+
+  useEffect(() => {
+    if (location.state?.openVisita) {
+      setShowNovaVisita(true);
+      window.history.replaceState({}, document.title);
+    }
+    if (location.state?.openEdit && canEnterEditMode) {
+      enterEditMode();
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state, canEnterEditMode, ticket?.id]);
+
+  const saveEditMutation = useMutation({
+    mutationFn: async () => {
+      if (!editValues) return;
+      const { error } = await supabase
+        .from('technical_tickets')
+        .update({
+          description: editValues.description,
+          priority: editValues.priority as any,
+          assigned_technician_id: editValues.assignedTechnicianId,
+          ...(ticketIsFinalized && { resolution_summary: editValues.resolutionSummary }),
+        })
+        .eq('id', id);
+      if (error) throw error;
+
+      const currentTagIds = ticketTags?.map((t: any) => t.id) || [];
+      const toAdd = editValues.tagIds.filter(tid => !currentTagIds.includes(tid));
+      const toRemove = currentTagIds.filter((tid: string) => !editValues.tagIds.includes(tid));
+      if (toAdd.length) {
+        const { error: addErr } = await supabase
+          .from('ticket_tag_links')
+          .insert(toAdd.map(tag_id => ({ ticket_id: id!, tag_id })));
+        if (addErr) throw addErr;
+      }
+      if (toRemove.length) {
+        const { error: remErr } = await supabase
+          .from('ticket_tag_links')
+          .delete()
+          .eq('ticket_id', id!)
+          .in('tag_id', toRemove);
+        if (remErr) throw remErr;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['ticket-detail', id] });
+      queryClient.invalidateQueries({ queryKey: ['technical-tickets'] });
+      queryClient.invalidateQueries({ queryKey: ['ticket-tags', id] });
+      setIsEditMode(false);
+      setEditValues(null);
+      toast({ title: 'Chamado atualizado com sucesso' });
+    },
+    onError: (err: Error) => {
+      toast({ variant: 'destructive', title: 'Erro ao salvar', description: err.message });
+    },
+  });
+
+
+
   // Fetch assigned technician
   const { data: technician } = useQuery({
     queryKey: ['ticket-technician', ticket?.assigned_technician_id],
