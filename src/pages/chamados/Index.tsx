@@ -471,6 +471,16 @@ export default function ChamadosIndex() {
                           <Eye className="h-4 w-4" />
                         </Link>
                       </Button>
+                      {canEditInList && (
+                        <Button variant="ghost" size="sm" onClick={() => navigate(`/chamados/${ticket.id}`, { state: { openEdit: true } })}>
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                      )}
+                      {canDeleteInList && (
+                        <Button variant="ghost" size="sm" onClick={() => setDeleteTarget(ticket.id)}>
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}
