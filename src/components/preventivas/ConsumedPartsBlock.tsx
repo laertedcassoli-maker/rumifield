@@ -509,6 +509,23 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false, 
   // Delete manual part mutation
   const deleteManualPartMutation = useMutation({
     mutationFn: async (partId: string) => {
+      // If deleting an auto-linked PRD00639, persist user intent on the source PRD00605
+      const target = parts?.find((p: any) => p.id === partId) as any;
+      if (
+        target &&
+        target.part_code_snapshot === SOLENOIDE_TARGET_CODE &&
+        typeof target.notes === 'string' &&
+        (target.notes as string).startsWith(SOLENOIDE_LINK_MARKER)
+      ) {
+        const srcId = extractSrcId(target.notes);
+        if (srcId && isOnline) {
+          await supabase
+            .from('preventive_part_consumption')
+            .update({ notes: '[solenoide-link-disabled]' })
+            .eq('id', srcId);
+        }
+      }
+
       // Always remove from Dexie to prevent stale local records from reappearing
       try {
         await offlineChecklistDb.partConsumptions.delete(partId);
