@@ -645,6 +645,7 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false, 
                       isCompleted={isCompleted}
                       isLinked={linkedTargetRowIds.has(part.id)}
                       linkedLabel={`Vinculado ao ${SOLENOIDE_TRIGGER_CODE} (×${SOLENOIDE_TARGET_QTY})`}
+                      canForceDeleteLinked={canForceDeleteLinked}
                       onStockSourceChange={handleStockSourceChange}
                       onAssetCodeChange={handleAssetCodeChange}
                       onNotesChange={(partId, notes) => updateNotesMutation.mutate({ partId, notes })}
