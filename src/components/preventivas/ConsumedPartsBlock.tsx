@@ -243,7 +243,7 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false, 
 
     const { data: triggerRows } = await supabase
       .from('preventive_part_consumption')
-      .select('id, quantity, exec_nonconformity_id, is_manual')
+      .select('id, quantity, exec_nonconformity_id, is_manual, notes')
       .eq('preventive_id', preventiveId)
       .eq('part_id', trigger.id);
 
