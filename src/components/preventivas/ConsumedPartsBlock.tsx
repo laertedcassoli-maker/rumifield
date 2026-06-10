@@ -48,9 +48,10 @@ interface ConsumedPart {
 interface ConsumedPartsBlockProps {
   preventiveId: string;
   isCompleted?: boolean;
+  canForceDeleteLinked?: boolean;
 }
 
-export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }: ConsumedPartsBlockProps) {
+export default function ConsumedPartsBlock({ preventiveId, isCompleted = false, canForceDeleteLinked = false }: ConsumedPartsBlockProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const prevPartsCountRef = useRef(0);
   const [pollPausedUntil, setPollPausedUntil] = useState(0);
