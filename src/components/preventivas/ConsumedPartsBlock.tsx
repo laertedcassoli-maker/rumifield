@@ -1134,8 +1134,8 @@ function PartItem({ part, isCompleted, isLinked, linkedLabel, canForceDeleteLink
             size="icon"
             className="h-7 w-7 text-destructive shrink-0"
             onClick={() => onDelete(part.id)}
-            disabled={isLinked}
-            title={isLinked ? 'Esta peça é gerada automaticamente. Remova o PRD00605 para excluí-la.' : undefined}
+            disabled={isLinked && !canForceDeleteLinked}
+            title={isLinked ? (canForceDeleteLinked ? 'Excluir este card de reparo (o PRD00605 permanece)' : 'Esta peça é gerada automaticamente. Remova o PRD00605 para excluí-la ou solicite permissão para exclusão manual.') : undefined}
           >
             <Trash2 className="h-3.5 w-3.5" />
           </Button>
