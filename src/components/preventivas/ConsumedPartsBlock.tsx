@@ -1083,13 +1083,14 @@ interface PartItemProps {
   isCompleted: boolean;
   isLinked?: boolean;
   linkedLabel?: string;
+  canForceDeleteLinked?: boolean;
   onStockSourceChange: (partId: string, value: string) => void;
   onAssetCodeChange: (partId: string, code: string) => void;
   onNotesChange: (partId: string, notes: string) => void;
   onDelete: (partId: string) => void;
 }
 
-function PartItem({ part, isCompleted, isLinked, linkedLabel, onStockSourceChange, onAssetCodeChange, onNotesChange, onDelete }: PartItemProps) {
+function PartItem({ part, isCompleted, isLinked, linkedLabel, canForceDeleteLinked, onStockSourceChange, onAssetCodeChange, onNotesChange, onDelete }: PartItemProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [localNotes, setLocalNotes] = useState(part.notes || '');
   const [localAssetCode, setLocalAssetCode] = useState(part.asset_unique_code || '');
