@@ -1175,6 +1175,7 @@ export default function ExecucaoVisitaCorretiva() {
             <ConsumedPartsBlock 
               preventiveId={visit.preventiveId}
               isCompleted={effectiveCompleted}
+              canForceDeleteLinked={canDeleteVisit}
             />
           )}
 
