@@ -48,9 +48,10 @@ interface ConsumedPart {
 interface ConsumedPartsBlockProps {
   preventiveId: string;
   isCompleted?: boolean;
+  canForceDeleteLinked?: boolean;
 }
 
-export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }: ConsumedPartsBlockProps) {
+export default function ConsumedPartsBlock({ preventiveId, isCompleted = false, canForceDeleteLinked = false }: ConsumedPartsBlockProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const prevPartsCountRef = useRef(0);
   const [pollPausedUntil, setPollPausedUntil] = useState(0);
@@ -242,7 +243,7 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
 
     const { data: triggerRows } = await supabase
       .from('preventive_part_consumption')
-      .select('id, quantity, exec_nonconformity_id, is_manual')
+      .select('id, quantity, exec_nonconformity_id, is_manual, notes')
       .eq('preventive_id', preventiveId)
       .eq('part_id', trigger.id);
 
@@ -275,6 +276,7 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
 
     // Ensure each trigger row has its own target row with qty = trigger.qty * 3
     for (const tr of triggers) {
+      if ((tr as any).notes === '[solenoide-link-disabled]') continue;
       const desiredQty = Number(tr.quantity || 0) * SOLENOIDE_TARGET_QTY;
       if (desiredQty <= 0) continue;
       const existing = targetBySrc.get(tr.id as string);
@@ -507,6 +509,23 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
   // Delete manual part mutation
   const deleteManualPartMutation = useMutation({
     mutationFn: async (partId: string) => {
+      // If deleting an auto-linked PRD00639, persist user intent on the source PRD00605
+      const target = parts?.find((p: any) => p.id === partId) as any;
+      if (
+        target &&
+        target.part_code_snapshot === SOLENOIDE_TARGET_CODE &&
+        typeof target.notes === 'string' &&
+        (target.notes as string).startsWith(SOLENOIDE_LINK_MARKER)
+      ) {
+        const srcId = extractSrcId(target.notes);
+        if (srcId && isOnline) {
+          await supabase
+            .from('preventive_part_consumption')
+            .update({ notes: '[solenoide-link-disabled]' })
+            .eq('id', srcId);
+        }
+      }
+
       // Always remove from Dexie to prevent stale local records from reappearing
       try {
         await offlineChecklistDb.partConsumptions.delete(partId);
@@ -626,6 +645,7 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false }
                       isCompleted={isCompleted}
                       isLinked={linkedTargetRowIds.has(part.id)}
                       linkedLabel={`Vinculado ao ${SOLENOIDE_TRIGGER_CODE} (×${SOLENOIDE_TARGET_QTY})`}
+                      canForceDeleteLinked={canForceDeleteLinked}
                       onStockSourceChange={handleStockSourceChange}
                       onAssetCodeChange={handleAssetCodeChange}
                       onNotesChange={(partId, notes) => updateNotesMutation.mutate({ partId, notes })}
@@ -1063,13 +1083,14 @@ interface PartItemProps {
   isCompleted: boolean;
   isLinked?: boolean;
   linkedLabel?: string;
+  canForceDeleteLinked?: boolean;
   onStockSourceChange: (partId: string, value: string) => void;
   onAssetCodeChange: (partId: string, code: string) => void;
   onNotesChange: (partId: string, notes: string) => void;
   onDelete: (partId: string) => void;
 }
 
-function PartItem({ part, isCompleted, isLinked, linkedLabel, onStockSourceChange, onAssetCodeChange, onNotesChange, onDelete }: PartItemProps) {
+function PartItem({ part, isCompleted, isLinked, linkedLabel, canForceDeleteLinked, onStockSourceChange, onAssetCodeChange, onNotesChange, onDelete }: PartItemProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [localNotes, setLocalNotes] = useState(part.notes || '');
   const [localAssetCode, setLocalAssetCode] = useState(part.asset_unique_code || '');
@@ -1113,8 +1134,8 @@ function PartItem({ part, isCompleted, isLinked, linkedLabel, onStockSourceChang
             size="icon"
             className="h-7 w-7 text-destructive shrink-0"
             onClick={() => onDelete(part.id)}
-            disabled={isLinked}
-            title={isLinked ? 'Esta peça é gerada automaticamente. Remova o PRD00605 para excluí-la.' : undefined}
+            disabled={isLinked && !canForceDeleteLinked}
+            title={isLinked ? (canForceDeleteLinked ? 'Excluir este card de reparo (o PRD00605 permanece)' : 'Esta peça é gerada automaticamente. Remova o PRD00605 para excluí-la ou solicite permissão para exclusão manual.') : undefined}
           >
             <Trash2 className="h-3.5 w-3.5" />
           </Button>
