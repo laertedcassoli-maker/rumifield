@@ -869,6 +869,7 @@ export default function AtendimentoPreventivo() {
         <ConsumedPartsBlock 
           preventiveId={routeItem.preventiveId}
           isCompleted={effectiveCompleted}
+          canForceDeleteLinked={canDeleteVisit}
         />
       )}
 
