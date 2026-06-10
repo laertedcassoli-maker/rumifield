@@ -276,6 +276,7 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false, 
 
     // Ensure each trigger row has its own target row with qty = trigger.qty * 3
     for (const tr of triggers) {
+      if ((tr as any).notes === '[solenoide-link-disabled]') continue;
       const desiredQty = Number(tr.quantity || 0) * SOLENOIDE_TARGET_QTY;
       if (desiredQty <= 0) continue;
       const existing = targetBySrc.get(tr.id as string);
