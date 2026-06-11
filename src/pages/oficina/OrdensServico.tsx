@@ -264,8 +264,8 @@ export default function OrdensServico() {
       if (woDate > toDate) return false;
     }
 
-    // Filter by end time (only for concluded tab)
-    if (activeTab === 'concluidas') {
+    // Filter by end time (kanban and concluidas tabs)
+    if (activeTab === 'kanban' || activeTab === 'concluidas') {
       if (endTimeFrom) {
         if (!wo.end_time) return false;
         const fromDate = new Date(endTimeFrom);
@@ -378,7 +378,7 @@ export default function OrdensServico() {
           <DateFilterButton label="Até" date={createdTo} onChange={setCreatedTo} />
         </div>
 
-        {activeTab === 'concluidas' && (
+        {(activeTab === 'kanban' || activeTab === 'concluidas') && (
           <div className="flex items-center gap-2">
             <span className="text-sm text-muted-foreground whitespace-nowrap">Finalizado:</span>
             <DateFilterButton label="De" date={endTimeFrom} onChange={setEndTimeFrom} />
