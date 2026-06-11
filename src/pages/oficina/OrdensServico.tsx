@@ -264,8 +264,8 @@ export default function OrdensServico() {
       if (woDate > toDate) return false;
     }
 
-    // Filter by end time (only for concluded tab)
-    if (activeTab === 'concluidas') {
+    // Filter by end time (kanban and concluidas tabs)
+    if (activeTab === 'kanban' || activeTab === 'concluidas') {
       if (endTimeFrom) {
         if (!wo.end_time) return false;
         const fromDate = new Date(endTimeFrom);
