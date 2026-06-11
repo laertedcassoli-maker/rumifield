@@ -85,6 +85,7 @@ export default function OrdensServico() {
   const [endTimeFrom, setEndTimeFrom] = useState<Date | undefined>(undefined);
   const [endTimeTo, setEndTimeTo] = useState<Date | undefined>(undefined);
   const [selectedPart, setSelectedPart] = useState<string>('_all');
+  const [selectedActivity, setSelectedActivity] = useState<string>('_all');
 
 
   const isAdmin = role === 'admin' || role === 'coordenador_rplus' || role === 'coordenador_servicos';
