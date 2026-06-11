@@ -401,6 +401,21 @@ export default function OrdensServico() {
         )}
 
         <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground whitespace-nowrap">Atividade:</span>
+          <Select value={selectedActivity} onValueChange={setSelectedActivity}>
+            <SelectTrigger className="w-[200px] h-9">
+              <SelectValue placeholder="Todas" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="_all">Todas</SelectItem>
+              {availableActivities.map(activity => (
+                <SelectItem key={activity} value={activity}>{activity}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="flex items-center gap-2">
           <span className="text-sm text-muted-foreground whitespace-nowrap">Peça utilizada:</span>
           <Select value={selectedPart} onValueChange={setSelectedPart}>
             <SelectTrigger className="w-[200px] h-9">
