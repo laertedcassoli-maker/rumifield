@@ -157,7 +157,7 @@ function KanbanColumn({
                   </p>
                 )}
 
-                <div className="flex items-center justify-between text-xs text-muted-foreground gap-2">
+                <div className="flex items-center justify-between text-xs text-muted-foreground">
                   <div className="flex items-center gap-2">
                     <div className="flex items-center gap-1">
                       <Clock className="h-3 w-3" />
@@ -170,12 +170,7 @@ function KanbanColumn({
                       </div>
                     )}
                   </div>
-                  <div className="flex flex-col items-end text-right">
-                    <span>Criado: {format(new Date(os.created_at), "dd/MM", { locale: ptBR })}</span>
-                    {os.end_time && (
-                      <span>Finalizado: {format(new Date(os.end_time), "dd/MM", { locale: ptBR })}</span>
-                    )}
-                  </div>
+                  <span>{format(new Date(os.created_at), "dd/MM", { locale: ptBR })}</span>
                 </div>
               </CardContent>
             </Card>
