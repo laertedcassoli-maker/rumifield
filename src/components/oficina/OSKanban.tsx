@@ -170,7 +170,12 @@ function KanbanColumn({
                       </div>
                     )}
                   </div>
-                  <span>{format(new Date(os.created_at), "dd/MM", { locale: ptBR })}</span>
+                </div>
+                <div className="flex items-center gap-3 text-xs text-muted-foreground mt-1">
+                  <span>Aberto: {format(new Date(os.created_at), "dd/MM", { locale: ptBR })}</span>
+                  {os.end_time && (
+                    <span>Finalizado: {format(new Date(os.end_time), "dd/MM", { locale: ptBR })}</span>
+                  )}
                 </div>
               </CardContent>
             </Card>
