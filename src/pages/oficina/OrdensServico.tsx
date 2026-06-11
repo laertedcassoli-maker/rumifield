@@ -312,6 +312,14 @@ export default function OrdensServico() {
     return Array.from(parts).sort((a, b) => a.localeCompare(b, 'pt-BR'));
   }, [workOrders]);
 
+  const availableActivities = useMemo(() => {
+    const activities = new Set<string>();
+    workOrders.forEach(wo => {
+      if (wo.activities?.name) activities.add(wo.activities.name);
+    });
+    return Array.from(activities).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  }, [workOrders]);
+
   const statusLabels: Record<string, string> = {
     aguardando: 'Aguardando',
     em_manutencao: 'Em Manutenção',
