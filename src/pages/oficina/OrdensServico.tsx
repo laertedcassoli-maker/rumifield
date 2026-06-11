@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -11,6 +11,10 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { NovaOSDialog } from '@/components/oficina/NovaOSDialog';
@@ -45,10 +49,26 @@ interface WorkOrder {
     motor_replaced_at_meter_hours?: number;
   };
   parts_count?: number;
+  parts_used_names?: string[];
   work_order_tag_links?: Array<{
     tag_id: string;
     ticket_tags: { id: string; name: string; color: string };
   }>;
+}
+
+function DateFilterButton({ label, date, onChange }: { label: string; date?: Date; onChange: (d: Date | undefined) => void }) {
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button variant="outline" className={cn("h-9 px-3 text-sm font-normal", !date && "text-muted-foreground")}>
+          {date ? format(date, 'dd/MM/yyyy') : label}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-auto p-0 pointer-events-auto" align="start">
+        <Calendar mode="single" selected={date} onSelect={onChange} initialFocus />
+      </PopoverContent>
+    </Popover>
+  );
 }
 
 export default function OrdensServico() {
@@ -60,6 +80,12 @@ export default function OrdensServico() {
   const [novaOSDialogOpen, setNovaOSDialogOpen] = useState(false);
   const [selectedOS, setSelectedOS] = useState<WorkOrder | null>(null);
   const [detalheDialogOpen, setDetalheDialogOpen] = useState(false);
+  const [createdFrom, setCreatedFrom] = useState<Date | undefined>(undefined);
+  const [createdTo, setCreatedTo] = useState<Date | undefined>(undefined);
+  const [endTimeFrom, setEndTimeFrom] = useState<Date | undefined>(undefined);
+  const [endTimeTo, setEndTimeTo] = useState<Date | undefined>(undefined);
+  const [selectedPart, setSelectedPart] = useState<string>('_all');
+
 
   const isAdmin = role === 'admin' || role === 'coordenador_rplus' || role === 'coordenador_servicos';
 
@@ -94,6 +120,7 @@ export default function OrdensServico() {
       const workOrderIds = data?.map(wo => wo.id) || [];
       let itemsMap: Record<string, { unique_code?: string; product_name?: string; meter_hours_last?: number; motor_replaced_at_meter_hours?: number }> = {};
       let partsCountMap: Record<string, number> = {};
+      let workOrderPartsNamesMap: Record<string, string[]> = {};
 
       if (workOrderIds.length > 0) {
         const { data: items } = await supabase
@@ -105,10 +132,10 @@ export default function OrdensServico() {
           `)
           .in('work_order_id', workOrderIds);
 
-        // Fetch parts used count
+        // Fetch parts used count and product IDs
         const { data: partsUsed } = await supabase
           .from('work_order_parts_used')
-          .select('work_order_id, quantity')
+          .select('work_order_id, quantity, omie_product_id')
           .in('work_order_id', workOrderIds);
 
         if (partsUsed) {
@@ -117,13 +144,20 @@ export default function OrdensServico() {
           });
         }
 
-        if (items && items.length > 0) {
-          // Get workshop items for unique codes
-          const workshopItemIds = items.map(i => i.workshop_item_id).filter(Boolean);
-          const productIds = items.map(i => i.omie_product_id).filter(Boolean);
+        // Gather all product IDs upfront (from items, workshop items, and parts used)
+        const allProductIds: string[] = [];
+        if (items) {
+          items.forEach(i => { if (i.omie_product_id) allProductIds.push(i.omie_product_id); });
+        }
+        if (partsUsed) {
+          partsUsed.forEach(p => { if (p.omie_product_id) allProductIds.push(p.omie_product_id); });
+        }
 
-          let workshopItemsMap: Record<string, { unique_code: string; omie_product_id: string; meter_hours_last: number | null; motor_replaced_at_meter_hours: number | null }> = {};
-          let productsMap: Record<string, string> = {};
+        let workshopItemsMap: Record<string, { unique_code: string; omie_product_id: string; meter_hours_last: number | null; motor_replaced_at_meter_hours: number | null }> = {};
+        let productsMap: Record<string, string> = {};
+
+        if (items && items.length > 0) {
+          const workshopItemIds = items.map(i => i.workshop_item_id).filter(Boolean);
 
           if (workshopItemIds.length > 0) {
             const { data: workshopItems } = await supabase
@@ -142,21 +176,25 @@ export default function OrdensServico() {
 
             // Add product IDs from workshop items
             workshopItems?.forEach(wi => {
-              if (wi.omie_product_id && !productIds.includes(wi.omie_product_id)) {
-                productIds.push(wi.omie_product_id);
+              if (wi.omie_product_id && !allProductIds.includes(wi.omie_product_id)) {
+                allProductIds.push(wi.omie_product_id);
               }
             });
           }
+        }
 
-          if (productIds.length > 0) {
-            const { data: products } = await supabase
-              .from('pecas')
-              .select('id, nome')
-              .in('id', productIds);
-            productsMap = (products || []).reduce((acc, p) => ({ ...acc, [p.id]: p.nome }), {});
-          }
+        // Deduplicate and fetch all products at once
+        const uniqueProductIds = [...new Set(allProductIds)];
+        if (uniqueProductIds.length > 0) {
+          const { data: products } = await supabase
+            .from('pecas')
+            .select('id, nome')
+            .in('id', uniqueProductIds);
+          productsMap = (products || []).reduce((acc, p) => ({ ...acc, [p.id]: p.nome }), {});
+        }
 
-          // Map items to work orders
+        // Map items to work orders
+        if (items && items.length > 0) {
           items.forEach(item => {
             const workshopItem = item.workshop_item_id ? workshopItemsMap[item.workshop_item_id] : null;
             const productId = workshopItem?.omie_product_id || item.omie_product_id;
@@ -169,6 +207,19 @@ export default function OrdensServico() {
             };
           });
         }
+
+        // Map part names to work orders
+        if (partsUsed) {
+          partsUsed.forEach(part => {
+            const name = part.omie_product_id ? productsMap[part.omie_product_id] : null;
+            if (name) {
+              if (!workOrderPartsNamesMap[part.work_order_id]) {
+                workOrderPartsNamesMap[part.work_order_id] = [];
+              }
+              workOrderPartsNamesMap[part.work_order_id].push(name);
+            }
+          });
+        }
       }
       
       return (data || []).map(wo => ({
@@ -176,6 +227,7 @@ export default function OrdensServico() {
         profiles: wo.assigned_to_user_id ? { nome: profilesMap[wo.assigned_to_user_id] || '-' } : undefined,
         item_info: itemsMap[wo.id],
         parts_count: partsCountMap[wo.id] || 0,
+        parts_used_names: workOrderPartsNamesMap[wo.id] || [],
       })) as WorkOrder[];
     },
   });
@@ -195,15 +247,64 @@ export default function OrdensServico() {
       wo.item_info?.unique_code?.toLowerCase().includes(search.toLowerCase()) ||
       wo.item_info?.product_name?.toLowerCase().includes(search.toLowerCase());
     
-    if (activeTab === 'kanban') {
-      return matchesSearch;
-    } else if (activeTab === 'abertas') {
-      return matchesSearch && wo.status !== 'concluido';
-    } else if (activeTab === 'concluidas') {
-      return matchesSearch && wo.status === 'concluido';
+    if (!matchesSearch) return false;
+
+    // Filter by creation date
+    if (createdFrom) {
+      const fromDate = new Date(createdFrom);
+      fromDate.setHours(0, 0, 0, 0);
+      const woDate = new Date(wo.created_at);
+      woDate.setHours(0, 0, 0, 0);
+      if (woDate < fromDate) return false;
     }
-    return matchesSearch;
+    if (createdTo) {
+      const toDate = new Date(createdTo);
+      toDate.setHours(23, 59, 59, 999);
+      const woDate = new Date(wo.created_at);
+      if (woDate > toDate) return false;
+    }
+
+    // Filter by end time (only for concluded tab)
+    if (activeTab === 'concluidas') {
+      if (endTimeFrom) {
+        if (!wo.end_time) return false;
+        const fromDate = new Date(endTimeFrom);
+        fromDate.setHours(0, 0, 0, 0);
+        const endDate = new Date(wo.end_time);
+        endDate.setHours(0, 0, 0, 0);
+        if (endDate < fromDate) return false;
+      }
+      if (endTimeTo) {
+        if (!wo.end_time) return false;
+        const toDate = new Date(endTimeTo);
+        toDate.setHours(23, 59, 59, 999);
+        const endDate = new Date(wo.end_time);
+        if (endDate > toDate) return false;
+      }
+    }
+
+    // Filter by used part
+    if (selectedPart !== '_all') {
+      if (!wo.parts_used_names?.includes(selectedPart)) return false;
+    }
+
+    if (activeTab === 'kanban') {
+      return true;
+    } else if (activeTab === 'abertas') {
+      return wo.status !== 'concluido';
+    } else if (activeTab === 'concluidas') {
+      return wo.status === 'concluido';
+    }
+    return true;
   });
+
+  const availableParts = useMemo(() => {
+    const parts = new Set<string>();
+    workOrders.forEach(wo => {
+      wo.parts_used_names?.forEach(name => parts.add(name));
+    });
+    return Array.from(parts).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  }, [workOrders]);
 
   const statusLabels: Record<string, string> = {
     aguardando: 'Aguardando',
@@ -267,6 +368,54 @@ export default function OrdensServico() {
             className="max-w-[200px]"
           />
         </div>
+      </div>
+
+      {/* Filters */}
+      <div className="flex flex-wrap items-end gap-3">
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground whitespace-nowrap">Criação:</span>
+          <DateFilterButton label="De" date={createdFrom} onChange={setCreatedFrom} />
+          <DateFilterButton label="Até" date={createdTo} onChange={setCreatedTo} />
+        </div>
+
+        {activeTab === 'concluidas' && (
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground whitespace-nowrap">Finalizado:</span>
+            <DateFilterButton label="De" date={endTimeFrom} onChange={setEndTimeFrom} />
+            <DateFilterButton label="Até" date={endTimeTo} onChange={setEndTimeTo} />
+          </div>
+        )}
+
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground whitespace-nowrap">Peça utilizada:</span>
+          <Select value={selectedPart} onValueChange={setSelectedPart}>
+            <SelectTrigger className="w-[200px] h-9">
+              <SelectValue placeholder="Todas" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="_all">Todas</SelectItem>
+              {availableParts.map(part => (
+                <SelectItem key={part} value={part}>{part}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {(createdFrom || createdTo || endTimeFrom || endTimeTo || selectedPart !== '_all') && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              setCreatedFrom(undefined);
+              setCreatedTo(undefined);
+              setEndTimeFrom(undefined);
+              setEndTimeTo(undefined);
+              setSelectedPart('_all');
+            }}
+          >
+            Limpar filtros
+          </Button>
+        )}
       </div>
 
       {isLoading ? (
