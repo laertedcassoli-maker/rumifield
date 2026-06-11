@@ -85,6 +85,7 @@ export default function OrdensServico() {
   const [endTimeFrom, setEndTimeFrom] = useState<Date | undefined>(undefined);
   const [endTimeTo, setEndTimeTo] = useState<Date | undefined>(undefined);
   const [selectedPart, setSelectedPart] = useState<string>('_all');
+  const [selectedActivity, setSelectedActivity] = useState<string>('_all');
 
 
   const isAdmin = role === 'admin' || role === 'coordenador_rplus' || role === 'coordenador_servicos';
@@ -288,6 +289,11 @@ export default function OrdensServico() {
       if (!wo.parts_used_names?.includes(selectedPart)) return false;
     }
 
+    // Filter by activity
+    if (selectedActivity !== '_all') {
+      if (wo.activities?.name !== selectedActivity) return false;
+    }
+
     if (activeTab === 'kanban') {
       return true;
     } else if (activeTab === 'abertas') {
@@ -304,6 +310,14 @@ export default function OrdensServico() {
       wo.parts_used_names?.forEach(name => parts.add(name));
     });
     return Array.from(parts).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  }, [workOrders]);
+
+  const availableActivities = useMemo(() => {
+    const activities = new Set<string>();
+    workOrders.forEach(wo => {
+      if (wo.activities?.name) activities.add(wo.activities.name);
+    });
+    return Array.from(activities).sort((a, b) => a.localeCompare(b, 'pt-BR'));
   }, [workOrders]);
 
   const statusLabels: Record<string, string> = {
@@ -387,6 +401,21 @@ export default function OrdensServico() {
         )}
 
         <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground whitespace-nowrap">Atividade:</span>
+          <Select value={selectedActivity} onValueChange={setSelectedActivity}>
+            <SelectTrigger className="w-[200px] h-9">
+              <SelectValue placeholder="Todas" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="_all">Todas</SelectItem>
+              {availableActivities.map(activity => (
+                <SelectItem key={activity} value={activity}>{activity}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="flex items-center gap-2">
           <span className="text-sm text-muted-foreground whitespace-nowrap">Peça utilizada:</span>
           <Select value={selectedPart} onValueChange={setSelectedPart}>
             <SelectTrigger className="w-[200px] h-9">
@@ -401,7 +430,7 @@ export default function OrdensServico() {
           </Select>
         </div>
 
-        {(createdFrom || createdTo || endTimeFrom || endTimeTo || selectedPart !== '_all') && (
+        {(createdFrom || createdTo || endTimeFrom || endTimeTo || selectedPart !== '_all' || selectedActivity !== '_all') && (
           <Button
             variant="ghost"
             size="sm"
@@ -411,6 +440,7 @@ export default function OrdensServico() {
               setEndTimeFrom(undefined);
               setEndTimeTo(undefined);
               setSelectedPart('_all');
+              setSelectedActivity('_all');
             }}
           >
             Limpar filtros
