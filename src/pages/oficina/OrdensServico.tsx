@@ -430,7 +430,7 @@ export default function OrdensServico() {
           </Select>
         </div>
 
-        {(createdFrom || createdTo || endTimeFrom || endTimeTo || selectedPart !== '_all') && (
+        {(createdFrom || createdTo || endTimeFrom || endTimeTo || selectedPart !== '_all' || selectedActivity !== '_all') && (
           <Button
             variant="ghost"
             size="sm"
@@ -440,6 +440,7 @@ export default function OrdensServico() {
               setEndTimeFrom(undefined);
               setEndTimeTo(undefined);
               setSelectedPart('_all');
+              setSelectedActivity('_all');
             }}
           >
             Limpar filtros
