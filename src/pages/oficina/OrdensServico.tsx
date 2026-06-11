@@ -289,6 +289,11 @@ export default function OrdensServico() {
       if (!wo.parts_used_names?.includes(selectedPart)) return false;
     }
 
+    // Filter by activity
+    if (selectedActivity !== '_all') {
+      if (wo.activities?.name !== selectedActivity) return false;
+    }
+
     if (activeTab === 'kanban') {
       return true;
     } else if (activeTab === 'abertas') {
