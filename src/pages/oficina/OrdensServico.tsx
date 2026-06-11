@@ -378,7 +378,7 @@ export default function OrdensServico() {
           <DateFilterButton label="Até" date={createdTo} onChange={setCreatedTo} />
         </div>
 
-        {activeTab === 'concluidas' && (
+        {(activeTab === 'kanban' || activeTab === 'concluidas') && (
           <div className="flex items-center gap-2">
             <span className="text-sm text-muted-foreground whitespace-nowrap">Finalizado:</span>
             <DateFilterButton label="De" date={endTimeFrom} onChange={setEndTimeFrom} />
