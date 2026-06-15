@@ -470,6 +470,7 @@ export default function OrdensServico() {
                     <TableHead>Responsável</TableHead>
                     <TableHead>Tempo</TableHead>
                     <TableHead>Data</TableHead>
+                    {activeTab === 'concluidas' && <TableHead>Finalizado</TableHead>}
                     <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -541,6 +542,11 @@ export default function OrdensServico() {
                       <TableCell>
                         {format(new Date(os.created_at), "dd/MM/yy HH:mm", { locale: ptBR })}
                       </TableCell>
+                      {activeTab === 'concluidas' && (
+                        <TableCell>
+                          {os.end_time ? format(new Date(os.end_time), "dd/MM/yy HH:mm", { locale: ptBR }) : '-'}
+                        </TableCell>
+                      )}
                       <TableCell className="text-right">
                         <Button variant="ghost" size="sm" onClick={() => handleViewOS(os)}>
                           <Eye className="h-4 w-4" />
@@ -618,6 +624,11 @@ export default function OrdensServico() {
                         {format(new Date(os.created_at), "dd/MM/yy", { locale: ptBR })}
                       </span>
                     </div>
+                    {activeTab === 'concluidas' && os.end_time && (
+                      <div className="mt-1 flex justify-end text-sm text-muted-foreground">
+                        <span>Finalizado: {format(new Date(os.end_time), "dd/MM/yy", { locale: ptBR })}</span>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               ))}
