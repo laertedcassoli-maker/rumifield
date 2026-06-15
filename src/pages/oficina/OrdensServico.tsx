@@ -542,6 +542,11 @@ export default function OrdensServico() {
                       <TableCell>
                         {format(new Date(os.created_at), "dd/MM/yy HH:mm", { locale: ptBR })}
                       </TableCell>
+                      {activeTab === 'concluidas' && (
+                        <TableCell>
+                          {os.end_time ? format(new Date(os.end_time), "dd/MM/yy HH:mm", { locale: ptBR }) : '-'}
+                        </TableCell>
+                      )}
                       <TableCell className="text-right">
                         <Button variant="ghost" size="sm" onClick={() => handleViewOS(os)}>
                           <Eye className="h-4 w-4" />
