@@ -624,6 +624,11 @@ export default function OrdensServico() {
                         {format(new Date(os.created_at), "dd/MM/yy", { locale: ptBR })}
                       </span>
                     </div>
+                    {activeTab === 'concluidas' && os.end_time && (
+                      <div className="mt-1 flex justify-end text-sm text-muted-foreground">
+                        <span>Finalizado: {format(new Date(os.end_time), "dd/MM/yy", { locale: ptBR })}</span>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               ))}
