@@ -470,6 +470,7 @@ export default function OrdensServico() {
                     <TableHead>Responsável</TableHead>
                     <TableHead>Tempo</TableHead>
                     <TableHead>Data</TableHead>
+                    {activeTab === 'concluidas' && <TableHead>Finalizado</TableHead>}
                     <TableHead className="text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
