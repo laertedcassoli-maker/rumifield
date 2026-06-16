@@ -302,6 +302,13 @@ export default function OrdensServico() {
       return wo.status === 'concluido';
     }
     return true;
+  }).sort((a, b) => {
+    if (activeTab === 'concluidas') {
+      const aT = a.end_time ? new Date(a.end_time).getTime() : 0;
+      const bT = b.end_time ? new Date(b.end_time).getTime() : 0;
+      return bT - aT;
+    }
+    return 0;
   });
 
   const availableParts = useMemo(() => {
