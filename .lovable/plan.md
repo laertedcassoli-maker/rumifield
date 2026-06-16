@@ -1,19 +1,25 @@
-## Objetivo
-Adicionar a exibição da data de `end_time` na aba "Concluídas" (`activeTab === 'concluidas'`) da tela de Ordens de Serviço, sem afetar outras abas ou colunas existentes.
+### Escopo
+Alterar apenas o helper `calculateDuration` e `formatDuration` em `src/pages/chamados/Index.tsx` para exibir o tempo de vida do chamado no formato solicitado.
 
-## Mudanças
+### Mudanças
 
-### 1. Desktop — cabeçalho da tabela
-No `<TableHeader>` (linha ~465-474), inserir um novo `<TableHead>Finalizado</TableHead>` imediatamente após o `<TableHead>Data`. Renderizar apenas quando `activeTab === 'concluidas'`.
+1. **Helper `calculateDuration`**
+   - Trocar de `differenceInHours` para `differenceInSeconds` (do `date-fns`).
+   - Retornar o total de segundos entre as duas datas.
 
-### 2. Desktop — célula de dados
-No `<TableBody>` (linha ~477-550), para cada `<TableRow>`, inserir um `<TableCell>` logo após a célula que exibe `os.created_at`. O conteúdo será:
-- Se `os.end_time` existir: `format(new Date(os.end_time), "dd/MM/yy HH:mm", { locale: ptBR })`
-- Se `null`: `"-"`
-Renderizar apenas quando `activeTab === 'concluidas'`.
+2. **Helper `formatDuration`**
+   - Receber segundos em vez de horas.
+   - Lógica hierárquica:
+     - `>= 86400 seg` → exibir dias + horas restantes + minutos (ex: "2d 5h 30m")
+     - `>= 3600 seg` e `< 86400` → exibir horas + minutos + segundos (ex: "5h 30m 15s")
+     - `>= 60 seg` e `< 3600` → exibir minutos + segundos (ex: "30m 15s")
+     - `< 60 seg` → exibir segundos (ex: "15s")
+   - Se for exatamente 0 segundos, exibir "Agora".
 
-### 3. Mobile — cards
-Nos cards mobile (linha ~556-624), adicionar abaixo da linha que exibe a data de criação (`os.created_at` formatado como `dd/MM/yy`) uma nova linha com:
-- Label: `"Finalizado:"`
-- Valor: `format(new Date(os.end_time), "dd/MM/yy", { locale: ptBR })`
-Renderizar apenas quando `activeTab === 'concluidas'` e `os.end_time` não for `null`. Se `null`, não exibir a linha.
+3. **Tabela (coluna Duração)**
+   - Ajustar a chamada inline no `TableCell` para passar segundos ao invés de horas.
+   - Preservar as regras de cor (warning/destructive) baseadas no tempo decorrido para chamados não resolvidos. Ajustar os thresholds para segundos equivalentes (48h → 172800s; 168h → 604800s).
+
+### Fora de escopo
+- Não alterar o badge de duração na página de detalhe do chamado (`DetalheChamado.tsx`), pois o pedido se refere à "coluna" da listagem.
+- Não alterar nenhuma outra lógica de filtros, paginação ou layout.

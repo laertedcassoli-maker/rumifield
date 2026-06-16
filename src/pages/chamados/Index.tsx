@@ -34,7 +34,7 @@ import {
   User,
   UserPlus,
 } from 'lucide-react';
-import { format, differenceInHours } from 'date-fns';
+import { format, differenceInSeconds } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Link, useNavigate } from 'react-router-dom';
 import { useMenuPermissions } from '@/hooks/useMenuPermissions';
@@ -50,20 +50,37 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 
-// Helper function to calculate duration in hours
+// Helper function to calculate duration in seconds
 const calculateDuration = (createdAt: string, resolvedAt?: string | null): number => {
   const startDate = new Date(createdAt);
   const endDate = resolvedAt ? new Date(resolvedAt) : new Date();
-  return differenceInHours(endDate, startDate);
+  return Math.max(0, differenceInSeconds(endDate, startDate));
 };
 
-const formatDuration = (hours: number): string => {
-  if (hours < 1) return 'Agora';
-  if (hours < 24) return `${hours}h`;
-  const days = Math.floor(hours / 24);
-  const remainingHours = hours % 24;
-  if (remainingHours === 0) return days === 1 ? '1 dia' : `${days} dias`;
-  return `${days}d ${remainingHours}h`;
+const formatDuration = (totalSeconds: number): string => {
+  if (totalSeconds <= 0) return 'Agora';
+  if (totalSeconds < 60) return `${totalSeconds}s`;
+  if (totalSeconds < 3600) {
+    const m = Math.floor(totalSeconds / 60);
+    const s = totalSeconds % 60;
+    return s > 0 ? `${m}m ${s}s` : `${m}m`;
+  }
+  if (totalSeconds < 86400) {
+    const h = Math.floor(totalSeconds / 3600);
+    const m = Math.floor((totalSeconds % 3600) / 60);
+    const s = totalSeconds % 60;
+    let out = `${h}h`;
+    if (m > 0) out += ` ${m}m`;
+    if (s > 0) out += ` ${s}s`;
+    return out;
+  }
+  const d = Math.floor(totalSeconds / 86400);
+  const h = Math.floor((totalSeconds % 86400) / 3600);
+  const m = Math.floor((totalSeconds % 3600) / 60);
+  let out = `${d}d`;
+  if (h > 0) out += ` ${h}h`;
+  if (m > 0) out += ` ${m}m`;
+  return out;
 };
 
 const statusConfig = {
@@ -431,13 +448,18 @@ export default function ChamadosIndex() {
                     </TableCell>
                     <TableCell>
                       {(() => {
-                        const hours = calculateDuration(ticket.created_at, ticket.resolved_at);
+                        const seconds = calculateDuration(ticket.created_at, ticket.resolved_at);
                         const isResolved = ticket.status === 'resolvido' || ticket.status === 'cancelado';
+                        const colorClass = !isResolved && seconds > 604800
+                          ? 'text-destructive'
+                          : !isResolved && seconds > 172800
+                            ? 'text-warning'
+                            : 'text-muted-foreground';
                         return (
-                          <div className={`flex items-center gap-1.5 ${hours > 48 && !isResolved ? 'text-warning' : hours > 168 && !isResolved ? 'text-destructive' : 'text-muted-foreground'}`}>
+                          <div className={`flex items-center gap-1.5 ${colorClass}`}>
                             <Clock className="h-3.5 w-3.5" />
                             <span className="text-sm font-medium">
-                              {formatDuration(hours)}
+                              {formatDuration(seconds)}
                             </span>
                           </div>
                         );
