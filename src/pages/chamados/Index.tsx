@@ -448,13 +448,18 @@ export default function ChamadosIndex() {
                     </TableCell>
                     <TableCell>
                       {(() => {
-                        const hours = calculateDuration(ticket.created_at, ticket.resolved_at);
+                        const seconds = calculateDuration(ticket.created_at, ticket.resolved_at);
                         const isResolved = ticket.status === 'resolvido' || ticket.status === 'cancelado';
+                        const colorClass = !isResolved && seconds > 604800
+                          ? 'text-destructive'
+                          : !isResolved && seconds > 172800
+                            ? 'text-warning'
+                            : 'text-muted-foreground';
                         return (
-                          <div className={`flex items-center gap-1.5 ${hours > 48 && !isResolved ? 'text-warning' : hours > 168 && !isResolved ? 'text-destructive' : 'text-muted-foreground'}`}>
+                          <div className={`flex items-center gap-1.5 ${colorClass}`}>
                             <Clock className="h-3.5 w-3.5" />
                             <span className="text-sm font-medium">
-                              {formatDuration(hours)}
+                              {formatDuration(seconds)}
                             </span>
                           </div>
                         );
