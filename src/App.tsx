@@ -22,6 +22,7 @@ import AdminPermissoes from "./pages/admin/Permissoes";
 import OficinaAtividades from "./pages/oficina/Atividades";
 import OficinaItens from "./pages/oficina/ItensOficina";
 import OficinaOS from "./pages/oficina/OrdensServico";
+import OficinaGestaoOS from "./pages/oficina/GestaoOS";
 import OficinaGarantias from "./pages/oficina/Garantias";
 import PreventivasIndex from "./pages/preventivas/Index";
 import PreventivasRotas from "./pages/preventivas/Rotas";
@@ -206,6 +207,14 @@ const App = () => (
               element={
                 <AppLayout>
                   <OficinaOS />
+                </AppLayout>
+              }
+            />
+            <Route
+              path="/oficina/gestao"
+              element={
+                <AppLayout>
+                  <OficinaGestaoOS />
                 </AppLayout>
               }
             />
