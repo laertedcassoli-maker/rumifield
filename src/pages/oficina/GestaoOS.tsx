@@ -1,4 +1,8 @@
 import { useMemo, useState } from 'react';
+import {
+  PieChart, Pie, Cell, Tooltip as RTooltip, ResponsiveContainer, Legend,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid,
+} from 'recharts';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Wrench, CheckCircle, Timer, TrendingUp, AlertTriangle } from 'lucide-react';
