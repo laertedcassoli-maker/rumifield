@@ -251,6 +251,59 @@ export default function GestaoOS() {
     return { list, max };
   }, [filteredOS]);
 
+  const tipoBadge = (name?: string | null): { label: string; cls: string } => {
+    const n = (name || '').toLowerCase();
+    if (n.includes('pistola') || n.includes('solenoide') || n.includes('counter')) {
+      return { label: 'Reparo', cls: 'bg-blue-100 text-blue-700 border-blue-200' };
+    }
+    if (n.includes('montagem') || n.includes('preparo')) {
+      return { label: 'Montagem', cls: 'bg-orange-100 text-orange-700 border-orange-200' };
+    }
+    if (n.includes('lavagem')) {
+      return { label: 'Lavagem', cls: 'bg-green-100 text-green-700 border-green-200' };
+    }
+    return { label: 'Outro', cls: 'bg-slate-100 text-slate-700 border-slate-200' };
+  };
+
+  const fmtDur = (sec: number | null) => {
+    if (!sec || sec <= 0) return '—';
+    const h = Math.floor(sec / 3600);
+    const m = Math.round((sec % 3600) / 60);
+    return h > 0 ? `${h}h ${m}min` : `${m}min`;
+  };
+
+  const leadDaysOf = (wo: WorkOrderRow) => {
+    if (!wo.end_time || !wo.created_at) return null;
+    return (new Date(wo.end_time).getTime() - new Date(wo.created_at).getTime()) / 86400000;
+  };
+
+  const concludedRows = useMemo(() => {
+    return filteredOS
+      .filter(wo => wo.status === 'concluido')
+      .map(wo => ({ ...wo, _lead: leadDaysOf(wo) }))
+      .sort((a, b) => new Date(b.end_time || b.created_at).getTime() - new Date(a.end_time || a.created_at).getTime());
+  }, [filteredOS]);
+
+  const displayedRows = useMemo(() => {
+    const base = onlyLongLead ? concludedRows.filter(r => (r._lead ?? 0) > 30) : concludedRows;
+    return showAllRows ? base : base.slice(0, 10);
+  }, [concludedRows, onlyLongLead, showAllRows]);
+
+  const alerts = useMemo(() => {
+    const longLead = concludedRows.filter(r => (r._lead ?? 0) > 30);
+    const oldest = [...concludedRows].sort(
+      (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+    )[0];
+    const tinyTime = filteredOS.filter(wo => (wo.total_time_seconds ?? 0) > 0 && (wo.total_time_seconds ?? 0) < 60).length;
+    return {
+      longLeadCount: longLead.length,
+      oldest,
+      tinyTime,
+    };
+  }, [concludedRows, filteredOS]);
+
+
+
   return (
 
     <div className="container mx-auto p-4 md:p-6 space-y-6">
