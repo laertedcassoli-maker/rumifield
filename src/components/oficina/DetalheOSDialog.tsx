@@ -899,7 +899,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
           status: 'concluido',
           end_time: new Date().toISOString(),
           notes: completionNotes.trim() || null,
-          concluded_by_user_id: user?.id ?? null,
+          concluded_by_user_id: workOrder.assigned_to_user_id ?? user?.id ?? null,
         })
         .eq('id', workOrder.id);
       if (error) throw error;
