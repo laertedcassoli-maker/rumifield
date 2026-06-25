@@ -27,6 +27,8 @@ interface WorkOrder {
   profiles?: {
     nome: string;
   };
+  created_by_profile?: { nome: string } | null;
+  concluded_by_profile?: { nome: string } | null;
   item_info?: {
     unique_code?: string;
     product_name?: string;
