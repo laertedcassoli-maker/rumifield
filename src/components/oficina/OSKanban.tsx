@@ -45,7 +45,10 @@ interface WorkOrder {
 interface OSKanbanProps {
   workOrders: WorkOrder[];
   onViewOS: (os: WorkOrder) => void;
+  onDeleteOS?: (os: WorkOrder) => void;
+  canDelete?: boolean;
 }
+
 
 const statusConfig = {
   aguardando: {
