@@ -1,4 +1,8 @@
 import { useMemo, useState } from 'react';
+import {
+  PieChart, Pie, Cell, Tooltip as RTooltip, ResponsiveContainer, Legend,
+  BarChart, Bar, XAxis, YAxis, CartesianGrid,
+} from 'recharts';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Wrench, CheckCircle, Timer, TrendingUp, AlertTriangle } from 'lucide-react';
@@ -166,7 +170,84 @@ export default function GestaoOS() {
   }, [filteredOS]);
 
 
+  const categorize = (name?: string | null): string => {
+    const n = (name || '').toLowerCase();
+    if (n.includes('pistola')) return 'Reparo pistola';
+    if (n.includes('solenoide')) return 'Solenoide';
+    if (n.includes('counter balance')) return 'Counter balance';
+    if (n.includes('montagem') || n.includes('preparo')) return 'Montagem / Preparo';
+    return 'Outros';
+  };
+
+  const CATEGORY_COLORS: Record<string, string> = {
+    'Reparo pistola': '#2563EB',
+    'Solenoide': '#10B981',
+    'Counter balance': '#F59E0B',
+    'Montagem / Preparo': '#F97316',
+    'Outros': '#94A3B8',
+  };
+
+  const volumeByType = useMemo(() => {
+    const counts = new Map<string, number>();
+    filteredOS.forEach(wo => {
+      const cat = categorize(wo.activities?.name);
+      counts.set(cat, (counts.get(cat) || 0) + 1);
+    });
+    return Array.from(counts.entries())
+      .map(([name, value]) => ({ name, value, color: CATEGORY_COLORS[name] || '#94A3B8' }))
+      .filter(d => d.value > 0);
+  }, [filteredOS]);
+
+  const openersTable = useMemo(() => {
+    const counts = new Map<string, number>();
+    filteredOS.forEach(wo => {
+      const key = wo.created_by_user_id || '__unknown__';
+      counts.set(key, (counts.get(key) || 0) + 1);
+    });
+    return Array.from(counts.entries())
+      .map(([uid, qty]) => {
+        const p = (profilesMap as Record<string, { nome: string | null; email: string | null }>)[uid];
+        const nome = uid === '__unknown__' ? 'Não informado' : (p?.nome || p?.email || 'Usuário desconhecido');
+        return { uid, nome, qty };
+      })
+      .sort((a, b) => b.qty - a.qty);
+  }, [filteredOS, profilesMap]);
+
+  const concludedByMonth = useMemo(() => {
+    const counts = new Map<number, number>();
+    filteredOS
+      .filter(wo => wo.status === 'concluido')
+      .forEach(wo => {
+        const m = new Date(wo.created_at).getMonth();
+        counts.set(m, (counts.get(m) || 0) + 1);
+      });
+    return Array.from(counts.entries())
+      .sort((a, b) => a[0] - b[0])
+      .map(([m, total]) => ({ mes: MONTHS[m], total }));
+  }, [filteredOS]);
+
+  const pistolaModels = useMemo(() => {
+    const counts = new Map<string, number>();
+    filteredOS
+      .filter(wo => categorize(wo.activities?.name) === 'Reparo pistola')
+      .forEach(wo => {
+        (wo.work_order_items || []).forEach(it => {
+          const nome = it.workshop_items?.pecas?.nome;
+          if (nome) counts.set(nome, (counts.get(nome) || 0) + 1);
+        });
+      });
+    const sorted = Array.from(counts.entries())
+      .map(([nome, qty]) => ({ nome, qty }))
+      .sort((a, b) => b.qty - a.qty);
+    const top = sorted.slice(0, 5);
+    const restTotal = sorted.slice(5).reduce((acc, r) => acc + r.qty, 0);
+    const list = restTotal > 0 ? [...top, { nome: '3+ outros modelos', qty: restTotal }] : top;
+    const max = Math.max(1, ...list.map(l => l.qty));
+    return { list, max };
+  }, [filteredOS]);
+
   return (
+
     <div className="container mx-auto p-4 md:p-6 space-y-6">
       <div className="flex items-center gap-3">
         <Wrench className="h-7 w-7 text-primary" />
@@ -321,6 +402,120 @@ export default function GestaoOS() {
           </p>
         </div>
       </div>
+
+      {/* Volume por Tipo + Responsável Abertura */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="rounded-xl border shadow-sm p-5 bg-card">
+          <h3 className="text-sm font-semibold mb-3">Volume por Tipo de OS</h3>
+          {volumeByType.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-12 text-center">Sem dados no período.</p>
+          ) : (
+            <div className="h-72">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={volumeByType}
+                    dataKey="value"
+                    nameKey="name"
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={55}
+                    outerRadius={90}
+                    paddingAngle={2}
+                  >
+                    {volumeByType.map((d) => (
+                      <Cell key={d.name} fill={d.color} />
+                    ))}
+                  </Pie>
+                  <RTooltip formatter={(v: number, n: string) => [`${v} OS`, n]} />
+                  <Legend
+                    verticalAlign="bottom"
+                    iconType="circle"
+                    formatter={(value) => <span className="text-xs">{value}</span>}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </div>
+
+        <div className="rounded-xl border shadow-sm p-5 bg-card">
+          <h3 className="text-sm font-semibold mb-3">Responsável Abertura</h3>
+          {openersTable.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-12 text-center">Sem dados no período.</p>
+          ) : (
+            <div className="overflow-hidden rounded-md">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-xs uppercase tracking-wide text-muted-foreground">
+                    <th className="text-left font-medium py-2 px-3">Nome</th>
+                    <th className="text-right font-medium py-2 px-3">Quantidade</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {openersTable.map((row, i) => (
+                    <tr key={row.uid} className={cn(i % 2 === 1 && 'bg-muted/40')}>
+                      <td className="py-2 px-3">{row.nome}</td>
+                      <td className="py-2 px-3 text-right font-medium tabular-nums">{row.qty}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* OS por mês + Tipos de pistola */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="rounded-xl border shadow-sm p-5 bg-card">
+          <h3 className="text-sm font-semibold mb-3">OS Concluídas por Mês</h3>
+          {concludedByMonth.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-12 text-center">Sem dados no período.</p>
+          ) : (
+            <div className="h-72">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={concludedByMonth} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} className="stroke-muted" />
+                  <XAxis dataKey="mes" tick={{ fontSize: 12 }} />
+                  <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
+                  <RTooltip formatter={(v: number) => [`${v} OS`, 'Total']} />
+                  <Bar dataKey="total" fill="#2563EB" radius={[6, 6, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </div>
+
+        <div className="rounded-xl border shadow-sm p-5 bg-card">
+          <h3 className="text-sm font-semibold mb-3">Tipos de Pistola Reparada</h3>
+          {pistolaModels.list.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-12 text-center">Sem reparos de pistola no período.</p>
+          ) : (
+            <div className="space-y-3">
+              {pistolaModels.list.map((m) => {
+                const pct = (m.qty / pistolaModels.max) * 100;
+                return (
+                  <div key={m.nome} className="space-y-1">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="truncate pr-2">{m.nome}</span>
+                      <span className="font-medium tabular-nums">{m.qty}</span>
+                    </div>
+                    <div className="h-2 rounded-full bg-muted overflow-hidden">
+                      <div
+                        className="h-full rounded-full"
+                        style={{ width: `${pct}%`, backgroundColor: '#2563EB' }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+
+
 
 
       {isLoading && (
