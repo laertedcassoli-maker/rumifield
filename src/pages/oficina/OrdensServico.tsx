@@ -539,6 +539,10 @@ export default function OrdensServico() {
                         </Badge>
                       </TableCell>
                       <TableCell>{os.profiles?.nome || '-'}</TableCell>
+                      <TableCell>{os.created_by_profile?.nome || '-'}</TableCell>
+                      {activeTab === 'concluidas' && (
+                        <TableCell>{os.concluded_by_profile?.nome || '-'}</TableCell>
+                      )}
                       <TableCell>
                         <div className="flex items-center gap-3">
                           <div className="flex items-center gap-1">
