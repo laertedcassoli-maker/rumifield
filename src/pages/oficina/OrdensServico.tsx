@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import { Plus, Search, Eye, Play, Pause, CheckCircle, Clock, Package, LayoutGrid, List, Wrench } from 'lucide-react';
+import { Plus, Search, Eye, Play, Pause, CheckCircle, Clock, Package, LayoutGrid, List, Wrench, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -14,12 +14,24 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { NovaOSDialog } from '@/components/oficina/NovaOSDialog';
 import { DetalheOSDialog } from '@/components/oficina/DetalheOSDialog';
 import { OSKanban } from '@/components/oficina/OSKanban';
+import { useMenuPermissions } from '@/hooks/useMenuPermissions';
+
 
 interface WorkOrder {
   id: string;
