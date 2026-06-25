@@ -230,7 +230,13 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
     setPartQuantity(1);
     setPartSearchQuery('');
     setTimeHistoryOpen(false);
+    setEditingTags(false);
   }, [workOrder.id]);
+
+  // Sync selected tags when entering edit mode or when current links change
+  useEffect(() => {
+    setSelectedTagIds(currentTagLinks.map(l => l.tag_id));
+  }, [currentTagLinks, editingTags]);
 
   // FIX 4: Keep local total in sync — but skip for 5s after stop to prevent stale overwrite
   useEffect(() => {
