@@ -1051,6 +1051,90 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
               <p className="font-medium">{workOrder.activities?.name}</p>
             </div>
 
+            {/* Tags */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-muted-foreground">Tags</p>
+                {canEditOS && !editingTags && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2"
+                    onClick={() => setEditingTags(true)}
+                  >
+                    <Pencil className="h-3.5 w-3.5 mr-1" />
+                    Editar
+                  </Button>
+                )}
+              </div>
+
+              {!editingTags ? (
+                currentTagLinks.length > 0 ? (
+                  <div className="flex flex-wrap gap-1.5">
+                    {currentTagLinks.map(link => (
+                      <Badge
+                        key={link.tag_id}
+                        variant="outline"
+                        style={{ borderColor: link.ticket_tags.color, color: link.ticket_tags.color }}
+                      >
+                        {link.ticket_tags.name}
+                      </Badge>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground italic">Nenhuma tag</p>
+                )
+              ) : (
+                <div className="space-y-3">
+                  <div className="flex flex-wrap gap-2">
+                    {oficinaTags.map(tag => (
+                      <Badge
+                        key={tag.id}
+                        variant="outline"
+                        className="cursor-pointer select-none"
+                        style={
+                          selectedTagIds.includes(tag.id)
+                            ? { backgroundColor: tag.color, color: '#fff', borderColor: tag.color }
+                            : { borderColor: tag.color, color: tag.color }
+                        }
+                        onClick={() => setSelectedTagIds(prev =>
+                          prev.includes(tag.id) ? prev.filter(id => id !== tag.id) : [...prev, tag.id]
+                        )}
+                      >
+                        {tag.name}
+                      </Badge>
+                    ))}
+                    {oficinaTags.length === 0 && (
+                      <p className="text-sm text-muted-foreground italic">Nenhuma tag disponível</p>
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      onClick={() => saveTagsMutation.mutate(selectedTagIds)}
+                      disabled={saveTagsMutation.isPending}
+                    >
+                      <Check className="h-4 w-4 mr-1" />
+                      Salvar
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setEditingTags(false);
+                        setSelectedTagIds(currentTagLinks.map(l => l.tag_id));
+                      }}
+                      disabled={saveTagsMutation.isPending}
+                    >
+                      <X className="h-4 w-4 mr-1" />
+                      Cancelar
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+
+
             {/* Timer Section - always show total time */}
             <Card>
               <CardHeader className="pb-2">
