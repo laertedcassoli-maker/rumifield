@@ -220,16 +220,17 @@ function KanbanColumn({
   );
 }
 
-export function OSKanban({ workOrders, onViewOS }: OSKanbanProps) {
+export function OSKanban({ workOrders, onViewOS, onDeleteOS, canDelete }: OSKanbanProps) {
   const aguardando = workOrders.filter(wo => wo.status === 'aguardando');
   const emManutencao = workOrders.filter(wo => wo.status === 'em_manutencao');
   const concluido = workOrders.filter(wo => wo.status === 'concluido');
 
   return (
     <div className="flex gap-4 overflow-x-auto pb-4">
-      <KanbanColumn status="aguardando" orders={aguardando} onViewOS={onViewOS} />
-      <KanbanColumn status="em_manutencao" orders={emManutencao} onViewOS={onViewOS} />
-      <KanbanColumn status="concluido" orders={concluido} onViewOS={onViewOS} />
+      <KanbanColumn status="aguardando" orders={aguardando} onViewOS={onViewOS} onDeleteOS={onDeleteOS} canDelete={canDelete} />
+      <KanbanColumn status="em_manutencao" orders={emManutencao} onViewOS={onViewOS} onDeleteOS={onDeleteOS} canDelete={canDelete} />
+      <KanbanColumn status="concluido" orders={concluido} onViewOS={onViewOS} onDeleteOS={onDeleteOS} canDelete={canDelete} />
+
     </div>
   );
 }
