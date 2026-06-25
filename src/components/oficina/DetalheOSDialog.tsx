@@ -1446,8 +1446,12 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
 
 
             {/* Metadata */}
-            <div className="text-xs text-muted-foreground">
-              Criada em: {format(new Date(workOrder.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+            <div className="text-xs text-muted-foreground space-y-0.5">
+              <div>Criada em: {format(new Date(workOrder.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}</div>
+              <div>Aberto por: {workOrder.created_by_profile?.nome || '-'}</div>
+              {workOrder.status === 'concluido' && (
+                <div>Concluído por: {workOrder.concluded_by_profile?.nome || '-'}</div>
+              )}
             </div>
 
             {/* Time History Section */}
