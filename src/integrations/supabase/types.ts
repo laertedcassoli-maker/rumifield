@@ -3662,6 +3662,7 @@ export type Database = {
           assigned_to_user_id: string | null
           cliente_id: string | null
           code: string
+          concluded_by_user_id: string | null
           created_at: string
           created_by_user_id: string
           end_time: string | null
@@ -3677,6 +3678,7 @@ export type Database = {
           assigned_to_user_id?: string | null
           cliente_id?: string | null
           code: string
+          concluded_by_user_id?: string | null
           created_at?: string
           created_by_user_id: string
           end_time?: string | null
@@ -3692,6 +3694,7 @@ export type Database = {
           assigned_to_user_id?: string | null
           cliente_id?: string | null
           code?: string
+          concluded_by_user_id?: string | null
           created_at?: string
           created_by_user_id?: string
           end_time?: string | null
