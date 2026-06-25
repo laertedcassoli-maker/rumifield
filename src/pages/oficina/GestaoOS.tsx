@@ -50,6 +50,9 @@ export default function GestaoOS() {
   const [granularity, setGranularity] = useState<Granularity>('mes');
   const [selectedMonths, setSelectedMonths] = useState<number[]>([currentMonth]);
   const [selectedActivities, setSelectedActivities] = useState<string[]>([]);
+  const [showAllRows, setShowAllRows] = useState(false);
+  const [onlyLongLead, setOnlyLongLead] = useState(false);
+  const [openDialogOS, setOpenDialogOS] = useState<any | null>(null);
 
   const { data: workOrders = [], isLoading } = useQuery({
     queryKey: ['gestao-os', currentYear],
