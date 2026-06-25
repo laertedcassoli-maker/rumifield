@@ -153,11 +153,6 @@ function KanbanColumn({
                   </div>
                 )}
 
-                {os.profiles?.nome && (
-                  <p className="text-xs text-muted-foreground mb-2">
-                    Responsável: {os.profiles.nome}
-                  </p>
-                )}
 
                 <div className="flex items-center justify-between text-xs text-muted-foreground">
                   <div className="flex items-center gap-2">
