@@ -140,6 +140,32 @@ export default function GestaoOS() {
     setSelectedActivities(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   };
 
+  const kpis = useMemo(() => {
+    const concluded = filteredOS.filter(wo => wo.status === 'concluido');
+    const concludedCount = concluded.length;
+
+    const timesSec = concluded.map(wo => wo.total_time_seconds || 0).filter(s => s > 0);
+    const avgTimeSec = timesSec.length ? timesSec.reduce((a, b) => a + b, 0) / timesSec.length : 0;
+    const avgTimeH = Math.floor(avgTimeSec / 3600);
+    const avgTimeMin = Math.round((avgTimeSec % 3600) / 60);
+    const avgTimeLabel = timesSec.length
+      ? (avgTimeH > 0 ? `${avgTimeH}h ${avgTimeMin}min` : `${avgTimeMin}min`)
+      : '—';
+
+    const leadDays = concluded
+      .filter(wo => wo.end_time && wo.created_at)
+      .map(wo => (new Date(wo.end_time!).getTime() - new Date(wo.created_at).getTime()) / 86400000);
+    const avgLead = leadDays.length ? leadDays.reduce((a, b) => a + b, 0) / leadDays.length : 0;
+    const avgLeadLabel = leadDays.length ? `${avgLead.toFixed(1)} dias` : '—';
+
+    const longLeadCount = leadDays.filter(d => d > 30).length;
+    const totalForPct = filteredOS.length;
+    const longLeadPct = totalForPct > 0 ? (longLeadCount / totalForPct) * 100 : 0;
+
+    return { concludedCount, avgTimeLabel, avgLead, avgLeadLabel, longLeadCount, longLeadPct, totalForPct };
+  }, [filteredOS]);
+
+
   return (
     <div className="container mx-auto p-4 md:p-6 space-y-6">
       <div className="flex items-center gap-3">
