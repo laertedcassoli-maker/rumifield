@@ -460,17 +460,19 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
         throw new Error('Você já tem um cronômetro ativo em outra OS');
       }
 
-      // Update OS status to em_manutencao if aguardando
+      // Always set current user as the OS responsible; promote status if still waiting
+      const updatePayload: Record<string, unknown> = {
+        assigned_to_user_id: user.id,
+      };
       if (workOrder.status === 'aguardando') {
-        const { error: updateError } = await supabase
-          .from('work_orders')
-          .update({ 
-            status: 'em_manutencao',
-            start_time: new Date().toISOString(),
-          })
-          .eq('id', workOrder.id);
-        if (updateError) throw updateError;
+        updatePayload.status = 'em_manutencao';
+        updatePayload.start_time = new Date().toISOString();
       }
+      const { error: updateError } = await supabase
+        .from('work_orders')
+        .update(updatePayload)
+        .eq('id', workOrder.id);
+      if (updateError) throw updateError;
 
       // If meter hours entry provided, save it to work_order_items
       if (entryMeterHours != null) {
