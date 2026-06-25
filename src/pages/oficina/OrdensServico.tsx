@@ -32,6 +32,7 @@ interface WorkOrder {
   end_time: string | null;
   notes: string | null;
   created_by_user_id: string;
+  concluded_by_user_id: string | null;
   created_at: string;
   activities?: {
     id: string;
@@ -42,6 +43,8 @@ interface WorkOrder {
   profiles?: {
     nome: string;
   };
+  created_by_profile?: { nome: string } | null;
+  concluded_by_profile?: { nome: string } | null;
   item_info?: {
     unique_code?: string;
     product_name?: string;
