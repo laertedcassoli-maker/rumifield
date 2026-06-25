@@ -221,6 +221,30 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
     onError: (e: any) => toast.error(e.message || 'Erro ao salvar tags'),
   });
 
+  const deleteWorkOrderMutation = useMutation({
+    mutationFn: async () => {
+      const id = workOrder.id;
+      const t1 = await supabase.from('work_order_tag_links').delete().eq('work_order_id', id);
+      if (t1.error) throw t1.error;
+      const t2 = await supabase.from('work_order_parts_used').delete().eq('work_order_id', id);
+      if (t2.error) throw t2.error;
+      const t3 = await supabase.from('work_order_time_entries').delete().eq('work_order_id', id);
+      if (t3.error) throw t3.error;
+      const t4 = await supabase.from('work_order_items').delete().eq('work_order_id', id);
+      if (t4.error) throw t4.error;
+      const t5 = await supabase.from('work_orders').delete().eq('id', id);
+      if (t5.error) throw t5.error;
+    },
+    onSuccess: () => {
+      toast.success('OS excluída com sucesso');
+      queryClient.invalidateQueries({ queryKey: ['work-orders'] });
+      setConfirmDeleteOpen(false);
+      onOpenChange(false);
+      onUpdate();
+    },
+    onError: (e: any) => toast.error(e.message || 'Erro ao excluir OS'),
+  });
+
   // FIX 4: Ref to protect localTotalSeconds from stale refetch after Stop
   const recentlyStoppedRef = useRef(false);
   // FIX 7: Guard against double-click on Play
