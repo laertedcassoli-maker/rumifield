@@ -231,6 +231,8 @@ export default function OrdensServico() {
       return (data || []).map(wo => ({
         ...wo,
         profiles: wo.assigned_to_user_id ? { nome: profilesMap[wo.assigned_to_user_id] || '-' } : undefined,
+        created_by_profile: wo.created_by_user_id ? { nome: profilesMap[wo.created_by_user_id] || '-' } : null,
+        concluded_by_profile: wo.concluded_by_user_id ? { nome: profilesMap[wo.concluded_by_user_id] || '-' } : null,
         item_info: itemsMap[wo.id],
         parts_count: partsCountMap[wo.id] || 0,
         parts_used_names: workOrderPartsNamesMap[wo.id] || [],
