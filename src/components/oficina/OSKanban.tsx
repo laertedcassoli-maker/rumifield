@@ -81,13 +81,18 @@ const formatTime = (seconds: number) => {
 function KanbanColumn({ 
   status, 
   orders, 
-  onViewOS 
+  onViewOS,
+  onDeleteOS,
+  canDelete,
 }: { 
   status: 'aguardando' | 'em_manutencao' | 'concluido';
   orders: WorkOrder[];
   onViewOS: (os: WorkOrder) => void;
+  onDeleteOS?: (os: WorkOrder) => void;
+  canDelete?: boolean;
 }) {
   const config = statusConfig[status];
+
 
   return (
     <div className={`flex-1 min-w-[280px] max-w-[350px] rounded-lg border ${config.borderColor} ${config.bgColor}`}>
