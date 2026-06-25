@@ -108,10 +108,12 @@ export default function OrdensServico() {
         .order('created_at', { ascending: false });
       if (error) throw error;
       
-      // Fetch profiles separately for assigned users
-      const userIds = data?.map(wo => wo.assigned_to_user_id).filter(Boolean) || [];
+      // Fetch profiles separately for assigned/created/concluded users
+      const userIds = Array.from(new Set(
+        (data || []).flatMap(wo => [wo.assigned_to_user_id, wo.created_by_user_id, wo.concluded_by_user_id]).filter(Boolean)
+      )) as string[];
       let profilesMap: Record<string, string> = {};
-      
+
       if (userIds.length > 0) {
         const { data: profiles } = await supabase
           .from('profiles')
