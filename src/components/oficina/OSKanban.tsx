@@ -155,7 +155,7 @@ function KanbanColumn({
 
                 {os.profiles?.nome && (
                   <p className="text-xs text-muted-foreground mb-2">
-                    👤 {os.profiles.nome}
+                    Responsável: {os.profiles.nome}
                   </p>
                 )}
 
