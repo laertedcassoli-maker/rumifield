@@ -537,7 +537,6 @@ export default function OrdensServico() {
                           {statusLabels[os.status] || os.status}
                         </Badge>
                       </TableCell>
-                      <TableCell>{os.profiles?.nome || '-'}</TableCell>
                       <TableCell>{os.created_by_profile?.nome || '-'}</TableCell>
                       {activeTab === 'concluidas' && (
                         <TableCell>{os.concluded_by_profile?.nome || '-'}</TableCell>
