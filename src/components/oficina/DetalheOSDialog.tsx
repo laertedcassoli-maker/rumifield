@@ -1717,11 +1717,43 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
             )}
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="gap-2 sm:justify-between">
+            {canDeleteOS ? (
+              <Button
+                variant="outline"
+                onClick={() => setConfirmDeleteOpen(true)}
+                className="border-destructive/40 text-destructive hover:text-destructive hover:bg-destructive/10"
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Excluir OS
+              </Button>
+            ) : <span />}
             <Button variant="outline" onClick={() => handleDialogClose(false)}>
               Fechar
             </Button>
           </DialogFooter>
+
+          <AlertDialog open={confirmDeleteOpen} onOpenChange={setConfirmDeleteOpen}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitleUI>Excluir Ordem de Serviço</AlertDialogTitleUI>
+                <AlertDialogDescription>
+                  Tem certeza que deseja excluir a OS {workOrder.code}? Esta ação não pode ser desfeita.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={deleteWorkOrderMutation.isPending}>Cancelar</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={(e) => { e.preventDefault(); deleteWorkOrderMutation.mutate(); }}
+                  disabled={deleteWorkOrderMutation.isPending}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  {deleteWorkOrderMutation.isPending ? 'Excluindo...' : 'Excluir'}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+
         </DialogContent>
       </Dialog>
 
