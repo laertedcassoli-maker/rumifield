@@ -86,6 +86,7 @@ const groupActionColumns: Record<string, Array<{ key: keyof Permission; label: s
   ],
   oficina: [
     { key: 'can_edit', label: 'Editar' },
+    { key: 'can_delete', label: 'Excluir' },
   ],
 };
 

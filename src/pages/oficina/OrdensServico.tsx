@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import { Plus, Search, Eye, Play, Pause, CheckCircle, Clock, Package, LayoutGrid, List, Wrench } from 'lucide-react';
+import { Plus, Search, Eye, Play, Pause, CheckCircle, Clock, Package, LayoutGrid, List, Wrench, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -14,12 +14,24 @@ import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { cn } from '@/lib/utils';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { NovaOSDialog } from '@/components/oficina/NovaOSDialog';
 import { DetalheOSDialog } from '@/components/oficina/DetalheOSDialog';
 import { OSKanban } from '@/components/oficina/OSKanban';
+import { useMenuPermissions } from '@/hooks/useMenuPermissions';
+
 
 interface WorkOrder {
   id: string;
@@ -89,9 +101,35 @@ export default function OrdensServico() {
   const [endTimeTo, setEndTimeTo] = useState<Date | undefined>(undefined);
   const [selectedPart, setSelectedPart] = useState<string>('_all');
   const [selectedActivity, setSelectedActivity] = useState<string>('_all');
+  const [deleteTarget, setDeleteTarget] = useState<WorkOrder | null>(null);
 
+  const { canDelete } = useMenuPermissions();
+  const canDeleteOS = canDelete('oficina_os');
 
   const isAdmin = role === 'admin' || role === 'coordenador_rplus' || role === 'coordenador_servicos';
+
+  const deleteOSMutation = useMutation({
+    mutationFn: async (id: string) => {
+      // Delete children in FK-safe order
+      const t1 = await supabase.from('work_order_tag_links').delete().eq('work_order_id', id);
+      if (t1.error) throw t1.error;
+      const t2 = await supabase.from('work_order_parts_used').delete().eq('work_order_id', id);
+      if (t2.error) throw t2.error;
+      const t3 = await supabase.from('work_order_time_entries').delete().eq('work_order_id', id);
+      if (t3.error) throw t3.error;
+      const t4 = await supabase.from('work_order_items').delete().eq('work_order_id', id);
+      if (t4.error) throw t4.error;
+      const t5 = await supabase.from('work_orders').delete().eq('id', id);
+      if (t5.error) throw t5.error;
+    },
+    onSuccess: () => {
+      toast.success('OS excluída com sucesso');
+      queryClient.invalidateQueries({ queryKey: ['work-orders'] });
+      setDeleteTarget(null);
+    },
+    onError: (e: any) => toast.error(e.message || 'Erro ao excluir OS'),
+  });
+
 
 
   // Fetch work orders
@@ -566,9 +604,21 @@ export default function OrdensServico() {
                         </TableCell>
                       )}
                       <TableCell className="text-right">
-                        <Button variant="ghost" size="sm" onClick={() => handleViewOS(os)}>
-                          <Eye className="h-4 w-4" />
-                        </Button>
+                        <div className="flex justify-end gap-1">
+                          <Button variant="ghost" size="sm" onClick={() => handleViewOS(os)}>
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                          {canDeleteOS && (
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={(e) => { e.stopPropagation(); setDeleteTarget(os); }}
+                              className="text-destructive hover:text-destructive"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </div>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -655,6 +705,19 @@ export default function OrdensServico() {
                         <span>Finalizado: {format(new Date(os.end_time), "dd/MM/yy", { locale: ptBR })}</span>
                       </div>
                     )}
+                    {canDeleteOS && (
+                      <div className="mt-3 flex justify-end">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={(e) => { e.stopPropagation(); setDeleteTarget(os); }}
+                          className="border-destructive/40 text-destructive hover:text-destructive hover:bg-destructive/10"
+                        >
+                          <Trash2 className="h-3.5 w-3.5 mr-1" />
+                          Excluir
+                        </Button>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               ))}
@@ -683,6 +746,30 @@ export default function OrdensServico() {
           }}
         />
       )}
+
+      <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir Ordem de Serviço</AlertDialogTitle>
+            <AlertDialogDescription>
+              Tem certeza que deseja excluir a OS {deleteTarget?.code}? Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteOSMutation.isPending}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                if (deleteTarget) deleteOSMutation.mutate(deleteTarget.id);
+              }}
+              disabled={deleteOSMutation.isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteOSMutation.isPending ? 'Excluindo...' : 'Excluir'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

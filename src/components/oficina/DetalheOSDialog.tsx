@@ -8,6 +8,16 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle as AlertDialogTitleUI,
+} from '@/components/ui/alert-dialog';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -129,8 +139,10 @@ async function recalcTotalFromEntries(workOrderId: string): Promise<number> {
 export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: DetalheOSDialogProps) {
   const { user, role } = useAuth();
   const isAdmin = role === 'admin';
-  const { canEdit: canEditMenu } = useMenuPermissions();
+  const { canEdit: canEditMenu, canDelete: canDeleteMenu } = useMenuPermissions();
   const canEditOS = canEditMenu('oficina_os') || canEditMenu('oficina');
+  const canDeleteOS = canDeleteMenu('oficina_os');
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const queryClient = useQueryClient();
   const [elapsedTime, setElapsedTime] = useState(workOrder.total_time_seconds);
   const [currentSessionTime, setCurrentSessionTime] = useState(0);
@@ -207,6 +219,30 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
       onUpdate();
     },
     onError: (e: any) => toast.error(e.message || 'Erro ao salvar tags'),
+  });
+
+  const deleteWorkOrderMutation = useMutation({
+    mutationFn: async () => {
+      const id = workOrder.id;
+      const t1 = await supabase.from('work_order_tag_links').delete().eq('work_order_id', id);
+      if (t1.error) throw t1.error;
+      const t2 = await supabase.from('work_order_parts_used').delete().eq('work_order_id', id);
+      if (t2.error) throw t2.error;
+      const t3 = await supabase.from('work_order_time_entries').delete().eq('work_order_id', id);
+      if (t3.error) throw t3.error;
+      const t4 = await supabase.from('work_order_items').delete().eq('work_order_id', id);
+      if (t4.error) throw t4.error;
+      const t5 = await supabase.from('work_orders').delete().eq('id', id);
+      if (t5.error) throw t5.error;
+    },
+    onSuccess: () => {
+      toast.success('OS excluída com sucesso');
+      queryClient.invalidateQueries({ queryKey: ['work-orders'] });
+      setConfirmDeleteOpen(false);
+      onOpenChange(false);
+      onUpdate();
+    },
+    onError: (e: any) => toast.error(e.message || 'Erro ao excluir OS'),
   });
 
   // FIX 4: Ref to protect localTotalSeconds from stale refetch after Stop
@@ -1681,11 +1717,43 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
             )}
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="gap-2 sm:justify-between">
+            {canDeleteOS ? (
+              <Button
+                variant="outline"
+                onClick={() => setConfirmDeleteOpen(true)}
+                className="border-destructive/40 text-destructive hover:text-destructive hover:bg-destructive/10"
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Excluir OS
+              </Button>
+            ) : <span />}
             <Button variant="outline" onClick={() => handleDialogClose(false)}>
               Fechar
             </Button>
           </DialogFooter>
+
+          <AlertDialog open={confirmDeleteOpen} onOpenChange={setConfirmDeleteOpen}>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitleUI>Excluir Ordem de Serviço</AlertDialogTitleUI>
+                <AlertDialogDescription>
+                  Tem certeza que deseja excluir a OS {workOrder.code}? Esta ação não pode ser desfeita.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={deleteWorkOrderMutation.isPending}>Cancelar</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={(e) => { e.preventDefault(); deleteWorkOrderMutation.mutate(); }}
+                  disabled={deleteWorkOrderMutation.isPending}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  {deleteWorkOrderMutation.isPending ? 'Excluindo...' : 'Excluir'}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+
         </DialogContent>
       </Dialog>
 
