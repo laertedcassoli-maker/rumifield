@@ -705,6 +705,19 @@ export default function OrdensServico() {
                         <span>Finalizado: {format(new Date(os.end_time), "dd/MM/yy", { locale: ptBR })}</span>
                       </div>
                     )}
+                    {canDeleteOS && (
+                      <div className="mt-3 flex justify-end">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={(e) => { e.stopPropagation(); setDeleteTarget(os); }}
+                          className="border-destructive/40 text-destructive hover:text-destructive hover:bg-destructive/10"
+                        >
+                          <Trash2 className="h-3.5 w-3.5 mr-1" />
+                          Excluir
+                        </Button>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               ))}
