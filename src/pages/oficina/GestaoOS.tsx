@@ -3,6 +3,8 @@ import {
   PieChart, Pie, Cell, Tooltip as RTooltip, ResponsiveContainer, Legend,
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
 } from 'recharts';
+import { format } from 'date-fns';
+import { DetalheOSDialog } from '@/components/oficina/DetalheOSDialog';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Wrench, CheckCircle, Timer, TrendingUp, AlertTriangle } from 'lucide-react';
@@ -48,6 +50,9 @@ export default function GestaoOS() {
   const [granularity, setGranularity] = useState<Granularity>('mes');
   const [selectedMonths, setSelectedMonths] = useState<number[]>([currentMonth]);
   const [selectedActivities, setSelectedActivities] = useState<string[]>([]);
+  const [showAllRows, setShowAllRows] = useState(false);
+  const [onlyLongLead, setOnlyLongLead] = useState(false);
+  const [openDialogOS, setOpenDialogOS] = useState<any | null>(null);
 
   const { data: workOrders = [], isLoading } = useQuery({
     queryKey: ['gestao-os', currentYear],
@@ -245,6 +250,59 @@ export default function GestaoOS() {
     const max = Math.max(1, ...list.map(l => l.qty));
     return { list, max };
   }, [filteredOS]);
+
+  const tipoBadge = (name?: string | null): { label: string; cls: string } => {
+    const n = (name || '').toLowerCase();
+    if (n.includes('pistola') || n.includes('solenoide') || n.includes('counter')) {
+      return { label: 'Reparo', cls: 'bg-blue-100 text-blue-700 border-blue-200' };
+    }
+    if (n.includes('montagem') || n.includes('preparo')) {
+      return { label: 'Montagem', cls: 'bg-orange-100 text-orange-700 border-orange-200' };
+    }
+    if (n.includes('lavagem')) {
+      return { label: 'Lavagem', cls: 'bg-green-100 text-green-700 border-green-200' };
+    }
+    return { label: 'Outro', cls: 'bg-slate-100 text-slate-700 border-slate-200' };
+  };
+
+  const fmtDur = (sec: number | null) => {
+    if (!sec || sec <= 0) return '—';
+    const h = Math.floor(sec / 3600);
+    const m = Math.round((sec % 3600) / 60);
+    return h > 0 ? `${h}h ${m}min` : `${m}min`;
+  };
+
+  const leadDaysOf = (wo: WorkOrderRow) => {
+    if (!wo.end_time || !wo.created_at) return null;
+    return (new Date(wo.end_time).getTime() - new Date(wo.created_at).getTime()) / 86400000;
+  };
+
+  const concludedRows = useMemo(() => {
+    return filteredOS
+      .filter(wo => wo.status === 'concluido')
+      .map(wo => ({ ...wo, _lead: leadDaysOf(wo) }))
+      .sort((a, b) => new Date(b.end_time || b.created_at).getTime() - new Date(a.end_time || a.created_at).getTime());
+  }, [filteredOS]);
+
+  const displayedRows = useMemo(() => {
+    const base = onlyLongLead ? concludedRows.filter(r => (r._lead ?? 0) > 30) : concludedRows;
+    return showAllRows ? base : base.slice(0, 10);
+  }, [concludedRows, onlyLongLead, showAllRows]);
+
+  const alerts = useMemo(() => {
+    const longLead = concludedRows.filter(r => (r._lead ?? 0) > 30);
+    const oldest = [...concludedRows].sort(
+      (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+    )[0];
+    const tinyTime = filteredOS.filter(wo => (wo.total_time_seconds ?? 0) > 0 && (wo.total_time_seconds ?? 0) < 60).length;
+    return {
+      longLeadCount: longLead.length,
+      oldest,
+      tinyTime,
+    };
+  }, [concludedRows, filteredOS]);
+
+
 
   return (
 
@@ -515,7 +573,166 @@ export default function GestaoOS() {
         </div>
       </div>
 
+      {/* Tabela: Últimas OS Concluídas */}
+      <div className="rounded-xl border shadow-sm p-5 bg-card">
+        <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+          <h3 className="text-sm font-semibold">
+            Últimas OS Concluídas {onlyLongLead && <span className="text-xs text-red-600 font-normal">· filtro: Lead {'>'} 30d</span>}
+          </h3>
+          {onlyLongLead && (
+            <Button variant="ghost" size="sm" onClick={() => setOnlyLongLead(false)}>
+              Limpar filtro
+            </Button>
+          )}
+        </div>
 
+        {displayedRows.length === 0 ? (
+          <p className="text-sm text-muted-foreground py-10 text-center">Sem OS concluídas no período.</p>
+        ) : (
+          <>
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-xs uppercase tracking-wide text-muted-foreground border-b">
+                    <th className="text-left font-medium py-2 px-3">Código</th>
+                    <th className="text-left font-medium py-2 px-3">Atividade / Item</th>
+                    <th className="text-left font-medium py-2 px-3">Tipo</th>
+                    <th className="text-left font-medium py-2 px-3">Abertura</th>
+                    <th className="text-left font-medium py-2 px-3">Conclusão</th>
+                    <th className="text-left font-medium py-2 px-3">Tempo Exec.</th>
+                    <th className="text-left font-medium py-2 px-3">Lead Time</th>
+                    <th className="text-left font-medium py-2 px-3">Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {displayedRows.map((row, i) => {
+                    const t = tipoBadge(row.activities?.name);
+                    const lead = row._lead;
+                    const leadColor = lead == null ? 'text-muted-foreground'
+                      : lead > 30 ? 'text-red-600 font-semibold'
+                      : lead >= 7 ? 'text-orange-500 font-medium'
+                      : 'text-green-600 font-medium';
+                    const itemCode = row.work_order_items?.[0]?.workshop_items?.unique_code;
+                    return (
+                      <tr key={row.id} className={cn('border-b last:border-b-0', i % 2 === 1 && 'bg-muted/30')}>
+                        <td className="py-2 px-3">
+                          <button onClick={() => setOpenDialogOS(row)} className="text-blue-600 hover:underline font-medium">
+                            {row.code}
+                          </button>
+                        </td>
+                        <td className="py-2 px-3">
+                          <div className="truncate max-w-[260px]">{row.activities?.name || '—'}</div>
+                          {itemCode && <div className="text-xs text-muted-foreground">{itemCode}</div>}
+                        </td>
+                        <td className="py-2 px-3">
+                          <span className={cn('inline-block rounded-full border px-2 py-0.5 text-xs font-medium', t.cls)}>{t.label}</span>
+                        </td>
+                        <td className="py-2 px-3 tabular-nums">{format(new Date(row.created_at), 'dd/MM/yy')}</td>
+                        <td className="py-2 px-3 tabular-nums">{row.end_time ? format(new Date(row.end_time), 'dd/MM/yy') : '—'}</td>
+                        <td className="py-2 px-3 tabular-nums">{fmtDur(row.total_time_seconds)}</td>
+                        <td className={cn('py-2 px-3 tabular-nums', leadColor)}>
+                          {lead == null ? '—' : `${lead.toFixed(1)} dias`}
+                          {lead != null && lead > 30 && (
+                            <span className="ml-2 inline-block rounded-full bg-red-100 text-red-700 border border-red-200 px-2 py-0.5 text-[10px] font-semibold">
+                              Lead alto
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-2 px-3">
+                          <span className="inline-block rounded-full bg-green-100 text-green-700 border border-green-200 px-2 py-0.5 text-xs font-medium">
+                            Concluída
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            <div className="md:hidden space-y-3">
+              {displayedRows.map(row => {
+                const t = tipoBadge(row.activities?.name);
+                const lead = row._lead;
+                const leadColor = lead == null ? 'text-muted-foreground'
+                  : lead > 30 ? 'text-red-600 font-semibold'
+                  : lead >= 7 ? 'text-orange-500 font-medium'
+                  : 'text-green-600 font-medium';
+                const itemCode = row.work_order_items?.[0]?.workshop_items?.unique_code;
+                return (
+                  <div key={row.id} className="rounded-lg border p-3 space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <button onClick={() => setOpenDialogOS(row)} className="text-blue-600 hover:underline font-medium">
+                        {row.code}
+                      </button>
+                      <span className={cn('inline-block rounded-full border px-2 py-0.5 text-xs font-medium', t.cls)}>{t.label}</span>
+                    </div>
+                    <div className="text-sm">{row.activities?.name || '—'}</div>
+                    {itemCode && <div className="text-xs text-muted-foreground">{itemCode}</div>}
+                    <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground pt-1">
+                      <div>Abertura: <span className="text-foreground">{format(new Date(row.created_at), 'dd/MM/yy')}</span></div>
+                      <div>Conclusão: <span className="text-foreground">{row.end_time ? format(new Date(row.end_time), 'dd/MM/yy') : '—'}</span></div>
+                      <div>Tempo: <span className="text-foreground">{fmtDur(row.total_time_seconds)}</span></div>
+                      <div>Lead: <span className={leadColor}>{lead == null ? '—' : `${lead.toFixed(1)}d`}</span></div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {(onlyLongLead ? concludedRows.filter(r => (r._lead ?? 0) > 30).length : concludedRows.length) > 10 && (
+              <div className="flex justify-center mt-4">
+                <Button variant="outline" size="sm" onClick={() => setShowAllRows(v => !v)}>
+                  {showAllRows
+                    ? 'Mostrar menos'
+                    : `Ver todas (${onlyLongLead ? concludedRows.filter(r => (r._lead ?? 0) > 30).length : concludedRows.length})`}
+                </Button>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* Alertas e Pontos de Atenção */}
+      <div className="grid grid-cols-1 md:grid-cols-2 md:justify-items-end">
+        <div className="rounded-xl border shadow-sm p-5 bg-card md:col-start-2 w-full">
+          <h3 className="text-sm font-semibold mb-3">Alertas e Pontos de Atenção</h3>
+          <ul className="space-y-2 text-sm">
+            <li>
+              <button
+                onClick={() => { setOnlyLongLead(true); setShowAllRows(true); }}
+                className="w-full flex items-center justify-between rounded-md border px-3 py-2 hover:bg-muted/40 text-left"
+              >
+                <span>OS com lead time acima de 30 dias</span>
+                <span className="inline-block rounded-full bg-red-100 text-red-700 border border-red-200 px-2 py-0.5 text-xs font-semibold">
+                  {alerts.longLeadCount}
+                </span>
+              </button>
+            </li>
+            <li className="rounded-md border px-3 py-2">
+              <div className="text-xs text-muted-foreground mb-0.5">OS mais antiga concluída</div>
+              <div className="text-sm">
+                {alerts.oldest
+                  ? `${alerts.oldest.code} · aberta ${format(new Date(alerts.oldest.created_at), 'dd/MM')}`
+                  : '—'}
+              </div>
+            </li>
+            <li className="rounded-md border px-3 py-2 flex items-center justify-between">
+              <span>OS com tempo registrado &lt; 1 min</span>
+              <span className="text-xs text-muted-foreground">~{alerts.tinyTime} registros</span>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      {openDialogOS && (
+        <DetalheOSDialog
+          open={!!openDialogOS}
+          onOpenChange={(o) => { if (!o) setOpenDialogOS(null); }}
+          workOrder={openDialogOS as any}
+          onUpdate={() => { /* read-only context */ }}
+        />
+      )}
 
 
       {isLoading && (
