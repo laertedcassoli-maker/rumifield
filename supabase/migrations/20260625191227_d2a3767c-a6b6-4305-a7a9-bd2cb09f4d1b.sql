@@ -1,0 +1,1 @@
+ALTER TABLE public.work_orders ADD COLUMN concluded_by_user_id uuid REFERENCES auth.users(id) ON DELETE SET NULL;

@@ -32,6 +32,7 @@ interface WorkOrder {
   end_time: string | null;
   notes: string | null;
   created_by_user_id: string;
+  concluded_by_user_id: string | null;
   created_at: string;
   activities?: {
     id: string;
@@ -42,6 +43,8 @@ interface WorkOrder {
   profiles?: {
     nome: string;
   };
+  created_by_profile?: { nome: string } | null;
+  concluded_by_profile?: { nome: string } | null;
   item_info?: {
     unique_code?: string;
     product_name?: string;
@@ -105,10 +108,12 @@ export default function OrdensServico() {
         .order('created_at', { ascending: false });
       if (error) throw error;
       
-      // Fetch profiles separately for assigned users
-      const userIds = data?.map(wo => wo.assigned_to_user_id).filter(Boolean) || [];
+      // Fetch profiles separately for assigned/created/concluded users
+      const userIds = Array.from(new Set(
+        (data || []).flatMap(wo => [wo.assigned_to_user_id, wo.created_by_user_id, wo.concluded_by_user_id]).filter(Boolean)
+      )) as string[];
       let profilesMap: Record<string, string> = {};
-      
+
       if (userIds.length > 0) {
         const { data: profiles } = await supabase
           .from('profiles')
@@ -226,6 +231,8 @@ export default function OrdensServico() {
       return (data || []).map(wo => ({
         ...wo,
         profiles: wo.assigned_to_user_id ? { nome: profilesMap[wo.assigned_to_user_id] || '-' } : undefined,
+        created_by_profile: wo.created_by_user_id ? { nome: profilesMap[wo.created_by_user_id] || '-' } : null,
+        concluded_by_profile: wo.concluded_by_user_id ? { nome: profilesMap[wo.concluded_by_user_id] || '-' } : null,
         item_info: itemsMap[wo.id],
         parts_count: partsCountMap[wo.id] || 0,
         parts_used_names: workOrderPartsNamesMap[wo.id] || [],
@@ -475,6 +482,8 @@ export default function OrdensServico() {
                     <TableHead>Atividade</TableHead>
                     <TableHead>Status</TableHead>
                     <TableHead>Responsável</TableHead>
+                    <TableHead>Aberto por</TableHead>
+                    {activeTab === 'concluidas' && <TableHead>Concluído por</TableHead>}
                     <TableHead>Tempo</TableHead>
                     <TableHead>Data</TableHead>
                     {activeTab === 'concluidas' && <TableHead>Finalizado</TableHead>}
@@ -530,6 +539,10 @@ export default function OrdensServico() {
                         </Badge>
                       </TableCell>
                       <TableCell>{os.profiles?.nome || '-'}</TableCell>
+                      <TableCell>{os.created_by_profile?.nome || '-'}</TableCell>
+                      {activeTab === 'concluidas' && (
+                        <TableCell>{os.concluded_by_profile?.nome || '-'}</TableCell>
+                      )}
                       <TableCell>
                         <div className="flex items-center gap-3">
                           <div className="flex items-center gap-1">
@@ -614,6 +627,14 @@ export default function OrdensServico() {
                         {statusLabels[os.status] || os.status}
                       </Badge>
                     </div>
+                    <div className="mt-2 text-xs text-muted-foreground">
+                      Aberto por: {os.created_by_profile?.nome || '-'}
+                    </div>
+                    {os.status === 'concluido' && os.concluded_by_profile?.nome && (
+                      <div className="text-xs text-muted-foreground">
+                        Concluído por: {os.concluded_by_profile.nome}
+                      </div>
+                    )}
                     <div className="mt-3 flex items-center justify-between text-sm">
                       <div className="flex items-center gap-3">
                         <div className="flex items-center gap-1">

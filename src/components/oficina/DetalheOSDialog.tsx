@@ -40,6 +40,7 @@ interface WorkOrder {
   end_time: string | null;
   notes: string | null;
   created_by_user_id: string;
+  concluded_by_user_id?: string | null;
   created_at: string;
   activities?: {
     id: string;
@@ -47,6 +48,8 @@ interface WorkOrder {
     execution_type: string;
     has_motor?: boolean;
   };
+  created_by_profile?: { nome: string } | null;
+  concluded_by_profile?: { nome: string } | null;
 }
 
 interface TimeEntry {
@@ -896,6 +899,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
           status: 'concluido',
           end_time: new Date().toISOString(),
           notes: completionNotes.trim() || null,
+          concluded_by_user_id: user?.id ?? null,
         })
         .eq('id', workOrder.id);
       if (error) throw error;
@@ -1442,8 +1446,12 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
 
 
             {/* Metadata */}
-            <div className="text-xs text-muted-foreground">
-              Criada em: {format(new Date(workOrder.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}
+            <div className="text-xs text-muted-foreground space-y-0.5">
+              <div>Criada em: {format(new Date(workOrder.created_at), "dd/MM/yyyy HH:mm", { locale: ptBR })}</div>
+              <div>Aberto por: {workOrder.created_by_profile?.nome || '-'}</div>
+              {workOrder.status === 'concluido' && (
+                <div>Concluído por: {workOrder.concluded_by_profile?.nome || '-'}</div>
+              )}
             </div>
 
             {/* Time History Section */}
