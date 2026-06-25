@@ -152,6 +152,62 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
   const [completionNotes, setCompletionNotes] = useState('');
   const [editingNotes, setEditingNotes] = useState(false);
   const [editNotes, setEditNotes] = useState('');
+  const [editingTags, setEditingTags] = useState(false);
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+
+  // Fetch oficina tags (available)
+  const { data: oficinaTags = [] } = useQuery({
+    queryKey: ['ticket-tags', 'oficina'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('ticket_tags')
+        .select('*')
+        .eq('scope', 'oficina')
+        .eq('is_active', true)
+        .order('order_index');
+      if (error) throw error;
+      return data as Array<{ id: string; name: string; color: string }>;
+    },
+    enabled: open,
+  });
+
+  // Fetch current tag links for this OS
+  const { data: currentTagLinks = [] } = useQuery({
+    queryKey: ['work-order-tags', workOrder.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('work_order_tag_links')
+        .select('tag_id, ticket_tags(id, name, color)')
+        .eq('work_order_id', workOrder.id);
+      if (error) throw error;
+      return (data || []) as Array<{ tag_id: string; ticket_tags: { id: string; name: string; color: string } }>;
+    },
+    enabled: open,
+  });
+
+  const saveTagsMutation = useMutation({
+    mutationFn: async (tagIds: string[]) => {
+      const { error: delErr } = await supabase
+        .from('work_order_tag_links')
+        .delete()
+        .eq('work_order_id', workOrder.id);
+      if (delErr) throw delErr;
+      if (tagIds.length > 0) {
+        const { error: insErr } = await supabase
+          .from('work_order_tag_links')
+          .insert(tagIds.map(tag_id => ({ work_order_id: workOrder.id, tag_id })));
+        if (insErr) throw insErr;
+      }
+    },
+    onSuccess: () => {
+      toast.success('Tags atualizadas!');
+      queryClient.invalidateQueries({ queryKey: ['work-order-tags', workOrder.id] });
+      queryClient.invalidateQueries({ queryKey: ['work-orders'] });
+      setEditingTags(false);
+      onUpdate();
+    },
+    onError: (e: any) => toast.error(e.message || 'Erro ao salvar tags'),
+  });
 
   // FIX 4: Ref to protect localTotalSeconds from stale refetch after Stop
   const recentlyStoppedRef = useRef(false);
@@ -174,7 +230,13 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
     setPartQuantity(1);
     setPartSearchQuery('');
     setTimeHistoryOpen(false);
+    setEditingTags(false);
   }, [workOrder.id]);
+
+  // Sync selected tags when entering edit mode or when current links change
+  useEffect(() => {
+    setSelectedTagIds(currentTagLinks.map(l => l.tag_id));
+  }, [currentTagLinks, editingTags]);
 
   // FIX 4: Keep local total in sync — but skip for 5s after stop to prevent stale overwrite
   useEffect(() => {
@@ -988,6 +1050,90 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
               <p className="text-sm text-muted-foreground">Atividade</p>
               <p className="font-medium">{workOrder.activities?.name}</p>
             </div>
+
+            {/* Tags */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-muted-foreground">Tags</p>
+                {canEditOS && !editingTags && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2"
+                    onClick={() => setEditingTags(true)}
+                  >
+                    <Pencil className="h-3.5 w-3.5 mr-1" />
+                    Editar
+                  </Button>
+                )}
+              </div>
+
+              {!editingTags ? (
+                currentTagLinks.length > 0 ? (
+                  <div className="flex flex-wrap gap-1.5">
+                    {currentTagLinks.map(link => (
+                      <Badge
+                        key={link.tag_id}
+                        variant="outline"
+                        style={{ borderColor: link.ticket_tags.color, color: link.ticket_tags.color }}
+                      >
+                        {link.ticket_tags.name}
+                      </Badge>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground italic">Nenhuma tag</p>
+                )
+              ) : (
+                <div className="space-y-3">
+                  <div className="flex flex-wrap gap-2">
+                    {oficinaTags.map(tag => (
+                      <Badge
+                        key={tag.id}
+                        variant="outline"
+                        className="cursor-pointer select-none"
+                        style={
+                          selectedTagIds.includes(tag.id)
+                            ? { backgroundColor: tag.color, color: '#fff', borderColor: tag.color }
+                            : { borderColor: tag.color, color: tag.color }
+                        }
+                        onClick={() => setSelectedTagIds(prev =>
+                          prev.includes(tag.id) ? prev.filter(id => id !== tag.id) : [...prev, tag.id]
+                        )}
+                      >
+                        {tag.name}
+                      </Badge>
+                    ))}
+                    {oficinaTags.length === 0 && (
+                      <p className="text-sm text-muted-foreground italic">Nenhuma tag disponível</p>
+                    )}
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      onClick={() => saveTagsMutation.mutate(selectedTagIds)}
+                      disabled={saveTagsMutation.isPending}
+                    >
+                      <Check className="h-4 w-4 mr-1" />
+                      Salvar
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setEditingTags(false);
+                        setSelectedTagIds(currentTagLinks.map(l => l.tag_id));
+                      }}
+                      disabled={saveTagsMutation.isPending}
+                    >
+                      <X className="h-4 w-4 mr-1" />
+                      Cancelar
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+
 
             {/* Timer Section - always show total time */}
             <Card>
