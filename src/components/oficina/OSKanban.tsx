@@ -115,13 +115,29 @@ function KanbanColumn({
               <CardContent className="p-3">
                 <div className="flex items-start justify-between mb-2">
                   <p className="font-mono font-bold text-sm">{os.code}</p>
-                  <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={(e) => {
-                    e.stopPropagation();
-                    onViewOS(os);
-                  }}>
-                    <Eye className="h-3 w-3" />
-                  </Button>
+                  <div className="flex items-center gap-1">
+                    <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={(e) => {
+                      e.stopPropagation();
+                      onViewOS(os);
+                    }}>
+                      <Eye className="h-3 w-3" />
+                    </Button>
+                    {canDelete && onDeleteOS && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDeleteOS(os);
+                        }}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    )}
+                  </div>
                 </div>
+
                 
                 <p className="text-xs text-muted-foreground mb-1">{os.activities?.name}</p>
 
