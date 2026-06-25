@@ -481,7 +481,6 @@ export default function OrdensServico() {
                     <TableHead>Código</TableHead>
                     <TableHead>Atividade</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead>Responsável</TableHead>
                     <TableHead>Aberto por</TableHead>
                     {activeTab === 'concluidas' && <TableHead>Concluído por</TableHead>}
                     <TableHead>Tempo</TableHead>
@@ -538,7 +537,6 @@ export default function OrdensServico() {
                           {statusLabels[os.status] || os.status}
                         </Badge>
                       </TableCell>
-                      <TableCell>{os.profiles?.nome || '-'}</TableCell>
                       <TableCell>{os.created_by_profile?.nome || '-'}</TableCell>
                       {activeTab === 'concluidas' && (
                         <TableCell>{os.concluded_by_profile?.nome || '-'}</TableCell>
