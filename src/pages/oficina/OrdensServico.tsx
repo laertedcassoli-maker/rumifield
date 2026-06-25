@@ -627,6 +627,14 @@ export default function OrdensServico() {
                         {statusLabels[os.status] || os.status}
                       </Badge>
                     </div>
+                    <div className="mt-2 text-xs text-muted-foreground">
+                      Aberto por: {os.created_by_profile?.nome || '-'}
+                    </div>
+                    {os.status === 'concluido' && os.concluded_by_profile?.nome && (
+                      <div className="text-xs text-muted-foreground">
+                        Concluído por: {os.concluded_by_profile.nome}
+                      </div>
+                    )}
                     <div className="mt-3 flex items-center justify-between text-sm">
                       <div className="flex items-center gap-3">
                         <div className="flex items-center gap-1">
