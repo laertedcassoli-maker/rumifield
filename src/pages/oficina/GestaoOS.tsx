@@ -170,7 +170,84 @@ export default function GestaoOS() {
   }, [filteredOS]);
 
 
+  const categorize = (name?: string | null): string => {
+    const n = (name || '').toLowerCase();
+    if (n.includes('pistola')) return 'Reparo pistola';
+    if (n.includes('solenoide')) return 'Solenoide';
+    if (n.includes('counter balance')) return 'Counter balance';
+    if (n.includes('montagem') || n.includes('preparo')) return 'Montagem / Preparo';
+    return 'Outros';
+  };
+
+  const CATEGORY_COLORS: Record<string, string> = {
+    'Reparo pistola': '#2563EB',
+    'Solenoide': '#10B981',
+    'Counter balance': '#F59E0B',
+    'Montagem / Preparo': '#F97316',
+    'Outros': '#94A3B8',
+  };
+
+  const volumeByType = useMemo(() => {
+    const counts = new Map<string, number>();
+    filteredOS.forEach(wo => {
+      const cat = categorize(wo.activities?.name);
+      counts.set(cat, (counts.get(cat) || 0) + 1);
+    });
+    return Array.from(counts.entries())
+      .map(([name, value]) => ({ name, value, color: CATEGORY_COLORS[name] || '#94A3B8' }))
+      .filter(d => d.value > 0);
+  }, [filteredOS]);
+
+  const openersTable = useMemo(() => {
+    const counts = new Map<string, number>();
+    filteredOS.forEach(wo => {
+      const key = wo.created_by_user_id || '__unknown__';
+      counts.set(key, (counts.get(key) || 0) + 1);
+    });
+    return Array.from(counts.entries())
+      .map(([uid, qty]) => {
+        const p = (profilesMap as Record<string, { nome: string | null; email: string | null }>)[uid];
+        const nome = uid === '__unknown__' ? 'Não informado' : (p?.nome || p?.email || 'Usuário desconhecido');
+        return { uid, nome, qty };
+      })
+      .sort((a, b) => b.qty - a.qty);
+  }, [filteredOS, profilesMap]);
+
+  const concludedByMonth = useMemo(() => {
+    const counts = new Map<number, number>();
+    filteredOS
+      .filter(wo => wo.status === 'concluido')
+      .forEach(wo => {
+        const m = new Date(wo.created_at).getMonth();
+        counts.set(m, (counts.get(m) || 0) + 1);
+      });
+    return Array.from(counts.entries())
+      .sort((a, b) => a[0] - b[0])
+      .map(([m, total]) => ({ mes: MONTHS[m], total }));
+  }, [filteredOS]);
+
+  const pistolaModels = useMemo(() => {
+    const counts = new Map<string, number>();
+    filteredOS
+      .filter(wo => categorize(wo.activities?.name) === 'Reparo pistola')
+      .forEach(wo => {
+        (wo.work_order_items || []).forEach(it => {
+          const nome = it.workshop_items?.pecas?.nome;
+          if (nome) counts.set(nome, (counts.get(nome) || 0) + 1);
+        });
+      });
+    const sorted = Array.from(counts.entries())
+      .map(([nome, qty]) => ({ nome, qty }))
+      .sort((a, b) => b.qty - a.qty);
+    const top = sorted.slice(0, 5);
+    const restTotal = sorted.slice(5).reduce((acc, r) => acc + r.qty, 0);
+    const list = restTotal > 0 ? [...top, { nome: '3+ outros modelos', qty: restTotal }] : top;
+    const max = Math.max(1, ...list.map(l => l.qty));
+    return { list, max };
+  }, [filteredOS]);
+
   return (
+
     <div className="container mx-auto p-4 md:p-6 space-y-6">
       <div className="flex items-center gap-3">
         <Wrench className="h-7 w-7 text-primary" />
