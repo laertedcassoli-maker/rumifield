@@ -1,4 +1,4 @@
-import { Clock, Eye, Package, Wrench } from 'lucide-react';
+import { Clock, Eye, Package, Wrench, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
