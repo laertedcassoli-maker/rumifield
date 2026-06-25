@@ -179,6 +179,14 @@ function KanbanColumn({
                     <span>Finalizado: {format(new Date(os.end_time), "dd/MM", { locale: ptBR })}</span>
                   )}
                 </div>
+                <div className="text-xs text-muted-foreground mt-1">
+                  Aberto por: {os.created_by_profile?.nome || '-'}
+                </div>
+                {status === 'concluido' && os.concluded_by_profile?.nome && (
+                  <div className="text-xs text-muted-foreground">
+                    Concluído por: {os.concluded_by_profile.nome}
+                  </div>
+                )}
               </CardContent>
             </Card>
           ))}
