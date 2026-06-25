@@ -403,6 +403,120 @@ export default function GestaoOS() {
         </div>
       </div>
 
+      {/* Volume por Tipo + Responsável Abertura */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="rounded-xl border shadow-sm p-5 bg-card">
+          <h3 className="text-sm font-semibold mb-3">Volume por Tipo de OS</h3>
+          {volumeByType.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-12 text-center">Sem dados no período.</p>
+          ) : (
+            <div className="h-72">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={volumeByType}
+                    dataKey="value"
+                    nameKey="name"
+                    cx="50%"
+                    cy="50%"
+                    innerRadius={55}
+                    outerRadius={90}
+                    paddingAngle={2}
+                  >
+                    {volumeByType.map((d) => (
+                      <Cell key={d.name} fill={d.color} />
+                    ))}
+                  </Pie>
+                  <RTooltip formatter={(v: number, n: string) => [`${v} OS`, n]} />
+                  <Legend
+                    verticalAlign="bottom"
+                    iconType="circle"
+                    formatter={(value) => <span className="text-xs">{value}</span>}
+                  />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </div>
+
+        <div className="rounded-xl border shadow-sm p-5 bg-card">
+          <h3 className="text-sm font-semibold mb-3">Responsável Abertura</h3>
+          {openersTable.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-12 text-center">Sem dados no período.</p>
+          ) : (
+            <div className="overflow-hidden rounded-md">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-xs uppercase tracking-wide text-muted-foreground">
+                    <th className="text-left font-medium py-2 px-3">Nome</th>
+                    <th className="text-right font-medium py-2 px-3">Quantidade</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {openersTable.map((row, i) => (
+                    <tr key={row.uid} className={cn(i % 2 === 1 && 'bg-muted/40')}>
+                      <td className="py-2 px-3">{row.nome}</td>
+                      <td className="py-2 px-3 text-right font-medium tabular-nums">{row.qty}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* OS por mês + Tipos de pistola */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="rounded-xl border shadow-sm p-5 bg-card">
+          <h3 className="text-sm font-semibold mb-3">OS Concluídas por Mês</h3>
+          {concludedByMonth.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-12 text-center">Sem dados no período.</p>
+          ) : (
+            <div className="h-72">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={concludedByMonth} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} className="stroke-muted" />
+                  <XAxis dataKey="mes" tick={{ fontSize: 12 }} />
+                  <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
+                  <RTooltip formatter={(v: number) => [`${v} OS`, 'Total']} />
+                  <Bar dataKey="total" fill="#2563EB" radius={[6, 6, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </div>
+
+        <div className="rounded-xl border shadow-sm p-5 bg-card">
+          <h3 className="text-sm font-semibold mb-3">Tipos de Pistola Reparada</h3>
+          {pistolaModels.list.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-12 text-center">Sem reparos de pistola no período.</p>
+          ) : (
+            <div className="space-y-3">
+              {pistolaModels.list.map((m) => {
+                const pct = (m.qty / pistolaModels.max) * 100;
+                return (
+                  <div key={m.nome} className="space-y-1">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="truncate pr-2">{m.nome}</span>
+                      <span className="font-medium tabular-nums">{m.qty}</span>
+                    </div>
+                    <div className="h-2 rounded-full bg-muted overflow-hidden">
+                      <div
+                        className="h-full rounded-full"
+                        style={{ width: `${pct}%`, backgroundColor: '#2563EB' }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+
+
+
 
       {isLoading && (
         <p className="text-sm text-muted-foreground">Carregando dados…</p>
