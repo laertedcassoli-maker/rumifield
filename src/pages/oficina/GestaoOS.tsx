@@ -71,6 +71,34 @@ export default function GestaoOS() {
     },
   });
 
+  const userIds = useMemo(() => {
+    const set = new Set<string>();
+    workOrders.forEach(wo => {
+      if (wo.created_by_user_id) set.add(wo.created_by_user_id);
+      if (wo.concluded_by_user_id) set.add(wo.concluded_by_user_id);
+    });
+    return Array.from(set);
+  }, [workOrders]);
+
+  const { data: profilesMap = {} } = useQuery({
+    queryKey: ['gestao-os-profiles', userIds],
+    enabled: userIds.length > 0,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('id, nome, email')
+        .in('id', userIds);
+      if (error) throw error;
+      const map: Record<string, { nome: string | null; email: string | null }> = {};
+      (data || []).forEach((p: any) => {
+        map[p.id] = { nome: p.nome, email: p.email };
+      });
+      return map;
+    },
+  });
+
+  void profilesMap;
+
   const availableActivities = useMemo(() => {
     const map = new Map<string, string>();
     workOrders.forEach(wo => {
