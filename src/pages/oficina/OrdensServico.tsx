@@ -101,9 +101,35 @@ export default function OrdensServico() {
   const [endTimeTo, setEndTimeTo] = useState<Date | undefined>(undefined);
   const [selectedPart, setSelectedPart] = useState<string>('_all');
   const [selectedActivity, setSelectedActivity] = useState<string>('_all');
+  const [deleteTarget, setDeleteTarget] = useState<WorkOrder | null>(null);
 
+  const { canDelete } = useMenuPermissions();
+  const canDeleteOS = canDelete('oficina_os');
 
   const isAdmin = role === 'admin' || role === 'coordenador_rplus' || role === 'coordenador_servicos';
+
+  const deleteOSMutation = useMutation({
+    mutationFn: async (id: string) => {
+      // Delete children in FK-safe order
+      const t1 = await supabase.from('work_order_tag_links').delete().eq('work_order_id', id);
+      if (t1.error) throw t1.error;
+      const t2 = await supabase.from('work_order_parts_used').delete().eq('work_order_id', id);
+      if (t2.error) throw t2.error;
+      const t3 = await supabase.from('work_order_time_entries').delete().eq('work_order_id', id);
+      if (t3.error) throw t3.error;
+      const t4 = await supabase.from('work_order_items').delete().eq('work_order_id', id);
+      if (t4.error) throw t4.error;
+      const t5 = await supabase.from('work_orders').delete().eq('id', id);
+      if (t5.error) throw t5.error;
+    },
+    onSuccess: () => {
+      toast.success('OS excluída com sucesso');
+      queryClient.invalidateQueries({ queryKey: ['work-orders'] });
+      setDeleteTarget(null);
+    },
+    onError: (e: any) => toast.error(e.message || 'Erro ao excluir OS'),
+  });
+
 
 
   // Fetch work orders
