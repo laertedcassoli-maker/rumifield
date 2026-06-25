@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Wrench } from 'lucide-react';
+import { Wrench, CheckCircle, Timer, TrendingUp, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -140,6 +140,32 @@ export default function GestaoOS() {
     setSelectedActivities(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   };
 
+  const kpis = useMemo(() => {
+    const concluded = filteredOS.filter(wo => wo.status === 'concluido');
+    const concludedCount = concluded.length;
+
+    const timesSec = concluded.map(wo => wo.total_time_seconds || 0).filter(s => s > 0);
+    const avgTimeSec = timesSec.length ? timesSec.reduce((a, b) => a + b, 0) / timesSec.length : 0;
+    const avgTimeH = Math.floor(avgTimeSec / 3600);
+    const avgTimeMin = Math.round((avgTimeSec % 3600) / 60);
+    const avgTimeLabel = timesSec.length
+      ? (avgTimeH > 0 ? `${avgTimeH}h ${avgTimeMin}min` : `${avgTimeMin}min`)
+      : '—';
+
+    const leadDays = concluded
+      .filter(wo => wo.end_time && wo.created_at)
+      .map(wo => (new Date(wo.end_time!).getTime() - new Date(wo.created_at).getTime()) / 86400000);
+    const avgLead = leadDays.length ? leadDays.reduce((a, b) => a + b, 0) / leadDays.length : 0;
+    const avgLeadLabel = leadDays.length ? `${avgLead.toFixed(1)} dias` : '—';
+
+    const longLeadCount = leadDays.filter(d => d > 30).length;
+    const totalForPct = filteredOS.length;
+    const longLeadPct = totalForPct > 0 ? (longLeadCount / totalForPct) * 100 : 0;
+
+    return { concludedCount, avgTimeLabel, avgLead, avgLeadLabel, longLeadCount, longLeadPct, totalForPct };
+  }, [filteredOS]);
+
+
   return (
     <div className="container mx-auto p-4 md:p-6 space-y-6">
       <div className="flex items-center gap-3">
@@ -240,6 +266,62 @@ export default function GestaoOS() {
           </div>
         </CardContent>
       </Card>
+
+      {/* KPI Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {/* OS Concluídas */}
+        <div className="rounded-xl border shadow-sm p-5 bg-card">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">OS Concluídas</p>
+            <CheckCircle className="h-4 w-4 text-green-600" />
+          </div>
+          <p className="mt-2 text-3xl font-bold text-green-600">{kpis.concludedCount}</p>
+          <p className="text-xs text-muted-foreground mt-1">no período</p>
+        </div>
+
+        {/* Tempo médio / OS */}
+        <div className="rounded-xl border shadow-sm p-5 bg-card">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Tempo médio / OS</p>
+            <Timer className="h-4 w-4 text-muted-foreground" />
+          </div>
+          <p className="mt-2 text-3xl font-bold">{kpis.avgTimeLabel}</p>
+          <p className="text-xs text-muted-foreground mt-1">por OS concluída</p>
+        </div>
+
+        {/* Lead time médio */}
+        <div className="rounded-xl border shadow-sm p-5 bg-card">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Lead time médio</p>
+            <TrendingUp className={cn('h-4 w-4', kpis.avgLead > 10 ? 'text-orange-500' : 'text-green-600')} />
+          </div>
+          <p className={cn('mt-2 text-3xl font-bold', kpis.avgLead > 10 ? 'text-orange-500' : 'text-green-600')}>
+            {kpis.avgLeadLabel}
+          </p>
+          <p className="text-xs text-muted-foreground mt-1">abertura → conclusão</p>
+        </div>
+
+        {/* OS com lead time > 30 dias */}
+        <div className="rounded-xl border shadow-sm p-5 bg-card">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Lead time &gt; 30 dias</p>
+            <AlertTriangle className={cn(
+              'h-4 w-4',
+              kpis.longLeadPct > 10 ? 'text-red-600' : kpis.longLeadPct >= 5 ? 'text-orange-500' : 'text-green-600'
+            )} />
+          </div>
+          <p className={cn(
+            'mt-2 text-3xl font-bold',
+            kpis.longLeadPct > 10 ? 'text-red-600' : kpis.longLeadPct >= 5 ? 'text-orange-500' : 'text-green-600'
+          )}>
+            {kpis.longLeadCount}
+          </p>
+          <p className="text-xs text-muted-foreground mt-1">
+            {kpis.totalForPct > 0 ? `${kpis.longLeadPct.toFixed(0)}% do total` : '—'}
+          </p>
+        </div>
+      </div>
+
 
       {isLoading && (
         <p className="text-sm text-muted-foreground">Carregando dados…</p>
