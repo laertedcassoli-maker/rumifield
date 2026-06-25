@@ -152,6 +152,62 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
   const [completionNotes, setCompletionNotes] = useState('');
   const [editingNotes, setEditingNotes] = useState(false);
   const [editNotes, setEditNotes] = useState('');
+  const [editingTags, setEditingTags] = useState(false);
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
+
+  // Fetch oficina tags (available)
+  const { data: oficinaTags = [] } = useQuery({
+    queryKey: ['ticket-tags', 'oficina'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('ticket_tags')
+        .select('*')
+        .eq('scope', 'oficina')
+        .eq('is_active', true)
+        .order('order_index');
+      if (error) throw error;
+      return data as Array<{ id: string; name: string; color: string }>;
+    },
+    enabled: open,
+  });
+
+  // Fetch current tag links for this OS
+  const { data: currentTagLinks = [] } = useQuery({
+    queryKey: ['work-order-tags', workOrder.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('work_order_tag_links')
+        .select('tag_id, ticket_tags(id, name, color)')
+        .eq('work_order_id', workOrder.id);
+      if (error) throw error;
+      return (data || []) as Array<{ tag_id: string; ticket_tags: { id: string; name: string; color: string } }>;
+    },
+    enabled: open,
+  });
+
+  const saveTagsMutation = useMutation({
+    mutationFn: async (tagIds: string[]) => {
+      const { error: delErr } = await supabase
+        .from('work_order_tag_links')
+        .delete()
+        .eq('work_order_id', workOrder.id);
+      if (delErr) throw delErr;
+      if (tagIds.length > 0) {
+        const { error: insErr } = await supabase
+          .from('work_order_tag_links')
+          .insert(tagIds.map(tag_id => ({ work_order_id: workOrder.id, tag_id })));
+        if (insErr) throw insErr;
+      }
+    },
+    onSuccess: () => {
+      toast.success('Tags atualizadas!');
+      queryClient.invalidateQueries({ queryKey: ['work-order-tags', workOrder.id] });
+      queryClient.invalidateQueries({ queryKey: ['work-orders'] });
+      setEditingTags(false);
+      onUpdate();
+    },
+    onError: (e: any) => toast.error(e.message || 'Erro ao salvar tags'),
+  });
 
   // FIX 4: Ref to protect localTotalSeconds from stale refetch after Stop
   const recentlyStoppedRef = useRef(false);
