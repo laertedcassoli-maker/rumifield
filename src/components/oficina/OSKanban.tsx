@@ -1,4 +1,4 @@
-import { Clock, Eye, Package, Wrench } from 'lucide-react';
+import { Clock, Eye, Package, Wrench, Trash2 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -17,7 +17,9 @@ interface WorkOrder {
   end_time: string | null;
   notes: string | null;
   created_by_user_id: string;
+  concluded_by_user_id: string | null;
   created_at: string;
+
   activities?: {
     id: string;
     name: string;
@@ -45,7 +47,10 @@ interface WorkOrder {
 interface OSKanbanProps {
   workOrders: WorkOrder[];
   onViewOS: (os: WorkOrder) => void;
+  onDeleteOS?: (os: WorkOrder) => void;
+  canDelete?: boolean;
 }
+
 
 const statusConfig = {
   aguardando: {
@@ -78,13 +83,18 @@ const formatTime = (seconds: number) => {
 function KanbanColumn({ 
   status, 
   orders, 
-  onViewOS 
+  onViewOS,
+  onDeleteOS,
+  canDelete,
 }: { 
   status: 'aguardando' | 'em_manutencao' | 'concluido';
   orders: WorkOrder[];
   onViewOS: (os: WorkOrder) => void;
+  onDeleteOS?: (os: WorkOrder) => void;
+  canDelete?: boolean;
 }) {
   const config = statusConfig[status];
+
 
   return (
     <div className={`flex-1 min-w-[280px] max-w-[350px] rounded-lg border ${config.borderColor} ${config.bgColor}`}>
@@ -107,13 +117,29 @@ function KanbanColumn({
               <CardContent className="p-3">
                 <div className="flex items-start justify-between mb-2">
                   <p className="font-mono font-bold text-sm">{os.code}</p>
-                  <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={(e) => {
-                    e.stopPropagation();
-                    onViewOS(os);
-                  }}>
-                    <Eye className="h-3 w-3" />
-                  </Button>
+                  <div className="flex items-center gap-1">
+                    <Button variant="ghost" size="sm" className="h-6 w-6 p-0" onClick={(e) => {
+                      e.stopPropagation();
+                      onViewOS(os);
+                    }}>
+                      <Eye className="h-3 w-3" />
+                    </Button>
+                    {canDelete && onDeleteOS && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 w-6 p-0 text-destructive hover:text-destructive"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDeleteOS(os);
+                        }}
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
+                    )}
+                  </div>
                 </div>
+
                 
                 <p className="text-xs text-muted-foreground mb-1">{os.activities?.name}</p>
 
@@ -196,16 +222,17 @@ function KanbanColumn({
   );
 }
 
-export function OSKanban({ workOrders, onViewOS }: OSKanbanProps) {
+export function OSKanban({ workOrders, onViewOS, onDeleteOS, canDelete }: OSKanbanProps) {
   const aguardando = workOrders.filter(wo => wo.status === 'aguardando');
   const emManutencao = workOrders.filter(wo => wo.status === 'em_manutencao');
   const concluido = workOrders.filter(wo => wo.status === 'concluido');
 
   return (
     <div className="flex gap-4 overflow-x-auto pb-4">
-      <KanbanColumn status="aguardando" orders={aguardando} onViewOS={onViewOS} />
-      <KanbanColumn status="em_manutencao" orders={emManutencao} onViewOS={onViewOS} />
-      <KanbanColumn status="concluido" orders={concluido} onViewOS={onViewOS} />
+      <KanbanColumn status="aguardando" orders={aguardando} onViewOS={onViewOS} onDeleteOS={onDeleteOS} canDelete={canDelete} />
+      <KanbanColumn status="em_manutencao" orders={emManutencao} onViewOS={onViewOS} onDeleteOS={onDeleteOS} canDelete={canDelete} />
+      <KanbanColumn status="concluido" orders={concluido} onViewOS={onViewOS} onDeleteOS={onDeleteOS} canDelete={canDelete} />
+
     </div>
   );
 }

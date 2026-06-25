@@ -503,7 +503,7 @@ export default function OrdensServico() {
       {isLoading ? (
         <div className="text-center py-8 text-muted-foreground">Carregando...</div>
       ) : activeTab === 'kanban' ? (
-        <OSKanban workOrders={filteredOrders} onViewOS={handleViewOS} />
+        <OSKanban workOrders={filteredOrders} onViewOS={handleViewOS} canDelete={canDeleteOS} onDeleteOS={(os) => setDeleteTarget(os)} />
       ) : filteredOrders.length === 0 ? (
         <div className="text-center py-8 text-muted-foreground">
           Nenhuma OS encontrada
