@@ -267,6 +267,62 @@ export default function GestaoOS() {
         </CardContent>
       </Card>
 
+      {/* KPI Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {/* OS Concluídas */}
+        <div className="rounded-xl border shadow-sm p-5 bg-card">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">OS Concluídas</p>
+            <CheckCircle className="h-4 w-4 text-green-600" />
+          </div>
+          <p className="mt-2 text-3xl font-bold text-green-600">{kpis.concludedCount}</p>
+          <p className="text-xs text-muted-foreground mt-1">no período</p>
+        </div>
+
+        {/* Tempo médio / OS */}
+        <div className="rounded-xl border shadow-sm p-5 bg-card">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Tempo médio / OS</p>
+            <Timer className="h-4 w-4 text-muted-foreground" />
+          </div>
+          <p className="mt-2 text-3xl font-bold">{kpis.avgTimeLabel}</p>
+          <p className="text-xs text-muted-foreground mt-1">por OS concluída</p>
+        </div>
+
+        {/* Lead time médio */}
+        <div className="rounded-xl border shadow-sm p-5 bg-card">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Lead time médio</p>
+            <TrendingUp className={cn('h-4 w-4', kpis.avgLead > 10 ? 'text-orange-500' : 'text-green-600')} />
+          </div>
+          <p className={cn('mt-2 text-3xl font-bold', kpis.avgLead > 10 ? 'text-orange-500' : 'text-green-600')}>
+            {kpis.avgLeadLabel}
+          </p>
+          <p className="text-xs text-muted-foreground mt-1">abertura → conclusão</p>
+        </div>
+
+        {/* OS com lead time > 30 dias */}
+        <div className="rounded-xl border shadow-sm p-5 bg-card">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Lead time &gt; 30 dias</p>
+            <AlertTriangle className={cn(
+              'h-4 w-4',
+              kpis.longLeadPct > 10 ? 'text-red-600' : kpis.longLeadPct >= 5 ? 'text-orange-500' : 'text-green-600'
+            )} />
+          </div>
+          <p className={cn(
+            'mt-2 text-3xl font-bold',
+            kpis.longLeadPct > 10 ? 'text-red-600' : kpis.longLeadPct >= 5 ? 'text-orange-500' : 'text-green-600'
+          )}>
+            {kpis.longLeadCount}
+          </p>
+          <p className="text-xs text-muted-foreground mt-1">
+            {kpis.totalForPct > 0 ? `${kpis.longLeadPct.toFixed(0)}% do total` : '—'}
+          </p>
+        </div>
+      </div>
+
+
       {isLoading && (
         <p className="text-sm text-muted-foreground">Carregando dados…</p>
       )}
