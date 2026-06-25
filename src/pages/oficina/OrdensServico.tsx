@@ -481,7 +481,6 @@ export default function OrdensServico() {
                     <TableHead>Código</TableHead>
                     <TableHead>Atividade</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead>Responsável</TableHead>
                     <TableHead>Aberto por</TableHead>
                     {activeTab === 'concluidas' && <TableHead>Concluído por</TableHead>}
                     <TableHead>Tempo</TableHead>
