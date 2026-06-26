@@ -103,8 +103,8 @@ export default function OrdensServico() {
   const [selectedActivity, setSelectedActivity] = useState<string>('_all');
   const [deleteTarget, setDeleteTarget] = useState<WorkOrder | null>(null);
 
-  const { canDelete } = useMenuPermissions();
-  const canDeleteOS = canDelete('oficina_os');
+  const { canDelete, isLoading: permissionsLoading } = useMenuPermissions();
+  const canDeleteOS = !permissionsLoading && canDelete('oficina_os');
 
   const isAdmin = role === 'admin' || role === 'coordenador_rplus' || role === 'coordenador_servicos';
 
@@ -747,7 +747,7 @@ export default function OrdensServico() {
         />
       )}
 
-      <AlertDialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
+      <AlertDialog open={!!deleteTarget && canDeleteOS} onOpenChange={(o) => !o && setDeleteTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir Ordem de Serviço</AlertDialogTitle>
@@ -760,9 +760,9 @@ export default function OrdensServico() {
             <AlertDialogAction
               onClick={(e) => {
                 e.preventDefault();
-                if (deleteTarget) deleteOSMutation.mutate(deleteTarget.id);
+                  if (deleteTarget && canDeleteOS) deleteOSMutation.mutate(deleteTarget.id);
               }}
-              disabled={deleteOSMutation.isPending}
+              disabled={deleteOSMutation.isPending || !canDeleteOS}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {deleteOSMutation.isPending ? 'Excluindo...' : 'Excluir'}

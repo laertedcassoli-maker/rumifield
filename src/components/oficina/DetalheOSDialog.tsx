@@ -139,9 +139,9 @@ async function recalcTotalFromEntries(workOrderId: string): Promise<number> {
 export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: DetalheOSDialogProps) {
   const { user, role } = useAuth();
   const isAdmin = role === 'admin';
-  const { canEdit: canEditMenu, canDelete: canDeleteMenu } = useMenuPermissions();
+  const { canEdit: canEditMenu, canDelete: canDeleteMenu, isLoading: permissionsLoading } = useMenuPermissions();
   const canEditOS = canEditMenu('oficina_os') || canEditMenu('oficina');
-  const canDeleteOS = canDeleteMenu('oficina_os');
+  const canDeleteOS = !permissionsLoading && canDeleteMenu('oficina_os');
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const queryClient = useQueryClient();
   const [elapsedTime, setElapsedTime] = useState(workOrder.total_time_seconds);
@@ -1733,7 +1733,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
             </Button>
           </DialogFooter>
 
-          <AlertDialog open={confirmDeleteOpen} onOpenChange={setConfirmDeleteOpen}>
+            <AlertDialog open={confirmDeleteOpen && canDeleteOS} onOpenChange={setConfirmDeleteOpen}>
             <AlertDialogContent>
               <AlertDialogHeader>
                 <AlertDialogTitleUI>Excluir Ordem de Serviço</AlertDialogTitleUI>
@@ -1744,8 +1744,8 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
               <AlertDialogFooter>
                 <AlertDialogCancel disabled={deleteWorkOrderMutation.isPending}>Cancelar</AlertDialogCancel>
                 <AlertDialogAction
-                  onClick={(e) => { e.preventDefault(); deleteWorkOrderMutation.mutate(); }}
-                  disabled={deleteWorkOrderMutation.isPending}
+                  onClick={(e) => { e.preventDefault(); if (canDeleteOS) deleteWorkOrderMutation.mutate(); }}
+                  disabled={deleteWorkOrderMutation.isPending || !canDeleteOS}
                   className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                 >
                   {deleteWorkOrderMutation.isPending ? 'Excluindo...' : 'Excluir'}

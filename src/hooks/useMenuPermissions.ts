@@ -13,10 +13,10 @@ interface MenuPermission {
 }
 
 export function useMenuPermissions() {
-  const { role, user } = useAuth();
+  const { role, user, loading: authLoading } = useAuth();
 
   const { data: permissions, isLoading } = useQuery({
-    queryKey: ['user-menu-permissions', role],
+    queryKey: ['user-menu-permissions', user?.id, role],
     queryFn: async () => {
       if (!role) return [];
 
@@ -28,10 +28,12 @@ export function useMenuPermissions() {
       if (error) throw error;
       return data as MenuPermission[];
     },
-    enabled: !!role && !!user,
+    enabled: !!role && !!user && !authLoading,
     staleTime: 30000,
     gcTime: 60000,
   });
+
+  const permissionsLoading = authLoading || isLoading || (!!user && !permissions);
 
   const canAccess = (menuKey: string): boolean => {
     if (!permissions) return true; // Default to true while loading
@@ -67,7 +69,7 @@ export function useMenuPermissions() {
 
   return {
     permissions,
-    isLoading,
+    isLoading: permissionsLoading,
     canAccess,
     canAccessAny,
     canEdit,
