@@ -173,9 +173,31 @@ export default function PreventiveMaintenanceIndex() {
     },
   });
 
+  // Unique clients extracted from loaded data (for combobox)
+  const uniqueClients = useMemo(() => {
+    if (!clientsData) return [] as { id: string; label: string }[];
+    return clientsData
+      .map(c => ({
+        id: c.client_id,
+        label: c.fazenda ? `${c.client_name} — ${c.fazenda}` : c.client_name,
+      }))
+      .sort((a, b) => a.label.localeCompare(b.label, 'pt-BR'));
+  }, [clientsData]);
+
+  const selectedClientLabel = clientFilter === 'all'
+    ? 'Todos os produtores'
+    : uniqueClients.find(c => c.id === clientFilter)?.label ?? 'Todos os produtores';
+
   // Filter and sort
   const filteredAndSortedData = useMemo(() => {
     if (!clientsData) return [];
+
+    const fromMs = dateRange?.from ? new Date(dateRange.from).setHours(0, 0, 0, 0) : null;
+    const toMs = dateRange?.to
+      ? new Date(dateRange.to).setHours(23, 59, 59, 999)
+      : dateRange?.from
+        ? new Date(dateRange.from).setHours(23, 59, 59, 999)
+        : null;
 
     let result = clientsData.filter(client => {
       const matchesSearch = 
@@ -184,8 +206,19 @@ export default function PreventiveMaintenanceIndex() {
       
       const matchesStatus = statusFilter === 'all' || client.preventive_status === statusFilter;
       const matchesConsultor = consultorFilter === 'all' || client.consultor_rplus_id === consultorFilter;
+      const matchesClient = clientFilter === 'all' || client.client_id === clientFilter;
 
-      return matchesSearch && matchesStatus && matchesConsultor;
+      let matchesDate = true;
+      if (fromMs !== null && toMs !== null) {
+        if (!client.last_preventive_date) {
+          matchesDate = false;
+        } else {
+          const dateMs = new Date(client.last_preventive_date).getTime();
+          matchesDate = dateMs >= fromMs && dateMs <= toMs;
+        }
+      }
+
+      return matchesSearch && matchesStatus && matchesConsultor && matchesClient && matchesDate;
     });
 
     // Sort
@@ -221,7 +254,7 @@ export default function PreventiveMaintenanceIndex() {
     });
 
     return result;
-  }, [clientsData, search, statusFilter, consultorFilter, sortField, sortDirection]);
+  }, [clientsData, search, statusFilter, consultorFilter, clientFilter, dateRange, sortField, sortDirection]);
 
   const totalPages = Math.ceil(filteredAndSortedData.length / ITEMS_PER_PAGE);
   const paginatedData = filteredAndSortedData.slice(
