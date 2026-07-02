@@ -942,7 +942,7 @@ export default function ExecucaoVisitaCorretiva() {
       if (visit?.ticket_id) {
         navigate(`/chamados/${visit.ticket_id}`);
       } else {
-        navigate('/preventivas/minhas-rotas');
+        navigate(-1);
       }
     },
     onError: (err: Error) => {
