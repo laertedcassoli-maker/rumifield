@@ -484,9 +484,7 @@ export default function ExecucaoRota() {
       <div className="text-center py-12 px-4">
         <AlertCircle className="mx-auto h-10 w-10 text-destructive" />
         <h2 className="mt-3 font-semibold">Rota não encontrada</h2>
-        <Button asChild className="mt-4" size="sm">
-          <Button size="sm" onClick={() => navigate(-1)}>Voltar</Button>
-        </Button>
+        <Button className="mt-4" size="sm" onClick={() => navigate(-1)}>Voltar</Button>
       </div>
     );
   }
