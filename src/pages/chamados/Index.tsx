@@ -442,6 +442,88 @@ export default function ChamadosIndex() {
             <SelectItem value="urgente">Urgente</SelectItem>
           </SelectContent>
         </Select>
+        <Popover open={clientPopoverOpen} onOpenChange={setClientPopoverOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              role="combobox"
+              className={cn(
+                "w-[240px] justify-between font-normal",
+                clientFilter === 'all' && "text-muted-foreground"
+              )}
+            >
+              <span className="truncate">{selectedClientLabel}</span>
+              <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-[300px] p-0 pointer-events-auto" align="start">
+            <Command>
+              <CommandInput placeholder="Buscar produtor..." />
+              <CommandList>
+                <CommandEmpty>Nenhum produtor encontrado.</CommandEmpty>
+                <CommandGroup>
+                  <CommandItem
+                    value="__all__"
+                    onSelect={() => { setClientFilter('all'); setCurrentPage(1); setClientPopoverOpen(false); }}
+                  >
+                    <Check className={cn("mr-2 h-4 w-4", clientFilter === 'all' ? 'opacity-100' : 'opacity-0')} />
+                    Todos os produtores
+                  </CommandItem>
+                  {uniqueClients.map(c => (
+                    <CommandItem
+                      key={c.id}
+                      value={c.label}
+                      onSelect={() => { setClientFilter(c.id); setCurrentPage(1); setClientPopoverOpen(false); }}
+                    >
+                      <Check className={cn("mr-2 h-4 w-4", clientFilter === c.id ? 'opacity-100' : 'opacity-0')} />
+                      <span className="truncate">{c.label}</span>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
+        <Popover open={datePopoverOpen} onOpenChange={setDatePopoverOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              className={cn(
+                "w-[260px] justify-start text-left font-normal",
+                !dateRange?.from && "text-muted-foreground"
+              )}
+            >
+              <CalendarIcon className="mr-2 h-4 w-4" />
+              {dateRange?.from ? (
+                dateRange.to ? (
+                  <>
+                    {format(dateRange.from, 'dd/MM/yyyy')} — {format(dateRange.to, 'dd/MM/yyyy')}
+                  </>
+                ) : (
+                  format(dateRange.from, 'dd/MM/yyyy')
+                )
+              ) : (
+                <span>Período de criação</span>
+              )}
+              {dateRange?.from && (
+                <XCircle
+                  className="ml-auto h-4 w-4 opacity-60 hover:opacity-100"
+                  onClick={(e) => { e.stopPropagation(); setDateRange(undefined); setCurrentPage(1); }}
+                />
+              )}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0 pointer-events-auto" align="start">
+            <Calendar
+              mode="range"
+              selected={dateRange}
+              onSelect={(range) => { setDateRange(range); setCurrentPage(1); }}
+              numberOfMonths={2}
+              initialFocus
+              locale={ptBR}
+            />
+          </PopoverContent>
+        </Popover>
       </div>
 
       {/* Table */}
