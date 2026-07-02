@@ -245,12 +245,37 @@ export default function ChamadosIndex() {
 
 
 
+  // Unique clients extracted from loaded tickets (for combobox)
+  const uniqueClients = useMemo(() => {
+    if (!tickets) return [] as { id: string; label: string }[];
+    const map = new Map<string, string>();
+    tickets.forEach(t => {
+      if (!map.has(t.client_id)) {
+        map.set(t.client_id, t.client_fazenda ? `${t.client_name} — ${t.client_fazenda}` : t.client_name);
+      }
+    });
+    return Array.from(map.entries())
+      .map(([id, label]) => ({ id, label }))
+      .sort((a, b) => a.label.localeCompare(b.label, 'pt-BR'));
+  }, [tickets]);
+
+  const selectedClientLabel = clientFilter === 'all'
+    ? 'Todos os produtores'
+    : uniqueClients.find(c => c.id === clientFilter)?.label ?? 'Todos os produtores';
+
   // Filter and paginate
   const filteredTickets = useMemo(() => {
     if (!tickets) return [];
 
     const searchLower = search.toLowerCase();
     const searchWords = searchLower.split(/\s+/).filter(Boolean);
+
+    const fromMs = dateRange?.from ? new Date(dateRange.from).setHours(0, 0, 0, 0) : null;
+    const toMs = dateRange?.to
+      ? new Date(dateRange.to).setHours(23, 59, 59, 999)
+      : dateRange?.from
+        ? new Date(dateRange.from).setHours(23, 59, 59, 999)
+        : null;
 
     return tickets.filter(ticket => {
       const searchableText = [
@@ -266,10 +291,17 @@ export default function ChamadosIndex() {
       
       const matchesStatus = statusFilter === 'all' || ticket.status === statusFilter;
       const matchesPriority = priorityFilter === 'all' || ticket.priority === priorityFilter;
+      const matchesClient = clientFilter === 'all' || ticket.client_id === clientFilter;
 
-      return matchesSearch && matchesStatus && matchesPriority;
+      let matchesDate = true;
+      if (fromMs !== null && toMs !== null) {
+        const createdMs = new Date(ticket.created_at).getTime();
+        matchesDate = createdMs >= fromMs && createdMs <= toMs;
+      }
+
+      return matchesSearch && matchesStatus && matchesPriority && matchesClient && matchesDate;
     });
-  }, [tickets, search, statusFilter, priorityFilter]);
+  }, [tickets, search, statusFilter, priorityFilter, clientFilter, dateRange]);
 
   const totalPages = Math.ceil(filteredTickets.length / ITEMS_PER_PAGE);
   const paginatedTickets = filteredTickets.slice(
