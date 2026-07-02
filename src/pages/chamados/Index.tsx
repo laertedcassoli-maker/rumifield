@@ -7,6 +7,11 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { cn } from '@/lib/utils';
+import type { DateRange } from 'react-day-picker';
 import {
   Table,
   TableBody,
@@ -33,6 +38,8 @@ import {
   Building2,
   User,
   UserPlus,
+  Calendar as CalendarIcon,
+  Check,
 } from 'lucide-react';
 import { format, differenceInSeconds } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -130,6 +137,10 @@ export default function ChamadosIndex() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
+  const [clientFilter, setClientFilter] = useState<string>('all');
+  const [clientPopoverOpen, setClientPopoverOpen] = useState(false);
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
+  const [datePopoverOpen, setDatePopoverOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
 
   const isAdminOrCoordinator = role === 'admin' || role === 'coordenador_servicos';
@@ -234,12 +245,37 @@ export default function ChamadosIndex() {
 
 
 
+  // Unique clients extracted from loaded tickets (for combobox)
+  const uniqueClients = useMemo(() => {
+    if (!tickets) return [] as { id: string; label: string }[];
+    const map = new Map<string, string>();
+    tickets.forEach(t => {
+      if (!map.has(t.client_id)) {
+        map.set(t.client_id, t.client_fazenda ? `${t.client_name} — ${t.client_fazenda}` : t.client_name);
+      }
+    });
+    return Array.from(map.entries())
+      .map(([id, label]) => ({ id, label }))
+      .sort((a, b) => a.label.localeCompare(b.label, 'pt-BR'));
+  }, [tickets]);
+
+  const selectedClientLabel = clientFilter === 'all'
+    ? 'Todos os produtores'
+    : uniqueClients.find(c => c.id === clientFilter)?.label ?? 'Todos os produtores';
+
   // Filter and paginate
   const filteredTickets = useMemo(() => {
     if (!tickets) return [];
 
     const searchLower = search.toLowerCase();
     const searchWords = searchLower.split(/\s+/).filter(Boolean);
+
+    const fromMs = dateRange?.from ? new Date(dateRange.from).setHours(0, 0, 0, 0) : null;
+    const toMs = dateRange?.to
+      ? new Date(dateRange.to).setHours(23, 59, 59, 999)
+      : dateRange?.from
+        ? new Date(dateRange.from).setHours(23, 59, 59, 999)
+        : null;
 
     return tickets.filter(ticket => {
       const searchableText = [
@@ -255,10 +291,17 @@ export default function ChamadosIndex() {
       
       const matchesStatus = statusFilter === 'all' || ticket.status === statusFilter;
       const matchesPriority = priorityFilter === 'all' || ticket.priority === priorityFilter;
+      const matchesClient = clientFilter === 'all' || ticket.client_id === clientFilter;
 
-      return matchesSearch && matchesStatus && matchesPriority;
+      let matchesDate = true;
+      if (fromMs !== null && toMs !== null) {
+        const createdMs = new Date(ticket.created_at).getTime();
+        matchesDate = createdMs >= fromMs && createdMs <= toMs;
+      }
+
+      return matchesSearch && matchesStatus && matchesPriority && matchesClient && matchesDate;
     });
-  }, [tickets, search, statusFilter, priorityFilter]);
+  }, [tickets, search, statusFilter, priorityFilter, clientFilter, dateRange]);
 
   const totalPages = Math.ceil(filteredTickets.length / ITEMS_PER_PAGE);
   const paginatedTickets = filteredTickets.slice(
@@ -399,6 +442,88 @@ export default function ChamadosIndex() {
             <SelectItem value="urgente">Urgente</SelectItem>
           </SelectContent>
         </Select>
+        <Popover open={clientPopoverOpen} onOpenChange={setClientPopoverOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              role="combobox"
+              className={cn(
+                "w-[240px] justify-between font-normal",
+                clientFilter === 'all' && "text-muted-foreground"
+              )}
+            >
+              <span className="truncate">{selectedClientLabel}</span>
+              <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-[300px] p-0 pointer-events-auto" align="start">
+            <Command>
+              <CommandInput placeholder="Buscar produtor..." />
+              <CommandList>
+                <CommandEmpty>Nenhum produtor encontrado.</CommandEmpty>
+                <CommandGroup>
+                  <CommandItem
+                    value="__all__"
+                    onSelect={() => { setClientFilter('all'); setCurrentPage(1); setClientPopoverOpen(false); }}
+                  >
+                    <Check className={cn("mr-2 h-4 w-4", clientFilter === 'all' ? 'opacity-100' : 'opacity-0')} />
+                    Todos os produtores
+                  </CommandItem>
+                  {uniqueClients.map(c => (
+                    <CommandItem
+                      key={c.id}
+                      value={c.label}
+                      onSelect={() => { setClientFilter(c.id); setCurrentPage(1); setClientPopoverOpen(false); }}
+                    >
+                      <Check className={cn("mr-2 h-4 w-4", clientFilter === c.id ? 'opacity-100' : 'opacity-0')} />
+                      <span className="truncate">{c.label}</span>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
+        <Popover open={datePopoverOpen} onOpenChange={setDatePopoverOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              className={cn(
+                "w-[260px] justify-start text-left font-normal",
+                !dateRange?.from && "text-muted-foreground"
+              )}
+            >
+              <CalendarIcon className="mr-2 h-4 w-4" />
+              {dateRange?.from ? (
+                dateRange.to ? (
+                  <>
+                    {format(dateRange.from, 'dd/MM/yyyy')} — {format(dateRange.to, 'dd/MM/yyyy')}
+                  </>
+                ) : (
+                  format(dateRange.from, 'dd/MM/yyyy')
+                )
+              ) : (
+                <span>Período de criação</span>
+              )}
+              {dateRange?.from && (
+                <XCircle
+                  className="ml-auto h-4 w-4 opacity-60 hover:opacity-100"
+                  onClick={(e) => { e.stopPropagation(); setDateRange(undefined); setCurrentPage(1); }}
+                />
+              )}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0 pointer-events-auto" align="start">
+            <Calendar
+              mode="range"
+              selected={dateRange}
+              onSelect={(range) => { setDateRange(range); setCurrentPage(1); }}
+              numberOfMonths={2}
+              initialFocus
+              locale={ptBR}
+            />
+          </PopoverContent>
+        </Popover>
       </div>
 
       {/* Table */}

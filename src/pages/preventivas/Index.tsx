@@ -7,6 +7,11 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar as CalendarComp } from '@/components/ui/calendar';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { cn } from '@/lib/utils';
+import type { DateRange } from 'react-day-picker';
 import {
   Table,
   TableBody,
@@ -30,7 +35,9 @@ import {
   ArrowUp,
   ArrowDown,
   ChevronLeft,
-  ChevronRight
+  ChevronRight,
+  Check,
+  X,
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -66,6 +73,10 @@ export default function PreventiveMaintenanceIndex() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<PreventiveStatus>('all');
   const [consultorFilter, setConsultorFilter] = useState<string>('all');
+  const [clientFilter, setClientFilter] = useState<string>('all');
+  const [clientPopoverOpen, setClientPopoverOpen] = useState(false);
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
+  const [datePopoverOpen, setDatePopoverOpen] = useState(false);
   const [sortField, setSortField] = useState<SortField>('preventive_status');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const [currentPage, setCurrentPage] = useState(1);
@@ -162,9 +173,31 @@ export default function PreventiveMaintenanceIndex() {
     },
   });
 
+  // Unique clients extracted from loaded data (for combobox)
+  const uniqueClients = useMemo(() => {
+    if (!clientsData) return [] as { id: string; label: string }[];
+    return clientsData
+      .map(c => ({
+        id: c.client_id,
+        label: c.fazenda ? `${c.client_name} — ${c.fazenda}` : c.client_name,
+      }))
+      .sort((a, b) => a.label.localeCompare(b.label, 'pt-BR'));
+  }, [clientsData]);
+
+  const selectedClientLabel = clientFilter === 'all'
+    ? 'Todos os produtores'
+    : uniqueClients.find(c => c.id === clientFilter)?.label ?? 'Todos os produtores';
+
   // Filter and sort
   const filteredAndSortedData = useMemo(() => {
     if (!clientsData) return [];
+
+    const fromMs = dateRange?.from ? new Date(dateRange.from).setHours(0, 0, 0, 0) : null;
+    const toMs = dateRange?.to
+      ? new Date(dateRange.to).setHours(23, 59, 59, 999)
+      : dateRange?.from
+        ? new Date(dateRange.from).setHours(23, 59, 59, 999)
+        : null;
 
     let result = clientsData.filter(client => {
       const matchesSearch = 
@@ -173,8 +206,19 @@ export default function PreventiveMaintenanceIndex() {
       
       const matchesStatus = statusFilter === 'all' || client.preventive_status === statusFilter;
       const matchesConsultor = consultorFilter === 'all' || client.consultor_rplus_id === consultorFilter;
+      const matchesClient = clientFilter === 'all' || client.client_id === clientFilter;
 
-      return matchesSearch && matchesStatus && matchesConsultor;
+      let matchesDate = true;
+      if (fromMs !== null && toMs !== null) {
+        if (!client.last_preventive_date) {
+          matchesDate = false;
+        } else {
+          const dateMs = new Date(client.last_preventive_date).getTime();
+          matchesDate = dateMs >= fromMs && dateMs <= toMs;
+        }
+      }
+
+      return matchesSearch && matchesStatus && matchesConsultor && matchesClient && matchesDate;
     });
 
     // Sort
@@ -210,7 +254,7 @@ export default function PreventiveMaintenanceIndex() {
     });
 
     return result;
-  }, [clientsData, search, statusFilter, consultorFilter, sortField, sortDirection]);
+  }, [clientsData, search, statusFilter, consultorFilter, clientFilter, dateRange, sortField, sortDirection]);
 
   const totalPages = Math.ceil(filteredAndSortedData.length / ITEMS_PER_PAGE);
   const paginatedData = filteredAndSortedData.slice(
@@ -364,6 +408,88 @@ export default function PreventiveMaintenanceIndex() {
             ))}
           </SelectContent>
         </Select>
+        <Popover open={clientPopoverOpen} onOpenChange={setClientPopoverOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              role="combobox"
+              className={cn(
+                "w-[240px] justify-between font-normal",
+                clientFilter === 'all' && "text-muted-foreground"
+              )}
+            >
+              <span className="truncate">{selectedClientLabel}</span>
+              <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-[300px] p-0 pointer-events-auto" align="start">
+            <Command>
+              <CommandInput placeholder="Buscar produtor..." />
+              <CommandList>
+                <CommandEmpty>Nenhum produtor encontrado.</CommandEmpty>
+                <CommandGroup>
+                  <CommandItem
+                    value="__all__"
+                    onSelect={() => { setClientFilter('all'); setCurrentPage(1); setClientPopoverOpen(false); }}
+                  >
+                    <Check className={cn("mr-2 h-4 w-4", clientFilter === 'all' ? 'opacity-100' : 'opacity-0')} />
+                    Todos os produtores
+                  </CommandItem>
+                  {uniqueClients.map(c => (
+                    <CommandItem
+                      key={c.id}
+                      value={c.label}
+                      onSelect={() => { setClientFilter(c.id); setCurrentPage(1); setClientPopoverOpen(false); }}
+                    >
+                      <Check className={cn("mr-2 h-4 w-4", clientFilter === c.id ? 'opacity-100' : 'opacity-0')} />
+                      <span className="truncate">{c.label}</span>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
+        <Popover open={datePopoverOpen} onOpenChange={setDatePopoverOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              className={cn(
+                "w-[260px] justify-start text-left font-normal",
+                !dateRange?.from && "text-muted-foreground"
+              )}
+            >
+              <Calendar className="mr-2 h-4 w-4" />
+              {dateRange?.from ? (
+                dateRange.to ? (
+                  <>
+                    {format(dateRange.from, 'dd/MM/yyyy')} — {format(dateRange.to, 'dd/MM/yyyy')}
+                  </>
+                ) : (
+                  format(dateRange.from, 'dd/MM/yyyy')
+                )
+              ) : (
+                <span>Última preventiva</span>
+              )}
+              {dateRange?.from && (
+                <X
+                  className="ml-auto h-4 w-4 opacity-60 hover:opacity-100"
+                  onClick={(e) => { e.stopPropagation(); setDateRange(undefined); setCurrentPage(1); }}
+                />
+              )}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0 pointer-events-auto" align="start">
+            <CalendarComp
+              mode="range"
+              selected={dateRange}
+              onSelect={(range) => { setDateRange(range); setCurrentPage(1); }}
+              numberOfMonths={2}
+              initialFocus
+              locale={ptBR}
+            />
+          </PopoverContent>
+        </Popover>
       </div>
 
       {/* Table */}
