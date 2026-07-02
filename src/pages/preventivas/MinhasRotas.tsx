@@ -59,7 +59,7 @@ const safeParse = (value: string | null | undefined): Date | null => {
     return null;
   }
 };
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useOfflineQuery } from '@/hooks/useOfflineQuery';
 import { offlineDb } from '@/lib/offline-db';
 
