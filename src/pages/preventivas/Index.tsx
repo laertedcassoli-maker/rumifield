@@ -73,6 +73,10 @@ export default function PreventiveMaintenanceIndex() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<PreventiveStatus>('all');
   const [consultorFilter, setConsultorFilter] = useState<string>('all');
+  const [clientFilter, setClientFilter] = useState<string>('all');
+  const [clientPopoverOpen, setClientPopoverOpen] = useState(false);
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
+  const [datePopoverOpen, setDatePopoverOpen] = useState(false);
   const [sortField, setSortField] = useState<SortField>('preventive_status');
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const [currentPage, setCurrentPage] = useState(1);
