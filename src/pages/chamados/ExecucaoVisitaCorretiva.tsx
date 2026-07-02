@@ -963,9 +963,7 @@ export default function ExecucaoVisitaCorretiva() {
       <div className="text-center py-12 px-4">
         <AlertCircle className="mx-auto h-10 w-10 text-destructive" />
         <h2 className="mt-3 font-semibold">Visita não encontrada</h2>
-        <Button asChild className="mt-4" size="sm">
-          <Link to="/preventivas/minhas-rotas">Voltar</Link>
-        </Button>
+        <Button className="mt-4" size="sm" onClick={() => navigate(-1)}>Voltar</Button>
       </div>
     );
   }
