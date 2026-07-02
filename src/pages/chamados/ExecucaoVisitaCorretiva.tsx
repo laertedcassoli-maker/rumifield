@@ -983,11 +983,9 @@ export default function ExecucaoVisitaCorretiva() {
       {/* Minimal Header */}
       <div className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 py-2 -mx-4 px-4 sm:-mx-6 sm:px-6">
         <div className="flex items-center justify-between">
-          <Button variant="ghost" size="sm" asChild className="-ml-2">
-            <Link to="/preventivas/minhas-rotas">
-              <ArrowLeft className="h-4 w-4 mr-1" />
-              Voltar
-            </Link>
+          <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="-ml-2">
+            <ArrowLeft className="h-4 w-4 mr-1" />
+            Voltar
           </Button>
           <div className="flex items-center gap-2">
             <Badge variant="secondary" className="bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300 text-xs">
