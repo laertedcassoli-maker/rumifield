@@ -484,9 +484,7 @@ export default function ExecucaoRota() {
       <div className="text-center py-12 px-4">
         <AlertCircle className="mx-auto h-10 w-10 text-destructive" />
         <h2 className="mt-3 font-semibold">Rota não encontrada</h2>
-        <Button asChild className="mt-4" size="sm">
-          <Link to="/preventivas/minhas-rotas">Voltar</Link>
-        </Button>
+        <Button className="mt-4" size="sm" onClick={() => navigate(-1)}>Voltar</Button>
       </div>
     );
   }
@@ -497,9 +495,7 @@ export default function ExecucaoRota() {
         <AlertCircle className="mx-auto h-10 w-10 text-destructive" />
         <h2 className="mt-3 font-semibold">Acesso negado</h2>
         <p className="text-sm text-muted-foreground mt-1">Sem permissão para esta rota.</p>
-        <Button asChild className="mt-4" size="sm">
-          <Link to="/preventivas/minhas-rotas">Voltar</Link>
-        </Button>
+        <Button className="mt-4" size="sm" onClick={() => navigate(-1)}>Voltar</Button>
       </div>
     );
   }
@@ -517,10 +513,8 @@ export default function ExecucaoRota() {
       {/* Sticky Header */}
       <div className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 py-3 border-b">
         <div className="flex items-center gap-3">
-          <Button variant="ghost" size="icon" asChild className="shrink-0 -ml-2">
-            <Link to="/preventivas/minhas-rotas">
-              <ArrowLeft className="h-5 w-5" />
-            </Link>
+          <Button variant="ghost" size="icon" onClick={() => navigate(-1)} className="shrink-0 -ml-2">
+            <ArrowLeft className="h-5 w-5" />
           </Button>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">

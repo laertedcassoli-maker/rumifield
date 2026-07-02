@@ -660,7 +660,7 @@ export default function ExecucaoVisitaCorretiva() {
       setSelectedResult(null);
       setShowCompleteDialog(false);
       
-      navigate('/preventivas/minhas-rotas');
+      navigate(-1);
     },
     onError: (error: Error) => {
       toast({
@@ -942,7 +942,7 @@ export default function ExecucaoVisitaCorretiva() {
       if (visit?.ticket_id) {
         navigate(`/chamados/${visit.ticket_id}`);
       } else {
-        navigate('/preventivas/minhas-rotas');
+        navigate(-1);
       }
     },
     onError: (err: Error) => {
@@ -963,9 +963,7 @@ export default function ExecucaoVisitaCorretiva() {
       <div className="text-center py-12 px-4">
         <AlertCircle className="mx-auto h-10 w-10 text-destructive" />
         <h2 className="mt-3 font-semibold">Visita não encontrada</h2>
-        <Button asChild className="mt-4" size="sm">
-          <Link to="/preventivas/minhas-rotas">Voltar</Link>
-        </Button>
+        <Button className="mt-4" size="sm" onClick={() => navigate(-1)}>Voltar</Button>
       </div>
     );
   }
@@ -975,9 +973,7 @@ export default function ExecucaoVisitaCorretiva() {
       <div className="text-center py-12 px-4">
         <AlertCircle className="mx-auto h-10 w-10 text-destructive" />
         <h2 className="mt-3 font-semibold">Acesso negado</h2>
-        <Button asChild className="mt-4" size="sm">
-          <Link to="/preventivas/minhas-rotas">Voltar</Link>
-        </Button>
+        <Button className="mt-4" size="sm" onClick={() => navigate(-1)}>Voltar</Button>
       </div>
     );
   }
@@ -987,11 +983,9 @@ export default function ExecucaoVisitaCorretiva() {
       {/* Minimal Header */}
       <div className="sticky top-0 z-10 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 py-2 -mx-4 px-4 sm:-mx-6 sm:px-6">
         <div className="flex items-center justify-between">
-          <Button variant="ghost" size="sm" asChild className="-ml-2">
-            <Link to="/preventivas/minhas-rotas">
-              <ArrowLeft className="h-4 w-4 mr-1" />
-              Voltar
-            </Link>
+          <Button variant="ghost" size="sm" onClick={() => navigate(-1)} className="-ml-2">
+            <ArrowLeft className="h-4 w-4 mr-1" />
+            Voltar
           </Button>
           <div className="flex items-center gap-2">
             <Badge variant="secondary" className="bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300 text-xs">
@@ -1312,12 +1306,10 @@ export default function ExecucaoVisitaCorretiva() {
                   <Button 
                     variant="outline" 
                     className="flex-1"
-                    asChild
+                    onClick={() => navigate(-1)}
                   >
-                    <Link to="/preventivas/minhas-rotas">
-                      <ArrowLeft className="h-4 w-4 mr-2" />
-                      Minhas Rotas
-                    </Link>
+                    <ArrowLeft className="h-4 w-4 mr-2" />
+                    Minhas Rotas
                   </Button>
                 </div>
               </CardContent>

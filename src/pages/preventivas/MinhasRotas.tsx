@@ -59,7 +59,7 @@ const safeParse = (value: string | null | undefined): Date | null => {
     return null;
   }
 };
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useOfflineQuery } from '@/hooks/useOfflineQuery';
 import { offlineDb } from '@/lib/offline-db';
 
@@ -125,10 +125,24 @@ interface Technician {
 
 export default function MinhasRotas() {
   const { user, role } = useAuth();
-  const [filter, setFilter] = useState<FilterType>('todas');
-  const [technicianFilter, setTechnicianFilter] = useState<string>('all');
-  const [typeFilter, setTypeFilter] = useState<RouteType>('all');
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('ativas');
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const filter = (searchParams.get('periodo') as FilterType) || 'todas';
+  const technicianFilter = searchParams.get('tecnico') || 'all';
+  const typeFilter = (searchParams.get('tipo') as RouteType) || 'all';
+  const statusFilter = (searchParams.get('status') as StatusFilter) || 'ativas';
+
+  const updateParam = (key: string, value: string, defaultValue: string) => {
+    const next = new URLSearchParams(searchParams);
+    if (value === defaultValue) next.delete(key);
+    else next.set(key, value);
+    setSearchParams(next, { replace: true });
+  };
+
+  const setFilter = (v: FilterType) => updateParam('periodo', v, 'todas');
+  const setTechnicianFilter = (v: string) => updateParam('tecnico', v, 'all');
+  const setTypeFilter = (v: RouteType) => updateParam('tipo', v, 'all');
+  const setStatusFilter = (v: StatusFilter) => updateParam('status', v, 'ativas');
   const [showNovaVisita, setShowNovaVisita] = useState(false);
 
   const isAdminOrCoordinator = role === 'admin' || role === 'coordenador_servicos';
@@ -940,7 +954,7 @@ export default function MinhasRotas() {
                   variant="outline" 
                   size="sm"
                   className="mt-3" 
-                  onClick={() => { setFilter('todas'); setTechnicianFilter('all'); setTypeFilter('all'); setStatusFilter('ativas'); }}
+                  onClick={() => setSearchParams(new URLSearchParams(), { replace: true })}
                 >
                   Limpar filtros
                 </Button>
