@@ -130,7 +130,7 @@ export default function MinhasRotas() {
   const filter = (searchParams.get('periodo') as FilterType) || 'todas';
   const technicianFilter = searchParams.get('tecnico') || 'all';
   const typeFilter = (searchParams.get('tipo') as RouteType) || 'all';
-  const statusFilter = (searchParams.get('status') as StatusFilter) || 'ativas';
+  const statusFilter = (searchParams.get('status') as StatusFilter) || 'todas';
 
   const updateParam = (key: string, value: string, defaultValue: string) => {
     const next = new URLSearchParams(searchParams);
