@@ -130,7 +130,7 @@ export default function MinhasRotas() {
   const filter = (searchParams.get('periodo') as FilterType) || 'todas';
   const technicianFilter = searchParams.get('tecnico') || 'all';
   const typeFilter = (searchParams.get('tipo') as RouteType) || 'all';
-  const statusFilter = (searchParams.get('status') as StatusFilter) || 'ativas';
+  const statusFilter = (searchParams.get('status') as StatusFilter) || 'todas';
 
   const updateParam = (key: string, value: string, defaultValue: string) => {
     const next = new URLSearchParams(searchParams);
@@ -938,18 +938,18 @@ export default function MinhasRotas() {
             <CardContent className="py-10 text-center">
               <Route className="mx-auto h-10 w-10 text-muted-foreground/50" />
               <h3 className="mt-3 font-semibold text-sm">
-                {filter !== 'todas' || technicianFilter !== 'all' || typeFilter !== 'all' || statusFilter !== 'ativas'
+                {filter !== 'todas' || technicianFilter !== 'all' || typeFilter !== 'all' || statusFilter !== 'todas'
                   ? 'Nenhuma rota encontrada' 
                   : isAdminOrCoordinator 
                     ? 'Nenhuma rota em execução'
                     : 'Nenhuma rota atribuída'}
               </h3>
               <p className="text-xs text-muted-foreground mt-1">
-                {filter !== 'todas' || technicianFilter !== 'all' || typeFilter !== 'all' || statusFilter !== 'ativas'
+                {filter !== 'todas' || technicianFilter !== 'all' || typeFilter !== 'all' || statusFilter !== 'todas'
                   ? 'Tente outros filtros' 
                   : 'Aguarde novas atribuições'}
               </p>
-              {(filter !== 'todas' || technicianFilter !== 'all' || typeFilter !== 'all' || statusFilter !== 'ativas') && (
+              {(filter !== 'todas' || technicianFilter !== 'all' || typeFilter !== 'all' || statusFilter !== 'todas') && (
                 <Button 
                   variant="outline" 
                   size="sm"
