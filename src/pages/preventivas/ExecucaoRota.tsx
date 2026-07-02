@@ -495,9 +495,7 @@ export default function ExecucaoRota() {
         <AlertCircle className="mx-auto h-10 w-10 text-destructive" />
         <h2 className="mt-3 font-semibold">Acesso negado</h2>
         <p className="text-sm text-muted-foreground mt-1">Sem permissão para esta rota.</p>
-        <Button asChild className="mt-4" size="sm">
-          <Link to="/preventivas/minhas-rotas">Voltar</Link>
-        </Button>
+        <Button className="mt-4" size="sm" onClick={() => navigate(-1)}>Voltar</Button>
       </div>
     );
   }
