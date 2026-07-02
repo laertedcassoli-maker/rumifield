@@ -137,6 +137,10 @@ export default function ChamadosIndex() {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
+  const [clientFilter, setClientFilter] = useState<string>('all');
+  const [clientPopoverOpen, setClientPopoverOpen] = useState(false);
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
+  const [datePopoverOpen, setDatePopoverOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
 
   const isAdminOrCoordinator = role === 'admin' || role === 'coordenador_servicos';
