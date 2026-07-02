@@ -38,6 +38,8 @@ import {
   Building2,
   User,
   UserPlus,
+  Calendar as CalendarIcon,
+  Check,
 } from 'lucide-react';
 import { format, differenceInSeconds } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
