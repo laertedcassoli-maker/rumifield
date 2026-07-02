@@ -1306,12 +1306,10 @@ export default function ExecucaoVisitaCorretiva() {
                   <Button 
                     variant="outline" 
                     className="flex-1"
-                    asChild
+                    onClick={() => navigate(-1)}
                   >
-                    <Link to="/preventivas/minhas-rotas">
-                      <ArrowLeft className="h-4 w-4 mr-2" />
-                      Minhas Rotas
-                    </Link>
+                    <ArrowLeft className="h-4 w-4 mr-2" />
+                    Minhas Rotas
                   </Button>
                 </div>
               </CardContent>
