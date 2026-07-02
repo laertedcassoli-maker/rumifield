@@ -660,7 +660,7 @@ export default function ExecucaoVisitaCorretiva() {
       setSelectedResult(null);
       setShowCompleteDialog(false);
       
-      navigate('/preventivas/minhas-rotas');
+      navigate(-1);
     },
     onError: (error: Error) => {
       toast({
