@@ -47,6 +47,23 @@ interface WorkOrderRow {
   }>;
 }
 
+function fmtDur(sec: number | null) {
+  if (!sec || sec <= 0) return '—';
+  const h = Math.floor(sec / 3600);
+  const m = Math.round((sec % 3600) / 60);
+  return h > 0 ? `${h}h ${m}min` : `${m}min`;
+}
+
+function durationRange(sec: number | null): { label: string; order: number } {
+  const h = (sec || 0) / 3600;
+  if (h <= 0) return { label: 'Sem registro', order: 0 };
+  if (h < 0.5) return { label: '< 30 min', order: 1 };
+  if (h < 1) return { label: '30–60 min', order: 2 };
+  if (h < 2) return { label: '1–2 h', order: 3 };
+  if (h < 4) return { label: '2–4 h', order: 4 };
+  return { label: '> 4 h', order: 5 };
+}
+
 
 export default function GestaoOS() {
   const currentYear = new Date().getFullYear();
@@ -408,22 +425,8 @@ export default function GestaoOS() {
   };
 
 
-  const fmtDur = (sec: number | null) => {
-    if (!sec || sec <= 0) return '—';
-    const h = Math.floor(sec / 3600);
-    const m = Math.round((sec % 3600) / 60);
-    return h > 0 ? `${h}h ${m}min` : `${m}min`;
-  };
 
-  const durationRange = (sec: number | null): { label: string; order: number } => {
-    const h = (sec || 0) / 3600;
-    if (h <= 0) return { label: 'Sem registro', order: 0 };
-    if (h < 0.5) return { label: '< 30 min', order: 1 };
-    if (h < 1) return { label: '30–60 min', order: 2 };
-    if (h < 2) return { label: '1–2 h', order: 3 };
-    if (h < 4) return { label: '2–4 h', order: 4 };
-    return { label: '> 4 h', order: 5 };
-  };
+
 
 
   const leadDaysOf = (wo: WorkOrderRow) => {
@@ -485,6 +488,83 @@ export default function GestaoOS() {
   }, [filteredOS]);
 
 
+  // Possível retrabalho: mesma peça usada no mesmo ativo em OS distintas dentro de 90 dias
+  const reworkRows = useMemo(() => {
+    const WINDOW_DAYS = 90;
+    type Occ = { woId: string; woCode: string; assetCode: string; partName: string; createdAt: number };
+    // Chave: assetId::partId
+    const groups = new Map<string, Occ[]>();
+
+    workOrders.forEach(wo => {
+      const created = new Date(wo.created_at).getTime();
+      const items = wo.work_order_items || [];
+      const parts = wo.work_order_parts_used || [];
+      if (!items.length || !parts.length) return;
+      items.forEach(it => {
+        if (!it.workshop_item_id) return;
+        const assetCode = it.workshop_items?.unique_code || '—';
+        parts.forEach(p => {
+          if (!p.omie_product_id) return;
+          const key = `${it.workshop_item_id}::${p.omie_product_id}`;
+          const arr = groups.get(key) || [];
+          // Evita contar duas vezes se a mesma peça aparece em múltiplos itens da mesma OS
+          if (!arr.some(o => o.woId === wo.id)) {
+            arr.push({
+              woId: wo.id,
+              woCode: wo.code,
+              assetCode,
+              partName: p.pecas?.nome || p.omie_product_id,
+              createdAt: created,
+            });
+            groups.set(key, arr);
+          }
+        });
+      });
+    });
+
+    const filteredIds = new Set(filteredOS.map(wo => wo.id));
+    const result: Array<{
+      key: string;
+      assetCode: string;
+      partName: string;
+      count: number;
+      codes: string[];
+      spanDays: number;
+    }> = [];
+
+    groups.forEach((occs, key) => {
+      if (occs.length < 2) return;
+      occs.sort((a, b) => a.createdAt - b.createdAt);
+      // Janela deslizante de 90 dias
+      let bestWindow: Occ[] = [];
+      for (let i = 0; i < occs.length; i++) {
+        const window: Occ[] = [occs[i]];
+        for (let j = i + 1; j < occs.length; j++) {
+          if ((occs[j].createdAt - occs[i].createdAt) / 86400000 <= WINDOW_DAYS) {
+            window.push(occs[j]);
+          } else break;
+        }
+        if (window.length >= 2 && window.length > bestWindow.length) bestWindow = window;
+      }
+      if (bestWindow.length < 2) return;
+      // Considera apenas se a OS mais recente da janela está no período filtrado
+      const mostRecent = bestWindow[bestWindow.length - 1];
+      if (!filteredIds.has(mostRecent.woId)) return;
+      const spanDays = Math.round(
+        (bestWindow[bestWindow.length - 1].createdAt - bestWindow[0].createdAt) / 86400000
+      );
+      result.push({
+        key,
+        assetCode: bestWindow[0].assetCode,
+        partName: bestWindow[0].partName,
+        count: bestWindow.length,
+        codes: bestWindow.map(o => o.woCode),
+        spanDays,
+      });
+    });
+
+    return result.sort((a, b) => b.count - a.count || a.spanDays - b.spanDays);
+  }, [workOrders, filteredOS]);
 
 
   return (
@@ -1197,6 +1277,56 @@ export default function GestaoOS() {
           </ul>
         </div>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 text-orange-500" />
+            Possível Retrabalho
+          </CardTitle>
+          <p className="text-xs text-muted-foreground">
+            Mesma peça usada no mesmo ativo em OS diferentes dentro de 90 dias (OS mais recente no período filtrado).
+          </p>
+        </CardHeader>
+        <CardContent>
+          {reworkRows.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Nenhum caso detectado no período.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-xs text-muted-foreground border-b">
+                    <th className="py-2 pr-3">Ativo</th>
+                    <th className="py-2 pr-3">Peça</th>
+                    <th className="py-2 pr-3 text-right">Repetições</th>
+                    <th className="py-2 pr-3">OS envolvidas</th>
+                    <th className="py-2 pr-3 text-right">Intervalo (dias)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {reworkRows.slice(0, 20).map(r => (
+                    <tr key={r.key} className="border-b last:border-0">
+                      <td className="py-2 pr-3 font-medium">{r.assetCode}</td>
+                      <td className="py-2 pr-3">{r.partName}</td>
+                      <td className="py-2 pr-3 text-right">
+                        <Badge className={cn(
+                          'text-white',
+                          r.count >= 3 ? 'bg-red-600 hover:bg-red-600' : 'bg-orange-500 hover:bg-orange-500'
+                        )}>
+                          {r.count}x
+                        </Badge>
+                      </td>
+                      <td className="py-2 pr-3 text-xs">{r.codes.join(', ')}</td>
+                      <td className="py-2 pr-3 text-right tabular-nums">{r.spanDays}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
 
       <section className="space-y-3">
         <div>
