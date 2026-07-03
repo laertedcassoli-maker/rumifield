@@ -371,16 +371,12 @@ export default function TicketPartsRequestPanel({
                           value={item.quantidade}
                           onChange={(e) => updateQuantity(item.peca_id, parseInt(e.target.value) || 1)}
                           className="w-16 h-8 text-center"
-                          disabled={linked}
-                          title={linked ? `Quantidade vinculada ao ${SOLENOIDE_TRIGGER_CODE} (×${SOLENOIDE_TARGET_QTY})` : undefined}
                         />
                         <Button
                           variant="ghost"
                           size="icon"
                           className="h-8 w-8 text-destructive hover:text-destructive"
                           onClick={() => removePart(item.peca_id)}
-                          disabled={linked}
-                          title={linked ? `Remova o ${SOLENOIDE_TRIGGER_CODE} para excluir esta peça vinculada` : undefined}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
