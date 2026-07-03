@@ -1324,7 +1324,7 @@ export default function GestaoOS() {
         <AccordionItem value="ultimas-os-concluidas" className="border-0">
           <div className="rounded-xl border shadow-sm p-5 bg-card">
             <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-              <AccordionTrigger className="text-sm font-semibold py-0 hover:no-underline">
+              <AccordionTrigger className="text-sm font-semibold py-0 hover:no-underline w-full">
                 <div className="flex flex-1 items-center gap-2">
                   <InfoTooltip text="lista as OS concluídas no período filtrado, ordenadas pela data de conclusão (ou abertura, se não houver data de conclusão) mais recente primeiro. por padrão mostra as 10 últimas; use 'ver todas' para exibir a lista completa.">
                     Últimas OS Concluídas
