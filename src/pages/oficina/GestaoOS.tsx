@@ -1433,7 +1433,7 @@ export default function GestaoOS() {
             </li>
             <li className="rounded-md border px-3 py-2">
               <div className="text-xs text-muted-foreground mb-0.5">
-                <InfoTooltip text="A OS concluída com a data de abertura (created_at) mais antiga dentro do período filtrado.">OS mais antiga concluída</InfoTooltip>
+                <InfoTooltip text="a OS concluída com a data de abertura (created_at) mais antiga dentro do período filtrado.">OS mais antiga concluída</InfoTooltip>
               </div>
               <div className="text-sm">
                 {alerts.oldest
@@ -1442,7 +1442,7 @@ export default function GestaoOS() {
               </div>
             </li>
             <li className="rounded-md border px-3 py-2 flex items-center justify-between">
-              <InfoTooltip text="Quantidade de OS com tempo de execução maior que zero mas menor que 1 minuto — geralmente indica um apontamento de tempo feito incorretamente.">OS com tempo registrado &lt; 1 min</InfoTooltip>
+              <InfoTooltip text="quantidade de OS com tempo de execução maior que zero mas menor que 1 minuto — geralmente indica um apontamento de tempo feito incorretamente.">OS com tempo registrado &lt; 1 min</InfoTooltip>
               <span className="text-xs text-muted-foreground">~{alerts.tinyTime} registros</span>
             </li>
           </ul>
