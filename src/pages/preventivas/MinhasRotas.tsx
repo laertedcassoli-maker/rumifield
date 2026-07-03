@@ -73,14 +73,14 @@ import { offlineDb } from '@/lib/offline-db';
 
 // Preventive route statuses
 const preventiveStatusConfig = {
-  planejada: { label: 'Planejada', color: 'bg-blue-500/10 text-blue-600 border-blue-500/20', icon: Calendar },
+  planejada: { label: 'Planejada', color: 'bg-blue-500/10 text-blue-600 border-blue-500/20', icon: CalendarIcon },
   em_execucao: { label: 'Em Execução', color: 'bg-warning/10 text-warning border-warning/20', icon: Clock },
   finalizada: { label: 'Finalizada', color: 'bg-green-500/10 text-green-600 border-green-500/20', icon: CheckCircle2 },
 };
 
 // Corrective visit statuses
 const correctiveStatusConfig = {
-  planejada: { label: 'Planejada', color: 'bg-blue-500/10 text-blue-600 border-blue-500/20', icon: Calendar },
+  planejada: { label: 'Planejada', color: 'bg-blue-500/10 text-blue-600 border-blue-500/20', icon: CalendarIcon },
   em_elaboracao: { label: 'Em Elaboração', color: 'bg-muted text-muted-foreground border-border', icon: Clock },
   em_execucao: { label: 'Em Execução', color: 'bg-warning/10 text-warning border-warning/20', icon: Clock },
   finalizada: { label: 'Concluída', color: 'bg-green-500/10 text-green-600 border-green-500/20', icon: CheckCircle2 },
@@ -665,7 +665,7 @@ export default function MinhasRotas() {
             {/* Info row */}
             <div className="flex items-center justify-between text-sm text-muted-foreground mb-3">
               <span className="flex items-center gap-1">
-                <Calendar className="h-4 w-4" />
+                <CalendarIcon className="h-4 w-4" />
                 {safeFormat(route.start_date, 'dd/MM', '—')} - {safeFormat(route.end_date, 'dd/MM', '—')}
               </span>
               <span className="flex items-center gap-1">
@@ -783,7 +783,7 @@ export default function MinhasRotas() {
             {/* Info row */}
             <div className="flex items-center justify-between text-sm text-muted-foreground">
               <span className="flex items-center gap-1">
-                <Calendar className="h-4 w-4" />
+                <CalendarIcon className="h-4 w-4" />
                 {safeFormat(visit.scheduled_date, 'dd/MM/yyyy')}
               </span>
               <span className="flex items-center gap-1 text-xs text-orange-600">
