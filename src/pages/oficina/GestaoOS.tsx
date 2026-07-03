@@ -560,6 +560,51 @@ export default function GestaoOS() {
         </div>
       </div>
 
+      {/* Produtividade por Técnico */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Produtividade por Técnico</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {technicianProductivity.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-10 text-center">Sem OS atribuídas a técnicos no período.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-xs uppercase tracking-wide text-muted-foreground border-b">
+                    <th className="text-left font-medium py-2 px-3">Técnico</th>
+                    <th className="text-right font-medium py-2 px-3">OS concluídas</th>
+                    <th className="text-right font-medium py-2 px-3">Tempo médio exec.</th>
+                    <th className="text-right font-medium py-2 px-3">OS em aberto</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {technicianProductivity.map((row, i) => (
+                    <tr key={row.uid} className={cn('border-b last:border-b-0', i % 2 === 1 && 'bg-muted/30')}>
+                      <td className="py-2 px-3">{row.nome}</td>
+                      <td className="py-2 px-3 text-right font-medium tabular-nums">{row.concluidas}</td>
+                      <td className="py-2 px-3 text-right tabular-nums">{fmtDur(row.avgSec > 0 ? row.avgSec : null)}</td>
+                      <td className="py-2 px-3 text-right tabular-nums">
+                        {row.emAberto > 0 ? (
+                          <span className="inline-block rounded-full bg-orange-100 text-orange-700 border border-orange-200 px-2 py-0.5 text-xs font-semibold">
+                            {row.emAberto}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground">0</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+
+
       {/* OS por mês + Tipos de pistola */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="rounded-xl border shadow-sm p-5 bg-card">
