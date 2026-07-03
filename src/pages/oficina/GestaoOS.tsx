@@ -916,14 +916,20 @@ export default function GestaoOS() {
       {/* Funil de Status das OS */}
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Funil de Status das OS</CardTitle>
+          <CardTitle className="text-base">
+            <InfoTooltip text="Mostra a distribuição das OS do período e filtros selecionados entre os três status possíveis: Aguardando, Em Manutenção e Concluído.">
+              Funil de Status das OS
+            </InfoTooltip>
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* Aguardando */}
             <div className="rounded-xl border shadow-sm p-5 bg-card">
               <div className="flex items-center justify-between">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Aguardando</p>
+                <InfoTooltip text="Quantidade de OS com status 'aguardando' dentro do período e filtros selecionados — ainda não iniciadas.">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Aguardando</p>
+                </InfoTooltip>
                 <Clock className="h-4 w-4 text-amber-600" />
               </div>
               <p className="mt-2 text-3xl font-bold text-amber-600">{statusFunnel.aguardando}</p>
@@ -933,7 +939,9 @@ export default function GestaoOS() {
             {/* Em Manutenção */}
             <div className="rounded-xl border shadow-sm p-5 bg-card">
               <div className="flex items-center justify-between">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Em Manutenção</p>
+                <InfoTooltip text="Quantidade de OS com status 'em_manutencao' dentro do período e filtros selecionados — atualmente em execução.">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Em Manutenção</p>
+                </InfoTooltip>
                 <Wrench className="h-4 w-4 text-blue-600" />
               </div>
               <p className="mt-2 text-3xl font-bold text-blue-600">{statusFunnel.em_manutencao}</p>
@@ -943,7 +951,9 @@ export default function GestaoOS() {
             {/* Concluído */}
             <div className="rounded-xl border shadow-sm p-5 bg-card">
               <div className="flex items-center justify-between">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Concluído</p>
+                <InfoTooltip text="Quantidade de OS com status 'concluido' dentro do período e filtros selecionados.">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Concluído</p>
+                </InfoTooltip>
                 <CheckCircle className="h-4 w-4 text-green-600" />
               </div>
               <p className="mt-2 text-3xl font-bold text-green-600">{statusFunnel.concluido}</p>
@@ -953,7 +963,9 @@ export default function GestaoOS() {
             {/* Idade média das OS em aberto */}
             <div className="rounded-xl border shadow-sm p-5 bg-card">
               <div className="flex items-center justify-between">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Idade média das OS em aberto</p>
+                <InfoTooltip text="Média de dias desde a abertura (created_at) até hoje, considerando apenas as OS com status 'aguardando' ou 'em_manutencao' no período filtrado. Verde até 7 dias, laranja de 7 a 30 dias, vermelho acima de 30 dias.">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Idade média das OS em aberto</p>
+                </InfoTooltip>
                 <Timer className={cn(
                   'h-4 w-4',
                   openAgeStats.avgDays > 30 ? 'text-red-600' : openAgeStats.avgDays >= 7 ? 'text-orange-500' : 'text-green-600'
@@ -973,7 +985,11 @@ export default function GestaoOS() {
 
           {/* 5 OS mais antigas em aberto */}
           <div>
-            <h3 className="text-sm font-semibold mb-3">5 OS mais antigas em aberto</h3>
+            <h3 className="text-sm font-semibold mb-3">
+              <InfoTooltip text="Lista as 5 OS com status diferente de 'concluido' com a data de abertura (created_at) mais antiga, dentro do período filtrado. Não considera OS já concluídas.">
+                5 OS mais antigas em aberto
+              </InfoTooltip>
+            </h3>
             {oldestOpenRows.length === 0 ? (
               <p className="text-sm text-muted-foreground py-8 text-center">Nenhuma OS em aberto no período.</p>
             ) : (
@@ -984,7 +1000,11 @@ export default function GestaoOS() {
                       <th className="text-left font-medium py-2 px-3">Código</th>
                       <th className="text-left font-medium py-2 px-3">Atividade</th>
                       <th className="text-left font-medium py-2 px-3">Status</th>
-                      <th className="text-right font-medium py-2 px-3">Dias em aberto</th>
+                      <th className="text-right font-medium py-2 px-3">
+                        <InfoTooltip text="Dias corridos desde a abertura da OS até hoje. Mesma escala de cores da 'Idade média das OS em aberto' (verde até 7 dias, laranja até 30, vermelho acima de 30).">
+                          Dias em aberto
+                        </InfoTooltip>
+                      </th>
                     </tr>
                   </thead>
                   <tbody>
