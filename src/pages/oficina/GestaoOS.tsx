@@ -47,6 +47,23 @@ interface WorkOrderRow {
   }>;
 }
 
+function fmtDur(sec: number | null) {
+  if (!sec || sec <= 0) return '—';
+  const h = Math.floor(sec / 3600);
+  const m = Math.round((sec % 3600) / 60);
+  return h > 0 ? `${h}h ${m}min` : `${m}min`;
+}
+
+function durationRange(sec: number | null): { label: string; order: number } {
+  const h = (sec || 0) / 3600;
+  if (h <= 0) return { label: 'Sem registro', order: 0 };
+  if (h < 0.5) return { label: '< 30 min', order: 1 };
+  if (h < 1) return { label: '30–60 min', order: 2 };
+  if (h < 2) return { label: '1–2 h', order: 3 };
+  if (h < 4) return { label: '2–4 h', order: 4 };
+  return { label: '> 4 h', order: 5 };
+}
+
 
 export default function GestaoOS() {
   const currentYear = new Date().getFullYear();
