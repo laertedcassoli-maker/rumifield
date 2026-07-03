@@ -540,7 +540,118 @@ export default function GestaoOS() {
         </div>
       </div>
 
+      {/* Funil de Status das OS */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Funil de Status das OS</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {/* Aguardando */}
+            <div className="rounded-xl border shadow-sm p-5 bg-card">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Aguardando</p>
+                <Clock className="h-4 w-4 text-amber-600" />
+              </div>
+              <p className="mt-2 text-3xl font-bold text-amber-600">{statusFunnel.aguardando}</p>
+              <p className="text-xs text-muted-foreground mt-1">OS pendentes</p>
+            </div>
+
+            {/* Em Manutenção */}
+            <div className="rounded-xl border shadow-sm p-5 bg-card">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Em Manutenção</p>
+                <Wrench className="h-4 w-4 text-blue-600" />
+              </div>
+              <p className="mt-2 text-3xl font-bold text-blue-600">{statusFunnel.em_manutencao}</p>
+              <p className="text-xs text-muted-foreground mt-1">OS em execução</p>
+            </div>
+
+            {/* Concluído */}
+            <div className="rounded-xl border shadow-sm p-5 bg-card">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Concluído</p>
+                <CheckCircle className="h-4 w-4 text-green-600" />
+              </div>
+              <p className="mt-2 text-3xl font-bold text-green-600">{statusFunnel.concluido}</p>
+              <p className="text-xs text-muted-foreground mt-1">OS finalizadas</p>
+            </div>
+          </div>
+
+          {/* Idade média das OS em aberto */}
+          <div className="rounded-xl border shadow-sm p-5 bg-card">
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Idade média das OS em aberto</p>
+              <Timer className={cn(
+                'h-4 w-4',
+                openAgeStats.avgDays > 30 ? 'text-red-600' : openAgeStats.avgDays >= 7 ? 'text-orange-500' : 'text-green-600'
+              )} />
+            </div>
+            <p className={cn(
+              'mt-2 text-3xl font-bold',
+              openAgeStats.avgDays > 30 ? 'text-red-600' : openAgeStats.avgDays >= 7 ? 'text-orange-500' : 'text-green-600'
+            )}>
+              {openAgeStats.count > 0 ? `${openAgeStats.avgDays.toFixed(1)} dias` : '—'}
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              {openAgeStats.count > 0 ? `${openAgeStats.count} OS em aberto` : 'nenhuma OS em aberto no período'}
+            </p>
+          </div>
+
+          {/* 5 OS mais antigas em aberto */}
+          <div>
+            <h3 className="text-sm font-semibold mb-3">5 OS mais antigas em aberto</h3>
+            {oldestOpenRows.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-8 text-center">Nenhuma OS em aberto no período.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-xs uppercase tracking-wide text-muted-foreground border-b">
+                      <th className="text-left font-medium py-2 px-3">Código</th>
+                      <th className="text-left font-medium py-2 px-3">Atividade</th>
+                      <th className="text-left font-medium py-2 px-3">Status</th>
+                      <th className="text-right font-medium py-2 px-3">Dias em aberto</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {oldestOpenRows.map((row, i) => {
+                      const s = statusBadge(row.status);
+                      const d = daysOpen(row);
+                      return (
+                        <tr key={row.id} className={cn('border-b last:border-b-0', i % 2 === 1 && 'bg-muted/30')}>
+                          <td className="py-2 px-3">
+                            <button onClick={() => setOpenDialogOS(row)} className="text-blue-600 hover:underline font-medium">
+                              {row.code}
+                            </button>
+                          </td>
+                          <td className="py-2 px-3">
+                            <div className="truncate max-w-[260px]">{row.activities?.name || '—'}</div>
+                          </td>
+                          <td className="py-2 px-3">
+                            <span className={cn('inline-block rounded-full border px-2 py-0.5 text-xs font-medium', s.cls)}>
+                              {s.label}
+                            </span>
+                          </td>
+                          <td className={cn(
+                            'py-2 px-3 text-right font-medium tabular-nums',
+                            d > 30 ? 'text-red-600' : d >= 7 ? 'text-orange-500' : 'text-green-600'
+                          )}>
+                            {d.toFixed(0)} dias
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
       {/* Volume por Tipo + Responsável Abertura */}
+
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="rounded-xl border shadow-sm p-5 bg-card">
           <h3 className="text-sm font-semibold mb-3">Volume por Tipo de OS</h3>
