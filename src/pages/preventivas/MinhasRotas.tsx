@@ -368,12 +368,22 @@ export default function MinhasRotas() {
         const routeItems = allItems.filter(i => i.route_id === r.id).sort((a, b) => (a.order_index || 0) - (b.order_index || 0));
         const executed = routeItems.filter(i => i.status === 'executado').length;
         const coordinates: Array<{ lat: number; lon: number; name: string }> = [];
+        const clientIds: string[] = [];
+        const clientLabels: string[] = [];
+        const seen = new Set<string>();
         routeItems.forEach(i => {
           const client = clientsMap.get(i.client_id);
           if (client?.latitude && client?.longitude) {
             coordinates.push({ lat: client.latitude, lon: client.longitude, name: client.nome });
           } else if (i.client_lat && i.client_lon) {
             coordinates.push({ lat: i.client_lat, lon: i.client_lon, name: i.client_name || 'Cliente' });
+          }
+          if (i.client_id && !seen.has(i.client_id)) {
+            seen.add(i.client_id);
+            clientIds.push(i.client_id);
+            const fazenda = (client as any)?.fazenda ?? null;
+            const nome = client?.nome || i.client_name || 'Cliente';
+            clientLabels.push(fazenda ? `${nome} — ${fazenda}` : nome);
           }
         });
 
@@ -389,6 +399,8 @@ export default function MinhasRotas() {
           field_technician_user_id: r.field_technician_user_id,
           technician_name: r.technician_name || 'Não atribuído',
           farm_coordinates: coordinates,
+          client_ids: clientIds,
+          client_labels: clientLabels,
           created_at: (r as any).created_at || '',
         };
       });
