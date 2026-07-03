@@ -103,6 +103,8 @@ interface PreventiveRoute {
   field_technician_user_id: string;
   technician_name: string;
   farm_coordinates: Array<{ lat: number; lon: number; name: string }>;
+  client_ids: string[];
+  client_labels: string[];
   created_at: string;
 }
 
