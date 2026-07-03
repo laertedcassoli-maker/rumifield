@@ -86,6 +86,7 @@ export default function GestaoOS() {
     workOrders.forEach(wo => {
       if (wo.created_by_user_id) set.add(wo.created_by_user_id);
       if (wo.concluded_by_user_id) set.add(wo.concluded_by_user_id);
+      if (wo.assigned_to_user_id) set.add(wo.assigned_to_user_id);
     });
     return Array.from(set);
   }, [workOrders]);
