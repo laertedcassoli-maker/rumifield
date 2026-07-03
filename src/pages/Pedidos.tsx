@@ -381,9 +381,10 @@ export default function Pedidos() {
   });
 
   /**
-   * Mantém a quantidade de PRD00639 sempre proporcional (×3) à soma das
-   * quantidades de PRD00605 no pedido. Insere quando precisa, atualiza
-   * conforme a qty muda e remove quando não há mais PRD00605.
+   * Insere PRD00639 automaticamente na CRIAÇÃO quando PRD00605 estiver no pedido
+   * e PRD00639 ainda não estiver presente. Após inserido (ou se já existir),
+   * PRD00639 passa a ser tratado como item independente — não recalcula qty
+   * nem remove automaticamente.
    */
   const applyAutoLinks = (list: { peca_id: string; quantidade: number }[]) => {
     const triggerId = findPecaIdByCodigo(AUTO_LINK_TRIGGER_CODE);
@@ -392,20 +393,13 @@ export default function Pedidos() {
     const totalTrigger = list
       .filter(i => i.peca_id === triggerId)
       .reduce((sum, i) => sum + (Number(i.quantidade) || 0), 0);
-    const targetQty = totalTrigger * AUTO_LINK_TARGET_QTY;
-    const targetIdx = list.findIndex(i => i.peca_id === targetId);
-    if (targetQty > 0) {
-      if (targetIdx >= 0) {
-        if (list[targetIdx].quantidade === targetQty) return list;
-        const next = [...list];
-        next[targetIdx] = { ...next[targetIdx], quantidade: targetQty };
-        return next;
-      }
-      return [...list, { peca_id: targetId, quantidade: targetQty }];
+    const hasTarget = list.some(i => i.peca_id === targetId);
+    if (totalTrigger > 0 && !hasTarget) {
+      return [...list, { peca_id: targetId, quantidade: totalTrigger * AUTO_LINK_TARGET_QTY }];
     }
-    if (targetIdx >= 0) return list.filter((_, i) => i !== targetIdx);
     return list;
   };
+
 
   const addItem = () => {
     setItens([...itens, { peca_id: '', quantidade: 1 }]);
