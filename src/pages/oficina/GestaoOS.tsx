@@ -1075,7 +1075,7 @@ export default function GestaoOS() {
       </Card>
 
       {/* OS por Cliente */}
-      {osByClient.length > 0 ? (
+      {osByClient.length > 5 ? (
         <Accordion type="single" collapsible>
           <AccordionItem value="os-por-cliente" className="border-0">
             <Card>
