@@ -114,14 +114,16 @@ export default function TicketPartsRequestPanel({
     const target = findPart(SOLENOIDE_TARGET_CODE);
     if (!trigger || !target) return list;
 
-    const without = list.filter(i => i.peca_id !== target.id);
-    const totalTrigger = without
+    const existingTarget = list.find(i => i.peca_id === target.id);
+    const totalTrigger = list
       .filter(i => i.peca_id === trigger.id)
       .reduce((s, i) => s + i.quantidade, 0);
     const targetQty = totalTrigger * SOLENOIDE_TARGET_QTY;
-    if (targetQty <= 0) return without;
+
+    if (existingTarget || targetQty <= 0) return list;
+
     return [
-      ...without,
+      ...list,
       {
         peca_id: target.id,
         codigo: target.codigo,
@@ -157,7 +159,6 @@ export default function TicketPartsRequestPanel({
   };
 
   const updateQuantity = (pecaId: string, quantidade: number) => {
-    if (isAutoLinked(pecaId)) return;
     let next: PartItem[];
     if (quantidade < 1) {
       next = items.filter(i => i.peca_id !== pecaId);
@@ -168,7 +169,6 @@ export default function TicketPartsRequestPanel({
   };
 
   const removePart = (pecaId: string) => {
-    if (isAutoLinked(pecaId)) return;
     const next = items.filter(i => i.peca_id !== pecaId);
     if (triggerPart && pecaId === triggerPart.id) {
       setSolenoideModelo('');
@@ -371,16 +371,12 @@ export default function TicketPartsRequestPanel({
                           value={item.quantidade}
                           onChange={(e) => updateQuantity(item.peca_id, parseInt(e.target.value) || 1)}
                           className="w-16 h-8 text-center"
-                          disabled={linked}
-                          title={linked ? `Quantidade vinculada ao ${SOLENOIDE_TRIGGER_CODE} (×${SOLENOIDE_TARGET_QTY})` : undefined}
                         />
                         <Button
                           variant="ghost"
                           size="icon"
                           className="h-8 w-8 text-destructive hover:text-destructive"
                           onClick={() => removePart(item.peca_id)}
-                          disabled={linked}
-                          title={linked ? `Remova o ${SOLENOIDE_TRIGGER_CODE} para excluir esta peça vinculada` : undefined}
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
