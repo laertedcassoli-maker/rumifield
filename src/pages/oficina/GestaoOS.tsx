@@ -609,23 +609,67 @@ export default function GestaoOS() {
       </div>
 
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0">
           <CardTitle className="text-base">Filtros</CardTitle>
+          <Button variant="ghost" size="sm" onClick={clearAllFilters} className="h-8">
+            <X className="h-4 w-4 mr-1" /> Limpar filtros
+          </Button>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Granularidade */}
+          {/* Ano */}
           <div className="space-y-2">
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Granularidade</p>
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Ano</p>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => setSelectedYear(y => y - 1)}
+                aria-label="Ano anterior"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <div className="flex flex-wrap gap-2">
+                {availableYears.map(y => (
+                  <Button
+                    key={y}
+                    variant={selectedYear === y ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setSelectedYear(y)}
+                  >
+                    {y}
+                  </Button>
+                ))}
+              </div>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => setSelectedYear(y => y + 1)}
+                aria-label="Próximo ano"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+
+          {/* Presets de período */}
+          <div className="space-y-2">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Período</p>
             <div className="flex flex-wrap gap-2">
-              {(['semana', 'mes', 'trimestre', 'personalizado'] as Granularity[]).map(g => (
+              {([
+                { key: 'mes_atual', label: 'Mês atual' },
+                { key: 'trimestre_atual', label: 'Trimestre atual' },
+                { key: 'ano_inteiro', label: 'Ano inteiro' },
+                { key: 'personalizado', label: 'Personalizado' },
+              ] as Array<{ key: Preset; label: string }>).map(p => (
                 <Button
-                  key={g}
-                  variant={granularity === g ? 'default' : 'outline'}
+                  key={p.key}
+                  variant={preset === p.key ? 'default' : 'outline'}
                   size="sm"
-                  onClick={() => setGranularity(g)}
-                  className="capitalize"
+                  onClick={() => applyPreset(p.key)}
                 >
-                  {g === 'mes' ? 'Mês' : g === 'personalizado' ? 'Personalizado' : g.charAt(0).toUpperCase() + g.slice(1)}
+                  {p.label}
                 </Button>
               ))}
             </div>
@@ -633,7 +677,26 @@ export default function GestaoOS() {
 
           {/* Meses */}
           <div className="space-y-2">
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Meses</p>
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Meses</p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => { setPreset('personalizado'); setSelectedMonths([0,1,2,3,4,5,6,7,8,9,10,11]); }}
+                  className="text-xs text-primary hover:underline"
+                >
+                  Selecionar todos
+                </button>
+                <span className="text-xs text-muted-foreground">·</span>
+                <button
+                  type="button"
+                  onClick={() => { setPreset('personalizado'); setSelectedMonths([]); }}
+                  className="text-xs text-primary hover:underline"
+                >
+                  Limpar meses
+                </button>
+              </div>
+            </div>
             <div className="flex flex-wrap gap-2">
               {MONTHS.map((label, idx) => {
                 const active = selectedMonths.includes(idx);
@@ -666,38 +729,85 @@ export default function GestaoOS() {
           {/* Tipos de atividade */}
           <div className="space-y-2">
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Tipo de atividade</p>
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => setSelectedActivities([])}
-                className={cn(
-                  'rounded-full border px-3 py-1 text-xs font-medium transition-colors',
-                  selectedActivities.length === 0
-                    ? 'bg-primary text-primary-foreground border-primary'
-                    : 'bg-background hover:bg-accent border-input'
+            {availableActivities.length > 8 ? (
+              <div className="flex items-center gap-2 flex-wrap">
+                <Popover open={activityComboOpen} onOpenChange={setActivityComboOpen}>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="sm" className="justify-between min-w-[240px]">
+                      <span className="truncate">
+                        {selectedActivities.length === 0
+                          ? 'Todos os tipos'
+                          : `${selectedActivities.length} selecionado(s)`}
+                      </span>
+                      <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[300px] p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Buscar atividade..." />
+                      <CommandList>
+                        <CommandEmpty>Nenhuma atividade.</CommandEmpty>
+                        <CommandGroup>
+                          {availableActivities.map(a => {
+                            const active = selectedActivities.includes(a.id);
+                            return (
+                              <CommandItem
+                                key={a.id}
+                                value={a.name}
+                                onSelect={() => toggleActivity(a.id)}
+                              >
+                                <Check className={cn('mr-2 h-4 w-4', active ? 'opacity-100' : 'opacity-0')} />
+                                {a.name}
+                              </CommandItem>
+                            );
+                          })}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+                {selectedActivities.length > 0 && (
+                  <Button variant="ghost" size="sm" onClick={() => setSelectedActivities([])}>
+                    Limpar
+                  </Button>
                 )}
-              >
-                Todos os tipos
-              </button>
-              {availableActivities.map(a => {
-                const active = selectedActivities.includes(a.id);
-                return (
-                  <button
-                    key={a.id}
-                    type="button"
-                    onClick={() => toggleActivity(a.id)}
-                    className={cn(
-                      'rounded-full border px-3 py-1 text-xs font-medium transition-colors',
-                      active
-                        ? 'bg-primary text-primary-foreground border-primary'
-                        : 'bg-background hover:bg-accent border-input'
-                    )}
-                  >
-                    {a.name}
-                  </button>
-                );
-              })}
-            </div>
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedActivities([])}
+                  className={cn(
+                    'rounded-full border px-3 py-1 text-xs font-medium transition-colors',
+                    selectedActivities.length === 0
+                      ? 'bg-primary text-primary-foreground border-primary'
+                      : 'bg-background hover:bg-accent border-input'
+                  )}
+                >
+                  Todos os tipos
+                </button>
+                {availableActivities.map(a => {
+                  const active = selectedActivities.includes(a.id);
+                  return (
+                    <button
+                      key={a.id}
+                      type="button"
+                      onClick={() => toggleActivity(a.id)}
+                      className={cn(
+                        'rounded-full border px-3 py-1 text-xs font-medium transition-colors',
+                        active
+                          ? 'bg-primary text-primary-foreground border-primary'
+                          : 'bg-background hover:bg-accent border-input'
+                      )}
+                    >
+                      {a.name}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+
           </div>
 
           {/* Cliente */}
