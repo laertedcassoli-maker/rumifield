@@ -308,7 +308,44 @@ export default function GestaoOS() {
       .sort((a, b) => b.total - a.total || a.nome.localeCompare(b.nome));
   }, [filteredOS]);
 
+  const executionTimeHistogram = useMemo(() => {
+    const counts = new Map<string, { label: string; order: number; count: number }>();
+    filteredOS
+      .filter(wo => wo.status === 'concluido' && (wo.total_time_seconds || 0) > 0)
+      .forEach(wo => {
+        const r = durationRange(wo.total_time_seconds);
+        const existing = counts.get(r.label);
+        if (existing) {
+          existing.count += 1;
+        } else {
+          counts.set(r.label, { ...r, count: 1 });
+        }
+      });
+    return Array.from(counts.values()).sort((a, b) => a.order - b.order);
+  }, [filteredOS]);
+
+  const executionTimeByActivity = useMemo(() => {
+    type Agg = { name: string; min: number; max: number; count: number };
+    const map = new Map<string, Agg>();
+    filteredOS
+      .filter(wo => wo.status === 'concluido' && (wo.total_time_seconds || 0) > 0)
+      .forEach(wo => {
+        const name = wo.activities?.name || '—';
+        const existing = map.get(name);
+        const sec = wo.total_time_seconds!;
+        if (existing) {
+          existing.min = Math.min(existing.min, sec);
+          existing.max = Math.max(existing.max, sec);
+          existing.count += 1;
+        } else {
+          map.set(name, { name, min: sec, max: sec, count: 1 });
+        }
+      });
+    return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+  }, [filteredOS]);
+
   const concludedByMonth = useMemo(() => {
+
 
     const counts = new Map<number, number>();
     filteredOS
