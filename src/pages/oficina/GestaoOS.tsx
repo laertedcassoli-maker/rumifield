@@ -8,10 +8,12 @@ import { DetalheOSDialog } from '@/components/oficina/DetalheOSDialog';
 import { SaudeAtivosMotores } from '@/components/oficina/SaudeAtivosMotores';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Wrench, CheckCircle, Timer, TrendingUp, AlertTriangle, Clock } from 'lucide-react';
+import { Wrench, CheckCircle, Timer, TrendingUp, AlertTriangle, Clock, ChevronLeft, ChevronRight, X, Check, ChevronsUpDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { cn } from '@/lib/utils';
 
 type Granularity = 'semana' | 'mes' | 'trimestre' | 'personalizado';
@@ -66,20 +68,29 @@ function durationRange(sec: number | null): { label: string; order: number } {
 
 
 export default function GestaoOS() {
-  const currentYear = new Date().getFullYear();
-  const currentMonth = new Date().getMonth();
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth();
+  const currentQuarterMonths = (() => {
+    const q = Math.floor(currentMonth / 3);
+    return [q * 3, q * 3 + 1, q * 3 + 2];
+  })();
 
-  const [granularity, setGranularity] = useState<Granularity>('mes');
+  type Preset = 'mes_atual' | 'trimestre_atual' | 'ano_inteiro' | 'personalizado';
+
+  const [selectedYear, setSelectedYear] = useState<number>(currentYear);
+  const [preset, setPreset] = useState<Preset>('mes_atual');
   const [selectedMonths, setSelectedMonths] = useState<number[]>([currentMonth]);
   const [selectedActivities, setSelectedActivities] = useState<string[]>([]);
   const [selectedClients, setSelectedClients] = useState<string[]>([]);
   const [showAllRows, setShowAllRows] = useState(false);
   const [onlyLongLead, setOnlyLongLead] = useState(false);
   const [openDialogOS, setOpenDialogOS] = useState<any | null>(null);
+  const [activityComboOpen, setActivityComboOpen] = useState(false);
 
 
   const { data: workOrders = [], isLoading } = useQuery({
-    queryKey: ['gestao-os', currentYear],
+    queryKey: ['gestao-os'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('work_orders')
@@ -161,7 +172,7 @@ export default function GestaoOS() {
   const filteredOS = useMemo(() => {
     return workOrders.filter(wo => {
       const d = new Date(wo.created_at);
-      if (d.getFullYear() !== currentYear) return false;
+      if (d.getFullYear() !== selectedYear) return false;
       if (selectedMonths.length > 0 && !selectedMonths.includes(d.getMonth())) return false;
       if (selectedActivities.length > 0) {
         if (!wo.activities?.id || !selectedActivities.includes(wo.activities.id)) return false;
@@ -172,22 +183,44 @@ export default function GestaoOS() {
       }
       return true;
     });
-  }, [workOrders, selectedMonths, selectedActivities, selectedClients, currentYear]);
+  }, [workOrders, selectedMonths, selectedActivities, selectedClients, selectedYear]);
 
 
   const periodLabel = useMemo(() => {
-    if (selectedMonths.length === 0) return `${currentYear}`;
+    if (selectedMonths.length === 0) return `${selectedYear}`;
     const sorted = [...selectedMonths].sort((a, b) => a - b);
     const isContiguous = sorted.every((m, i) => i === 0 || m === sorted[i - 1] + 1);
     if (isContiguous && sorted.length > 1) {
-      return `${MONTHS[sorted[0]]} – ${MONTHS[sorted[sorted.length - 1]]} ${currentYear}`;
+      return `${MONTHS[sorted[0]]} – ${MONTHS[sorted[sorted.length - 1]]} ${selectedYear}`;
     }
-    if (sorted.length === 1) return `${MONTHS[sorted[0]]} ${currentYear}`;
-    return `${sorted.map(m => MONTHS[m]).join(', ')} ${currentYear}`;
-  }, [selectedMonths, currentYear]);
+    if (sorted.length === 1) return `${MONTHS[sorted[0]]} ${selectedYear}`;
+    return `${sorted.map(m => MONTHS[m]).join(', ')} ${selectedYear}`;
+  }, [selectedMonths, selectedYear]);
+
+  const availableYears = useMemo(() => {
+    const set = new Set<number>([currentYear]);
+    workOrders.forEach(wo => set.add(new Date(wo.created_at).getFullYear()));
+    return Array.from(set).sort((a, b) => b - a);
+  }, [workOrders, currentYear]);
+
+  const applyPreset = (p: Preset) => {
+    setPreset(p);
+    if (p === 'mes_atual') setSelectedMonths([currentMonth]);
+    else if (p === 'trimestre_atual') setSelectedMonths(currentQuarterMonths);
+    else if (p === 'ano_inteiro') setSelectedMonths([0,1,2,3,4,5,6,7,8,9,10,11]);
+    // 'personalizado' keeps current selection
+  };
 
   const toggleMonth = (m: number) => {
+    setPreset('personalizado');
     setSelectedMonths(prev => prev.includes(m) ? prev.filter(x => x !== m) : [...prev, m]);
+  };
+
+  const clearAllFilters = () => {
+    setSelectedYear(currentYear);
+    setPreset('mes_atual');
+    setSelectedMonths([currentMonth]);
+    setSelectedActivities([]);
   };
 
   const toggleActivity = (id: string) => {
@@ -576,23 +609,67 @@ export default function GestaoOS() {
       </div>
 
       <Card>
-        <CardHeader>
+        <CardHeader className="flex flex-row items-center justify-between space-y-0">
           <CardTitle className="text-base">Filtros</CardTitle>
+          <Button variant="ghost" size="sm" onClick={clearAllFilters} className="h-8">
+            <X className="h-4 w-4 mr-1" /> Limpar filtros
+          </Button>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Granularidade */}
+          {/* Ano */}
           <div className="space-y-2">
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Granularidade</p>
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Ano</p>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => setSelectedYear(y => y - 1)}
+                aria-label="Ano anterior"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <div className="flex flex-wrap gap-2">
+                {availableYears.map(y => (
+                  <Button
+                    key={y}
+                    variant={selectedYear === y ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setSelectedYear(y)}
+                  >
+                    {y}
+                  </Button>
+                ))}
+              </div>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-8 w-8"
+                onClick={() => setSelectedYear(y => y + 1)}
+                aria-label="Próximo ano"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
+
+          {/* Presets de período */}
+          <div className="space-y-2">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Período</p>
             <div className="flex flex-wrap gap-2">
-              {(['semana', 'mes', 'trimestre', 'personalizado'] as Granularity[]).map(g => (
+              {([
+                { key: 'mes_atual', label: 'Mês atual' },
+                { key: 'trimestre_atual', label: 'Trimestre atual' },
+                { key: 'ano_inteiro', label: 'Ano inteiro' },
+                { key: 'personalizado', label: 'Personalizado' },
+              ] as Array<{ key: Preset; label: string }>).map(p => (
                 <Button
-                  key={g}
-                  variant={granularity === g ? 'default' : 'outline'}
+                  key={p.key}
+                  variant={preset === p.key ? 'default' : 'outline'}
                   size="sm"
-                  onClick={() => setGranularity(g)}
-                  className="capitalize"
+                  onClick={() => applyPreset(p.key)}
                 >
-                  {g === 'mes' ? 'Mês' : g === 'personalizado' ? 'Personalizado' : g.charAt(0).toUpperCase() + g.slice(1)}
+                  {p.label}
                 </Button>
               ))}
             </div>
@@ -600,7 +677,26 @@ export default function GestaoOS() {
 
           {/* Meses */}
           <div className="space-y-2">
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Meses</p>
+            <div className="flex items-center justify-between">
+              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Meses</p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => { setPreset('personalizado'); setSelectedMonths([0,1,2,3,4,5,6,7,8,9,10,11]); }}
+                  className="text-xs text-primary hover:underline"
+                >
+                  Selecionar todos
+                </button>
+                <span className="text-xs text-muted-foreground">·</span>
+                <button
+                  type="button"
+                  onClick={() => { setPreset('personalizado'); setSelectedMonths([]); }}
+                  className="text-xs text-primary hover:underline"
+                >
+                  Limpar meses
+                </button>
+              </div>
+            </div>
             <div className="flex flex-wrap gap-2">
               {MONTHS.map((label, idx) => {
                 const active = selectedMonths.includes(idx);
@@ -633,39 +729,86 @@ export default function GestaoOS() {
           {/* Tipos de atividade */}
           <div className="space-y-2">
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Tipo de atividade</p>
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => setSelectedActivities([])}
-                className={cn(
-                  'rounded-full border px-3 py-1 text-xs font-medium transition-colors',
-                  selectedActivities.length === 0
-                    ? 'bg-primary text-primary-foreground border-primary'
-                    : 'bg-background hover:bg-accent border-input'
+            {availableActivities.length > 8 ? (
+              <div className="flex items-center gap-2 flex-wrap">
+                <Popover open={activityComboOpen} onOpenChange={setActivityComboOpen}>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="sm" className="justify-between min-w-[240px]">
+                      <span className="truncate">
+                        {selectedActivities.length === 0
+                          ? 'Todos os tipos'
+                          : `${selectedActivities.length} selecionado(s)`}
+                      </span>
+                      <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[300px] p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Buscar atividade..." />
+                      <CommandList>
+                        <CommandEmpty>Nenhuma atividade.</CommandEmpty>
+                        <CommandGroup>
+                          {availableActivities.map(a => {
+                            const active = selectedActivities.includes(a.id);
+                            return (
+                              <CommandItem
+                                key={a.id}
+                                value={a.name}
+                                onSelect={() => toggleActivity(a.id)}
+                              >
+                                <Check className={cn('mr-2 h-4 w-4', active ? 'opacity-100' : 'opacity-0')} />
+                                {a.name}
+                              </CommandItem>
+                            );
+                          })}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+                {selectedActivities.length > 0 && (
+                  <Button variant="ghost" size="sm" onClick={() => setSelectedActivities([])}>
+                    Limpar
+                  </Button>
                 )}
-              >
-                Todos os tipos
-              </button>
-              {availableActivities.map(a => {
-                const active = selectedActivities.includes(a.id);
-                return (
-                  <button
-                    key={a.id}
-                    type="button"
-                    onClick={() => toggleActivity(a.id)}
-                    className={cn(
-                      'rounded-full border px-3 py-1 text-xs font-medium transition-colors',
-                      active
-                        ? 'bg-primary text-primary-foreground border-primary'
-                        : 'bg-background hover:bg-accent border-input'
-                    )}
-                  >
-                    {a.name}
-                  </button>
-                );
-              })}
-            </div>
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedActivities([])}
+                  className={cn(
+                    'rounded-full border px-3 py-1 text-xs font-medium transition-colors',
+                    selectedActivities.length === 0
+                      ? 'bg-primary text-primary-foreground border-primary'
+                      : 'bg-background hover:bg-accent border-input'
+                  )}
+                >
+                  Todos os tipos
+                </button>
+                {availableActivities.map(a => {
+                  const active = selectedActivities.includes(a.id);
+                  return (
+                    <button
+                      key={a.id}
+                      type="button"
+                      onClick={() => toggleActivity(a.id)}
+                      className={cn(
+                        'rounded-full border px-3 py-1 text-xs font-medium transition-colors',
+                        active
+                          ? 'bg-primary text-primary-foreground border-primary'
+                          : 'bg-background hover:bg-accent border-input'
+                      )}
+                    >
+                      {a.name}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
+
+
 
           {/* Cliente */}
           <div className="space-y-2">
