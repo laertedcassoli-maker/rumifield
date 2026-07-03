@@ -28,6 +28,8 @@ interface WorkOrderRow {
   created_by_user_id: string | null;
   concluded_by_user_id: string | null;
   assigned_to_user_id: string | null;
+  cliente_id: string | null;
+  clientes?: { id: string; nome: string } | null;
   activities?: { id: string; name: string; execution_type: string } | null;
   work_order_items?: Array<{
     workshop_item_id: string | null;
@@ -44,6 +46,7 @@ interface WorkOrderRow {
   }>;
 }
 
+
 export default function GestaoOS() {
   const currentYear = new Date().getFullYear();
   const currentMonth = new Date().getMonth();
@@ -51,9 +54,11 @@ export default function GestaoOS() {
   const [granularity, setGranularity] = useState<Granularity>('mes');
   const [selectedMonths, setSelectedMonths] = useState<number[]>([currentMonth]);
   const [selectedActivities, setSelectedActivities] = useState<string[]>([]);
+  const [selectedClients, setSelectedClients] = useState<string[]>([]);
   const [showAllRows, setShowAllRows] = useState(false);
   const [onlyLongLead, setOnlyLongLead] = useState(false);
   const [openDialogOS, setOpenDialogOS] = useState<any | null>(null);
+
 
   const { data: workOrders = [], isLoading } = useQuery({
     queryKey: ['gestao-os', currentYear],
@@ -63,6 +68,8 @@ export default function GestaoOS() {
         .select(`
           id, code, status, created_at, start_time, end_time,
           total_time_seconds, created_by_user_id, concluded_by_user_id, assigned_to_user_id,
+          cliente_id,
+          clientes:cliente_id (id, nome),
           activities:activity_id (id, name, execution_type),
           work_order_items (
             workshop_item_id, omie_product_id,
@@ -75,6 +82,7 @@ export default function GestaoOS() {
             pecas:omie_product_id (nome))
         `)
         .order('created_at', { ascending: false });
+
 
       if (error) throw error;
       return (data || []) as unknown as WorkOrderRow[];
@@ -120,6 +128,18 @@ export default function GestaoOS() {
     return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
   }, [workOrders]);
 
+  const availableClients = useMemo(() => {
+    const map = new Map<string, string>();
+    workOrders.forEach(wo => {
+      const key = wo.cliente_id || '__none__';
+      const label = wo.clientes?.nome || 'Sem cliente';
+      map.set(key, label);
+    });
+    return Array.from(map.entries())
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [workOrders]);
+
   const filteredOS = useMemo(() => {
     return workOrders.filter(wo => {
       const d = new Date(wo.created_at);
@@ -128,9 +148,14 @@ export default function GestaoOS() {
       if (selectedActivities.length > 0) {
         if (!wo.activities?.id || !selectedActivities.includes(wo.activities.id)) return false;
       }
+      if (selectedClients.length > 0) {
+        const key = wo.cliente_id || '__none__';
+        if (!selectedClients.includes(key)) return false;
+      }
       return true;
     });
-  }, [workOrders, selectedMonths, selectedActivities, currentYear]);
+  }, [workOrders, selectedMonths, selectedActivities, selectedClients, currentYear]);
+
 
   const periodLabel = useMemo(() => {
     if (selectedMonths.length === 0) return `${currentYear}`;
@@ -150,6 +175,11 @@ export default function GestaoOS() {
   const toggleActivity = (id: string) => {
     setSelectedActivities(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   };
+
+  const toggleClient = (id: string) => {
+    setSelectedClients(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
 
   const kpis = useMemo(() => {
     const concluded = filteredOS.filter(wo => wo.status === 'concluido');
@@ -254,7 +284,32 @@ export default function GestaoOS() {
       .sort((x, y) => y.concluidas - x.concluidas || y.emAberto - x.emAberto);
   }, [filteredOS, profilesMap]);
 
+  const osByClient = useMemo(() => {
+    type Agg = { clientId: string; nome: string; total: number; concluded: number; leadSum: number; leadCount: number };
+    const map = new Map<string, Agg>();
+    const getAgg = (id: string, nome: string): Agg => {
+      let a = map.get(id);
+      if (!a) { a = { clientId: id, nome, total: 0, concluded: 0, leadSum: 0, leadCount: 0 }; map.set(id, a); }
+      return a;
+    };
+    filteredOS.forEach(wo => {
+      const key = wo.cliente_id || '__none__';
+      const nome = wo.clientes?.nome || 'Sem cliente';
+      const a = getAgg(key, nome);
+      a.total += 1;
+      if (wo.status === 'concluido' && wo.end_time && wo.created_at) {
+        a.concluded += 1;
+        a.leadSum += (new Date(wo.end_time).getTime() - new Date(wo.created_at).getTime()) / 86400000;
+        a.leadCount += 1;
+      }
+    });
+    return Array.from(map.values())
+      .map(a => ({ ...a, avgLead: a.leadCount > 0 ? a.leadSum / a.leadCount : 0 }))
+      .sort((a, b) => b.total - a.total || a.nome.localeCompare(b.nome));
+  }, [filteredOS]);
+
   const concludedByMonth = useMemo(() => {
+
     const counts = new Map<number, number>();
     filteredOS
       .filter(wo => wo.status === 'concluido')
@@ -482,8 +537,46 @@ export default function GestaoOS() {
               })}
             </div>
           </div>
+
+          {/* Cliente */}
+          <div className="space-y-2">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Cliente</p>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => setSelectedClients([])}
+                className={cn(
+                  'rounded-full border px-3 py-1 text-xs font-medium transition-colors',
+                  selectedClients.length === 0
+                    ? 'bg-primary text-primary-foreground border-primary'
+                    : 'bg-background hover:bg-accent border-input'
+                )}
+              >
+                Todos os clientes
+              </button>
+              {availableClients.map(c => {
+                const active = selectedClients.includes(c.id);
+                return (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => toggleClient(c.id)}
+                    className={cn(
+                      'rounded-full border px-3 py-1 text-xs font-medium transition-colors',
+                      active
+                        ? 'bg-primary text-primary-foreground border-primary'
+                        : 'bg-background hover:bg-accent border-input'
+                    )}
+                  >
+                    {c.name}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </CardContent>
       </Card>
+
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -650,7 +743,48 @@ export default function GestaoOS() {
         </CardContent>
       </Card>
 
+      {/* OS por Cliente */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">OS por Cliente</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {osByClient.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-10 text-center">Sem OS por cliente no período.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-xs uppercase tracking-wide text-muted-foreground border-b">
+                    <th className="text-left font-medium py-2 px-3">Cliente</th>
+                    <th className="text-right font-medium py-2 px-3">Quantidade OS</th>
+                    <th className="text-right font-medium py-2 px-3">Lead time médio</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {osByClient.map((row, i) => (
+                    <tr key={row.clientId} className={cn('border-b last:border-b-0', i % 2 === 1 && 'bg-muted/30')}>
+                      <td className="py-2 px-3">
+                        <div className="truncate max-w-[300px]">{row.nome}</div>
+                      </td>
+                      <td className="py-2 px-3 text-right font-medium tabular-nums">{row.total}</td>
+                      <td className={cn(
+                        'py-2 px-3 text-right font-medium tabular-nums',
+                        row.avgLead > 30 ? 'text-red-600' : row.avgLead >= 7 ? 'text-orange-500' : 'text-green-600'
+                      )}>
+                        {row.concluded > 0 ? `${row.avgLead.toFixed(1)} dias` : '—'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Volume por Tipo + Responsável Abertura */}
+
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="rounded-xl border shadow-sm p-5 bg-card">
