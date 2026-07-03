@@ -94,6 +94,8 @@ export default function GestaoOS() {
   const [onlyLongLead, setOnlyLongLead] = useState(false);
   const [openDialogOS, setOpenDialogOS] = useState<any | null>(null);
   const [activityComboOpen, setActivityComboOpen] = useState(false);
+  const [clientComboOpen, setClientComboOpen] = useState(false);
+
 
 
 
