@@ -169,7 +169,6 @@ export default function TicketPartsRequestPanel({
   };
 
   const removePart = (pecaId: string) => {
-    if (isAutoLinked(pecaId)) return;
     const next = items.filter(i => i.peca_id !== pecaId);
     if (triggerPart && pecaId === triggerPart.id) {
       setSolenoideModelo('');
