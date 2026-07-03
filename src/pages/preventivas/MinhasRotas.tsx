@@ -302,8 +302,8 @@ export default function MinhasRotas() {
         profilesResult.data?.map(p => [p.id, p.nome] as [string, string]) || []
       );
 
-      const countMap = new Map<string, { total: number; executed: number; coordinates: Array<{ lat: number; lon: number; name: string }> }>();
-      routeIds.forEach(id => countMap.set(id, { total: 0, executed: 0, coordinates: [] }));
+      const countMap = new Map<string, { total: number; executed: number; coordinates: Array<{ lat: number; lon: number; name: string }>; clientIds: string[]; clientLabels: string[] }>();
+      routeIds.forEach(id => countMap.set(id, { total: 0, executed: 0, coordinates: [], clientIds: [], clientLabels: [] }));
 
       // Group items by route and preserve order
       const itemsByRoute = new Map<string, typeof itemsResult.data>();
@@ -316,6 +316,7 @@ export default function MinhasRotas() {
         const counts = countMap.get(routeId);
         if (counts) {
           items?.sort((a, b) => (a.order_index || 0) - (b.order_index || 0));
+          const seen = new Set<string>();
           items?.forEach(item => {
             counts.total += 1;
             if (item.status === 'executado') {
@@ -324,6 +325,11 @@ export default function MinhasRotas() {
             const client = clientsMap.get(item.client_id);
             if (client?.lat && client?.lon) {
               counts.coordinates.push({ lat: client.lat, lon: client.lon, name: client.nome });
+            }
+            if (item.client_id && !seen.has(item.client_id)) {
+              seen.add(item.client_id);
+              counts.clientIds.push(item.client_id);
+              counts.clientLabels.push(client ? (client.fazenda ? `${client.nome} — ${client.fazenda}` : client.nome) : 'Cliente');
             }
           });
         }
@@ -341,6 +347,8 @@ export default function MinhasRotas() {
         field_technician_user_id: route.field_technician_user_id,
         technician_name: profilesMap.get(route.field_technician_user_id) || 'Não atribuído',
         farm_coordinates: countMap.get(route.id)?.coordinates || [],
+        client_ids: countMap.get(route.id)?.clientIds || [],
+        client_labels: countMap.get(route.id)?.clientLabels || [],
         created_at: route.created_at || '',
       }));
     },
