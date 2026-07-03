@@ -743,7 +743,48 @@ export default function GestaoOS() {
         </CardContent>
       </Card>
 
+      {/* OS por Cliente */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">OS por Cliente</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {osByClient.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-10 text-center">Sem OS por cliente no período.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-xs uppercase tracking-wide text-muted-foreground border-b">
+                    <th className="text-left font-medium py-2 px-3">Cliente</th>
+                    <th className="text-right font-medium py-2 px-3">Quantidade OS</th>
+                    <th className="text-right font-medium py-2 px-3">Lead time médio</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {osByClient.map((row, i) => (
+                    <tr key={row.clientId} className={cn('border-b last:border-b-0', i % 2 === 1 && 'bg-muted/30')}>
+                      <td className="py-2 px-3">
+                        <div className="truncate max-w-[300px]">{row.nome}</div>
+                      </td>
+                      <td className="py-2 px-3 text-right font-medium tabular-nums">{row.total}</td>
+                      <td className={cn(
+                        'py-2 px-3 text-right font-medium tabular-nums',
+                        row.avgLead > 30 ? 'text-red-600' : row.avgLead >= 7 ? 'text-orange-500' : 'text-green-600'
+                      )}>
+                        {row.concluded > 0 ? `${row.avgLead.toFixed(1)} dias` : '—'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       {/* Volume por Tipo + Responsável Abertura */}
+
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="rounded-xl border shadow-sm p-5 bg-card">
