@@ -387,7 +387,7 @@ export default function EditarPedidoSolicitado({ pedido, onSaved, onCancel }: Ed
                 </div>
 
                 {/* Cancel button */}
-                <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive shrink-0" onClick={() => handleCancelItem(item.id)} disabled={linked}>
+                <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-destructive hover:text-destructive shrink-0" onClick={() => handleCancelItem(item.id)}>
                   <X className="h-4 w-4" />
                 </Button>
               </div>
