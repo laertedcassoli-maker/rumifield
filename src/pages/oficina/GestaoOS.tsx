@@ -68,16 +68,25 @@ function durationRange(sec: number | null): { label: string; order: number } {
 
 
 export default function GestaoOS() {
-  const currentYear = new Date().getFullYear();
-  const currentMonth = new Date().getMonth();
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth();
+  const currentQuarterMonths = (() => {
+    const q = Math.floor(currentMonth / 3);
+    return [q * 3, q * 3 + 1, q * 3 + 2];
+  })();
 
-  const [granularity, setGranularity] = useState<Granularity>('mes');
+  type Preset = 'mes_atual' | 'trimestre_atual' | 'ano_inteiro' | 'personalizado';
+
+  const [selectedYear, setSelectedYear] = useState<number>(currentYear);
+  const [preset, setPreset] = useState<Preset>('mes_atual');
   const [selectedMonths, setSelectedMonths] = useState<number[]>([currentMonth]);
   const [selectedActivities, setSelectedActivities] = useState<string[]>([]);
   const [selectedClients, setSelectedClients] = useState<string[]>([]);
   const [showAllRows, setShowAllRows] = useState(false);
   const [onlyLongLead, setOnlyLongLead] = useState(false);
   const [openDialogOS, setOpenDialogOS] = useState<any | null>(null);
+  const [activityComboOpen, setActivityComboOpen] = useState(false);
 
 
   const { data: workOrders = [], isLoading } = useQuery({
