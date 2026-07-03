@@ -1124,7 +1124,7 @@ export default function GestaoOS() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="rounded-xl border shadow-sm p-5 bg-card">
           <h3 className="text-sm font-semibold mb-3">
-            <InfoTooltip text="Distribui as OS do período filtrado em categorias definidas pelo nome da atividade: Reparo pistola, Solenoide, Counter balance, Montagem/Preparo e Outros. A categorização é feita por palavras-chave no nome da atividade, não por um campo de categoria dedicado.">Volume por Tipo de OS</InfoTooltip>
+            <InfoTooltip text="distribui as OS do período filtrado em categorias definidas pelo nome da atividade: reparo pistola, solenoide, counter balance, montagem/preparo e outros. a categorização é feita por palavras-chave no nome da atividade, não por um campo de categoria dedicado.">Volume por Tipo de OS</InfoTooltip>
           </h3>
           {volumeByType.length === 0 ? (
             <p className="text-sm text-muted-foreground py-12 text-center">Sem dados no período.</p>
@@ -1160,7 +1160,7 @@ export default function GestaoOS() {
 
         <div className="rounded-xl border shadow-sm p-5 bg-card">
           <h3 className="text-sm font-semibold mb-3">
-            <InfoTooltip text="Quantidade de OS abertas por cada usuário (campo created_by_user_id), dentro do período e filtros selecionados.">Responsável Abertura</InfoTooltip>
+            <InfoTooltip text="quantidade de OS abertas por cada usuário (campo created_by_user_id), dentro do período e filtros selecionados.">Responsável Abertura</InfoTooltip>
           </h3>
           {openersTable.length === 0 ? (
             <p className="text-sm text-muted-foreground py-12 text-center">Sem dados no período.</p>
@@ -1236,7 +1236,7 @@ export default function GestaoOS() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="rounded-xl border shadow-sm p-5 bg-card">
           <h3 className="text-sm font-semibold mb-3">
-            <InfoTooltip text="Quantidade de OS com status 'Concluído', agrupadas pelo mês da data de abertura (created_at) — não pelo mês de conclusão.">OS Concluídas por Mês</InfoTooltip>
+            <InfoTooltip text="quantidade de OS com status 'concluído', agrupadas pelo mês da data de abertura (created_at) — não pelo mês de conclusão.">OS Concluídas por Mês</InfoTooltip>
           </h3>
           {concludedByMonth.length === 0 ? (
             <p className="text-sm text-muted-foreground py-12 text-center">Sem dados no período.</p>
@@ -1257,7 +1257,7 @@ export default function GestaoOS() {
 
         <div className="rounded-xl border shadow-sm p-5 bg-card">
           <h3 className="text-sm font-semibold mb-3">
-            <InfoTooltip text="Ranking das peças mais registradas em OS da categoria 'Reparo pistola', contando os itens vinculados (work_order_items) a essas OS. Mostra os 5 modelos mais frequentes; os demais são agrupados em '3+ outros modelos'.">Tipos de Pistola Reparada</InfoTooltip>
+            <InfoTooltip text="ranking das peças mais registradas em OS da categoria 'reparo pistola', contando os itens vinculados (work_order_items) a essas OS. mostra os 5 modelos mais frequentes; os demais são agrupados em '3+ outros modelos'.">Tipos de Pistola Reparada</InfoTooltip>
           </h3>
           {pistolaModels.list.length === 0 ? (
             <p className="text-sm text-muted-foreground py-12 text-center">Sem reparos de pistola no período.</p>
