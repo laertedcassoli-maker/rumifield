@@ -234,10 +234,18 @@ export default function GestaoOS() {
       });
       setCalendarMonth(from);
     }
-    // 'personalizado' keeps current selection
+  const setYear = (year: number) => {
+    setCalendarMonth(new Date(year, calendarMonth.getMonth(), 1));
   };
 
-  const clearAllFilters = () => {
+  const shiftYear = (delta: number) => {
+    setCalendarMonth(new Date(calendarMonth.getFullYear() + delta, calendarMonth.getMonth(), 1));
+  };
+
+  const goToCurrentYear = () => {
+    setCalendarMonth(new Date(currentYear, calendarMonth.getMonth(), 1));
+  };
+
     const today = new Date();
     const from = startOfMonth(today);
     setPreset('mes_atual');
