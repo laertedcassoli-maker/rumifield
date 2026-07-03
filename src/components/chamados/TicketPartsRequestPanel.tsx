@@ -161,11 +161,13 @@ export default function TicketPartsRequestPanel({
   const updateQuantity = (pecaId: string, quantidade: number) => {
     let next: PartItem[];
     if (quantidade < 1) {
+      // Remoção manual por quantidade zerada: não reinsere PRD00639 automaticamente
       next = items.filter(i => i.peca_id !== pecaId);
+      setItems(next);
     } else {
       next = items.map(i => (i.peca_id === pecaId ? { ...i, quantidade } : i));
+      setItems(applyAutoLinks(next));
     }
-    setItems(applyAutoLinks(next));
   };
 
   const removePart = (pecaId: string) => {
@@ -173,7 +175,8 @@ export default function TicketPartsRequestPanel({
     if (triggerPart && pecaId === triggerPart.id) {
       setSolenoideModelo('');
     }
-    setItems(applyAutoLinks(next));
+    // Remoção manual: não reinsere PRD00639 automaticamente
+    setItems(next);
   };
 
   // Create parts request mutation

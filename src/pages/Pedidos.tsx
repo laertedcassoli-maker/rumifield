@@ -433,8 +433,8 @@ export default function Pedidos() {
     if (removed?.peca_id && solenoideIdLocal && removed.peca_id === solenoideIdLocal) {
       setForm((f) => ({ ...f, solenoide_modelo: '' }));
     }
-    // applyAutoLinks recalcula PRD00639 (remove se não há mais PRD00605, ajusta qty caso contrário)
-    setItens(applyAutoLinks(next));
+    // Remoção manual: não reinsere PRD00639 automaticamente
+    setItens(next);
   };
 
 
