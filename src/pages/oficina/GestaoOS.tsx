@@ -27,6 +27,7 @@ interface WorkOrderRow {
   total_time_seconds: number | null;
   created_by_user_id: string | null;
   concluded_by_user_id: string | null;
+  assigned_to_user_id: string | null;
   activities?: { id: string; name: string; execution_type: string } | null;
   work_order_items?: Array<{
     workshop_item_id: string | null;
@@ -61,7 +62,7 @@ export default function GestaoOS() {
         .from('work_orders')
         .select(`
           id, code, status, created_at, start_time, end_time,
-          total_time_seconds, created_by_user_id, concluded_by_user_id,
+          total_time_seconds, created_by_user_id, concluded_by_user_id, assigned_to_user_id,
           activities:activity_id (id, name, execution_type),
           work_order_items (
             workshop_item_id, omie_product_id,
@@ -85,6 +86,7 @@ export default function GestaoOS() {
     workOrders.forEach(wo => {
       if (wo.created_by_user_id) set.add(wo.created_by_user_id);
       if (wo.concluded_by_user_id) set.add(wo.concluded_by_user_id);
+      if (wo.assigned_to_user_id) set.add(wo.assigned_to_user_id);
     });
     return Array.from(set);
   }, [workOrders]);
@@ -216,6 +218,40 @@ export default function GestaoOS() {
         return { uid, nome, qty };
       })
       .sort((a, b) => b.qty - a.qty);
+  }, [filteredOS, profilesMap]);
+
+  const technicianProductivity = useMemo(() => {
+    type Agg = { uid: string; concluidas: number; totalSec: number; countTime: number; emAberto: number };
+    const map = new Map<string, Agg>();
+    const getAgg = (uid: string): Agg => {
+      let a = map.get(uid);
+      if (!a) { a = { uid, concluidas: 0, totalSec: 0, countTime: 0, emAberto: 0 }; map.set(uid, a); }
+      return a;
+    };
+    filteredOS.forEach(wo => {
+      const tech = wo.assigned_to_user_id
+        || (wo.status === 'concluido' ? wo.concluded_by_user_id : null);
+      if (!tech) return;
+      const a = getAgg(tech);
+      if (wo.status === 'concluido') {
+        a.concluidas += 1;
+        if (wo.total_time_seconds && wo.total_time_seconds > 0) {
+          a.totalSec += wo.total_time_seconds;
+          a.countTime += 1;
+        }
+      } else if (wo.status === 'aguardando' || wo.status === 'em_manutencao') {
+        a.emAberto += 1;
+      }
+    });
+    const pm = profilesMap as Record<string, { nome: string | null; email: string | null }>;
+    return Array.from(map.values())
+      .map(a => {
+        const p = pm[a.uid];
+        const nome = p?.nome || p?.email || 'Usuário desconhecido';
+        const avgSec = a.countTime > 0 ? a.totalSec / a.countTime : 0;
+        return { ...a, nome, avgSec };
+      })
+      .sort((x, y) => y.concluidas - x.concluidas || y.emAberto - x.emAberto);
   }, [filteredOS, profilesMap]);
 
   const concludedByMonth = useMemo(() => {
@@ -523,6 +559,51 @@ export default function GestaoOS() {
           )}
         </div>
       </div>
+
+      {/* Produtividade por Técnico */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Produtividade por Técnico</CardTitle>
+        </CardHeader>
+        <CardContent>
+          {technicianProductivity.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-10 text-center">Sem OS atribuídas a técnicos no período.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-xs uppercase tracking-wide text-muted-foreground border-b">
+                    <th className="text-left font-medium py-2 px-3">Técnico</th>
+                    <th className="text-right font-medium py-2 px-3">OS concluídas</th>
+                    <th className="text-right font-medium py-2 px-3">Tempo médio exec.</th>
+                    <th className="text-right font-medium py-2 px-3">OS em aberto</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {technicianProductivity.map((row, i) => (
+                    <tr key={row.uid} className={cn('border-b last:border-b-0', i % 2 === 1 && 'bg-muted/30')}>
+                      <td className="py-2 px-3">{row.nome}</td>
+                      <td className="py-2 px-3 text-right font-medium tabular-nums">{row.concluidas}</td>
+                      <td className="py-2 px-3 text-right tabular-nums">{fmtDur(row.avgSec > 0 ? row.avgSec : null)}</td>
+                      <td className="py-2 px-3 text-right tabular-nums">
+                        {row.emAberto > 0 ? (
+                          <span className="inline-block rounded-full bg-orange-100 text-orange-700 border border-orange-200 px-2 py-0.5 text-xs font-semibold">
+                            {row.emAberto}
+                          </span>
+                        ) : (
+                          <span className="text-muted-foreground">0</span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+
 
       {/* OS por mês + Tipos de pistola */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
