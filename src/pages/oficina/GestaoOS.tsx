@@ -8,7 +8,7 @@ import { DetalheOSDialog } from '@/components/oficina/DetalheOSDialog';
 import { SaudeAtivosMotores } from '@/components/oficina/SaudeAtivosMotores';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Wrench, CheckCircle, Timer, TrendingUp, AlertTriangle, Clock, ChevronLeft, ChevronRight, X, Check, ChevronsUpDown, Calendar as CalendarIcon } from 'lucide-react';
+import { Wrench, CheckCircle, Timer, TrendingUp, AlertTriangle, Clock, ChevronLeft, ChevronRight, X, Check, ChevronsUpDown, Calendar as CalendarIcon, Info } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -17,6 +17,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
 
 type Granularity = 'semana' | 'mes' | 'trimestre' | 'personalizado';
@@ -67,6 +68,21 @@ function durationRange(sec: number | null): { label: string; order: number } {
   if (h < 2) return { label: '1–2 h', order: 3 };
   if (h < 4) return { label: '2–4 h', order: 4 };
   return { label: '> 4 h', order: 5 };
+}
+function InfoTooltip({ text, children, className }: { text: string; children: React.ReactNode; className?: string }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <span className={cn('inline-flex items-center gap-1.5 cursor-help', className)}>
+          {children}
+          <Info className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+        </span>
+      </TooltipTrigger>
+      <TooltipContent side="top" className="max-w-xs">
+        <p className="text-xs">{text}</p>
+      </TooltipContent>
+    </Tooltip>
+  );
 }
 
 
@@ -648,8 +664,8 @@ export default function GestaoOS() {
 
 
   return (
-
-    <div className="container mx-auto p-4 md:p-6 space-y-6">
+    <TooltipProvider delayDuration={0}>
+      <div className="container mx-auto p-4 md:p-6 space-y-6">
       <div className="flex items-center gap-3">
         <Wrench className="h-7 w-7 text-primary" />
         <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Oficina · Gestão de OS</h1>
@@ -839,7 +855,9 @@ export default function GestaoOS() {
         {/* OS Concluídas */}
         <div className="rounded-xl border shadow-sm p-5 bg-card">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">OS Concluídas</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <InfoTooltip text="Quantidade de ordens de serviço com status 'Concluído' dentro do período e tipos de atividade selecionados nos filtros.">OS Concluídas</InfoTooltip>
+            </p>
             <CheckCircle className="h-4 w-4 text-green-600" />
           </div>
           <p className="mt-2 text-3xl font-bold text-green-600">{kpis.concludedCount}</p>
@@ -849,7 +867,9 @@ export default function GestaoOS() {
         {/* Tempo médio / OS */}
         <div className="rounded-xl border shadow-sm p-5 bg-card">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Tempo médio / OS</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <InfoTooltip text="Média do tempo de execução (campo total_time_seconds) das OS concluídas no período filtrado. OS sem tempo registrado (zero ou nulo) não entram nessa média.">Tempo médio / OS</InfoTooltip>
+            </p>
             <Timer className="h-4 w-4 text-muted-foreground" />
           </div>
           <p className="mt-2 text-3xl font-bold">{kpis.avgTimeLabel}</p>
@@ -859,7 +879,9 @@ export default function GestaoOS() {
         {/* Lead time médio */}
         <div className="rounded-xl border shadow-sm p-5 bg-card">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Lead time médio</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <InfoTooltip text="Média, em dias, do intervalo entre a abertura (created_at) e a conclusão (end_time) das OS concluídas no período filtrado. Só considera OS que têm data de conclusão registrada. Verde quando a média é de até 10 dias, laranja quando ultrapassa 10 dias.">Lead time médio</InfoTooltip>
+            </p>
             <TrendingUp className={cn('h-4 w-4', kpis.avgLead > 10 ? 'text-orange-500' : 'text-green-600')} />
           </div>
           <p className={cn('mt-2 text-3xl font-bold', kpis.avgLead > 10 ? 'text-orange-500' : 'text-green-600')}>
@@ -871,7 +893,9 @@ export default function GestaoOS() {
         {/* OS com lead time > 30 dias */}
         <div className="rounded-xl border shadow-sm p-5 bg-card">
           <div className="flex items-center justify-between">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Lead time &gt; 30 dias</p>
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              <InfoTooltip text="Quantidade e percentual de OS cujo lead time (tempo entre abertura e conclusão) ultrapassou 30 dias. O percentual é calculado sobre o total de OS do período filtrado (incluindo as que ainda não foram concluídas), não apenas sobre as concluídas. Verde abaixo de 5%, laranja entre 5% e 10%, vermelho acima de 10%.">Lead time &gt; 30 dias</InfoTooltip>
+            </p>
             <AlertTriangle className={cn(
               'h-4 w-4',
               kpis.longLeadPct > 10 ? 'text-red-600' : kpis.longLeadPct >= 5 ? 'text-orange-500' : 'text-green-600'
@@ -1099,7 +1123,9 @@ export default function GestaoOS() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="rounded-xl border shadow-sm p-5 bg-card">
-          <h3 className="text-sm font-semibold mb-3">Volume por Tipo de OS</h3>
+          <h3 className="text-sm font-semibold mb-3">
+            <InfoTooltip text="Distribui as OS do período filtrado em categorias definidas pelo nome da atividade: Reparo pistola, Solenoide, Counter balance, Montagem/Preparo e Outros. A categorização é feita por palavras-chave no nome da atividade, não por um campo de categoria dedicado.">Volume por Tipo de OS</InfoTooltip>
+          </h3>
           {volumeByType.length === 0 ? (
             <p className="text-sm text-muted-foreground py-12 text-center">Sem dados no período.</p>
           ) : (
@@ -1133,7 +1159,9 @@ export default function GestaoOS() {
         </div>
 
         <div className="rounded-xl border shadow-sm p-5 bg-card">
-          <h3 className="text-sm font-semibold mb-3">Responsável Abertura</h3>
+          <h3 className="text-sm font-semibold mb-3">
+            <InfoTooltip text="Quantidade de OS abertas por cada usuário (campo created_by_user_id), dentro do período e filtros selecionados.">Responsável Abertura</InfoTooltip>
+          </h3>
           {openersTable.length === 0 ? (
             <p className="text-sm text-muted-foreground py-12 text-center">Sem dados no período.</p>
           ) : (
@@ -1207,7 +1235,9 @@ export default function GestaoOS() {
       {/* OS por mês + Tipos de pistola */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="rounded-xl border shadow-sm p-5 bg-card">
-          <h3 className="text-sm font-semibold mb-3">OS Concluídas por Mês</h3>
+          <h3 className="text-sm font-semibold mb-3">
+            <InfoTooltip text="Quantidade de OS com status 'Concluído', agrupadas pelo mês da data de abertura (created_at) — não pelo mês de conclusão.">OS Concluídas por Mês</InfoTooltip>
+          </h3>
           {concludedByMonth.length === 0 ? (
             <p className="text-sm text-muted-foreground py-12 text-center">Sem dados no período.</p>
           ) : (
@@ -1226,7 +1256,9 @@ export default function GestaoOS() {
         </div>
 
         <div className="rounded-xl border shadow-sm p-5 bg-card">
-          <h3 className="text-sm font-semibold mb-3">Tipos de Pistola Reparada</h3>
+          <h3 className="text-sm font-semibold mb-3">
+            <InfoTooltip text="Ranking das peças mais registradas em OS da categoria 'Reparo pistola', contando os itens vinculados (work_order_items) a essas OS. Mostra os 5 modelos mais frequentes; os demais são agrupados em '3+ outros modelos'.">Tipos de Pistola Reparada</InfoTooltip>
+          </h3>
           {pistolaModels.list.length === 0 ? (
             <p className="text-sm text-muted-foreground py-12 text-center">Sem reparos de pistola no período.</p>
           ) : (
@@ -1257,7 +1289,12 @@ export default function GestaoOS() {
       <div className="rounded-xl border shadow-sm p-5 bg-card">
         <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
           <h3 className="text-sm font-semibold">
-            Últimas OS Concluídas {onlyLongLead && <span className="text-xs text-red-600 font-normal">· filtro: Lead {'>'} 30d</span>}
+          <h3 className="text-sm font-semibold">
+            <InfoTooltip text="Lista as OS concluídas no período filtrado, ordenadas pela data de conclusão (ou abertura, se não houver data de conclusão) mais recente primeiro. Por padrão mostra as 10 últimas; use 'Ver todas' para exibir a lista completa.">
+              Últimas OS Concluídas
+            </InfoTooltip>
+            {onlyLongLead && <span className="text-xs text-red-600 font-normal">· filtro: Lead {'>'} 30d</span>}
+          </h3>
           </h3>
           {onlyLongLead && (
             <Button variant="ghost" size="sm" onClick={() => setOnlyLongLead(false)}>
@@ -1279,8 +1316,12 @@ export default function GestaoOS() {
                     <th className="text-left font-medium py-2 px-3">Tipo</th>
                     <th className="text-left font-medium py-2 px-3">Abertura</th>
                     <th className="text-left font-medium py-2 px-3">Conclusão</th>
-                    <th className="text-left font-medium py-2 px-3">Tempo Exec.</th>
-                    <th className="text-left font-medium py-2 px-3">Lead Time</th>
+                    <th className="text-left font-medium py-2 px-3">
+                      <InfoTooltip text="Tempo total registrado de execução da OS (campo total_time_seconds), formatado em horas e minutos.">Tempo Exec.</InfoTooltip>
+                    </th>
+                    <th className="text-left font-medium py-2 px-3">
+                      <InfoTooltip text="Dias entre abertura e conclusão da OS. Destacado em vermelho quando ultrapassa 30 dias.">Lead Time</InfoTooltip>
+                    </th>
                     <th className="text-left font-medium py-2 px-3">Status</th>
                   </tr>
                 </thead>
@@ -1377,20 +1418,23 @@ export default function GestaoOS() {
       <div className="grid grid-cols-1 md:grid-cols-2 md:justify-items-end">
         <div className="rounded-xl border shadow-sm p-5 bg-card md:col-start-2 w-full">
           <h3 className="text-sm font-semibold mb-3">Alertas e Pontos de Atenção</h3>
+          <p className="text-xs text-muted-foreground mb-3">Clique nos itens para filtrar a tabela abaixo.</p>
           <ul className="space-y-2 text-sm">
             <li>
               <button
                 onClick={() => { setOnlyLongLead(true); setShowAllRows(true); }}
                 className="w-full flex items-center justify-between rounded-md border px-3 py-2 hover:bg-muted/40 text-left"
               >
-                <span>OS com lead time acima de 30 dias</span>
+                <InfoTooltip text="Clique para filtrar a tabela abaixo e ver somente as OS que levaram mais de 30 dias entre abertura e conclusão.">OS com lead time acima de 30 dias</InfoTooltip>
                 <span className="inline-block rounded-full bg-red-100 text-red-700 border border-red-200 px-2 py-0.5 text-xs font-semibold">
                   {alerts.longLeadCount}
                 </span>
               </button>
             </li>
             <li className="rounded-md border px-3 py-2">
-              <div className="text-xs text-muted-foreground mb-0.5">OS mais antiga concluída</div>
+              <div className="text-xs text-muted-foreground mb-0.5">
+                <InfoTooltip text="A OS concluída com a data de abertura (created_at) mais antiga dentro do período filtrado.">OS mais antiga concluída</InfoTooltip>
+              </div>
               <div className="text-sm">
                 {alerts.oldest
                   ? `${alerts.oldest.code} · aberta ${format(new Date(alerts.oldest.created_at), 'dd/MM')}`
@@ -1398,7 +1442,7 @@ export default function GestaoOS() {
               </div>
             </li>
             <li className="rounded-md border px-3 py-2 flex items-center justify-between">
-              <span>OS com tempo registrado &lt; 1 min</span>
+              <InfoTooltip text="Quantidade de OS com tempo de execução maior que zero mas menor que 1 minuto — geralmente indica um apontamento de tempo feito incorretamente.">OS com tempo registrado &lt; 1 min</InfoTooltip>
               <span className="text-xs text-muted-foreground">~{alerts.tinyTime} registros</span>
             </li>
           </ul>
@@ -1477,5 +1521,6 @@ export default function GestaoOS() {
         <p className="text-sm text-muted-foreground">Carregando dados…</p>
       )}
     </div>
+    </TooltipProvider>
   );
 }
