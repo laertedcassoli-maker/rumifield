@@ -114,14 +114,16 @@ export default function TicketPartsRequestPanel({
     const target = findPart(SOLENOIDE_TARGET_CODE);
     if (!trigger || !target) return list;
 
-    const without = list.filter(i => i.peca_id !== target.id);
-    const totalTrigger = without
+    const existingTarget = list.find(i => i.peca_id === target.id);
+    const totalTrigger = list
       .filter(i => i.peca_id === trigger.id)
       .reduce((s, i) => s + i.quantidade, 0);
     const targetQty = totalTrigger * SOLENOIDE_TARGET_QTY;
-    if (targetQty <= 0) return without;
+
+    if (existingTarget || targetQty <= 0) return list;
+
     return [
-      ...without,
+      ...list,
       {
         peca_id: target.id,
         codigo: target.codigo,
