@@ -66,6 +66,8 @@ export default function GestaoOS() {
         .select(`
           id, code, status, created_at, start_time, end_time,
           total_time_seconds, created_by_user_id, concluded_by_user_id, assigned_to_user_id,
+          cliente_id,
+          clientes:cliente_id (id, nome),
           activities:activity_id (id, name, execution_type),
           work_order_items (
             workshop_item_id, omie_product_id,
@@ -78,6 +80,7 @@ export default function GestaoOS() {
             pecas:omie_product_id (nome))
         `)
         .order('created_at', { ascending: false });
+
 
       if (error) throw error;
       return (data || []) as unknown as WorkOrderRow[];
