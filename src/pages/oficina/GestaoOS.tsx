@@ -1547,7 +1547,7 @@ export default function GestaoOS() {
       </Card>
 
 
-      <Accordion type="single" collapsible defaultValue="saude-ativos">
+      <Accordion type="single" collapsible>
         <AccordionItem value="saude-ativos" className="border-0">
           <section className="rounded-xl border shadow-sm p-5 bg-card space-y-3">
             <AccordionTrigger className="text-lg font-semibold py-0 hover:no-underline">
