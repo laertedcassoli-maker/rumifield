@@ -666,10 +666,34 @@ export default function GestaoOS() {
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
+                  <div className="border-b p-3 flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1">
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => shiftYear(-1)} aria-label="Ano anterior">
+                        <ChevronLeft className="h-4 w-4" />
+                      </Button>
+                      <Select value={String(calendarMonth.getFullYear())} onValueChange={(v) => setYear(Number(v))}>
+                        <SelectTrigger className="h-8 w-[110px] text-sm font-medium">
+                          <SelectValue placeholder="Ano" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availableYears.map(year => (
+                            <SelectItem key={year} value={String(year)}>{year}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => shiftYear(1)} aria-label="Próximo ano">
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <Button variant="outline" size="sm" className="h-8 text-xs" onClick={goToCurrentYear}>
+                      Ano atual
+                    </Button>
+                  </div>
                   <Calendar
                     mode="range"
                     numberOfMonths={2}
-                    defaultMonth={dateRange.from}
+                    month={calendarMonth}
+                    onMonthChange={setCalendarMonth}
                     selected={{ from: dateRange.from, to: dateRange.to }}
                     onSelect={(range) => {
                       if (range?.from && range?.to) {
@@ -690,6 +714,7 @@ export default function GestaoOS() {
                     className={cn('p-3 pointer-events-auto')}
                   />
                 </PopoverContent>
+
               </Popover>
 
               {([
