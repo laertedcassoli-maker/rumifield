@@ -26,7 +26,7 @@ import type { DateRange } from 'react-day-picker';
 import { 
   Loader2, 
   Route,
-  Calendar,
+  Calendar as CalendarIcon,
   MapPin,
   CheckCircle2,
   Clock,
@@ -37,7 +37,10 @@ import {
   Wrench,
   Plus,
   WifiOff,
-  Trash2
+  Trash2,
+  Search,
+  Check,
+  XCircle
 } from 'lucide-react';
 import NovaVisitaDiretaDialog from '@/components/chamados/NovaVisitaDiretaDialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
