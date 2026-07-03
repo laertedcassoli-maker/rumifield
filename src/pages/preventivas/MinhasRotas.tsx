@@ -290,12 +290,12 @@ export default function MinhasRotas() {
       const { data: clientsData } = clientIds.length > 0
         ? await supabase
             .from('clientes')
-            .select('id, nome, latitude, longitude')
+            .select('id, nome, fazenda, latitude, longitude')
             .in('id', clientIds)
         : { data: [] };
 
-      const clientsMap = new Map<string, { nome: string; lat: number | null; lon: number | null }>(
-        clientsData?.map(c => [c.id, { nome: c.nome, lat: c.latitude, lon: c.longitude }] as [string, { nome: string; lat: number | null; lon: number | null }]) || []
+      const clientsMap = new Map<string, { nome: string; fazenda: string | null; lat: number | null; lon: number | null }>(
+        clientsData?.map(c => [c.id, { nome: c.nome, fazenda: (c as any).fazenda ?? null, lat: c.latitude, lon: c.longitude }] as [string, { nome: string; fazenda: string | null; lat: number | null; lon: number | null }]) || []
       );
 
       const profilesMap = new Map<string, string>(
