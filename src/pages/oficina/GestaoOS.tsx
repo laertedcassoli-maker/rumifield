@@ -1320,133 +1320,139 @@ export default function GestaoOS() {
       </div>
 
       {/* Tabela: Últimas OS Concluídas */}
-      <div className="rounded-xl border shadow-sm p-5 bg-card">
-        <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-          <h3 className="text-sm font-semibold">
-          <h3 className="text-sm font-semibold">
-            <InfoTooltip text="lista as OS concluídas no período filtrado, ordenadas pela data de conclusão (ou abertura, se não houver data de conclusão) mais recente primeiro. por padrão mostra as 10 últimas; use 'ver todas' para exibir a lista completa.">
-              Últimas OS Concluídas
-            </InfoTooltip>
-            {onlyLongLead && <span className="text-xs text-red-600 font-normal">· filtro: Lead {'>'} 30d</span>}
-          </h3>
-          </h3>
-          {onlyLongLead && (
-            <Button variant="ghost" size="sm" onClick={() => setOnlyLongLead(false)}>
-              Limpar filtro
-            </Button>
-          )}
-        </div>
-
-        {displayedRows.length === 0 ? (
-          <p className="text-sm text-muted-foreground py-10 text-center">Sem OS concluídas no período.</p>
-        ) : (
-          <>
-            <div className="hidden md:block overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-xs uppercase tracking-wide text-muted-foreground border-b">
-                    <th className="text-left font-medium py-2 px-3">Código</th>
-                    <th className="text-left font-medium py-2 px-3">Atividade / Item</th>
-                    <th className="text-left font-medium py-2 px-3">Tipo</th>
-                    <th className="text-left font-medium py-2 px-3">Abertura</th>
-                    <th className="text-left font-medium py-2 px-3">Conclusão</th>
-                    <th className="text-left font-medium py-2 px-3">
-                      <InfoTooltip text="tempo total registrado de execução da OS (campo total_time_seconds), formatado em horas e minutos.">Tempo Exec.</InfoTooltip>
-                    </th>
-                    <th className="text-left font-medium py-2 px-3">
-                      <InfoTooltip text="dias entre abertura e conclusão da OS. destacado em vermelho quando ultrapassa 30 dias.">Lead Time</InfoTooltip>
-                    </th>
-                    <th className="text-left font-medium py-2 px-3">Status</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {displayedRows.map((row, i) => {
-                    const t = tipoBadge(row.activities?.name);
-                    const lead = row._lead;
-                    const leadColor = lead == null ? 'text-muted-foreground'
-                      : lead > 30 ? 'text-red-600 font-semibold'
-                      : lead >= 7 ? 'text-orange-500 font-medium'
-                      : 'text-green-600 font-medium';
-                    const itemCode = row.work_order_items?.[0]?.workshop_items?.unique_code;
-                    return (
-                      <tr key={row.id} className={cn('border-b last:border-b-0', i % 2 === 1 && 'bg-muted/30')}>
-                        <td className="py-2 px-3">
-                          <button onClick={() => setOpenDialogOS(row)} className="text-blue-600 hover:underline font-medium">
-                            {row.code}
-                          </button>
-                        </td>
-                        <td className="py-2 px-3">
-                          <div className="truncate max-w-[260px]">{row.activities?.name || '—'}</div>
-                          {itemCode && <div className="text-xs text-muted-foreground">{itemCode}</div>}
-                        </td>
-                        <td className="py-2 px-3">
-                          <span className={cn('inline-block rounded-full border px-2 py-0.5 text-xs font-medium', t.cls)}>{t.label}</span>
-                        </td>
-                        <td className="py-2 px-3 tabular-nums">{format(new Date(row.created_at), 'dd/MM/yy')}</td>
-                        <td className="py-2 px-3 tabular-nums">{row.end_time ? format(new Date(row.end_time), 'dd/MM/yy') : '—'}</td>
-                        <td className="py-2 px-3 tabular-nums">{fmtDur(row.total_time_seconds)}</td>
-                        <td className={cn('py-2 px-3 tabular-nums', leadColor)}>
-                          {lead == null ? '—' : `${lead.toFixed(1)} dias`}
-                          {lead != null && lead > 30 && (
-                            <span className="ml-2 inline-block rounded-full bg-red-100 text-red-700 border border-red-200 px-2 py-0.5 text-[10px] font-semibold">
-                              Lead alto
-                            </span>
-                          )}
-                        </td>
-                        <td className="py-2 px-3">
-                          <span className="inline-block rounded-full bg-green-100 text-green-700 border border-green-200 px-2 py-0.5 text-xs font-medium">
-                            Concluída
-                          </span>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-
-            <div className="md:hidden space-y-3">
-              {displayedRows.map(row => {
-                const t = tipoBadge(row.activities?.name);
-                const lead = row._lead;
-                const leadColor = lead == null ? 'text-muted-foreground'
-                  : lead > 30 ? 'text-red-600 font-semibold'
-                  : lead >= 7 ? 'text-orange-500 font-medium'
-                  : 'text-green-600 font-medium';
-                const itemCode = row.work_order_items?.[0]?.workshop_items?.unique_code;
-                return (
-                  <div key={row.id} className="rounded-lg border p-3 space-y-1.5">
-                    <div className="flex items-center justify-between">
-                      <button onClick={() => setOpenDialogOS(row)} className="text-blue-600 hover:underline font-medium">
-                        {row.code}
-                      </button>
-                      <span className={cn('inline-block rounded-full border px-2 py-0.5 text-xs font-medium', t.cls)}>{t.label}</span>
-                    </div>
-                    <div className="text-sm">{row.activities?.name || '—'}</div>
-                    {itemCode && <div className="text-xs text-muted-foreground">{itemCode}</div>}
-                    <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground pt-1">
-                      <div>Abertura: <span className="text-foreground">{format(new Date(row.created_at), 'dd/MM/yy')}</span></div>
-                      <div>Conclusão: <span className="text-foreground">{row.end_time ? format(new Date(row.end_time), 'dd/MM/yy') : '—'}</span></div>
-                      <div>Tempo: <span className="text-foreground">{fmtDur(row.total_time_seconds)}</span></div>
-                      <div>Lead: <span className={leadColor}>{lead == null ? '—' : `${lead.toFixed(1)}d`}</span></div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            {(onlyLongLead ? concludedRows.filter(r => (r._lead ?? 0) > 30).length : concludedRows.length) > 10 && (
-              <div className="flex justify-center mt-4">
-                <Button variant="outline" size="sm" onClick={() => setShowAllRows(v => !v)}>
-                  {showAllRows
-                    ? 'Mostrar menos'
-                    : `Ver todas (${onlyLongLead ? concludedRows.filter(r => (r._lead ?? 0) > 30).length : concludedRows.length})`}
+      <Accordion type="single" collapsible defaultValue="ultimas-os-concluidas">
+        <AccordionItem value="ultimas-os-concluidas" className="border-0">
+          <div className="rounded-xl border shadow-sm p-5 bg-card">
+            <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+              <AccordionTrigger className="text-sm font-semibold py-0 hover:no-underline">
+                <h3 className="text-sm font-semibold">
+                  <InfoTooltip text="lista as OS concluídas no período filtrado, ordenadas pela data de conclusão (ou abertura, se não houver data de conclusão) mais recente primeiro. por padrão mostra as 10 últimas; use 'ver todas' para exibir a lista completa.">
+                    Últimas OS Concluídas
+                  </InfoTooltip>
+                  {onlyLongLead && <span className="text-xs text-red-600 font-normal">· filtro: Lead {'>'} 30d</span>}
+                </h3>
+              </AccordionTrigger>
+              {onlyLongLead && (
+                <Button variant="ghost" size="sm" onClick={() => setOnlyLongLead(false)}>
+                  Limpar filtro
                 </Button>
-              </div>
-            )}
-          </>
-        )}
-      </div>
+              )}
+            </div>
+
+            <AccordionContent>
+              {displayedRows.length === 0 ? (
+                <p className="text-sm text-muted-foreground py-10 text-center">Sem OS concluídas no período.</p>
+              ) : (
+                <>
+                  <div className="hidden md:block overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="text-xs uppercase tracking-wide text-muted-foreground border-b">
+                          <th className="text-left font-medium py-2 px-3">Código</th>
+                          <th className="text-left font-medium py-2 px-3">Atividade / Item</th>
+                          <th className="text-left font-medium py-2 px-3">Tipo</th>
+                          <th className="text-left font-medium py-2 px-3">Abertura</th>
+                          <th className="text-left font-medium py-2 px-3">Conclusão</th>
+                          <th className="text-left font-medium py-2 px-3">
+                            <InfoTooltip text="tempo total registrado de execução da OS (campo total_time_seconds), formatado em horas e minutos.">Tempo Exec.</InfoTooltip>
+                          </th>
+                          <th className="text-left font-medium py-2 px-3">
+                            <InfoTooltip text="dias entre abertura e conclusão da OS. destacado em vermelho quando ultrapassa 30 dias.">Lead Time</InfoTooltip>
+                          </th>
+                          <th className="text-left font-medium py-2 px-3">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {displayedRows.map((row, i) => {
+                          const t = tipoBadge(row.activities?.name);
+                          const lead = row._lead;
+                          const leadColor = lead == null ? 'text-muted-foreground'
+                            : lead > 30 ? 'text-red-600 font-semibold'
+                            : lead >= 7 ? 'text-orange-500 font-medium'
+                            : 'text-green-600 font-medium';
+                          const itemCode = row.work_order_items?.[0]?.workshop_items?.unique_code;
+                          return (
+                            <tr key={row.id} className={cn('border-b last:border-b-0', i % 2 === 1 && 'bg-muted/30')}>
+                              <td className="py-2 px-3">
+                                <button onClick={() => setOpenDialogOS(row)} className="text-blue-600 hover:underline font-medium">
+                                  {row.code}
+                                </button>
+                              </td>
+                              <td className="py-2 px-3">
+                                <div className="truncate max-w-[260px]">{row.activities?.name || '—'}</div>
+                                {itemCode && <div className="text-xs text-muted-foreground">{itemCode}</div>}
+                              </td>
+                              <td className="py-2 px-3">
+                                <span className={cn('inline-block rounded-full border px-2 py-0.5 text-xs font-medium', t.cls)}>{t.label}</span>
+                              </td>
+                              <td className="py-2 px-3 tabular-nums">{format(new Date(row.created_at), 'dd/MM/yy')}</td>
+                              <td className="py-2 px-3 tabular-nums">{row.end_time ? format(new Date(row.end_time), 'dd/MM/yy') : '—'}</td>
+                              <td className="py-2 px-3 tabular-nums">{fmtDur(row.total_time_seconds)}</td>
+                              <td className={cn('py-2 px-3 tabular-nums', leadColor)}>
+                                {lead == null ? '—' : `${lead.toFixed(1)} dias`}
+                                {lead != null && lead > 30 && (
+                                  <span className="ml-2 inline-block rounded-full bg-red-100 text-red-700 border border-red-200 px-2 py-0.5 text-[10px] font-semibold">
+                                    Lead alto
+                                  </span>
+                                )}
+                              </td>
+                              <td className="py-2 px-3">
+                                <span className="inline-block rounded-full bg-green-100 text-green-700 border border-green-200 px-2 py-0.5 text-xs font-medium">
+                                  Concluída
+                                </span>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  <div className="md:hidden space-y-3">
+                    {displayedRows.map(row => {
+                      const t = tipoBadge(row.activities?.name);
+                      const lead = row._lead;
+                      const leadColor = lead == null ? 'text-muted-foreground'
+                        : lead > 30 ? 'text-red-600 font-semibold'
+                        : lead >= 7 ? 'text-orange-500 font-medium'
+                        : 'text-green-600 font-medium';
+                      const itemCode = row.work_order_items?.[0]?.workshop_items?.unique_code;
+                      return (
+                        <div key={row.id} className="rounded-lg border p-3 space-y-1.5">
+                          <div className="flex items-center justify-between">
+                            <button onClick={() => setOpenDialogOS(row)} className="text-blue-600 hover:underline font-medium">
+                              {row.code}
+                            </button>
+                            <span className={cn('inline-block rounded-full border px-2 py-0.5 text-xs font-medium', t.cls)}>{t.label}</span>
+                          </div>
+                          <div className="text-sm">{row.activities?.name || '—'}</div>
+                          {itemCode && <div className="text-xs text-muted-foreground">{itemCode}</div>}
+                          <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground pt-1">
+                            <div>Abertura: <span className="text-foreground">{format(new Date(row.created_at), 'dd/MM/yy')}</span></div>
+                            <div>Conclusão: <span className="text-foreground">{row.end_time ? format(new Date(row.end_time), 'dd/MM/yy') : '—'}</span></div>
+                            <div>Tempo: <span className="text-foreground">{fmtDur(row.total_time_seconds)}</span></div>
+                            <div>Lead: <span className={leadColor}>{lead == null ? '—' : `${lead.toFixed(1)}d`}</span></div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {(onlyLongLead ? concludedRows.filter(r => (r._lead ?? 0) > 30).length : concludedRows.length) > 10 && (
+                    <div className="flex justify-center mt-4">
+                      <Button variant="outline" size="sm" onClick={() => setShowAllRows(v => !v)}>
+                        {showAllRows
+                          ? 'Mostrar menos'
+                          : `Ver todas (${onlyLongLead ? concludedRows.filter(r => (r._lead ?? 0) > 30).length : concludedRows.length})`}
+                      </Button>
+                    </div>
+                  )}
+                </>
+              )}
+            </AccordionContent>
+          </div>
+        </AccordionItem>
+      </Accordion>
 
       {/* Alertas e Pontos de Atenção */}
       <div className="grid grid-cols-1 md:grid-cols-2 md:justify-items-end">
