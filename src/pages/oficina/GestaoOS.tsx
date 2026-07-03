@@ -284,7 +284,32 @@ export default function GestaoOS() {
       .sort((x, y) => y.concluidas - x.concluidas || y.emAberto - x.emAberto);
   }, [filteredOS, profilesMap]);
 
+  const osByClient = useMemo(() => {
+    type Agg = { clientId: string; nome: string; total: number; concluded: number; leadSum: number; leadCount: number };
+    const map = new Map<string, Agg>();
+    const getAgg = (id: string, nome: string): Agg => {
+      let a = map.get(id);
+      if (!a) { a = { clientId: id, nome, total: 0, concluded: 0, leadSum: 0, leadCount: 0 }; map.set(id, a); }
+      return a;
+    };
+    filteredOS.forEach(wo => {
+      const key = wo.cliente_id || '__none__';
+      const nome = wo.clientes?.nome || 'Sem cliente';
+      const a = getAgg(key, nome);
+      a.total += 1;
+      if (wo.status === 'concluido' && wo.end_time && wo.created_at) {
+        a.concluded += 1;
+        a.leadSum += (new Date(wo.end_time).getTime() - new Date(wo.created_at).getTime()) / 86400000;
+        a.leadCount += 1;
+      }
+    });
+    return Array.from(map.values())
+      .map(a => ({ ...a, avgLead: a.leadCount > 0 ? a.leadSum / a.leadCount : 0 }))
+      .sort((a, b) => b.total - a.total || a.nome.localeCompare(b.nome));
+  }, [filteredOS]);
+
   const concludedByMonth = useMemo(() => {
+
     const counts = new Map<number, number>();
     filteredOS
       .filter(wo => wo.status === 'concluido')
