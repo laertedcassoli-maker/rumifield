@@ -308,7 +308,44 @@ export default function GestaoOS() {
       .sort((a, b) => b.total - a.total || a.nome.localeCompare(b.nome));
   }, [filteredOS]);
 
+  const executionTimeHistogram = useMemo(() => {
+    const counts = new Map<string, { label: string; order: number; count: number }>();
+    filteredOS
+      .filter(wo => wo.status === 'concluido' && (wo.total_time_seconds || 0) > 0)
+      .forEach(wo => {
+        const r = durationRange(wo.total_time_seconds);
+        const existing = counts.get(r.label);
+        if (existing) {
+          existing.count += 1;
+        } else {
+          counts.set(r.label, { ...r, count: 1 });
+        }
+      });
+    return Array.from(counts.values()).sort((a, b) => a.order - b.order);
+  }, [filteredOS]);
+
+  const executionTimeByActivity = useMemo(() => {
+    type Agg = { name: string; min: number; max: number; count: number };
+    const map = new Map<string, Agg>();
+    filteredOS
+      .filter(wo => wo.status === 'concluido' && (wo.total_time_seconds || 0) > 0)
+      .forEach(wo => {
+        const name = wo.activities?.name || '—';
+        const existing = map.get(name);
+        const sec = wo.total_time_seconds!;
+        if (existing) {
+          existing.min = Math.min(existing.min, sec);
+          existing.max = Math.max(existing.max, sec);
+          existing.count += 1;
+        } else {
+          map.set(name, { name, min: sec, max: sec, count: 1 });
+        }
+      });
+    return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+  }, [filteredOS]);
+
   const concludedByMonth = useMemo(() => {
+
 
     const counts = new Map<number, number>();
     filteredOS
@@ -376,6 +413,17 @@ export default function GestaoOS() {
     const m = Math.round((sec % 3600) / 60);
     return h > 0 ? `${h}h ${m}min` : `${m}min`;
   };
+
+  const durationRange = (sec: number | null): { label: string; order: number } => {
+    const h = (sec || 0) / 3600;
+    if (h <= 0) return { label: 'Sem registro', order: 0 };
+    if (h < 0.5) return { label: '< 30 min', order: 1 };
+    if (h < 1) return { label: '30–60 min', order: 2 };
+    if (h < 2) return { label: '1–2 h', order: 3 };
+    if (h < 4) return { label: '2–4 h', order: 4 };
+    return { label: '> 4 h', order: 5 };
+  };
+
 
   const leadDaysOf = (wo: WorkOrderRow) => {
     if (!wo.end_time || !wo.created_at) return null;
@@ -783,7 +831,62 @@ export default function GestaoOS() {
         </CardContent>
       </Card>
 
+      {/* Distribuição do Tempo de Execução */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="rounded-xl border shadow-sm p-5 bg-card">
+          <h3 className="text-sm font-semibold mb-3">Distribuição do Tempo de Execução</h3>
+          {executionTimeHistogram.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-12 text-center">Sem OS concluídas com tempo registrado no período.</p>
+          ) : (
+            <div className="h-72">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={executionTimeHistogram} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} className="stroke-muted" />
+                  <XAxis dataKey="label" tick={{ fontSize: 12 }} />
+                  <YAxis allowDecimals={false} tick={{ fontSize: 12 }} />
+                  <RTooltip formatter={(v: number) => [`${v} OS`, 'Quantidade']} />
+                  <Bar dataKey="count" fill="#2563EB" radius={[6, 6, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </div>
+
+        <div className="rounded-xl border shadow-sm p-5 bg-card">
+          <h3 className="text-sm font-semibold mb-3">Tempo de Execução por Atividade</h3>
+          {executionTimeByActivity.length === 0 ? (
+            <p className="text-sm text-muted-foreground py-12 text-center">Sem OS concluídas com tempo registrado no período.</p>
+          ) : (
+            <div className="overflow-hidden rounded-md">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-xs uppercase tracking-wide text-muted-foreground">
+                    <th className="text-left font-medium py-2 px-3">Atividade</th>
+                    <th className="text-right font-medium py-2 px-3">Mínimo</th>
+                    <th className="text-right font-medium py-2 px-3">Máximo</th>
+                    <th className="text-right font-medium py-2 px-3">OS</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {executionTimeByActivity.map((row, i) => (
+                    <tr key={row.name} className={cn(i % 2 === 1 && 'bg-muted/40')}>
+                      <td className="py-2 px-3">
+                        <div className="truncate max-w-[220px]">{row.name}</div>
+                      </td>
+                      <td className="py-2 px-3 text-right tabular-nums">{fmtDur(row.min)}</td>
+                      <td className="py-2 px-3 text-right tabular-nums">{fmtDur(row.max)}</td>
+                      <td className="py-2 px-3 text-right font-medium tabular-nums">{row.count}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      </div>
+
       {/* Volume por Tipo + Responsável Abertura */}
+
 
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
