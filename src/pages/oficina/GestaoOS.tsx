@@ -1326,11 +1326,13 @@ export default function GestaoOS() {
             <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
               <div className="flex-1 min-w-0">
                 <AccordionTrigger className="text-sm font-semibold py-0 hover:no-underline w-full">
-                  <div className="flex flex-1 items-center gap-2">
-                    <InfoTooltip text="lista as OS concluídas no período filtrado, ordenadas pela data de conclusão (ou abertura, se não houver data de conclusão) mais recente primeiro. por padrão mostra as 10 últimas; use 'ver todas' para exibir a lista completa.">
-                      Últimas OS Concluídas
-                    </InfoTooltip>
-                    {onlyLongLead && <span className="text-xs text-red-600 font-normal">· filtro: Lead {'>'} 30d</span>}
+                  <div className="w-full flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <InfoTooltip text="lista as OS concluídas no período filtrado, ordenadas pela data de conclusão (ou abertura, se não houver data de conclusão) mais recente primeiro. por padrão mostra as 10 últimas; use 'ver todas' para exibir a lista completa.">
+                        Últimas OS Concluídas
+                      </InfoTooltip>
+                      {onlyLongLead && <span className="text-xs text-red-600 font-normal">· filtro: Lead {'>'} 30d</span>}
+                    </div>
                   </div>
                 </AccordionTrigger>
               </div>
