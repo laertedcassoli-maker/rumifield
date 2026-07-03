@@ -488,6 +488,83 @@ export default function GestaoOS() {
   }, [filteredOS]);
 
 
+  // Possível retrabalho: mesma peça usada no mesmo ativo em OS distintas dentro de 90 dias
+  const reworkRows = useMemo(() => {
+    const WINDOW_DAYS = 90;
+    type Occ = { woId: string; woCode: string; assetCode: string; partName: string; createdAt: number };
+    // Chave: assetId::partId
+    const groups = new Map<string, Occ[]>();
+
+    workOrders.forEach(wo => {
+      const created = new Date(wo.created_at).getTime();
+      const items = wo.work_order_items || [];
+      const parts = wo.work_order_parts_used || [];
+      if (!items.length || !parts.length) return;
+      items.forEach(it => {
+        if (!it.workshop_item_id) return;
+        const assetCode = it.workshop_items?.unique_code || '—';
+        parts.forEach(p => {
+          if (!p.omie_product_id) return;
+          const key = `${it.workshop_item_id}::${p.omie_product_id}`;
+          const arr = groups.get(key) || [];
+          // Evita contar duas vezes se a mesma peça aparece em múltiplos itens da mesma OS
+          if (!arr.some(o => o.woId === wo.id)) {
+            arr.push({
+              woId: wo.id,
+              woCode: wo.code,
+              assetCode,
+              partName: p.pecas?.nome || p.omie_product_id,
+              createdAt: created,
+            });
+            groups.set(key, arr);
+          }
+        });
+      });
+    });
+
+    const filteredIds = new Set(filteredOS.map(wo => wo.id));
+    const result: Array<{
+      key: string;
+      assetCode: string;
+      partName: string;
+      count: number;
+      codes: string[];
+      spanDays: number;
+    }> = [];
+
+    groups.forEach((occs, key) => {
+      if (occs.length < 2) return;
+      occs.sort((a, b) => a.createdAt - b.createdAt);
+      // Janela deslizante de 90 dias
+      let bestWindow: Occ[] = [];
+      for (let i = 0; i < occs.length; i++) {
+        const window: Occ[] = [occs[i]];
+        for (let j = i + 1; j < occs.length; j++) {
+          if ((occs[j].createdAt - occs[i].createdAt) / 86400000 <= WINDOW_DAYS) {
+            window.push(occs[j]);
+          } else break;
+        }
+        if (window.length >= 2 && window.length > bestWindow.length) bestWindow = window;
+      }
+      if (bestWindow.length < 2) return;
+      // Considera apenas se a OS mais recente da janela está no período filtrado
+      const mostRecent = bestWindow[bestWindow.length - 1];
+      if (!filteredIds.has(mostRecent.woId)) return;
+      const spanDays = Math.round(
+        (bestWindow[bestWindow.length - 1].createdAt - bestWindow[0].createdAt) / 86400000
+      );
+      result.push({
+        key,
+        assetCode: bestWindow[0].assetCode,
+        partName: bestWindow[0].partName,
+        count: bestWindow.length,
+        codes: bestWindow.map(o => o.woCode),
+        spanDays,
+      });
+    });
+
+    return result.sort((a, b) => b.count - a.count || a.spanDays - b.spanDays);
+  }, [workOrders, filteredOS]);
 
 
   return (
