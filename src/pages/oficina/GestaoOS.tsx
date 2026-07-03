@@ -78,8 +78,8 @@ function InfoTooltip({ text, children, className }: { text: string; children: Re
           <Info className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
         </span>
       </TooltipTrigger>
-      <TooltipContent side="top" className="max-w-xs">
-        <p className="text-xs">{text}</p>
+      <TooltipContent side="top" className="max-w-xs normal-case tracking-normal">
+        <p className="text-xs normal-case tracking-normal font-normal">{text}</p>
       </TooltipContent>
     </Tooltip>
   );
