@@ -656,267 +656,182 @@ export default function GestaoOS() {
       </div>
 
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0">
-          <CardTitle className="text-base">Filtros</CardTitle>
-          <Button variant="ghost" size="sm" onClick={clearAllFilters} className="h-8">
-            <X className="h-4 w-4 mr-1" /> Limpar filtros
-          </Button>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Período (calendário) */}
-          <div className="space-y-2">
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Período</p>
-            <div className="flex flex-wrap items-center gap-2">
-              <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" size="sm" className="justify-start text-left font-normal min-w-[260px]">
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {periodLabel}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <div className="border-b p-3 flex items-center justify-between gap-2">
-                    <div className="flex items-center gap-1">
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => shiftYear(-1)} aria-label="Ano anterior">
-                        <ChevronLeft className="h-4 w-4" />
-                      </Button>
-                      <Select value={String(calendarMonth.getFullYear())} onValueChange={(v) => setYear(Number(v))}>
-                        <SelectTrigger className="h-8 w-[110px] text-sm font-medium">
-                          <SelectValue placeholder="Ano" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {availableYears.map(year => (
-                            <SelectItem key={year} value={String(year)}>{year}</SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => shiftYear(1)} aria-label="Próximo ano">
-                        <ChevronRight className="h-4 w-4" />
+        <CardContent className="p-3">
+          <div className="flex flex-wrap items-end gap-3">
+            {/* Período */}
+            <div className="flex flex-col gap-1 min-w-[240px]">
+              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-0.5">Período</span>
+              <div className="flex items-center gap-1.5">
+                <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="sm" className="h-9 justify-start text-left font-normal min-w-[220px]">
+                      <CalendarIcon className="mr-2 h-4 w-4 text-muted-foreground" />
+                      {periodLabel}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <div className="border-b p-3 flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-1">
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => shiftYear(-1)} aria-label="Ano anterior">
+                          <ChevronLeft className="h-4 w-4" />
+                        </Button>
+                        <Select value={String(calendarMonth.getFullYear())} onValueChange={(v) => setYear(Number(v))}>
+                          <SelectTrigger className="h-8 w-[110px] text-sm font-medium">
+                            <SelectValue placeholder="Ano" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {availableYears.map(year => (
+                              <SelectItem key={year} value={String(year)}>{year}</SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => shiftYear(1)} aria-label="Próximo ano">
+                          <ChevronRight className="h-4 w-4" />
+                        </Button>
+                      </div>
+                      <Button variant="outline" size="sm" className="h-8 text-xs" onClick={goToCurrentYear}>
+                        Ano atual
                       </Button>
                     </div>
-                    <Button variant="outline" size="sm" className="h-8 text-xs" onClick={goToCurrentYear}>
-                      Ano atual
-                    </Button>
-                  </div>
-                  <Calendar
-                    mode="range"
-                    numberOfMonths={2}
-                    month={calendarMonth}
-                    onMonthChange={setCalendarMonth}
-                    selected={{ from: dateRange.from, to: dateRange.to }}
-                    onSelect={(range) => {
-                      if (range?.from && range?.to) {
-                        setDateRange({
-                          from: new Date(range.from.getFullYear(), range.from.getMonth(), range.from.getDate(), 0, 0, 0, 0),
-                          to: new Date(range.to.getFullYear(), range.to.getMonth(), range.to.getDate(), 23, 59, 59, 999),
-                        });
-                        setPreset('personalizado');
-                      } else if (range?.from) {
-                        setDateRange({
-                          from: new Date(range.from.getFullYear(), range.from.getMonth(), range.from.getDate(), 0, 0, 0, 0),
-                          to: new Date(range.from.getFullYear(), range.from.getMonth(), range.from.getDate(), 23, 59, 59, 999),
-                        });
-                        setPreset('personalizado');
-                      }
-                    }}
-                    initialFocus
-                    className={cn('p-3 pointer-events-auto')}
-                  />
+                    <Calendar
+                      mode="range"
+                      numberOfMonths={2}
+                      month={calendarMonth}
+                      onMonthChange={setCalendarMonth}
+                      selected={{ from: dateRange.from, to: dateRange.to }}
+                      onSelect={(range) => {
+                        if (range?.from && range?.to) {
+                          setDateRange({
+                            from: new Date(range.from.getFullYear(), range.from.getMonth(), range.from.getDate(), 0, 0, 0, 0),
+                            to: new Date(range.to.getFullYear(), range.to.getMonth(), range.to.getDate(), 23, 59, 59, 999),
+                          });
+                          setPreset('personalizado');
+                        } else if (range?.from) {
+                          setDateRange({
+                            from: new Date(range.from.getFullYear(), range.from.getMonth(), range.from.getDate(), 0, 0, 0, 0),
+                            to: new Date(range.from.getFullYear(), range.from.getMonth(), range.from.getDate(), 23, 59, 59, 999),
+                          });
+                          setPreset('personalizado');
+                        }
+                      }}
+                      initialFocus
+                      className={cn('p-3 pointer-events-auto')}
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+            </div>
+
+            {/* Atividade */}
+            <div className="flex flex-col gap-1 min-w-[200px] flex-1 max-w-[260px]">
+              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-0.5">Atividade</span>
+              <Popover open={activityComboOpen} onOpenChange={setActivityComboOpen}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className="h-9 justify-between font-normal">
+                    <span className="truncate">
+                      {selectedActivities.length === 0
+                        ? 'Todas as atividades'
+                        : `${selectedActivities.length} selecionado(s)`}
+                    </span>
+                    <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50 shrink-0" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[300px] p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder="Buscar atividade..." />
+                    <CommandList>
+                      <CommandEmpty>Nenhuma atividade.</CommandEmpty>
+                      <CommandGroup>
+                        {availableActivities.map(a => {
+                          const active = selectedActivities.includes(a.id);
+                          return (
+                            <CommandItem key={a.id} value={a.name} onSelect={() => toggleActivity(a.id)}>
+                              <Check className={cn('mr-2 h-4 w-4', active ? 'opacity-100' : 'opacity-0')} />
+                              {a.name}
+                            </CommandItem>
+                          );
+                        })}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
                 </PopoverContent>
-
               </Popover>
+            </div>
 
-              {([
-                { key: 'mes_atual', label: 'Mês atual' },
-                { key: 'trimestre_atual', label: 'Trimestre atual' },
-                { key: 'ano_inteiro', label: 'Ano inteiro' },
-              ] as Array<{ key: Preset; label: string }>).map(p => (
+            {/* Cliente */}
+            <div className="flex flex-col gap-1 min-w-[200px] flex-1 max-w-[260px]">
+              <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-0.5">Cliente</span>
+              <Popover open={clientComboOpen} onOpenChange={setClientComboOpen}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className="h-9 justify-between font-normal">
+                    <span className="truncate">
+                      {selectedClients.length === 0
+                        ? 'Todos os clientes'
+                        : `${selectedClients.length} selecionado(s)`}
+                    </span>
+                    <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50 shrink-0" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[300px] p-0" align="start">
+                  <Command>
+                    <CommandInput placeholder="Buscar cliente..." />
+                    <CommandList>
+                      <CommandEmpty>Nenhum cliente.</CommandEmpty>
+                      <CommandGroup>
+                        {availableClients.map(c => {
+                          const active = selectedClients.includes(c.id);
+                          return (
+                            <CommandItem key={c.id} value={c.name} onSelect={() => toggleClient(c.id)}>
+                              <Check className={cn('mr-2 h-4 w-4', active ? 'opacity-100' : 'opacity-0')} />
+                              {c.name}
+                            </CommandItem>
+                          );
+                        })}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
+            </div>
 
-                <Button
-                  key={p.key}
-                  variant={preset === p.key ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => applyPreset(p.key)}
-                >
-                  {p.label}
-                </Button>
-              ))}
+            {/* Ações */}
+            <div className="flex items-center gap-2 ml-auto pb-0.5">
+              <Badge variant="secondary" className="h-7 whitespace-nowrap">
+                {filteredOS.length} OS
+              </Badge>
+              <Button variant="ghost" size="sm" onClick={clearAllFilters} className="h-9 text-muted-foreground hover:text-foreground">
+                <X className="h-4 w-4 mr-1" /> Limpar
+              </Button>
             </div>
           </div>
 
-
-          {/* Resumo do período ativo */}
-          <div>
-            <Badge variant="secondary" className="text-sm">
-              {periodLabel} · {filteredOS.length} OS
-            </Badge>
-          </div>
-
-          {/* Tipos de atividade */}
-          <div className="space-y-2">
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Tipo de atividade</p>
-            {availableActivities.length > 8 ? (
-              <div className="flex items-center gap-2 flex-wrap">
-                <Popover open={activityComboOpen} onOpenChange={setActivityComboOpen}>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" size="sm" className="justify-between min-w-[240px]">
-                      <span className="truncate">
-                        {selectedActivities.length === 0
-                          ? 'Todos os tipos'
-                          : `${selectedActivities.length} selecionado(s)`}
-                      </span>
-                      <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-[300px] p-0" align="start">
-                    <Command>
-                      <CommandInput placeholder="Buscar atividade..." />
-                      <CommandList>
-                        <CommandEmpty>Nenhuma atividade.</CommandEmpty>
-                        <CommandGroup>
-                          {availableActivities.map(a => {
-                            const active = selectedActivities.includes(a.id);
-                            return (
-                              <CommandItem
-                                key={a.id}
-                                value={a.name}
-                                onSelect={() => toggleActivity(a.id)}
-                              >
-                                <Check className={cn('mr-2 h-4 w-4', active ? 'opacity-100' : 'opacity-0')} />
-                                {a.name}
-                              </CommandItem>
-                            );
-                          })}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
-                {selectedActivities.length > 0 && (
-                  <Button variant="ghost" size="sm" onClick={() => setSelectedActivities([])}>
-                    Limpar
-                  </Button>
+          {/* Atalhos de período */}
+          <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 pl-0.5">
+            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Atalhos:</span>
+            {([
+              { key: 'mes_atual', label: 'Mês atual' },
+              { key: 'trimestre_atual', label: 'Trimestre atual' },
+              { key: 'ano_inteiro', label: 'Ano inteiro' },
+            ] as Array<{ key: Preset; label: string }>).map(p => (
+              <button
+                key={p.key}
+                type="button"
+                onClick={() => applyPreset(p.key)}
+                className={cn(
+                  'text-[11px] font-medium transition-colors',
+                  preset === p.key
+                    ? 'text-primary'
+                    : 'text-muted-foreground hover:text-foreground'
                 )}
-              </div>
-            ) : (
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() => setSelectedActivities([])}
-                  className={cn(
-                    'rounded-full border px-3 py-1 text-xs font-medium transition-colors',
-                    selectedActivities.length === 0
-                      ? 'bg-primary text-primary-foreground border-primary'
-                      : 'bg-background hover:bg-accent border-input'
-                  )}
-                >
-                  Todos os tipos
-                </button>
-                {availableActivities.map(a => {
-                  const active = selectedActivities.includes(a.id);
-                  return (
-                    <button
-                      key={a.id}
-                      type="button"
-                      onClick={() => toggleActivity(a.id)}
-                      className={cn(
-                        'rounded-full border px-3 py-1 text-xs font-medium transition-colors',
-                        active
-                          ? 'bg-primary text-primary-foreground border-primary'
-                          : 'bg-background hover:bg-accent border-input'
-                      )}
-                    >
-                      {a.name}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
+              >
+                {p.label}
+              </button>
+            ))}
           </div>
+        </CardContent>
+      </Card>
 
 
-
-          {/* Cliente */}
-          <div className="space-y-2">
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Cliente</p>
-            {availableClients.length > 8 ? (
-              <div className="flex items-center gap-2 flex-wrap">
-                <Popover open={clientComboOpen} onOpenChange={setClientComboOpen}>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" size="sm" className="justify-between min-w-[240px]">
-                      <span className="truncate">
-                        {selectedClients.length === 0
-                          ? 'Todos os clientes'
-                          : `${selectedClients.length} selecionado(s)`}
-                      </span>
-                      <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-[300px] p-0" align="start">
-                    <Command>
-                      <CommandInput placeholder="Buscar cliente..." />
-                      <CommandList>
-                        <CommandEmpty>Nenhum cliente.</CommandEmpty>
-                        <CommandGroup>
-                          {availableClients.map(c => {
-                            const active = selectedClients.includes(c.id);
-                            return (
-                              <CommandItem
-                                key={c.id}
-                                value={c.name}
-                                onSelect={() => toggleClient(c.id)}
-                              >
-                                <Check className={cn('mr-2 h-4 w-4', active ? 'opacity-100' : 'opacity-0')} />
-                                {c.name}
-                              </CommandItem>
-                            );
-                          })}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
-                {selectedClients.length > 0 && (
-                  <Button variant="ghost" size="sm" onClick={() => setSelectedClients([])}>
-                    Limpar
-                  </Button>
-                )}
-              </div>
-            ) : (
-              <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  onClick={() => setSelectedClients([])}
-                  className={cn(
-                    'rounded-full border px-3 py-1 text-xs font-medium transition-colors',
-                    selectedClients.length === 0
-                      ? 'bg-primary text-primary-foreground border-primary'
-                      : 'bg-background hover:bg-accent border-input'
-                  )}
-                >
-                  Todos os clientes
-                </button>
-                {availableClients.map(c => {
-                  const active = selectedClients.includes(c.id);
-                  return (
-                    <button
-                      key={c.id}
-                      type="button"
-                      onClick={() => toggleClient(c.id)}
-                      className={cn(
-                        'rounded-full border px-3 py-1 text-xs font-medium transition-colors',
-                        active
-                          ? 'bg-primary text-primary-foreground border-primary'
-                          : 'bg-background hover:bg-accent border-input'
-                      )}
-                    >
-                      {c.name}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
 
         </CardContent>
       </Card>
