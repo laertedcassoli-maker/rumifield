@@ -837,39 +837,85 @@ export default function GestaoOS() {
           {/* Cliente */}
           <div className="space-y-2">
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Cliente</p>
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={() => setSelectedClients([])}
-                className={cn(
-                  'rounded-full border px-3 py-1 text-xs font-medium transition-colors',
-                  selectedClients.length === 0
-                    ? 'bg-primary text-primary-foreground border-primary'
-                    : 'bg-background hover:bg-accent border-input'
+            {availableClients.length > 8 ? (
+              <div className="flex items-center gap-2 flex-wrap">
+                <Popover open={clientComboOpen} onOpenChange={setClientComboOpen}>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" size="sm" className="justify-between min-w-[240px]">
+                      <span className="truncate">
+                        {selectedClients.length === 0
+                          ? 'Todos os clientes'
+                          : `${selectedClients.length} selecionado(s)`}
+                      </span>
+                      <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-[300px] p-0" align="start">
+                    <Command>
+                      <CommandInput placeholder="Buscar cliente..." />
+                      <CommandList>
+                        <CommandEmpty>Nenhum cliente.</CommandEmpty>
+                        <CommandGroup>
+                          {availableClients.map(c => {
+                            const active = selectedClients.includes(c.id);
+                            return (
+                              <CommandItem
+                                key={c.id}
+                                value={c.name}
+                                onSelect={() => toggleClient(c.id)}
+                              >
+                                <Check className={cn('mr-2 h-4 w-4', active ? 'opacity-100' : 'opacity-0')} />
+                                {c.name}
+                              </CommandItem>
+                            );
+                          })}
+                        </CommandGroup>
+                      </CommandList>
+                    </Command>
+                  </PopoverContent>
+                </Popover>
+                {selectedClients.length > 0 && (
+                  <Button variant="ghost" size="sm" onClick={() => setSelectedClients([])}>
+                    Limpar
+                  </Button>
                 )}
-              >
-                Todos os clientes
-              </button>
-              {availableClients.map(c => {
-                const active = selectedClients.includes(c.id);
-                return (
-                  <button
-                    key={c.id}
-                    type="button"
-                    onClick={() => toggleClient(c.id)}
-                    className={cn(
-                      'rounded-full border px-3 py-1 text-xs font-medium transition-colors',
-                      active
-                        ? 'bg-primary text-primary-foreground border-primary'
-                        : 'bg-background hover:bg-accent border-input'
-                    )}
-                  >
-                    {c.name}
-                  </button>
-                );
-              })}
-            </div>
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedClients([])}
+                  className={cn(
+                    'rounded-full border px-3 py-1 text-xs font-medium transition-colors',
+                    selectedClients.length === 0
+                      ? 'bg-primary text-primary-foreground border-primary'
+                      : 'bg-background hover:bg-accent border-input'
+                  )}
+                >
+                  Todos os clientes
+                </button>
+                {availableClients.map(c => {
+                  const active = selectedClients.includes(c.id);
+                  return (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => toggleClient(c.id)}
+                      className={cn(
+                        'rounded-full border px-3 py-1 text-xs font-medium transition-colors',
+                        active
+                          ? 'bg-primary text-primary-foreground border-primary'
+                          : 'bg-background hover:bg-accent border-input'
+                      )}
+                    >
+                      {c.name}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
+
         </CardContent>
       </Card>
 
