@@ -82,6 +82,7 @@ export default function GestaoOS() {
     from: startOfMonth(now),
     to: endOfMonth(now),
   });
+  const [calendarMonth, setCalendarMonth] = useState<Date>(startOfMonth(now));
   const [preset, setPreset] = useState<Preset>('mes_atual');
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [selectedActivities, setSelectedActivities] = useState<string[]>([]);
@@ -90,6 +91,7 @@ export default function GestaoOS() {
   const [onlyLongLead, setOnlyLongLead] = useState(false);
   const [openDialogOS, setOpenDialogOS] = useState<any | null>(null);
   const [activityComboOpen, setActivityComboOpen] = useState(false);
+
 
 
   const { data: workOrders = [], isLoading } = useQuery({
