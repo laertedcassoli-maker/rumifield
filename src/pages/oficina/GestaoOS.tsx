@@ -178,13 +178,17 @@ export default function GestaoOS() {
 
   const availableYears = useMemo(() => {
     const years = new Set<number>();
-    years.add(currentYear);
+    // Always offer a useful window around current year
+    for (let y = currentYear - 5; y <= currentYear + 2; y++) {
+      years.add(y);
+    }
     workOrders.forEach(wo => {
       const y = new Date(wo.created_at).getFullYear();
       years.add(y);
     });
     return Array.from(years).sort((a, b) => a - b);
   }, [workOrders, currentYear]);
+
 
 
   const filteredOS = useMemo(() => {
