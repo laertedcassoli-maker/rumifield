@@ -501,12 +501,41 @@ export default function MinhasRotas() {
 
   const isLoading = isLoadingPreventive || isLoadingCorrective;
 
+  // Unique clients extracted from loaded routes/visits (for combobox)
+  const uniqueClients = useMemo(() => {
+    const map = new Map<string, string>();
+    (preventiveRoutes || []).forEach(r => {
+      r.client_ids.forEach((id, idx) => {
+        if (id && !map.has(id)) map.set(id, r.client_labels[idx] || 'Cliente');
+      });
+    });
+    (correctiveVisits || []).forEach(v => {
+      if (v.client_id && !map.has(v.client_id)) {
+        map.set(v.client_id, v.client_fazenda ? `${v.client_name} — ${v.client_fazenda}` : v.client_name);
+      }
+    });
+    return Array.from(map.entries())
+      .map(([id, label]) => ({ id, label }))
+      .sort((a, b) => a.label.localeCompare(b.label, 'pt-BR'));
+  }, [preventiveRoutes, correctiveVisits]);
+
+  const selectedClientLabel = clientFilter === 'all'
+    ? 'Todos os produtores'
+    : uniqueClients.find(c => c.id === clientFilter)?.label ?? 'Todos os produtores';
+
   // Combine and filter routes
   const filteredRoutes = useMemo(() => {
     const allRoutes: UnifiedRoute[] = [
       ...(preventiveRoutes || []),
       ...(correctiveVisits || []),
     ];
+
+    const fromMs = dateRange?.from ? new Date(dateRange.from).setHours(0, 0, 0, 0) : null;
+    const toMs = dateRange?.to
+      ? new Date(dateRange.to).setHours(23, 59, 59, 999)
+      : dateRange?.from
+        ? new Date(dateRange.from).setHours(23, 59, 59, 999)
+        : null;
 
     return allRoutes.filter(route => {
       // Type filter
