@@ -118,8 +118,6 @@ export default function EditarPedidoSolicitado({ pedido, onSaved, onCancel }: Ed
 
   const handleQtyChange = (itemId: string, newQty: number) => {
     if (newQty < 1) return;
-    const item = items.find(i => i.id === itemId);
-    if (item && isAutoLinkedItem(item.peca_id)) return;
     const original = pedido.pedido_itens?.find((i: any) => i.id === itemId);
     if (original && original.quantidade === newQty) {
       const next = { ...qtyChanges };
