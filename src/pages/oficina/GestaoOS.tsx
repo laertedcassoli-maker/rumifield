@@ -28,6 +28,8 @@ interface WorkOrderRow {
   created_by_user_id: string | null;
   concluded_by_user_id: string | null;
   assigned_to_user_id: string | null;
+  cliente_id: string | null;
+  clientes?: { id: string; nome: string } | null;
   activities?: { id: string; name: string; execution_type: string } | null;
   work_order_items?: Array<{
     workshop_item_id: string | null;
@@ -43,6 +45,7 @@ interface WorkOrderRow {
     pecas?: { nome: string } | null;
   }>;
 }
+
 
 export default function GestaoOS() {
   const currentYear = new Date().getFullYear();
