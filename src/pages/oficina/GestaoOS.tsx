@@ -1083,11 +1083,15 @@ export default function GestaoOS() {
           {osByClient.length === 0 ? (
             <p className="text-sm text-muted-foreground py-10 text-center">Sem OS por cliente no período.</p>
           ) : osByClient.length > 5 ? (
-            <Accordion type="single" collapsible defaultValue="os-por-cliente">
+            <Accordion type="single" collapsible>
               <AccordionItem value="os-por-cliente" className="border-0">
-                <AccordionTrigger className="text-sm font-semibold py-2 hover:no-underline">
-                  {osByClient.length} clientes no período
-                </AccordionTrigger>
+                <div className="flex-1 min-w-0">
+                  <AccordionTrigger className="text-sm font-semibold py-2 hover:no-underline w-full">
+                    <div className="w-full flex items-center justify-between gap-2">
+                      <span>{osByClient.length} clientes no período</span>
+                    </div>
+                  </AccordionTrigger>
+                </div>
                 <AccordionContent>{renderOsByClientTable()}</AccordionContent>
               </AccordionItem>
             </Accordion>
