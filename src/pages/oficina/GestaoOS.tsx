@@ -1290,7 +1290,7 @@ export default function GestaoOS() {
         <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
           <h3 className="text-sm font-semibold">
           <h3 className="text-sm font-semibold">
-            <InfoTooltip text="Lista as OS concluídas no período filtrado, ordenadas pela data de conclusão (ou abertura, se não houver data de conclusão) mais recente primeiro. Por padrão mostra as 10 últimas; use 'Ver todas' para exibir a lista completa.">
+            <InfoTooltip text="lista as OS concluídas no período filtrado, ordenadas pela data de conclusão (ou abertura, se não houver data de conclusão) mais recente primeiro. por padrão mostra as 10 últimas; use 'ver todas' para exibir a lista completa.">
               Últimas OS Concluídas
             </InfoTooltip>
             {onlyLongLead && <span className="text-xs text-red-600 font-normal">· filtro: Lead {'>'} 30d</span>}
@@ -1317,10 +1317,10 @@ export default function GestaoOS() {
                     <th className="text-left font-medium py-2 px-3">Abertura</th>
                     <th className="text-left font-medium py-2 px-3">Conclusão</th>
                     <th className="text-left font-medium py-2 px-3">
-                      <InfoTooltip text="Tempo total registrado de execução da OS (campo total_time_seconds), formatado em horas e minutos.">Tempo Exec.</InfoTooltip>
+                      <InfoTooltip text="tempo total registrado de execução da OS (campo total_time_seconds), formatado em horas e minutos.">Tempo Exec.</InfoTooltip>
                     </th>
                     <th className="text-left font-medium py-2 px-3">
-                      <InfoTooltip text="Dias entre abertura e conclusão da OS. Destacado em vermelho quando ultrapassa 30 dias.">Lead Time</InfoTooltip>
+                      <InfoTooltip text="dias entre abertura e conclusão da OS. destacado em vermelho quando ultrapassa 30 dias.">Lead Time</InfoTooltip>
                     </th>
                     <th className="text-left font-medium py-2 px-3">Status</th>
                   </tr>
@@ -1425,7 +1425,7 @@ export default function GestaoOS() {
                 onClick={() => { setOnlyLongLead(true); setShowAllRows(true); }}
                 className="w-full flex items-center justify-between rounded-md border px-3 py-2 hover:bg-muted/40 text-left"
               >
-                <InfoTooltip text="Clique para filtrar a tabela abaixo e ver somente as OS que levaram mais de 30 dias entre abertura e conclusão.">OS com lead time acima de 30 dias</InfoTooltip>
+                <InfoTooltip text="clique para filtrar a tabela abaixo e ver somente as OS que levaram mais de 30 dias entre abertura e conclusão.">OS com lead time acima de 30 dias</InfoTooltip>
                 <span className="inline-block rounded-full bg-red-100 text-red-700 border border-red-200 px-2 py-0.5 text-xs font-semibold">
                   {alerts.longLeadCount}
                 </span>
