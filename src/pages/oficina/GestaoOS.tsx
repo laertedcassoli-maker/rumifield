@@ -172,10 +172,11 @@ export default function GestaoOS() {
   }, [workOrders]);
 
   const filteredOS = useMemo(() => {
+    const fromTs = dateRange.from.getTime();
+    const toTs = dateRange.to.getTime();
     return workOrders.filter(wo => {
-      const d = new Date(wo.created_at);
-      if (d.getFullYear() !== selectedYear) return false;
-      if (selectedMonths.length > 0 && !selectedMonths.includes(d.getMonth())) return false;
+      const t = new Date(wo.created_at).getTime();
+      if (t < fromTs || t > toTs) return false;
       if (selectedActivities.length > 0) {
         if (!wo.activities?.id || !selectedActivities.includes(wo.activities.id)) return false;
       }
@@ -185,45 +186,43 @@ export default function GestaoOS() {
       }
       return true;
     });
-  }, [workOrders, selectedMonths, selectedActivities, selectedClients, selectedYear]);
+  }, [workOrders, dateRange, selectedActivities, selectedClients]);
 
 
   const periodLabel = useMemo(() => {
-    if (selectedMonths.length === 0) return `${selectedYear}`;
-    const sorted = [...selectedMonths].sort((a, b) => a - b);
-    const isContiguous = sorted.every((m, i) => i === 0 || m === sorted[i - 1] + 1);
-    if (isContiguous && sorted.length > 1) {
-      return `${MONTHS[sorted[0]]} – ${MONTHS[sorted[sorted.length - 1]]} ${selectedYear}`;
+    const sameYear = dateRange.from.getFullYear() === dateRange.to.getFullYear();
+    if (sameYear) {
+      return `${format(dateRange.from, 'dd/MM')} – ${format(dateRange.to, 'dd/MM/yyyy')}`;
     }
-    if (sorted.length === 1) return `${MONTHS[sorted[0]]} ${selectedYear}`;
-    return `${sorted.map(m => MONTHS[m]).join(', ')} ${selectedYear}`;
-  }, [selectedMonths, selectedYear]);
-
-  const availableYears = useMemo(() => {
-    const set = new Set<number>([currentYear]);
-    workOrders.forEach(wo => set.add(new Date(wo.created_at).getFullYear()));
-    return Array.from(set).sort((a, b) => b - a);
-  }, [workOrders, currentYear]);
+    return `${format(dateRange.from, 'dd/MM/yyyy')} – ${format(dateRange.to, 'dd/MM/yyyy')}`;
+  }, [dateRange]);
 
   const applyPreset = (p: Preset) => {
     setPreset(p);
-    if (p === 'mes_atual') setSelectedMonths([currentMonth]);
-    else if (p === 'trimestre_atual') setSelectedMonths(currentQuarterMonths);
-    else if (p === 'ano_inteiro') setSelectedMonths([0,1,2,3,4,5,6,7,8,9,10,11]);
+    const today = new Date();
+    if (p === 'mes_atual') {
+      setDateRange({ from: startOfMonth(today), to: endOfMonth(today) });
+    } else if (p === 'trimestre_atual') {
+      const q = Math.floor(today.getMonth() / 3);
+      const from = new Date(today.getFullYear(), q * 3, 1);
+      const to = new Date(today.getFullYear(), q * 3 + 3, 0, 23, 59, 59, 999);
+      setDateRange({ from, to });
+    } else if (p === 'ano_inteiro') {
+      setDateRange({
+        from: new Date(today.getFullYear(), 0, 1),
+        to: new Date(today.getFullYear(), 11, 31, 23, 59, 59, 999),
+      });
+    }
     // 'personalizado' keeps current selection
   };
 
-  const toggleMonth = (m: number) => {
-    setPreset('personalizado');
-    setSelectedMonths(prev => prev.includes(m) ? prev.filter(x => x !== m) : [...prev, m]);
-  };
-
   const clearAllFilters = () => {
-    setSelectedYear(currentYear);
+    const today = new Date();
     setPreset('mes_atual');
-    setSelectedMonths([currentMonth]);
+    setDateRange({ from: startOfMonth(today), to: endOfMonth(today) });
     setSelectedActivities([]);
   };
+
 
   const toggleActivity = (id: string) => {
     setSelectedActivities(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
