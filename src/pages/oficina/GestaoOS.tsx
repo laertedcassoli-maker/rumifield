@@ -263,7 +263,9 @@ export default function GestaoOS() {
     setDateRange({ from, to: endOfMonth(today) });
     setCalendarMonth(from);
     setSelectedActivities([]);
+    setSelectedClients([]);
   };
+
 
 
 
