@@ -176,6 +176,11 @@ export default function GestaoOS() {
     setSelectedActivities(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   };
 
+  const toggleClient = (id: string) => {
+    setSelectedClients(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
+  };
+
+
   const kpis = useMemo(() => {
     const concluded = filteredOS.filter(wo => wo.status === 'concluido');
     const concludedCount = concluded.length;
