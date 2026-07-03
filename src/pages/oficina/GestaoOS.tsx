@@ -728,8 +728,8 @@ export default function GestaoOS() {
                 { key: 'mes_atual', label: 'Mês atual' },
                 { key: 'trimestre_atual', label: 'Trimestre atual' },
                 { key: 'ano_inteiro', label: 'Ano inteiro' },
-                { key: 'personalizado', label: 'Personalizado' },
               ] as Array<{ key: Preset; label: string }>).map(p => (
+
                 <Button
                   key={p.key}
                   variant={preset === p.key ? 'default' : 'outline'}
