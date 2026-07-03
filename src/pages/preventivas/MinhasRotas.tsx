@@ -556,6 +556,21 @@ export default function MinhasRotas() {
       const techId = route.field_technician_user_id;
       if (technicianFilter !== 'all' && techId !== technicianFilter) return false;
 
+      // Client filter
+      if (clientFilter !== 'all') {
+        if (route.type === 'preventive') {
+          if (!route.client_ids.includes(clientFilter)) return false;
+        } else {
+          if (route.client_id !== clientFilter) return false;
+        }
+      }
+
+      // Date range filter (by created_at)
+      if (fromMs !== null && toMs !== null) {
+        const createdMs = route.created_at ? new Date(route.created_at).getTime() : NaN;
+        if (isNaN(createdMs) || createdMs < fromMs || createdMs > toMs) return false;
+      }
+
       // Date filter
       const today = new Date();
       if (route.type === 'preventive') {
