@@ -301,6 +301,20 @@ export default function GestaoOS() {
     return { label: 'Outro', cls: 'bg-slate-100 text-slate-700 border-slate-200' };
   };
 
+  const statusBadge = (status: string): { label: string; cls: string } => {
+    switch (status) {
+      case 'aguardando':
+        return { label: 'Aguardando', cls: 'bg-amber-100 text-amber-700 border-amber-200' };
+      case 'em_manutencao':
+        return { label: 'Em Manutenção', cls: 'bg-blue-100 text-blue-700 border-blue-200' };
+      case 'concluido':
+        return { label: 'Concluído', cls: 'bg-green-100 text-green-700 border-green-200' };
+      default:
+        return { label: status, cls: 'bg-slate-100 text-slate-700 border-slate-200' };
+    }
+  };
+
+
   const fmtDur = (sec: number | null) => {
     if (!sec || sec <= 0) return '—';
     const h = Math.floor(sec / 3600);
