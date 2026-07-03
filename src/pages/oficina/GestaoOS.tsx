@@ -895,7 +895,7 @@ export default function GestaoOS() {
           <CardTitle className="text-base">Funil de Status das OS</CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {/* Aguardando */}
             <div className="rounded-xl border shadow-sm p-5 bg-card">
               <div className="flex items-center justify-between">
@@ -925,26 +925,26 @@ export default function GestaoOS() {
               <p className="mt-2 text-3xl font-bold text-green-600">{statusFunnel.concluido}</p>
               <p className="text-xs text-muted-foreground mt-1">OS finalizadas</p>
             </div>
-          </div>
 
-          {/* Idade média das OS em aberto */}
-          <div className="rounded-xl border shadow-sm p-5 bg-card">
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Idade média das OS em aberto</p>
-              <Timer className={cn(
-                'h-4 w-4',
+            {/* Idade média das OS em aberto */}
+            <div className="rounded-xl border shadow-sm p-5 bg-card">
+              <div className="flex items-center justify-between">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Idade média das OS em aberto</p>
+                <Timer className={cn(
+                  'h-4 w-4',
+                  openAgeStats.avgDays > 30 ? 'text-red-600' : openAgeStats.avgDays >= 7 ? 'text-orange-500' : 'text-green-600'
+                )} />
+              </div>
+              <p className={cn(
+                'mt-2 text-3xl font-bold',
                 openAgeStats.avgDays > 30 ? 'text-red-600' : openAgeStats.avgDays >= 7 ? 'text-orange-500' : 'text-green-600'
-              )} />
+              )}>
+                {openAgeStats.count > 0 ? `${openAgeStats.avgDays.toFixed(1)} dias` : '—'}
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {openAgeStats.count > 0 ? `${openAgeStats.count} OS em aberto` : 'nenhuma OS em aberto no período'}
+              </p>
             </div>
-            <p className={cn(
-              'mt-2 text-3xl font-bold',
-              openAgeStats.avgDays > 30 ? 'text-red-600' : openAgeStats.avgDays >= 7 ? 'text-orange-500' : 'text-green-600'
-            )}>
-              {openAgeStats.count > 0 ? `${openAgeStats.avgDays.toFixed(1)} dias` : '—'}
-            </p>
-            <p className="text-xs text-muted-foreground mt-1">
-              {openAgeStats.count > 0 ? `${openAgeStats.count} OS em aberto` : 'nenhuma OS em aberto no período'}
-            </p>
           </div>
 
           {/* 5 OS mais antigas em aberto */}
