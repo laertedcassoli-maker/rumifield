@@ -537,8 +537,46 @@ export default function GestaoOS() {
               })}
             </div>
           </div>
+
+          {/* Cliente */}
+          <div className="space-y-2">
+            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Cliente</p>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={() => setSelectedClients([])}
+                className={cn(
+                  'rounded-full border px-3 py-1 text-xs font-medium transition-colors',
+                  selectedClients.length === 0
+                    ? 'bg-primary text-primary-foreground border-primary'
+                    : 'bg-background hover:bg-accent border-input'
+                )}
+              >
+                Todos os clientes
+              </button>
+              {availableClients.map(c => {
+                const active = selectedClients.includes(c.id);
+                return (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => toggleClient(c.id)}
+                    className={cn(
+                      'rounded-full border px-3 py-1 text-xs font-medium transition-colors',
+                      active
+                        ? 'bg-primary text-primary-foreground border-primary'
+                        : 'bg-background hover:bg-accent border-input'
+                    )}
+                  >
+                    {c.name}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </CardContent>
       </Card>
+
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
