@@ -1539,13 +1539,21 @@ export default function GestaoOS() {
       </Card>
 
 
-      <section className="space-y-3">
-        <div>
-          <h2 className="text-lg font-semibold">Saúde de Ativos / Motores</h2>
-          <p className="text-xs text-muted-foreground">Visão do estado atual dos ativos — independente dos filtros de período/atividade.</p>
-        </div>
-        <SaudeAtivosMotores />
-      </section>
+      <Accordion type="single" collapsible defaultValue="saude-ativos">
+        <AccordionItem value="saude-ativos" className="border-0">
+          <section className="rounded-xl border shadow-sm p-5 bg-card space-y-3">
+            <AccordionTrigger className="text-lg font-semibold py-0 hover:no-underline">
+              <div className="text-left">
+                <h2 className="text-lg font-semibold">Saúde de Ativos / Motores</h2>
+                <p className="text-xs text-muted-foreground">Visão do estado atual dos ativos — independente dos filtros de período/atividade.</p>
+              </div>
+            </AccordionTrigger>
+            <AccordionContent>
+              <SaudeAtivosMotores />
+            </AccordionContent>
+          </section>
+        </AccordionItem>
+      </Accordion>
 
       {openDialogOS && (
         <DetalheOSDialog
