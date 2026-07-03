@@ -174,6 +174,17 @@ export default function GestaoOS() {
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [workOrders]);
 
+  const availableYears = useMemo(() => {
+    const years = new Set<number>();
+    years.add(currentYear);
+    workOrders.forEach(wo => {
+      const y = new Date(wo.created_at).getFullYear();
+      years.add(y);
+    });
+    return Array.from(years).sort((a, b) => a - b);
+  }, [workOrders, currentYear]);
+
+
   const filteredOS = useMemo(() => {
     const fromTs = dateRange.from.getTime();
     const toTs = dateRange.to.getTime();
