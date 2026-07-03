@@ -220,6 +220,40 @@ export default function GestaoOS() {
       .sort((a, b) => b.qty - a.qty);
   }, [filteredOS, profilesMap]);
 
+  const technicianProductivity = useMemo(() => {
+    type Agg = { uid: string; concluidas: number; totalSec: number; countTime: number; emAberto: number };
+    const map = new Map<string, Agg>();
+    const getAgg = (uid: string): Agg => {
+      let a = map.get(uid);
+      if (!a) { a = { uid, concluidas: 0, totalSec: 0, countTime: 0, emAberto: 0 }; map.set(uid, a); }
+      return a;
+    };
+    filteredOS.forEach(wo => {
+      const tech = wo.assigned_to_user_id
+        || (wo.status === 'concluido' ? wo.concluded_by_user_id : null);
+      if (!tech) return;
+      const a = getAgg(tech);
+      if (wo.status === 'concluido') {
+        a.concluidas += 1;
+        if (wo.total_time_seconds && wo.total_time_seconds > 0) {
+          a.totalSec += wo.total_time_seconds;
+          a.countTime += 1;
+        }
+      } else if (wo.status === 'aguardando' || wo.status === 'em_manutencao') {
+        a.emAberto += 1;
+      }
+    });
+    const pm = profilesMap as Record<string, { nome: string | null; email: string | null }>;
+    return Array.from(map.values())
+      .map(a => {
+        const p = pm[a.uid];
+        const nome = p?.nome || p?.email || 'Usuário desconhecido';
+        const avgSec = a.countTime > 0 ? a.totalSec / a.countTime : 0;
+        return { ...a, nome, avgSec };
+      })
+      .sort((x, y) => y.concluidas - x.concluidas || y.emAberto - x.emAberto);
+  }, [filteredOS, profilesMap]);
+
   const concludedByMonth = useMemo(() => {
     const counts = new Map<number, number>();
     filteredOS
