@@ -27,6 +27,7 @@ interface WorkOrderRow {
   total_time_seconds: number | null;
   created_by_user_id: string | null;
   concluded_by_user_id: string | null;
+  assigned_to_user_id: string | null;
   activities?: { id: string; name: string; execution_type: string } | null;
   work_order_items?: Array<{
     workshop_item_id: string | null;
