@@ -90,7 +90,7 @@ export default function GestaoOS() {
 
 
   const { data: workOrders = [], isLoading } = useQuery({
-    queryKey: ['gestao-os', currentYear],
+    queryKey: ['gestao-os'],
     queryFn: async () => {
       const { data, error } = await supabase
         .from('work_orders')
