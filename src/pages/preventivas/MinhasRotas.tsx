@@ -154,6 +154,10 @@ export default function MinhasRotas() {
   const setTypeFilter = (v: RouteType) => updateParam('tipo', v, 'all');
   const setStatusFilter = (v: StatusFilter) => updateParam('status', v, 'ativas');
   const [showNovaVisita, setShowNovaVisita] = useState(false);
+  const [clientFilter, setClientFilter] = useState<string>('all');
+  const [clientPopoverOpen, setClientPopoverOpen] = useState(false);
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
+  const [datePopoverOpen, setDatePopoverOpen] = useState(false);
 
   const isAdminOrCoordinator = role === 'admin' || role === 'coordenador_servicos';
   const { canDelete } = useMenuPermissions();
