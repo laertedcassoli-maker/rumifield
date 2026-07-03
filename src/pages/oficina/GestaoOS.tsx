@@ -234,6 +234,9 @@ export default function GestaoOS() {
       });
       setCalendarMonth(from);
     }
+    // 'personalizado' keeps current selection
+  };
+
   const setYear = (year: number) => {
     setCalendarMonth(new Date(year, calendarMonth.getMonth(), 1));
   };
@@ -246,6 +249,7 @@ export default function GestaoOS() {
     setCalendarMonth(new Date(currentYear, calendarMonth.getMonth(), 1));
   };
 
+  const clearAllFilters = () => {
     const today = new Date();
     const from = startOfMonth(today);
     setPreset('mes_atual');
@@ -253,6 +257,7 @@ export default function GestaoOS() {
     setCalendarMonth(from);
     setSelectedActivities([]);
   };
+
 
 
 
