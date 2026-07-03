@@ -172,7 +172,7 @@ export default function GestaoOS() {
   const filteredOS = useMemo(() => {
     return workOrders.filter(wo => {
       const d = new Date(wo.created_at);
-      if (d.getFullYear() !== currentYear) return false;
+      if (d.getFullYear() !== selectedYear) return false;
       if (selectedMonths.length > 0 && !selectedMonths.includes(d.getMonth())) return false;
       if (selectedActivities.length > 0) {
         if (!wo.activities?.id || !selectedActivities.includes(wo.activities.id)) return false;
@@ -183,22 +183,45 @@ export default function GestaoOS() {
       }
       return true;
     });
-  }, [workOrders, selectedMonths, selectedActivities, selectedClients, currentYear]);
+  }, [workOrders, selectedMonths, selectedActivities, selectedClients, selectedYear]);
 
 
   const periodLabel = useMemo(() => {
-    if (selectedMonths.length === 0) return `${currentYear}`;
+    if (selectedMonths.length === 0) return `${selectedYear}`;
     const sorted = [...selectedMonths].sort((a, b) => a - b);
     const isContiguous = sorted.every((m, i) => i === 0 || m === sorted[i - 1] + 1);
     if (isContiguous && sorted.length > 1) {
-      return `${MONTHS[sorted[0]]} – ${MONTHS[sorted[sorted.length - 1]]} ${currentYear}`;
+      return `${MONTHS[sorted[0]]} – ${MONTHS[sorted[sorted.length - 1]]} ${selectedYear}`;
     }
-    if (sorted.length === 1) return `${MONTHS[sorted[0]]} ${currentYear}`;
-    return `${sorted.map(m => MONTHS[m]).join(', ')} ${currentYear}`;
-  }, [selectedMonths, currentYear]);
+    if (sorted.length === 1) return `${MONTHS[sorted[0]]} ${selectedYear}`;
+    return `${sorted.map(m => MONTHS[m]).join(', ')} ${selectedYear}`;
+  }, [selectedMonths, selectedYear]);
+
+  const availableYears = useMemo(() => {
+    const set = new Set<number>([currentYear]);
+    workOrders.forEach(wo => set.add(new Date(wo.created_at).getFullYear()));
+    return Array.from(set).sort((a, b) => b - a);
+  }, [workOrders, currentYear]);
+
+  const applyPreset = (p: Preset) => {
+    setPreset(p);
+    if (p === 'mes_atual') setSelectedMonths([currentMonth]);
+    else if (p === 'trimestre_atual') setSelectedMonths(currentQuarterMonths);
+    else if (p === 'ano_inteiro') setSelectedMonths([0,1,2,3,4,5,6,7,8,9,10,11]);
+    // 'personalizado' keeps current selection
+  };
 
   const toggleMonth = (m: number) => {
+    setPreset('personalizado');
     setSelectedMonths(prev => prev.includes(m) ? prev.filter(x => x !== m) : [...prev, m]);
+  };
+
+  const clearAllFilters = () => {
+    setSelectedYear(currentYear);
+    setPreset('mes_atual');
+    setSelectedMonths([currentMonth]);
+    setSelectedActivities([]);
+  };
   };
 
   const toggleActivity = (id: string) => {
