@@ -617,47 +617,44 @@ export default function GestaoOS() {
           </Button>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Ano */}
-          <div className="space-y-2">
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Ano</p>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-8 w-8"
-                onClick={() => setSelectedYear(y => y - 1)}
-                aria-label="Ano anterior"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <div className="flex flex-wrap gap-2">
-                {availableYears.map(y => (
-                  <Button
-                    key={y}
-                    variant={selectedYear === y ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setSelectedYear(y)}
-                  >
-                    {y}
-                  </Button>
-                ))}
-              </div>
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-8 w-8"
-                onClick={() => setSelectedYear(y => y + 1)}
-                aria-label="Próximo ano"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-
-          {/* Presets de período */}
+          {/* Período (calendário) */}
           <div className="space-y-2">
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Período</p>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className="justify-start text-left font-normal min-w-[260px]">
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {periodLabel}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="range"
+                    numberOfMonths={2}
+                    defaultMonth={dateRange.from}
+                    selected={{ from: dateRange.from, to: dateRange.to }}
+                    onSelect={(range) => {
+                      if (range?.from && range?.to) {
+                        setDateRange({
+                          from: new Date(range.from.getFullYear(), range.from.getMonth(), range.from.getDate(), 0, 0, 0, 0),
+                          to: new Date(range.to.getFullYear(), range.to.getMonth(), range.to.getDate(), 23, 59, 59, 999),
+                        });
+                        setPreset('personalizado');
+                      } else if (range?.from) {
+                        setDateRange({
+                          from: new Date(range.from.getFullYear(), range.from.getMonth(), range.from.getDate(), 0, 0, 0, 0),
+                          to: new Date(range.from.getFullYear(), range.from.getMonth(), range.from.getDate(), 23, 59, 59, 999),
+                        });
+                        setPreset('personalizado');
+                      }
+                    }}
+                    initialFocus
+                    className={cn('p-3 pointer-events-auto')}
+                  />
+                </PopoverContent>
+              </Popover>
+
               {([
                 { key: 'mes_atual', label: 'Mês atual' },
                 { key: 'trimestre_atual', label: 'Trimestre atual' },
@@ -676,49 +673,6 @@ export default function GestaoOS() {
             </div>
           </div>
 
-          {/* Meses */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Meses</p>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => { setPreset('personalizado'); setSelectedMonths([0,1,2,3,4,5,6,7,8,9,10,11]); }}
-                  className="text-xs text-primary hover:underline"
-                >
-                  Selecionar todos
-                </button>
-                <span className="text-xs text-muted-foreground">·</span>
-                <button
-                  type="button"
-                  onClick={() => { setPreset('personalizado'); setSelectedMonths([]); }}
-                  className="text-xs text-primary hover:underline"
-                >
-                  Limpar meses
-                </button>
-              </div>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {MONTHS.map((label, idx) => {
-                const active = selectedMonths.includes(idx);
-                return (
-                  <button
-                    key={label}
-                    type="button"
-                    onClick={() => toggleMonth(idx)}
-                    className={cn(
-                      'rounded-full border px-3 py-1 text-xs font-medium transition-colors',
-                      active
-                        ? 'bg-primary text-primary-foreground border-primary'
-                        : 'bg-background hover:bg-accent border-input'
-                    )}
-                  >
-                    {label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
 
           {/* Resumo do período ativo */}
           <div>
