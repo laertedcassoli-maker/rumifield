@@ -18,10 +18,15 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar as CalendarPicker } from '@/components/ui/calendar';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { cn } from '@/lib/utils';
+import type { DateRange } from 'react-day-picker';
 import { 
   Loader2, 
   Route,
-  Calendar,
+  Calendar as CalendarIcon,
   MapPin,
   CheckCircle2,
   Clock,
@@ -32,7 +37,10 @@ import {
   Wrench,
   Plus,
   WifiOff,
-  Trash2
+  Trash2,
+  Search,
+  Check,
+  XCircle
 } from 'lucide-react';
 import NovaVisitaDiretaDialog from '@/components/chamados/NovaVisitaDiretaDialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
@@ -65,14 +73,14 @@ import { offlineDb } from '@/lib/offline-db';
 
 // Preventive route statuses
 const preventiveStatusConfig = {
-  planejada: { label: 'Planejada', color: 'bg-blue-500/10 text-blue-600 border-blue-500/20', icon: Calendar },
+  planejada: { label: 'Planejada', color: 'bg-blue-500/10 text-blue-600 border-blue-500/20', icon: CalendarIcon },
   em_execucao: { label: 'Em Execução', color: 'bg-warning/10 text-warning border-warning/20', icon: Clock },
   finalizada: { label: 'Finalizada', color: 'bg-green-500/10 text-green-600 border-green-500/20', icon: CheckCircle2 },
 };
 
 // Corrective visit statuses
 const correctiveStatusConfig = {
-  planejada: { label: 'Planejada', color: 'bg-blue-500/10 text-blue-600 border-blue-500/20', icon: Calendar },
+  planejada: { label: 'Planejada', color: 'bg-blue-500/10 text-blue-600 border-blue-500/20', icon: CalendarIcon },
   em_elaboracao: { label: 'Em Elaboração', color: 'bg-muted text-muted-foreground border-border', icon: Clock },
   em_execucao: { label: 'Em Execução', color: 'bg-warning/10 text-warning border-warning/20', icon: Clock },
   finalizada: { label: 'Concluída', color: 'bg-green-500/10 text-green-600 border-green-500/20', icon: CheckCircle2 },
@@ -95,6 +103,8 @@ interface PreventiveRoute {
   field_technician_user_id: string;
   technician_name: string;
   farm_coordinates: Array<{ lat: number; lon: number; name: string }>;
+  client_ids: string[];
+  client_labels: string[];
   created_at: string;
 }
 
@@ -144,6 +154,10 @@ export default function MinhasRotas() {
   const setTypeFilter = (v: RouteType) => updateParam('tipo', v, 'all');
   const setStatusFilter = (v: StatusFilter) => updateParam('status', v, 'ativas');
   const [showNovaVisita, setShowNovaVisita] = useState(false);
+  const [clientFilter, setClientFilter] = useState<string>('all');
+  const [clientPopoverOpen, setClientPopoverOpen] = useState(false);
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
+  const [datePopoverOpen, setDatePopoverOpen] = useState(false);
 
   const isAdminOrCoordinator = role === 'admin' || role === 'coordenador_servicos';
   const { canDelete } = useMenuPermissions();
@@ -280,20 +294,20 @@ export default function MinhasRotas() {
       const { data: clientsData } = clientIds.length > 0
         ? await supabase
             .from('clientes')
-            .select('id, nome, latitude, longitude')
+            .select('id, nome, fazenda, latitude, longitude')
             .in('id', clientIds)
         : { data: [] };
 
-      const clientsMap = new Map<string, { nome: string; lat: number | null; lon: number | null }>(
-        clientsData?.map(c => [c.id, { nome: c.nome, lat: c.latitude, lon: c.longitude }] as [string, { nome: string; lat: number | null; lon: number | null }]) || []
+      const clientsMap = new Map<string, { nome: string; fazenda: string | null; lat: number | null; lon: number | null }>(
+        clientsData?.map(c => [c.id, { nome: c.nome, fazenda: (c as any).fazenda ?? null, lat: c.latitude, lon: c.longitude }] as [string, { nome: string; fazenda: string | null; lat: number | null; lon: number | null }]) || []
       );
 
       const profilesMap = new Map<string, string>(
         profilesResult.data?.map(p => [p.id, p.nome] as [string, string]) || []
       );
 
-      const countMap = new Map<string, { total: number; executed: number; coordinates: Array<{ lat: number; lon: number; name: string }> }>();
-      routeIds.forEach(id => countMap.set(id, { total: 0, executed: 0, coordinates: [] }));
+      const countMap = new Map<string, { total: number; executed: number; coordinates: Array<{ lat: number; lon: number; name: string }>; clientIds: string[]; clientLabels: string[] }>();
+      routeIds.forEach(id => countMap.set(id, { total: 0, executed: 0, coordinates: [], clientIds: [], clientLabels: [] }));
 
       // Group items by route and preserve order
       const itemsByRoute = new Map<string, typeof itemsResult.data>();
@@ -306,6 +320,7 @@ export default function MinhasRotas() {
         const counts = countMap.get(routeId);
         if (counts) {
           items?.sort((a, b) => (a.order_index || 0) - (b.order_index || 0));
+          const seen = new Set<string>();
           items?.forEach(item => {
             counts.total += 1;
             if (item.status === 'executado') {
@@ -314,6 +329,11 @@ export default function MinhasRotas() {
             const client = clientsMap.get(item.client_id);
             if (client?.lat && client?.lon) {
               counts.coordinates.push({ lat: client.lat, lon: client.lon, name: client.nome });
+            }
+            if (item.client_id && !seen.has(item.client_id)) {
+              seen.add(item.client_id);
+              counts.clientIds.push(item.client_id);
+              counts.clientLabels.push(client ? (client.fazenda ? `${client.nome} — ${client.fazenda}` : client.nome) : 'Cliente');
             }
           });
         }
@@ -331,6 +351,8 @@ export default function MinhasRotas() {
         field_technician_user_id: route.field_technician_user_id,
         technician_name: profilesMap.get(route.field_technician_user_id) || 'Não atribuído',
         farm_coordinates: countMap.get(route.id)?.coordinates || [],
+        client_ids: countMap.get(route.id)?.clientIds || [],
+        client_labels: countMap.get(route.id)?.clientLabels || [],
         created_at: route.created_at || '',
       }));
     },
@@ -350,12 +372,22 @@ export default function MinhasRotas() {
         const routeItems = allItems.filter(i => i.route_id === r.id).sort((a, b) => (a.order_index || 0) - (b.order_index || 0));
         const executed = routeItems.filter(i => i.status === 'executado').length;
         const coordinates: Array<{ lat: number; lon: number; name: string }> = [];
+        const clientIds: string[] = [];
+        const clientLabels: string[] = [];
+        const seen = new Set<string>();
         routeItems.forEach(i => {
           const client = clientsMap.get(i.client_id);
           if (client?.latitude && client?.longitude) {
             coordinates.push({ lat: client.latitude, lon: client.longitude, name: client.nome });
           } else if (i.client_lat && i.client_lon) {
             coordinates.push({ lat: i.client_lat, lon: i.client_lon, name: i.client_name || 'Cliente' });
+          }
+          if (i.client_id && !seen.has(i.client_id)) {
+            seen.add(i.client_id);
+            clientIds.push(i.client_id);
+            const fazenda = (client as any)?.fazenda ?? null;
+            const nome = client?.nome || i.client_name || 'Cliente';
+            clientLabels.push(fazenda ? `${nome} — ${fazenda}` : nome);
           }
         });
 
@@ -371,6 +403,8 @@ export default function MinhasRotas() {
           field_technician_user_id: r.field_technician_user_id,
           technician_name: r.technician_name || 'Não atribuído',
           farm_coordinates: coordinates,
+          client_ids: clientIds,
+          client_labels: clientLabels,
           created_at: (r as any).created_at || '',
         };
       });
@@ -467,12 +501,41 @@ export default function MinhasRotas() {
 
   const isLoading = isLoadingPreventive || isLoadingCorrective;
 
+  // Unique clients extracted from loaded routes/visits (for combobox)
+  const uniqueClients = useMemo(() => {
+    const map = new Map<string, string>();
+    (preventiveRoutes || []).forEach(r => {
+      r.client_ids.forEach((id, idx) => {
+        if (id && !map.has(id)) map.set(id, r.client_labels[idx] || 'Cliente');
+      });
+    });
+    (correctiveVisits || []).forEach(v => {
+      if (v.client_id && !map.has(v.client_id)) {
+        map.set(v.client_id, v.client_fazenda ? `${v.client_name} — ${v.client_fazenda}` : v.client_name);
+      }
+    });
+    return Array.from(map.entries())
+      .map(([id, label]) => ({ id, label }))
+      .sort((a, b) => a.label.localeCompare(b.label, 'pt-BR'));
+  }, [preventiveRoutes, correctiveVisits]);
+
+  const selectedClientLabel = clientFilter === 'all'
+    ? 'Todos os produtores'
+    : uniqueClients.find(c => c.id === clientFilter)?.label ?? 'Todos os produtores';
+
   // Combine and filter routes
   const filteredRoutes = useMemo(() => {
     const allRoutes: UnifiedRoute[] = [
       ...(preventiveRoutes || []),
       ...(correctiveVisits || []),
     ];
+
+    const fromMs = dateRange?.from ? new Date(dateRange.from).setHours(0, 0, 0, 0) : null;
+    const toMs = dateRange?.to
+      ? new Date(dateRange.to).setHours(23, 59, 59, 999)
+      : dateRange?.from
+        ? new Date(dateRange.from).setHours(23, 59, 59, 999)
+        : null;
 
     return allRoutes.filter(route => {
       // Type filter
@@ -492,6 +555,21 @@ export default function MinhasRotas() {
       // Technician filter
       const techId = route.field_technician_user_id;
       if (technicianFilter !== 'all' && techId !== technicianFilter) return false;
+
+      // Client filter
+      if (clientFilter !== 'all') {
+        if (route.type === 'preventive') {
+          if (!route.client_ids.includes(clientFilter)) return false;
+        } else {
+          if (route.client_id !== clientFilter) return false;
+        }
+      }
+
+      // Date range filter (by created_at)
+      if (fromMs !== null && toMs !== null) {
+        const createdMs = route.created_at ? new Date(route.created_at).getTime() : NaN;
+        if (isNaN(createdMs) || createdMs < fromMs || createdMs > toMs) return false;
+      }
 
       // Date filter
       const today = new Date();
@@ -538,7 +616,7 @@ export default function MinhasRotas() {
       const prioB = STATUS_PRIORITY[b.status] ?? 99;
       return prioA - prioB;
     });
-  }, [preventiveRoutes, correctiveVisits, filter, technicianFilter, typeFilter, statusFilter]);
+  }, [preventiveRoutes, correctiveVisits, filter, technicianFilter, typeFilter, statusFilter, clientFilter, dateRange]);
 
   const renderStatusBadge = (route: UnifiedRoute) => {
     if (route.type === 'preventive') {
@@ -657,7 +735,7 @@ export default function MinhasRotas() {
             {/* Info row */}
             <div className="flex items-center justify-between text-sm text-muted-foreground mb-3">
               <span className="flex items-center gap-1">
-                <Calendar className="h-4 w-4" />
+                <CalendarIcon className="h-4 w-4" />
                 {safeFormat(route.start_date, 'dd/MM', '—')} - {safeFormat(route.end_date, 'dd/MM', '—')}
               </span>
               <span className="flex items-center gap-1">
@@ -775,7 +853,7 @@ export default function MinhasRotas() {
             {/* Info row */}
             <div className="flex items-center justify-between text-sm text-muted-foreground">
               <span className="flex items-center gap-1">
-                <Calendar className="h-4 w-4" />
+                <CalendarIcon className="h-4 w-4" />
                 {safeFormat(visit.scheduled_date, 'dd/MM/yyyy')}
               </span>
               <span className="flex items-center gap-1 text-xs text-orange-600">
@@ -918,7 +996,94 @@ export default function MinhasRotas() {
               </SelectContent>
             </Select>
           )}
+
+          {/* Client (produtor) Filter */}
+          <Popover open={clientPopoverOpen} onOpenChange={setClientPopoverOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                role="combobox"
+                className={cn(
+                  "w-full justify-between font-normal",
+                  clientFilter === 'all' && "text-muted-foreground"
+                )}
+              >
+                <span className="truncate">{selectedClientLabel}</span>
+                <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[300px] p-0 pointer-events-auto" align="start">
+              <Command>
+                <CommandInput placeholder="Buscar produtor..." />
+                <CommandList>
+                  <CommandEmpty>Nenhum produtor encontrado.</CommandEmpty>
+                  <CommandGroup>
+                    <CommandItem
+                      value="__all__"
+                      onSelect={() => { setClientFilter('all'); setClientPopoverOpen(false); }}
+                    >
+                      <Check className={cn("mr-2 h-4 w-4", clientFilter === 'all' ? 'opacity-100' : 'opacity-0')} />
+                      Todos os produtores
+                    </CommandItem>
+                    {uniqueClients.map(c => (
+                      <CommandItem
+                        key={c.id}
+                        value={c.label}
+                        onSelect={() => { setClientFilter(c.id); setClientPopoverOpen(false); }}
+                      >
+                        <Check className={cn("mr-2 h-4 w-4", clientFilter === c.id ? 'opacity-100' : 'opacity-0')} />
+                        <span className="truncate">{c.label}</span>
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
+
+          {/* Date range filter (by created_at) */}
+          <Popover open={datePopoverOpen} onOpenChange={setDatePopoverOpen}>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                className={cn(
+                  "w-full justify-start text-left font-normal",
+                  !dateRange?.from && "text-muted-foreground"
+                )}
+              >
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {dateRange?.from ? (
+                  dateRange.to ? (
+                    <>
+                      {format(dateRange.from, 'dd/MM/yyyy')} — {format(dateRange.to, 'dd/MM/yyyy')}
+                    </>
+                  ) : (
+                    format(dateRange.from, 'dd/MM/yyyy')
+                  )
+                ) : (
+                  <span>Período de criação</span>
+                )}
+                {dateRange?.from && (
+                  <XCircle
+                    className="ml-auto h-4 w-4 opacity-60 hover:opacity-100"
+                    onClick={(e) => { e.stopPropagation(); setDateRange(undefined); }}
+                  />
+                )}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0 pointer-events-auto" align="start">
+              <CalendarPicker
+                mode="range"
+                selected={dateRange}
+                onSelect={(range) => setDateRange(range)}
+                numberOfMonths={2}
+                initialFocus
+                locale={ptBR}
+              />
+            </PopoverContent>
+          </Popover>
         </div>
+
 
         {/* Routes List */}
         {isLoading ? (
@@ -938,23 +1103,23 @@ export default function MinhasRotas() {
             <CardContent className="py-10 text-center">
               <Route className="mx-auto h-10 w-10 text-muted-foreground/50" />
               <h3 className="mt-3 font-semibold text-sm">
-                {filter !== 'todas' || technicianFilter !== 'all' || typeFilter !== 'all' || statusFilter !== 'todas'
+                {filter !== 'todas' || technicianFilter !== 'all' || typeFilter !== 'all' || statusFilter !== 'todas' || clientFilter !== 'all' || !!dateRange?.from
                   ? 'Nenhuma rota encontrada' 
                   : isAdminOrCoordinator 
                     ? 'Nenhuma rota em execução'
                     : 'Nenhuma rota atribuída'}
               </h3>
               <p className="text-xs text-muted-foreground mt-1">
-                {filter !== 'todas' || technicianFilter !== 'all' || typeFilter !== 'all' || statusFilter !== 'todas'
+                {filter !== 'todas' || technicianFilter !== 'all' || typeFilter !== 'all' || statusFilter !== 'todas' || clientFilter !== 'all' || !!dateRange?.from
                   ? 'Tente outros filtros' 
                   : 'Aguarde novas atribuições'}
               </p>
-              {(filter !== 'todas' || technicianFilter !== 'all' || typeFilter !== 'all' || statusFilter !== 'todas') && (
+              {(filter !== 'todas' || technicianFilter !== 'all' || typeFilter !== 'all' || statusFilter !== 'todas' || clientFilter !== 'all' || !!dateRange?.from) && (
                 <Button 
                   variant="outline" 
                   size="sm"
                   className="mt-3" 
-                  onClick={() => setSearchParams(new URLSearchParams(), { replace: true })}
+                  onClick={() => { setSearchParams(new URLSearchParams(), { replace: true }); setClientFilter('all'); setDateRange(undefined); }}
                 >
                   Limpar filtros
                 </Button>
