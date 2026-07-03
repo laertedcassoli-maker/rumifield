@@ -51,7 +51,7 @@ interface ConsumedPartsBlockProps {
   canForceDeleteLinked?: boolean;
 }
 
-export default function ConsumedPartsBlock({ preventiveId, isCompleted = false, canForceDeleteLinked = false }: ConsumedPartsBlockProps) {
+export default function ConsumedPartsBlock({ preventiveId, isCompleted = false, canForceDeleteLinked = true }: ConsumedPartsBlockProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const prevPartsCountRef = useRef(0);
   const [pollPausedUntil, setPollPausedUntil] = useState(0);
@@ -1127,15 +1127,15 @@ function PartItem({ part, isCompleted, isLinked, linkedLabel, canForceDeleteLink
             {part.part_name_snapshot}
           </p>
         </div>
-        {/* Delete button for all parts (locked when linked) */}
+        {/* Delete button for all parts (including linked repair cards) */}
         {!isCompleted && (
           <Button
             variant="ghost"
             size="icon"
             className="h-7 w-7 text-destructive shrink-0"
             onClick={() => onDelete(part.id)}
-            disabled={isLinked && !canForceDeleteLinked}
-            title={isLinked ? (canForceDeleteLinked ? 'Excluir este card de reparo (o PRD00605 permanece)' : 'Esta peça é gerada automaticamente. Remova o PRD00605 para excluí-la ou solicite permissão para exclusão manual.') : undefined}
+            disabled={false}
+            title={isLinked ? 'Excluir este card de reparo (o PRD00605 permanece)' : undefined}
           >
             <Trash2 className="h-3.5 w-3.5" />
           </Button>
