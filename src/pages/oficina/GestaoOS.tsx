@@ -11,6 +11,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { Wrench, CheckCircle, Timer, TrendingUp, AlertTriangle, Clock, ChevronLeft, ChevronRight, X, Check, ChevronsUpDown, Calendar as CalendarIcon } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
 import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
