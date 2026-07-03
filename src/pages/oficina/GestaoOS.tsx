@@ -222,7 +222,6 @@ export default function GestaoOS() {
     setSelectedMonths([currentMonth]);
     setSelectedActivities([]);
   };
-  };
 
   const toggleActivity = (id: string) => {
     setSelectedActivities(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
