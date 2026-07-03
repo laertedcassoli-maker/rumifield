@@ -1198,6 +1198,14 @@ export default function GestaoOS() {
         </div>
       </div>
 
+      <section className="space-y-3">
+        <div>
+          <h2 className="text-lg font-semibold">Saúde de Ativos / Motores</h2>
+          <p className="text-xs text-muted-foreground">Visão do estado atual dos ativos — independente dos filtros de período/atividade.</p>
+        </div>
+        <SaudeAtivosMotores />
+      </section>
+
       {openDialogOS && (
         <DetalheOSDialog
           open={!!openDialogOS}
