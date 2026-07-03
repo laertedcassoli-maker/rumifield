@@ -377,6 +377,17 @@ export default function GestaoOS() {
     return h > 0 ? `${h}h ${m}min` : `${m}min`;
   };
 
+  const durationRange = (sec: number | null): { label: string; order: number } => {
+    const h = (sec || 0) / 3600;
+    if (h <= 0) return { label: 'Sem registro', order: 0 };
+    if (h < 0.5) return { label: '< 30 min', order: 1 };
+    if (h < 1) return { label: '30–60 min', order: 2 };
+    if (h < 2) return { label: '1–2 h', order: 3 };
+    if (h < 4) return { label: '2–4 h', order: 4 };
+    return { label: '> 4 h', order: 5 };
+  };
+
+
   const leadDaysOf = (wo: WorkOrderRow) => {
     if (!wo.end_time || !wo.created_at) return null;
     return (new Date(wo.end_time).getTime() - new Date(wo.created_at).getTime()) / 86400000;
