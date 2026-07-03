@@ -381,7 +381,7 @@ export default function EditarPedidoSolicitado({ pedido, onSaved, onCancel }: Ed
                     <Minus className="h-3 w-3" />
                   </Button>
                   <span className={cn("w-8 text-center font-bold text-sm", qtyChanged && "text-warning")}>{currentQty}</span>
-                  <Button type="button" variant="outline" size="icon" className="h-7 w-7" onClick={() => handleQtyChange(item.id, currentQty + 1)} disabled={linked}>
+                  <Button type="button" variant="outline" size="icon" className="h-7 w-7" onClick={() => handleQtyChange(item.id, currentQty + 1)}>
                     <Plus className="h-3 w-3" />
                   </Button>
                 </div>
