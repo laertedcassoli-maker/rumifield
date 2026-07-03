@@ -106,7 +106,6 @@ export default function EditarPedidoSolicitado({ pedido, onSaved, onCancel }: Ed
 
   const handleCancelItem = (itemId: string) => {
     const item = items.find(i => i.id === itemId);
-    if (item && isAutoLinkedItem(item.peca_id)) return;
     setItems(prev => prev.map(i => i.id === itemId ? { ...i, _cancelled: true } : i));
     if (triggerPart && item?.peca_id === triggerPart.id) {
       setSolenoideModelo('');
