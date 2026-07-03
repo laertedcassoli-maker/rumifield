@@ -62,7 +62,7 @@ export default function GestaoOS() {
         .from('work_orders')
         .select(`
           id, code, status, created_at, start_time, end_time,
-          total_time_seconds, created_by_user_id, concluded_by_user_id,
+          total_time_seconds, created_by_user_id, concluded_by_user_id, assigned_to_user_id,
           activities:activity_id (id, name, execution_type),
           work_order_items (
             workshop_item_id, omie_product_id,
