@@ -1278,6 +1278,56 @@ export default function GestaoOS() {
         </div>
       </div>
 
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 text-orange-500" />
+            Possível Retrabalho
+          </CardTitle>
+          <p className="text-xs text-muted-foreground">
+            Mesma peça usada no mesmo ativo em OS diferentes dentro de 90 dias (OS mais recente no período filtrado).
+          </p>
+        </CardHeader>
+        <CardContent>
+          {reworkRows.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Nenhum caso detectado no período.</p>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-xs text-muted-foreground border-b">
+                    <th className="py-2 pr-3">Ativo</th>
+                    <th className="py-2 pr-3">Peça</th>
+                    <th className="py-2 pr-3 text-right">Repetições</th>
+                    <th className="py-2 pr-3">OS envolvidas</th>
+                    <th className="py-2 pr-3 text-right">Intervalo (dias)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {reworkRows.slice(0, 20).map(r => (
+                    <tr key={r.key} className="border-b last:border-0">
+                      <td className="py-2 pr-3 font-medium">{r.assetCode}</td>
+                      <td className="py-2 pr-3">{r.partName}</td>
+                      <td className="py-2 pr-3 text-right">
+                        <Badge className={cn(
+                          'text-white',
+                          r.count >= 3 ? 'bg-red-600 hover:bg-red-600' : 'bg-orange-500 hover:bg-orange-500'
+                        )}>
+                          {r.count}x
+                        </Badge>
+                      </td>
+                      <td className="py-2 pr-3 text-xs">{r.codes.join(', ')}</td>
+                      <td className="py-2 pr-3 text-right tabular-nums">{r.spanDays}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+
       <section className="space-y-3">
         <div>
           <h2 className="text-lg font-semibold">Saúde de Ativos / Motores</h2>
