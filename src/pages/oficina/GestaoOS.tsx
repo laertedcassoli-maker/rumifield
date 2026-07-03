@@ -8,7 +8,8 @@ import { DetalheOSDialog } from '@/components/oficina/DetalheOSDialog';
 import { SaudeAtivosMotores } from '@/components/oficina/SaudeAtivosMotores';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Wrench, CheckCircle, Timer, TrendingUp, AlertTriangle, Clock, ChevronLeft, ChevronRight, X, Check, ChevronsUpDown } from 'lucide-react';
+import { Wrench, CheckCircle, Timer, TrendingUp, AlertTriangle, Clock, ChevronLeft, ChevronRight, X, Check, ChevronsUpDown, Calendar as CalendarIcon } from 'lucide-react';
+import { Calendar } from '@/components/ui/calendar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -71,16 +72,18 @@ export default function GestaoOS() {
   const now = new Date();
   const currentYear = now.getFullYear();
   const currentMonth = now.getMonth();
-  const currentQuarterMonths = (() => {
-    const q = Math.floor(currentMonth / 3);
-    return [q * 3, q * 3 + 1, q * 3 + 2];
-  })();
+
+  const startOfMonth = (d: Date) => new Date(d.getFullYear(), d.getMonth(), 1);
+  const endOfMonth = (d: Date) => new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59, 999);
 
   type Preset = 'mes_atual' | 'trimestre_atual' | 'ano_inteiro' | 'personalizado';
 
-  const [selectedYear, setSelectedYear] = useState<number>(currentYear);
+  const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>({
+    from: startOfMonth(now),
+    to: endOfMonth(now),
+  });
   const [preset, setPreset] = useState<Preset>('mes_atual');
-  const [selectedMonths, setSelectedMonths] = useState<number[]>([currentMonth]);
+  const [calendarOpen, setCalendarOpen] = useState(false);
   const [selectedActivities, setSelectedActivities] = useState<string[]>([]);
   const [selectedClients, setSelectedClients] = useState<string[]>([]);
   const [showAllRows, setShowAllRows] = useState(false);
@@ -170,10 +173,11 @@ export default function GestaoOS() {
   }, [workOrders]);
 
   const filteredOS = useMemo(() => {
+    const fromTs = dateRange.from.getTime();
+    const toTs = dateRange.to.getTime();
     return workOrders.filter(wo => {
-      const d = new Date(wo.created_at);
-      if (d.getFullYear() !== selectedYear) return false;
-      if (selectedMonths.length > 0 && !selectedMonths.includes(d.getMonth())) return false;
+      const t = new Date(wo.created_at).getTime();
+      if (t < fromTs || t > toTs) return false;
       if (selectedActivities.length > 0) {
         if (!wo.activities?.id || !selectedActivities.includes(wo.activities.id)) return false;
       }
@@ -183,45 +187,43 @@ export default function GestaoOS() {
       }
       return true;
     });
-  }, [workOrders, selectedMonths, selectedActivities, selectedClients, selectedYear]);
+  }, [workOrders, dateRange, selectedActivities, selectedClients]);
 
 
   const periodLabel = useMemo(() => {
-    if (selectedMonths.length === 0) return `${selectedYear}`;
-    const sorted = [...selectedMonths].sort((a, b) => a - b);
-    const isContiguous = sorted.every((m, i) => i === 0 || m === sorted[i - 1] + 1);
-    if (isContiguous && sorted.length > 1) {
-      return `${MONTHS[sorted[0]]} – ${MONTHS[sorted[sorted.length - 1]]} ${selectedYear}`;
+    const sameYear = dateRange.from.getFullYear() === dateRange.to.getFullYear();
+    if (sameYear) {
+      return `${format(dateRange.from, 'dd/MM')} – ${format(dateRange.to, 'dd/MM/yyyy')}`;
     }
-    if (sorted.length === 1) return `${MONTHS[sorted[0]]} ${selectedYear}`;
-    return `${sorted.map(m => MONTHS[m]).join(', ')} ${selectedYear}`;
-  }, [selectedMonths, selectedYear]);
-
-  const availableYears = useMemo(() => {
-    const set = new Set<number>([currentYear]);
-    workOrders.forEach(wo => set.add(new Date(wo.created_at).getFullYear()));
-    return Array.from(set).sort((a, b) => b - a);
-  }, [workOrders, currentYear]);
+    return `${format(dateRange.from, 'dd/MM/yyyy')} – ${format(dateRange.to, 'dd/MM/yyyy')}`;
+  }, [dateRange]);
 
   const applyPreset = (p: Preset) => {
     setPreset(p);
-    if (p === 'mes_atual') setSelectedMonths([currentMonth]);
-    else if (p === 'trimestre_atual') setSelectedMonths(currentQuarterMonths);
-    else if (p === 'ano_inteiro') setSelectedMonths([0,1,2,3,4,5,6,7,8,9,10,11]);
+    const today = new Date();
+    if (p === 'mes_atual') {
+      setDateRange({ from: startOfMonth(today), to: endOfMonth(today) });
+    } else if (p === 'trimestre_atual') {
+      const q = Math.floor(today.getMonth() / 3);
+      const from = new Date(today.getFullYear(), q * 3, 1);
+      const to = new Date(today.getFullYear(), q * 3 + 3, 0, 23, 59, 59, 999);
+      setDateRange({ from, to });
+    } else if (p === 'ano_inteiro') {
+      setDateRange({
+        from: new Date(today.getFullYear(), 0, 1),
+        to: new Date(today.getFullYear(), 11, 31, 23, 59, 59, 999),
+      });
+    }
     // 'personalizado' keeps current selection
   };
 
-  const toggleMonth = (m: number) => {
-    setPreset('personalizado');
-    setSelectedMonths(prev => prev.includes(m) ? prev.filter(x => x !== m) : [...prev, m]);
-  };
-
   const clearAllFilters = () => {
-    setSelectedYear(currentYear);
+    const today = new Date();
     setPreset('mes_atual');
-    setSelectedMonths([currentMonth]);
+    setDateRange({ from: startOfMonth(today), to: endOfMonth(today) });
     setSelectedActivities([]);
   };
+
 
   const toggleActivity = (id: string) => {
     setSelectedActivities(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
@@ -616,47 +618,44 @@ export default function GestaoOS() {
           </Button>
         </CardHeader>
         <CardContent className="space-y-4">
-          {/* Ano */}
-          <div className="space-y-2">
-            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Ano</p>
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-8 w-8"
-                onClick={() => setSelectedYear(y => y - 1)}
-                aria-label="Ano anterior"
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <div className="flex flex-wrap gap-2">
-                {availableYears.map(y => (
-                  <Button
-                    key={y}
-                    variant={selectedYear === y ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setSelectedYear(y)}
-                  >
-                    {y}
-                  </Button>
-                ))}
-              </div>
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-8 w-8"
-                onClick={() => setSelectedYear(y => y + 1)}
-                aria-label="Próximo ano"
-              >
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
-
-          {/* Presets de período */}
+          {/* Período (calendário) */}
           <div className="space-y-2">
             <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Período</p>
-            <div className="flex flex-wrap gap-2">
+            <div className="flex flex-wrap items-center gap-2">
+              <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className="justify-start text-left font-normal min-w-[260px]">
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {periodLabel}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="range"
+                    numberOfMonths={2}
+                    defaultMonth={dateRange.from}
+                    selected={{ from: dateRange.from, to: dateRange.to }}
+                    onSelect={(range) => {
+                      if (range?.from && range?.to) {
+                        setDateRange({
+                          from: new Date(range.from.getFullYear(), range.from.getMonth(), range.from.getDate(), 0, 0, 0, 0),
+                          to: new Date(range.to.getFullYear(), range.to.getMonth(), range.to.getDate(), 23, 59, 59, 999),
+                        });
+                        setPreset('personalizado');
+                      } else if (range?.from) {
+                        setDateRange({
+                          from: new Date(range.from.getFullYear(), range.from.getMonth(), range.from.getDate(), 0, 0, 0, 0),
+                          to: new Date(range.from.getFullYear(), range.from.getMonth(), range.from.getDate(), 23, 59, 59, 999),
+                        });
+                        setPreset('personalizado');
+                      }
+                    }}
+                    initialFocus
+                    className={cn('p-3 pointer-events-auto')}
+                  />
+                </PopoverContent>
+              </Popover>
+
               {([
                 { key: 'mes_atual', label: 'Mês atual' },
                 { key: 'trimestre_atual', label: 'Trimestre atual' },
@@ -675,49 +674,6 @@ export default function GestaoOS() {
             </div>
           </div>
 
-          {/* Meses */}
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">Meses</p>
-              <div className="flex gap-2">
-                <button
-                  type="button"
-                  onClick={() => { setPreset('personalizado'); setSelectedMonths([0,1,2,3,4,5,6,7,8,9,10,11]); }}
-                  className="text-xs text-primary hover:underline"
-                >
-                  Selecionar todos
-                </button>
-                <span className="text-xs text-muted-foreground">·</span>
-                <button
-                  type="button"
-                  onClick={() => { setPreset('personalizado'); setSelectedMonths([]); }}
-                  className="text-xs text-primary hover:underline"
-                >
-                  Limpar meses
-                </button>
-              </div>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {MONTHS.map((label, idx) => {
-                const active = selectedMonths.includes(idx);
-                return (
-                  <button
-                    key={label}
-                    type="button"
-                    onClick={() => toggleMonth(idx)}
-                    className={cn(
-                      'rounded-full border px-3 py-1 text-xs font-medium transition-colors',
-                      active
-                        ? 'bg-primary text-primary-foreground border-primary'
-                        : 'bg-background hover:bg-accent border-input'
-                    )}
-                  >
-                    {label}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
 
           {/* Resumo do período ativo */}
           <div>
