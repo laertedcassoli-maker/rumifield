@@ -128,6 +128,18 @@ export default function GestaoOS() {
     return Array.from(map.entries()).map(([id, name]) => ({ id, name }));
   }, [workOrders]);
 
+  const availableClients = useMemo(() => {
+    const map = new Map<string, string>();
+    workOrders.forEach(wo => {
+      const key = wo.cliente_id || '__none__';
+      const label = wo.clientes?.nome || 'Sem cliente';
+      map.set(key, label);
+    });
+    return Array.from(map.entries())
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  }, [workOrders]);
+
   const filteredOS = useMemo(() => {
     return workOrders.filter(wo => {
       const d = new Date(wo.created_at);
@@ -136,9 +148,14 @@ export default function GestaoOS() {
       if (selectedActivities.length > 0) {
         if (!wo.activities?.id || !selectedActivities.includes(wo.activities.id)) return false;
       }
+      if (selectedClients.length > 0) {
+        const key = wo.cliente_id || '__none__';
+        if (!selectedClients.includes(key)) return false;
+      }
       return true;
     });
-  }, [workOrders, selectedMonths, selectedActivities, currentYear]);
+  }, [workOrders, selectedMonths, selectedActivities, selectedClients, currentYear]);
+
 
   const periodLabel = useMemo(() => {
     if (selectedMonths.length === 0) return `${currentYear}`;
