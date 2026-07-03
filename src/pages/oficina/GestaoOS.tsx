@@ -856,7 +856,7 @@ export default function GestaoOS() {
         <div className="rounded-xl border shadow-sm p-5 bg-card">
           <div className="flex items-center justify-between">
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              <InfoTooltip text="Quantidade de ordens de serviço com status 'Concluído' dentro do período e tipos de atividade selecionados nos filtros.">OS Concluídas</InfoTooltip>
+              <InfoTooltip text="quantidade de ordens de serviço com status 'concluído' dentro do período e tipos de atividade selecionados nos filtros.">OS Concluídas</InfoTooltip>
             </p>
             <CheckCircle className="h-4 w-4 text-green-600" />
           </div>
@@ -868,7 +868,7 @@ export default function GestaoOS() {
         <div className="rounded-xl border shadow-sm p-5 bg-card">
           <div className="flex items-center justify-between">
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              <InfoTooltip text="Média do tempo de execução (campo total_time_seconds) das OS concluídas no período filtrado. OS sem tempo registrado (zero ou nulo) não entram nessa média.">Tempo médio / OS</InfoTooltip>
+              <InfoTooltip text="média do tempo de execução (campo total_time_seconds) das OS concluídas no período filtrado. OS sem tempo registrado (zero ou nulo) não entram nessa média.">Tempo médio / OS</InfoTooltip>
             </p>
             <Timer className="h-4 w-4 text-muted-foreground" />
           </div>
@@ -880,7 +880,7 @@ export default function GestaoOS() {
         <div className="rounded-xl border shadow-sm p-5 bg-card">
           <div className="flex items-center justify-between">
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              <InfoTooltip text="Média, em dias, do intervalo entre a abertura (created_at) e a conclusão (end_time) das OS concluídas no período filtrado. Só considera OS que têm data de conclusão registrada. Verde quando a média é de até 10 dias, laranja quando ultrapassa 10 dias.">Lead time médio</InfoTooltip>
+              <InfoTooltip text="média, em dias, do intervalo entre a abertura (created_at) e a conclusão (end_time) das OS concluídas no período filtrado. só considera OS que têm data de conclusão registrada. verde quando a média é de até 10 dias, laranja quando ultrapassa 10 dias.">Lead time médio</InfoTooltip>
             </p>
             <TrendingUp className={cn('h-4 w-4', kpis.avgLead > 10 ? 'text-orange-500' : 'text-green-600')} />
           </div>
@@ -894,7 +894,7 @@ export default function GestaoOS() {
         <div className="rounded-xl border shadow-sm p-5 bg-card">
           <div className="flex items-center justify-between">
             <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-              <InfoTooltip text="Quantidade e percentual de OS cujo lead time (tempo entre abertura e conclusão) ultrapassou 30 dias. O percentual é calculado sobre o total de OS do período filtrado (incluindo as que ainda não foram concluídas), não apenas sobre as concluídas. Verde abaixo de 5%, laranja entre 5% e 10%, vermelho acima de 10%.">Lead time &gt; 30 dias</InfoTooltip>
+              <InfoTooltip text="quantidade e percentual de OS cujo lead time (tempo entre abertura e conclusão) ultrapassou 30 dias. o percentual é calculado sobre o total de OS do período filtrado (incluindo as que ainda não foram concluídas), não apenas sobre as concluídas. verde abaixo de 5%, laranja entre 5% e 10%, vermelho acima de 10%.">Lead time &gt; 30 dias</InfoTooltip>
             </p>
             <AlertTriangle className={cn(
               'h-4 w-4',
