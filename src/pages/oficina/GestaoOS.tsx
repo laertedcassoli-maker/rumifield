@@ -5,6 +5,7 @@ import {
 } from 'recharts';
 import { format } from 'date-fns';
 import { DetalheOSDialog } from '@/components/oficina/DetalheOSDialog';
+import { SaudeAtivosMotores } from '@/components/oficina/SaudeAtivosMotores';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Wrench, CheckCircle, Timer, TrendingUp, AlertTriangle, Clock } from 'lucide-react';
@@ -1196,6 +1197,14 @@ export default function GestaoOS() {
           </ul>
         </div>
       </div>
+
+      <section className="space-y-3">
+        <div>
+          <h2 className="text-lg font-semibold">Saúde de Ativos / Motores</h2>
+          <p className="text-xs text-muted-foreground">Visão do estado atual dos ativos — independente dos filtros de período/atividade.</p>
+        </div>
+        <SaudeAtivosMotores />
+      </section>
 
       {openDialogOS && (
         <DetalheOSDialog
