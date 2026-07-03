@@ -71,16 +71,18 @@ export default function GestaoOS() {
   const now = new Date();
   const currentYear = now.getFullYear();
   const currentMonth = now.getMonth();
-  const currentQuarterMonths = (() => {
-    const q = Math.floor(currentMonth / 3);
-    return [q * 3, q * 3 + 1, q * 3 + 2];
-  })();
+
+  const startOfMonth = (d: Date) => new Date(d.getFullYear(), d.getMonth(), 1);
+  const endOfMonth = (d: Date) => new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59, 999);
 
   type Preset = 'mes_atual' | 'trimestre_atual' | 'ano_inteiro' | 'personalizado';
 
-  const [selectedYear, setSelectedYear] = useState<number>(currentYear);
+  const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>({
+    from: startOfMonth(now),
+    to: endOfMonth(now),
+  });
   const [preset, setPreset] = useState<Preset>('mes_atual');
-  const [selectedMonths, setSelectedMonths] = useState<number[]>([currentMonth]);
+  const [calendarOpen, setCalendarOpen] = useState(false);
   const [selectedActivities, setSelectedActivities] = useState<string[]>([]);
   const [selectedClients, setSelectedClients] = useState<string[]>([]);
   const [showAllRows, setShowAllRows] = useState(false);
