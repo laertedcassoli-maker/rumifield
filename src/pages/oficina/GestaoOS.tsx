@@ -1324,7 +1324,7 @@ export default function GestaoOS() {
       </div>
 
       {/* Tabela: Últimas OS Concluídas */}
-      <Accordion type="single" collapsible defaultValue="ultimas-os-concluidas">
+      <Accordion type="single" collapsible>
         <AccordionItem value="ultimas-os-concluidas" className="border-0">
           <div className="rounded-xl border shadow-sm p-5 bg-card">
             <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
