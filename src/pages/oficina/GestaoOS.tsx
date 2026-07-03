@@ -11,6 +11,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { Wrench, CheckCircle, Timer, TrendingUp, AlertTriangle, Clock, ChevronLeft, ChevronRight, X, Check, ChevronsUpDown, Calendar as CalendarIcon } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
 import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -82,6 +84,7 @@ export default function GestaoOS() {
     from: startOfMonth(now),
     to: endOfMonth(now),
   });
+  const [calendarMonth, setCalendarMonth] = useState<Date>(startOfMonth(now));
   const [preset, setPreset] = useState<Preset>('mes_atual');
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [selectedActivities, setSelectedActivities] = useState<string[]>([]);
@@ -90,6 +93,7 @@ export default function GestaoOS() {
   const [onlyLongLead, setOnlyLongLead] = useState(false);
   const [openDialogOS, setOpenDialogOS] = useState<any | null>(null);
   const [activityComboOpen, setActivityComboOpen] = useState(false);
+
 
 
   const { data: workOrders = [], isLoading } = useQuery({
@@ -172,6 +176,21 @@ export default function GestaoOS() {
       .sort((a, b) => a.name.localeCompare(b.name));
   }, [workOrders]);
 
+  const availableYears = useMemo(() => {
+    const years = new Set<number>();
+    // Always offer a useful window around current year
+    for (let y = currentYear - 5; y <= currentYear + 2; y++) {
+      years.add(y);
+    }
+    workOrders.forEach(wo => {
+      const y = new Date(wo.created_at).getFullYear();
+      years.add(y);
+    });
+    return Array.from(years).sort((a, b) => a - b);
+  }, [workOrders, currentYear]);
+
+
+
   const filteredOS = useMemo(() => {
     const fromTs = dateRange.from.getTime();
     const toTs = dateRange.to.getTime();
@@ -202,27 +221,48 @@ export default function GestaoOS() {
     setPreset(p);
     const today = new Date();
     if (p === 'mes_atual') {
-      setDateRange({ from: startOfMonth(today), to: endOfMonth(today) });
+      const from = startOfMonth(today);
+      setDateRange({ from, to: endOfMonth(today) });
+      setCalendarMonth(from);
     } else if (p === 'trimestre_atual') {
       const q = Math.floor(today.getMonth() / 3);
       const from = new Date(today.getFullYear(), q * 3, 1);
       const to = new Date(today.getFullYear(), q * 3 + 3, 0, 23, 59, 59, 999);
       setDateRange({ from, to });
+      setCalendarMonth(from);
     } else if (p === 'ano_inteiro') {
+      const from = new Date(today.getFullYear(), 0, 1);
       setDateRange({
-        from: new Date(today.getFullYear(), 0, 1),
+        from,
         to: new Date(today.getFullYear(), 11, 31, 23, 59, 59, 999),
       });
+      setCalendarMonth(from);
     }
     // 'personalizado' keeps current selection
   };
 
+  const setYear = (year: number) => {
+    setCalendarMonth(new Date(year, calendarMonth.getMonth(), 1));
+  };
+
+  const shiftYear = (delta: number) => {
+    setCalendarMonth(new Date(calendarMonth.getFullYear() + delta, calendarMonth.getMonth(), 1));
+  };
+
+  const goToCurrentYear = () => {
+    setCalendarMonth(new Date(currentYear, calendarMonth.getMonth(), 1));
+  };
+
   const clearAllFilters = () => {
     const today = new Date();
+    const from = startOfMonth(today);
     setPreset('mes_atual');
-    setDateRange({ from: startOfMonth(today), to: endOfMonth(today) });
+    setDateRange({ from, to: endOfMonth(today) });
+    setCalendarMonth(from);
     setSelectedActivities([]);
   };
+
+
 
 
   const toggleActivity = (id: string) => {
@@ -630,10 +670,34 @@ export default function GestaoOS() {
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
+                  <div className="border-b p-3 flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-1">
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => shiftYear(-1)} aria-label="Ano anterior">
+                        <ChevronLeft className="h-4 w-4" />
+                      </Button>
+                      <Select value={String(calendarMonth.getFullYear())} onValueChange={(v) => setYear(Number(v))}>
+                        <SelectTrigger className="h-8 w-[110px] text-sm font-medium">
+                          <SelectValue placeholder="Ano" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {availableYears.map(year => (
+                            <SelectItem key={year} value={String(year)}>{year}</SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => shiftYear(1)} aria-label="Próximo ano">
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <Button variant="outline" size="sm" className="h-8 text-xs" onClick={goToCurrentYear}>
+                      Ano atual
+                    </Button>
+                  </div>
                   <Calendar
                     mode="range"
                     numberOfMonths={2}
-                    defaultMonth={dateRange.from}
+                    month={calendarMonth}
+                    onMonthChange={setCalendarMonth}
                     selected={{ from: dateRange.from, to: dateRange.to }}
                     onSelect={(range) => {
                       if (range?.from && range?.to) {
@@ -654,6 +718,7 @@ export default function GestaoOS() {
                     className={cn('p-3 pointer-events-auto')}
                   />
                 </PopoverContent>
+
               </Popover>
 
               {([
