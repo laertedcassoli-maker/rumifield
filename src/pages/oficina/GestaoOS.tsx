@@ -1075,31 +1075,40 @@ export default function GestaoOS() {
       </Card>
 
       {/* OS por Cliente */}
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">OS por Cliente</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {osByClient.length === 0 ? (
-            <p className="text-sm text-muted-foreground py-10 text-center">Sem OS por cliente no período.</p>
-          ) : osByClient.length > 5 ? (
-            <Accordion type="single" collapsible>
-              <AccordionItem value="os-por-cliente" className="border-0">
-                <div className="flex-1 min-w-0">
-                  <AccordionTrigger className="text-sm font-semibold py-2 hover:no-underline w-full">
-                    <div className="w-full flex items-center justify-between gap-2">
-                      <span>{osByClient.length} clientes no período</span>
+      {osByClient.length > 5 ? (
+        <Accordion type="single" collapsible>
+          <AccordionItem value="os-por-cliente" className="border-0">
+            <Card>
+              <CardHeader>
+                <AccordionTrigger className="text-base font-semibold py-0 hover:no-underline w-full">
+                  <div className="w-full flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2">
+                      <span>OS por Cliente</span>
+                      <span className="text-sm text-muted-foreground font-normal">{osByClient.length} clientes no período</span>
                     </div>
-                  </AccordionTrigger>
-                </div>
-                <AccordionContent>{renderOsByClientTable()}</AccordionContent>
-              </AccordionItem>
-            </Accordion>
-          ) : (
-            renderOsByClientTable()
-          )}
-        </CardContent>
-      </Card>
+                  </div>
+                </AccordionTrigger>
+              </CardHeader>
+              <AccordionContent>
+                <CardContent>{renderOsByClientTable()}</CardContent>
+              </AccordionContent>
+            </Card>
+          </AccordionItem>
+        </Accordion>
+      ) : (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">OS por Cliente</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {osByClient.length === 0 ? (
+              <p className="text-sm text-muted-foreground py-10 text-center">Sem OS por cliente no período.</p>
+            ) : (
+              renderOsByClientTable()
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Distribuição do Tempo de Execução */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
