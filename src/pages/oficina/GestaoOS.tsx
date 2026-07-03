@@ -352,6 +352,35 @@ export default function GestaoOS() {
     };
   }, [concludedRows, filteredOS]);
 
+  const daysOpen = (wo: WorkOrderRow) => {
+    return (Date.now() - new Date(wo.created_at).getTime()) / 86400000;
+  };
+
+  const statusFunnel = useMemo(() => {
+    const counts = { aguardando: 0, em_manutencao: 0, concluido: 0 };
+    filteredOS.forEach(wo => {
+      if (wo.status === 'aguardando' || wo.status === 'em_manutencao' || wo.status === 'concluido') {
+        counts[wo.status]++;
+      }
+    });
+    return counts;
+  }, [filteredOS]);
+
+  const openAgeStats = useMemo(() => {
+    const open = filteredOS.filter(wo => wo.status === 'aguardando' || wo.status === 'em_manutencao');
+    const days = open.map(wo => daysOpen(wo));
+    const avg = days.length ? days.reduce((a, b) => a + b, 0) / days.length : 0;
+    return { count: open.length, avgDays: avg };
+  }, [filteredOS]);
+
+  const oldestOpenRows = useMemo(() => {
+    return filteredOS
+      .filter(wo => wo.status !== 'concluido')
+      .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
+      .slice(0, 5);
+  }, [filteredOS]);
+
+
 
 
   return (
