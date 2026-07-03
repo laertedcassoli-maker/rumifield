@@ -204,27 +204,35 @@ export default function GestaoOS() {
     setPreset(p);
     const today = new Date();
     if (p === 'mes_atual') {
-      setDateRange({ from: startOfMonth(today), to: endOfMonth(today) });
+      const from = startOfMonth(today);
+      setDateRange({ from, to: endOfMonth(today) });
+      setCalendarMonth(from);
     } else if (p === 'trimestre_atual') {
       const q = Math.floor(today.getMonth() / 3);
       const from = new Date(today.getFullYear(), q * 3, 1);
       const to = new Date(today.getFullYear(), q * 3 + 3, 0, 23, 59, 59, 999);
       setDateRange({ from, to });
+      setCalendarMonth(from);
     } else if (p === 'ano_inteiro') {
+      const from = new Date(today.getFullYear(), 0, 1);
       setDateRange({
-        from: new Date(today.getFullYear(), 0, 1),
+        from,
         to: new Date(today.getFullYear(), 11, 31, 23, 59, 59, 999),
       });
+      setCalendarMonth(from);
     }
     // 'personalizado' keeps current selection
   };
 
   const clearAllFilters = () => {
     const today = new Date();
+    const from = startOfMonth(today);
     setPreset('mes_atual');
-    setDateRange({ from: startOfMonth(today), to: endOfMonth(today) });
+    setDateRange({ from, to: endOfMonth(today) });
+    setCalendarMonth(from);
     setSelectedActivities([]);
   };
+
 
 
   const toggleActivity = (id: string) => {
