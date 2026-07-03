@@ -159,7 +159,6 @@ export default function TicketPartsRequestPanel({
   };
 
   const updateQuantity = (pecaId: string, quantidade: number) => {
-    if (isAutoLinked(pecaId)) return;
     let next: PartItem[];
     if (quantidade < 1) {
       next = items.filter(i => i.peca_id !== pecaId);
