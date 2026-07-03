@@ -1127,7 +1127,7 @@ function PartItem({ part, isCompleted, isLinked, linkedLabel, canForceDeleteLink
             {part.part_name_snapshot}
           </p>
         </div>
-        {/* Delete button for all parts (locked when linked) */}
+        {/* Delete button for all parts (including linked repair cards) */}
         {!isCompleted && (
           <Button
             variant="ghost"
