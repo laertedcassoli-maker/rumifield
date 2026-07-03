@@ -808,7 +808,7 @@ export default function GestaoOS() {
             )}
           </div>
 
-          </div>
+
 
           {/* Cliente */}
           <div className="space-y-2">
