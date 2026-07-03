@@ -7,7 +7,7 @@ import { format } from 'date-fns';
 import { DetalheOSDialog } from '@/components/oficina/DetalheOSDialog';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { Wrench, CheckCircle, Timer, TrendingUp, AlertTriangle } from 'lucide-react';
+import { Wrench, CheckCircle, Timer, TrendingUp, AlertTriangle, Clock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
