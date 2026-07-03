@@ -616,7 +616,7 @@ export default function MinhasRotas() {
       const prioB = STATUS_PRIORITY[b.status] ?? 99;
       return prioA - prioB;
     });
-  }, [preventiveRoutes, correctiveVisits, filter, technicianFilter, typeFilter, statusFilter]);
+  }, [preventiveRoutes, correctiveVisits, filter, technicianFilter, typeFilter, statusFilter, clientFilter, dateRange]);
 
   const renderStatusBadge = (route: UnifiedRoute) => {
     if (route.type === 'preventive') {
