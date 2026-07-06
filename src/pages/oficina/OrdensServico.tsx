@@ -60,6 +60,7 @@ interface WorkOrder {
   item_info?: {
     unique_code?: string;
     product_name?: string;
+    quantity?: number;
     meter_hours_last?: number;
     motor_replaced_at_meter_hours?: number;
   };
