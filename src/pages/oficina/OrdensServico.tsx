@@ -162,7 +162,7 @@ export default function OrdensServico() {
 
       // Fetch work order items with workshop items and products
       const workOrderIds = data?.map(wo => wo.id) || [];
-      let itemsMap: Record<string, { unique_code?: string; product_name?: string; meter_hours_last?: number; motor_replaced_at_meter_hours?: number }> = {};
+      let itemsMap: Record<string, { unique_code?: string; product_name?: string; quantity?: number; meter_hours_last?: number; motor_replaced_at_meter_hours?: number }> = {};
       let partsCountMap: Record<string, number> = {};
       let workOrderPartsNamesMap: Record<string, string[]> = {};
 
@@ -172,7 +172,8 @@ export default function OrdensServico() {
           .select(`
             work_order_id,
             workshop_item_id,
-            omie_product_id
+            omie_product_id,
+            quantity
           `)
           .in('work_order_id', workOrderIds);
 
@@ -246,6 +247,7 @@ export default function OrdensServico() {
             itemsMap[item.work_order_id] = {
               unique_code: workshopItem?.unique_code,
               product_name: productId ? productsMap[productId] : undefined,
+              quantity: item.quantity ?? undefined,
               meter_hours_last: workshopItem?.meter_hours_last ?? undefined,
               motor_replaced_at_meter_hours: workshopItem?.motor_replaced_at_meter_hours ?? undefined
             };
@@ -556,6 +558,9 @@ export default function OrdensServico() {
                           {os.item_info?.product_name && (
                             <p className="text-xs text-muted-foreground break-words whitespace-normal mt-2">
                               {os.item_info.product_name}
+                              {typeof os.item_info.quantity === 'number' && os.item_info.quantity > 1 && (
+                                <span className="ml-1 font-medium text-foreground">({os.item_info.quantity} un)</span>
+                              )}
                             </p>
                           )}
                           {/* Motor hours since last replacement */}
@@ -661,6 +666,9 @@ export default function OrdensServico() {
                         {os.item_info?.product_name && (
                           <p className="text-xs text-muted-foreground break-words whitespace-normal mt-2">
                             {os.item_info.product_name}
+                            {typeof os.item_info.quantity === 'number' && os.item_info.quantity > 1 && (
+                              <span className="ml-1 font-medium text-foreground">({os.item_info.quantity} un)</span>
+                            )}
                           </p>
                         )}
                         {/* Motor hours since last replacement */}
