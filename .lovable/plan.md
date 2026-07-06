@@ -1,11 +1,14 @@
-Plano de correção para exibir a quantidade de peças em OS de execução em lote (LOTE) na listagem de Ordens de Serviço.
+Plano para exibir a quantidade de peças/itens em OS de execução em lote (LOTE) no dialog de detalhes.
 
-Arquivo: `src/pages/oficina/OrdensServico.tsx` (único arquivo alterado).
+Arquivo: `src/components/oficina/DetalheOSDialog.tsx` (único arquivo alterado).
 
 Mudanças:
-1. Adicionar `quantity` ao select de `work_order_items` na query principal.
-2. Incluir `quantity` na tipagem `itemsMap` e no objeto gerado para cada OS.
-3. Na renderização desktop (tabela), mostrar um indicador de quantidade (ex: "Qtd: 29") ao lado ou abaixo do `product_name`, apenas quando `quantity > 1`.
-4. Na renderização mobile (card), adicionar o mesmo indicador de quantidade no bloco equivalente, também condicionado a `quantity > 1`.
+1. Próximo à definição de `univocaItem` (linha ~1049), adicionar `const loteItem = workOrderItems.find(item => !item.workshop_item_id && item.omie_product_id);` para identificar itens de lote.
+2. Adicionar um novo bloco de renderização, como sibling do bloco `{univocaItem && (...)}` (linha ~1239-1290), condicionado a `{loteItem && (...)}`.
+3. O novo bloco seguirá o padrão visual do bloco "Item" existente (título, card com borda, Badge para o nome do produto), mas mostrará:
+   - `loteItem.product_name` como nome do produto.
+   - `loteItem.quantity` de forma destacada (ex: "Quantidade: 29" ou badge grande).
+4. O bloco de lote não incluirá horímetro/motor, pois isso só se aplica a ativos únicos.
+5. Os dois blocos (UNIVOCA e LOTE) serão mutuamente exclusivos por natureza, já que uma OS de lote tem `workshop_item_id` null.
 
-Nenhuma outra lógica de busca, filtro, ordenação ou exibição será alterada. A exibição da quantidade será opcional e só aparecerá para lotes com mais de 1 item, evitando poluir OS de item único.
+Nenhuma outra lógica será alterada (cronômetro, peças usadas, motor, etc.).

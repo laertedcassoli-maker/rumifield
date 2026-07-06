@@ -99,6 +99,7 @@ interface WorkOrderItem {
     omie_product_id?: string;
   } | null;
   product_name?: string;
+  quantity?: number;
 }
 
 interface Peca {
@@ -1047,6 +1048,8 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
   };
 
   const univocaItem = workOrderItems.find(item => item.workshop_item_id);
+  const loteItem = workOrderItems.find(item => !item.workshop_item_id && item.omie_product_id);
+
   
   // Check if this activity requires meter hours
   const requiresMeterHours = (() => {
@@ -1285,6 +1288,26 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
                     );
                   })()}
 
+                </div>
+              </div>
+            )}
+
+            {loteItem && (
+              <div>
+                <p className="text-sm font-semibold mb-2">Lote</p>
+                <div className="p-3 border rounded-lg bg-card space-y-3">
+                  <div>
+                    {loteItem.product_name && (
+                      <p className="text-sm text-muted-foreground break-words whitespace-normal">
+                        {loteItem.product_name}
+                      </p>
+                    )}
+                    <div className="mt-2">
+                      <Badge variant="default" className="text-sm font-semibold">
+                        Quantidade: {loteItem.quantity}
+                      </Badge>
+                    </div>
+                  </div>
                 </div>
               </div>
             )}
