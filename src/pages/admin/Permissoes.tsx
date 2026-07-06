@@ -305,15 +305,18 @@ export default function AdminPermissoes() {
                                       disabled={updatePermission.isPending || (role === 'admin' && perm.menu_key === 'admin_permissoes')}
                                     />
                                   </TableCell>
-                                  {(groupActionColumns[group] || []).map(col => (
-                                    <TableCell key={col.key} className="text-center">
-                                      <Switch
-                                        checked={Boolean(perm[col.key])}
-                                        onCheckedChange={(v) => updatePermission.mutate({ id: perm.id, field: col.key as string, value: v })}
-                                        disabled={updatePermission.isPending || !perm.can_access}
-                                      />
-                                    </TableCell>
-                                  ))}
+                                  {(groupActionColumns[group] || []).map(col => {
+                                    const isLocked = perm.menu_key === 'oficina_gestao_os' && (col.key === 'can_edit' || col.key === 'can_delete');
+                                    return (
+                                      <TableCell key={col.key} className="text-center">
+                                        <Switch
+                                          checked={isLocked ? false : Boolean(perm[col.key])}
+                                          onCheckedChange={(v) => updatePermission.mutate({ id: perm.id, field: col.key as string, value: v })}
+                                          disabled={isLocked || updatePermission.isPending || !perm.can_access}
+                                        />
+                                      </TableCell>
+                                    );
+                                  })}
                                 </TableRow>
                               ))}
                             </TableBody>
