@@ -80,7 +80,7 @@ export function AppSidebar() {
   // Oficina submenu items (operational - OS and Assets)
   const oficinaItems = [
     { title: 'Ordens de Serviço', icon: FileText, url: '/oficina/os', permKey: 'oficina_os' },
-    { title: 'Gestão de OS', icon: BarChart2, url: '/oficina/gestao', permKey: 'oficina_os' },
+    { title: 'Gestão de OS', icon: BarChart2, url: '/oficina/gestao', permKey: 'oficina_gestao_os' },
     { title: 'Cadastro Ativos', icon: Box, url: '/oficina/itens', permKey: 'oficina_itens' },
     { title: 'Garantias Motor', icon: Shield, url: '/oficina/garantias', permKey: 'oficina_garantias' },
   ].filter(item => canAccess(item.permKey));

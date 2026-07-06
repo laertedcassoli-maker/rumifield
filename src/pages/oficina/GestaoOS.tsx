@@ -8,6 +8,7 @@ import { DetalheOSDialog } from '@/components/oficina/DetalheOSDialog';
 import { SaudeAtivosMotores } from '@/components/oficina/SaudeAtivosMotores';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useMenuPermissions } from '@/hooks/useMenuPermissions';
 import { Wrench, CheckCircle, Timer, TrendingUp, AlertTriangle, Clock, ChevronLeft, ChevronRight, X, Check, ChevronsUpDown, Calendar as CalendarIcon, Info } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
 import { Button } from '@/components/ui/button';
