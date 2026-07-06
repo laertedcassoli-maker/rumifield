@@ -695,6 +695,17 @@ export default function GestaoOS() {
     </div>
   );
 
+  const { canAccess } = useMenuPermissions();
+  const allowed = canAccess('oficina_gestao_os');
+
+  if (!allowed) {
+    return (
+      <div className="flex items-center justify-center h-[60vh]">
+        <p className="text-muted-foreground">Você não tem permissão para acessar esta página.</p>
+      </div>
+    );
+  }
+
   return (
     <TooltipProvider delayDuration={0}>
       <div className="container mx-auto p-4 md:p-6 space-y-6">
