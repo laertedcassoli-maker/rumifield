@@ -99,6 +99,7 @@ interface WorkOrderItem {
     omie_product_id?: string;
   } | null;
   product_name?: string;
+  quantity?: number;
 }
 
 interface Peca {
@@ -1047,6 +1048,8 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
   };
 
   const univocaItem = workOrderItems.find(item => item.workshop_item_id);
+  const loteItem = workOrderItems.find(item => !item.workshop_item_id && item.omie_product_id);
+
   
   // Check if this activity requires meter hours
   const requiresMeterHours = (() => {
