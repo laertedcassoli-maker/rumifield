@@ -23,7 +23,7 @@ serve(async (req) => {
     console.log('Testing iMilk API connection...');
 
     // Test connection to iMilk API
-    const imilkResponse = await fetch('http://n8n.rumina.com.br/webhook/imilk/rumiflow/clientes', {
+    const imilkResponse = await fetch('https://n8n.rumina.com.br/webhook/imilk/rumiflow/clientes', {
       method: 'GET',
       headers: {
         'Authorization': imilkApiKey,
