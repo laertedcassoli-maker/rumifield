@@ -164,6 +164,13 @@ export default function TicketPartsRequestPanel({
     let next: PartItem[];
     if (quantidade < 1) {
       // Remoção manual por quantidade zerada: não reinsere PRD00639 automaticamente
+      if (targetPart && pecaId === targetPart.id) {
+        setAutoLinkDismissed(true);
+      }
+      if (triggerPart && pecaId === triggerPart.id) {
+        setAutoLinkDismissed(false);
+        setSolenoideModelo('');
+      }
       next = items.filter(i => i.peca_id !== pecaId);
       setItems(next);
     } else {
@@ -176,6 +183,10 @@ export default function TicketPartsRequestPanel({
     const next = items.filter(i => i.peca_id !== pecaId);
     if (triggerPart && pecaId === triggerPart.id) {
       setSolenoideModelo('');
+      setAutoLinkDismissed(false);
+    }
+    if (targetPart && pecaId === targetPart.id) {
+      setAutoLinkDismissed(true);
     }
     // Remoção manual: não reinsere PRD00639 automaticamente
     setItems(next);
