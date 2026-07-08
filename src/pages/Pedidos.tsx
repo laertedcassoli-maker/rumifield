@@ -56,6 +56,7 @@ export default function Pedidos() {
   const [viewingPedido, setViewingPedido] = useState<any>(null);
   const [form, setForm] = useState({ cliente_id: '', observacoes: '', urgencia: 'normal', tipo_envio: '', solenoide_modelo: '' });
   const [itens, setItens] = useState<{ peca_id: string; quantidade: number }[]>([]);
+  const [autoLinkDismissed, setAutoLinkDismissed] = useState(false);
   const [viewAll, setViewAll] = useState(false);
   const [solicitanteFilter, setSolicitanteFilter] = useState<string>('all');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -356,6 +357,7 @@ export default function Pedidos() {
       setEditingPedido(null);
       setForm({ cliente_id: '', observacoes: '', urgencia: 'normal', tipo_envio: '', solenoide_modelo: '' });
       setItens([]);
+      setAutoLinkDismissed(false);
     } catch (error: any) {
       toast({ variant: 'destructive', title: 'Erro ao excluir', description: error.message });
     } finally {
@@ -387,6 +389,7 @@ export default function Pedidos() {
    * nem remove automaticamente.
    */
   const applyAutoLinks = (list: { peca_id: string; quantidade: number }[]) => {
+    if (autoLinkDismissed) return list;
     const triggerId = findPecaIdByCodigo(AUTO_LINK_TRIGGER_CODE);
     const targetId = findPecaIdByCodigo(AUTO_LINK_TARGET_CODE);
     if (!triggerId || !targetId) return list;
@@ -428,10 +431,16 @@ export default function Pedidos() {
   const removeItem = (index: number) => {
     const removed = itens[index];
     const solenoideIdLocal = solenoideId;
+    const targetIdLocal = findPecaIdByCodigo(AUTO_LINK_TARGET_CODE);
     const next = itens.filter((_, i) => i !== index);
-    // Se removeu a solenóide PRD00605, limpa o modelo selecionado
+    // Se removeu a solenóide PRD00605, limpa o modelo selecionado e reseta o flag
     if (removed?.peca_id && solenoideIdLocal && removed.peca_id === solenoideIdLocal) {
       setForm((f) => ({ ...f, solenoide_modelo: '' }));
+      setAutoLinkDismissed(false);
+    }
+    // Se removeu manualmente PRD00639, marca para não reinserir automaticamente
+    if (removed?.peca_id && targetIdLocal && removed.peca_id === targetIdLocal) {
+      setAutoLinkDismissed(true);
     }
     // Remoção manual: não reinsere PRD00639 automaticamente
     setItens(next);
@@ -522,6 +531,7 @@ export default function Pedidos() {
       setEditingPedido(null);
       setForm({ cliente_id: '', observacoes: '', urgencia: 'normal', tipo_envio: '', solenoide_modelo: '' });
       setItens([]);
+      setAutoLinkDismissed(false);
       setShowConfirmation(false);
       setClienteSearch('');
       setPecaSearches({});
@@ -609,6 +619,7 @@ export default function Pedidos() {
       setEditingPedido(null);
       setForm({ cliente_id: '', observacoes: '', urgencia: 'normal', tipo_envio: '', solenoide_modelo: '' });
       setItens([]);
+      setAutoLinkDismissed(false);
       setShowConfirmation(false);
       setClienteSearch('');
       setPecaSearches({});

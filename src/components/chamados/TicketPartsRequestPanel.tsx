@@ -67,6 +67,7 @@ export default function TicketPartsRequestPanel({
   const [partPopoverOpen, setPartPopoverOpen] = useState(false);
   const [partSearch, setPartSearch] = useState('');
   const [showSolenoideDialog, setShowSolenoideDialog] = useState(false);
+  const [autoLinkDismissed, setAutoLinkDismissed] = useState(false);
 
   // Fetch active parts
   const { data: availableParts } = useQuery({
@@ -110,6 +111,7 @@ export default function TicketPartsRequestPanel({
   const findPart = (codigo: string) => availableParts?.find(p => p.codigo === codigo);
 
   const applyAutoLinks = (list: PartItem[]): PartItem[] => {
+    if (autoLinkDismissed) return list;
     const trigger = findPart(SOLENOIDE_TRIGGER_CODE);
     const target = findPart(SOLENOIDE_TARGET_CODE);
     if (!trigger || !target) return list;
@@ -162,6 +164,13 @@ export default function TicketPartsRequestPanel({
     let next: PartItem[];
     if (quantidade < 1) {
       // Remoção manual por quantidade zerada: não reinsere PRD00639 automaticamente
+      if (targetPart && pecaId === targetPart.id) {
+        setAutoLinkDismissed(true);
+      }
+      if (triggerPart && pecaId === triggerPart.id) {
+        setAutoLinkDismissed(false);
+        setSolenoideModelo('');
+      }
       next = items.filter(i => i.peca_id !== pecaId);
       setItems(next);
     } else {
@@ -174,6 +183,10 @@ export default function TicketPartsRequestPanel({
     const next = items.filter(i => i.peca_id !== pecaId);
     if (triggerPart && pecaId === triggerPart.id) {
       setSolenoideModelo('');
+      setAutoLinkDismissed(false);
+    }
+    if (targetPart && pecaId === targetPart.id) {
+      setAutoLinkDismissed(true);
     }
     // Remoção manual: não reinsere PRD00639 automaticamente
     setItems(next);
@@ -252,6 +265,7 @@ export default function TicketPartsRequestPanel({
       setItems([]);
       setObservacoes('');
       setSolenoideModelo('');
+      setAutoLinkDismissed(false);
       onOpenChange(false);
     },
     onError: (error: Error) => {
@@ -267,6 +281,7 @@ export default function TicketPartsRequestPanel({
     setItems([]);
     setObservacoes('');
     setSolenoideModelo('');
+    setAutoLinkDismissed(false);
     onOpenChange(false);
   };
 
