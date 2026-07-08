@@ -124,12 +124,18 @@ async function getSpreadsheetInfo(
   return await res.json();
 }
 
+import { requireRole } from "../_shared/auth.ts";
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const auth = await requireRole(req, ["admin", "coordenador_servicos"]);
+  if (!auth.ok) return auth.response;
+
   try {
+
     const credentialJson = Deno.env.get("CREDENCIAL_GOOGLE");
     if (!credentialJson) {
       throw new Error("CREDENCIAL_GOOGLE secret not configured");
