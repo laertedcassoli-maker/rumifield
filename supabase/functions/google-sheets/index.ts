@@ -137,6 +137,7 @@ serve(async (req) => {
 
   try {
 
+
     const credentialJson = Deno.env.get("CREDENCIAL_GOOGLE");
     if (!credentialJson) {
       throw new Error("CREDENCIAL_GOOGLE secret not configured");
