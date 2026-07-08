@@ -7,19 +7,19 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.transcribe-audio]
-verify_jwt = false
+verify_jwt = true
 
 [functions.test-omie-connection]
 verify_jwt = false
 
 [functions.doc-chat]
-verify_jwt = false
+verify_jwt = true
 
 [functions.detect-schema-changes]
-verify_jwt = false
+verify_jwt = true
 
 [functions.generate-table-docs]
-verify_jwt = false
+verify_jwt = true
 
 [functions.docs-ai-index]
 verify_jwt = false
@@ -34,22 +34,22 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.detect-code-changes]
-verify_jwt = false
+verify_jwt = true
 
 [functions.generate-module-docs]
-verify_jwt = false
+verify_jwt = true
 
 [functions.crm-client-analysis]
-verify_jwt = false
+verify_jwt = true
 
 [functions.refresh-ai-docs]
-verify_jwt = false
+verify_jwt = true
 
 [functions.client-intelligence]
-verify_jwt = false
+verify_jwt = true
 
 [functions.google-sheets]
-verify_jwt = false
+verify_jwt = true
 
 [functions.board-rumina]
-verify_jwt = false
+verify_jwt = true
