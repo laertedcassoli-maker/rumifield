@@ -430,10 +430,16 @@ export default function Pedidos() {
   const removeItem = (index: number) => {
     const removed = itens[index];
     const solenoideIdLocal = solenoideId;
+    const targetIdLocal = findPecaIdByCodigo(AUTO_LINK_TARGET_CODE);
     const next = itens.filter((_, i) => i !== index);
-    // Se removeu a solenóide PRD00605, limpa o modelo selecionado
+    // Se removeu a solenóide PRD00605, limpa o modelo selecionado e reseta o flag
     if (removed?.peca_id && solenoideIdLocal && removed.peca_id === solenoideIdLocal) {
       setForm((f) => ({ ...f, solenoide_modelo: '' }));
+      setAutoLinkDismissed(false);
+    }
+    // Se removeu manualmente PRD00639, marca para não reinserir automaticamente
+    if (removed?.peca_id && targetIdLocal && removed.peca_id === targetIdLocal) {
+      setAutoLinkDismissed(true);
     }
     // Remoção manual: não reinsere PRD00639 automaticamente
     setItens(next);
