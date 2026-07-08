@@ -125,7 +125,7 @@ async function getSpreadsheetInfo(
   return await res.json();
 }
 
-import { requireRole } from "../_shared/auth.ts";
+
 
 serve(async (req) => {
   if (req.method === "OPTIONS") {
