@@ -111,6 +111,7 @@ export default function TicketPartsRequestPanel({
   const findPart = (codigo: string) => availableParts?.find(p => p.codigo === codigo);
 
   const applyAutoLinks = (list: PartItem[]): PartItem[] => {
+    if (autoLinkDismissed) return list;
     const trigger = findPart(SOLENOIDE_TRIGGER_CODE);
     const target = findPart(SOLENOIDE_TARGET_CODE);
     if (!trigger || !target) return list;
