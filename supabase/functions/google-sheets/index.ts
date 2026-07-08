@@ -1,4 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { requireRole } from "../_shared/auth.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -124,12 +125,19 @@ async function getSpreadsheetInfo(
   return await res.json();
 }
 
+
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
   }
 
+  const auth = await requireRole(req, ["admin", "coordenador_servicos"]);
+  if (!auth.ok) return auth.response;
+
   try {
+
+
     const credentialJson = Deno.env.get("CREDENCIAL_GOOGLE");
     if (!credentialJson) {
       throw new Error("CREDENCIAL_GOOGLE secret not configured");
