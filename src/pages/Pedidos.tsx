@@ -388,6 +388,7 @@ export default function Pedidos() {
    * nem remove automaticamente.
    */
   const applyAutoLinks = (list: { peca_id: string; quantidade: number }[]) => {
+    if (autoLinkDismissed) return list;
     const triggerId = findPecaIdByCodigo(AUTO_LINK_TRIGGER_CODE);
     const targetId = findPecaIdByCodigo(AUTO_LINK_TARGET_CODE);
     if (!triggerId || !targetId) return list;
