@@ -137,8 +137,20 @@ export default function GestaoOS() {
   const [activityComboOpen, setActivityComboOpen] = useState(false);
   const [clientComboOpen, setClientComboOpen] = useState(false);
 
-
-
+  useEffect(() => {
+    try {
+      const payload: PersistedFilters = {
+        dateRange: { from: dateRange.from.toISOString(), to: dateRange.to.toISOString() },
+        preset,
+        selectedActivities,
+        selectedClients,
+        onlyLongLead,
+      };
+      window.localStorage.setItem(FILTERS_STORAGE_KEY, JSON.stringify(payload));
+    } catch {
+      // ignore storage errors
+    }
+  }, [dateRange, preset, selectedActivities, selectedClients, onlyLongLead]);
 
 
   const { data: workOrders = [], isLoading } = useQuery({
