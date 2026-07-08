@@ -98,21 +98,45 @@ export default function GestaoOS() {
 
   type Preset = 'mes_atual' | 'trimestre_atual' | 'ano_inteiro' | 'personalizado';
 
+  const FILTERS_STORAGE_KEY = 'gestao-os:filters:v1';
+  type PersistedFilters = {
+    dateRange: { from: string; to: string };
+    preset: Preset;
+    selectedActivities: string[];
+    selectedClients: string[];
+    onlyLongLead: boolean;
+  };
+  const loadPersistedFilters = (): PersistedFilters | null => {
+    try {
+      const raw = typeof window !== 'undefined' ? window.localStorage.getItem(FILTERS_STORAGE_KEY) : null;
+      if (!raw) return null;
+      const parsed = JSON.parse(raw) as PersistedFilters;
+      if (!parsed?.dateRange?.from || !parsed?.dateRange?.to) return null;
+      return parsed;
+    } catch {
+      return null;
+    }
+  };
+  const persisted = loadPersistedFilters();
 
-  const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>({
-    from: startOfMonth(now),
-    to: endOfMonth(now),
-  });
-  const [calendarMonth, setCalendarMonth] = useState<Date>(startOfMonth(now));
-  const [preset, setPreset] = useState<Preset>('mes_atual');
+  const [dateRange, setDateRange] = useState<{ from: Date; to: Date }>(() =>
+    persisted
+      ? { from: new Date(persisted.dateRange.from), to: new Date(persisted.dateRange.to) }
+      : { from: startOfMonth(now), to: endOfMonth(now) }
+  );
+  const [calendarMonth, setCalendarMonth] = useState<Date>(() =>
+    persisted ? startOfMonth(new Date(persisted.dateRange.from)) : startOfMonth(now)
+  );
+  const [preset, setPreset] = useState<Preset>(() => persisted?.preset ?? 'mes_atual');
   const [calendarOpen, setCalendarOpen] = useState(false);
-  const [selectedActivities, setSelectedActivities] = useState<string[]>([]);
-  const [selectedClients, setSelectedClients] = useState<string[]>([]);
+  const [selectedActivities, setSelectedActivities] = useState<string[]>(() => persisted?.selectedActivities ?? []);
+  const [selectedClients, setSelectedClients] = useState<string[]>(() => persisted?.selectedClients ?? []);
   const [showAllRows, setShowAllRows] = useState(false);
-  const [onlyLongLead, setOnlyLongLead] = useState(false);
+  const [onlyLongLead, setOnlyLongLead] = useState(() => persisted?.onlyLongLead ?? false);
   const [openDialogOS, setOpenDialogOS] = useState<any | null>(null);
   const [activityComboOpen, setActivityComboOpen] = useState(false);
   const [clientComboOpen, setClientComboOpen] = useState(false);
+
 
 
 
