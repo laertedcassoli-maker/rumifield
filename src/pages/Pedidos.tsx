@@ -357,6 +357,7 @@ export default function Pedidos() {
       setEditingPedido(null);
       setForm({ cliente_id: '', observacoes: '', urgencia: 'normal', tipo_envio: '', solenoide_modelo: '' });
       setItens([]);
+      setAutoLinkDismissed(false);
     } catch (error: any) {
       toast({ variant: 'destructive', title: 'Erro ao excluir', description: error.message });
     } finally {
