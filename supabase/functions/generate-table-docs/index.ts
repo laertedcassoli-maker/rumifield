@@ -18,8 +18,12 @@ Deno.serve(async (req) => {
     return new Response(null, { headers: corsHeaders })
   }
 
+  const auth = await requireRole(req, ['admin', 'coordenador_servicos'])
+  if (!auth.ok) return auth.response
+
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!
+
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
