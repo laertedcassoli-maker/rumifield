@@ -619,6 +619,7 @@ export default function Pedidos() {
       setEditingPedido(null);
       setForm({ cliente_id: '', observacoes: '', urgencia: 'normal', tipo_envio: '', solenoide_modelo: '' });
       setItens([]);
+      setAutoLinkDismissed(false);
       setShowConfirmation(false);
       setClienteSearch('');
       setPecaSearches({});
