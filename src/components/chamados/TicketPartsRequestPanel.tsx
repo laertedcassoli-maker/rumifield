@@ -265,6 +265,7 @@ export default function TicketPartsRequestPanel({
       setItems([]);
       setObservacoes('');
       setSolenoideModelo('');
+      setAutoLinkDismissed(false);
       onOpenChange(false);
     },
     onError: (error: Error) => {
