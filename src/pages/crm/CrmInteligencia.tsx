@@ -232,76 +232,136 @@ export default function CrmInteligencia() {
           <Brain className="h-6 w-6 text-blue-500" />
         </div>
         <div>
-          <h1 className="text-2xl font-bold">Inteligência do Cliente</h1>
-          <p className="text-sm text-muted-foreground">Pergunte qualquer coisa sobre um cliente</p>
+          <h1 className="text-2xl font-bold">Inteligência</h1>
+          <p className="text-sm text-muted-foreground">Pergunte sobre um cliente ou sobre o desempenho da oficina</p>
         </div>
       </div>
 
-      {/* Client Selector */}
-      <Popover open={openCombobox} onOpenChange={setOpenCombobox}>
-        <PopoverTrigger asChild>
-          <Button variant="outline" role="combobox" className="w-full justify-between h-11 text-left font-normal">
-            {selectedClient ? (
-              <span>
-                {selectedClient.nome}
-                {selectedClient.fazenda ? ` — ${selectedClient.fazenda}` : ""}
-              </span>
-            ) : (
-              <span className="text-muted-foreground">Buscar por nome ou fazenda...</span>
-            )}
-            <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
-          <Command>
-            <CommandInput placeholder="Buscar cliente..." value={clientSearch} onValueChange={setClientSearch} />
-            <CommandList>
-              <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
-              <CommandGroup>
-                <CommandItem
-                  value="todos os clientes"
-                  onSelect={() => {
-                    setSelectedClient(ALL_CLIENTS_OPTION);
-                    setOpenCombobox(false);
-                  }}
-                >
-                  <span className="font-medium">🌐 Todos os clientes</span>
-                  <span className="text-muted-foreground text-xs ml-auto">Visão geral</span>
-                </CommandItem>
-                {clients.map((c) => (
+      {/* Scope Tabs */}
+      <Tabs value={scope} onValueChange={(v) => { setScope(v as any); setStats(null); setAnalysis(null); setCachedKey(null); }}>
+        <TabsList className="grid w-full grid-cols-2 max-w-md">
+          <TabsTrigger value="client" className="gap-2"><Brain className="h-4 w-4" /> Cliente</TabsTrigger>
+          <TabsTrigger value="oficina" className="gap-2"><Wrench className="h-4 w-4" /> Oficina</TabsTrigger>
+        </TabsList>
+      </Tabs>
+
+      {scope === "client" ? (
+        /* Client Selector */
+        <Popover open={openCombobox} onOpenChange={setOpenCombobox}>
+          <PopoverTrigger asChild>
+            <Button variant="outline" role="combobox" className="w-full justify-between h-11 text-left font-normal">
+              {selectedClient ? (
+                <span>
+                  {selectedClient.nome}
+                  {selectedClient.fazenda ? ` — ${selectedClient.fazenda}` : ""}
+                </span>
+              ) : (
+                <span className="text-muted-foreground">Buscar por nome ou fazenda...</span>
+              )}
+              <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0" align="start">
+            <Command>
+              <CommandInput placeholder="Buscar cliente..." value={clientSearch} onValueChange={setClientSearch} />
+              <CommandList>
+                <CommandEmpty>Nenhum cliente encontrado.</CommandEmpty>
+                <CommandGroup>
                   <CommandItem
-                    key={c.id}
-                    value={`${c.nome} ${c.fazenda || ""}`}
+                    value="todos os clientes"
                     onSelect={() => {
-                      setSelectedClient(c);
+                      setSelectedClient(ALL_CLIENTS_OPTION);
                       setOpenCombobox(false);
                     }}
                   >
-                    <span className="font-medium">{c.nome}</span>
-                    {c.fazenda && <span className="text-muted-foreground ml-2">— {c.fazenda}</span>}
-                    {c.cidade && (
-                      <span className="text-muted-foreground text-xs ml-auto">
-                        {c.cidade}/{c.estado}
-                      </span>
-                    )}
+                    <span className="font-medium">🌐 Todos os clientes</span>
+                    <span className="text-muted-foreground text-xs ml-auto">Visão geral</span>
                   </CommandItem>
-                ))}
-              </CommandGroup>
-            </CommandList>
-          </Command>
-        </PopoverContent>
-      </Popover>
+                  {clients.map((c) => (
+                    <CommandItem
+                      key={c.id}
+                      value={`${c.nome} ${c.fazenda || ""}`}
+                      onSelect={() => {
+                        setSelectedClient(c);
+                        setOpenCombobox(false);
+                      }}
+                    >
+                      <span className="font-medium">{c.nome}</span>
+                      {c.fazenda && <span className="text-muted-foreground ml-2">— {c.fazenda}</span>}
+                      {c.cidade && (
+                        <span className="text-muted-foreground text-xs ml-auto">
+                          {c.cidade}/{c.estado}
+                        </span>
+                      )}
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
+      ) : (
+        /* Oficina Filters */
+        <Card>
+          <CardContent className="p-4 space-y-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="text-xs uppercase text-muted-foreground">De</label>
+                <input
+                  type="date"
+                  value={dateFrom}
+                  onChange={(e) => setDateFrom(e.target.value)}
+                  className="w-full h-9 rounded-md border bg-background px-3 text-sm"
+                />
+              </div>
+              <div>
+                <label className="text-xs uppercase text-muted-foreground">Até</label>
+                <input
+                  type="date"
+                  value={dateTo}
+                  onChange={(e) => setDateTo(e.target.value)}
+                  className="w-full h-9 rounded-md border bg-background px-3 text-sm"
+                />
+              </div>
+            </div>
+            {activities.length > 0 && (
+              <div>
+                <label className="text-xs uppercase text-muted-foreground">Atividades (vazio = todas)</label>
+                <div className="flex flex-wrap gap-1.5 mt-1.5 max-h-32 overflow-y-auto">
+                  {activities.map((a) => {
+                    const active = selectedActivities.includes(a.id);
+                    return (
+                      <Badge
+                        key={a.id}
+                        variant={active ? "default" : "outline"}
+                        className="cursor-pointer text-xs"
+                        onClick={() => toggleActivity(a.id)}
+                      >
+                        {a.name}
+                      </Badge>
+                    );
+                  })}
+                </div>
+                {selectedActivities.length > 0 && (
+                  <Button variant="ghost" size="sm" className="mt-2 h-7 text-xs" onClick={() => setSelectedActivities([])}>
+                    Limpar seleção
+                  </Button>
+                )}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Question Input */}
       <div className="space-y-2">
         <Textarea
-          placeholder="Faça uma pergunta sobre o cliente..."
+          placeholder={scope === "oficina" ? "Faça uma pergunta sobre a oficina..." : "Faça uma pergunta sobre o cliente..."}
           value={question}
           onChange={(e) => setQuestion(e.target.value)}
           className="min-h-[80px] resize-none"
         />
         <div className="flex items-center justify-between gap-3">
-          {/* Model Selector */}
           <div className="flex items-center gap-2">
             <Cpu className="h-4 w-4 text-muted-foreground" />
             <Select value={selectedModel} onValueChange={setSelectedModel}>
@@ -320,7 +380,11 @@ export default function CrmInteligencia() {
               </SelectContent>
             </Select>
           </div>
-          <Button onClick={handleGenerate} disabled={isLoading || !selectedClient} className="gap-2">
+          <Button
+            onClick={handleGenerate}
+            disabled={isLoading || (scope === "client" && !selectedClient)}
+            className="gap-2"
+          >
             {isLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
             Gerar
           </Button>
@@ -329,7 +393,12 @@ export default function CrmInteligencia() {
 
       {/* Suggestion Chips */}
       <div className="flex flex-wrap gap-2">
-        {(selectedClient?.id === "all" ? SUGGESTIONS_ALL : SUGGESTIONS_CLIENT).map((s) => (
+        {(scope === "oficina"
+          ? SUGGESTIONS_OFICINA
+          : selectedClient?.id === "all"
+          ? SUGGESTIONS_ALL
+          : SUGGESTIONS_CLIENT
+        ).map((s) => (
           <Badge
             key={s.label}
             variant="outline"
@@ -337,6 +406,7 @@ export default function CrmInteligencia() {
             onClick={() => setQuestion(s.question)}
           >
             {s.icon} {s.label}
+
           </Badge>
         ))}
       </div>
