@@ -878,11 +878,8 @@ REGRAS:
       JSON.stringify({
         stats,
         analysis,
-        ...(isAll ? {} : {
-          client: {
-            nome: stats.client_nome,
-          },
-        }),
+        scope,
+        ...(scope === "client" ? { client: { nome: stats.client_nome } } : {}),
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
