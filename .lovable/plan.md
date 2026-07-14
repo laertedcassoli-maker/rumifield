@@ -1,51 +1,48 @@
+# Adicionar escopo "Oficina" ao módulo Inteligência
 
-## Problema
+Hoje o módulo `Inteligência do Cliente` só responde sobre clientes (individual ou "todos"). Vou adicionar um terceiro escopo **Oficina**, com perguntas de volume/lead time, retrabalho, peças e saúde de motores.
 
-Em `TicketPartsRequestPanel.tsx` e `Pedidos.tsx`, quando o usuário remove manualmente a peça auto-vinculada (PRD00639), ela reaparece se ele adicionar outra peça ou alterar quantidade, porque `applyAutoLinks()` é reavaliada em toda mutação e reinsere o alvo enquanto o gatilho (PRD00605) ainda estiver presente.
+## 1. Backend — `supabase/functions/client-intelligence/index.ts`
 
-A correção pontual em `removePart`/`removeItem` (não chamar `applyAutoLinks` após remoção manual) não basta: `addPart`, `updateQuantity`, `updateItem`, `incrementQuantity` e `decrementQuantity` continuam reintroduzindo o alvo.
+Novo ramo `scope === "oficina"` (paralelo a `isAll`), que:
 
-## Solução
+- Aceita no body: `scope: "client" | "all" | "oficina"` e um `filters` opcional `{ dateFrom, dateTo, activityType }`. Retrocompat: se `clientId === "all"`, mantém comportamento atual.
+- Coleta em paralelo:
+  - `work_orders` com `id, code, status, created_at, start_time, end_time, total_time_seconds, activity_id, activities(name, execution_type), work_order_items(workshop_item_id, omie_product_id, quantity), work_order_parts_used(omie_product_id, quantity, pecas(codigo, nome))`, filtrando por período.
+  - `workshop_items` com `motor_id not null`: `unique_code, meter_hours_last, motor_replaced_at_meter_hours`.
+  - `motor_replacement_history` (últimas 30) com `workshop_item_id, old_motor_code, new_motor_code, motor_hours_used, replaced_at`.
+- Calcula `stats_oficina`:
+  - Totais por status; lead time médio (created_at→end_time) e distribuição em faixas <30m/30-60m/1-2h/2-4h/>4h das concluídas.
+  - Min/max por atividade.
+  - Top peças consumidas (soma de `quantity`).
+  - Retrabalho: grupos `(workshop_item_id + omie_product_id)` com repetições em ≤90 dias — top 20.
+  - Saúde de motores: horas usadas = `meter_hours_last - coalesce(motor_replaced_at_meter_hours, 0)`, classificando vermelho >1000h, laranja >800h. Últimas 10 trocas.
+- Monta `fullContext` textual compacto (mesmo padrão do modo cliente) e chama Lovable AI Gateway com `openai/gpt-5.5` (respeitando `model` recebido) e system prompt focado em análise operacional de oficina.
 
-Adicionar um flag de estado `autoLinkDismissed` que "lembra" a remoção manual do alvo até que o gatilho seja removido (o que reseta o flag). Enquanto `autoLinkDismissed === true`, `applyAutoLinks` retorna a lista intacta.
+## 2. Frontend — `src/pages/crm/CrmInteligencia.tsx`
 
-## Arquivos alterados
+- Novo state `scope: "client" | "oficina"` (o modo "Todos" continua dentro do combobox de clientes).
+- Adicionar um switch/tabs no topo: **Cliente** | **Oficina**.
+- No modo Oficina:
+  - Ocultar seletor de cliente; mostrar filtros: date-range (Popover Calendar, mesmo padrão do GestaoOS) e multi-select de atividade (opcional; se vazio = todas).
+  - Trocar `SUGGESTIONS_*` por `SUGGESTIONS_OFICINA`:
+    - "📈 Volume e lead time do período"
+    - "⏱️ Tempo médio por atividade"
+    - "🔁 Onde está havendo retrabalho?"
+    - "🧩 Peças mais consumidas na oficina"
+    - "⚙️ Motores próximos do limite (>800h/>1000h)"
+    - "🚨 OS em aberto há mais tempo"
+  - Painel de stats: cards com Total OS, Concluídas, Lead time médio, Retrabalho (grupos), Motores em risco, Peças usadas.
+- `handleGenerate` envia `{ scope, question, model, filters }`; para `scope === "client"` mantém `clientId`.
+- Permissão: reusar `canAccess("crm_inteligencia")` (sem mexer em roles). Sem alteração de RLS.
 
-Apenas dois:
+## 3. Sem migrations
 
-- `src/components/chamados/TicketPartsRequestPanel.tsx`
-- `src/pages/Pedidos.tsx`
+Nenhuma alteração de schema, RLS ou permissões. Apenas leituras (`work_orders`, `workshop_items`, `motor_replacement_history`) que já são acessíveis à role autenticada usada pela edge function (service role).
 
-Nenhum outro arquivo é tocado.
+## Detalhes técnicos
 
-### 1. `src/components/chamados/TicketPartsRequestPanel.tsx`
-
-- Novo estado: `const [autoLinkDismissed, setAutoLinkDismissed] = useState(false);`
-- `applyAutoLinks(list)`: no início, `if (autoLinkDismissed) return list;`.
-- `removePart(pecaId)`:
-  - se `targetPart && pecaId === targetPart.id` → `setAutoLinkDismissed(true)`
-  - se `triggerPart && pecaId === triggerPart.id` → `setAutoLinkDismissed(false)` (além do reset atual de `solenoideModelo`)
-- `updateQuantity(pecaId, quantidade)`: no branch `quantidade < 1` (remoção via zero), aplicar exatamente a mesma lógica acima antes do `setItems(next)`.
-- `addPart`: **sem mudança** — o auto-vínculo em primeira adição segue funcionando; se o gatilho for adicionado numa sessão nova, o flag já está `false`.
-- Reset do flag para `false` junto dos outros `setItems([])`:
-  - dentro de `handleClose()`
-  - dentro do `onSuccess` de `createRequest`
-
-### 2. `src/pages/Pedidos.tsx`
-
-Mesmo padrão, mesmo nome `autoLinkDismissed`:
-
-- Novo estado no mesmo componente que hospeda `applyAutoLinks`/`itens`/`form`.
-- `applyAutoLinks(list)`: guard inicial `if (autoLinkDismissed) return list;`.
-- `removeItem(index)`:
-  - identificar `removed = itens[index]`, `targetId = findPecaIdByCodigo(AUTO_LINK_TARGET_CODE)`, `triggerId = solenoideId`
-  - se `removed?.peca_id === targetId` → `setAutoLinkDismissed(true)`
-  - se `removed?.peca_id === triggerId` → `setAutoLinkDismissed(false)` (junto do reset atual de `solenoide_modelo`)
-- `updateItem`, `incrementQuantity`, `decrementQuantity`: **sem mudança de assinatura**; a proteção vem do guard em `applyAutoLinks`. Se `updateItem` trocar o `peca_id` de uma linha e essa linha era o alvo, o mesmo cenário do usuário (linha do alvo deixa de existir) ocorre; a decisão neste plano é **não** tratar `updateItem` como remoção explícita — o usuário disse "aplicar o mesmo padrão", e o padrão nos outros dois arquivos é reagir apenas a remoções explícitas. Assim mantemos comportamento simétrico entre updateItem/increment/decrement (todos apenas honram o flag).
-- Reset do flag para `false` junto de cada `setItens([])` já existente (linhas ~358, ~524, ~611).
-
-## Comportamento preservado
-
-- Primeira adição do gatilho PRD00605 em sessão nova continua inserindo PRD00639 automaticamente (flag inicia `false`).
-- Remoção do gatilho zera o flag: adicionar o gatilho de novo volta a inserir o alvo.
-- Nenhuma outra lógica (mutations, filtros, render, cronômetro, etc.) é alterada.
+- Reaproveitar helpers existentes (`groupAndCount`, `countByStatus`) e adicionar `groupPartsByCode` para OS.
+- Lead time em segundos → formatar horas na string de contexto.
+- Limitar retrabalho e listas ao top N para caber no prompt.
+- Preservar totalmente o comportamento atual dos escopos Cliente e Todos.
