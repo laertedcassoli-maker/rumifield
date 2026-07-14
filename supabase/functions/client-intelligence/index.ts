@@ -793,10 +793,10 @@ CAPACIDADES:
 
 REGRAS:
 - Responda SEMPRE em português brasileiro
-- Use dados concretos: códigos de OS, códigos de ativo, nomes de peças, minutos/horas, contagens
+- Use APENAS números que aparecem literalmente nos "Dados" fornecidos. NÃO arredonde, NÃO estime, NÃO invente valores. Ao citar uma quantidade, copie exatamente do bloco de dados (ex.: "Peças mais consumidas na oficina").
+- Se um valor não estiver nos dados, diga "não disponível" em vez de estimar.
 - Destaque ALERTAS primeiro (motores críticos, retrabalho, OS em aberto há muito tempo)
 - Formate com markdown: ## para seções, **negrito** para destaques, listas para itens
-- Se não houver dados suficientes, diga claramente
 - Máximo 700 palavras
 - Vá direto ao ponto`
       : isAll
@@ -852,7 +852,7 @@ REGRAS:
             content: `Pergunta do usuário: "${userQuestion}"\n\nDados:\n\n${fullContext}`,
           },
         ],
-        temperature: 0.3,
+        temperature: 0,
       }),
     });
 
