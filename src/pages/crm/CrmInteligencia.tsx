@@ -104,17 +104,28 @@ export default function CrmInteligencia() {
   const { canAccess } = useMenuPermissions();
   const { toast } = useToast();
 
+  const [scope, setScope] = useState<"client" | "oficina">("client");
   const [clients, setClients] = useState<ClientOption[]>([]);
   const [clientSearch, setClientSearch] = useState("");
   const [selectedClient, setSelectedClient] = useState<ClientOption | null>(null);
   const [openCombobox, setOpenCombobox] = useState(false);
   const [question, setQuestion] = useState("");
   const [loadingPhase, setLoadingPhase] = useState<"idle" | "collecting" | "analyzing">("idle");
-  const [stats, setStats] = useState<Stats | null>(null);
+  const [stats, setStats] = useState<any | null>(null);
   const [analysis, setAnalysis] = useState<string | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
-  const [cachedClientId, setCachedClientId] = useState<string | null>(null);
+  const [cachedKey, setCachedKey] = useState<string | null>(null);
   const [selectedModel, setSelectedModel] = useState("google/gemini-3-flash-preview");
+
+  // Oficina filters
+  const [dateFrom, setDateFrom] = useState<string>(() => {
+    const d = new Date();
+    d.setDate(1);
+    return d.toISOString().substring(0, 10);
+  });
+  const [dateTo, setDateTo] = useState<string>(() => new Date().toISOString().substring(0, 10));
+  const [activities, setActivities] = useState<{ id: string; name: string }[]>([]);
+  const [selectedActivities, setSelectedActivities] = useState<string[]>([]);
 
   // Check permissions
   const allowed =
@@ -143,8 +154,23 @@ export default function CrmInteligencia() {
     fetchClients();
   }, [clientSearch]);
 
+  // Load activities for oficina filter
+  useEffect(() => {
+    if (scope !== "oficina") return;
+    (async () => {
+      const { data } = await supabase
+        .from("activities")
+        .select("id, name")
+        .order("name");
+      setActivities((data as any[]) || []);
+    })();
+  }, [scope]);
+
+  const toggleActivity = (id: string) =>
+    setSelectedActivities((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+
   const handleGenerate = useCallback(async () => {
-    if (!selectedClient) {
+    if (scope === "client" && !selectedClient) {
       toast({ title: "Selecione um cliente", variant: "destructive" });
       return;
     }
@@ -153,28 +179,40 @@ export default function CrmInteligencia() {
       return;
     }
 
-    const reuseStats = cachedClientId === selectedClient.id && stats;
+    const key =
+      scope === "oficina"
+        ? `oficina:${dateFrom}:${dateTo}:${selectedActivities.slice().sort().join(",")}`
+        : `client:${selectedClient?.id}`;
+    const reuseStats = cachedKey === key && stats;
 
     setLoadingPhase(reuseStats ? "analyzing" : "collecting");
     setAnalysis(null);
 
     try {
-      const { data, error } = await supabase.functions.invoke("client-intelligence", {
-        body: { clientId: selectedClient.id, question: question.trim(), model: selectedModel },
-      });
+      const body: any = { question: question.trim(), model: selectedModel, scope };
+      if (scope === "client") body.clientId = selectedClient!.id;
+      if (scope === "oficina") {
+        body.filters = {
+          dateFrom: dateFrom || null,
+          dateTo: dateTo ? `${dateTo}T23:59:59` : null,
+          activityIds: selectedActivities,
+        };
+      }
+      const { data, error } = await supabase.functions.invoke("client-intelligence", { body });
 
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
 
       setStats(data.stats);
-      setCachedClientId(selectedClient.id);
+      setCachedKey(key);
       setAnalysis(data.analysis);
     } catch (err: any) {
       toast({ title: "Erro", description: err.message || "Erro ao gerar análise", variant: "destructive" });
     } finally {
       setLoadingPhase("idle");
     }
-  }, [selectedClient, question, cachedClientId, stats, toast, selectedModel]);
+  }, [scope, selectedClient, question, cachedKey, stats, toast, selectedModel, dateFrom, dateTo, selectedActivities]);
+
 
   if (!allowed) {
     return (
