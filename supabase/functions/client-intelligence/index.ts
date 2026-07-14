@@ -47,25 +47,263 @@ serve(async (req) => {
   }
 
   try {
-    const { clientId, question, model } = await req.json();
-    if (!clientId) {
+    const { clientId, question, model, scope: scopeIn, filters } = await req.json();
+    const scope: "client" | "all" | "oficina" =
+      scopeIn === "oficina" ? "oficina" : clientId === "all" ? "all" : clientId ? "client" : "all";
+
+    if (scope === "client" && !clientId) {
       return new Response(
         JSON.stringify({ error: "clientId é obrigatório" }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    console.log("[client-intelligence] Starting for client:", clientId, "question:", question?.substring(0, 80));
+    console.log("[client-intelligence] scope:", scope, "client:", clientId, "q:", question?.substring(0, 80));
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
     const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseKey);
 
-    const isAll = clientId === "all";
+    const isAll = scope === "all";
+    const isOficina = scope === "oficina";
     let stats: any;
     let fullContext: string;
 
-    if (isAll) {
+    if (isOficina) {
+      // ====== OFICINA MODE ======
+      const dateFrom: string | null = filters?.dateFrom || null;
+      const dateTo: string | null = filters?.dateTo || null;
+      const activityFilter: string[] | null =
+        Array.isArray(filters?.activityIds) && filters.activityIds.length > 0 ? filters.activityIds : null;
+
+      let woQ = supabase
+        .from("work_orders")
+        .select(
+          "id, code, status, created_at, start_time, end_time, total_time_seconds, activity_id, activities(name, execution_type), work_order_items(workshop_item_id, omie_product_id, quantity), work_order_parts_used(omie_product_id, quantity, pecas(codigo, nome))"
+        )
+        .order("created_at", { ascending: false })
+        .limit(1500);
+      if (dateFrom) woQ = woQ.gte("created_at", dateFrom);
+      if (dateTo) woQ = woQ.lte("created_at", dateTo);
+      if (activityFilter) woQ = woQ.in("activity_id", activityFilter);
+
+      // Full history for rework detection (last 12 months, all parts)
+      const historyFrom = new Date();
+      historyFrom.setMonth(historyFrom.getMonth() - 12);
+      const partsHistoryQ = supabase
+        .from("work_orders")
+        .select(
+          "id, code, created_at, work_order_items(workshop_item_id), work_order_parts_used(omie_product_id, pecas(codigo, nome))"
+        )
+        .gte("created_at", historyFrom.toISOString())
+        .limit(3000);
+
+      const [woRes, motorsRes, replHistRes, partsHistRes] = await Promise.all([
+        woQ,
+        supabase
+          .from("workshop_items")
+          .select("id, unique_code, meter_hours_last, motor_replaced_at_meter_hours, motor_id")
+          .not("motor_id", "is", null)
+          .limit(1000),
+        supabase
+          .from("motor_replacement_history")
+          .select("workshop_item_id, old_motor_code, new_motor_code, motor_hours_used, replaced_at")
+          .order("replaced_at", { ascending: false })
+          .limit(30),
+        partsHistoryQ,
+      ]);
+
+      const workOrders = woRes.data || [];
+      const motors = motorsRes.data || [];
+      const replacements = replHistRes.data || [];
+      const partsHistory = partsHistRes.data || [];
+
+      // KPIs
+      const totalOS = workOrders.length;
+      const byStatus = countByStatus(workOrders);
+      const concluidas = workOrders.filter((o: any) => o.status === "concluida" && o.total_time_seconds);
+      const avgTimeSec = concluidas.length
+        ? Math.round(concluidas.reduce((s: number, o: any) => s + (o.total_time_seconds || 0), 0) / concluidas.length)
+        : 0;
+      const buckets = { "<30m": 0, "30-60m": 0, "1-2h": 0, "2-4h": 0, ">4h": 0 };
+      for (const o of concluidas) {
+        const m = (o.total_time_seconds || 0) / 60;
+        if (m < 30) buckets["<30m"]++;
+        else if (m < 60) buckets["30-60m"]++;
+        else if (m < 120) buckets["1-2h"]++;
+        else if (m < 240) buckets["2-4h"]++;
+        else buckets[">4h"]++;
+      }
+      // By activity
+      const byActivity: Record<string, { count: number; min: number; max: number; sum: number; done: number }> = {};
+      for (const o of workOrders) {
+        const name = (o as any).activities?.name || "N/A";
+        if (!byActivity[name]) byActivity[name] = { count: 0, min: Infinity, max: 0, sum: 0, done: 0 };
+        byActivity[name].count++;
+        if (o.status === "concluida" && o.total_time_seconds) {
+          const s = o.total_time_seconds;
+          byActivity[name].done++;
+          byActivity[name].sum += s;
+          if (s < byActivity[name].min) byActivity[name].min = s;
+          if (s > byActivity[name].max) byActivity[name].max = s;
+        }
+      }
+      const activityStats = Object.entries(byActivity)
+        .map(([name, v]) => ({
+          name,
+          count: v.count,
+          done: v.done,
+          avg_min: v.done ? Math.round(v.sum / v.done / 60) : null,
+          min_min: v.done ? Math.round(v.min / 60) : null,
+          max_min: v.done ? Math.round(v.max / 60) : null,
+        }))
+        .sort((a, b) => b.count - a.count);
+
+      // Parts consumed on OS
+      const partsMap: Record<string, { label: string; total: number }> = {};
+      for (const o of workOrders) {
+        for (const p of (o as any).work_order_parts_used || []) {
+          const label = p.pecas ? `${p.pecas.codigo} — ${p.pecas.nome}` : p.omie_product_id;
+          partsMap[label] = partsMap[label] || { label, total: 0 };
+          partsMap[label].total += p.quantity || 0;
+        }
+      }
+      const topParts = Object.values(partsMap).sort((a, b) => b.total - a.total).slice(0, 15);
+
+      // Motor health
+      const motorHealth = motors
+        .map((m: any) => {
+          const used = (m.meter_hours_last || 0) - (m.motor_replaced_at_meter_hours || 0);
+          const level = used > 1000 ? "critico" : used > 800 ? "atencao" : "ok";
+          return { unique_code: m.unique_code, meter_hours_last: m.meter_hours_last, motor_hours_used: used, level };
+        })
+        .sort((a, b) => b.motor_hours_used - a.motor_hours_used);
+      const motorsCritico = motorHealth.filter((m) => m.level === "critico");
+      const motorsAtencao = motorHealth.filter((m) => m.level === "atencao");
+
+      // Rework: same asset+part in different OS within 90d
+      const eventsByKey: Record<string, { asset: string; partLabel: string; events: { os: string; date: string }[] }> = {};
+      for (const o of partsHistory) {
+        const items = (o as any).work_order_items || [];
+        const assetId = items.find((i: any) => i.workshop_item_id)?.workshop_item_id;
+        if (!assetId) continue;
+        for (const p of (o as any).work_order_parts_used || []) {
+          if (!p.omie_product_id) continue;
+          const key = `${assetId}::${p.omie_product_id}`;
+          const label = p.pecas ? `${p.pecas.codigo} — ${p.pecas.nome}` : p.omie_product_id;
+          if (!eventsByKey[key]) eventsByKey[key] = { asset: assetId, partLabel: label, events: [] };
+          eventsByKey[key].events.push({ os: o.code, date: o.created_at });
+        }
+      }
+      // Resolve asset codes
+      const assetIds = [...new Set(Object.values(eventsByKey).map((v) => v.asset))];
+      const { data: assetsRes } = assetIds.length
+        ? await supabase.from("workshop_items").select("id, unique_code").in("id", assetIds)
+        : ({ data: [] } as any);
+      const assetCode: Record<string, string> = {};
+      for (const a of assetsRes || []) assetCode[a.id] = a.unique_code;
+
+      const reworkList: any[] = [];
+      for (const g of Object.values(eventsByKey)) {
+        const evs = g.events.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+        if (evs.length < 2) continue;
+        // find any pair within 90 days
+        const pairs: { os: string[]; days: number }[] = [];
+        for (let i = 1; i < evs.length; i++) {
+          const days = Math.round((new Date(evs[i].date).getTime() - new Date(evs[i - 1].date).getTime()) / 86400000);
+          if (days <= 90) pairs.push({ os: [evs[i - 1].os, evs[i].os], days });
+        }
+        if (pairs.length === 0) continue;
+        reworkList.push({
+          asset: assetCode[g.asset] || g.asset,
+          part: g.partLabel,
+          repeats: evs.length,
+          os_codes: evs.map((e) => e.os),
+          intervals_days: pairs.map((p) => p.days),
+        });
+      }
+      reworkList.sort((a, b) => b.repeats - a.repeats);
+      const topRework = reworkList.slice(0, 20);
+
+      // OS abertas mais antigas
+      const openOS = workOrders
+        .filter((o: any) => o.status !== "concluida" && o.status !== "cancelada")
+        .map((o: any) => ({
+          code: o.code,
+          status: o.status,
+          days_open: Math.round((Date.now() - new Date(o.created_at).getTime()) / 86400000),
+          activity: (o as any).activities?.name || "N/A",
+        }))
+        .sort((a, b) => b.days_open - a.days_open)
+        .slice(0, 15);
+
+      stats = {
+        scope: "oficina",
+        total_os: totalOS,
+        os_por_status: byStatus,
+        os_concluidas: concluidas.length,
+        lead_time_medio_min: Math.round(avgTimeSec / 60),
+        distribuicao_tempo: buckets,
+        por_atividade: activityStats.slice(0, 20),
+        top_pecas: topParts,
+        motores_criticos: motorsCritico.length,
+        motores_atencao: motorsAtencao.length,
+        motores_topo: motorHealth.slice(0, 15),
+        ultimas_trocas_motor: replacements.slice(0, 10).map((r: any) => ({
+          asset: assetCode[r.workshop_item_id] || r.workshop_item_id,
+          old_motor: r.old_motor_code,
+          new_motor: r.new_motor_code,
+          hours_used: r.motor_hours_used,
+          replaced_at: r.replaced_at?.substring(0, 10),
+        })),
+        retrabalho_top: topRework,
+        os_abertas_antigas: openOS,
+      };
+
+      const sec: string[] = [];
+      const periodo = dateFrom || dateTo ? `${dateFrom || "início"} → ${dateTo || "hoje"}` : "todo histórico";
+      sec.push(
+        `## Visão Oficina (período: ${periodo})\n- Total OS: ${totalOS}\n- Por status: ${JSON.stringify(byStatus)}\n- Concluídas: ${concluidas.length}\n- Lead time médio (concluídas): ${Math.round(avgTimeSec / 60)} min\n- Distribuição: ${JSON.stringify(buckets)}`
+      );
+      sec.push(
+        `## Por Atividade (top 20)\n${activityStats
+          .slice(0, 20)
+          .map(
+            (a) =>
+              `- ${a.name}: ${a.count} OS (${a.done} concluídas)${a.avg_min !== null ? ` — média ${a.avg_min}m, min ${a.min_min}m, max ${a.max_min}m` : ""}`
+          )
+          .join("\n") || "—"}`
+      );
+      if (topParts.length)
+        sec.push(`## Peças mais consumidas na oficina\n${topParts.map((p) => `- ${p.label}: ${p.total} un`).join("\n")}`);
+      sec.push(
+        `## Saúde de Motores\n- Críticos (>1000h): ${motorsCritico.length}\n- Atenção (>800h): ${motorsAtencao.length}\n${motorHealth
+          .slice(0, 15)
+          .map((m) => `- ${m.unique_code}: ${m.motor_hours_used}h uso (${m.level})`)
+          .join("\n")}`
+      );
+      if (stats.ultimas_trocas_motor.length)
+        sec.push(
+          `## Últimas trocas de motor\n${stats.ultimas_trocas_motor
+            .map((r: any) => `- ${r.replaced_at} ${r.asset}: ${r.old_motor} → ${r.new_motor} (${r.hours_used}h)`)
+            .join("\n")}`
+        );
+      if (topRework.length)
+        sec.push(
+          `## Possível Retrabalho (mesma peça no mesmo ativo em ≤90d) — top 20\n${topRework
+            .map(
+              (r: any) =>
+                `- ${r.asset} | ${r.part}: ${r.repeats}x — OS ${r.os_codes.join(", ")} — intervalos: ${r.intervals_days.join(", ")}d`
+            )
+            .join("\n")}`
+        );
+      if (openOS.length)
+        sec.push(
+          `## OS em aberto mais antigas\n${openOS.map((o: any) => `- ${o.code} (${o.activity}) ${o.status}: ${o.days_open}d`).join("\n")}`
+        );
+
+      fullContext = sec.join("\n\n");
+    } else if (isAll) {
       // ====== ALL CLIENTS MODE ======
       const [
         clientsCountRes,
