@@ -429,8 +429,81 @@ export default function CrmInteligencia() {
         </Card>
       )}
 
+      {/* Oficina Stats Panel */}
+      {stats && !isLoading && scope === "oficina" && (
+        <div className="space-y-4">
+          <h3 className="text-sm font-semibold text-muted-foreground">
+            Oficina — {dateFrom} → {dateTo}
+          </h3>
+          <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
+            <StatCard icon={Wrench} label="Total OS" value={stats.total_os || 0} color="text-blue-500" bg="bg-blue-500/10" />
+            <StatCard icon={ClipboardCheck} label="Concluídas" value={stats.os_concluidas || 0} color="text-emerald-500" bg="bg-emerald-500/10" />
+            <StatCard icon={Timer} label="Lead min" value={stats.lead_time_medio_min || 0} color="text-violet-500" bg="bg-violet-500/10" />
+            <StatCard icon={Repeat2} label="Retrabalho" value={(stats.retrabalho_top || []).length} color="text-amber-500" bg="bg-amber-500/10" />
+            <StatCard icon={Gauge} label="Motores crít." value={stats.motores_criticos || 0} color="text-red-500" bg="bg-red-500/10" />
+            <StatCard icon={Package} label="Peças únicas" value={(stats.top_pecas || []).length} color="text-purple-500" bg="bg-purple-500/10" />
+          </div>
+          <Collapsible open={detailsOpen} onOpenChange={setDetailsOpen}>
+            <CollapsibleTrigger asChild>
+              <Button variant="ghost" size="sm" className="gap-1 text-muted-foreground">
+                {detailsOpen ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                {detailsOpen ? "Recolher detalhes" : "Ver detalhes"}
+              </Button>
+            </CollapsibleTrigger>
+            <CollapsibleContent className="space-y-4 mt-2">
+              {stats.por_atividade?.length > 0 && (
+                <DetailSection title="⏱️ Por atividade" color="border-blue-500">
+                  <ul className="text-sm list-disc list-inside">
+                    {stats.por_atividade.slice(0, 10).map((a: any, i: number) => (
+                      <li key={i}>
+                        {a.name}: {a.count} OS
+                        {a.avg_min !== null ? ` — média ${a.avg_min}m (min ${a.min_min}m, max ${a.max_min}m)` : ""}
+                      </li>
+                    ))}
+                  </ul>
+                </DetailSection>
+              )}
+              {stats.top_pecas?.length > 0 && (
+                <DetailSection title="🧩 Peças mais consumidas" color="border-purple-500">
+                  <ul className="text-sm list-disc list-inside">
+                    {stats.top_pecas.slice(0, 10).map((p: any, i: number) => (
+                      <li key={i}>{p.label} ({p.total} un)</li>
+                    ))}
+                  </ul>
+                </DetailSection>
+              )}
+              {stats.motores_topo?.length > 0 && (
+                <DetailSection title="⚙️ Motores (top por horas de uso)" color="border-red-500">
+                  <ul className="text-sm list-disc list-inside">
+                    {stats.motores_topo.slice(0, 10).map((m: any, i: number) => (
+                      <li key={i}>
+                        {m.unique_code}: {m.motor_hours_used}h{" "}
+                        <span className={m.level === "critico" ? "text-red-500" : m.level === "atencao" ? "text-amber-500" : "text-emerald-500"}>
+                          ({m.level})
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </DetailSection>
+              )}
+              {stats.retrabalho_top?.length > 0 && (
+                <DetailSection title="🔁 Possível retrabalho" color="border-amber-500">
+                  <ul className="text-sm list-disc list-inside">
+                    {stats.retrabalho_top.slice(0, 10).map((r: any, i: number) => (
+                      <li key={i}>
+                        {r.asset} — {r.part}: {r.repeats}x (OS {r.os_codes.join(", ")}; intervalos {r.intervals_days.join(", ")}d)
+                      </li>
+                    ))}
+                  </ul>
+                </DetailSection>
+              )}
+            </CollapsibleContent>
+          </Collapsible>
+        </div>
+      )}
+
       {/* Stats Panel */}
-      {stats && !isLoading && selectedClient?.id !== "all" && (
+      {stats && !isLoading && scope === "client" && selectedClient?.id !== "all" && (
         <div className="space-y-4">
           <h3 className="text-sm font-semibold text-muted-foreground">
             Dados encontrados para: {selectedClient?.nome}
