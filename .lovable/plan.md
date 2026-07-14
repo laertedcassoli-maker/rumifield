@@ -1,48 +1,43 @@
-# Adicionar escopo "Oficina" ao módulo Inteligência
+# Corrigir análise de Oficina no módulo Inteligência
 
-Hoje o módulo `Inteligência do Cliente` só responde sobre clientes (individual ou "todos"). Vou adicionar um terceiro escopo **Oficina**, com perguntas de volume/lead time, retrabalho, peças e saúde de motores.
+A IA está respondendo com lacunas ("não disponível") e possíveis divergências de número porque a edge function `client-intelligence` (escopo `oficina`) não entrega alguns cortes importantes e usa limiares diferentes do dashboard. Vou ajustar apenas essa edge function.
 
-## 1. Backend — `supabase/functions/client-intelligence/index.ts`
+## Problemas observados na resposta atual
 
-Novo ramo `scope === "oficina"` (paralelo a `isAll`), que:
+1. **"Motores trocados em Reparo de Pistolas: não disponível"** — hoje `motor_replacement_history` é enviado só como lista das últimas 10 trocas, sem agregação por atividade. Não há como a IA responder por atividade.
+2. **"Retrabalho não disponível"** — o cálculo depende de `work_order_items.workshop_item_id`. OS do tipo LOTE (ex.: Reparo de pistola) não têm `workshop_item_id`, então caem fora. O bloco de retrabalho fica vazio e não é enviado.
+3. **"Não há motores em estado crítico"** — a edge usa >800h/>1000h, mas o dashboard `SaudeAtivosMotores` usa **>1000h (laranja) / >1500h (vermelho)**. Preciso alinhar.
+4. **Divergência de totais de peças** (usuário citou 43 vs 54/61) — os números do bloco `## Peças mais consumidas` refletem apenas o período filtrado, mas isso não fica explícito no cabeçalho de cada seção. A IA acaba omitindo o recorte no texto.
 
-- Aceita no body: `scope: "client" | "all" | "oficina"` e um `filters` opcional `{ dateFrom, dateTo, activityType }`. Retrocompat: se `clientId === "all"`, mantém comportamento atual.
-- Coleta em paralelo:
-  - `work_orders` com `id, code, status, created_at, start_time, end_time, total_time_seconds, activity_id, activities(name, execution_type), work_order_items(workshop_item_id, omie_product_id, quantity), work_order_parts_used(omie_product_id, quantity, pecas(codigo, nome))`, filtrando por período.
-  - `workshop_items` com `motor_id not null`: `unique_code, meter_hours_last, motor_replaced_at_meter_hours`.
-  - `motor_replacement_history` (últimas 30) com `workshop_item_id, old_motor_code, new_motor_code, motor_hours_used, replaced_at`.
-- Calcula `stats_oficina`:
-  - Totais por status; lead time médio (created_at→end_time) e distribuição em faixas <30m/30-60m/1-2h/2-4h/>4h das concluídas.
-  - Min/max por atividade.
-  - Top peças consumidas (soma de `quantity`).
-  - Retrabalho: grupos `(workshop_item_id + omie_product_id)` com repetições em ≤90 dias — top 20.
-  - Saúde de motores: horas usadas = `meter_hours_last - coalesce(motor_replaced_at_meter_hours, 0)`, classificando vermelho >1000h, laranja >800h. Últimas 10 trocas.
-- Monta `fullContext` textual compacto (mesmo padrão do modo cliente) e chama Lovable AI Gateway com `openai/gpt-5.5` (respeitando `model` recebido) e system prompt focado em análise operacional de oficina.
+## Edições — `supabase/functions/client-intelligence/index.ts` (escopo `oficina` apenas)
 
-## 2. Frontend — `src/pages/crm/CrmInteligencia.tsx`
+1. **Agregar trocas de motor por atividade**
+   - Ampliar o `select` de `motor_replacement_history` para incluir `work_order_id`.
+   - Buscar as `work_orders` referenciadas (`id, activity_id, created_at, activities(name)`) num único `.in('id', workOrderIds)` já respeitando o filtro de período/atividade quando informado (mas sempre trazendo total geral também).
+   - Adicionar em `stats`: `trocas_motor_por_atividade: [{ atividade, total, ultimos_meses: {mm/yyyy: n} }]` e no `fullContext` uma seção `## Trocas de motor por atividade` com total no período filtrado + últimos 6 meses agregados.
 
-- Novo state `scope: "client" | "oficina"` (o modo "Todos" continua dentro do combobox de clientes).
-- Adicionar um switch/tabs no topo: **Cliente** | **Oficina**.
-- No modo Oficina:
-  - Ocultar seletor de cliente; mostrar filtros: date-range (Popover Calendar, mesmo padrão do GestaoOS) e multi-select de atividade (opcional; se vazio = todas).
-  - Trocar `SUGGESTIONS_*` por `SUGGESTIONS_OFICINA`:
-    - "📈 Volume e lead time do período"
-    - "⏱️ Tempo médio por atividade"
-    - "🔁 Onde está havendo retrabalho?"
-    - "🧩 Peças mais consumidas na oficina"
-    - "⚙️ Motores próximos do limite (>800h/>1000h)"
-    - "🚨 OS em aberto há mais tempo"
-  - Painel de stats: cards com Total OS, Concluídas, Lead time médio, Retrabalho (grupos), Motores em risco, Peças usadas.
-- `handleGenerate` envia `{ scope, question, model, filters }`; para `scope === "client"` mantém `clientId`.
-- Permissão: reusar `canAccess("crm_inteligencia")` (sem mexer em roles). Sem alteração de RLS.
+2. **Retrabalho tolerante a LOTE**
+   - Manter o cálculo atual `(workshop_item_id + omie_product_id)` para UNIVOCA.
+   - Adicionar cálculo paralelo para LOTE: chave `(activity_id + omie_product_id)` restrita a OS sem `workshop_item_id`, mesma janela ≤90 dias, contando repetições da mesma peça na mesma atividade.
+   - Anexar como bloco separado `## Retrabalho por atividade (LOTE) — top 15` no `fullContext` (rotular "atividade" em vez de "ativo"), e em `stats.retrabalho_lote_top`.
 
-## 3. Sem migrations
+3. **Alinhar limiares de saúde de motor com o dashboard**
+   - Trocar limiares para `> 1500 → critico`, `> 1000 → atencao`, resto `ok`.
+   - Atualizar rótulos no `fullContext` (`Críticos (>1500h)`, `Atenção (>1000h)`).
 
-Nenhuma alteração de schema, RLS ou permissões. Apenas leituras (`work_orders`, `workshop_items`, `motor_replacement_history`) que já são acessíveis à role autenticada usada pela edge function (service role).
+4. **Deixar o recorte de período explícito nos totais**
+   - Prefixar as seções `## Peças mais consumidas na oficina`, `## Por Atividade`, `## Trocas de motor por atividade` com o período efetivo (`periodo` já calculado). Ex.: `## Peças mais consumidas na oficina (período: {periodo})`.
+   - Reforçar no `systemPrompt` do escopo oficina: quando citar totais, informar sempre o período/filtro correspondente à seção da qual o número foi lido.
 
-## Detalhes técnicos
+5. **Prompt: reforçar honestidade nos totais**
+   - Adicionar regra: "Se a pergunta pedir um recorte (por atividade, por mês, etc.) e o dado agregado não estiver presente, diga 'não disponível nos dados enviados' — nunca invente."
+   - Manter `temperature: 0`.
 
-- Reaproveitar helpers existentes (`groupAndCount`, `countByStatus`) e adicionar `groupPartsByCode` para OS.
-- Lead time em segundos → formatar horas na string de contexto.
-- Limitar retrabalho e listas ao top N para caber no prompt.
-- Preservar totalmente o comportamento atual dos escopos Cliente e Todos.
+## Frontend
+
+Sem alteração. A UI já envia `filters.dateFrom/dateTo/activityIds` corretamente e exibe `stats` genericamente.
+
+## Fora de escopo
+
+- Não mexer em RLS, schema, permissões ou outros arquivos.
+- Não alterar os escopos `client`/`all`.
