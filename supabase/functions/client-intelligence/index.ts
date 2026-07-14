@@ -774,9 +774,32 @@ serve(async (req) => {
       );
     }
 
-    const userQuestion = question || (isAll ? "Faça um resumo geral de todos os clientes" : "Faça um resumo completo deste cliente");
+    const userQuestion =
+      question ||
+      (isOficina
+        ? "Faça um diagnóstico do desempenho da oficina no período"
+        : isAll
+        ? "Faça um resumo geral de todos os clientes"
+        : "Faça um resumo completo deste cliente");
 
-    const systemPrompt = isAll
+    const systemPrompt = isOficina
+      ? `Você é o assistente de inteligência da OFICINA do RumiField.
+
+CAPACIDADES:
+- Analisar desempenho da oficina: volume de OS, lead time por atividade, distribuição de tempos
+- Identificar retrabalho (mesma peça no mesmo ativo em ≤90 dias)
+- Avaliar saúde de motores (horas de uso desde a última troca) e histórico de trocas
+- Ranking de peças mais consumidas em OS
+
+REGRAS:
+- Responda SEMPRE em português brasileiro
+- Use dados concretos: códigos de OS, códigos de ativo, nomes de peças, minutos/horas, contagens
+- Destaque ALERTAS primeiro (motores críticos, retrabalho, OS em aberto há muito tempo)
+- Formate com markdown: ## para seções, **negrito** para destaques, listas para itens
+- Se não houver dados suficientes, diga claramente
+- Máximo 700 palavras
+- Vá direto ao ponto`
+      : isAll
       ? `Você é o assistente de inteligência do RumiField — sistema de gestão de serviços técnicos e CRM para fazendas leiteiras.
 
 MODO: Visão geral de TODOS os clientes.
@@ -812,6 +835,7 @@ REGRAS:
 - Se não houver dados suficientes, diga claramente
 - Máximo 600 palavras
 - Vá direto ao ponto`;
+
 
     const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
