@@ -107,9 +107,9 @@ serve(async (req) => {
           .limit(1000),
         supabase
           .from("motor_replacement_history")
-          .select("workshop_item_id, old_motor_code, new_motor_code, motor_hours_used, replaced_at")
+          .select("workshop_item_id, work_order_id, old_motor_code, new_motor_code, motor_hours_used, replaced_at")
           .order("replaced_at", { ascending: false })
-          .limit(30),
+          .limit(500),
         partsHistoryQ,
       ]);
 
