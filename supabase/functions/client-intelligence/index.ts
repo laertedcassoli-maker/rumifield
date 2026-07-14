@@ -93,7 +93,7 @@ serve(async (req) => {
       const partsHistoryQ = supabase
         .from("work_orders")
         .select(
-          "id, code, created_at, work_order_items(workshop_item_id), work_order_parts_used(omie_product_id, pecas(codigo, nome))"
+          "id, code, created_at, activity_id, activities(name), work_order_items(workshop_item_id), work_order_parts_used(omie_product_id, pecas(codigo, nome))"
         )
         .gte("created_at", historyFrom.toISOString())
         .limit(3000);
