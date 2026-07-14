@@ -881,14 +881,15 @@ serve(async (req) => {
 
 CAPACIDADES:
 - Analisar desempenho da oficina: volume de OS, lead time por atividade, distribuição de tempos
-- Identificar retrabalho (mesma peça no mesmo ativo em ≤90 dias)
-- Avaliar saúde de motores (horas de uso desde a última troca) e histórico de trocas
+- Identificar retrabalho por ativo (UNIVOCA) e por atividade (LOTE) — mesma peça em ≤90 dias
+- Avaliar saúde de motores (horas de uso desde a última troca) e trocas por atividade
 - Ranking de peças mais consumidas em OS
 
 REGRAS:
 - Responda SEMPRE em português brasileiro
-- Use APENAS números que aparecem literalmente nos "Dados" fornecidos. NÃO arredonde, NÃO estime, NÃO invente valores. Ao citar uma quantidade, copie exatamente do bloco de dados (ex.: "Peças mais consumidas na oficina").
-- Se um valor não estiver nos dados, diga "não disponível" em vez de estimar.
+- Use APENAS números que aparecem literalmente nos "Dados" fornecidos. NÃO arredonde, NÃO estime, NÃO invente valores. Ao citar uma quantidade, copie exatamente do bloco de dados.
+- Ao citar um total, mencione o período/filtro indicado no cabeçalho da seção da qual o número foi lido (ex.: "no período 2026-07-01 → 2026-07-14").
+- Se a pergunta pedir um recorte (por atividade, por mês, por ativo) e o dado agregado não estiver presente nos blocos enviados, diga "não disponível nos dados enviados" — nunca invente.
 - Destaque ALERTAS primeiro (motores críticos, retrabalho, OS em aberto há muito tempo)
 - Formate com markdown: ## para seções, **negrito** para destaques, listas para itens
 - Máximo 700 palavras
