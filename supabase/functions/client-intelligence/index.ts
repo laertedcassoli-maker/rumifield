@@ -93,7 +93,7 @@ serve(async (req) => {
       const partsHistoryQ = supabase
         .from("work_orders")
         .select(
-          "id, code, created_at, work_order_items(workshop_item_id), work_order_parts_used(omie_product_id, pecas(codigo, nome))"
+          "id, code, created_at, activity_id, activities(name), work_order_items(workshop_item_id), work_order_parts_used(omie_product_id, pecas(codigo, nome))"
         )
         .gte("created_at", historyFrom.toISOString())
         .limit(3000);
@@ -107,9 +107,9 @@ serve(async (req) => {
           .limit(1000),
         supabase
           .from("motor_replacement_history")
-          .select("workshop_item_id, old_motor_code, new_motor_code, motor_hours_used, replaced_at")
+          .select("workshop_item_id, work_order_id, old_motor_code, new_motor_code, motor_hours_used, replaced_at")
           .order("replaced_at", { ascending: false })
-          .limit(30),
+          .limit(500),
         partsHistoryQ,
       ]);
 
@@ -170,11 +170,11 @@ serve(async (req) => {
       }
       const topParts = Object.values(partsMap).sort((a, b) => b.total - a.total).slice(0, 15);
 
-      // Motor health
+      // Motor health (thresholds aligned with dashboard: >1500 crítico, >1000 atenção)
       const motorHealth = motors
         .map((m: any) => {
           const used = (m.meter_hours_last || 0) - (m.motor_replaced_at_meter_hours || 0);
-          const level = used > 1000 ? "critico" : used > 800 ? "atencao" : "ok";
+          const level = used > 1500 ? "critico" : used > 1000 ? "atencao" : "ok";
           return { unique_code: m.unique_code, meter_hours_last: m.meter_hours_last, motor_hours_used: used, level };
         })
         .sort((a, b) => b.motor_hours_used - a.motor_hours_used);
@@ -225,6 +225,80 @@ serve(async (req) => {
       reworkList.sort((a, b) => b.repeats - a.repeats);
       const topRework = reworkList.slice(0, 20);
 
+      // Rework LOTE: (activity + part) in OS without workshop_item_id, ≤90d
+      const loteByKey: Record<string, { activity: string; partLabel: string; events: { os: string; date: string }[] }> = {};
+      for (const o of partsHistory) {
+        const items = (o as any).work_order_items || [];
+        const hasAsset = items.some((i: any) => i.workshop_item_id);
+        if (hasAsset) continue;
+        const actName = (o as any).activities?.name || "N/A";
+        for (const p of (o as any).work_order_parts_used || []) {
+          if (!p.omie_product_id) continue;
+          const key = `${actName}::${p.omie_product_id}`;
+          const label = p.pecas ? `${p.pecas.codigo} — ${p.pecas.nome}` : p.omie_product_id;
+          if (!loteByKey[key]) loteByKey[key] = { activity: actName, partLabel: label, events: [] };
+          loteByKey[key].events.push({ os: o.code, date: o.created_at });
+        }
+      }
+      const loteRework: any[] = [];
+      for (const g of Object.values(loteByKey)) {
+        const evs = g.events.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+        if (evs.length < 2) continue;
+        const pairs: number[] = [];
+        for (let i = 1; i < evs.length; i++) {
+          const days = Math.round((new Date(evs[i].date).getTime() - new Date(evs[i - 1].date).getTime()) / 86400000);
+          if (days <= 90) pairs.push(days);
+        }
+        if (pairs.length === 0) continue;
+        loteRework.push({
+          activity: g.activity,
+          part: g.partLabel,
+          repeats: evs.length,
+          pairs_le_90d: pairs.length,
+          avg_interval_days: Math.round(pairs.reduce((s, d) => s + d, 0) / pairs.length),
+        });
+      }
+      loteRework.sort((a, b) => b.pairs_le_90d - a.pairs_le_90d || b.repeats - a.repeats);
+      const topReworkLote = loteRework.slice(0, 15);
+
+      // Motor replacements by activity (uses replacements + work_orders join)
+      const replWoIds = [...new Set(replacements.map((r: any) => r.work_order_id).filter(Boolean))];
+      const { data: replWosRes } = replWoIds.length
+        ? await supabase
+            .from("work_orders")
+            .select("id, created_at, activities(name)")
+            .in("id", replWoIds)
+        : ({ data: [] } as any);
+      const replWoMap: Record<string, { activity: string; created_at: string }> = {};
+      for (const w of replWosRes || []) {
+        replWoMap[w.id] = { activity: (w as any).activities?.name || "N/A", created_at: w.created_at };
+      }
+      const motorByActivity: Record<string, { total: number; por_mes: Record<string, number> }> = {};
+      const inRange = (d: string) => {
+        if (dateFrom && d < dateFrom) return false;
+        if (dateTo && d > dateTo + "T23:59:59") return false;
+        return true;
+      };
+      let motorReplTotalPeriodo = 0;
+      for (const r of replacements) {
+        const wo = r.work_order_id ? replWoMap[r.work_order_id] : null;
+        const activity = wo?.activity || "N/A (sem OS vinculada)";
+        const dateISO = r.replaced_at || wo?.created_at;
+        if (!dateISO) continue;
+        if (dateFrom || dateTo) {
+          if (!inRange(dateISO.substring(0, 10))) continue;
+        }
+        motorReplTotalPeriodo++;
+        if (!motorByActivity[activity]) motorByActivity[activity] = { total: 0, por_mes: {} };
+        motorByActivity[activity].total++;
+        const mm = dateISO.substring(0, 7); // YYYY-MM
+        motorByActivity[activity].por_mes[mm] = (motorByActivity[activity].por_mes[mm] || 0) + 1;
+      }
+      const motorReplByActivity = Object.entries(motorByActivity)
+        .map(([activity, v]) => ({ activity, total: v.total, por_mes: v.por_mes }))
+        .sort((a, b) => b.total - a.total);
+
+
       // OS abertas mais antigas
       const openOS = workOrders
         .filter((o: any) => o.status !== "concluida" && o.status !== "cancelada")
@@ -257,6 +331,9 @@ serve(async (req) => {
           replaced_at: r.replaced_at?.substring(0, 10),
         })),
         retrabalho_top: topRework,
+        retrabalho_lote_top: topReworkLote,
+        trocas_motor_por_atividade: motorReplByActivity,
+        trocas_motor_total_periodo: motorReplTotalPeriodo,
         os_abertas_antigas: openOS,
       };
 
@@ -266,7 +343,7 @@ serve(async (req) => {
         `## Visão Oficina (período: ${periodo})\n- Total OS: ${totalOS}\n- Por status: ${JSON.stringify(byStatus)}\n- Concluídas: ${concluidas.length}\n- Lead time médio (concluídas): ${Math.round(avgTimeSec / 60)} min\n- Distribuição: ${JSON.stringify(buckets)}`
       );
       sec.push(
-        `## Por Atividade (top 20)\n${activityStats
+        `## Por Atividade (período: ${periodo}) — top 20\n${activityStats
           .slice(0, 20)
           .map(
             (a) =>
@@ -275,25 +352,42 @@ serve(async (req) => {
           .join("\n") || "—"}`
       );
       if (topParts.length)
-        sec.push(`## Peças mais consumidas na oficina\n${topParts.map((p) => `- ${p.label}: ${p.total} un`).join("\n")}`);
+        sec.push(`## Peças mais consumidas na oficina (período: ${periodo})\n${topParts.map((p) => `- ${p.label}: ${p.total} un`).join("\n")}`);
       sec.push(
-        `## Saúde de Motores\n- Críticos (>1000h): ${motorsCritico.length}\n- Atenção (>800h): ${motorsAtencao.length}\n${motorHealth
+        `## Saúde de Motores (estado atual — não filtrado por período)\n- Críticos (>1500h): ${motorsCritico.length}\n- Atenção (>1000h): ${motorsAtencao.length}\n${motorHealth
           .slice(0, 15)
           .map((m) => `- ${m.unique_code}: ${m.motor_hours_used}h uso (${m.level})`)
           .join("\n")}`
       );
+      sec.push(
+        `## Trocas de motor por atividade (período: ${periodo}) — total no período: ${motorReplTotalPeriodo}\n${motorReplByActivity
+          .map(
+            (m) =>
+              `- ${m.activity}: ${m.total}${Object.keys(m.por_mes).length ? ` — meses: ${Object.entries(m.por_mes).sort((a,b) => a[0] < b[0] ? 1 : -1).slice(0, 6).map(([mm, n]) => `${mm}:${n}`).join(", ")}` : ""}`
+          )
+          .join("\n") || "—"}`
+      );
       if (stats.ultimas_trocas_motor.length)
         sec.push(
-          `## Últimas trocas de motor\n${stats.ultimas_trocas_motor
+          `## Últimas trocas de motor (histórico recente)\n${stats.ultimas_trocas_motor
             .map((r: any) => `- ${r.replaced_at} ${r.asset}: ${r.old_motor} → ${r.new_motor} (${r.hours_used}h)`)
             .join("\n")}`
         );
       if (topRework.length)
         sec.push(
-          `## Possível Retrabalho (mesma peça no mesmo ativo em ≤90d) — top 20\n${topRework
+          `## Possível Retrabalho por Ativo (mesma peça no mesmo ativo em ≤90d) — top 20\n${topRework
             .map(
               (r: any) =>
                 `- ${r.asset} | ${r.part}: ${r.repeats}x — OS ${r.os_codes.join(", ")} — intervalos: ${r.intervals_days.join(", ")}d`
+            )
+            .join("\n")}`
+        );
+      if (topReworkLote.length)
+        sec.push(
+          `## Possível Retrabalho por Atividade (OS LOTE, mesma peça na mesma atividade em ≤90d) — top 15\n${topReworkLote
+            .map(
+              (r: any) =>
+                `- ${r.activity} | ${r.part}: ${r.repeats} ocorrências (${r.pairs_le_90d} pares ≤90d, intervalo médio ${r.avg_interval_days}d)`
             )
             .join("\n")}`
         );
@@ -787,14 +881,15 @@ serve(async (req) => {
 
 CAPACIDADES:
 - Analisar desempenho da oficina: volume de OS, lead time por atividade, distribuição de tempos
-- Identificar retrabalho (mesma peça no mesmo ativo em ≤90 dias)
-- Avaliar saúde de motores (horas de uso desde a última troca) e histórico de trocas
+- Identificar retrabalho por ativo (UNIVOCA) e por atividade (LOTE) — mesma peça em ≤90 dias
+- Avaliar saúde de motores (horas de uso desde a última troca) e trocas por atividade
 - Ranking de peças mais consumidas em OS
 
 REGRAS:
 - Responda SEMPRE em português brasileiro
-- Use APENAS números que aparecem literalmente nos "Dados" fornecidos. NÃO arredonde, NÃO estime, NÃO invente valores. Ao citar uma quantidade, copie exatamente do bloco de dados (ex.: "Peças mais consumidas na oficina").
-- Se um valor não estiver nos dados, diga "não disponível" em vez de estimar.
+- Use APENAS números que aparecem literalmente nos "Dados" fornecidos. NÃO arredonde, NÃO estime, NÃO invente valores. Ao citar uma quantidade, copie exatamente do bloco de dados.
+- Ao citar um total, mencione o período/filtro indicado no cabeçalho da seção da qual o número foi lido (ex.: "no período 2026-07-01 → 2026-07-14").
+- Se a pergunta pedir um recorte (por atividade, por mês, por ativo) e o dado agregado não estiver presente nos blocos enviados, diga "não disponível nos dados enviados" — nunca invente.
 - Destaque ALERTAS primeiro (motores críticos, retrabalho, OS em aberto há muito tempo)
 - Formate com markdown: ## para seções, **negrito** para destaques, listas para itens
 - Máximo 700 palavras
