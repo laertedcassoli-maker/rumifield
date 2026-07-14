@@ -170,11 +170,11 @@ serve(async (req) => {
       }
       const topParts = Object.values(partsMap).sort((a, b) => b.total - a.total).slice(0, 15);
 
-      // Motor health
+      // Motor health (thresholds aligned with dashboard: >1500 crítico, >1000 atenção)
       const motorHealth = motors
         .map((m: any) => {
           const used = (m.meter_hours_last || 0) - (m.motor_replaced_at_meter_hours || 0);
-          const level = used > 1000 ? "critico" : used > 800 ? "atencao" : "ok";
+          const level = used > 1500 ? "critico" : used > 1000 ? "atencao" : "ok";
           return { unique_code: m.unique_code, meter_hours_last: m.meter_hours_last, motor_hours_used: used, level };
         })
         .sort((a, b) => b.motor_hours_used - a.motor_hours_used);
