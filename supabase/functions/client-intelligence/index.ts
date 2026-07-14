@@ -225,6 +225,80 @@ serve(async (req) => {
       reworkList.sort((a, b) => b.repeats - a.repeats);
       const topRework = reworkList.slice(0, 20);
 
+      // Rework LOTE: (activity + part) in OS without workshop_item_id, ≤90d
+      const loteByKey: Record<string, { activity: string; partLabel: string; events: { os: string; date: string }[] }> = {};
+      for (const o of partsHistory) {
+        const items = (o as any).work_order_items || [];
+        const hasAsset = items.some((i: any) => i.workshop_item_id);
+        if (hasAsset) continue;
+        const actName = (o as any).activities?.name || "N/A";
+        for (const p of (o as any).work_order_parts_used || []) {
+          if (!p.omie_product_id) continue;
+          const key = `${actName}::${p.omie_product_id}`;
+          const label = p.pecas ? `${p.pecas.codigo} — ${p.pecas.nome}` : p.omie_product_id;
+          if (!loteByKey[key]) loteByKey[key] = { activity: actName, partLabel: label, events: [] };
+          loteByKey[key].events.push({ os: o.code, date: o.created_at });
+        }
+      }
+      const loteRework: any[] = [];
+      for (const g of Object.values(loteByKey)) {
+        const evs = g.events.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+        if (evs.length < 2) continue;
+        const pairs: number[] = [];
+        for (let i = 1; i < evs.length; i++) {
+          const days = Math.round((new Date(evs[i].date).getTime() - new Date(evs[i - 1].date).getTime()) / 86400000);
+          if (days <= 90) pairs.push(days);
+        }
+        if (pairs.length === 0) continue;
+        loteRework.push({
+          activity: g.activity,
+          part: g.partLabel,
+          repeats: evs.length,
+          pairs_le_90d: pairs.length,
+          avg_interval_days: Math.round(pairs.reduce((s, d) => s + d, 0) / pairs.length),
+        });
+      }
+      loteRework.sort((a, b) => b.pairs_le_90d - a.pairs_le_90d || b.repeats - a.repeats);
+      const topReworkLote = loteRework.slice(0, 15);
+
+      // Motor replacements by activity (uses replacements + work_orders join)
+      const replWoIds = [...new Set(replacements.map((r: any) => r.work_order_id).filter(Boolean))];
+      const { data: replWosRes } = replWoIds.length
+        ? await supabase
+            .from("work_orders")
+            .select("id, created_at, activities(name)")
+            .in("id", replWoIds)
+        : ({ data: [] } as any);
+      const replWoMap: Record<string, { activity: string; created_at: string }> = {};
+      for (const w of replWosRes || []) {
+        replWoMap[w.id] = { activity: (w as any).activities?.name || "N/A", created_at: w.created_at };
+      }
+      const motorByActivity: Record<string, { total: number; por_mes: Record<string, number> }> = {};
+      const inRange = (d: string) => {
+        if (dateFrom && d < dateFrom) return false;
+        if (dateTo && d > dateTo + "T23:59:59") return false;
+        return true;
+      };
+      let motorReplTotalPeriodo = 0;
+      for (const r of replacements) {
+        const wo = r.work_order_id ? replWoMap[r.work_order_id] : null;
+        const activity = wo?.activity || "N/A (sem OS vinculada)";
+        const dateISO = r.replaced_at || wo?.created_at;
+        if (!dateISO) continue;
+        if (dateFrom || dateTo) {
+          if (!inRange(dateISO.substring(0, 10))) continue;
+        }
+        motorReplTotalPeriodo++;
+        if (!motorByActivity[activity]) motorByActivity[activity] = { total: 0, por_mes: {} };
+        motorByActivity[activity].total++;
+        const mm = dateISO.substring(0, 7); // YYYY-MM
+        motorByActivity[activity].por_mes[mm] = (motorByActivity[activity].por_mes[mm] || 0) + 1;
+      }
+      const motorReplByActivity = Object.entries(motorByActivity)
+        .map(([activity, v]) => ({ activity, total: v.total, por_mes: v.por_mes }))
+        .sort((a, b) => b.total - a.total);
+
+
       // OS abertas mais antigas
       const openOS = workOrders
         .filter((o: any) => o.status !== "concluida" && o.status !== "cancelada")
