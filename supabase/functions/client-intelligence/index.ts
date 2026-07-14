@@ -331,6 +331,9 @@ serve(async (req) => {
           replaced_at: r.replaced_at?.substring(0, 10),
         })),
         retrabalho_top: topRework,
+        retrabalho_lote_top: topReworkLote,
+        trocas_motor_por_atividade: motorReplByActivity,
+        trocas_motor_total_periodo: motorReplTotalPeriodo,
         os_abertas_antigas: openOS,
       };
 
@@ -340,7 +343,7 @@ serve(async (req) => {
         `## Visão Oficina (período: ${periodo})\n- Total OS: ${totalOS}\n- Por status: ${JSON.stringify(byStatus)}\n- Concluídas: ${concluidas.length}\n- Lead time médio (concluídas): ${Math.round(avgTimeSec / 60)} min\n- Distribuição: ${JSON.stringify(buckets)}`
       );
       sec.push(
-        `## Por Atividade (top 20)\n${activityStats
+        `## Por Atividade (período: ${periodo}) — top 20\n${activityStats
           .slice(0, 20)
           .map(
             (a) =>
@@ -349,25 +352,42 @@ serve(async (req) => {
           .join("\n") || "—"}`
       );
       if (topParts.length)
-        sec.push(`## Peças mais consumidas na oficina\n${topParts.map((p) => `- ${p.label}: ${p.total} un`).join("\n")}`);
+        sec.push(`## Peças mais consumidas na oficina (período: ${periodo})\n${topParts.map((p) => `- ${p.label}: ${p.total} un`).join("\n")}`);
       sec.push(
-        `## Saúde de Motores\n- Críticos (>1000h): ${motorsCritico.length}\n- Atenção (>800h): ${motorsAtencao.length}\n${motorHealth
+        `## Saúde de Motores (estado atual — não filtrado por período)\n- Críticos (>1500h): ${motorsCritico.length}\n- Atenção (>1000h): ${motorsAtencao.length}\n${motorHealth
           .slice(0, 15)
           .map((m) => `- ${m.unique_code}: ${m.motor_hours_used}h uso (${m.level})`)
           .join("\n")}`
       );
+      sec.push(
+        `## Trocas de motor por atividade (período: ${periodo}) — total no período: ${motorReplTotalPeriodo}\n${motorReplByActivity
+          .map(
+            (m) =>
+              `- ${m.activity}: ${m.total}${Object.keys(m.por_mes).length ? ` — meses: ${Object.entries(m.por_mes).sort((a,b) => a[0] < b[0] ? 1 : -1).slice(0, 6).map(([mm, n]) => `${mm}:${n}`).join(", ")}` : ""}`
+          )
+          .join("\n") || "—"}`
+      );
       if (stats.ultimas_trocas_motor.length)
         sec.push(
-          `## Últimas trocas de motor\n${stats.ultimas_trocas_motor
+          `## Últimas trocas de motor (histórico recente)\n${stats.ultimas_trocas_motor
             .map((r: any) => `- ${r.replaced_at} ${r.asset}: ${r.old_motor} → ${r.new_motor} (${r.hours_used}h)`)
             .join("\n")}`
         );
       if (topRework.length)
         sec.push(
-          `## Possível Retrabalho (mesma peça no mesmo ativo em ≤90d) — top 20\n${topRework
+          `## Possível Retrabalho por Ativo (mesma peça no mesmo ativo em ≤90d) — top 20\n${topRework
             .map(
               (r: any) =>
                 `- ${r.asset} | ${r.part}: ${r.repeats}x — OS ${r.os_codes.join(", ")} — intervalos: ${r.intervals_days.join(", ")}d`
+            )
+            .join("\n")}`
+        );
+      if (topReworkLote.length)
+        sec.push(
+          `## Possível Retrabalho por Atividade (OS LOTE, mesma peça na mesma atividade em ≤90d) — top 15\n${topReworkLote
+            .map(
+              (r: any) =>
+                `- ${r.activity} | ${r.part}: ${r.repeats} ocorrências (${r.pairs_le_90d} pares ≤90d, intervalo médio ${r.avg_interval_days}d)`
             )
             .join("\n")}`
         );
