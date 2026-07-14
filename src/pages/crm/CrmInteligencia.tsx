@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
-import { Brain, ClipboardCheck, AlertTriangle, Eye, FileText, AudioLines, Package, Sparkles, ChevronDown, ChevronUp, Loader2, Search, Cpu } from "lucide-react";
+import { Brain, ClipboardCheck, AlertTriangle, Eye, FileText, AudioLines, Package, Sparkles, ChevronDown, ChevronUp, Loader2, Search, Cpu, Wrench, Timer, Repeat2, Gauge } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
@@ -8,6 +8,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -44,6 +45,16 @@ const SUGGESTIONS_ALL = [
   { icon: "📦", label: "Pedidos pendentes", question: "Quais clientes têm pedidos pendentes?" },
   { icon: "📋", label: "Resumo geral", question: "Faça um resumo geral de todos os clientes" },
 ];
+
+const SUGGESTIONS_OFICINA = [
+  { icon: "📈", label: "Volume e lead time", question: "Qual foi o volume de OS e o lead time médio no período? Compare por atividade." },
+  { icon: "⏱️", label: "Tempo por atividade", question: "Qual o tempo médio, mínimo e máximo de execução por tipo de atividade?" },
+  { icon: "🔁", label: "Retrabalho", question: "Onde está havendo retrabalho? Aponte ativo, peça, quantas vezes e intervalos." },
+  { icon: "🧩", label: "Peças na oficina", question: "Quais são as peças mais consumidas em OS no período?" },
+  { icon: "⚙️", label: "Motores em risco", question: "Quais motores estão em nível crítico (>1000h) ou de atenção (>800h)?" },
+  { icon: "🚨", label: "OS em aberto antigas", question: "Quais são as OS em aberto há mais tempo e o que elas têm em comum?" },
+];
+
 
 const ALL_CLIENTS_OPTION: ClientOption = {
   id: "all",
