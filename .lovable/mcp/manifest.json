@@ -1,0 +1,128 @@
+{
+  "version": 1,
+  "sdk_version": "0.22.2",
+  "path": "/functions/v1/mcp",
+  "auth": {
+    "type": "oauth",
+    "issuer": "https://gperaijwlecreqxoygjy.supabase.co/auth/v1",
+    "accepted_audiences": [
+      "authenticated"
+    ]
+  },
+  "mcp": {
+    "server": {
+      "name": "rumifield-mcp",
+      "version": "0.1.0",
+      "title": "RumiField MCP"
+    },
+    "tools": [
+      {
+        "name": "whoami",
+        "title": "Quem sou eu",
+        "description": "Retorna o usuário autenticado que está chamando o MCP (id e email).",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {}
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_tickets",
+        "title": "Listar chamados técnicos",
+        "description": "Lista chamados técnicos visíveis ao usuário autenticado. Filtros opcionais por status e limite.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "aberto",
+                "em_atendimento",
+                "resolvido",
+                "cancelado"
+              ],
+              "description": "Filtro opcional de status do chamado."
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50,
+              "description": "Máximo de chamados (padrão 20)."
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_work_orders",
+        "title": "Listar Ordens de Serviço da Oficina",
+        "description": "Lista OS da oficina visíveis ao usuário. Filtros opcionais por status e limite.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "status": {
+              "type": "string",
+              "enum": [
+                "aguardando",
+                "em_manutencao",
+                "concluido"
+              ],
+              "description": "Filtro opcional de status da OS."
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50,
+              "description": "Máximo (padrão 20)."
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_parts_orders",
+        "title": "Listar pedidos de peças",
+        "description": "Lista pedidos de peças visíveis ao usuário autenticado, ordenados por criação (mais recentes primeiro).",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 50,
+              "description": "Máximo (padrão 20)."
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      }
+    ]
+  }
+}
