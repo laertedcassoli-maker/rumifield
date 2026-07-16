@@ -183,6 +183,54 @@
           "$schema": "http://json-schema.org/draft-07/schema#"
         },
         "outputSchema": null
+      },
+      {
+        "name": "workshop_time_summary",
+        "title": "Resumo de Tempo Gasto em OS",
+        "description": "Agrega o tempo gasto (total_time_seconds) das OS concluídas no período, agrupando por atividade. Retorna também o detalhamento por usuário via work_order_time_entries.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "date_from": {
+              "type": "string",
+              "description": "ISO date (created_at >=)"
+            },
+            "date_to": {
+              "type": "string",
+              "description": "ISO date (created_at <=)"
+            },
+            "activity_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "cliente_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "group_by": {
+              "type": "string",
+              "enum": [
+                "activity",
+                "user",
+                "os"
+              ],
+              "description": "Padrão: activity"
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
       }
     ]
   }
