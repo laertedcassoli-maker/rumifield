@@ -12,8 +12,8 @@
   "mcp": {
     "server": {
       "name": "rumifield-mcp",
-      "version": "0.1.0",
-      "title": "RumiField MCP"
+      "version": "0.2.0",
+      "title": "RumiField MCP - Oficina"
     },
     "tools": [
       {
@@ -33,43 +33,25 @@
         "outputSchema": null
       },
       {
-        "name": "list_tickets",
-        "title": "Listar chamados técnicos",
-        "description": "Lista chamados técnicos visíveis ao usuário autenticado. Filtros opcionais por status e limite.",
+        "name": "list_activities",
+        "title": "Listar Atividades da Oficina",
+        "description": "Lista tipos de atividade cadastrados (para uso como filtro em outras ferramentas).",
         "annotations": {
           "readOnlyHint": true,
           "idempotentHint": true,
           "openWorldHint": false
         },
         "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
           "type": "object",
-          "properties": {
-            "status": {
-              "type": "string",
-              "enum": [
-                "aberto",
-                "em_atendimento",
-                "resolvido",
-                "cancelado"
-              ],
-              "description": "Filtro opcional de status do chamado."
-            },
-            "limit": {
-              "type": "integer",
-              "minimum": 1,
-              "maximum": 50,
-              "description": "Máximo de chamados (padrão 20)."
-            }
-          },
-          "additionalProperties": false,
-          "$schema": "http://json-schema.org/draft-07/schema#"
+          "properties": {}
         },
         "outputSchema": null
       },
       {
         "name": "list_work_orders",
-        "title": "Listar Ordens de Serviço da Oficina",
-        "description": "Lista OS da oficina visíveis ao usuário. Filtros opcionais por status e limite.",
+        "title": "Listar OS da Oficina",
+        "description": "Lista Ordens de Serviço da oficina visíveis ao usuário (respeita RLS). Filtros por status, cliente, atividade e intervalo de datas (created_at).",
         "annotations": {
           "readOnlyHint": true,
           "idempotentHint": true,
@@ -84,14 +66,29 @@
                 "aguardando",
                 "em_manutencao",
                 "concluido"
-              ],
-              "description": "Filtro opcional de status da OS."
+              ]
+            },
+            "cliente_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "activity_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "date_from": {
+              "type": "string",
+              "description": "ISO date (inclusive) para created_at."
+            },
+            "date_to": {
+              "type": "string",
+              "description": "ISO date (inclusive) para created_at."
             },
             "limit": {
               "type": "integer",
               "minimum": 1,
-              "maximum": 50,
-              "description": "Máximo (padrão 20)."
+              "maximum": 100,
+              "description": "Padrão 20, máx 100."
             }
           },
           "additionalProperties": false,
@@ -100,9 +97,9 @@
         "outputSchema": null
       },
       {
-        "name": "list_parts_orders",
-        "title": "Listar pedidos de peças",
-        "description": "Lista pedidos de peças visíveis ao usuário autenticado, ordenados por criação (mais recentes primeiro).",
+        "name": "get_work_order",
+        "title": "Detalhar OS",
+        "description": "Retorna detalhes de uma OS: itens, peças usadas e apontamentos de tempo.",
         "annotations": {
           "readOnlyHint": true,
           "idempotentHint": true,
@@ -111,11 +108,75 @@
         "inputSchema": {
           "type": "object",
           "properties": {
+            "id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "os_code": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_workshop_items",
+        "title": "Ativos da Oficina (Saúde de Motores)",
+        "description": "Lista ativos (workshop_items). Com only_with_motor=true, retorna apenas ativos com motor vinculado e calcula horas de uso do motor atual (meter_hours_last - motor_replaced_at_meter_hours).",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "only_with_motor": {
+              "type": "boolean"
+            },
+            "min_motor_hours": {
+              "type": "number",
+              "description": "Filtra motores com horas de uso >= este valor."
+            },
             "limit": {
               "type": "integer",
               "minimum": 1,
-              "maximum": 50,
-              "description": "Máximo (padrão 20)."
+              "maximum": 200
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_motor_replacements",
+        "title": "Histórico de Trocas de Motor",
+        "description": "Últimas trocas de motor. Filtros opcionais por intervalo de datas (replaced_at) e workshop_item_id.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "workshop_item_id": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "date_from": {
+              "type": "string"
+            },
+            "date_to": {
+              "type": "string"
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 200
             }
           },
           "additionalProperties": false,

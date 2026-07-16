@@ -29,105 +29,141 @@ var whoami_default = defineTool({
   }
 });
 
-// src/lib/mcp/tools/list-tickets.ts
-import { createClient } from "npm:@supabase/supabase-js@^2.86.2";
+// src/lib/mcp/tools/list-work-orders.ts
 import { defineTool as defineTool2 } from "npm:@lovable.dev/mcp-js@0.22.2";
 import { z } from "npm:zod@^3.25.76";
+
+// src/lib/mcp/tools/_sb.ts
+import { createClient } from "npm:@supabase/supabase-js@^2.86.2";
 function sb(ctx) {
-  return createClient(globalThis.process.env.SUPABASE_URL, globalThis.process.env.SUPABASE_PUBLISHABLE_KEY, {
+  const env = globalThis.process.env;
+  return createClient(env.SUPABASE_URL, env.SUPABASE_PUBLISHABLE_KEY, {
     global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
     auth: { persistSession: false, autoRefreshToken: false }
   });
 }
-var list_tickets_default = defineTool2({
-  name: "list_tickets",
-  title: "Listar chamados t\xE9cnicos",
-  description: "Lista chamados t\xE9cnicos vis\xEDveis ao usu\xE1rio autenticado. Filtros opcionais por status e limite.",
-  inputSchema: {
-    status: z.enum(["aberto", "em_atendimento", "resolvido", "cancelado"]).optional().describe("Filtro opcional de status do chamado."),
-    limit: z.number().int().min(1).max(50).optional().describe("M\xE1ximo de chamados (padr\xE3o 20).")
-  },
-  annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
-  handler: async ({ status, limit }, ctx) => {
-    if (!ctx.isAuthenticated()) {
-      return { content: [{ type: "text", text: "N\xE3o autenticado" }], isError: true };
-    }
-    const client = sb(ctx);
-    let q = client.from("tickets").select("id, ticket_code, title, status, priority, created_at, cliente_id").order("created_at", { ascending: false }).limit(limit ?? 20);
-    if (status) q = q.eq("status", status);
-    const { data, error } = await q;
-    if (error) return { content: [{ type: "text", text: error.message }], isError: true };
-    return {
-      content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
-      structuredContent: { tickets: data ?? [] }
-    };
-  }
-});
 
 // src/lib/mcp/tools/list-work-orders.ts
-import { createClient as createClient2 } from "npm:@supabase/supabase-js@^2.86.2";
-import { defineTool as defineTool3 } from "npm:@lovable.dev/mcp-js@0.22.2";
-import { z as z2 } from "npm:zod@^3.25.76";
-function sb2(ctx) {
-  return createClient2(globalThis.process.env.SUPABASE_URL, globalThis.process.env.SUPABASE_PUBLISHABLE_KEY, {
-    global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
-    auth: { persistSession: false, autoRefreshToken: false }
-  });
-}
-var list_work_orders_default = defineTool3({
+var list_work_orders_default = defineTool2({
   name: "list_work_orders",
-  title: "Listar Ordens de Servi\xE7o da Oficina",
-  description: "Lista OS da oficina vis\xEDveis ao usu\xE1rio. Filtros opcionais por status e limite.",
+  title: "Listar OS da Oficina",
+  description: "Lista Ordens de Servi\xE7o da oficina vis\xEDveis ao usu\xE1rio (respeita RLS). Filtros por status, cliente, atividade e intervalo de datas (created_at).",
   inputSchema: {
-    status: z2.enum(["aguardando", "em_manutencao", "concluido"]).optional().describe("Filtro opcional de status da OS."),
-    limit: z2.number().int().min(1).max(50).optional().describe("M\xE1ximo (padr\xE3o 20).")
+    status: z.enum(["aguardando", "em_manutencao", "concluido"]).optional(),
+    cliente_id: z.string().uuid().optional(),
+    activity_id: z.string().uuid().optional(),
+    date_from: z.string().optional().describe("ISO date (inclusive) para created_at."),
+    date_to: z.string().optional().describe("ISO date (inclusive) para created_at."),
+    limit: z.number().int().min(1).max(100).optional().describe("Padr\xE3o 20, m\xE1x 100.")
   },
   annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
-  handler: async ({ status, limit }, ctx) => {
-    if (!ctx.isAuthenticated()) {
-      return { content: [{ type: "text", text: "N\xE3o autenticado" }], isError: true };
-    }
-    const client = sb2(ctx);
-    let q = client.from("work_orders").select("id, os_code, status, cliente_id, created_at, end_time, total_time_seconds").order("created_at", { ascending: false }).limit(limit ?? 20);
-    if (status) q = q.eq("status", status);
+  handler: async (input, ctx) => {
+    if (!ctx.isAuthenticated()) return { content: [{ type: "text", text: "N\xE3o autenticado" }], isError: true };
+    let q = sb(ctx).from("work_orders").select("id, os_code, status, cliente_id, activity_id, created_at, start_time, end_time, total_time_seconds, has_motor, clientes:cliente_id(nome), activities:activity_id(name)").order("created_at", { ascending: false }).limit(input.limit ?? 20);
+    if (input.status) q = q.eq("status", input.status);
+    if (input.cliente_id) q = q.eq("cliente_id", input.cliente_id);
+    if (input.activity_id) q = q.eq("activity_id", input.activity_id);
+    if (input.date_from) q = q.gte("created_at", input.date_from);
+    if (input.date_to) q = q.lte("created_at", input.date_to);
     const { data, error } = await q;
     if (error) return { content: [{ type: "text", text: error.message }], isError: true };
-    return {
-      content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
-      structuredContent: { work_orders: data ?? [] }
-    };
+    return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }], structuredContent: { work_orders: data ?? [] } };
   }
 });
 
-// src/lib/mcp/tools/list-parts-orders.ts
-import { createClient as createClient3 } from "npm:@supabase/supabase-js@^2.86.2";
-import { defineTool as defineTool4 } from "npm:@lovable.dev/mcp-js@0.22.2";
-import { z as z3 } from "npm:zod@^3.25.76";
-function sb3(ctx) {
-  return createClient3(globalThis.process.env.SUPABASE_URL, globalThis.process.env.SUPABASE_PUBLISHABLE_KEY, {
-    global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
-    auth: { persistSession: false, autoRefreshToken: false }
-  });
-}
-var list_parts_orders_default = defineTool4({
-  name: "list_parts_orders",
-  title: "Listar pedidos de pe\xE7as",
-  description: "Lista pedidos de pe\xE7as vis\xEDveis ao usu\xE1rio autenticado, ordenados por cria\xE7\xE3o (mais recentes primeiro).",
+// src/lib/mcp/tools/get-work-order.ts
+import { defineTool as defineTool3 } from "npm:@lovable.dev/mcp-js@0.22.2";
+import { z as z2 } from "npm:zod@^3.25.76";
+var get_work_order_default = defineTool3({
+  name: "get_work_order",
+  title: "Detalhar OS",
+  description: "Retorna detalhes de uma OS: itens, pe\xE7as usadas e apontamentos de tempo.",
   inputSchema: {
-    limit: z3.number().int().min(1).max(50).optional().describe("M\xE1ximo (padr\xE3o 20).")
+    id: z2.string().uuid().optional(),
+    os_code: z2.string().optional()
   },
   annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
-  handler: async ({ limit }, ctx) => {
-    if (!ctx.isAuthenticated()) {
-      return { content: [{ type: "text", text: "N\xE3o autenticado" }], isError: true };
-    }
-    const client = sb3(ctx);
-    const { data, error } = await client.from("pedidos").select("id, pedido_code, status, cliente_id, urgencia, tipo_envio, created_at").order("created_at", { ascending: false }).limit(limit ?? 20);
+  handler: async ({ id, os_code }, ctx) => {
+    if (!ctx.isAuthenticated()) return { content: [{ type: "text", text: "N\xE3o autenticado" }], isError: true };
+    if (!id && !os_code) return { content: [{ type: "text", text: "Informe id ou os_code." }], isError: true };
+    const client = sb(ctx);
+    let q = client.from("work_orders").select("*, clientes:cliente_id(nome), activities:activity_id(name), work_order_items(*), work_order_parts_used(*), work_order_time_entries(*)").limit(1);
+    if (id) q = q.eq("id", id);
+    else if (os_code) q = q.eq("os_code", os_code);
+    const { data, error } = await q.maybeSingle();
     if (error) return { content: [{ type: "text", text: error.message }], isError: true };
-    return {
-      content: [{ type: "text", text: JSON.stringify(data, null, 2) }],
-      structuredContent: { pedidos: data ?? [] }
-    };
+    if (!data) return { content: [{ type: "text", text: "OS n\xE3o encontrada." }], isError: true };
+    return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }], structuredContent: { work_order: data } };
+  }
+});
+
+// src/lib/mcp/tools/list-workshop-items.ts
+import { defineTool as defineTool4 } from "npm:@lovable.dev/mcp-js@0.22.2";
+import { z as z3 } from "npm:zod@^3.25.76";
+var list_workshop_items_default = defineTool4({
+  name: "list_workshop_items",
+  title: "Ativos da Oficina (Sa\xFAde de Motores)",
+  description: "Lista ativos (workshop_items). Com only_with_motor=true, retorna apenas ativos com motor vinculado e calcula horas de uso do motor atual (meter_hours_last - motor_replaced_at_meter_hours).",
+  inputSchema: {
+    only_with_motor: z3.boolean().optional(),
+    min_motor_hours: z3.number().optional().describe("Filtra motores com horas de uso >= este valor."),
+    limit: z3.number().int().min(1).max(200).optional()
+  },
+  annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+  handler: async ({ only_with_motor, min_motor_hours, limit }, ctx) => {
+    if (!ctx.isAuthenticated()) return { content: [{ type: "text", text: "N\xE3o autenticado" }], isError: true };
+    let q = sb(ctx).from("workshop_items").select("id, unique_code, has_motor, motor_id, motor_code, meter_hours_last, motor_replaced_at_meter_hours, cliente_id, clientes:cliente_id(nome)").limit(limit ?? 100);
+    if (only_with_motor) q = q.not("motor_id", "is", null);
+    const { data, error } = await q;
+    if (error) return { content: [{ type: "text", text: error.message }], isError: true };
+    const enriched = (data ?? []).map((r) => {
+      const usage = (r.meter_hours_last ?? 0) - (r.motor_replaced_at_meter_hours ?? 0);
+      const health = usage > 1e3 ? "red" : usage > 800 ? "orange" : "green";
+      return { ...r, motor_hours_usage: usage, health };
+    }).filter((r) => min_motor_hours == null || r.motor_hours_usage >= min_motor_hours);
+    return { content: [{ type: "text", text: JSON.stringify(enriched, null, 2) }], structuredContent: { items: enriched } };
+  }
+});
+
+// src/lib/mcp/tools/list-motor-replacements.ts
+import { defineTool as defineTool5 } from "npm:@lovable.dev/mcp-js@0.22.2";
+import { z as z4 } from "npm:zod@^3.25.76";
+var list_motor_replacements_default = defineTool5({
+  name: "list_motor_replacements",
+  title: "Hist\xF3rico de Trocas de Motor",
+  description: "\xDAltimas trocas de motor. Filtros opcionais por intervalo de datas (replaced_at) e workshop_item_id.",
+  inputSchema: {
+    workshop_item_id: z4.string().uuid().optional(),
+    date_from: z4.string().optional(),
+    date_to: z4.string().optional(),
+    limit: z4.number().int().min(1).max(200).optional()
+  },
+  annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+  handler: async (input, ctx) => {
+    if (!ctx.isAuthenticated()) return { content: [{ type: "text", text: "N\xE3o autenticado" }], isError: true };
+    let q = sb(ctx).from("motor_replacement_history").select("id, workshop_item_id, old_motor_code, new_motor_code, motor_hours_used, replaced_at, work_order_id").order("replaced_at", { ascending: false }).limit(input.limit ?? 20);
+    if (input.workshop_item_id) q = q.eq("workshop_item_id", input.workshop_item_id);
+    if (input.date_from) q = q.gte("replaced_at", input.date_from);
+    if (input.date_to) q = q.lte("replaced_at", input.date_to);
+    const { data, error } = await q;
+    if (error) return { content: [{ type: "text", text: error.message }], isError: true };
+    return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }], structuredContent: { replacements: data ?? [] } };
+  }
+});
+
+// src/lib/mcp/tools/list-activities.ts
+import { defineTool as defineTool6 } from "npm:@lovable.dev/mcp-js@0.22.2";
+var list_activities_default = defineTool6({
+  name: "list_activities",
+  title: "Listar Atividades da Oficina",
+  description: "Lista tipos de atividade cadastrados (para uso como filtro em outras ferramentas).",
+  inputSchema: {},
+  annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+  handler: async (_input, ctx) => {
+    if (!ctx.isAuthenticated()) return { content: [{ type: "text", text: "N\xE3o autenticado" }], isError: true };
+    const { data, error } = await sb(ctx).from("activities").select("id, name").order("name");
+    if (error) return { content: [{ type: "text", text: error.message }], isError: true };
+    return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }], structuredContent: { activities: data ?? [] } };
   }
 });
 
@@ -135,14 +171,21 @@ var list_parts_orders_default = defineTool4({
 var projectRef = "gperaijwlecreqxoygjy";
 var mcp_default = defineMcp({
   name: "rumifield-mcp",
-  title: "RumiField MCP",
-  version: "0.1.0",
-  instructions: "Ferramentas do RumiField (gest\xE3o de campo, oficina, chamados e pedidos de pe\xE7as). Use `whoami` para testar conectividade.",
+  title: "RumiField MCP - Oficina",
+  version: "0.2.0",
+  instructions: "Ferramentas SOMENTE-LEITURA da Oficina RumiField: Ordens de Servi\xE7o, ativos com motor, hist\xF3rico de trocas e atividades. Use `whoami` para testar conectividade.",
   auth: auth.oauth.issuer({
     issuer: `https://${projectRef}.supabase.co/auth/v1`,
     acceptedAudiences: "authenticated"
   }),
-  tools: [whoami_default, list_tickets_default, list_work_orders_default, list_parts_orders_default]
+  tools: [
+    whoami_default,
+    list_activities_default,
+    list_work_orders_default,
+    get_work_order_default,
+    list_workshop_items_default,
+    list_motor_replacements_default
+  ]
 });
 
 // lovable-mcp-supabase-entry.ts
