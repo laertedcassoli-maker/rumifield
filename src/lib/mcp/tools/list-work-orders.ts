@@ -30,6 +30,12 @@ export default defineTool({
     if (input.date_to) q = q.lte("created_at", input.date_to);
     const { data, error } = await q;
     if (error) return { content: [{ type: "text", text: error.message }], isError: true };
-    return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }], structuredContent: { work_orders: data ?? [] } };
+    const enriched = (data ?? []).map((r: any) => {
+      const s = r.total_time_seconds ?? 0;
+      const h = Math.floor(s / 3600);
+      const m = Math.floor((s % 3600) / 60);
+      return { ...r, total_time_hours: +(s / 3600).toFixed(2), total_time_hms: `${h}h${m.toString().padStart(2, "0")}` };
+    });
+    return { content: [{ type: "text", text: JSON.stringify(enriched, null, 2) }], structuredContent: { work_orders: enriched } };
   },
 });
