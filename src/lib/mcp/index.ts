@@ -5,6 +5,7 @@ import getWorkOrderTool from "./tools/get-work-order";
 import listWorkshopItemsTool from "./tools/list-workshop-items";
 import listMotorReplacementsTool from "./tools/list-motor-replacements";
 import listActivitiesTool from "./tools/list-activities";
+import workshopTimeSummaryTool from "./tools/workshop-time-summary";
 
 const projectRef = import.meta.env.VITE_SUPABASE_PROJECT_ID ?? "project-ref-unset";
 
@@ -25,5 +26,6 @@ export default defineMcp({
     getWorkOrderTool,
     listWorkshopItemsTool,
     listMotorReplacementsTool,
+    workshopTimeSummaryTool,
   ],
 });
