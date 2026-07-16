@@ -64,6 +64,7 @@ import CrmAcoes from "./pages/crm/CrmAcoes";
 import CrmDashboard from "./pages/crm/CrmDashboard";
 import CrmInteligencia from "./pages/crm/CrmInteligencia";
 import GoogleSheetsConfig from "./pages/admin/GoogleSheetsConfig";
+import OAuthConsent from "./pages/OAuthConsent";
 
 const ClienteRedirect = () => {
   const { id } = useParams();
@@ -89,6 +90,7 @@ const App = () => (
             <Sonner />
           <Routes>
             <Route path="/auth" element={<Auth />} />
+            <Route path="/.lovable/oauth/consent" element={<OAuthConsent />} />
             <Route path="/convite/:token" element={<AceitarConvite />} />
             <Route
               path="/"
