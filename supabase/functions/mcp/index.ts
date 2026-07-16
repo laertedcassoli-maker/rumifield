@@ -34,7 +34,7 @@ import { createClient } from "npm:@supabase/supabase-js@^2.86.2";
 import { defineTool as defineTool2 } from "npm:@lovable.dev/mcp-js@0.22.2";
 import { z } from "npm:zod@^3.25.76";
 function sb(ctx) {
-  return createClient(process.env.SUPABASE_URL, process.env.SUPABASE_PUBLISHABLE_KEY, {
+  return createClient(globalThis.process.env.SUPABASE_URL, globalThis.process.env.SUPABASE_PUBLISHABLE_KEY, {
     global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
     auth: { persistSession: false, autoRefreshToken: false }
   });
@@ -69,7 +69,7 @@ import { createClient as createClient2 } from "npm:@supabase/supabase-js@^2.86.2
 import { defineTool as defineTool3 } from "npm:@lovable.dev/mcp-js@0.22.2";
 import { z as z2 } from "npm:zod@^3.25.76";
 function sb2(ctx) {
-  return createClient2(process.env.SUPABASE_URL, process.env.SUPABASE_PUBLISHABLE_KEY, {
+  return createClient2(globalThis.process.env.SUPABASE_URL, globalThis.process.env.SUPABASE_PUBLISHABLE_KEY, {
     global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
     auth: { persistSession: false, autoRefreshToken: false }
   });
@@ -104,7 +104,7 @@ import { createClient as createClient3 } from "npm:@supabase/supabase-js@^2.86.2
 import { defineTool as defineTool4 } from "npm:@lovable.dev/mcp-js@0.22.2";
 import { z as z3 } from "npm:zod@^3.25.76";
 function sb3(ctx) {
-  return createClient3(process.env.SUPABASE_URL, process.env.SUPABASE_PUBLISHABLE_KEY, {
+  return createClient3(globalThis.process.env.SUPABASE_URL, globalThis.process.env.SUPABASE_PUBLISHABLE_KEY, {
     global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
     auth: { persistSession: false, autoRefreshToken: false }
   });
