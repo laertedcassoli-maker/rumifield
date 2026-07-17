@@ -1,43 +1,55 @@
-# Corrigir análise de Oficina no módulo Inteligência
+# Auditoria: migração de chaves JWT simétricas → assimétricas
 
-A IA está respondendo com lacunas ("não disponível") e possíveis divergências de número porque a edge function `client-intelligence` (escopo `oficina`) não entrega alguns cortes importantes e usa limiares diferentes do dashboard. Vou ajustar apenas essa edge function.
+Fiz a varredura completa do repositório antes de propor qualquer mudança. Resumo: **a migração é segura para este projeto**. Nada no código valida JWTs com o secret simétrico; tudo delega ao Supabase Auth ou ao JWKS.
 
-## Problemas observados na resposta atual
+## 1. Validação de JWT fora do Supabase Auth
 
-1. **"Motores trocados em Reparo de Pistolas: não disponível"** — hoje `motor_replacement_history` é enviado só como lista das últimas 10 trocas, sem agregação por atividade. Não há como a IA responder por atividade.
-2. **"Retrabalho não disponível"** — o cálculo depende de `work_order_items.workshop_item_id`. OS do tipo LOTE (ex.: Reparo de pistola) não têm `workshop_item_id`, então caem fora. O bloco de retrabalho fica vazio e não é enviado.
-3. **"Não há motores em estado crítico"** — a edge usa >800h/>1000h, mas o dashboard `SaudeAtivosMotores` usa **>1000h (laranja) / >1500h (vermelho)**. Preciso alinhar.
-4. **Divergência de totais de peças** (usuário citou 43 vs 54/61) — os números do bloco `## Peças mais consumidas` refletem apenas o período filtrado, mas isso não fica explícito no cabeçalho de cada seção. A IA acaba omitindo o recorte no texto.
+**Não existe nenhum ponto no código que use `SUPABASE_JWT_SECRET` ou faça verificação manual de assinatura.**
 
-## Edições — `supabase/functions/client-intelligence/index.ts` (escopo `oficina` apenas)
+Varreduras executadas em `supabase/` e `src/` pelos padrões: `SUPABASE_JWT_SECRET`, `JWT_SECRET`, `jwt.verify`, `verifyJWT`, `jsonwebtoken`, `jose`, `jwtVerify`, `decodeJwt`, `SUPABASE_JWKS` — **zero ocorrências em código de aplicação**. As únicas ocorrências são as flags `verify_jwt` de `supabase/config.toml` (plataforma, não código).
 
-1. **Agregar trocas de motor por atividade**
-   - Ampliar o `select` de `motor_replacement_history` para incluir `work_order_id`.
-   - Buscar as `work_orders` referenciadas (`id, activity_id, created_at, activities(name)`) num único `.in('id', workOrderIds)` já respeitando o filtro de período/atividade quando informado (mas sempre trazendo total geral também).
-   - Adicionar em `stats`: `trocas_motor_por_atividade: [{ atividade, total, ultimos_meses: {mm/yyyy: n} }]` e no `fullContext` uma seção `## Trocas de motor por atividade` com total no período filtrado + últimos 6 meses agregados.
+O segredo `SUPABASE_JWKS` está listado nos secrets do projeto, mas nenhum arquivo o lê. Pode continuar lá inofensivo.
 
-2. **Retrabalho tolerante a LOTE**
-   - Manter o cálculo atual `(workshop_item_id + omie_product_id)` para UNIVOCA.
-   - Adicionar cálculo paralelo para LOTE: chave `(activity_id + omie_product_id)` restrita a OS sem `workshop_item_id`, mesma janela ≤90 dias, contando repetições da mesma peça na mesma atividade.
-   - Anexar como bloco separado `## Retrabalho por atividade (LOTE) — top 15` no `fullContext` (rotular "atividade" em vez de "ativo"), e em `stats.retrabalho_lote_top`.
+## 2. Edge Functions — como autenticam hoje
 
-3. **Alinhar limiares de saúde de motor com o dashboard**
-   - Trocar limiares para `> 1500 → critico`, `> 1000 → atencao`, resto `ok`.
-   - Atualizar rótulos no `fullContext` (`Críticos (>1500h)`, `Atenção (>1000h)`).
+Todas as funções com `verify_jwt = true` no `config.toml` (11 funções securizadas na última rodada) passam pelo helper único **`supabase/functions/_shared/auth.ts`**, que faz:
 
-4. **Deixar o recorte de período explícito nos totais**
-   - Prefixar as seções `## Peças mais consumidas na oficina`, `## Por Atividade`, `## Trocas de motor por atividade` com o período efetivo (`periodo` já calculado). Ex.: `## Peças mais consumidas na oficina (período: {periodo})`.
-   - Reforçar no `systemPrompt` do escopo oficina: quando citar totais, informar sempre o período/filtro correspondente à seção da qual o número foi lido.
+```ts
+const client = createClient(supabaseUrl, anonKey, {
+  global: { headers: { Authorization: authHeader } },
+});
+const { data, error } = await client.auth.getUser();
+```
 
-5. **Prompt: reforçar honestidade nos totais**
-   - Adicionar regra: "Se a pergunta pedir um recorte (por atividade, por mês, etc.) e o dado agregado não estiver presente, diga 'não disponível nos dados enviados' — nunca invente."
-   - Manter `temperature: 0`.
+Isto é uma chamada **server-side ao GoTrue** (`/auth/v1/user`), que valida o token com as chaves ativas no próprio Supabase Auth. **Independe do algoritmo** (HS256, RS256 ou ES256) — o cliente não decodifica localmente. `requireRole` idem, apenas consulta `user_roles` depois. **Nada quebra.**
 
-## Frontend
+Além disso, a plataforma também valida `verify_jwt` no gateway antes de invocar a função, e essa validação também acompanha automaticamente as chaves ativas em Auth.
 
-Sem alteração. A UI já envia `filters.dateFrom/dateTo/activityIds` corretamente e exibe `stats` genericamente.
+## 3. Função `mcp` especificamente
 
-## Fora de escopo
+Definida em `src/lib/mcp/index.ts` usando `@lovable.dev/mcp-js`:
 
-- Não mexer em RLS, schema, permissões ou outros arquivos.
-- Não alterar os escopos `client`/`all`.
+```ts
+auth: auth.oauth.issuer({
+  issuer: `https://${projectRef}.supabase.co/auth/v1`,
+  acceptedAudiences: "authenticated",
+})
+```
+
+O verificador do `mcp-js` **busca o JWKS público do issuer** (`/.well-known/jwks.json`) e valida a assinatura do bearer token localmente com a chave pública. Isso **exige** chave assimétrica: hoje o JWKS está vazio (HS256), então tokens OAuth emitidos ao Claude não passariam por esse verificador nem que `/oauth/token` conseguisse assiná-los.
+
+Ou seja: a migração **não só não quebra o MCP como é pré-requisito para ele funcionar de ponta a ponta com clientes externos**.
+
+## 4. Sessões ativas dos usuários
+
+Tokens de sessão já emitidos (HS256) continuam válidos até expirarem — a tool `migrate_signing_keys` mantém a chave antiga em modo verify enquanto ativa a nova ES256 para assinatura. Nenhum logout forçado.
+
+## Conclusão / recomendação
+
+Nada precisa ser alterado no código antes de rodar a migração. Basta executar `supabase--migrate_signing_keys` (troca só o algoritmo de assinatura no backend, não toca em código). Depois disso:
+
+- `/oauth/token` para de retornar 500 e passa a emitir ID tokens ES256.
+- O verificador do `mcp` (`mcp-js` via JWKS) passa a validar os tokens do Claude.
+- Todas as edge functions atuais seguem funcionando sem alteração.
+
+Este plano é apenas o relatório da auditoria + a próxima ação (rodar `migrate_signing_keys`). Aprove para eu executar a migração.
