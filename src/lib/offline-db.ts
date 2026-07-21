@@ -239,6 +239,7 @@ class OfflineDatabase extends Dexie {
   crm_visit_audios!: Table<OfflineCrmVisitAudio, string>;
   syncQueue!: Table<SyncQueueItem, number>;
   syncMeta!: Table<SyncMeta, string>;
+  syncDeadLetter!: Table<DeadLetterItem, number>;
 
   constructor() {
     super("RumiFieldDB");
