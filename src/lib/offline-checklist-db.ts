@@ -104,6 +104,16 @@ export interface ChecklistSyncQueueItem {
   retryCount: number;
 }
 
+export interface ChecklistDeadLetterItem {
+  id?: number;
+  table: ChecklistSyncQueueItem['table'];
+  operation: ChecklistSyncQueueItem['operation'];
+  data: Record<string, unknown>;
+  retryCount: number;
+  errorMessage: string | null;
+  createdAt: string;
+}
+
 class OfflineChecklistDatabase extends Dexie {
   checklistItems!: Table<OfflineChecklistItem, string>;
   checklistActions!: Table<OfflineChecklistAction, string>;
