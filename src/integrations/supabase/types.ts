@@ -2727,6 +2727,39 @@ export type Database = {
         }
         Relationships: []
       }
+      sync_dead_letter: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          id: string
+          operation: string
+          payload: Json
+          retry_count: number
+          table_name: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          operation: string
+          payload: Json
+          retry_count?: number
+          table_name: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          operation?: string
+          payload?: Json
+          retry_count?: number
+          table_name?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       system_documentation: {
         Row: {
           ai_metadata: Json | null

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { offlineDb, SyncQueueItem } from "@/lib/offline-db";
 import { offlineChecklistDb } from "@/lib/offline-checklist-db";
+import { reportDeadLetter } from "@/lib/reportDeadLetter";
 
 import { toast } from "sonner";
 
@@ -11,6 +12,7 @@ export function useOfflineSync() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
   const [syncStatus, setSyncStatus] = useState<SyncStatus>("idle");
   const [pendingCount, setPendingCount] = useState(0);
+  const [deadLetterCount, setDeadLetterCount] = useState(0);
   const [lastSyncTime, setLastSyncTime] = useState<Date | null>(null);
 
   // Ref to hold the latest syncAll function
@@ -48,9 +50,23 @@ export function useOfflineSync() {
     setPendingCount(items.length);
   }, []);
 
+  // Update dead-letter count (local Dexie stores)
+  const refreshDeadLetterCount = useCallback(async () => {
+    try {
+      const [a, b] = await Promise.all([
+        offlineDb.countDeadLetter(),
+        offlineChecklistDb.countDeadLetter(),
+      ]);
+      setDeadLetterCount(a + b);
+    } catch (err) {
+      console.warn("Failed to refresh dead-letter count", err);
+    }
+  }, []);
+
   useEffect(() => {
     updatePendingCount();
-  }, [updatePendingCount]);
+    refreshDeadLetterCount();
+  }, [updatePendingCount, refreshDeadLetterCount]);
 
   // Sync a single table from server to local
   const syncTableFromServer = useCallback(async (table: string) => {
@@ -374,16 +390,30 @@ export function useOfflineSync() {
       } catch (error) {
         console.error("Error processing sync item:", error);
         await offlineDb.incrementRetryCount(item.id!);
-        
-        // Remove if too many retries
+
+        // Move to dead-letter after too many retries (never discard silently)
         if (item.retryCount >= 5) {
-          await offlineDb.removeSyncItem(item.id!);
+          const errorMessage =
+            (error as { message?: string })?.message ?? String(error);
+          try {
+            await offlineDb.moveToDeadLetter({ ...item, retryCount: item.retryCount + 1 }, errorMessage);
+            await reportDeadLetter({
+              table: item.table,
+              operation: item.operation,
+              retryCount: item.retryCount + 1,
+              errorMessage,
+              data: item.data,
+            });
+          } catch (dlErr) {
+            console.error("Failed to move sync item to dead-letter", dlErr);
+          }
           toast.error("Falha ao sincronizar item após várias tentativas");
         }
       }
     }
-    
+
     await updatePendingCount();
+    await refreshDeadLetterCount();
   }, [updatePendingCount]);
 
   // Process a single sync item
@@ -633,10 +663,12 @@ export function useOfflineSync() {
     isOnline,
     syncStatus,
     pendingCount,
+    deadLetterCount,
     lastSyncTime,
     syncAll,
     triggerSync,
     pushChanges,
     updatePendingCount,
+    refreshDeadLetterCount,
   };
 }

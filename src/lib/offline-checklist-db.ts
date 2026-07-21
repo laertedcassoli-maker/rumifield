@@ -104,6 +104,16 @@ export interface ChecklistSyncQueueItem {
   retryCount: number;
 }
 
+export interface ChecklistDeadLetterItem {
+  id?: number;
+  table: ChecklistSyncQueueItem['table'];
+  operation: ChecklistSyncQueueItem['operation'];
+  data: Record<string, unknown>;
+  retryCount: number;
+  errorMessage: string | null;
+  createdAt: string;
+}
+
 class OfflineChecklistDatabase extends Dexie {
   checklistItems!: Table<OfflineChecklistItem, string>;
   checklistActions!: Table<OfflineChecklistAction, string>;
@@ -115,6 +125,7 @@ class OfflineChecklistDatabase extends Dexie {
   templateNonconformities!: Table<OfflineTemplateNonconformity, string>;
   nonconformityParts!: Table<OfflineNonconformityPart, string>;
   partConsumptions!: Table<OfflinePartConsumption, string>;
+  checklistDeadLetter!: Table<ChecklistDeadLetterItem, number>;
 
   constructor() {
     super("RumiFieldChecklistDB");
@@ -158,6 +169,11 @@ class OfflineChecklistDatabase extends Dexie {
       nonconformityParts: "id, nonconformity_id",
       partConsumptions: "id, exec_nonconformity_id, exec_item_id, _pendingSync",
     });
+
+    // Version 5: dead-letter store for items that exhausted retry attempts
+    this.version(5).stores({
+      checklistDeadLetter: "++id, table, operation, createdAt",
+    });
   }
 
   // Add item to sync queue
@@ -192,6 +208,28 @@ class OfflineChecklistDatabase extends Dexie {
       await this.checklistSyncQueue.update(id, { retryCount: item.retryCount + 1 });
     }
   }
+
+  // Move sync queue item to dead-letter store atomically
+  async moveToDeadLetter(item: ChecklistSyncQueueItem, errorMessage: string | null): Promise<void> {
+    await this.transaction("rw", this.checklistSyncQueue, this.checklistDeadLetter, async () => {
+      await this.checklistDeadLetter.add({
+        table: item.table,
+        operation: item.operation,
+        data: item.data,
+        retryCount: item.retryCount,
+        errorMessage,
+        createdAt: new Date().toISOString(),
+      });
+      if (item.id != null) {
+        await this.checklistSyncQueue.delete(item.id);
+      }
+    });
+  }
+
+  async countDeadLetter(): Promise<number> {
+    return this.checklistDeadLetter.count();
+  }
+
 
   // Clear all checklist offline data
   async clearAll(): Promise<void> {

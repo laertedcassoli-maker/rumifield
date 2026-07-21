@@ -211,6 +211,16 @@ export interface SyncQueueItem {
   retryCount: number;
 }
 
+export interface DeadLetterItem {
+  id?: number;
+  table: string;
+  operation: "insert" | "update" | "delete";
+  data: Record<string, unknown>;
+  retryCount: number;
+  errorMessage: string | null;
+  createdAt: string;
+}
+
 export interface SyncMeta {
   id: string;
   table: string;
@@ -229,6 +239,7 @@ class OfflineDatabase extends Dexie {
   crm_visit_audios!: Table<OfflineCrmVisitAudio, string>;
   syncQueue!: Table<SyncQueueItem, number>;
   syncMeta!: Table<SyncMeta, string>;
+  syncDeadLetter!: Table<DeadLetterItem, number>;
 
   constructor() {
     super("RumiFieldDB");
@@ -283,6 +294,11 @@ class OfflineDatabase extends Dexie {
     this.version(7).stores({
       chamados: null,
       corretivas: null,
+    });
+
+    // Version 8: dead-letter store for items that exhausted retry attempts
+    this.version(8).stores({
+      syncDeadLetter: "++id, table, operation, createdAt",
     });
   }
 
@@ -347,6 +363,27 @@ class OfflineDatabase extends Dexie {
     if (item) {
       await this.syncQueue.update(id, { retryCount: item.retryCount + 1 });
     }
+  }
+
+  // Move a sync queue item to the dead-letter store atomically
+  async moveToDeadLetter(item: SyncQueueItem, errorMessage: string | null): Promise<void> {
+    await this.transaction("rw", this.syncQueue, this.syncDeadLetter, async () => {
+      await this.syncDeadLetter.add({
+        table: item.table,
+        operation: item.operation,
+        data: item.data,
+        retryCount: item.retryCount,
+        errorMessage,
+        createdAt: new Date().toISOString(),
+      });
+      if (item.id != null) {
+        await this.syncQueue.delete(item.id);
+      }
+    });
+  }
+
+  async countDeadLetter(): Promise<number> {
+    return this.syncDeadLetter.count();
   }
 }
 

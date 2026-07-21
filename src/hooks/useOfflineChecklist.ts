@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { offlineChecklistDb, ChecklistSyncQueueItem } from "@/lib/offline-checklist-db";
+import { reportDeadLetter } from "@/lib/reportDeadLetter";
 import { toast } from "sonner";
 
 export type ChecklistSyncStatus = "idle" | "syncing" | "error" | "offline" | "pending";
@@ -52,7 +53,7 @@ export function useOfflineChecklist() {
   }, [updatePendingCount]);
 
   // Process a single sync item
-  const processSyncItem = async (item: ChecklistSyncQueueItem): Promise<boolean> => {
+  const processSyncItem = async (item: ChecklistSyncQueueItem): Promise<{ ok: boolean; errorMessage?: string }> => {
     const { table, operation, data } = item;
 
     try {
@@ -181,10 +182,11 @@ export function useOfflineChecklist() {
         await offlineChecklistDb.partConsumptions.update(id, { _pendingSync: false });
       }
 
-      return true;
+      return { ok: true };
     } catch (error) {
       console.error(`Error processing sync item for ${table}:`, error);
-      return false;
+      const errorMessage = (error as { message?: string })?.message ?? String(error);
+      return { ok: false, errorMessage };
     }
   };
 
@@ -210,17 +212,32 @@ export function useOfflineChecklist() {
       let failCount = 0;
 
       for (const item of items) {
-        const success = await processSyncItem(item);
-        
-        if (success) {
+        const result = await processSyncItem(item);
+
+        if (result.ok) {
           await offlineChecklistDb.removeSyncItem(item.id!);
           successCount++;
         } else {
           await offlineChecklistDb.incrementRetryCount(item.id!);
-          
-          // Remove if too many retries
+
+          // Move to dead-letter after too many retries (never discard silently)
           if (item.retryCount >= 5) {
-            await offlineChecklistDb.removeSyncItem(item.id!);
+            const errorMessage = result.errorMessage ?? null;
+            try {
+              await offlineChecklistDb.moveToDeadLetter(
+                { ...item, retryCount: item.retryCount + 1 },
+                errorMessage,
+              );
+              await reportDeadLetter({
+                table: item.table,
+                operation: item.operation,
+                retryCount: item.retryCount + 1,
+                errorMessage,
+                data: item.data,
+              });
+            } catch (dlErr) {
+              console.error("Failed to move checklist sync item to dead-letter", dlErr);
+            }
             failCount++;
           }
         }
