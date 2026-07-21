@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { offlineChecklistDb, ChecklistSyncQueueItem } from "@/lib/offline-checklist-db";
+import { reportDeadLetter } from "@/lib/reportDeadLetter";
 import { toast } from "sonner";
 
 export type ChecklistSyncStatus = "idle" | "syncing" | "error" | "offline" | "pending";
