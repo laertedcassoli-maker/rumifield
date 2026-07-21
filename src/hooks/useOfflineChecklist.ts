@@ -212,17 +212,32 @@ export function useOfflineChecklist() {
       let failCount = 0;
 
       for (const item of items) {
-        const success = await processSyncItem(item);
-        
-        if (success) {
+        const result = await processSyncItem(item);
+
+        if (result.ok) {
           await offlineChecklistDb.removeSyncItem(item.id!);
           successCount++;
         } else {
           await offlineChecklistDb.incrementRetryCount(item.id!);
-          
-          // Remove if too many retries
+
+          // Move to dead-letter after too many retries (never discard silently)
           if (item.retryCount >= 5) {
-            await offlineChecklistDb.removeSyncItem(item.id!);
+            const errorMessage = result.errorMessage ?? null;
+            try {
+              await offlineChecklistDb.moveToDeadLetter(
+                { ...item, retryCount: item.retryCount + 1 },
+                errorMessage,
+              );
+              await reportDeadLetter({
+                table: item.table,
+                operation: item.operation,
+                retryCount: item.retryCount + 1,
+                errorMessage,
+                data: item.data,
+              });
+            } catch (dlErr) {
+              console.error("Failed to move checklist sync item to dead-letter", dlErr);
+            }
             failCount++;
           }
         }
