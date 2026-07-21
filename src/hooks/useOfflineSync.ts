@@ -50,6 +50,19 @@ export function useOfflineSync() {
     setPendingCount(items.length);
   }, []);
 
+  // Update dead-letter count (local Dexie stores)
+  const refreshDeadLetterCount = useCallback(async () => {
+    try {
+      const [a, b] = await Promise.all([
+        offlineDb.countDeadLetter(),
+        offlineChecklistDb.countDeadLetter(),
+      ]);
+      setDeadLetterCount(a + b);
+    } catch (err) {
+      console.warn("Failed to refresh dead-letter count", err);
+    }
+  }, []);
+
   useEffect(() => {
     updatePendingCount();
   }, [updatePendingCount]);
