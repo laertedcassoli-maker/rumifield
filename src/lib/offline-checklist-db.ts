@@ -169,6 +169,11 @@ class OfflineChecklistDatabase extends Dexie {
       nonconformityParts: "id, nonconformity_id",
       partConsumptions: "id, exec_nonconformity_id, exec_item_id, _pendingSync",
     });
+
+    // Version 5: dead-letter store for items that exhausted retry attempts
+    this.version(5).stores({
+      checklistDeadLetter: "++id, table, operation, createdAt",
+    });
   }
 
   // Add item to sync queue
