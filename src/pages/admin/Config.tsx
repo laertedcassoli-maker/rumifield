@@ -690,9 +690,7 @@ export default function AdminConfig() {
     setConnectionMessage('');
 
     try {
-      const { data, error } = await supabase.functions.invoke('test-omie-connection', {
-        body: { app_key: omieAppKey, app_secret: omieAppSecret },
-      });
+      const { data, error } = await supabase.functions.invoke('test-omie-connection');
 
       if (error) throw error;
 
