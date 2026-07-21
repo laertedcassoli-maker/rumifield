@@ -731,8 +731,16 @@ export default function GestaoOS() {
     </div>
   );
 
-  const { canAccess } = useMenuPermissions();
+  const { canAccess, isLoading: permissionsLoading } = useMenuPermissions();
   const allowed = canAccess('oficina_gestao_os');
+
+  if (permissionsLoading) {
+    return (
+      <div className="flex items-center justify-center h-[60vh]">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   if (!allowed) {
     return (
