@@ -101,7 +101,7 @@ interface Stats {
 
 export default function CrmInteligencia() {
   const { role } = useAuth();
-  const { canAccess } = useMenuPermissions();
+  const { canAccess, isLoading: permissionsLoading } = useMenuPermissions();
   const { toast } = useToast();
 
   const [scope, setScope] = useState<"client" | "oficina">("client");
