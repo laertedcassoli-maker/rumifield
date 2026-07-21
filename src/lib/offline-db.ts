@@ -295,6 +295,11 @@ class OfflineDatabase extends Dexie {
       chamados: null,
       corretivas: null,
     });
+
+    // Version 8: dead-letter store for items that exhausted retry attempts
+    this.version(8).stores({
+      syncDeadLetter: "++id, table, operation, createdAt",
+    });
   }
 
   // Clear all offline data
