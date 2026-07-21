@@ -17,7 +17,7 @@ const loginSchema = z.object({
   password: z.string().min(6, 'Senha deve ter no mínimo 6 caracteres'),
 });
 
-const RUMINA_DOMAIN = '@rumina.com.br';
+
 
 async function logAccess(eventType: 'login' | 'login_denied' | 'login_error', email: string | null, userId: string | null, reason?: string) {
   try {
@@ -168,22 +168,11 @@ export default function Auth() {
       return;
     }
 
-    const emailLc = loginForm.email.trim().toLowerCase();
-    if (!emailLc.endsWith(RUMINA_DOMAIN)) {
-      await logAccess('login_denied', emailLc, null, 'Domínio não autorizado');
-      toast({
-        variant: 'destructive',
-        title: 'Acesso negado',
-        description: 'Apenas contas @rumina.com.br são permitidas.',
-      });
-      return;
-    }
-
     setIsSubmitting(true);
+    const emailLc = loginForm.email.trim().toLowerCase();
     const { error } = await signIn(emailLc, loginForm.password);
 
     if (error) {
-      await logAccess('login_error', emailLc, null, error.message);
       setIsSubmitting(false);
       toast({
         variant: 'destructive',
@@ -193,25 +182,6 @@ export default function Auth() {
           : error.message,
       });
       return;
-    }
-
-    // Validate via RPC after password login as well
-    const { data: { session } } = await supabase.auth.getSession();
-    if (session?.user) {
-      const { data: validation } = await supabase.rpc('validate_rumina_login', {
-        p_user_id: session.user.id,
-        p_email: emailLc,
-      });
-      const allowed = (validation as { allowed: boolean; reason: string | null } | null)?.allowed;
-      const reason = (validation as { allowed: boolean; reason: string | null } | null)?.reason ?? null;
-      if (!allowed) {
-        await logAccess('login_denied', emailLc, session.user.id, reason ?? 'denied');
-        await supabase.auth.signOut({ scope: 'local' });
-        setIsSubmitting(false);
-        toast({ variant: 'destructive', title: 'Acesso negado', description: reason ?? 'Sua conta está inativa.' });
-        return;
-      }
-      await logAccess('login', emailLc, session.user.id, 'password');
     }
 
     setIsSubmitting(false);

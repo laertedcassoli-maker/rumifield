@@ -1,54 +1,32 @@
-# Dead-letter para sincronização offline
+Refatorar o fluxo de login por senha para centralizar validação e auditoria no `AuthContext`, sem alterar a assinatura de `logAccess` nem o comportamento de logout.
 
-Corrige a perda silenciosa: itens que atingem `retryCount >= 5` deixam de ser apagados e passam a ser movidos para uma dead-letter local (Dexie) e remota (Supabase), com relato de erro estruturado.
+### Alterações previstas
 
-## 1. Schema Supabase — migration nova
+1. **`src/contexts/AuthContext.tsx`**
+   - Manter a função `logAccess` exatamente como está (mesma assinatura, mesmos campos).
+   - Transformar `signIn` no ponto único de validação e auditoria para login por senha:
+     1. Normalizar o email (`trim().toLowerCase()`).
+     2. Verificar domínio `@rumina.com.br`. Se for inválido, chamar `logAccess('login_denied', email, null, 'Domínio não autorizado')` e retornar um erro.
+     3. Chamar `supabase.auth.signInWithPassword({ email, password })`.
+     4. Em caso de erro de credencial, chamar `logAccess('login_error', email, null, error.message)` e retornar o erro.
+     5. Em caso de sucesso, chamar a RPC `validate_rumina_login` com o `user.id` e email.
+     6. Se a RPC negar o acesso, chamar `logAccess('login_denied', email, user.id, reason)`, fazer `signOut({ scope: 'local' })` e retornar um erro.
+     7. Se a RPC aprovar, chamar `logAccess('login', email, user.id, 'password')` e retornar sucesso.
+   - Garantir que a senha nunca seja logada, armazenada ou passada para `logAccess`.
+   - Não alterar `signOut` nem `signUp`.
 
-Criar tabela `public.sync_dead_letter`:
+2. **`src/pages/Auth.tsx`**
+   - Simplificar o `handleLogin` para usar o `signIn` já enriquecido do contexto.
+   - Remover a validação de domínio duplicada, a chamada duplicada à RPC `validate_rumina_login` e os `logAccess` redundantes.
+   - Manter o feedback visual (toast) e o controle de carregamento (`isSubmitting`).
+   - Preservar o fluxo OAuth (Google) como está, pois ele já possui sua própria validação e logging.
 
-- `id uuid pk default gen_random_uuid()`
-- `user_id uuid not null references auth.users(id) on delete cascade`
-- `table_name text not null`
-- `operation text not null`
-- `payload jsonb not null`
-- `retry_count integer not null default 0`
-- `error_message text`
-- `created_at timestamptz not null default now()`
+### Critérios de aceitação
 
-GRANTs: `SELECT, INSERT` para `authenticated`; `ALL` para `service_role`. RLS ligado.
-
-Policies:
-- INSERT: `auth.uid() = user_id`
-- SELECT: `auth.uid() = user_id OR has_role(auth.uid(), 'admin') OR has_role(auth.uid(), 'coordenador_rplus') OR has_role(auth.uid(), 'coordenador_servicos') OR has_role(auth.uid(), 'coordenador_logistica')`
-
-Índice em `(user_id, created_at desc)` e `(table_name)`.
-
-## 2. Dexie — nova store `syncDeadLetter` (sem apagar dados)
-
-`src/lib/offline-db.ts`: bump para `this.version(8)` adicionando apenas `syncDeadLetter: "++id, table, operation, createdAt"`. Interface `DeadLetterItem { id?, table, operation, data, retryCount, errorMessage, createdAt }`. Helpers `moveToDeadLetter(item, errorMessage)` e `countDeadLetter()`.
-
-`src/lib/offline-checklist-db.ts`: bump para `this.version(5)` acrescentando `checklistDeadLetter: "++id, table, operation, createdAt"`, com helpers equivalentes.
-
-Os `version(n)` anteriores permanecem intocados para preservar dados de usuários já instalados.
-
-## 3. Hooks — mover em vez de apagar
-
-`src/hooks/useOfflineSync.ts` (~linha 379): substituir o bloco que hoje chama `removeSyncItem` após `retryCount >= 5` por:
-1. `offlineDb.moveToDeadLetter(item, String(error?.message ?? error))` — insere na store local e remove da fila.
-2. Best-effort `supabase.from('sync_dead_letter').insert({...})` com o `user_id` do `auth.getUser()`; falhas não impedem o fluxo (o registro local persiste até re-tentativa futura de upload).
-3. Report para Sentry: como o projeto ainda não integrou `@sentry/*`, criar util `src/lib/reportDeadLetter.ts` que chama `window.Sentry?.captureException?.(err, { extra: { table, operation, retryCount } })` de forma defensiva e sempre faz `console.error`. Assim, quando Sentry for plugado no futuro, os relatos fluem automaticamente.
-4. Toast informativo mantido.
-
-`src/hooks/useOfflineChecklist.ts` (~linha 222): mesma troca usando `offlineChecklistDb.moveToDeadLetter` e o mesmo util.
-
-Nenhuma outra lógica de retry/sync é tocada — itens com `retryCount < 5` continuam iguais.
-
-## 4. Contador de dead-letter exposto
-
-Em `useOfflineSync`: adicionar estado `deadLetterCount`, `refreshDeadLetterCount()` que soma `offlineDb.countDeadLetter() + offlineChecklistDb.countDeadLetter()`, atualizado junto do `updatePendingCount` e após cada move. Retornar `deadLetterCount` no objeto do hook para uso futuro em um dashboard.
-
-## Detalhes técnicos
-
-- `moveToDeadLetter` roda numa transação Dexie (`syncQueue` + `syncDeadLetter`) para garantir atomicidade local.
-- O insert no Supabase envia `payload: item.data` como jsonb; erros de RLS/rede são engolidos após `console.warn` — o item permanece na store local e poderá ser re-enviado num flush futuro (fora do escopo desta task).
-- Nenhum outro arquivo/hook é alterado.
+- Login com credenciais corretas e domínio válido registra `event_type = 'login'` em `access_logs`.
+- Login com credenciais incorretas registra `event_type = 'login_error'`.
+- Login com domínio não autorizado registra `event_type = 'login_denied'`.
+- Login aprovado pelo Supabase mas negado pela allowlist registra `event_type = 'login_denied'` com `user_id` preenchido.
+- Logout continua registrando `event_type = 'logout'`.
+- Nenhuma senha aparece em logs, payloads ou chamadas.
+- Typecheck e build passam sem regressões.

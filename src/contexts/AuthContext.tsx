@@ -117,8 +117,52 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    return { error };
+    const normalizedEmail = email.trim().toLowerCase();
+    const RUMINA_DOMAIN = '@rumina.com.br';
+
+    if (!normalizedEmail.endsWith(RUMINA_DOMAIN)) {
+      await logAccess('login_denied', normalizedEmail, null, 'Domínio não autorizado');
+      return { error: new Error('Apenas contas @rumina.com.br são permitidas.') };
+    }
+
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email: normalizedEmail,
+      password,
+    });
+
+    if (error) {
+      await logAccess('login_error', normalizedEmail, null, error.message);
+      return { error };
+    }
+
+    const user = data.user;
+    if (!user) {
+      await logAccess('login_error', normalizedEmail, null, 'Usuário não retornado após login');
+      return { error: new Error('Usuário não retornado após login') };
+    }
+
+    const { data: validation, error: vErr } = await supabase.rpc('validate_rumina_login', {
+      p_user_id: user.id,
+      p_email: normalizedEmail,
+    });
+
+    if (vErr) {
+      await logAccess('login_error', normalizedEmail, user.id, vErr.message);
+      await supabase.auth.signOut({ scope: 'local' });
+      return { error: new Error(vErr.message) };
+    }
+
+    const allowed = (validation as { allowed: boolean; reason: string | null } | null)?.allowed;
+    const reason = (validation as { allowed: boolean; reason: string | null } | null)?.reason ?? null;
+
+    if (!allowed) {
+      await logAccess('login_denied', normalizedEmail, user.id, reason ?? 'denied');
+      await supabase.auth.signOut({ scope: 'local' });
+      return { error: new Error(reason ?? 'Sua conta não tem permissão para acessar.') };
+    }
+
+    await logAccess('login', normalizedEmail, user.id, 'password');
+    return { error: null };
   };
 
   const signUp = async (email: string, password: string, nome: string) => {
