@@ -214,6 +214,14 @@ export default function CrmInteligencia() {
   }, [scope, selectedClient, question, cachedKey, stats, toast, selectedModel, dateFrom, dateTo, selectedActivities]);
 
 
+  if (permissionsLoading) {
+    return (
+      <div className="flex items-center justify-center h-[60vh]">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
+
   if (!allowed) {
     return (
       <div className="flex items-center justify-center h-[60vh]">
