@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useMenuPermissions } from '@/hooks/useMenuPermissions';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface MenuItem {
   title: string;
