@@ -257,6 +257,7 @@ export default function Home() {
           </div>
         </div>
       ) : (
+      <>
       {/* Main Actions */}
       <div className="space-y-6">
         {/* Principal */}
