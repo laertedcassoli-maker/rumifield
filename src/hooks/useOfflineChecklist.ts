@@ -53,7 +53,7 @@ export function useOfflineChecklist() {
   }, [updatePendingCount]);
 
   // Process a single sync item
-  const processSyncItem = async (item: ChecklistSyncQueueItem): Promise<boolean> => {
+  const processSyncItem = async (item: ChecklistSyncQueueItem): Promise<{ ok: boolean; errorMessage?: string }> => {
     const { table, operation, data } = item;
 
     try {
