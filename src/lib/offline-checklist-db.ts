@@ -125,6 +125,7 @@ class OfflineChecklistDatabase extends Dexie {
   templateNonconformities!: Table<OfflineTemplateNonconformity, string>;
   nonconformityParts!: Table<OfflineNonconformityPart, string>;
   partConsumptions!: Table<OfflinePartConsumption, string>;
+  checklistDeadLetter!: Table<ChecklistDeadLetterItem, number>;
 
   constructor() {
     super("RumiFieldChecklistDB");
