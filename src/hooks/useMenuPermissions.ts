@@ -36,7 +36,8 @@ export function useMenuPermissions() {
   const permissionsLoading = authLoading || isLoading || (!!user && !permissions);
 
   const canAccess = (menuKey: string): boolean => {
-    if (!permissions) return true; // Default to true while loading
+    if (permissionsLoading) return false; // Safe default: hide while loading
+    if (!permissions) return false;
     const perm = permissions.find(p => p.menu_key === menuKey);
     if (!perm) return role === 'admin'; // Admin: true for unconfigured menus
     return perm.can_access;
