@@ -17,7 +17,7 @@ const loginSchema = z.object({
   password: z.string().min(6, 'Senha deve ter no mínimo 6 caracteres'),
 });
 
-const RUMINA_DOMAIN = '@rumina.com.br';
+
 
 async function logAccess(eventType: 'login' | 'login_denied' | 'login_error', email: string | null, userId: string | null, reason?: string) {
   try {
