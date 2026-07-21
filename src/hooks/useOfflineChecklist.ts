@@ -182,10 +182,11 @@ export function useOfflineChecklist() {
         await offlineChecklistDb.partConsumptions.update(id, { _pendingSync: false });
       }
 
-      return true;
+      return { ok: true };
     } catch (error) {
       console.error(`Error processing sync item for ${table}:`, error);
-      return false;
+      const errorMessage = (error as { message?: string })?.message ?? String(error);
+      return { ok: false, errorMessage };
     }
   };
 
