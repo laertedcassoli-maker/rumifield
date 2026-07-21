@@ -211,6 +211,16 @@ export interface SyncQueueItem {
   retryCount: number;
 }
 
+export interface DeadLetterItem {
+  id?: number;
+  table: string;
+  operation: "insert" | "update" | "delete";
+  data: Record<string, unknown>;
+  retryCount: number;
+  errorMessage: string | null;
+  createdAt: string;
+}
+
 export interface SyncMeta {
   id: string;
   table: string;
