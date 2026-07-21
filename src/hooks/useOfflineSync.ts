@@ -65,7 +65,8 @@ export function useOfflineSync() {
 
   useEffect(() => {
     updatePendingCount();
-  }, [updatePendingCount]);
+    refreshDeadLetterCount();
+  }, [updatePendingCount, refreshDeadLetterCount]);
 
   // Sync a single table from server to local
   const syncTableFromServer = useCallback(async (table: string) => {
