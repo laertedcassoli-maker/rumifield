@@ -209,6 +209,28 @@ class OfflineChecklistDatabase extends Dexie {
     }
   }
 
+  // Move sync queue item to dead-letter store atomically
+  async moveToDeadLetter(item: ChecklistSyncQueueItem, errorMessage: string | null): Promise<void> {
+    await this.transaction("rw", this.checklistSyncQueue, this.checklistDeadLetter, async () => {
+      await this.checklistDeadLetter.add({
+        table: item.table,
+        operation: item.operation,
+        data: item.data,
+        retryCount: item.retryCount,
+        errorMessage,
+        createdAt: new Date().toISOString(),
+      });
+      if (item.id != null) {
+        await this.checklistSyncQueue.delete(item.id);
+      }
+    });
+  }
+
+  async countDeadLetter(): Promise<number> {
+    return this.checklistDeadLetter.count();
+  }
+
+
   // Clear all checklist offline data
   async clearAll(): Promise<void> {
     await this.checklistItems.clear();
