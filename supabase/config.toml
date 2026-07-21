@@ -10,7 +10,7 @@ verify_jwt = false
 verify_jwt = true
 
 [functions.test-omie-connection]
-verify_jwt = false
+verify_jwt = true
 
 [functions.doc-chat]
 verify_jwt = true
