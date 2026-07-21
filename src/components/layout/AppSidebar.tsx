@@ -147,6 +147,18 @@ export function AppSidebar() {
       </SidebarHeader>
 
       <SidebarContent>
+        {isLoading ? (
+          <SidebarGroup>
+            <SidebarGroupContent>
+              <div className="space-y-2 p-2">
+                {Array.from({ length: 8 }).map((_, i) => (
+                  <Skeleton key={i} className="h-8 w-full" />
+                ))}
+              </div>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        ) : (
+        <>
         <SidebarGroup>
           <SidebarGroupLabel>Menu Principal</SidebarGroupLabel>
           <SidebarGroupContent>
