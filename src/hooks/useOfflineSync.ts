@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { offlineDb, SyncQueueItem } from "@/lib/offline-db";
 import { offlineChecklistDb } from "@/lib/offline-checklist-db";
+import { reportDeadLetter } from "@/lib/reportDeadLetter";
 
 import { toast } from "sonner";
 
