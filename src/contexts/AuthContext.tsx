@@ -84,37 +84,76 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const fetchUserData = async (userId: string) => {
+    // SECURITY NOTE:
+    // `cached_profile` / `cached_role` in localStorage are UX HINTS ONLY, used
+    // exclusively as a fallback when the device is OFFLINE and the server
+    // can't be reached. They are user-writable (any attacker with devtools can
+    // set `cached_role = 'admin'`) and MUST NEVER be treated as authoritative.
+    //
+    // Rules:
+    // - When online, role/profile MUST come from Supabase (session/JWT +
+    //   user_roles/profiles tables). The cache is written here for later
+    //   offline reads, but is never consulted while online.
+    // - The cache MUST NOT be the basis for unlocking write actions or
+    //   sensitive screens. Real authorization lives in Postgres RLS + the
+    //   `has_role()` SECURITY DEFINER function, which the server enforces
+    //   regardless of what the client believes its role to be.
+    // - If a request fails while offline, we can display cached identity so
+    //   the UI doesn't look broken, but any mutation will still be rejected
+    //   server-side once connectivity returns.
+    const isOnline = typeof navigator === 'undefined' ? true : navigator.onLine;
+
     try {
       const [profileRes, roleRes] = await Promise.all([
         supabase.from('profiles').select('*').eq('id', userId).single(),
         supabase.from('user_roles').select('role').eq('user_id', userId).order('role', { ascending: true }).limit(1).maybeSingle()
       ]);
 
+      if (profileRes.error) throw profileRes.error;
+      if (roleRes.error) throw roleRes.error;
+
       if (profileRes.data) {
         const p = profileRes.data as Profile;
         setProfile(p);
+        // Cache profile purely as an offline UX hint (display only).
         localStorage.setItem('cached_profile', JSON.stringify(p));
       }
       if (roleRes.data) {
         const r = roleRes.data.role as AppRole;
         setRole(r);
+        // Cache role purely as an offline UX hint. Real authorization is RLS.
         localStorage.setItem('cached_role', r);
+      } else {
+        // Explicitly clear any stale cached role if server says the user has none.
+        setRole(null);
+        localStorage.removeItem('cached_role');
       }
     } catch (error) {
       console.error('Error fetching user data:', error);
-      // Fallback to cached values when offline
-      const cachedProfile = localStorage.getItem('cached_profile');
-      const cachedRole = localStorage.getItem('cached_role');
-      if (cachedProfile) {
-        try { setProfile(JSON.parse(cachedProfile)); } catch {}
-      }
-      if (cachedRole) {
-        setRole(cachedRole as AppRole);
+      // Only fall back to cached values when we are actually OFFLINE.
+      // When online, a failure means we could not confirm the role — we must
+      // NOT reuse the cached role (which is user-writable and untrusted).
+      if (!isOnline) {
+        const cachedProfile = localStorage.getItem('cached_profile');
+        const cachedRole = localStorage.getItem('cached_role');
+        if (cachedProfile) {
+          try { setProfile(JSON.parse(cachedProfile)); } catch {}
+        }
+        if (cachedRole) {
+          // Cached role is a UX hint only; RLS remains the source of truth
+          // for anything that mutates data or reads sensitive rows.
+          setRole(cachedRole as AppRole);
+        }
+      } else {
+        // Online but the fetch failed — leave role null so the UI stays locked
+        // instead of trusting a stale, tamperable cache.
+        setRole(null);
       }
     } finally {
       setLoading(false);
     }
   };
+
 
   const signIn = async (email: string, password: string) => {
     const normalizedEmail = email.trim().toLowerCase();
