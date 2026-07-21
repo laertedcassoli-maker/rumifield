@@ -364,6 +364,27 @@ class OfflineDatabase extends Dexie {
       await this.syncQueue.update(id, { retryCount: item.retryCount + 1 });
     }
   }
+
+  // Move a sync queue item to the dead-letter store atomically
+  async moveToDeadLetter(item: SyncQueueItem, errorMessage: string | null): Promise<void> {
+    await this.transaction("rw", this.syncQueue, this.syncDeadLetter, async () => {
+      await this.syncDeadLetter.add({
+        table: item.table,
+        operation: item.operation,
+        data: item.data,
+        retryCount: item.retryCount,
+        errorMessage,
+        createdAt: new Date().toISOString(),
+      });
+      if (item.id != null) {
+        await this.syncQueue.delete(item.id);
+      }
+    });
+  }
+
+  async countDeadLetter(): Promise<number> {
+    return this.syncDeadLetter.count();
+  }
 }
 
 export const offlineDb = new OfflineDatabase();
