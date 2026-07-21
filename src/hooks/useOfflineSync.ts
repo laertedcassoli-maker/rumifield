@@ -374,16 +374,30 @@ export function useOfflineSync() {
       } catch (error) {
         console.error("Error processing sync item:", error);
         await offlineDb.incrementRetryCount(item.id!);
-        
-        // Remove if too many retries
+
+        // Move to dead-letter after too many retries (never discard silently)
         if (item.retryCount >= 5) {
-          await offlineDb.removeSyncItem(item.id!);
+          const errorMessage =
+            (error as { message?: string })?.message ?? String(error);
+          try {
+            await offlineDb.moveToDeadLetter({ ...item, retryCount: item.retryCount + 1 }, errorMessage);
+            await reportDeadLetter({
+              table: item.table,
+              operation: item.operation,
+              retryCount: item.retryCount + 1,
+              errorMessage,
+              data: item.data,
+            });
+          } catch (dlErr) {
+            console.error("Failed to move sync item to dead-letter", dlErr);
+          }
           toast.error("Falha ao sincronizar item após várias tentativas");
         }
       }
     }
-    
+
     await updatePendingCount();
+    await refreshDeadLetterCount();
   }, [updatePendingCount]);
 
   // Process a single sync item
