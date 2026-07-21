@@ -662,10 +662,12 @@ export function useOfflineSync() {
     isOnline,
     syncStatus,
     pendingCount,
+    deadLetterCount,
     lastSyncTime,
     syncAll,
     triggerSync,
     pushChanges,
     updatePendingCount,
+    refreshDeadLetterCount,
   };
 }
