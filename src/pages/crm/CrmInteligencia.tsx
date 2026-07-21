@@ -101,7 +101,7 @@ interface Stats {
 
 export default function CrmInteligencia() {
   const { role } = useAuth();
-  const { canAccess } = useMenuPermissions();
+  const { canAccess, isLoading: permissionsLoading } = useMenuPermissions();
   const { toast } = useToast();
 
   const [scope, setScope] = useState<"client" | "oficina">("client");
@@ -213,6 +213,14 @@ export default function CrmInteligencia() {
     }
   }, [scope, selectedClient, question, cachedKey, stats, toast, selectedModel, dateFrom, dateTo, selectedActivities]);
 
+
+  if (permissionsLoading) {
+    return (
+      <div className="flex items-center justify-center h-[60vh]">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   if (!allowed) {
     return (

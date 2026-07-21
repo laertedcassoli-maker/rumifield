@@ -9,7 +9,7 @@ import { SaudeAtivosMotores } from '@/components/oficina/SaudeAtivosMotores';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useMenuPermissions } from '@/hooks/useMenuPermissions';
-import { Wrench, CheckCircle, Timer, TrendingUp, AlertTriangle, Clock, ChevronLeft, ChevronRight, X, Check, ChevronsUpDown, Calendar as CalendarIcon, Info } from 'lucide-react';
+import { Wrench, CheckCircle, Timer, TrendingUp, AlertTriangle, Clock, ChevronLeft, ChevronRight, X, Check, ChevronsUpDown, Calendar as CalendarIcon, Info, Loader2 } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -731,8 +731,16 @@ export default function GestaoOS() {
     </div>
   );
 
-  const { canAccess } = useMenuPermissions();
+  const { canAccess, isLoading: permissionsLoading } = useMenuPermissions();
   const allowed = canAccess('oficina_gestao_os');
+
+  if (permissionsLoading) {
+    return (
+      <div className="flex items-center justify-center h-[60vh]">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    );
+  }
 
   if (!allowed) {
     return (

@@ -1,32 +1,42 @@
-Refatorar o fluxo de login por senha para centralizar validação e auditoria no `AuthContext`, sem alterar a assinatura de `logAccess` nem o comportamento de logout.
+# Fix: `canAccess` inseguro durante loading
 
-### Alterações previstas
+Hoje `canAccess` em `src/hooks/useMenuPermissions.ts` retorna `true` enquanto `permissions` ainda não carregou, o que revela temporariamente todos os menus antes de as permissões chegarem do backend. Vamos inverter o default e propagar o estado de loading para os consumidores.
 
-1. **`src/contexts/AuthContext.tsx`**
-   - Manter a função `logAccess` exatamente como está (mesma assinatura, mesmos campos).
-   - Transformar `signIn` no ponto único de validação e auditoria para login por senha:
-     1. Normalizar o email (`trim().toLowerCase()`).
-     2. Verificar domínio `@rumina.com.br`. Se for inválido, chamar `logAccess('login_denied', email, null, 'Domínio não autorizado')` e retornar um erro.
-     3. Chamar `supabase.auth.signInWithPassword({ email, password })`.
-     4. Em caso de erro de credencial, chamar `logAccess('login_error', email, null, error.message)` e retornar o erro.
-     5. Em caso de sucesso, chamar a RPC `validate_rumina_login` com o `user.id` e email.
-     6. Se a RPC negar o acesso, chamar `logAccess('login_denied', email, user.id, reason)`, fazer `signOut({ scope: 'local' })` e retornar um erro.
-     7. Se a RPC aprovar, chamar `logAccess('login', email, user.id, 'password')` e retornar sucesso.
-   - Garantir que a senha nunca seja logada, armazenada ou passada para `logAccess`.
-   - Não alterar `signOut` nem `signUp`.
+## 1. `src/hooks/useMenuPermissions.ts`
 
-2. **`src/pages/Auth.tsx`**
-   - Simplificar o `handleLogin` para usar o `signIn` já enriquecido do contexto.
-   - Remover a validação de domínio duplicada, a chamada duplicada à RPC `validate_rumina_login` e os `logAccess` redundantes.
-   - Manter o feedback visual (toast) e o controle de carregamento (`isSubmitting`).
-   - Preservar o fluxo OAuth (Google) como está, pois ele já possui sua própria validação e logging.
+- `canAccess(menuKey)`:
+  - Se `permissionsLoading` (auth carregando ou query rodando ou `!permissions` com user ativo) → `return false`.
+  - Depois de carregado, mantém a lógica atual: procura em `permissions`, e para chave não configurada mantém o fallback `role === 'admin'`.
+- `canAccessAny` fica igual (usa `canAccess` internamente, então herda o novo default).
+- `canEdit`, `canDelete`, `canEditFinalized` já retornam `false` no loading — não alterar.
+- Nada muda nas regras/policies em si; só o comportamento no intervalo de carregamento.
 
-### Critérios de aceitação
+## 2. Consumidores — evitar "flash" de menu
 
-- Login com credenciais corretas e domínio válido registra `event_type = 'login'` em `access_logs`.
-- Login com credenciais incorretas registra `event_type = 'login_error'`.
-- Login com domínio não autorizado registra `event_type = 'login_denied'`.
-- Login aprovado pelo Supabase mas negado pela allowlist registra `event_type = 'login_denied'` com `user_id` preenchido.
-- Logout continua registrando `event_type = 'logout'`.
-- Nenhuma senha aparece em logs, payloads ou chamadas.
-- Typecheck e build passam sem regressões.
+Todos já recebem `isLoading` (renomeando localmente para `permissionsLoading` quando útil) do hook.
+
+- **`src/components/layout/AppSidebar.tsx`**
+  - Já desestrutura `isLoading`. Enquanto `isLoading === true`, renderizar um skeleton dos grupos/itens (blocos `Skeleton` de `@/components/ui/skeleton` com a mesma altura dos `SidebarMenuButton`) em vez das listas filtradas por `canAccess`. Isso substitui o comportamento atual em que os `filter(item => canAccess(...))` retornavam todos os itens durante o loading.
+
+- **`src/pages/Home.tsx`**
+  - Desestruturar `isLoading` do hook. Enquanto `isLoading`, renderizar um grid de skeletons (mesma disposição atual dos cards de menu) no lugar de `mainMenuItems`/`estoqueMenuItems`/`oficinaMenuItems`/`adminMenuItems`. Sem loading a UI atual permanece.
+
+- **`src/pages/oficina/GestaoOS.tsx`** (linhas 734–743)
+  - Desestruturar `isLoading: permissionsLoading` do hook.
+  - Enquanto `permissionsLoading`, mostrar um spinner centralizado (`Loader2 animate-spin` no mesmo container `flex items-center justify-center h-[60vh]`) em vez de renderizar imediatamente o "Você não tem permissão…". Só decidir o gate quando `!permissionsLoading`.
+
+- **`src/pages/crm/CrmInteligencia.tsx`** (linha 135)
+  - Local variable `isLoading` já é usada para o gateway; renomear a do hook para `permissionsLoading` para evitar colisão. Aplicar `canAccess("crm_inteligencia")` só quando `!permissionsLoading`; enquanto carrega, mostrar spinner/skeleton em vez de negar acesso.
+
+Consumidores que só usam `canEdit`/`canDelete`/`canEditFinalized` (Chamados, Preventivas, Oficina/OrdensServico, DetalheOSDialog, ChecklistExecution) **não precisam de mudança** — esses helpers já retornam `false` no loading e nenhum deles depende de `canAccess`.
+
+## 3. Regras que NÃO mudam
+
+- Estrutura de `role_menu_permissions`, RLS, fallback admin para chaves não configuradas.
+- Assinaturas dos helpers (`canAccess`, `canEdit`, etc.).
+- Comportamento pós-loading permanece idêntico ao atual.
+
+## Verificação
+
+- Typecheck (`tsgo`) após as edições.
+- Conferir manualmente: em cold reload, sidebar/Home/GestaoOS não devem "piscar" mostrando itens antes de sumir; deve aparecer skeleton/spinner até as permissões resolverem.
