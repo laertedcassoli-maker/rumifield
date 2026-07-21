@@ -37,7 +37,7 @@ interface MenuItem {
 
 export default function Home() {
   const { profile } = useAuth();
-  const { canAccess } = useMenuPermissions();
+  const { canAccess, isLoading: permissionsLoading } = useMenuPermissions();
 
   // All possible menu items with permission keys
   const allMainMenuItems: MenuItem[] = [
