@@ -501,6 +501,14 @@ export default function NovaRota() {
 
       if (itemsError) throw itemsError;
 
+      track('preventive_route_created', {
+        route_id: route.id,
+        route_code: routeCode,
+        client_count: selectedClientsArray.length,
+        has_checklist_template: !!form.checklist_template_id,
+        field_technician_user_id: form.field_technician_user_id ?? null,
+      }, { entity: 'preventive_route', entity_id: route.id });
+
       toast({ title: 'Rota criada com sucesso! A rota está em elaboração.' });
       queryClient.invalidateQueries({ queryKey: ['preventive-routes'] });
       navigate(`/preventivas/rotas/${route.id}`);
