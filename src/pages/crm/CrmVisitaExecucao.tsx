@@ -3,6 +3,7 @@ import { useParams, useNavigate, useLocation, Link } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { supabase } from '@/integrations/supabase/client';
+import { track } from '@/lib/analytics';
 import { withTimeout } from '@/lib/supabase-helpers';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCliente360Data, PRODUCT_ORDER, PRODUCT_LABELS, type ProductCode, type CrmStage } from '@/hooks/useCrmData';
@@ -178,10 +179,14 @@ export default function CrmVisitaExecucao() {
         }
       }
     },
-    onSuccess: () => {
+    onSuccess: (_data, vars) => {
       setCheckinOpen(false);
       queryClient.invalidateQueries({ queryKey: ['crm-visit', id] });
       refetchChecklists();
+      track('crm_visit_checkin', {
+        has_coords: vars?.lat != null && vars?.lon != null,
+        won_products_count: clientProducts.filter((p: any) => p.stage === 'ganho').length,
+      }, { entity: 'crm_visit', entity_id: id });
       toast({ title: 'Check-in realizado!' });
     },
     onError: (e: Error) => {
@@ -205,12 +210,13 @@ export default function CrmVisitaExecucao() {
       );
       if (error) throw error;
     },
-    onSuccess: () => {
+    onSuccess: (_data, reason) => {
       queryClient.invalidateQueries({ queryKey: ['crm-visitas'] });
       queryClient.invalidateQueries({ queryKey: ['crm-carteira-visits'] });
       queryClient.invalidateQueries({ queryKey: ['crm-carteira'] });
       queryClient.invalidateQueries({ queryKey: ['crm-visit', id] });
       setCancelOpen(false);
+      track('crm_visit_cancelled', { reason_length: (reason || '').length }, { entity: 'crm_visit', entity_id: id });
       toast({ title: 'Visita cancelada.' });
       navigate(backPath);
     },

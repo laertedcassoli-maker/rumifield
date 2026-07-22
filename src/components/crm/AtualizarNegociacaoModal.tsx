@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { track } from '@/lib/analytics';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
@@ -54,6 +55,12 @@ export function AtualizarNegociacaoModal({ open, onOpenChange, clientProductId, 
       queryClient.invalidateQueries({ queryKey: ['crm-pipeline'] });
       queryClient.invalidateQueries({ queryKey: ['crm-carteira'] });
       queryClient.invalidateQueries({ queryKey: ['crm-opportunity-counts'] });
+      track('crm_negotiation_updated', {
+        product_code: productCode,
+        from_stage: currentStage,
+        to_stage: newStage,
+        has_loss_reason: !!lossReasonId,
+      }, { entity: 'crm_client_product', entity_id: clientProductId });
       onOpenChange(false);
       setNewStage(''); setNotes(''); setLossReasonId(''); setLossNotes('');
       onUpdated?.();

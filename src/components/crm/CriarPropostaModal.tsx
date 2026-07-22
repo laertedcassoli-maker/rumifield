@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { track } from '@/lib/analytics';
 import { useAuth } from '@/contexts/AuthContext';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -50,6 +51,12 @@ export function CriarPropostaModal({ open, onOpenChange, clientProductId, produc
       toast.success('Proposta criada!');
       queryClient.invalidateQueries({ queryKey: ['crm-'] });
       queryClient.invalidateQueries({ queryKey: ['crm-360'] });
+      track('crm_proposal_created', {
+        product_code: productCode,
+        has_value: !!value,
+        has_valid_until: !!validUntil,
+        has_sent_at: !!sentAt,
+      }, { entity: 'crm_client_product', entity_id: clientProductId });
       onOpenChange(false);
       setValue(''); setValidUntil(''); setSentAt(''); setNotes('');
       onCreated?.();

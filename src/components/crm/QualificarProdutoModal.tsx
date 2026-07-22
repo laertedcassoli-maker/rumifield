@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { track } from '@/lib/analytics';
 import { useAuth } from '@/contexts/AuthContext';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -127,6 +128,9 @@ export function QualificarProdutoModal({ open, onOpenChange, clientProductId, pr
       queryClient.invalidateQueries({ queryKey: ['qual-answers'] });
       queryClient.invalidateQueries({ queryKey: ['crm-360-products'] });
       queryClient.invalidateQueries({ queryKey: ['crm-carteira'] });
+      track(qualify ? 'crm_product_qualified' : 'crm_qualification_saved', {
+        answers_count: Object.keys(answers).filter(k => answers[k] !== '' && answers[k] != null).length,
+      }, { entity: 'crm_client_product', entity_id: clientProductId });
       onOpenChange(false);
       onQualified?.();
     },

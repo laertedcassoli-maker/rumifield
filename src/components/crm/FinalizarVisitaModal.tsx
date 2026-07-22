@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { supabase } from '@/integrations/supabase/client';
+import { track } from '@/lib/analytics';
 import { useAuth } from '@/contexts/AuthContext';
 import { useGeolocation } from '@/hooks/useGeolocation';
 import { offlineDb } from '@/lib/offline-db';
@@ -124,6 +125,10 @@ export function FinalizarVisitaModal({ open, onOpenChange, visitId, clientId, on
       queryClient.invalidateQueries({ queryKey: ['crm-carteira-visits'] });
       queryClient.invalidateQueries({ queryKey: ['crm-carteira'] });
       queryClient.invalidateQueries({ queryKey: ['crm-visit', visitId] });
+      track('crm_visit_finalized', {
+        duration_minutes: durationMinutes,
+        pending_audios: pendingAudios || 0,
+      }, { entity: 'crm_visit', entity_id: visitId });
       onOpenChange(false);
       onFinalized();
     },
