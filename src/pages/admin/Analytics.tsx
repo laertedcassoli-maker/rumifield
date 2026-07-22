@@ -281,6 +281,32 @@ export default function AdminAnalytics() {
       .slice(0, 10)
       .map(([screen, count]) => ({ screen, count }));
 
+    const businessFunnels = BUSINESS_FUNNELS.map((f) => {
+      const usersPerStep = f.steps.map((s) => {
+        const u = new Set<string>();
+        let count = 0;
+        for (const r of rows) {
+          if (r.event_name === s.key) {
+            count += 1;
+            if (r.user_id) u.add(r.user_id);
+          }
+        }
+        return { key: s.key, label: s.label, count, users: u.size };
+      });
+      const first = usersPerStep[0]?.users ?? 0;
+      const withConv = usersPerStep.map((s, i) => ({
+        ...s,
+        convFromFirst: first > 0 ? (s.users / first) * 100 : null,
+        convFromPrev:
+          i === 0
+            ? null
+            : usersPerStep[i - 1].users > 0
+            ? (s.users / usersPerStep[i - 1].users) * 100
+            : null,
+      }));
+      return { label: f.label, steps: withConv };
+    });
+
     return {
       total: rows.length,
       users: users.size,
@@ -294,6 +320,7 @@ export default function AdminAnalytics() {
       topTransitions,
       topEntries,
       topExits,
+      businessFunnels,
     };
   }, [data]);
 
