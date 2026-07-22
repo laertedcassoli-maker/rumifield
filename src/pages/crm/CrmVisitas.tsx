@@ -106,18 +106,23 @@ export default function CrmVisitas() {
   // @ts-ignore
   const createVisit = useMutation({
     mutationFn: async (data: { client_id: string; objective: string; planned_start_at?: string }) => {
-      const { error } = await supabase.from('crm_visits').insert({
+      const { data: inserted, error } = await supabase.from('crm_visits').insert({
         client_id: data.client_id,
         owner_user_id: user!.id,
         objective: data.objective || null,
         planned_start_at: data.planned_start_at || null,
         status: 'planejada',
-      });
+      }).select('id').single();
       if (error) throw error;
+      return { id: (inserted as any)?.id as string | undefined, client_id: data.client_id, has_objective: !!data.objective, has_planned_date: !!data.planned_start_at };
     },
-    onSuccess: () => {
+    onSuccess: (res) => {
       queryClient.invalidateQueries({ queryKey: ['crm-visitas'] });
       handleCloseSheet();
+      track('crm_visit_planned', {
+        has_objective: res?.has_objective,
+        has_planned_date: res?.has_planned_date,
+      }, { entity: 'crm_visit', entity_id: res?.id });
       toast({ title: 'Visita criada com sucesso!' });
     },
     onError: (e: Error) => {
