@@ -178,10 +178,14 @@ export default function CrmVisitaExecucao() {
         }
       }
     },
-    onSuccess: () => {
+    onSuccess: (_data, vars) => {
       setCheckinOpen(false);
       queryClient.invalidateQueries({ queryKey: ['crm-visit', id] });
       refetchChecklists();
+      track('crm_visit_checkin', {
+        has_coords: vars?.lat != null && vars?.lon != null,
+        won_products_count: clientProducts.filter((p: any) => p.stage === 'ganho').length,
+      }, { entity: 'crm_visit', entity_id: id });
       toast({ title: 'Check-in realizado!' });
     },
     onError: (e: Error) => {
