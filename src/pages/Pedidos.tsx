@@ -733,6 +733,10 @@ export default function Pedidos() {
 
       queryClient.invalidateQueries({ queryKey: ['pedidos'] });
       const nfLabel = nfNumero2 ? `${nfNumero} / ${nfNumero2}` : nfNumero;
+      track('pedido_concluded', {
+        tipo_logistica: tipoLogistica,
+        has_nf_secondary: !!nfNumero2,
+      }, { entity: 'pedido', entity_id: pedidoId });
       toast({ title: 'Pedido concluído!', description: `NF ${nfLabel} registrada.` });
     } catch (err: any) {
       toast({ variant: 'destructive', title: 'Erro', description: err.message });
