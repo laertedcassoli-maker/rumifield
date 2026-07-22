@@ -3950,6 +3950,18 @@ export type Database = {
           preventive_status: string
         }[]
       }
+      get_invite_by_token: {
+        Args: { _token: string }
+        Returns: {
+          cidade_base: string
+          email: string
+          expires_at: string
+          id: string
+          nome: string
+          role: Database["public"]["Enums"]["app_role"]
+          used_at: string
+        }[]
+      }
       get_schema_tables: {
         Args: never
         Returns: {
