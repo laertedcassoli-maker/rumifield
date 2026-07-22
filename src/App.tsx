@@ -19,6 +19,7 @@ import AdminEnvios from "./pages/admin/Envios";
 import AdminUsuarios from "./pages/admin/Usuarios";
 import AdminConfig from "./pages/admin/Config";
 import AdminPermissoes from "./pages/admin/Permissoes";
+import AdminAnalytics from "./pages/admin/Analytics";
 import OficinaAtividades from "./pages/oficina/Atividades";
 import OficinaItens from "./pages/oficina/ItensOficina";
 import OficinaOS from "./pages/oficina/OrdensServico";
@@ -187,6 +188,14 @@ const App = () => (
               element={
                 <AppLayout>
                   <AdminPermissoes />
+                </AppLayout>
+              }
+            />
+            <Route
+              path="/admin/analytics"
+              element={
+                <AppLayout>
+                  <AdminAnalytics />
                 </AppLayout>
               }
             />
