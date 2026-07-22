@@ -48,11 +48,10 @@ export default function AceitarConvite() {
         return;
       }
 
-      const { data, error: fetchError } = await supabase
-        .from('user_invites')
-        .select('*')
-        .eq('token', token)
-        .single();
+      const { data: rows, error: fetchError } = await supabase
+        .rpc('get_invite_by_token', { _token: token });
+
+      const data = Array.isArray(rows) ? rows[0] : rows;
 
       if (fetchError || !data) {
         setError('Convite não encontrado');
