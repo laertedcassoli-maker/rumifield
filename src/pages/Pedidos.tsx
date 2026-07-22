@@ -355,6 +355,7 @@ export default function Pedidos() {
       const { error: pedidoError } = await supabase.from('pedidos').delete().eq('id', editingPedido.id);
       if (pedidoError) throw pedidoError;
       queryClient.invalidateQueries({ queryKey: ['pedidos'] });
+      track('pedido_deleted', { from_status: 'rascunho' }, { entity: 'pedido', entity_id: editingPedido.id });
       toast({ title: 'Rascunho excluído!' });
       setOpen(false);
       setEditingPedido(null);
@@ -516,6 +517,10 @@ export default function Pedidos() {
       }
 
       await queryClient.invalidateQueries({ queryKey: ['pedidos'] });
+      track('pedido_deleted', {
+        from_status: pedidoToDelete.status,
+        pedido_code: pedidoToDelete.pedido_code || null,
+      }, { entity: 'pedido', entity_id: pedidoToDelete.id });
       toast({
         title: 'Pedido excluído',
         description: `${pedidoToDelete.pedido_code || 'Pedido'} foi removido permanentemente.`,
@@ -615,6 +620,14 @@ export default function Pedidos() {
           throw itensError;
         }
 
+        track('pedido_created', {
+          items_count: newItens.length,
+          total_qty: newItens.reduce((s, i) => s + (Number(i.quantidade) || 0), 0),
+          urgencia: form.urgencia,
+          tipo_envio: form.tipo_envio || null,
+          origem: 'chamado',
+          has_solenoide: hasSolenoide,
+        }, { entity: 'pedido', entity_id: pedido.id });
         toast({ title: 'Rascunho salvo!', description: 'Clique em "Transmitir" para enviar o pedido.' });
         setActiveTab('rascunhos');
       }
@@ -672,6 +685,10 @@ export default function Pedidos() {
       }
 
       queryClient.invalidateQueries({ queryKey: ['pedidos'] });
+      track('pedido_processed', {
+        tipo_logistica: tipoLogistica || null,
+        assets_linked_items: itemsWithAssets ? Object.keys(itemsWithAssets).filter(k => (itemsWithAssets[k] || []).length > 0).length : 0,
+      }, { entity: 'pedido', entity_id: pedidoId });
       toast({ title: 'Pedido movido para processamento!' });
     } catch (err: any) {
       toast({ variant: 'destructive', title: 'Erro', description: err.message });
@@ -721,6 +738,10 @@ export default function Pedidos() {
 
       queryClient.invalidateQueries({ queryKey: ['pedidos'] });
       const nfLabel = nfNumero2 ? `${nfNumero} / ${nfNumero2}` : nfNumero;
+      track('pedido_concluded', {
+        tipo_logistica: tipoLogistica,
+        has_nf_secondary: !!nfNumero2,
+      }, { entity: 'pedido', entity_id: pedidoId });
       toast({ title: 'Pedido concluído!', description: `NF ${nfLabel} registrada.` });
     } catch (err: any) {
       toast({ variant: 'destructive', title: 'Erro', description: err.message });
