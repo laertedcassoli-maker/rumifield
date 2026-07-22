@@ -1008,6 +1008,10 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
       if (error) throw error;
     },
     onSuccess: () => {
+      track('preventive_checklist_completed', {
+        preventive_id: preventiveId,
+        checklist_id: existingChecklist?.id ?? null,
+      }, { entity: 'preventive_checklist', entity_id: existingChecklist?.id ?? preventiveId });
       queryClient.invalidateQueries({ queryKey: ['preventive-checklist', preventiveId] });
       toast.success('Checklist concluído!');
       setIsConfirmCompleteOpen(false);
