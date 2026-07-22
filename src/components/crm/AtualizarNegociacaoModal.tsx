@@ -55,6 +55,12 @@ export function AtualizarNegociacaoModal({ open, onOpenChange, clientProductId, 
       queryClient.invalidateQueries({ queryKey: ['crm-pipeline'] });
       queryClient.invalidateQueries({ queryKey: ['crm-carteira'] });
       queryClient.invalidateQueries({ queryKey: ['crm-opportunity-counts'] });
+      track('crm_negotiation_updated', {
+        product_code: productCode,
+        from_stage: currentStage,
+        to_stage: newStage,
+        has_loss_reason: !!lossReasonId,
+      }, { entity: 'crm_client_product', entity_id: clientProductId });
       onOpenChange(false);
       setNewStage(''); setNotes(''); setLossReasonId(''); setLossNotes('');
       onUpdated?.();
