@@ -217,7 +217,12 @@ async function flush(useBeacon = false): Promise<void> {
       return;
     }
 
-    const { error } = await supabase.from("analytics_events").insert(batch);
+    // Cast: our enriched shape carries `Record<string, unknown>` for
+    // properties/device, which the generated Supabase types narrow to `Json`.
+    // Values are always JSON-safe here.
+    const { error } = await supabase
+      .from("analytics_events")
+      .insert(batch as unknown as never);
     if (error) {
       // Non-fatal: log and drop. Do not retry aggressively to avoid loops.
       console.warn("[analytics] flush failed", error.message);

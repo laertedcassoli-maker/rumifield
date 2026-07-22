@@ -65,6 +65,7 @@ import CrmDashboard from "./pages/crm/CrmDashboard";
 import CrmInteligencia from "./pages/crm/CrmInteligencia";
 import GoogleSheetsConfig from "./pages/admin/GoogleSheetsConfig";
 import OAuthConsent from "./pages/OAuthConsent";
+import { AnalyticsBootstrap } from "./components/AnalyticsBootstrap";
 
 const ClienteRedirect = () => {
   const { id } = useParams();
@@ -88,6 +89,7 @@ const App = () => (
           <TooltipProvider>
             <Toaster />
             <Sonner />
+            <AnalyticsBootstrap />
           <Routes>
             <Route path="/auth" element={<Auth />} />
             <Route path="/.lovable/oauth/consent" element={<OAuthConsent />} />

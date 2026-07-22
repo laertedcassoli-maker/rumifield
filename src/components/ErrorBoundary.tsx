@@ -1,4 +1,5 @@
 import { Component, ErrorInfo, ReactNode } from 'react';
+import { track } from '@/lib/analytics';
 
 interface Props {
   children: ReactNode;
@@ -7,6 +8,15 @@ interface Props {
 interface State {
   hasError: boolean;
   error: Error | null;
+}
+
+// Sanitize error messages: remove UUIDs, JWT-like tokens, signed URLs.
+function sanitizeMessage(message: string): string {
+  return message
+    .replace(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/gi, '<uuid>')
+    .replace(/eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}/g, '<jwt>')
+    .replace(/https?:\/\/[^\s]+/g, '<url>')
+    .slice(0, 500);
 }
 
 export class ErrorBoundary extends Component<Props, State> {
@@ -21,6 +31,15 @@ export class ErrorBoundary extends Component<Props, State> {
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error('Uncaught error:', error, errorInfo);
+    try {
+      track('error_shown', {
+        source: 'error_boundary',
+        message: sanitizeMessage(error.message || 'unknown'),
+        component_stack_present: Boolean(errorInfo?.componentStack),
+      });
+    } catch {
+      // never let analytics break the boundary
+    }
   }
 
   public render() {

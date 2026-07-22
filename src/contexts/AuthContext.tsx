@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import { track, rotateSession, getSessionId, getSessionStartedAt } from '@/lib/analytics';
 
 type AppRole = 'admin' | 'coordenador_rplus' | 'consultor_rplus' | 'coordenador_servicos' | 'coordenador_logistica' | 'tecnico_campo' | 'tecnico_oficina';
 
@@ -201,6 +202,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     await logAccess('login', normalizedEmail, user.id, 'password');
+    track('login', { method: 'password', success: true });
     return { error: null };
   };
 
@@ -220,6 +222,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const currentEmail = user?.email ?? null;
     const currentId = user?.id ?? null;
     await logAccess('logout', currentEmail, currentId);
+    track('logout', {
+      session_id: getSessionId(),
+      duration_ms: Date.now() - getSessionStartedAt(),
+    });
+    // Rotate the analytics session so the next login is a fresh session.
+    rotateSession();
     localStorage.removeItem('cached_profile');
     localStorage.removeItem('cached_role');
     await supabase.auth.signOut();
