@@ -96,6 +96,7 @@ export function AppSidebar() {
     { title: 'Permissões', icon: Shield, url: '/admin/permissoes', permKey: 'admin_permissoes' },
     { title: 'Envios', icon: Truck, url: '/admin/envios', permKey: 'admin_envios' },
     { title: 'Inteligência', icon: Brain, url: '/crm/inteligencia', permKey: 'crm_inteligencia' },
+    { title: 'Analytics', icon: BarChart2, url: '/admin/analytics', permKey: 'admin_analytics' },
   ].filter(item => canAccess(item.permKey));
 
   // Admin > Cadastros submenu
