@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { track } from '@/lib/analytics';
 import { useMenuPermissions } from '@/hooks/useMenuPermissions';
 import { useCanEditCompletedChecklist } from '@/hooks/useCanEditCompletedChecklist';
 import { offlineChecklistDb } from '@/lib/offline-checklist-db';
@@ -639,6 +640,11 @@ export default function ExecucaoVisitaCorretiva() {
       return result;
     },
     onSuccess: (result) => {
+      track('corrective_visit_finalized', {
+        result,
+        ticket_id: visit?.ticket_id ?? null,
+        client_id: visit?.client_id ?? null,
+      }, { entity: 'ticket_visit', entity_id: visitId });
       queryClient.invalidateQueries({ queryKey: ['corrective-visit-execution', visitId] });
       queryClient.invalidateQueries({ queryKey: ['my-corrective-visits'] });
       queryClient.invalidateQueries({ queryKey: ['ticket-timeline', visit?.ticket_id] });

@@ -28,6 +28,7 @@ import MultiAssetField from '@/components/pedidos/MultiAssetField';
 import EditarPedidoSolicitado from '@/components/pedidos/EditarPedidoSolicitado';
 import type { PedidoComItens, PedidoItem } from '@/types/pedidos';
 import { useRealtimePecas } from '@/hooks/useRealtimePecas';
+import { track } from '@/lib/analytics';
 
 const statusColors: Record<string, string> = {
   rascunho: 'bg-muted text-muted-foreground border-muted-foreground/30',
@@ -313,6 +314,7 @@ export default function Pedidos() {
     try {
       const { error } = await supabase.from('pedidos').update({ status: 'solicitado' }).eq('id', pedidoId);
       if (error) throw error;
+      track('pedido_transmitted', { count: 1, mode: 'single' }, { entity: 'pedido', entity_id: pedidoId });
       queryClient.invalidateQueries({ queryKey: ['pedidos'] });
       toast({ title: 'Pedido transmitido!', description: 'O pedido foi enviado para processamento.' });
       setActiveTab('pedidos');
@@ -329,6 +331,7 @@ export default function Pedidos() {
     try {
       const { error } = await supabase.from('pedidos').update({ status: 'solicitado' }).in('id', rascunhos.map(r => r.id));
       if (error) throw error;
+      track('pedido_transmitted', { count: rascunhos.length, mode: 'bulk' }, { entity: 'pedido' });
       queryClient.invalidateQueries({ queryKey: ['pedidos'] });
       toast({ 
         title: 'Todos os rascunhos transmitidos!', 

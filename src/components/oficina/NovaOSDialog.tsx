@@ -3,6 +3,7 @@ import { useQuery, useMutation } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { track } from '@/lib/analytics';
 import { Search, Package } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -249,7 +250,14 @@ export function NovaOSDialog({ open, onOpenChange, onSuccess }: NovaOSDialogProp
 
       return osData;
     },
-    onSuccess: () => {
+    onSuccess: (osData) => {
+      track('os_created', {
+        activity_id: selectedActivityId,
+        execution_type: selectedActivity?.execution_type,
+        has_cliente: !!selectedClienteId,
+        quantity: selectedActivity?.execution_type === 'LOTE' ? quantity : 1,
+        tag_count: selectedTagIds.length,
+      }, { entity: 'work_order', entity_id: osData?.id });
       toast.success('Ordem de Serviço criada com sucesso!');
       onSuccess();
       onOpenChange(false);
