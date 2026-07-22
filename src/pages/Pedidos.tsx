@@ -355,6 +355,7 @@ export default function Pedidos() {
       const { error: pedidoError } = await supabase.from('pedidos').delete().eq('id', editingPedido.id);
       if (pedidoError) throw pedidoError;
       queryClient.invalidateQueries({ queryKey: ['pedidos'] });
+      track('pedido_deleted', { from_status: 'rascunho' }, { entity: 'pedido', entity_id: editingPedido.id });
       toast({ title: 'Rascunho excluído!' });
       setOpen(false);
       setEditingPedido(null);
