@@ -3973,8 +3973,16 @@ export type Database = {
       }
       has_role: { Args: { _role: string; _user_id: string }; Returns: boolean }
       is_admin_or_coordinator: { Args: { _user_id: string }; Returns: boolean }
+      is_corrective_visit_technician: {
+        Args: { _user_id: string; _visit_id: string }
+        Returns: boolean
+      }
       is_crm_client_owner: {
         Args: { _client_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_public_corrective_visit: {
+        Args: { _visit_id: string }
         Returns: boolean
       }
       is_route_technician: {
