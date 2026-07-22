@@ -131,6 +131,12 @@ export default function AdminAnalytics() {
     const byModule: Record<string, { events: number; users: Set<string>; sessions: Set<string> }> = {};
     const errors: EventRow[] = [];
 
+    // Navigation funnel: per session, order screen_viewed events and count transitions.
+    const bySession: Record<string, EventRow[]> = {};
+    const entryCounts: Record<string, number> = {};
+    const exitCounts: Record<string, number> = {};
+    const transitionCounts: Record<string, number> = {};
+
     for (const r of rows) {
       if (r.user_id) users.add(r.user_id);
       if (r.session_id) sessions.add(r.session_id);
@@ -148,8 +154,43 @@ export default function AdminAnalytics() {
         byModule[m].events += 1;
         if (r.user_id) byModule[m].users.add(r.user_id);
         if (r.session_id) byModule[m].sessions.add(r.session_id);
+        if (r.session_id) {
+          if (!bySession[r.session_id]) bySession[r.session_id] = [];
+          bySession[r.session_id].push(r);
+        }
       }
       if (r.event_name === 'error_shown') errors.push(r);
+    }
+
+    // Normalize a screen path into a route pattern (collapse UUIDs / numeric ids).
+    const normalize = (s: string): string =>
+      s
+        .split('?')[0]
+        .split('/')
+        .map((seg) =>
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(seg)
+            ? ':id'
+            : /^\d+$/.test(seg)
+            ? ':id'
+            : seg,
+        )
+        .join('/') || '/';
+
+    for (const sid of Object.keys(bySession)) {
+      const seq = bySession[sid]
+        .slice()
+        .sort((a, b) => a.occurred_at.localeCompare(b.occurred_at))
+        .map((r) => normalize(r.screen ?? ''));
+      // Deduplicate consecutive repeats (refresh / re-render noise).
+      const dedup: string[] = [];
+      for (const s of seq) if (dedup[dedup.length - 1] !== s) dedup.push(s);
+      if (dedup.length === 0) continue;
+      entryCounts[dedup[0]] = (entryCounts[dedup[0]] ?? 0) + 1;
+      exitCounts[dedup[dedup.length - 1]] = (exitCounts[dedup[dedup.length - 1]] ?? 0) + 1;
+      for (let i = 0; i < dedup.length - 1; i++) {
+        const key = `${dedup[i]} → ${dedup[i + 1]}`;
+        transitionCounts[key] = (transitionCounts[key] ?? 0) + 1;
+      }
     }
 
     const dayKeys = Object.keys(byDay).sort();
@@ -175,6 +216,22 @@ export default function AdminAnalytics() {
       }))
       .sort((a, b) => b.events - a.events);
 
+    const topTransitions = Object.entries(transitionCounts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 15)
+      .map(([path, count]) => {
+        const [from, to] = path.split(' → ');
+        return { from, to, count };
+      });
+    const topEntries = Object.entries(entryCounts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10)
+      .map(([screen, count]) => ({ screen, count }));
+    const topExits = Object.entries(exitCounts)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 10)
+      .map(([screen, count]) => ({ screen, count }));
+
     return {
       total: rows.length,
       users: users.size,
@@ -185,6 +242,9 @@ export default function AdminAnalytics() {
       topEvents,
       modules,
       recentErrors: errors.slice(0, 20),
+      topTransitions,
+      topEntries,
+      topExits,
     };
   }, [data]);
 
