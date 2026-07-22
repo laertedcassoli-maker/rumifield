@@ -71,7 +71,7 @@ export function CriarAcaoModal({ open, onOpenChange, clientId: externalClientId,
 
   const mutation = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from('crm_actions').insert([{
+      const { data: inserted, error } = await supabase.from('crm_actions').insert([{
         client_id: clientId,
         client_product_id: clientProductId || null,
         title,
@@ -82,15 +82,22 @@ export function CriarAcaoModal({ open, onOpenChange, clientId: externalClientId,
         due_at: dueAt ? new Date(dueAt).toISOString() : null,
         owner_user_id: user!.id,
         created_by: user!.id,
-      }]);
+      }]).select('id').single();
       if (error) throw error;
+      return (inserted as any)?.id as string | undefined;
     },
-    onSuccess: () => {
+    onSuccess: (newId) => {
       toast.success('Ação criada!');
       queryClient.invalidateQueries({ queryKey: ['crm-360-actions'] });
       queryClient.invalidateQueries({ queryKey: ['crm-actions-flat'] });
       queryClient.invalidateQueries({ queryKey: ['crm-carteira-actions'] });
       queryClient.invalidateQueries({ queryKey: ['crm-carteira'] });
+      track('crm_action_created', {
+        type,
+        priority: Number(priority),
+        has_due_date: !!dueAt,
+        has_product: !!clientProductId,
+      }, { entity: 'crm_action', entity_id: newId });
       onOpenChange(false);
       setTitle(''); setDescription(''); setType('tarefa'); setPriority('3'); setDueAt(''); setStatus('aberta'); setSelectedClientId('');
       onCreated?.();
