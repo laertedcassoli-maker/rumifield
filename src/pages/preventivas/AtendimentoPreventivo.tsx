@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { track } from '@/lib/analytics';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -350,6 +351,11 @@ export default function AtendimentoPreventivo() {
       return true;
     },
     onSuccess: () => {
+      track('preventive_visit_finalized', {
+        route_id: routeId,
+        preventive_id: routeItem?.preventiveId ?? null,
+        client_id: routeItem?.client_id ?? null,
+      }, { entity: 'preventive_route_item', entity_id: itemId });
       queryClient.invalidateQueries({ queryKey: ['route-execution', routeId] });
       queryClient.invalidateQueries({ queryKey: ['route-execution-items', routeId] });
       toast({

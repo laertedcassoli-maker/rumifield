@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { track } from '@/lib/analytics';
 import { Play, Square, Plus, Trash2, Clock, Package, CheckCircle, Wrench, ChevronDown, ChevronRight, History, Search, Pencil, Check, X, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -609,6 +610,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
       if (error) throw error;
     },
     onSuccess: () => {
+      track('os_timer_started', { os_code: workOrder.code }, { entity: 'work_order', entity_id: workOrder.id });
       queryClient.invalidateQueries({ queryKey: ['active-time-entry', workOrder.id, user?.id] });
       queryClient.invalidateQueries({ queryKey: ['work-orders'] });
       queryClient.invalidateQueries({ queryKey: ['work-order-items', workOrder.id] });
@@ -662,6 +664,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
       setLocalTotalSeconds(calculatedTotal);
     },
     onSuccess: () => {
+      track('os_timer_stopped', { os_code: workOrder.code }, { entity: 'work_order', entity_id: workOrder.id });
       // FIX 4: Protect localTotalSeconds from stale refetch for 5s
       recentlyStoppedRef.current = true;
       setTimeout(() => { recentlyStoppedRef.current = false; }, 5000);
@@ -1008,6 +1011,12 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
       return { warrantyCreated };
     },
     onSuccess: (result) => {
+      track('os_completed', {
+        os_code: workOrder.code,
+        total_time_seconds: workOrder.total_time_seconds ?? null,
+        warranty_created: !!result?.warrantyCreated,
+        has_notes: !!completionNotes.trim(),
+      }, { entity: 'work_order', entity_id: workOrder.id });
       queryClient.invalidateQueries({ queryKey: ['work-orders'] });
       queryClient.invalidateQueries({ queryKey: ['workshop-items'] });
       queryClient.invalidateQueries({ queryKey: ['workshop-item-motor'] });
