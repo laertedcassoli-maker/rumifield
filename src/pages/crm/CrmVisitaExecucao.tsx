@@ -210,12 +210,13 @@ export default function CrmVisitaExecucao() {
       );
       if (error) throw error;
     },
-    onSuccess: () => {
+    onSuccess: (_data, reason) => {
       queryClient.invalidateQueries({ queryKey: ['crm-visitas'] });
       queryClient.invalidateQueries({ queryKey: ['crm-carteira-visits'] });
       queryClient.invalidateQueries({ queryKey: ['crm-carteira'] });
       queryClient.invalidateQueries({ queryKey: ['crm-visit', id] });
       setCancelOpen(false);
+      track('crm_visit_cancelled', { reason_length: (reason || '').length }, { entity: 'crm_visit', entity_id: id });
       toast({ title: 'Visita cancelada.' });
       navigate(backPath);
     },
