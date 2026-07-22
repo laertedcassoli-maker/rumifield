@@ -517,6 +517,10 @@ export default function Pedidos() {
       }
 
       await queryClient.invalidateQueries({ queryKey: ['pedidos'] });
+      track('pedido_deleted', {
+        from_status: pedidoToDelete.status,
+        pedido_code: pedidoToDelete.pedido_code || null,
+      }, { entity: 'pedido', entity_id: pedidoToDelete.id });
       toast({
         title: 'Pedido excluído',
         description: `${pedidoToDelete.pedido_code || 'Pedido'} foi removido permanentemente.`,
