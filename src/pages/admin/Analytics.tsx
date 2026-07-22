@@ -49,6 +49,55 @@ const MODULE_MAP: { label: string; prefixes: string[] }[] = [
   { label: 'Home', prefixes: ['/home', '/'] },
 ];
 
+type FunnelDef = { label: string; steps: { key: string; label: string }[] };
+
+const BUSINESS_FUNNELS: FunnelDef[] = [
+  {
+    label: 'Oficina',
+    steps: [
+      { key: 'os_created', label: 'OS criada' },
+      { key: 'os_timer_started', label: 'Timer iniciado' },
+      { key: 'os_timer_stopped', label: 'Timer parado' },
+      { key: 'os_completed', label: 'OS concluída' },
+    ],
+  },
+  {
+    label: 'Pedidos',
+    steps: [
+      { key: 'pedido_created', label: 'Rascunho criado' },
+      { key: 'pedido_transmitted', label: 'Transmitido' },
+      { key: 'pedido_processed', label: 'Em processamento' },
+      { key: 'pedido_concluded', label: 'Faturado' },
+    ],
+  },
+  {
+    label: 'Preventivas',
+    steps: [
+      { key: 'preventive_route_created', label: 'Rota criada' },
+      { key: 'preventive_checkin', label: 'Check-in' },
+      { key: 'preventive_checklist_completed', label: 'Checklist concluído' },
+      { key: 'preventive_visit_finalized', label: 'Visita finalizada' },
+    ],
+  },
+  {
+    label: 'CRM',
+    steps: [
+      { key: 'crm_visit_planned', label: 'Visita planejada' },
+      { key: 'crm_visit_checkin', label: 'Check-in' },
+      { key: 'crm_product_qualified', label: 'Produto qualificado' },
+      { key: 'crm_proposal_created', label: 'Proposta criada' },
+      { key: 'crm_negotiation_updated', label: 'Negociação atualizada' },
+      { key: 'crm_visit_finalized', label: 'Visita finalizada' },
+    ],
+  },
+  {
+    label: 'Chamados (corretivas)',
+    steps: [
+      { key: 'corrective_visit_finalized', label: 'Visita corretiva finalizada' },
+    ],
+  },
+];
+
 function moduleOf(screen: string | null): string {
   if (!screen) return 'Outros';
   for (const m of MODULE_MAP) {
@@ -232,6 +281,32 @@ export default function AdminAnalytics() {
       .slice(0, 10)
       .map(([screen, count]) => ({ screen, count }));
 
+    const businessFunnels = BUSINESS_FUNNELS.map((f) => {
+      const usersPerStep = f.steps.map((s) => {
+        const u = new Set<string>();
+        let count = 0;
+        for (const r of rows) {
+          if (r.event_name === s.key) {
+            count += 1;
+            if (r.user_id) u.add(r.user_id);
+          }
+        }
+        return { key: s.key, label: s.label, count, users: u.size };
+      });
+      const first = usersPerStep[0]?.users ?? 0;
+      const withConv = usersPerStep.map((s, i) => ({
+        ...s,
+        convFromFirst: first > 0 ? (s.users / first) * 100 : null,
+        convFromPrev:
+          i === 0
+            ? null
+            : usersPerStep[i - 1].users > 0
+            ? (s.users / usersPerStep[i - 1].users) * 100
+            : null,
+      }));
+      return { label: f.label, steps: withConv };
+    });
+
     return {
       total: rows.length,
       users: users.size,
@@ -245,6 +320,7 @@ export default function AdminAnalytics() {
       topTransitions,
       topEntries,
       topExits,
+      businessFunnels,
     };
   }, [data]);
 
@@ -466,7 +542,61 @@ export default function AdminAnalytics() {
         </CardContent>
       </Card>
 
+      {/* Funis de negócio por módulo */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Funis por módulo</CardTitle>
+          <p className="text-xs text-muted-foreground mt-1 normal-case">
+            usuários únicos que completaram cada etapa no período. conversão relativa à etapa inicial e à etapa anterior.
+          </p>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <Skeleton className="h-64 w-full" />
+          ) : (
+            <div className="grid gap-6 md:grid-cols-2">
+              {stats.businessFunnels.map((f) => {
+                const max = Math.max(...f.steps.map((s) => s.users), 1);
+                return (
+                  <div key={f.label} className="space-y-2">
+                    <div className="text-sm font-semibold">{f.label}</div>
+                    <div className="space-y-1.5">
+                      {f.steps.map((s, i) => {
+                        const width = (s.users / max) * 100;
+                        return (
+                          <div key={s.key} className="space-y-0.5">
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="font-mono truncate">{i + 1}. {s.label}</span>
+                              <span className="tabular-nums text-muted-foreground shrink-0 ml-2">
+                                {s.users.toLocaleString('pt-BR')} usr · {s.count.toLocaleString('pt-BR')} ev
+                                {s.convFromPrev !== null && (
+                                  <span className="ml-2">({s.convFromPrev.toFixed(0)}%)</span>
+                                )}
+                              </span>
+                            </div>
+                            <div className="h-2 w-full rounded bg-muted overflow-hidden">
+                              <div
+                                className="h-full bg-primary transition-all"
+                                style={{ width: `${width}%` }}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
+                      {f.steps[0]?.users === 0 && (
+                        <p className="text-xs text-muted-foreground italic">sem eventos no período.</p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       <div className="grid gap-4 md:grid-cols-2">
+
 
         {/* Top screens */}
         <Card>
