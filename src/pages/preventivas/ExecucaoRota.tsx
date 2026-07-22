@@ -317,7 +317,13 @@ export default function ExecucaoRota() {
         }
       }
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
+      track('preventive_checkin', {
+        route_id: id,
+        route_item_id: variables.itemId,
+        has_coordinates: variables.lat !== null && variables.lon !== null,
+        offline: isOffline || !isOnline,
+      }, { entity: 'preventive_route_item', entity_id: variables.itemId });
       refetchRouteOffline();
       refetchItemsOffline();
       if (!isOffline && isOnline) {
