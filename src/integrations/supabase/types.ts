@@ -125,6 +125,51 @@ export type Database = {
           },
         ]
       }
+      analytics_events: {
+        Row: {
+          app_version: string | null
+          device: Json
+          entity: string | null
+          entity_id: string | null
+          event_name: string
+          id: string
+          ingested_at: string
+          occurred_at: string
+          properties: Json
+          screen: string | null
+          session_id: string | null
+          user_id: string | null
+        }
+        Insert: {
+          app_version?: string | null
+          device?: Json
+          entity?: string | null
+          entity_id?: string | null
+          event_name: string
+          id?: string
+          ingested_at?: string
+          occurred_at?: string
+          properties?: Json
+          screen?: string | null
+          session_id?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          app_version?: string | null
+          device?: Json
+          entity?: string | null
+          entity_id?: string | null
+          event_name?: string
+          id?: string
+          ingested_at?: string
+          occurred_at?: string
+          properties?: Json
+          screen?: string | null
+          session_id?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       asset_meter_readings: {
         Row: {
           created_at: string
