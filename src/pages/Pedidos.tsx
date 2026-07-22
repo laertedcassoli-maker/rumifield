@@ -680,6 +680,10 @@ export default function Pedidos() {
       }
 
       queryClient.invalidateQueries({ queryKey: ['pedidos'] });
+      track('pedido_processed', {
+        tipo_logistica: tipoLogistica || null,
+        assets_linked_items: itemsWithAssets ? Object.keys(itemsWithAssets).filter(k => (itemsWithAssets[k] || []).length > 0).length : 0,
+      }, { entity: 'pedido', entity_id: pedidoId });
       toast({ title: 'Pedido movido para processamento!' });
     } catch (err: any) {
       toast({ variant: 'destructive', title: 'Erro', description: err.message });
