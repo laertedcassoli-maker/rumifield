@@ -125,6 +125,10 @@ export function FinalizarVisitaModal({ open, onOpenChange, visitId, clientId, on
       queryClient.invalidateQueries({ queryKey: ['crm-carteira-visits'] });
       queryClient.invalidateQueries({ queryKey: ['crm-carteira'] });
       queryClient.invalidateQueries({ queryKey: ['crm-visit', visitId] });
+      track('crm_visit_finalized', {
+        duration_minutes: durationMinutes,
+        pending_audios: pendingAudios || 0,
+      }, { entity: 'crm_visit', entity_id: visitId });
       onOpenChange(false);
       onFinalized();
     },
