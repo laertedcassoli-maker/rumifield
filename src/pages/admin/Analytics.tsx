@@ -49,6 +49,55 @@ const MODULE_MAP: { label: string; prefixes: string[] }[] = [
   { label: 'Home', prefixes: ['/home', '/'] },
 ];
 
+type FunnelDef = { label: string; steps: { key: string; label: string }[] };
+
+const BUSINESS_FUNNELS: FunnelDef[] = [
+  {
+    label: 'Oficina',
+    steps: [
+      { key: 'os_created', label: 'OS criada' },
+      { key: 'os_timer_started', label: 'Timer iniciado' },
+      { key: 'os_timer_stopped', label: 'Timer parado' },
+      { key: 'os_completed', label: 'OS concluída' },
+    ],
+  },
+  {
+    label: 'Pedidos',
+    steps: [
+      { key: 'pedido_created', label: 'Rascunho criado' },
+      { key: 'pedido_transmitted', label: 'Transmitido' },
+      { key: 'pedido_processed', label: 'Em processamento' },
+      { key: 'pedido_concluded', label: 'Faturado' },
+    ],
+  },
+  {
+    label: 'Preventivas',
+    steps: [
+      { key: 'preventive_route_created', label: 'Rota criada' },
+      { key: 'preventive_checkin', label: 'Check-in' },
+      { key: 'preventive_checklist_completed', label: 'Checklist concluído' },
+      { key: 'preventive_visit_finalized', label: 'Visita finalizada' },
+    ],
+  },
+  {
+    label: 'CRM',
+    steps: [
+      { key: 'crm_visit_planned', label: 'Visita planejada' },
+      { key: 'crm_visit_checkin', label: 'Check-in' },
+      { key: 'crm_product_qualified', label: 'Produto qualificado' },
+      { key: 'crm_proposal_created', label: 'Proposta criada' },
+      { key: 'crm_negotiation_updated', label: 'Negociação atualizada' },
+      { key: 'crm_visit_finalized', label: 'Visita finalizada' },
+    ],
+  },
+  {
+    label: 'Chamados (corretivas)',
+    steps: [
+      { key: 'corrective_visit_finalized', label: 'Visita corretiva finalizada' },
+    ],
+  },
+];
+
 function moduleOf(screen: string | null): string {
   if (!screen) return 'Outros';
   for (const m of MODULE_MAP) {
