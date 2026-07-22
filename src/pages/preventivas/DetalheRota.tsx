@@ -326,6 +326,11 @@ export default function DetalheRota() {
       if (error) throw error;
     },
     onSuccess: (_, newStatus) => {
+      track('preventive_route_status_changed', {
+        route_id: id,
+        route_code: route?.route_code ?? null,
+        new_status: newStatus,
+      }, { entity: 'preventive_route', entity_id: id });
       queryClient.invalidateQueries({ queryKey: ['preventive-route', id] });
       queryClient.invalidateQueries({ queryKey: ['preventive-routes'] });
       queryClient.invalidateQueries({ queryKey: ['my-preventive-routes'] });
