@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { track } from "@/lib/analytics";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -1007,6 +1008,10 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
       if (error) throw error;
     },
     onSuccess: () => {
+      track('preventive_checklist_completed', {
+        preventive_id: preventiveId,
+        checklist_id: existingChecklist?.id ?? null,
+      }, { entity: 'preventive_checklist', entity_id: existingChecklist?.id ?? preventiveId });
       queryClient.invalidateQueries({ queryKey: ['preventive-checklist', preventiveId] });
       toast.success('Checklist concluído!');
       setIsConfirmCompleteOpen(false);

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { track } from '@/lib/analytics';
 import { useAuth } from '@/contexts/AuthContext';
 import { useMenuPermissions } from '@/hooks/useMenuPermissions';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -325,6 +326,11 @@ export default function DetalheRota() {
       if (error) throw error;
     },
     onSuccess: (_, newStatus) => {
+      track('preventive_route_status_changed', {
+        route_id: id,
+        route_code: route?.route_code ?? null,
+        new_status: newStatus,
+      }, { entity: 'preventive_route', entity_id: id });
       queryClient.invalidateQueries({ queryKey: ['preventive-route', id] });
       queryClient.invalidateQueries({ queryKey: ['preventive-routes'] });
       queryClient.invalidateQueries({ queryKey: ['my-preventive-routes'] });

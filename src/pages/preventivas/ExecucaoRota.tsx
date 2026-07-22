@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { track } from '@/lib/analytics';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -316,7 +317,13 @@ export default function ExecucaoRota() {
         }
       }
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
+      track('preventive_checkin', {
+        route_id: id,
+        route_item_id: variables.itemId,
+        has_coordinates: variables.lat !== null && variables.lon !== null,
+        offline: isOffline || !isOnline,
+      }, { entity: 'preventive_route_item', entity_id: variables.itemId });
       refetchRouteOffline();
       refetchItemsOffline();
       if (!isOffline && isOnline) {
