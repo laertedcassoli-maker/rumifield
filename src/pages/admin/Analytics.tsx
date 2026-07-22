@@ -542,7 +542,61 @@ export default function AdminAnalytics() {
         </CardContent>
       </Card>
 
+      {/* Funis de negócio por módulo */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Funis por módulo</CardTitle>
+          <p className="text-xs text-muted-foreground mt-1 normal-case">
+            usuários únicos que completaram cada etapa no período. conversão relativa à etapa inicial e à etapa anterior.
+          </p>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <Skeleton className="h-64 w-full" />
+          ) : (
+            <div className="grid gap-6 md:grid-cols-2">
+              {stats.businessFunnels.map((f) => {
+                const max = Math.max(...f.steps.map((s) => s.users), 1);
+                return (
+                  <div key={f.label} className="space-y-2">
+                    <div className="text-sm font-semibold">{f.label}</div>
+                    <div className="space-y-1.5">
+                      {f.steps.map((s, i) => {
+                        const width = (s.users / max) * 100;
+                        return (
+                          <div key={s.key} className="space-y-0.5">
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="font-mono truncate">{i + 1}. {s.label}</span>
+                              <span className="tabular-nums text-muted-foreground shrink-0 ml-2">
+                                {s.users.toLocaleString('pt-BR')} usr · {s.count.toLocaleString('pt-BR')} ev
+                                {s.convFromPrev !== null && (
+                                  <span className="ml-2">({s.convFromPrev.toFixed(0)}%)</span>
+                                )}
+                              </span>
+                            </div>
+                            <div className="h-2 w-full rounded bg-muted overflow-hidden">
+                              <div
+                                className="h-full bg-primary transition-all"
+                                style={{ width: `${width}%` }}
+                              />
+                            </div>
+                          </div>
+                        );
+                      })}
+                      {f.steps[0]?.users === 0 && (
+                        <p className="text-xs text-muted-foreground italic">sem eventos no período.</p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       <div className="grid gap-4 md:grid-cols-2">
+
 
         {/* Top screens */}
         <Card>
