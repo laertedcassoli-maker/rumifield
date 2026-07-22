@@ -615,6 +615,14 @@ export default function Pedidos() {
           throw itensError;
         }
 
+        track('pedido_created', {
+          items_count: newItens.length,
+          total_qty: newItens.reduce((s, i) => s + (Number(i.quantidade) || 0), 0),
+          urgencia: form.urgencia,
+          tipo_envio: form.tipo_envio || null,
+          origem: 'chamado',
+          has_solenoide: hasSolenoide,
+        }, { entity: 'pedido', entity_id: pedido.id });
         toast({ title: 'Rascunho salvo!', description: 'Clique em "Transmitir" para enviar o pedido.' });
         setActiveTab('rascunhos');
       }
