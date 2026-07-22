@@ -397,7 +397,77 @@ export default function AdminAnalytics() {
         </CardContent>
       </Card>
 
+      {/* Funil de navegação */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Funil de navegação</CardTitle>
+          <p className="text-xs text-muted-foreground mt-1 normal-case">
+            transições mais frequentes entre telas por sessão. ids dinâmicos são normalizados como <code>:id</code>.
+          </p>
+        </CardHeader>
+        <CardContent>
+          {isLoading ? (
+            <Skeleton className="h-64 w-full" />
+          ) : stats.topTransitions.length === 0 ? (
+            <EmptyState />
+          ) : (
+            <div className="grid gap-4 md:grid-cols-3">
+              <div className="md:col-span-2">
+                <div className="text-xs font-medium text-muted-foreground mb-2 normal-case">top transições (de → para)</div>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>De</TableHead>
+                      <TableHead>Para</TableHead>
+                      <TableHead className="text-right">Sessões</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {stats.topTransitions.map((t, i) => (
+                      <TableRow key={i}>
+                        <TableCell className="font-mono text-xs">{t.from}</TableCell>
+                        <TableCell className="font-mono text-xs">{t.to}</TableCell>
+                        <TableCell className="text-right tabular-nums">{t.count}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </div>
+              <div className="space-y-4">
+                <div>
+                  <div className="text-xs font-medium text-muted-foreground mb-2 normal-case">telas de entrada</div>
+                  <Table>
+                    <TableBody>
+                      {stats.topEntries.map((e) => (
+                        <TableRow key={e.screen}>
+                          <TableCell className="font-mono text-xs">{e.screen}</TableCell>
+                          <TableCell className="text-right tabular-nums text-xs">{e.count}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+                <div>
+                  <div className="text-xs font-medium text-muted-foreground mb-2 normal-case">telas de saída</div>
+                  <Table>
+                    <TableBody>
+                      {stats.topExits.map((e) => (
+                        <TableRow key={e.screen}>
+                          <TableCell className="font-mono text-xs">{e.screen}</TableCell>
+                          <TableCell className="text-right tabular-nums text-xs">{e.count}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
       <div className="grid gap-4 md:grid-cols-2">
+
         {/* Top screens */}
         <Card>
           <CardHeader><CardTitle className="text-base">Telas mais visualizadas</CardTitle></CardHeader>
