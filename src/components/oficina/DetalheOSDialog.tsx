@@ -548,17 +548,65 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
       };
       setOptimisticTimeEntry(optimistic);
 
-      // Check for existing running timer for this user
-      const { data: existingTimer } = await supabase
+      // Check for existing running timers for this user (may be more than one)
+      const { data: runningTimers, error: runningErr } = await supabase
         .from('work_order_time_entries')
-        .select('*')
+        .select('id, work_order_id, started_at, work_orders(code, status)')
         .eq('user_id', user.id)
-        .eq('status', 'running')
-        .maybeSingle();
+        .eq('status', 'running');
 
-      if (existingTimer) {
-        throw new Error('Você já tem um cronômetro ativo em outra OS');
+      if (runningErr) throw runningErr;
+
+      const ACTIVE_OS_STATUS = ['em_manutencao', 'aguardando'];
+      const timers = (runningTimers ?? []) as Array<{
+        id: string;
+        work_order_id: string;
+        started_at: string;
+        work_orders: { code: string | null; status: string | null } | null;
+      }>;
+
+      const orphans = timers.filter(
+        (t) => !t.work_orders || !ACTIVE_OS_STATUS.includes(t.work_orders.status ?? '')
+      );
+      const active = timers.filter(
+        (t) => t.work_orders && ACTIVE_OS_STATUS.includes(t.work_orders.status ?? '')
+      );
+
+      // Auto-cleanup orphan timers (OS concluded/deleted or never finished properly)
+      for (const orphan of orphans) {
+        const endedAt = new Date();
+        const startedAt = new Date(orphan.started_at);
+        const duration = Math.max(
+          0,
+          Math.floor((endedAt.getTime() - startedAt.getTime()) / 1000)
+        );
+        const { data: cleaned, error: cleanupErr } = await supabase
+          .from('work_order_time_entries')
+          .update({
+            ended_at: endedAt.toISOString(),
+            duration_seconds: duration,
+            status: 'finished',
+          })
+          .eq('id', orphan.id)
+          .select('id');
+
+        if (cleanupErr) throw cleanupErr;
+        if (!cleaned || cleaned.length === 0) {
+          throw new Error(
+            'Não foi possível finalizar um cronômetro órfão. Tente novamente ou contate um administrador.'
+          );
+        }
       }
+
+      if (active.length > 0) {
+        const code = active[0].work_orders?.code;
+        throw new Error(
+          code
+            ? `Você já tem um cronômetro ativo na OS ${code}`
+            : 'Você já tem um cronômetro ativo em outra OS'
+        );
+      }
+
 
       // Always set current user as the OS responsible; promote status if still waiting
       const updatePayload: Record<string, unknown> = {
