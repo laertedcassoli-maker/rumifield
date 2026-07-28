@@ -590,12 +590,15 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
           .eq('id', orphan.id)
           .select('id');
 
-        if (cleanupErr) throw cleanupErr;
-        if (!cleaned || cleaned.length === 0) {
-          throw new Error(
-            'Não foi possível finalizar um cronômetro órfão. Tente novamente ou contate um administrador.'
-          );
+        // Cleanup failure must not block the user from starting a new timer
+        if (cleanupErr) {
+          console.warn('Failed to cleanup orphan timer:', cleanupErr);
+        } else if (!cleaned || cleaned.length === 0) {
+          console.warn('Orphan timer cleanup returned no rows (RLS?):', orphan.id);
+        } else {
+          console.log('Cleaned up orphan timer for OS:', orphan.work_order_id);
         }
+
       }
 
       if (active.length > 0) {
