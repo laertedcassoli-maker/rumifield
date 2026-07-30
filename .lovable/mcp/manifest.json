@@ -12,8 +12,8 @@
   "mcp": {
     "server": {
       "name": "rumifield-mcp",
-      "version": "0.2.0",
-      "title": "RumiField MCP - Oficina"
+      "version": "0.3.0",
+      "title": "RumiField MCP"
     },
     "tools": [
       {
@@ -228,6 +228,194 @@
               "maximum": 500
             }
           },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "preventive_coverage",
+        "title": "Cobertura de Preventivas",
+        "description": "Cobertura da carteira de preventivas por status (em_dia, elegivel, atrasada, sem_historico). Carteira = clientes.consultor_rplus_id. Retorna contagem por status, % em dia, média de dias de atraso e as fazendas mais atrasadas.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "consultor_rplus_id": {
+              "type": "string",
+              "format": "uuid",
+              "description": "Filtra pela carteira do consultor R+ (clientes.consultor_rplus_id)"
+            },
+            "status": {
+              "type": "string",
+              "enum": [
+                "em_dia",
+                "elegivel",
+                "atrasada",
+                "sem_historico"
+              ]
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 500,
+              "description": "Tamanho da lista detalhada. Padrão: 20"
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "ticket_resolution_split",
+        "title": "Chamados: Remoto vs. Visita Corretiva",
+        "description": "Divide os chamados RESOLVIDOS no período entre resolvidos remotamente e escalados para visita corretiva (existe ticket_visits.ticket_id apontando para o chamado). Retorna sempre contagem absoluta junto do percentual e o tamanho da base.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "date_from": {
+              "type": "string",
+              "description": "ISO date (resolved_at >=)"
+            },
+            "date_to": {
+              "type": "string",
+              "description": "ISO date (resolved_at <=)"
+            },
+            "technician_user_id": {
+              "type": "string",
+              "format": "uuid",
+              "description": "technical_tickets.assigned_technician_id"
+            },
+            "priority": {
+              "type": "string",
+              "enum": [
+                "baixa",
+                "media",
+                "alta",
+                "urgente"
+              ]
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "technician_productivity",
+        "title": "Produtividade por Técnico/Consultor",
+        "description": "Produtividade unificada por pessoa nas três frentes: preventiva (responsabilidade de carteira e execução de rotas), corretiva (chamados e visitas) e oficina (tempo em OS). Sem tempo médio por visita preventiva (não calculável: falta checkout_at).",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "date_from": {
+              "type": "string",
+              "description": "ISO date"
+            },
+            "date_to": {
+              "type": "string",
+              "description": "ISO date"
+            },
+            "scope": {
+              "type": "string",
+              "enum": [
+                "preventiva",
+                "corretiva",
+                "oficina",
+                "todas"
+              ],
+              "description": "Padrão: todas"
+            }
+          },
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "list_tables",
+        "title": "Listar Tabelas",
+        "description": "Lista as tabelas do aplicativo (schema public, whitelist) com contagem aproximada de linhas e se têm RLS. Tabelas internas, de auditoria e de outros schemas (auth, storage) nunca são expostas.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {}
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "describe_table",
+        "title": "Descrever Tabela",
+        "description": "Retorna colunas, tipos, nulabilidade, defaults, valores de enum e chaves estrangeiras de uma tabela do aplicativo. Use antes de montar SQL em execute_readonly_sql para não adivinhar nome de coluna.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "table": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Nome da tabela em public (ver list_tables)"
+            }
+          },
+          "required": [
+            "table"
+          ],
+          "additionalProperties": false,
+          "$schema": "http://json-schema.org/draft-07/schema#"
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "execute_readonly_sql",
+        "title": "SQL Somente-Leitura",
+        "description": "Executa uma consulta SELECT (ou WITH ... SELECT) somente-leitura no banco do RumiField, com a identidade do usuário logado (a RLS continua valendo). Escrita e DDL são recusadas por filtro E pela transação read-only do Postgres. Timeout de 10s, teto de 5.000 linhas, toda consulta é auditada. Use list_tables/describe_table antes para conferir nomes de colunas.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": false,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "sql": {
+              "type": "string",
+              "minLength": 1,
+              "description": "Uma única consulta SELECT ou WITH ... SELECT, sem ponto e vírgula extra"
+            },
+            "limit": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 5000,
+              "description": "Teto de linhas. Padrão e máximo: 5000"
+            }
+          },
+          "required": [
+            "sql"
+          ],
           "additionalProperties": false,
           "$schema": "http://json-schema.org/draft-07/schema#"
         },

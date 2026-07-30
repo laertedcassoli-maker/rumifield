@@ -1680,6 +1680,36 @@ export type Database = {
           },
         ]
       }
+      mcp_query_audit: {
+        Row: {
+          created_at: string
+          error_message: string | null
+          id: string
+          outcome: string
+          row_limit: number | null
+          sql_text: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          outcome: string
+          row_limit?: number | null
+          sql_text: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          outcome?: string
+          row_limit?: number | null
+          sql_text?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       motor_replacement_history: {
         Row: {
           created_at: string
@@ -3988,6 +4018,19 @@ export type Database = {
       is_route_technician: {
         Args: { _route_id: string; _user_id: string }
         Returns: boolean
+      }
+      mcp_describe_table: { Args: { p_table: string }; Returns: Json }
+      mcp_list_tables: {
+        Args: never
+        Returns: {
+          approx_rows: number
+          has_rls: boolean
+          table_name: string
+        }[]
+      }
+      mcp_readonly_query: {
+        Args: { p_limit?: number; p_sql: string }
+        Returns: Json[]
       }
       reorder_checklist_blocks: {
         Args: { p_ordered_ids: string[]; p_template_id: string }
