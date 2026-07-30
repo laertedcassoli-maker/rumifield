@@ -252,13 +252,350 @@ var workshop_time_summary_default = defineTool7({
   }
 });
 
+// src/lib/mcp/tools/preventive-coverage.ts
+import { defineTool as defineTool8 } from "npm:@lovable.dev/mcp-js@0.22.2";
+import { z as z6 } from "npm:zod@^3.25.76";
+var preventive_coverage_default = defineTool8({
+  name: "preventive_coverage",
+  title: "Cobertura de Preventivas",
+  description: "Cobertura da carteira de preventivas por status (em_dia, elegivel, atrasada, sem_historico). Carteira = clientes.consultor_rplus_id. Retorna contagem por status, % em dia, m\xE9dia de dias de atraso e as fazendas mais atrasadas.",
+  inputSchema: {
+    consultor_rplus_id: z6.string().uuid().optional().describe("Filtra pela carteira do consultor R+ (clientes.consultor_rplus_id)"),
+    status: z6.enum(["em_dia", "elegivel", "atrasada", "sem_historico"]).optional(),
+    limit: z6.number().int().min(1).max(500).optional().describe("Tamanho da lista detalhada. Padr\xE3o: 20")
+  },
+  annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+  handler: async (input, ctx) => {
+    if (!ctx.isAuthenticated()) return { content: [{ type: "text", text: "N\xE3o autenticado" }], isError: true };
+    const client = sb(ctx);
+    const where = [`c.status = 'ativo'`];
+    if (input.consultor_rplus_id) where.push(`c.consultor_rplus_id = '${input.consultor_rplus_id}'::uuid`);
+    const sql = `
+      select c.id as client_id, c.nome as cliente, c.fazenda, c.cidade, c.estado,
+             c.preventive_frequency_days, c.consultor_rplus_id,
+             p.nome as consultor,
+             s.last_preventive_date, s.days_since_last, s.days_until_due, s.preventive_status
+      from clientes c
+      left join profiles p on p.id = c.consultor_rplus_id
+      cross join lateral get_client_preventive_status(c.id, c.preventive_frequency_days) s
+      where ${where.join(" and ")}
+    `;
+    const { data, error } = await client.rpc("mcp_readonly_query", { p_sql: sql, p_limit: 5e3 });
+    if (error) return { content: [{ type: "text", text: error.message }], isError: true };
+    const rows = (data ?? []).map((r) => typeof r === "string" ? JSON.parse(r) : r);
+    const counts = { em_dia: 0, elegivel: 0, atrasada: 0, sem_historico: 0 };
+    for (const r of rows) counts[r.preventive_status] = (counts[r.preventive_status] ?? 0) + 1;
+    const total = rows.length;
+    const atrasadas = rows.filter((r) => r.preventive_status === "atrasada");
+    const avgOverdue = atrasadas.length ? Math.round(atrasadas.reduce((s, r) => s + Math.abs(r.days_until_due ?? 0), 0) / atrasadas.length) : 0;
+    const filtered = input.status ? rows.filter((r) => r.preventive_status === input.status) : rows;
+    const detail = [...filtered].sort((a, b) => (a.days_until_due ?? 99999) - (b.days_until_due ?? 99999)).slice(0, input.limit ?? 20).map((r) => ({
+      cliente: r.cliente,
+      fazenda: r.fazenda,
+      cidade: r.cidade,
+      estado: r.estado,
+      consultor_responsavel: r.consultor ?? "\u2014 (sem consultor)",
+      frequencia_dias: r.preventive_frequency_days ?? 90,
+      ultima_preventiva: r.last_preventive_date,
+      dias_vencidos: r.days_until_due != null && r.days_until_due < 0 ? Math.abs(r.days_until_due) : 0,
+      dias_ate_vencer: r.days_until_due,
+      status: r.preventive_status
+    }));
+    const result = {
+      base_total_clientes_ativos: total,
+      contagem_por_status: counts,
+      percentual_em_dia: total ? +(counts.em_dia / total * 100).toFixed(1) : 0,
+      media_dias_atraso: avgOverdue,
+      filtro_status: input.status ?? "todos",
+      lista: detail,
+      nota: "Regra de status vem de get_client_preventive_status (mesma do front). Clientes listados respeitam a RLS de `clientes`."
+    };
+    return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }], structuredContent: result };
+  }
+});
+
+// src/lib/mcp/tools/ticket-resolution-split.ts
+import { defineTool as defineTool9 } from "npm:@lovable.dev/mcp-js@0.22.2";
+import { z as z7 } from "npm:zod@^3.25.76";
+var ticket_resolution_split_default = defineTool9({
+  name: "ticket_resolution_split",
+  title: "Chamados: Remoto vs. Visita Corretiva",
+  description: "Divide os chamados RESOLVIDOS no per\xEDodo entre resolvidos remotamente e escalados para visita corretiva (existe ticket_visits.ticket_id apontando para o chamado). Retorna sempre contagem absoluta junto do percentual e o tamanho da base.",
+  inputSchema: {
+    date_from: z7.string().optional().describe("ISO date (resolved_at >=)"),
+    date_to: z7.string().optional().describe("ISO date (resolved_at <=)"),
+    technician_user_id: z7.string().uuid().optional().describe("technical_tickets.assigned_technician_id"),
+    priority: z7.enum(["baixa", "media", "alta", "urgente"]).optional()
+  },
+  annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+  handler: async (input, ctx) => {
+    if (!ctx.isAuthenticated()) return { content: [{ type: "text", text: "N\xE3o autenticado" }], isError: true };
+    const client = sb(ctx);
+    let q = client.from("technical_tickets").select("id, ticket_code, client_id, assigned_technician_id, priority, status, created_at, resolved_at").eq("status", "resolvido").limit(5e3);
+    if (input.date_from) q = q.gte("resolved_at", input.date_from);
+    if (input.date_to) q = q.lte("resolved_at", input.date_to);
+    if (input.technician_user_id) q = q.eq("assigned_technician_id", input.technician_user_id);
+    if (input.priority) q = q.eq("priority", input.priority);
+    const { data: tickets, error } = await q;
+    if (error) return { content: [{ type: "text", text: error.message }], isError: true };
+    const ids = (tickets ?? []).map((t) => t.id);
+    let escalatedIds = /* @__PURE__ */ new Set();
+    if (ids.length) {
+      const { data: visits, error: e2 } = await client.from("ticket_visits").select("ticket_id").in("ticket_id", ids);
+      if (e2) return { content: [{ type: "text", text: e2.message }], isError: true };
+      escalatedIds = new Set((visits ?? []).map((v) => v.ticket_id).filter(Boolean));
+    }
+    const base = ids.length;
+    const comVisita = ids.filter((id) => escalatedIds.has(id)).length;
+    const remoto = base - comVisita;
+    const pct = (n) => base ? +(n / base * 100).toFixed(1) : 0;
+    const result = {
+      denominador: "chamados com status = 'resolvido' no per\xEDodo (technical_tickets.resolved_at)",
+      tamanho_da_base: base,
+      base_pequena: base < 100,
+      aviso_amostra: base < 100 ? `Base de ${base} chamados. Percentuais sobre amostra pequena t\xEAm margem de erro alta \u2014 leia as contagens absolutas.` : null,
+      resolvido_remotamente: { quantidade: remoto, de: base, percentual: pct(remoto), texto: `${remoto} de ${base} (${pct(remoto)}%)` },
+      escalado_visita_corretiva: { quantidade: comVisita, de: base, percentual: pct(comVisita), texto: `${comVisita} de ${base} (${pct(comVisita)}%)` },
+      filtros: {
+        date_from: input.date_from ?? null,
+        date_to: input.date_to ?? null,
+        technician_user_id: input.technician_user_id ?? null,
+        priority: input.priority ?? null
+      }
+    };
+    return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }], structuredContent: result };
+  }
+});
+
+// src/lib/mcp/tools/technician-productivity.ts
+import { defineTool as defineTool10 } from "npm:@lovable.dev/mcp-js@0.22.2";
+import { z as z8 } from "npm:zod@^3.25.76";
+var technician_productivity_default = defineTool10({
+  name: "technician_productivity",
+  title: "Produtividade por T\xE9cnico/Consultor",
+  description: "Produtividade unificada por pessoa nas tr\xEAs frentes: preventiva (responsabilidade de carteira e execu\xE7\xE3o de rotas), corretiva (chamados e visitas) e oficina (tempo em OS). Sem tempo m\xE9dio por visita preventiva (n\xE3o calcul\xE1vel: falta checkout_at).",
+  inputSchema: {
+    date_from: z8.string().optional().describe("ISO date"),
+    date_to: z8.string().optional().describe("ISO date"),
+    scope: z8.enum(["preventiva", "corretiva", "oficina", "todas"]).optional().describe("Padr\xE3o: todas")
+  },
+  annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+  handler: async (input, ctx) => {
+    if (!ctx.isAuthenticated()) return { content: [{ type: "text", text: "N\xE3o autenticado" }], isError: true };
+    const client = sb(ctx);
+    const scope = input.scope ?? "todas";
+    const from = input.date_from;
+    const to = input.date_to;
+    const { data: profiles, error: eP } = await client.from("profiles").select("id, nome, email, is_active").eq("is_active", true);
+    if (eP) return { content: [{ type: "text", text: eP.message }], isError: true };
+    const acc = /* @__PURE__ */ new Map();
+    for (const p of profiles ?? []) {
+      acc.set(p.id, { user_id: p.id, nome: p.nome });
+    }
+    const touch = (id) => id && acc.has(id) ? acc.get(id) : null;
+    if (scope === "preventiva" || scope === "todas") {
+      const sql = `
+        select c.consultor_rplus_id, s.preventive_status
+        from clientes c
+        cross join lateral get_client_preventive_status(c.id, c.preventive_frequency_days) s
+        where c.status = 'ativo' and c.consultor_rplus_id is not null
+      `;
+      const { data: cov, error: eC } = await client.rpc("mcp_readonly_query", { p_sql: sql, p_limit: 5e3 });
+      if (eC) return { content: [{ type: "text", text: eC.message }], isError: true };
+      for (const raw of cov ?? []) {
+        const r = typeof raw === "string" ? JSON.parse(raw) : raw;
+        const t = touch(r.consultor_rplus_id);
+        if (!t) continue;
+        t.carteira_fazendas = (t.carteira_fazendas ?? 0) + 1;
+        if (r.preventive_status === "atrasada") t.carteira_fazendas_atrasadas = (t.carteira_fazendas_atrasadas ?? 0) + 1;
+      }
+      let rq = client.from("preventive_routes").select("id, field_technician_user_id, status, created_at").eq("status", "finalizada").limit(5e3);
+      if (from) rq = rq.gte("created_at", from);
+      if (to) rq = rq.lte("created_at", to);
+      const { data: routes, error: eR } = await rq;
+      if (eR) return { content: [{ type: "text", text: eR.message }], isError: true };
+      const routeOwner = /* @__PURE__ */ new Map();
+      for (const r of routes ?? []) {
+        const t = touch(r.field_technician_user_id);
+        routeOwner.set(r.id, r.field_technician_user_id);
+        if (!t) continue;
+        t.rotas_finalizadas = (t.rotas_finalizadas ?? 0) + 1;
+      }
+      const routeIds = [...routeOwner.keys()];
+      if (routeIds.length) {
+        const { data: items, error: eI } = await client.from("preventive_route_items").select("route_id, status").in("route_id", routeIds).eq("status", "executado");
+        if (eI) return { content: [{ type: "text", text: eI.message }], isError: true };
+        for (const it of items ?? []) {
+          const t = touch(routeOwner.get(it.route_id) ?? null);
+          if (!t) continue;
+          t.fazendas_visitadas = (t.fazendas_visitadas ?? 0) + 1;
+        }
+      }
+    }
+    if (scope === "corretiva" || scope === "todas") {
+      let tq = client.from("technical_tickets").select("id, assigned_technician_id, status, created_at, resolved_at").limit(5e3);
+      if (from) tq = tq.gte("created_at", from);
+      if (to) tq = tq.lte("created_at", to);
+      const { data: tickets, error: eT } = await tq;
+      if (eT) return { content: [{ type: "text", text: eT.message }], isError: true };
+      const ids = (tickets ?? []).map((t) => t.id);
+      let visitTicketIds = /* @__PURE__ */ new Set();
+      if (ids.length) {
+        const { data: visits, error: eV } = await client.from("ticket_visits").select("ticket_id, field_technician_user_id").in("ticket_id", ids);
+        if (eV) return { content: [{ type: "text", text: eV.message }], isError: true };
+        for (const v of visits ?? []) {
+          if (v.ticket_id) visitTicketIds.add(v.ticket_id);
+          const t = touch(v.field_technician_user_id);
+          if (t) t.visitas_corretivas = (t.visitas_corretivas ?? 0) + 1;
+        }
+      }
+      for (const tk of tickets ?? []) {
+        const t = touch(tk.assigned_technician_id);
+        if (!t) continue;
+        t.chamados_atribuidos = (t.chamados_atribuidos ?? 0) + 1;
+        if (tk.status === "resolvido") {
+          t.chamados_resolvidos = (t.chamados_resolvidos ?? 0) + 1;
+          if (!visitTicketIds.has(tk.id)) t.chamados_resolvidos_remoto = (t.chamados_resolvidos_remoto ?? 0) + 1;
+          if (tk.resolved_at && tk.created_at) {
+            const h = (new Date(tk.resolved_at).getTime() - new Date(tk.created_at).getTime()) / 36e5;
+            t._resolucao_horas = (t._resolucao_horas ?? 0) + h;
+            t._resolucao_n = (t._resolucao_n ?? 0) + 1;
+          }
+        }
+      }
+    }
+    if (scope === "oficina" || scope === "todas") {
+      let wq = client.from("work_orders").select("id, status, created_at").eq("status", "concluido").limit(5e3);
+      if (from) wq = wq.gte("created_at", from);
+      if (to) wq = wq.lte("created_at", to);
+      const { data: wos, error: eW } = await wq;
+      if (eW) return { content: [{ type: "text", text: eW.message }], isError: true };
+      const woIds = (wos ?? []).map((w) => w.id);
+      if (woIds.length) {
+        const { data: entries, error: eE } = await client.from("work_order_time_entries").select("work_order_id, user_id, duration_seconds").in("work_order_id", woIds);
+        if (eE) return { content: [{ type: "text", text: eE.message }], isError: true };
+        const osByUser = /* @__PURE__ */ new Map();
+        for (const e of entries ?? []) {
+          const t = touch(e.user_id);
+          if (!t) continue;
+          t.oficina_segundos = (t.oficina_segundos ?? 0) + (e.duration_seconds ?? 0);
+          const set = osByUser.get(e.user_id) ?? /* @__PURE__ */ new Set();
+          set.add(e.work_order_id);
+          osByUser.set(e.user_id, set);
+        }
+        for (const [uid, set] of osByUser) {
+          const t = touch(uid);
+          if (t) t.oficina_os = set.size;
+        }
+      }
+    }
+    const rows = [...acc.values()].map((t) => {
+      const out = {
+        nome: t.nome,
+        user_id: t.user_id,
+        // responsabilidade (consultor R+)
+        carteira_fazendas: t.carteira_fazendas ?? 0,
+        carteira_fazendas_atrasadas: t.carteira_fazendas_atrasadas ?? 0,
+        // execução preventiva (técnico de campo)
+        rotas_finalizadas: t.rotas_finalizadas ?? 0,
+        fazendas_visitadas: t.fazendas_visitadas ?? 0,
+        // corretiva
+        chamados_atribuidos: t.chamados_atribuidos ?? 0,
+        chamados_resolvidos: t.chamados_resolvidos ?? 0,
+        chamados_resolvidos_remoto: t.chamados_resolvidos_remoto ?? 0,
+        percentual_remoto: t.chamados_resolvidos ? +((t.chamados_resolvidos_remoto ?? 0) / t.chamados_resolvidos * 100).toFixed(1) : null,
+        visitas_corretivas: t.visitas_corretivas ?? 0,
+        tempo_medio_resolucao_horas: t._resolucao_n ? +(t._resolucao_horas / t._resolucao_n).toFixed(1) : null,
+        // oficina
+        oficina_os: t.oficina_os ?? 0,
+        oficina_horas: +((t.oficina_segundos ?? 0) / 3600).toFixed(2)
+      };
+      out._peso = out.carteira_fazendas + out.rotas_finalizadas + out.chamados_atribuidos + out.visitas_corretivas + out.oficina_os;
+      return out;
+    }).filter((r) => r._peso > 0).sort((a, b) => b._peso - a._peso).map(({ _peso, ...r }) => r);
+    const result = {
+      scope,
+      periodo: { date_from: from ?? null, date_to: to ?? null },
+      nota: "Consultor R+ e t\xE9cnico de campo s\xE3o popula\xE7\xF5es distintas neste projeto: carteira/atrasos v\xEAm de clientes.consultor_rplus_id (responsabilidade); rotas e fazendas visitadas v\xEAm de preventive_routes.field_technician_user_id (execu\xE7\xE3o). Colunas n\xE3o s\xE3o somadas. 'Tempo m\xE9dio por visita preventiva' n\xE3o existe: preventive_route_items n\xE3o tem checkout_at.",
+      linhas: rows
+    };
+    return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }], structuredContent: result };
+  }
+});
+
+// src/lib/mcp/tools/list-tables.ts
+import { defineTool as defineTool11 } from "npm:@lovable.dev/mcp-js@0.22.2";
+var list_tables_default = defineTool11({
+  name: "list_tables",
+  title: "Listar Tabelas",
+  description: "Lista as tabelas do aplicativo (schema public, whitelist) com contagem aproximada de linhas e se t\xEAm RLS. Tabelas internas, de auditoria e de outros schemas (auth, storage) nunca s\xE3o expostas.",
+  inputSchema: {},
+  annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+  handler: async (_input, ctx) => {
+    if (!ctx.isAuthenticated()) return { content: [{ type: "text", text: "N\xE3o autenticado" }], isError: true };
+    const { data, error } = await sb(ctx).rpc("mcp_list_tables");
+    if (error) return { content: [{ type: "text", text: error.message }], isError: true };
+    return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }], structuredContent: { tables: data ?? [] } };
+  }
+});
+
+// src/lib/mcp/tools/describe-table.ts
+import { defineTool as defineTool12 } from "npm:@lovable.dev/mcp-js@0.22.2";
+import { z as z9 } from "npm:zod@^3.25.76";
+var describe_table_default = defineTool12({
+  name: "describe_table",
+  title: "Descrever Tabela",
+  description: "Retorna colunas, tipos, nulabilidade, defaults, valores de enum e chaves estrangeiras de uma tabela do aplicativo. Use antes de montar SQL em execute_readonly_sql para n\xE3o adivinhar nome de coluna.",
+  inputSchema: {
+    table: z9.string().min(1).describe("Nome da tabela em public (ver list_tables)")
+  },
+  annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
+  handler: async (input, ctx) => {
+    if (!ctx.isAuthenticated()) return { content: [{ type: "text", text: "N\xE3o autenticado" }], isError: true };
+    const { data, error } = await sb(ctx).rpc("mcp_describe_table", { p_table: input.table });
+    if (error) return { content: [{ type: "text", text: error.message }], isError: true };
+    return { content: [{ type: "text", text: JSON.stringify(data, null, 2) }], structuredContent: data };
+  }
+});
+
+// src/lib/mcp/tools/execute-readonly-sql.ts
+import { defineTool as defineTool13 } from "npm:@lovable.dev/mcp-js@0.22.2";
+import { z as z10 } from "npm:zod@^3.25.76";
+var execute_readonly_sql_default = defineTool13({
+  name: "execute_readonly_sql",
+  title: "SQL Somente-Leitura",
+  description: "Executa uma consulta SELECT (ou WITH ... SELECT) somente-leitura no banco do RumiField, com a identidade do usu\xE1rio logado (a RLS continua valendo). Escrita e DDL s\xE3o recusadas por filtro E pela transa\xE7\xE3o read-only do Postgres. Timeout de 10s, teto de 5.000 linhas, toda consulta \xE9 auditada. Use list_tables/describe_table antes para conferir nomes de colunas.",
+  inputSchema: {
+    sql: z10.string().min(1).describe("Uma \xFAnica consulta SELECT ou WITH ... SELECT, sem ponto e v\xEDrgula extra"),
+    limit: z10.number().int().min(1).max(5e3).optional().describe("Teto de linhas. Padr\xE3o e m\xE1ximo: 5000")
+  },
+  annotations: { readOnlyHint: true, idempotentHint: false, openWorldHint: false },
+  handler: async (input, ctx) => {
+    if (!ctx.isAuthenticated()) return { content: [{ type: "text", text: "N\xE3o autenticado" }], isError: true };
+    const { data, error } = await sb(ctx).rpc("mcp_readonly_query", {
+      p_sql: input.sql,
+      p_limit: input.limit ?? 5e3
+    });
+    if (error) {
+      return { content: [{ type: "text", text: `Consulta n\xE3o executada: ${error.message}` }], isError: true };
+    }
+    const rows = (data ?? []).map((r) => typeof r === "string" ? JSON.parse(r) : r);
+    const result = {
+      row_count: rows.length,
+      truncated: rows.length >= (input.limit ?? 5e3),
+      rows
+    };
+    return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }], structuredContent: result };
+  }
+});
+
 // src/lib/mcp/index.ts
 var projectRef = "gperaijwlecreqxoygjy";
 var mcp_default = defineMcp({
   name: "rumifield-mcp",
-  title: "RumiField MCP - Oficina",
-  version: "0.2.0",
-  instructions: "Ferramentas SOMENTE-LEITURA da Oficina RumiField: Ordens de Servi\xE7o, ativos com motor, hist\xF3rico de trocas e atividades. Use `whoami` para testar conectividade.",
+  title: "RumiField MCP",
+  version: "0.3.0",
+  instructions: "Ferramentas SOMENTE-LEITURA do RumiField: Oficina (OS, ativos com motor, trocas, tempo gasto), Preventivas (cobertura da carteira) e Chamados (remoto vs. visita corretiva, produtividade). Para qualquer pergunta n\xE3o coberta por uma ferramenta espec\xEDfica (volume por dia/m\xEAs, funil de status, rankings, clientes com mais chamados), use `list_tables` e `describe_table` para conferir o schema e depois `execute_readonly_sql`. Nunca invente nome de coluna: confira com `describe_table`.",
   auth: auth.oauth.issuer({
     issuer: `https://${projectRef}.supabase.co/auth/v1`,
     acceptedAudiences: "authenticated"
@@ -270,7 +607,13 @@ var mcp_default = defineMcp({
     get_work_order_default,
     list_workshop_items_default,
     list_motor_replacements_default,
-    workshop_time_summary_default
+    workshop_time_summary_default,
+    preventive_coverage_default,
+    ticket_resolution_split_default,
+    technician_productivity_default,
+    list_tables_default,
+    describe_table_default,
+    execute_readonly_sql_default
   ]
 });
 
