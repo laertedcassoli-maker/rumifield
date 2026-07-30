@@ -37,7 +37,8 @@ import { z } from "npm:zod@^3.25.76";
 import { createClient } from "npm:@supabase/supabase-js@^2.86.2";
 function sb(ctx) {
   const env = globalThis.process.env;
-  return createClient(env.SUPABASE_URL, env.SUPABASE_PUBLISHABLE_KEY, {
+  const key = env.SUPABASE_PUBLISHABLE_KEY ?? env.SUPABASE_ANON_KEY;
+  return createClient(env.SUPABASE_URL, key, {
     global: { headers: { Authorization: `Bearer ${ctx.getToken()}` } },
     auth: { persistSession: false, autoRefreshToken: false }
   });
