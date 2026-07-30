@@ -17,14 +17,15 @@ export default defineTool({
     if (!ctx.isAuthenticated()) return { content: [{ type: "text", text: "Não autenticado" }], isError: true };
     let q = sb(ctx)
       .from("workshop_items")
-      .select("id, unique_code, has_motor, motor_id, motor_code, meter_hours_last, motor_replaced_at_meter_hours, cliente_id, clientes:cliente_id(nome)")
+      .select("id, unique_code, current_motor_code, meter_hours_last, meter_hours_updated_at, motor_replaced_at_meter_hours, status")
       .limit(limit ?? 100);
-    if (only_with_motor) q = q.not("motor_id", "is", null);
+    if (only_with_motor) q = q.not("current_motor_code", "is", null);
     const { data, error } = await q;
     if (error) return { content: [{ type: "text", text: error.message }], isError: true };
     const enriched = (data ?? []).map((r: any) => {
       const usage = (r.meter_hours_last ?? 0) - (r.motor_replaced_at_meter_hours ?? 0);
-      const health = usage > 1000 ? "red" : usage > 800 ? "orange" : "green";
+      // Alinhado com a tela SaudeAtivosMotores.tsx: >=1500 crítico, >=1000 atenção
+      const health = usage >= 1500 ? "critico" : usage >= 1000 ? "atencao" : "ok";
       return { ...r, motor_hours_usage: usage, health };
     }).filter((r: any) => min_motor_hours == null || r.motor_hours_usage >= min_motor_hours);
     return { content: [{ type: "text", text: JSON.stringify(enriched, null, 2) }], structuredContent: { items: enriched } };
