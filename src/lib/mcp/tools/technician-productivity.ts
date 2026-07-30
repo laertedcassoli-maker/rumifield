@@ -57,6 +57,7 @@ export default defineTool({
       if (eC) return { content: [{ type: "text", text: eC.message }], isError: true };
       for (const raw of (cov ?? []) as any[]) {
         const r = typeof raw === "string" ? JSON.parse(raw) : raw;
+        if (r?.__mcp_error) return { content: [{ type: "text", text: r.__mcp_error }], isError: true };
         const t = touch(r.consultor_rplus_id);
         if (!t) continue;
         t.carteira_fazendas = (t.carteira_fazendas ?? 0) + 1;

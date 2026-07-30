@@ -22,6 +22,9 @@ export default defineTool({
       return { content: [{ type: "text", text: `Consulta não executada: ${error.message}` }], isError: true };
     }
     const rows = ((data ?? []) as any[]).map((r) => (typeof r === "string" ? JSON.parse(r) : r));
+    if (rows.length === 1 && rows[0]?.__mcp_error) {
+      return { content: [{ type: "text", text: rows[0].__mcp_error }], isError: true };
+    }
     const result = {
       row_count: rows.length,
       truncated: rows.length >= (input.limit ?? 5000),

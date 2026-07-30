@@ -51,6 +51,9 @@ export default defineTool({
     if (error) return { content: [{ type: "text", text: error.message }], isError: true };
 
     const rows = ((data ?? []) as any[]).map((r) => (typeof r === "string" ? JSON.parse(r) : r));
+    if (rows.length === 1 && (rows[0] as any)?.__mcp_error) {
+      return { content: [{ type: "text", text: (rows[0] as any).__mcp_error }], isError: true };
+    }
 
     const counts = { em_dia: 0, elegivel: 0, atrasada: 0, sem_historico: 0 } as Record<string, number>;
     for (const r of rows) counts[r.preventive_status] = (counts[r.preventive_status] ?? 0) + 1;

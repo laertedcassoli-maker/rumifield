@@ -283,6 +283,9 @@ var preventive_coverage_default = defineTool8({
     const { data, error } = await client.rpc("mcp_readonly_query", { p_sql: sql, p_limit: 5e3 });
     if (error) return { content: [{ type: "text", text: error.message }], isError: true };
     const rows = (data ?? []).map((r) => typeof r === "string" ? JSON.parse(r) : r);
+    if (rows.length === 1 && rows[0]?.__mcp_error) {
+      return { content: [{ type: "text", text: rows[0].__mcp_error }], isError: true };
+    }
     const counts = { em_dia: 0, elegivel: 0, atrasada: 0, sem_historico: 0 };
     for (const r of rows) counts[r.preventive_status] = (counts[r.preventive_status] ?? 0) + 1;
     const total = rows.length;
@@ -404,6 +407,7 @@ var technician_productivity_default = defineTool10({
       if (eC) return { content: [{ type: "text", text: eC.message }], isError: true };
       for (const raw of cov ?? []) {
         const r = typeof raw === "string" ? JSON.parse(raw) : raw;
+        if (r?.__mcp_error) return { content: [{ type: "text", text: r.__mcp_error }], isError: true };
         const t = touch(r.consultor_rplus_id);
         if (!t) continue;
         t.carteira_fazendas = (t.carteira_fazendas ?? 0) + 1;
@@ -580,6 +584,9 @@ var execute_readonly_sql_default = defineTool13({
       return { content: [{ type: "text", text: `Consulta n\xE3o executada: ${error.message}` }], isError: true };
     }
     const rows = (data ?? []).map((r) => typeof r === "string" ? JSON.parse(r) : r);
+    if (rows.length === 1 && rows[0]?.__mcp_error) {
+      return { content: [{ type: "text", text: rows[0].__mcp_error }], isError: true };
+    }
     const result = {
       row_count: rows.length,
       truncated: rows.length >= (input.limit ?? 5e3),
