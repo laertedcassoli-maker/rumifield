@@ -112,8 +112,9 @@
               "type": "string",
               "format": "uuid"
             },
-            "os_code": {
-              "type": "string"
+            "code": {
+              "type": "string",
+              "description": "Código da OS (work_orders.code), ex.: OS-2026-00037."
             }
           },
           "additionalProperties": false,

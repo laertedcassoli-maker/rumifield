@@ -87,16 +87,16 @@ var get_work_order_default = defineTool3({
   description: "Retorna detalhes de uma OS: itens, pe\xE7as usadas e apontamentos de tempo.",
   inputSchema: {
     id: z2.string().uuid().optional(),
-    os_code: z2.string().optional()
+    code: z2.string().optional().describe("C\xF3digo da OS (work_orders.code), ex.: OS-2026-00037.")
   },
   annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
-  handler: async ({ id, os_code }, ctx) => {
+  handler: async ({ id, code }, ctx) => {
     if (!ctx.isAuthenticated()) return { content: [{ type: "text", text: "N\xE3o autenticado" }], isError: true };
-    if (!id && !os_code) return { content: [{ type: "text", text: "Informe id ou os_code." }], isError: true };
+    if (!id && !code) return { content: [{ type: "text", text: "Informe id ou code." }], isError: true };
     const client = sb(ctx);
     let q = client.from("work_orders").select("*, clientes:cliente_id(nome), activities:activity_id(name), work_order_items(*), work_order_parts_used(*), work_order_time_entries(*)").limit(1);
     if (id) q = q.eq("id", id);
-    else if (os_code) q = q.eq("os_code", os_code);
+    else if (code) q = q.eq("code", code);
     const { data, error } = await q.maybeSingle();
     if (error) return { content: [{ type: "text", text: error.message }], isError: true };
     if (!data) return { content: [{ type: "text", text: "OS n\xE3o encontrada." }], isError: true };
