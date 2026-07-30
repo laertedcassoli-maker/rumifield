@@ -20,7 +20,7 @@ export default defineTool({
     if (!ctx.isAuthenticated()) return { content: [{ type: "text", text: "Não autenticado" }], isError: true };
     let q = sb(ctx)
       .from("work_orders")
-      .select("id, os_code, status, cliente_id, activity_id, created_at, start_time, end_time, total_time_seconds, has_motor, clientes:cliente_id(nome), activities:activity_id(name)")
+      .select("id, code, status, cliente_id, activity_id, created_at, start_time, end_time, total_time_seconds, clientes:cliente_id(nome), activities:activity_id(name)")
       .order("created_at", { ascending: false })
       .limit(input.limit ?? 20);
     if (input.status) q = q.eq("status", input.status);

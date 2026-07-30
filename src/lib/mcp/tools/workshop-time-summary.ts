@@ -23,7 +23,7 @@ export default defineTool({
 
     let q = client
       .from("work_orders")
-      .select("id, os_code, status, activity_id, cliente_id, created_at, end_time, total_time_seconds, activities:activity_id(name), clientes:cliente_id(nome)")
+      .select("id, code, status, activity_id, cliente_id, created_at, end_time, total_time_seconds, activities:activity_id(name), clientes:cliente_id(nome)")
       .eq("status", "concluido")
       .limit(input.limit ?? 500);
     if (input.date_from) q = q.gte("created_at", input.date_from);
@@ -41,7 +41,7 @@ export default defineTool({
 
     if (groupBy === "os") {
       const rows = (wos ?? []).map((w: any) => ({
-        os_code: w.os_code,
+        code: w.code,
         activity: w.activities?.name,
         cliente: w.clientes?.nome,
         total_time_seconds: w.total_time_seconds ?? 0,

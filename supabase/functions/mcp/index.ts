@@ -60,7 +60,7 @@ var list_work_orders_default = defineTool2({
   annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
   handler: async (input, ctx) => {
     if (!ctx.isAuthenticated()) return { content: [{ type: "text", text: "N\xE3o autenticado" }], isError: true };
-    let q = sb(ctx).from("work_orders").select("id, os_code, status, cliente_id, activity_id, created_at, start_time, end_time, total_time_seconds, has_motor, clientes:cliente_id(nome), activities:activity_id(name)").order("created_at", { ascending: false }).limit(input.limit ?? 20);
+    let q = sb(ctx).from("work_orders").select("id, code, status, cliente_id, activity_id, created_at, start_time, end_time, total_time_seconds, clientes:cliente_id(nome), activities:activity_id(name)").order("created_at", { ascending: false }).limit(input.limit ?? 20);
     if (input.status) q = q.eq("status", input.status);
     if (input.cliente_id) q = q.eq("cliente_id", input.cliente_id);
     if (input.activity_id) q = q.eq("activity_id", input.activity_id);
@@ -119,13 +119,13 @@ var list_workshop_items_default = defineTool4({
   annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
   handler: async ({ only_with_motor, min_motor_hours, limit }, ctx) => {
     if (!ctx.isAuthenticated()) return { content: [{ type: "text", text: "N\xE3o autenticado" }], isError: true };
-    let q = sb(ctx).from("workshop_items").select("id, unique_code, has_motor, motor_id, motor_code, meter_hours_last, motor_replaced_at_meter_hours, cliente_id, clientes:cliente_id(nome)").limit(limit ?? 100);
-    if (only_with_motor) q = q.not("motor_id", "is", null);
+    let q = sb(ctx).from("workshop_items").select("id, unique_code, current_motor_code, meter_hours_last, meter_hours_updated_at, motor_replaced_at_meter_hours, status").limit(limit ?? 100);
+    if (only_with_motor) q = q.not("current_motor_code", "is", null);
     const { data, error } = await q;
     if (error) return { content: [{ type: "text", text: error.message }], isError: true };
     const enriched = (data ?? []).map((r) => {
       const usage = (r.meter_hours_last ?? 0) - (r.motor_replaced_at_meter_hours ?? 0);
-      const health = usage > 1e3 ? "red" : usage > 800 ? "orange" : "green";
+      const health = usage >= 1500 ? "critico" : usage >= 1e3 ? "atencao" : "ok";
       return { ...r, motor_hours_usage: usage, health };
     }).filter((r) => min_motor_hours == null || r.motor_hours_usage >= min_motor_hours);
     return { content: [{ type: "text", text: JSON.stringify(enriched, null, 2) }], structuredContent: { items: enriched } };
@@ -194,7 +194,7 @@ var workshop_time_summary_default = defineTool7({
     if (!ctx.isAuthenticated()) return { content: [{ type: "text", text: "N\xE3o autenticado" }], isError: true };
     const client = sb(ctx);
     const groupBy = input.group_by ?? "activity";
-    let q = client.from("work_orders").select("id, os_code, status, activity_id, cliente_id, created_at, end_time, total_time_seconds, activities:activity_id(name), clientes:cliente_id(nome)").eq("status", "concluido").limit(input.limit ?? 500);
+    let q = client.from("work_orders").select("id, code, status, activity_id, cliente_id, created_at, end_time, total_time_seconds, activities:activity_id(name), clientes:cliente_id(nome)").eq("status", "concluido").limit(input.limit ?? 500);
     if (input.date_from) q = q.gte("created_at", input.date_from);
     if (input.date_to) q = q.lte("created_at", input.date_to);
     if (input.activity_id) q = q.eq("activity_id", input.activity_id);
@@ -208,7 +208,7 @@ var workshop_time_summary_default = defineTool7({
     };
     if (groupBy === "os") {
       const rows2 = (wos ?? []).map((w) => ({
-        os_code: w.os_code,
+        code: w.code,
         activity: w.activities?.name,
         cliente: w.clientes?.nome,
         total_time_seconds: w.total_time_seconds ?? 0,
