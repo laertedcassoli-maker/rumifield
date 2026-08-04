@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { BarChart2, CalendarCheck } from 'lucide-react';
+import { BarChart2, CalendarCheck, Gauge } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useMenuPermissions } from '@/hooks/useMenuPermissions';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -31,6 +31,15 @@ const dashboards: DashboardItem[] = [
     url: '/admin/dashboards/gestao-preventivas',
     color: 'text-indigo-600',
     bgColor: 'bg-indigo-100 dark:bg-indigo-900/30',
+    permKey: 'oficina_gestao_os',
+  },
+  {
+    title: 'Preventiva · Visão Gerencial',
+    description: 'Cobertura da carteira, aderência de rotas e produtividade dos técnicos',
+    icon: Gauge,
+    url: '/preventivas/visao-gerencial',
+    color: 'text-emerald-600',
+    bgColor: 'bg-emerald-100 dark:bg-emerald-900/30',
     permKey: 'oficina_gestao_os',
   },
 ];
