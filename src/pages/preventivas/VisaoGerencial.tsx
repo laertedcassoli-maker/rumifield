@@ -1,9 +1,8 @@
 import { useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { format, differenceInCalendarDays, startOfMonth, endOfMonth } from 'date-fns';
+import { format, differenceInCalendarDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
-import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
 import { KPICard } from '@/components/gerencial/KPICard';
@@ -12,47 +11,18 @@ import { RankingBar } from '@/components/gerencial/RankingBar';
 import {
   FilterBarPreventivas,
   type PreventivasFilters,
-  type FazendaStatus,
 } from '@/components/gerencial/FilterBarPreventivas';
 import { useFieldTechnicians, presets } from '@/components/gerencial/filterBarShared';
+import {
+  fetchCarteiraStatus,
+  fetchRotasConcluidasPorMes,
+  fetchTopFazendasAtrasadas,
+  fetchProdutividadeTecnicos,
+  fetchAderenciaRotas,
+  type GerencialParams,
+} from '@/lib/queries/preventivasGerencial';
 
-const DEFAULT_FREQUENCY = 90;
-
-type ClientStatus = FazendaStatus;
-
-interface ClientRow {
-  id: string;
-  nome: string;
-  fazenda: string | null;
-  preventive_frequency_days: number | null;
-  status: string | null;
-}
-
-interface PmRow {
-  client_id: string;
-  completed_date: string | null;
-  status: string;
-  technician_user_id: string | null;
-}
-
-interface RouteRow {
-  id: string;
-  status: string;
-  created_at: string;
-  start_date: string;
-  end_date: string;
-  field_technician_user_id: string;
-  preventive_route_items: { id: string; client_id: string; status: string }[] | null;
-}
-
-const fmtDate = (d?: Date) => (d ? format(d, 'yyyy-MM-dd') : undefined);
-
-function classify(daysUntil: number | null): ClientStatus {
-  if (daysUntil === null) return 'sem_historico';
-  if (daysUntil < 0) return 'atrasada';
-  if (daysUntil <= 30) return 'elegivel';
-  return 'em_dia';
-}
+const fmt = (d: Date) => format(d, 'yyyy-MM-dd');
 
 export default function VisaoGerencialPreventivas() {
   const [filters, setFilters] = useState<PreventivasFilters>(() => ({
@@ -61,135 +31,91 @@ export default function VisaoGerencialPreventivas() {
     selectedStatus: null,
   }));
 
-  const from = fmtDate(filters.dateRange?.from);
-  const to = fmtDate(filters.dateRange?.to ?? filters.dateRange?.from);
-
   const { data: technicians = [] } = useFieldTechnicians();
   const techName = (id: string) => technicians.find((t) => t.id === id)?.nome ?? 'Técnico';
 
-  // Rotas do período (com itens)
-  const { data: routes, isLoading: loadingRoutes } = useQuery({
-    queryKey: ['prev-gerencial-routes', from, to, filters.selectedTecnicos],
-    queryFn: async () => {
-      let q = supabase
-        .from('preventive_routes')
-        .select('id, status, created_at, start_date, end_date, field_technician_user_id, preventive_route_items(id, client_id, status)');
-      if (from) q = q.gte('start_date', from);
-      if (to) q = q.lte('start_date', to);
-      if (filters.selectedTecnicos.length > 0) q = q.in('field_technician_user_id', filters.selectedTecnicos);
-      const { data, error } = await q;
-      if (error) throw error;
-      return (data ?? []) as unknown as RouteRow[];
-    },
-    enabled: Boolean(from),
-  });
+  const params: GerencialParams | null = useMemo(() => {
+    const f = filters.dateRange?.from;
+    if (!f) return null;
+    const t = filters.dateRange?.to ?? f;
+    return {
+      from: fmt(f),
+      to: fmt(t),
+      tecnicoIds: filters.selectedTecnicos,
+      status: filters.selectedStatus,
+    };
+  }, [filters]);
 
-  // Período anterior (mesmo tamanho) para delta de aderência
-  const prevWindow = useMemo(() => {
-    if (!filters.dateRange?.from) return null;
-    const f = filters.dateRange.from;
-    const t = filters.dateRange.to ?? filters.dateRange.from;
+  const periods = useMemo(() => {
+    if (!params) return null;
+    const f = new Date(`${params.from}T00:00:00`);
+    const t = new Date(`${params.to}T00:00:00`);
     const len = differenceInCalendarDays(t, f) + 1;
     const prevTo = new Date(f);
     prevTo.setDate(prevTo.getDate() - 1);
     const prevFrom = new Date(prevTo);
     prevFrom.setDate(prevFrom.getDate() - (len - 1));
-    return { from: format(prevFrom, 'yyyy-MM-dd'), to: format(prevTo, 'yyyy-MM-dd') };
-  }, [filters.dateRange]);
+    return {
+      atual: { from: params.from, to: params.to },
+      anterior: { from: fmt(prevFrom), to: fmt(prevTo) },
+    };
+  }, [params]);
 
-  const { data: prevRoutes } = useQuery({
-    queryKey: ['prev-gerencial-routes-prev', prevWindow, filters.selectedTecnicos],
-    queryFn: async () => {
-      let q = supabase
-        .from('preventive_routes')
-        .select('id, status')
-        .gte('start_date', prevWindow!.from)
-        .lte('start_date', prevWindow!.to);
-      if (filters.selectedTecnicos.length > 0) q = q.in('field_technician_user_id', filters.selectedTecnicos);
-      const { data, error } = await q;
-      if (error) throw error;
-      return data ?? [];
-    },
-    enabled: Boolean(prevWindow),
+  // 1. Carteira por status (sem filtro de status para os KPIs / funil)
+  const { data: carteira = [], isLoading: loadingCarteira } = useQuery({
+    queryKey: ['prev-ger-carteira', params?.from, params?.to, params?.tecnicoIds],
+    queryFn: () => fetchCarteiraStatus({ ...params!, status: null }),
+    enabled: Boolean(params),
   });
 
-  // Carteira de clientes ativos
-  const { data: clientes, isLoading: loadingClientes } = useQuery({
-    queryKey: ['prev-gerencial-clientes'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('clientes')
-        .select('id, nome, fazenda, preventive_frequency_days, status')
-        .order('nome');
-      if (error) throw error;
-      return (data ?? []) as ClientRow[];
-    },
+  // 2. Rotas concluídas por mês
+  const { data: rotasMes = [], isLoading: loadingMes } = useQuery({
+    queryKey: ['prev-ger-rotas-mes', params?.from, params?.to, params?.tecnicoIds],
+    queryFn: () => fetchRotasConcluidasPorMes(params!),
+    enabled: Boolean(params),
   });
 
-  // Preventivas concluídas (histórico completo para calcular última data)
-  const { data: preventivas, isLoading: loadingPm } = useQuery({
-    queryKey: ['prev-gerencial-pm'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('preventive_maintenance')
-        .select('client_id, completed_date, status, technician_user_id')
-        .eq('status', 'concluida');
-      if (error) throw error;
-      return (data ?? []) as PmRow[];
-    },
+  // 3. Top fazendas atrasadas (respeita filtro de status quando definido)
+  const { data: topAtrasadas = [] } = useQuery({
+    queryKey: ['prev-ger-top-atrasadas', params?.from, params?.to, params?.tecnicoIds, params?.status],
+    queryFn: () => fetchTopFazendasAtrasadas(params!, 10),
+    enabled: Boolean(params),
   });
 
-  const isLoading = loadingRoutes || loadingClientes || loadingPm;
+  // 4. Produtividade por técnico
+  const { data: produtividade = [], isLoading: loadingProd } = useQuery({
+    queryKey: ['prev-ger-produtividade', params?.from, params?.to, params?.tecnicoIds],
+    queryFn: () => fetchProdutividadeTecnicos(params!),
+    enabled: Boolean(params),
+  });
 
-  // ---- Estado da carteira por cliente ----
-  const carteira = useMemo(() => {
-    const lastByClient = new Map<string, string>();
-    (preventivas ?? []).forEach((p) => {
-      if (!p.completed_date) return;
-      const cur = lastByClient.get(p.client_id);
-      if (!cur || p.completed_date > cur) lastByClient.set(p.client_id, p.completed_date);
-    });
-
-    const today = new Date();
-    return (clientes ?? [])
-      .filter((c) => (c.status ?? 'ativo') !== 'inativo')
-      .map((c) => {
-        const last = lastByClient.get(c.id) ?? null;
-        const freq = c.preventive_frequency_days ?? DEFAULT_FREQUENCY;
-        const daysSince = last ? differenceInCalendarDays(today, new Date(`${last}T00:00:00`)) : null;
-        const daysUntil = daysSince === null ? null : freq - daysSince;
-        return {
-          id: c.id,
-          nome: c.fazenda ? `${c.nome} · ${c.fazenda}` : c.nome,
-          last,
-          freq,
-          daysSince,
-          daysUntil,
-          status: classify(daysUntil),
-        };
-      });
-  }, [clientes, preventivas]);
+  // 5. Aderência de rotas (atual vs anterior)
+  const { data: aderencia } = useQuery({
+    queryKey: ['prev-ger-aderencia', periods, params?.tecnicoIds],
+    queryFn: () => fetchAderenciaRotas(periods!, params!.tecnicoIds),
+    enabled: Boolean(periods),
+  });
 
   const kpis = useMemo(() => {
     const total = carteira.length;
     const emDia = carteira.filter((c) => c.status === 'em_dia').length;
     const elegiveis = carteira.filter((c) => c.status === 'elegivel');
-    const proximos15 = elegiveis.filter((c) => (c.daysUntil ?? 99) <= 15).length;
+    const proximos15 = elegiveis.filter((c) => (c.dias_restantes ?? 99) <= 15).length;
     const atrasadas = carteira.filter((c) => c.status === 'atrasada');
     const mediaAtraso = atrasadas.length
-      ? Math.round(atrasadas.reduce((s, c) => s + Math.abs(c.daysUntil ?? 0), 0) / atrasadas.length)
+      ? Math.round(atrasadas.reduce((s, c) => s + c.dias_atraso, 0) / atrasadas.length)
       : 0;
     const semHistorico = carteira.filter((c) => c.status === 'sem_historico').length;
 
-    const rows = routes ?? [];
-    const concluidas = rows.filter((r) => r.status === 'finalizada').length;
-    const planejadas = rows.length;
-    const aderencia = planejadas > 0 ? Math.round((concluidas / planejadas) * 100) : 0;
-
-    const prevRows = prevRoutes ?? [];
-    const prevConcl = prevRows.filter((r) => r.status === 'finalizada').length;
-    const prevAderencia = prevRows.length > 0 ? Math.round((prevConcl / prevRows.length) * 100) : 0;
-    const diff = aderencia - prevAderencia;
+    const pctAtual =
+      aderencia && aderencia.planejadas_atual > 0
+        ? Math.round((aderencia.concluidas_atual / aderencia.planejadas_atual) * 100)
+        : 0;
+    const pctAnterior =
+      aderencia && aderencia.planejadas_anterior > 0
+        ? Math.round((aderencia.concluidas_anterior / aderencia.planejadas_anterior) * 100)
+        : null;
+    const diff = pctAnterior === null ? null : pctAtual - pctAnterior;
 
     return {
       total,
@@ -199,14 +125,18 @@ export default function VisaoGerencialPreventivas() {
       atrasadas: atrasadas.length,
       mediaAtraso,
       semHistorico,
-      concluidas,
-      planejadas,
-      aderencia,
-      delta: prevRows.length
-        ? { direction: (diff >= 0 ? 'up' : 'down') as 'up' | 'down', text: `${diff >= 0 ? '+' : ''}${diff} p.p. vs período anterior` }
-        : undefined,
+      pctAtual,
+      concluidas: aderencia?.concluidas_atual ?? 0,
+      planejadas: aderencia?.planejadas_atual ?? 0,
+      delta:
+        diff === null
+          ? undefined
+          : {
+              direction: (diff >= 0 ? 'up' : 'down') as 'up' | 'down',
+              text: `${diff >= 0 ? '+' : ''}${diff} p.p. vs período anterior`,
+            },
     };
-  }, [carteira, routes, prevRoutes]);
+  }, [carteira, aderencia]);
 
   const funnelSteps = useMemo(
     () => [
@@ -218,74 +148,30 @@ export default function VisaoGerencialPreventivas() {
     [kpis],
   );
 
-  // Rotas concluídas por mês
-  const rotasPorMes = useMemo(() => {
-    const map = new Map<string, number>();
-    (routes ?? [])
-      .filter((r) => r.status === 'finalizada')
-      .forEach((r) => {
-        const d = new Date(r.created_at);
-        const key = format(startOfMonth(d), 'yyyy-MM');
-        map.set(key, (map.get(key) ?? 0) + 1);
-      });
-    return Array.from(map.entries())
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([key, count]) => ({
-        mes: format(new Date(`${key}-01T00:00:00`), 'MMM/yy', { locale: ptBR }),
-        rotas: count,
-      }));
-  }, [routes]);
+  const chartData = useMemo(
+    () =>
+      rotasMes.map((r) => ({
+        mes: format(new Date(r.ano, r.mes - 1, 1), 'MMM/yy', { locale: ptBR }),
+        rotas: r.count,
+      })),
+    [rotasMes],
+  );
 
-  // Fazendas mais atrasadas (respeita filtro de status quando aplicado)
-  const rankingFazendas = useMemo(() => {
-    const base = filters.selectedStatus
-      ? carteira.filter((c) => c.status === filters.selectedStatus)
-      : carteira.filter((c) => c.status === 'atrasada');
-    return base
-      .slice()
-      .sort((a, b) => (b.daysUntil === null ? -1 : a.daysUntil === null ? 1 : a.daysUntil - b.daysUntil))
-      .slice(0, 10)
-      .map((c) => ({
-        name: c.nome,
-        count: c.daysUntil === null ? 'sem histórico' : `${Math.abs(c.daysUntil)}d`,
-        barColor: c.status === 'atrasada' ? 'bg-red-600' : c.status === 'elegivel' ? 'bg-amber-500' : 'bg-blue-600',
-      }));
-  }, [carteira, filters.selectedStatus]);
+  const rankingItems = useMemo(
+    () =>
+      topAtrasadas.map((f) => ({
+        name: f.tecnico_atribuido ? `${f.nome} — ${techName(f.tecnico_atribuido)}` : f.nome,
+        count: `${f.dias_atraso}d`,
+        barColor: 'bg-red-600',
+      })),
+    [topAtrasadas, technicians],
+  );
 
-  // Produtividade por técnico
-  const produtividade = useMemo(() => {
-    const today = format(new Date(), 'yyyy-MM-dd');
-    const map = new Map<
-      string,
-      { rotas: number; concluidas: number; fazendas: number; duracaoTotal: number; emAtraso: number }
-    >();
-    (routes ?? []).forEach((r) => {
-      const cur =
-        map.get(r.field_technician_user_id) ??
-        { rotas: 0, concluidas: 0, fazendas: 0, duracaoTotal: 0, emAtraso: 0 };
-      cur.rotas += 1;
-      if (r.status === 'finalizada') {
-        cur.concluidas += 1;
-        cur.duracaoTotal += differenceInCalendarDays(new Date(r.end_date), new Date(r.start_date)) + 1;
-      }
-      if (r.status !== 'finalizada' && r.end_date < today) cur.emAtraso += 1;
-      cur.fazendas += (r.preventive_route_items ?? []).filter((i) => i.status === 'executado').length;
-      map.set(r.field_technician_user_id, cur);
-    });
-    return Array.from(map.entries())
-      .map(([id, v]) => ({
-        id,
-        nome: techName(id),
-        ...v,
-        tempoMedio: v.concluidas > 0 ? (v.duracaoTotal / v.concluidas).toFixed(1) : '—',
-      }))
-      .sort((a, b) => b.concluidas - a.concluidas);
-  }, [routes, technicians]);
+  const periodoLabel = params
+    ? `${format(new Date(`${params.from}T00:00:00`), 'dd MMM yyyy', { locale: ptBR })} — ${format(new Date(`${params.to}T00:00:00`), 'dd MMM yyyy', { locale: ptBR })}`
+    : 'Período não definido';
 
-  const periodoLabel =
-    filters.dateRange?.from && filters.dateRange?.to
-      ? `${format(filters.dateRange.from, 'dd MMM yyyy', { locale: ptBR })} — ${format(endOfMonth(filters.dateRange.to) > filters.dateRange.to ? filters.dateRange.to : filters.dateRange.to, 'dd MMM yyyy', { locale: ptBR })}`
-      : 'Período não definido';
+  const isLoading = loadingCarteira || loadingMes || loadingProd;
 
   return (
     <div className="p-4 md:p-6 animate-fade-in" style={{ maxWidth: 1180, margin: '0 auto' }}>
@@ -334,7 +220,7 @@ export default function VisaoGerencialPreventivas() {
           />
           <KPICard
             label="Aderência de rotas"
-            value={`${kpis.aderencia}%`}
+            value={`${kpis.pctAtual}%`}
             subtext={`${kpis.concluidas}/${kpis.planejadas} rotas concluídas`}
             iconType="purple"
             delta={kpis.delta}
@@ -357,12 +243,12 @@ export default function VisaoGerencialPreventivas() {
             <CardTitle className="text-sm font-semibold">Rotas concluídas por mês</CardTitle>
           </CardHeader>
           <CardContent>
-            {rotasPorMes.length === 0 ? (
+            {chartData.length === 0 ? (
               <p className="text-xs text-muted-foreground py-8 text-center">Nenhuma rota concluída no período.</p>
             ) : (
               <div style={{ height: 240 }}>
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={rotasPorMes}>
+                  <BarChart data={chartData}>
                     <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
                     <XAxis dataKey="mes" tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
                     <YAxis allowDecimals={false} tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
@@ -396,10 +282,10 @@ export default function VisaoGerencialPreventivas() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            {rankingFazendas.length === 0 ? (
+            {rankingItems.length === 0 ? (
               <p className="text-xs text-muted-foreground py-8 text-center">Nenhuma fazenda encontrada.</p>
             ) : (
-              <RankingBar items={rankingFazendas} />
+              <RankingBar items={rankingItems} />
             )}
           </CardContent>
         </Card>
@@ -421,22 +307,24 @@ export default function VisaoGerencialPreventivas() {
                     <th className="py-2 pr-3 font-medium text-right">Rotas</th>
                     <th className="py-2 pr-3 font-medium text-right">Concluídas</th>
                     <th className="py-2 pr-3 font-medium text-right">Fazendas visitadas</th>
-                    <th className="py-2 pr-3 font-medium text-right">Duração média (dias)</th>
+                    <th className="py-2 pr-3 font-medium text-right">Tempo médio / visita</th>
                     <th className="py-2 font-medium text-right">Em atraso</th>
                   </tr>
                 </thead>
                 <tbody>
                   {produtividade.map((t) => (
-                    <tr key={t.id} className="border-b border-border/60 last:border-0">
-                      <td className="py-2 pr-3 min-w-0 truncate">{t.nome}</td>
-                      <td className="py-2 pr-3 text-right font-mono">{t.rotas}</td>
-                      <td className="py-2 pr-3 text-right font-mono">{t.concluidas}</td>
-                      <td className="py-2 pr-3 text-right font-mono">{t.fazendas}</td>
-                      <td className="py-2 pr-3 text-right font-mono">{t.tempoMedio}</td>
+                    <tr key={t.tecnico_id} className="border-b border-border/60 last:border-0">
+                      <td className="py-2 pr-3 min-w-0 truncate">{techName(t.tecnico_id)}</td>
+                      <td className="py-2 pr-3 text-right font-mono">{t.rotas_total}</td>
+                      <td className="py-2 pr-3 text-right font-mono">{t.rotas_concluidas}</td>
+                      <td className="py-2 pr-3 text-right font-mono">{t.fazendas_visitadas}</td>
+                      <td className="py-2 pr-3 text-right font-mono">
+                        {t.tempo_medio_minutos === null ? '—' : `${t.tempo_medio_minutos} min`}
+                      </td>
                       <td
-                        className={`py-2 text-right font-mono ${t.emAtraso > 0 ? 'text-red-600 dark:text-red-400 font-semibold' : ''}`}
+                        className={`py-2 text-right font-mono ${t.em_atraso_count > 0 ? 'text-red-600 dark:text-red-400 font-semibold' : ''}`}
                       >
-                        {t.emAtraso}
+                        {t.em_atraso_count}
                       </td>
                     </tr>
                   ))}
