@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { BarChart2 } from 'lucide-react';
+import { BarChart2, CalendarCheck } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useMenuPermissions } from '@/hooks/useMenuPermissions';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -24,7 +24,17 @@ const dashboards: DashboardItem[] = [
     bgColor: 'bg-teal-100 dark:bg-teal-900/30',
     permKey: 'oficina_gestao_os',
   },
+  {
+    title: 'Gestão de Preventivas',
+    description: 'Cobertura, atrasos e conclusão das manutenções preventivas',
+    icon: CalendarCheck,
+    url: '/admin/dashboards/gestao-preventivas',
+    color: 'text-indigo-600',
+    bgColor: 'bg-indigo-100 dark:bg-indigo-900/30',
+    permKey: 'oficina_gestao_os',
+  },
 ];
+
 
 export default function Dashboards() {
   const { canAccess, isLoading } = useMenuPermissions();
