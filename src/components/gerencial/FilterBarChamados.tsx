@@ -127,7 +127,7 @@ export function FilterBarChamados({ onFilterChange, defaultPreset = 'mes' }: Pro
             onClick={() => {
               setSelectedTecnicos([]);
               setSelectedPriority(null);
-              setDateRange(presets.mesAtual());
+              setDateRange(initialPreset());
             }}
           >
             Limpar filtros
