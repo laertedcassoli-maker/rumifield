@@ -21,6 +21,7 @@ import AdminConfig from "./pages/admin/Config";
 import AdminPermissoes from "./pages/admin/Permissoes";
 import AdminAnalytics from "./pages/admin/Analytics";
 import AdminDashboards from "./pages/admin/Dashboards";
+import AdminGestaoPreventivas from "./pages/admin/GestaoPreventivas";
 import OficinaAtividades from "./pages/oficina/Atividades";
 import OficinaItens from "./pages/oficina/ItensOficina";
 import OficinaOS from "./pages/oficina/OrdensServico";
@@ -244,6 +245,15 @@ const App = () => (
                 </AppLayout>
               }
             />
+            <Route
+              path="/admin/dashboards/gestao-preventivas"
+              element={
+                <AppLayout>
+                  <AdminGestaoPreventivas />
+                </AppLayout>
+              }
+            />
+
 
             <Route
               path="/oficina/garantias"
