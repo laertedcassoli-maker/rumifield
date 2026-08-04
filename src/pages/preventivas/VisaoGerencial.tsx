@@ -10,6 +10,14 @@ import { KPICard } from '@/components/gerencial/KPICard';
 import { FunnelChart } from '@/components/gerencial/FunnelChart';
 import { RankingBar } from '@/components/gerencial/RankingBar';
 import {
+  Breadcrumb,
+  BreadcrumbList,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from '@/components/ui/breadcrumb';
+import {
   FilterBarPreventivas,
   type PreventivasFilters,
 } from '@/components/gerencial/FilterBarPreventivas';

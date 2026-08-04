@@ -18,6 +18,14 @@ import { Button } from '@/components/ui/button';
 import { KPICard } from '@/components/gerencial/KPICard';
 import { FunnelChart } from '@/components/gerencial/FunnelChart';
 import { RankingBar } from '@/components/gerencial/RankingBar';
+import {
+  Breadcrumb,
+  BreadcrumbList,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from '@/components/ui/breadcrumb';
 import { FilterBarChamados, type ChamadosFilters } from '@/components/gerencial/FilterBarChamados';
 import { useFieldTechnicians, presets } from '@/components/gerencial/filterBarShared';
 import { fetchChamadosDataset, fetchVolumeChamados, type ChamadosParams } from '@/lib/queries/chamadosGerencial';
