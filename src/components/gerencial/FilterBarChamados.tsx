@@ -54,6 +54,14 @@ export function FilterBarChamados({ onFilterChange, defaultPreset = 'mes' }: Pro
     } catch { /* ignore */ }
     return initialPreset();
   });
+  const [activePreset, setActivePreset] = useState<PresetKey>(
+    defaultPreset === 'ano' ? 'ano_inteiro' : defaultPreset === 'trimestre' ? 'trimestre_atual' : 'mes_atual',
+  );
+
+  const applyPreset = (key: Exclude<PresetKey, 'personalizado'>) => {
+    setActivePreset(key);
+    setDateRange(rangeForPreset(key));
+  };
 
 
   const [selectedTecnicos, setSelectedTecnicos] = useState<string[]>(() => {
