@@ -37,8 +37,6 @@ export function AppSidebar() {
     { title: 'Minhas Rotas', icon: Navigation, url: '/preventivas/minhas-rotas', permKey: 'minhas_rotas' },
     { title: 'Chamados', icon: AlertTriangle, url: '/chamados', permKey: 'chamados' },
     { title: 'Dashboard CRM', icon: BarChart3, url: '/crm/dashboard', permKey: 'crm_clientes' },
-
-    { title: 'Dashboard CRM', icon: BarChart3, url: '/crm/dashboard', permKey: 'crm_clientes' },
     { title: 'CRM Carteira', icon: Briefcase, url: '/crm/carteira', permKey: 'crm_clientes' },
     { title: 'Visitas CRM', icon: Eye, url: '/crm/visitas', permKey: 'crm_clientes' },
     { title: 'Pipeline', icon: BarChart3, url: '/crm/pipeline', permKey: 'crm_clientes' },
