@@ -103,7 +103,7 @@ export function FilterBarPreventivas({ onFilterChange }: Props) {
           onClear={() => setSelectedTecnicos([])}
         />
 
-        <SingleSelectPills
+        <SingleSelectPills<FazendaStatus>
           label="Status da fazenda"
           options={STATUS_OPTIONS}
           value={selectedStatus}
