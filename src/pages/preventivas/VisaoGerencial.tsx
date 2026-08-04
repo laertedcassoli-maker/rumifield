@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { format, differenceInCalendarDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -175,11 +176,26 @@ export default function VisaoGerencialPreventivas() {
 
   return (
     <div className="p-4 md:p-6 animate-fade-in" style={{ maxWidth: 1180, margin: '0 auto' }}>
-      <div className="mb-4">
-        <h1 className="text-xl font-bold text-foreground">Gestão de Preventivas</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Cobertura da carteira, aderência de rotas e produtividade dos técnicos de campo · {periodoLabel}
-        </p>
+      <div className="mb-4 space-y-2">
+        <Breadcrumb>
+          <BreadcrumbList>
+            <BreadcrumbItem>
+              <BreadcrumbLink asChild>
+                <Link to="/admin/dashboards">Dashboards</Link>
+              </BreadcrumbLink>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem>
+              <BreadcrumbPage>Gestão de Preventivas</BreadcrumbPage>
+            </BreadcrumbItem>
+          </BreadcrumbList>
+        </Breadcrumb>
+        <div>
+          <h1 className="text-xl font-bold text-foreground">Gestão de Preventivas</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Cobertura da carteira, aderência de rotas e produtividade dos técnicos de campo · {periodoLabel}
+          </p>
+        </div>
       </div>
 
       <div style={{ marginBottom: 16 }}>

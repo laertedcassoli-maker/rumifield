@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import {
   format,
@@ -246,11 +247,26 @@ export default function VisaoGerencialChamados() {
 
   return (
     <div className="p-4 md:p-6 animate-fade-in" style={{ maxWidth: 1180, margin: '0 auto' }}>
-      <div className="mb-4">
-        <h1 className="text-xl font-bold text-foreground">Gestão de Chamados &amp; Corretivas</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Volume, tempo de atendimento, resolução remota e produtividade dos técnicos · {periodoLabel}
-        </p>
+      <div className="mb-4 space-y-2">
+        <Breadcrumb>
+          <BreadcrumbList>
+            <BreadcrumbItem>
+              <BreadcrumbLink asChild>
+                <Link to="/admin/dashboards">Dashboards</Link>
+              </BreadcrumbLink>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem>
+              <BreadcrumbPage>Gestão de Chamados &amp; Corretivas</BreadcrumbPage>
+            </BreadcrumbItem>
+          </BreadcrumbList>
+        </Breadcrumb>
+        <div>
+          <h1 className="text-xl font-bold text-foreground">Gestão de Chamados &amp; Corretivas</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Volume, tempo de atendimento, resolução remota e produtividade dos técnicos · {periodoLabel}
+          </p>
+        </div>
       </div>
 
       <div style={{ marginBottom: 16 }}>
