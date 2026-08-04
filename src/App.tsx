@@ -225,12 +225,25 @@ const App = () => (
             />
             <Route
               path="/oficina/gestao"
+              element={<Navigate to="/admin/dashboards/gestao-os" replace />}
+            />
+            <Route
+              path="/admin/dashboards"
+              element={
+                <AppLayout>
+                  <AdminDashboards />
+                </AppLayout>
+              }
+            />
+            <Route
+              path="/admin/dashboards/gestao-os"
               element={
                 <AppLayout>
                   <OficinaGestaoOS />
                 </AppLayout>
               }
             />
+
             <Route
               path="/oficina/garantias"
               element={
