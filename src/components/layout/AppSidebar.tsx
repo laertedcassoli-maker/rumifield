@@ -36,6 +36,9 @@ export function AppSidebar() {
     { title: 'Início', icon: Home, url: '/', permKey: 'inicio' },
     { title: 'Minhas Rotas', icon: Navigation, url: '/preventivas/minhas-rotas', permKey: 'minhas_rotas' },
     { title: 'Chamados', icon: AlertTriangle, url: '/chamados', permKey: 'chamados' },
+    ...(role === 'admin' || role === 'coordenador_rplus' || role === 'coordenador_servicos'
+      ? [{ title: 'Chamados · Visão Gerencial', icon: BarChart2, url: '/chamados/visao-gerencial', permKey: 'chamados' }]
+      : []),
     { title: 'Dashboard CRM', icon: BarChart3, url: '/crm/dashboard', permKey: 'crm_clientes' },
     { title: 'CRM Carteira', icon: Briefcase, url: '/crm/carteira', permKey: 'crm_clientes' },
     { title: 'Visitas CRM', icon: Eye, url: '/crm/visitas', permKey: 'crm_clientes' },
@@ -49,17 +52,14 @@ export function AppSidebar() {
   const isAdminOrCoordServicos = role === 'admin' || role === 'coordenador_servicos';
   
   // Preventivas submenu - "Minhas Rotas" moved to main menu, only show management items here
-  const preventivasItems = isAdminOrCoordServicos
-    ? [
-        { title: 'Clientes Preventiva', icon: Building2, url: '/preventivas', permKey: 'preventivas' },
-        { title: 'Rotas', icon: Route, url: '/preventivas/rotas', permKey: 'preventivas' },
-        { title: 'Calendário Anual', icon: CalendarDays, url: '/preventivas/calendario', permKey: 'preventivas' },
-      ]
-    : [
-        { title: 'Clientes Preventiva', icon: Building2, url: '/preventivas', permKey: 'preventivas' },
-        { title: 'Rotas', icon: Route, url: '/preventivas/rotas', permKey: 'preventivas' },
-        { title: 'Calendário Anual', icon: CalendarDays, url: '/preventivas/calendario', permKey: 'preventivas' },
-      ];
+  const preventivasItems = [
+    { title: 'Clientes Preventiva', icon: Building2, url: '/preventivas', permKey: 'preventivas' },
+    { title: 'Rotas', icon: Route, url: '/preventivas/rotas', permKey: 'preventivas' },
+    { title: 'Calendário Anual', icon: CalendarDays, url: '/preventivas/calendario', permKey: 'preventivas' },
+    ...(isAdminOrCoordServicos || role === 'coordenador_rplus'
+      ? [{ title: 'Visão Gerencial', icon: BarChart2, url: '/preventivas/visao-gerencial', permKey: 'preventivas' }]
+      : []),
+  ];
 
   const filteredPreventivasItems = preventivasItems.filter(item => canAccess(item.permKey));
 
