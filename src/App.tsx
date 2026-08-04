@@ -502,6 +502,23 @@ const App = () => (
               }
             />
             <Route
+              path="/chamados/visao-gerencial"
+              element={
+                <AppLayout>
+                  <ChamadosVisaoGerencial />
+                </AppLayout>
+              }
+            />
+            <Route
+              path="/admin/dashboards/chamados-gerencial"
+              element={
+                <AppLayout>
+                  <ChamadosVisaoGerencial />
+                </AppLayout>
+              }
+            />
+            <Route
+
               path="/chamados/novo"
               element={
                 <AppLayout>
