@@ -42,7 +42,17 @@ const dashboards: DashboardItem[] = [
     bgColor: 'bg-emerald-100 dark:bg-emerald-900/30',
     permKey: 'oficina_gestao_os',
   },
+  {
+    title: 'Chamados & Corretivas · Visão Gerencial',
+    description: 'Volume, tempo de atendimento, remoto vs. visita e produtividade',
+    icon: PhoneCall,
+    url: '/chamados/visao-gerencial',
+    color: 'text-amber-600',
+    bgColor: 'bg-amber-100 dark:bg-amber-900/30',
+    permKey: 'oficina_gestao_os',
+  },
 ];
+
 
 
 export default function Dashboards() {
