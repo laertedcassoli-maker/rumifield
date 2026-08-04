@@ -25,15 +25,6 @@ const dashboards: DashboardItem[] = [
     permKey: 'oficina_gestao_os',
   },
   {
-    title: 'Gestão de Preventivas',
-    description: 'Cobertura, atrasos e conclusão das manutenções preventivas',
-    icon: CalendarCheck,
-    url: '/admin/dashboards/gestao-preventivas',
-    color: 'text-indigo-600',
-    bgColor: 'bg-indigo-100 dark:bg-indigo-900/30',
-    permKey: 'oficina_gestao_os',
-  },
-  {
     title: 'Preventiva · Visão Gerencial',
     description: 'Cobertura da carteira, aderência de rotas e produtividade dos técnicos',
     icon: Gauge,

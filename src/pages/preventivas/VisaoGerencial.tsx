@@ -176,7 +176,7 @@ export default function VisaoGerencialPreventivas() {
   return (
     <div className="p-4 md:p-6 animate-fade-in" style={{ maxWidth: 1180, margin: '0 auto' }}>
       <div className="mb-4">
-        <h1 className="text-xl font-bold text-foreground">Manutenção Preventiva · Visão Gerencial</h1>
+        <h1 className="text-xl font-bold text-foreground">Gestão de Preventivas</h1>
         <p className="text-sm text-muted-foreground mt-1">
           Cobertura da carteira, aderência de rotas e produtividade dos técnicos de campo · {periodoLabel}
         </p>
