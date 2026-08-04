@@ -244,6 +244,15 @@ const App = () => (
                 </AppLayout>
               }
             />
+            <Route
+              path="/admin/dashboards/gestao-preventivas"
+              element={
+                <AppLayout>
+                  <AdminGestaoPreventivas />
+                </AppLayout>
+              }
+            />
+
 
             <Route
               path="/oficina/garantias"
