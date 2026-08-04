@@ -20,6 +20,7 @@ import AdminUsuarios from "./pages/admin/Usuarios";
 import AdminConfig from "./pages/admin/Config";
 import AdminPermissoes from "./pages/admin/Permissoes";
 import AdminAnalytics from "./pages/admin/Analytics";
+import AdminDashboards from "./pages/admin/Dashboards";
 import OficinaAtividades from "./pages/oficina/Atividades";
 import OficinaItens from "./pages/oficina/ItensOficina";
 import OficinaOS from "./pages/oficina/OrdensServico";
