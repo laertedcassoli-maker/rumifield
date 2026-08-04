@@ -3,6 +3,15 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate, useParams } from "react-router-dom";
+import { lazy, Suspense } from "react";
+import { Skeleton } from "@/components/ui/skeleton";
+
+const PreventivasVisaoGerencial = lazy(() => import("./pages/preventivas/VisaoGerencial"));
+const ChamadosVisaoGerencial = lazy(() => import("./pages/chamados/VisaoGerencial"));
+
+const LazyDashboard = ({ children }: { children: React.ReactNode }) => (
+  <Suspense fallback={<div className="p-6 space-y-3"><Skeleton className="h-8 w-72" /><Skeleton className="h-28 w-full" /><Skeleton className="h-64 w-full" /></div>}>{children}</Suspense>
+);
 import { AuthProvider } from "@/contexts/AuthContext";
 import { OfflineProvider } from "@/contexts/OfflineContext";
 import { AppLayout } from "@/components/layout/AppLayout";
@@ -22,7 +31,6 @@ import AdminPermissoes from "./pages/admin/Permissoes";
 import AdminAnalytics from "./pages/admin/Analytics";
 import AdminDashboards from "./pages/admin/Dashboards";
 import AdminGestaoPreventivas from "./pages/admin/GestaoPreventivas";
-import PreventivasVisaoGerencial from "./pages/preventivas/VisaoGerencial";
 import OficinaAtividades from "./pages/oficina/Atividades";
 import OficinaItens from "./pages/oficina/ItensOficina";
 import OficinaOS from "./pages/oficina/OrdensServico";
@@ -44,7 +52,6 @@ import Nfc from "./pages/Nfc";
 import NotFound from "./pages/NotFound";
 import RelatorioPreventivo from "./pages/preventivas/RelatorioPreventivo";
 import ChamadosIndex from "./pages/chamados/Index";
-import ChamadosVisaoGerencial from "./pages/chamados/VisaoGerencial";
 
 import NovoChamado from "./pages/chamados/NovoChamado";
 import DetalheChamado from "./pages/chamados/DetalheChamado";
@@ -260,7 +267,7 @@ const App = () => (
               path="/preventivas/visao-gerencial"
               element={
                 <AppLayout>
-                  <PreventivasVisaoGerencial />
+                  <LazyDashboard><PreventivasVisaoGerencial /></LazyDashboard>
                 </AppLayout>
               }
             />
@@ -268,7 +275,7 @@ const App = () => (
               path="/admin/dashboards/preventivas-gerencial"
               element={
                 <AppLayout>
-                  <PreventivasVisaoGerencial />
+                  <LazyDashboard><PreventivasVisaoGerencial /></LazyDashboard>
                 </AppLayout>
               }
             />
@@ -505,7 +512,7 @@ const App = () => (
               path="/chamados/visao-gerencial"
               element={
                 <AppLayout>
-                  <ChamadosVisaoGerencial />
+                  <LazyDashboard><ChamadosVisaoGerencial /></LazyDashboard>
                 </AppLayout>
               }
             />
@@ -513,7 +520,7 @@ const App = () => (
               path="/admin/dashboards/chamados-gerencial"
               element={
                 <AppLayout>
-                  <ChamadosVisaoGerencial />
+                  <LazyDashboard><ChamadosVisaoGerencial /></LazyDashboard>
                 </AppLayout>
               }
             />
