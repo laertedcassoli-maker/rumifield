@@ -31,9 +31,17 @@ export interface ChamadosFilters {
 
 interface Props {
   onFilterChange?: (filters: ChamadosFilters) => void;
+  defaultPreset?: 'mes' | 'trimestre' | 'ano';
 }
 
-export function FilterBarChamados({ onFilterChange }: Props) {
+export function FilterBarChamados({ onFilterChange, defaultPreset = 'mes' }: Props) {
+  const initialPreset = () =>
+    defaultPreset === 'ano'
+      ? presets.anoInteiro()
+      : defaultPreset === 'trimestre'
+        ? presets.trimestreAtual()
+        : presets.mesAtual();
+
   const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
     try {
       const raw = typeof window !== 'undefined' ? window.localStorage.getItem(STORAGE_KEY) : null;
@@ -42,8 +50,9 @@ export function FilterBarChamados({ onFilterChange }: Props) {
         if (r) return r;
       }
     } catch { /* ignore */ }
-    return presets.mesAtual();
+    return initialPreset();
   });
+
 
   const [selectedTecnicos, setSelectedTecnicos] = useState<string[]>(() => {
     try {
