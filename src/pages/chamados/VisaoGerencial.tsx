@@ -247,7 +247,7 @@ export default function VisaoGerencialChamados() {
   return (
     <div className="p-4 md:p-6 animate-fade-in" style={{ maxWidth: 1180, margin: '0 auto' }}>
       <div className="mb-4">
-        <h1 className="text-xl font-bold text-foreground">Chamados &amp; Visitas Corretivas · Visão Gerencial</h1>
+        <h1 className="text-xl font-bold text-foreground">Gestão de Chamados &amp; Corretivas</h1>
         <p className="text-sm text-muted-foreground mt-1">
           Volume, tempo de atendimento, resolução remota e produtividade dos técnicos · {periodoLabel}
         </p>
