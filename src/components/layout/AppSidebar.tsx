@@ -91,13 +91,13 @@ export function AppSidebar() {
 
   // Admin top-level items (flat)
   const adminTopItems = [
+    { title: 'Dashboards', icon: BarChart2, url: '/admin/dashboards', permKey: 'oficina_gestao_os' },
     { title: 'Clientes', icon: Building2, url: '/admin/clientes', permKey: 'admin_clientes' },
     { title: 'Usuários', icon: Users, url: '/admin/usuarios', permKey: 'admin_usuarios' },
     { title: 'Permissões', icon: Shield, url: '/admin/permissoes', permKey: 'admin_permissoes' },
     { title: 'Envios', icon: Truck, url: '/admin/envios', permKey: 'admin_envios' },
     { title: 'Inteligência', icon: Brain, url: '/crm/inteligencia', permKey: 'crm_inteligencia' },
     { title: 'Analytics', icon: BarChart2, url: '/admin/analytics', permKey: 'admin_analytics' },
-    { title: 'Dashboards', icon: BarChart2, url: '/admin/dashboards', permKey: 'oficina_gestao_os' },
 
   ].filter(item => canAccess(item.permKey));
 
