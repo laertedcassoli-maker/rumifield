@@ -129,7 +129,7 @@ export function FilterBarPreventivas({ onFilterChange, defaultPreset = 'mes' }: 
             onClick={() => {
               setSelectedTecnicos([]);
               setSelectedStatus(null);
-              setDateRange(presets.mesAtual());
+              setDateRange(fallbackRange());
             }}
           >
             Limpar filtros
