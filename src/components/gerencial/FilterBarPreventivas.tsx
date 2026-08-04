@@ -32,9 +32,18 @@ export interface PreventivasFilters {
 
 interface Props {
   onFilterChange?: (filters: PreventivasFilters) => void;
+  /** Preset usado quando não há filtro salvo. Padrão: 'mes'. */
+  defaultPreset?: 'mes' | 'trimestre' | 'ano';
 }
 
-export function FilterBarPreventivas({ onFilterChange }: Props) {
+export function FilterBarPreventivas({ onFilterChange, defaultPreset = 'mes' }: Props) {
+  const fallbackRange = () =>
+    defaultPreset === 'ano'
+      ? presets.anoInteiro()
+      : defaultPreset === 'trimestre'
+        ? presets.trimestreAtual()
+        : presets.mesAtual();
+
   const [dateRange, setDateRange] = useState<DateRange | undefined>(() => {
     try {
       const raw = typeof window !== 'undefined' ? window.localStorage.getItem(STORAGE_KEY) : null;
@@ -44,7 +53,7 @@ export function FilterBarPreventivas({ onFilterChange }: Props) {
         if (r) return r;
       }
     } catch { /* ignore */ }
-    return presets.mesAtual();
+    return fallbackRange();
   });
 
   const [selectedTecnicos, setSelectedTecnicos] = useState<string[]>(() => {
