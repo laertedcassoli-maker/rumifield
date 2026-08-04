@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { BarChart2, CalendarCheck, Gauge } from 'lucide-react';
+import { BarChart2, CalendarCheck, Gauge, PhoneCall } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useMenuPermissions } from '@/hooks/useMenuPermissions';
 import { Skeleton } from '@/components/ui/skeleton';
