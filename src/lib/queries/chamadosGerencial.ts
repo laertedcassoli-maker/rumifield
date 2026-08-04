@@ -4,7 +4,7 @@ export interface ChamadosParams {
   from: string; // yyyy-MM-dd
   to: string; // yyyy-MM-dd
   tecnicoIds: string[];
-  priority: string | null;
+  priority: 'urgente' | 'alta' | 'media' | 'baixa' | null;
 }
 
 export interface TicketRow {
