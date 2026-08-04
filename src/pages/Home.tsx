@@ -20,7 +20,8 @@ import {
   AlertTriangle,
   Navigation,
   BookOpen,
-  Briefcase
+  Briefcase,
+  BarChart2
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useMenuPermissions } from '@/hooks/useMenuPermissions';
@@ -193,6 +194,14 @@ export default function Home() {
       color: 'text-slate-600',
       bgColor: 'bg-slate-100 dark:bg-slate-900/30',
       permKey: 'admin_cadastros',
+    },
+    {
+      title: 'Dashboards',
+      icon: BarChart2,
+      url: '/admin/dashboards',
+      color: 'text-teal-600',
+      bgColor: 'bg-teal-100 dark:bg-teal-900/30',
+      permKey: 'oficina_gestao_os',
     },
     {
       title: 'Documentação',

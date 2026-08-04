@@ -20,6 +20,7 @@ import AdminUsuarios from "./pages/admin/Usuarios";
 import AdminConfig from "./pages/admin/Config";
 import AdminPermissoes from "./pages/admin/Permissoes";
 import AdminAnalytics from "./pages/admin/Analytics";
+import AdminDashboards from "./pages/admin/Dashboards";
 import OficinaAtividades from "./pages/oficina/Atividades";
 import OficinaItens from "./pages/oficina/ItensOficina";
 import OficinaOS from "./pages/oficina/OrdensServico";
@@ -225,12 +226,25 @@ const App = () => (
             />
             <Route
               path="/oficina/gestao"
+              element={<Navigate to="/admin/dashboards/gestao-os" replace />}
+            />
+            <Route
+              path="/admin/dashboards"
+              element={
+                <AppLayout>
+                  <AdminDashboards />
+                </AppLayout>
+              }
+            />
+            <Route
+              path="/admin/dashboards/gestao-os"
               element={
                 <AppLayout>
                   <OficinaGestaoOS />
                 </AppLayout>
               }
             />
+
             <Route
               path="/oficina/garantias"
               element={
