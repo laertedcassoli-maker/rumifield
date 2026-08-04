@@ -44,6 +44,8 @@ import Nfc from "./pages/Nfc";
 import NotFound from "./pages/NotFound";
 import RelatorioPreventivo from "./pages/preventivas/RelatorioPreventivo";
 import ChamadosIndex from "./pages/chamados/Index";
+import ChamadosVisaoGerencial from "./pages/chamados/VisaoGerencial";
+
 import NovoChamado from "./pages/chamados/NovoChamado";
 import DetalheChamado from "./pages/chamados/DetalheChamado";
 import ExecucaoVisitaCorretiva from "./pages/chamados/ExecucaoVisitaCorretiva";
@@ -500,6 +502,23 @@ const App = () => (
               }
             />
             <Route
+              path="/chamados/visao-gerencial"
+              element={
+                <AppLayout>
+                  <ChamadosVisaoGerencial />
+                </AppLayout>
+              }
+            />
+            <Route
+              path="/admin/dashboards/chamados-gerencial"
+              element={
+                <AppLayout>
+                  <ChamadosVisaoGerencial />
+                </AppLayout>
+              }
+            />
+            <Route
+
               path="/chamados/novo"
               element={
                 <AppLayout>
