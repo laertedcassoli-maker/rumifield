@@ -1,14 +1,16 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { useEffect, useRef, useState } from 'react';
+import { Card, CardContent } from '@/components/ui/card';
 import {
   type DateRange,
+  type PresetKey,
+  FilterActions,
   PeriodField,
-  PresetButtons,
-  SingleSelectPills,
+  PresetShortcuts,
+  SingleSelectCombobox,
   TecnicoCombobox,
   parseRange,
   presets,
+  rangeForPreset,
   serializeRange,
   useFieldTechnicians,
 } from './filterBarShared';
@@ -32,9 +34,11 @@ export interface ChamadosFilters {
 interface Props {
   onFilterChange?: (filters: ChamadosFilters) => void;
   defaultPreset?: 'mes' | 'trimestre' | 'ano';
+  /** Badge de resumo exibido à direita (ex: "42 chamados"). */
+  summary?: React.ReactNode;
 }
 
-export function FilterBarChamados({ onFilterChange, defaultPreset = 'mes' }: Props) {
+export function FilterBarChamados({ onFilterChange, defaultPreset = 'mes', summary }: Props) {
   const initialPreset = () =>
     defaultPreset === 'ano'
       ? presets.anoInteiro()
@@ -52,6 +56,14 @@ export function FilterBarChamados({ onFilterChange, defaultPreset = 'mes' }: Pro
     } catch { /* ignore */ }
     return initialPreset();
   });
+  const [activePreset, setActivePreset] = useState<PresetKey>(
+    defaultPreset === 'ano' ? 'ano_inteiro' : defaultPreset === 'trimestre' ? 'trimestre_atual' : 'mes_atual',
+  );
+
+  const applyPreset = (key: Exclude<PresetKey, 'personalizado'>) => {
+    setActivePreset(key);
+    setDateRange(rangeForPreset(key));
+  };
 
 
   const [selectedTecnicos, setSelectedTecnicos] = useState<string[]>(() => {
@@ -91,49 +103,50 @@ export function FilterBarChamados({ onFilterChange, defaultPreset = 'mes' }: Pro
     onFilterChangeRef.current?.({ dateRange, selectedTecnicos, selectedPriority });
   }, [dateRange, selectedTecnicos, selectedPriority]);
 
-  const hasFilters = useMemo(
-    () => selectedTecnicos.length > 0 || selectedPriority !== null,
-    [selectedTecnicos, selectedPriority],
-  );
-
   return (
-    <Card className="p-4">
-      <div className="flex flex-row flex-wrap items-start gap-[14px]">
-        <PeriodField range={dateRange} onChange={setDateRange} />
+    <Card>
+      <CardContent className="p-3">
+        <div className="flex flex-wrap items-end gap-3">
+          <PeriodField
+            range={dateRange}
+            onChange={(r) => {
+              setDateRange(r);
+              setActivePreset('personalizado');
+            }}
+          />
 
-        <TecnicoCombobox
-          technicians={technicians}
-          selected={selectedTecnicos}
-          onToggle={(id) =>
-            setSelectedTecnicos((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
-          }
-          onClear={() => setSelectedTecnicos([])}
-        />
+          <TecnicoCombobox
+            technicians={technicians}
+            selected={selectedTecnicos}
+            onToggle={(id) =>
+              setSelectedTecnicos((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
+            }
+            onClear={() => setSelectedTecnicos([])}
+          />
 
-        <SingleSelectPills<ChamadoPriority>
-          label="Prioridade"
-          options={PRIORITY_OPTIONS}
-          value={selectedPriority}
-          onChange={setSelectedPriority}
-        />
+          <SingleSelectCombobox<ChamadoPriority>
+            label="Prioridade"
+            placeholder="Todas as prioridades"
+            searchPlaceholder="Buscar prioridade..."
+            options={PRIORITY_OPTIONS}
+            value={selectedPriority}
+            onChange={setSelectedPriority}
+          />
 
-        <PresetButtons onSelect={setDateRange} />
-
-        {hasFilters && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8 self-end text-xs"
-            onClick={() => {
+          <FilterActions
+            summary={summary}
+            onClear={() => {
               setSelectedTecnicos([]);
               setSelectedPriority(null);
-              setDateRange(initialPreset());
+              applyPreset(
+                defaultPreset === 'ano' ? 'ano_inteiro' : defaultPreset === 'trimestre' ? 'trimestre_atual' : 'mes_atual',
+              );
             }}
-          >
-            Limpar filtros
-          </Button>
-        )}
-      </div>
+          />
+        </div>
+
+        <PresetShortcuts active={activePreset} onSelect={applyPreset} />
+      </CardContent>
     </Card>
   );
 }

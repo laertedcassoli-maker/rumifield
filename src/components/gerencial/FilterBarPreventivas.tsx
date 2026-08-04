@@ -1,14 +1,16 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { Card } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { useEffect, useRef, useState } from 'react';
+import { Card, CardContent } from '@/components/ui/card';
 import {
   type DateRange,
+  type PresetKey,
+  FilterActions,
   PeriodField,
-  PresetButtons,
-  SingleSelectPills,
+  PresetShortcuts,
+  SingleSelectCombobox,
   TecnicoCombobox,
   parseRange,
   presets,
+  rangeForPreset,
   serializeRange,
   useFieldTechnicians,
 } from './filterBarShared';
@@ -34,9 +36,11 @@ interface Props {
   onFilterChange?: (filters: PreventivasFilters) => void;
   /** Preset usado quando não há filtro salvo. Padrão: 'mes'. */
   defaultPreset?: 'mes' | 'trimestre' | 'ano';
+  /** Badge de resumo exibido à direita (ex: "23 rotas"). */
+  summary?: React.ReactNode;
 }
 
-export function FilterBarPreventivas({ onFilterChange, defaultPreset = 'mes' }: Props) {
+export function FilterBarPreventivas({ onFilterChange, defaultPreset = 'mes', summary }: Props) {
   const fallbackRange = () =>
     defaultPreset === 'ano'
       ? presets.anoInteiro()
@@ -93,49 +97,59 @@ export function FilterBarPreventivas({ onFilterChange, defaultPreset = 'mes' }: 
     onFilterChangeRef.current?.({ dateRange, selectedTecnicos, selectedStatus });
   }, [dateRange, selectedTecnicos, selectedStatus]);
 
-  const hasFilters = useMemo(
-    () => selectedTecnicos.length > 0 || selectedStatus !== null,
-    [selectedTecnicos, selectedStatus],
+  const [activePreset, setActivePreset] = useState<PresetKey>(
+    defaultPreset === 'ano' ? 'ano_inteiro' : defaultPreset === 'trimestre' ? 'trimestre_atual' : 'mes_atual',
   );
 
+  const applyPreset = (key: Exclude<PresetKey, 'personalizado'>) => {
+    setActivePreset(key);
+    setDateRange(rangeForPreset(key));
+  };
+
   return (
-    <Card className="p-4">
-      <div className="flex flex-row flex-wrap items-start gap-[14px]">
-        <PeriodField range={dateRange} onChange={setDateRange} />
+    <Card>
+      <CardContent className="p-3">
+        <div className="flex flex-wrap items-end gap-3">
+          <PeriodField
+            range={dateRange}
+            onChange={(r) => {
+              setDateRange(r);
+              setActivePreset('personalizado');
+            }}
+          />
 
-        <TecnicoCombobox
-          technicians={technicians}
-          selected={selectedTecnicos}
-          onToggle={(id) =>
-            setSelectedTecnicos((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
-          }
-          onClear={() => setSelectedTecnicos([])}
-        />
+          <TecnicoCombobox
+            technicians={technicians}
+            selected={selectedTecnicos}
+            onToggle={(id) =>
+              setSelectedTecnicos((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
+            }
+            onClear={() => setSelectedTecnicos([])}
+          />
 
-        <SingleSelectPills<FazendaStatus>
-          label="Status da fazenda"
-          options={STATUS_OPTIONS}
-          value={selectedStatus}
-          onChange={setSelectedStatus}
-        />
+          <SingleSelectCombobox<FazendaStatus>
+            label="Status da fazenda"
+            placeholder="Todos os status"
+            searchPlaceholder="Buscar status..."
+            options={STATUS_OPTIONS}
+            value={selectedStatus}
+            onChange={setSelectedStatus}
+          />
 
-        <PresetButtons onSelect={setDateRange} />
-
-        {hasFilters && (
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8 self-end text-xs"
-            onClick={() => {
+          <FilterActions
+            summary={summary}
+            onClear={() => {
               setSelectedTecnicos([]);
               setSelectedStatus(null);
-              setDateRange(fallbackRange());
+              applyPreset(
+                defaultPreset === 'ano' ? 'ano_inteiro' : defaultPreset === 'trimestre' ? 'trimestre_atual' : 'mes_atual',
+              );
             }}
-          >
-            Limpar filtros
-          </Button>
-        )}
-      </div>
+          />
+        </div>
+
+        <PresetShortcuts active={activePreset} onSelect={applyPreset} />
+      </CardContent>
     </Card>
   );
 }
