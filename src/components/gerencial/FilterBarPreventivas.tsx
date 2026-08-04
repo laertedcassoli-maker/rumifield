@@ -36,9 +36,11 @@ interface Props {
   onFilterChange?: (filters: PreventivasFilters) => void;
   /** Preset usado quando não há filtro salvo. Padrão: 'mes'. */
   defaultPreset?: 'mes' | 'trimestre' | 'ano';
+  /** Badge de resumo exibido à direita (ex: "23 rotas"). */
+  summary?: React.ReactNode;
 }
 
-export function FilterBarPreventivas({ onFilterChange, defaultPreset = 'mes' }: Props) {
+export function FilterBarPreventivas({ onFilterChange, defaultPreset = 'mes', summary }: Props) {
   const fallbackRange = () =>
     defaultPreset === 'ano'
       ? presets.anoInteiro()
