@@ -53,9 +53,6 @@ export function AppSidebar() {
     { title: 'Clientes Preventiva', icon: Building2, url: '/preventivas', permKey: 'preventivas' },
     { title: 'Rotas', icon: Route, url: '/preventivas/rotas', permKey: 'preventivas' },
     { title: 'Calendário Anual', icon: CalendarDays, url: '/preventivas/calendario', permKey: 'preventivas' },
-    ...(isAdminOrCoordServicos || role === 'coordenador_rplus'
-      ? [{ title: 'Visão Gerencial', icon: BarChart2, url: '/preventivas/visao-gerencial', permKey: 'preventivas' }]
-      : []),
   ];
 
   const filteredPreventivasItems = preventivasItems.filter(item => canAccess(item.permKey));
