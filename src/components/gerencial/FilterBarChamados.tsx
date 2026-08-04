@@ -34,9 +34,11 @@ export interface ChamadosFilters {
 interface Props {
   onFilterChange?: (filters: ChamadosFilters) => void;
   defaultPreset?: 'mes' | 'trimestre' | 'ano';
+  /** Badge de resumo exibido à direita (ex: "42 chamados"). */
+  summary?: React.ReactNode;
 }
 
-export function FilterBarChamados({ onFilterChange, defaultPreset = 'mes' }: Props) {
+export function FilterBarChamados({ onFilterChange, defaultPreset = 'mes', summary }: Props) {
   const initialPreset = () =>
     defaultPreset === 'ano'
       ? presets.anoInteiro()
