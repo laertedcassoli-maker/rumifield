@@ -1,9 +1,18 @@
 import { useMemo } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { KPICard } from '@/components/gerencial/KPICard';
 import { Skeleton } from '@/components/ui/skeleton';
 import { subDays, format } from 'date-fns';
+import {
+  Breadcrumb,
+  BreadcrumbList,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from '@/components/ui/breadcrumb';
 
 export default function GestaoPreventivas() {
   const since = useMemo(() => format(subDays(new Date(), 90), 'yyyy-MM-dd'), []);
@@ -35,9 +44,24 @@ export default function GestaoPreventivas() {
 
   return (
     <div className="p-4 md:p-6 space-y-6 max-w-5xl mx-auto animate-fade-in">
-      <div>
-        <h1 className="text-xl font-bold text-foreground">Gestão de Preventivas</h1>
-        <p className="text-sm text-muted-foreground mt-1">Indicadores das manutenções preventivas nos últimos 90 dias</p>
+      <div className="space-y-2">
+        <Breadcrumb>
+          <BreadcrumbList>
+            <BreadcrumbItem>
+              <BreadcrumbLink asChild>
+                <Link to="/admin/dashboards">Dashboards</Link>
+              </BreadcrumbLink>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem>
+              <BreadcrumbPage>Gestão de Preventivas</BreadcrumbPage>
+            </BreadcrumbItem>
+          </BreadcrumbList>
+        </Breadcrumb>
+        <div>
+          <h1 className="text-xl font-bold text-foreground">Gestão de Preventivas</h1>
+          <p className="text-sm text-muted-foreground mt-1">Indicadores das manutenções preventivas nos últimos 90 dias</p>
+        </div>
       </div>
 
       {isLoading ? (

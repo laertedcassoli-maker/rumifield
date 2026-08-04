@@ -3,6 +3,14 @@ import { BarChart2, CalendarCheck, Gauge, PhoneCall } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useMenuPermissions } from '@/hooks/useMenuPermissions';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Breadcrumb,
+  BreadcrumbList,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from '@/components/ui/breadcrumb';
 
 interface DashboardItem {
   title: string;
@@ -53,11 +61,26 @@ export default function Dashboards() {
 
   return (
     <div className="p-4 md:p-6 space-y-6 max-w-4xl mx-auto animate-fade-in">
-      <div>
-        <h1 className="text-xl font-bold text-foreground">Dashboards</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Painéis analíticos consolidados
-        </p>
+      <div className="space-y-2">
+        <Breadcrumb>
+          <BreadcrumbList>
+            <BreadcrumbItem>
+              <BreadcrumbLink asChild>
+                <Link to="/admin">Administração</Link>
+              </BreadcrumbLink>
+            </BreadcrumbItem>
+            <BreadcrumbSeparator />
+            <BreadcrumbItem>
+              <BreadcrumbPage>Dashboards</BreadcrumbPage>
+            </BreadcrumbItem>
+          </BreadcrumbList>
+        </Breadcrumb>
+        <div>
+          <h1 className="text-xl font-bold text-foreground">Dashboards</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Painéis analíticos consolidados
+          </p>
+        </div>
       </div>
 
       {isLoading ? (
