@@ -49,17 +49,14 @@ export function AppSidebar() {
   const isAdminOrCoordServicos = role === 'admin' || role === 'coordenador_servicos';
   
   // Preventivas submenu - "Minhas Rotas" moved to main menu, only show management items here
-  const preventivasItems = isAdminOrCoordServicos
-    ? [
-        { title: 'Clientes Preventiva', icon: Building2, url: '/preventivas', permKey: 'preventivas' },
-        { title: 'Rotas', icon: Route, url: '/preventivas/rotas', permKey: 'preventivas' },
-        { title: 'Calendário Anual', icon: CalendarDays, url: '/preventivas/calendario', permKey: 'preventivas' },
-      ]
-    : [
-        { title: 'Clientes Preventiva', icon: Building2, url: '/preventivas', permKey: 'preventivas' },
-        { title: 'Rotas', icon: Route, url: '/preventivas/rotas', permKey: 'preventivas' },
-        { title: 'Calendário Anual', icon: CalendarDays, url: '/preventivas/calendario', permKey: 'preventivas' },
-      ];
+  const preventivasItems = [
+    { title: 'Clientes Preventiva', icon: Building2, url: '/preventivas', permKey: 'preventivas' },
+    { title: 'Rotas', icon: Route, url: '/preventivas/rotas', permKey: 'preventivas' },
+    { title: 'Calendário Anual', icon: CalendarDays, url: '/preventivas/calendario', permKey: 'preventivas' },
+    ...(isAdminOrCoordServicos || role === 'coordenador_rplus'
+      ? [{ title: 'Visão Gerencial', icon: BarChart2, url: '/preventivas/visao-gerencial', permKey: 'preventivas' }]
+      : []),
+  ];
 
   const filteredPreventivasItems = preventivasItems.filter(item => canAccess(item.permKey));
 
