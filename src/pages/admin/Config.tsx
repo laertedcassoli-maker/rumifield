@@ -347,12 +347,12 @@ export default function AdminConfig() {
   const createPeca = useMutation({
     mutationFn: async (data: PecaFormData) => {
       const { error } = await supabase.from('pecas').insert({
-        codigo: data.codigo,
-        nome: data.nome,
-        descricao: data.descricao,
-        omie_codigo: data.omie_codigo,
+        codigo: data.codigo.trim(),
+        nome: data.nome.trim(),
+        descricao: data.descricao.trim(),
+        omie_codigo: data.omie_codigo.trim(),
         is_asset: data.is_asset,
-        familia: data.familia || 'RumiFlow',
+        familia: data.familia.trim() || 'RumiFlow',
         classificacao_of: data.classificacao_of.trim() || null,
         classificacao_jv: data.classificacao_jv.trim() || null,
       } as any);
