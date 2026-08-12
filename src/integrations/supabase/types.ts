@@ -1787,6 +1787,8 @@ export type Database = {
       pecas: {
         Row: {
           ativo: boolean | null
+          classificacao_jv: string | null
+          classificacao_of: string | null
           codigo: string
           created_at: string
           descricao: string | null
@@ -1800,6 +1802,8 @@ export type Database = {
         }
         Insert: {
           ativo?: boolean | null
+          classificacao_jv?: string | null
+          classificacao_of?: string | null
           codigo: string
           created_at?: string
           descricao?: string | null
@@ -1813,6 +1817,8 @@ export type Database = {
         }
         Update: {
           ativo?: boolean | null
+          classificacao_jv?: string | null
+          classificacao_of?: string | null
           codigo?: string
           created_at?: string
           descricao?: string | null
