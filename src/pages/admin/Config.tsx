@@ -15,7 +15,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Switch } from '@/components/ui/switch';
 
 type ProdutoSortField = 'nome' | 'unidade' | 'descricao';
-type PecaSortField = 'codigo' | 'nome' | 'familia' | 'omie_codigo' | 'descricao' | 'quantidade_estoque';
+type PecaSortField = 'codigo' | 'nome' | 'familia' | 'classificacao_of' | 'classificacao_jv' | 'omie_codigo' | 'descricao' | 'quantidade_estoque';
 type ProdutoComercialSortField = 'nome' | 'descricao';
 type IndicadorSortField = 'nome' | 'unidade';
 type SortDirection = 'asc' | 'desc';
@@ -233,7 +233,9 @@ export default function AdminConfig() {
     let filtered = pecas.filter(p =>
       p.codigo.toLowerCase().includes(pecaSearch.toLowerCase()) ||
       p.nome.toLowerCase().includes(pecaSearch.toLowerCase()) ||
-      (p.descricao?.toLowerCase().includes(pecaSearch.toLowerCase()))
+      (p.descricao?.toLowerCase().includes(pecaSearch.toLowerCase())) ||
+      ((p as any).classificacao_of?.toLowerCase().includes(pecaSearch.toLowerCase())) ||
+      ((p as any).classificacao_jv?.toLowerCase().includes(pecaSearch.toLowerCase()))
     );
     filtered.sort((a, b) => {
       const aVal = (a[pecaSortField] || '').toString().toLowerCase();
@@ -1387,6 +1389,16 @@ export default function AdminConfig() {
                         </Button>
                       </TableHead>
                       <TableHead>
+                        <Button variant="ghost" onClick={() => handlePecaSort('classificacao_of')} className="hover:bg-transparent p-0">
+                          Classificação OF {getSortIcon('classificacao_of', pecaSortField, pecaSortDirection)}
+                        </Button>
+                      </TableHead>
+                      <TableHead>
+                        <Button variant="ghost" onClick={() => handlePecaSort('classificacao_jv')} className="hover:bg-transparent p-0">
+                          Classificação JV {getSortIcon('classificacao_jv', pecaSortField, pecaSortDirection)}
+                        </Button>
+                      </TableHead>
+                      <TableHead>
                         <Button variant="ghost" onClick={() => handlePecaSort('omie_codigo')} className="hover:bg-transparent p-0">
                           Cód. Omie {getSortIcon('omie_codigo', pecaSortField, pecaSortDirection)}
                         </Button>
@@ -1408,7 +1420,7 @@ export default function AdminConfig() {
                   <TableBody>
                     {paginatedPecas.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
+                        <TableCell colSpan={11} className="text-center text-muted-foreground py-8">
                           Nenhuma peça encontrada
                         </TableCell>
                       </TableRow>
@@ -1445,6 +1457,20 @@ export default function AdminConfig() {
                           <TableCell>
                             {peca.familia ? (
                               <Badge variant="secondary">{peca.familia}</Badge>
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {(peca as any).classificacao_of ? (
+                              <Badge variant="outline">{(peca as any).classificacao_of}</Badge>
+                            ) : (
+                              <span className="text-muted-foreground">-</span>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {(peca as any).classificacao_jv ? (
+                              <Badge variant="outline">{(peca as any).classificacao_jv}</Badge>
                             ) : (
                               <span className="text-muted-foreground">-</span>
                             )}
