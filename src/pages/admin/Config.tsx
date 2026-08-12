@@ -22,6 +22,17 @@ type SortDirection = 'asc' | 'desc';
 
 const ITEMS_PER_PAGE = 10;
 
+const CLASSIFICACOES_CONTABEIS = [
+  { value: '', label: '— não definida —' },
+  { value: 'USO E CONSUMO', label: 'USO E CONSUMO' },
+  { value: 'PRESTAÇÃO DE SERVIÇO', label: 'PRESTAÇÃO DE SERVIÇO' },
+  { value: 'REVENDA', label: 'REVENDA' },
+  { value: 'COMODATO', label: 'COMODATO' },
+  { value: 'INDUSTRIALIZAÇÃO', label: 'INDUSTRIALIZAÇÃO' },
+  { value: 'REVENDA / PRESTAÇÃO DE SERVIÇO', label: 'REVENDA / PRESTAÇÃO DE SERVIÇO' },
+  { value: 'N/A', label: 'N/A' },
+];
+
 interface ProdutoFormData {
   id?: string;
   nome: string;
@@ -39,6 +50,8 @@ interface PecaFormData {
   omie_codigo: string;
   is_asset: boolean;
   familia: string;
+  classificacao_of: string;
+  classificacao_jv: string;
 }
 
 interface ProdutoComercialFormData {
@@ -66,7 +79,7 @@ export default function AdminConfig() {
   const [imagePreviewOpen, setImagePreviewOpen] = useState(false);
   const [previewImage, setPreviewImage] = useState<{ url: string; nome: string } | null>(null);
   const [produtoForm, setProdutoForm] = useState<ProdutoFormData>({ nome: '', unidade: 'litros', descricao: '', litros_por_vaca_2x: 0, litros_por_vaca_3x: 0 });
-  const [pecaForm, setPecaForm] = useState<PecaFormData>({ codigo: '', nome: '', descricao: '', omie_codigo: '', is_asset: false, familia: 'RumiFlow' });
+  const [pecaForm, setPecaForm] = useState<PecaFormData>({ codigo: '', nome: '', descricao: '', omie_codigo: '', is_asset: false, familia: 'RumiFlow', classificacao_of: '', classificacao_jv: '' });
   const [customFamilia, setCustomFamilia] = useState(false);
   const [produtoComercialForm, setProdutoComercialForm] = useState<ProdutoComercialFormData>({ nome: '', descricao: '' });
   const [indicadorForm, setIndicadorForm] = useState<IndicadorFormData>({ produto_id: '', nome: '', descricao: '', unidade: '' });
@@ -338,6 +351,8 @@ export default function AdminConfig() {
         omie_codigo: data.omie_codigo,
         is_asset: data.is_asset,
         familia: data.familia || 'RumiFlow',
+        classificacao_of: data.classificacao_of.trim() || null,
+        classificacao_jv: data.classificacao_jv.trim() || null,
       } as any);
       if (error) throw error;
     },
@@ -362,6 +377,8 @@ export default function AdminConfig() {
         omie_codigo: data.omie_codigo,
         is_asset: data.is_asset,
         familia: data.familia || 'RumiFlow',
+        classificacao_of: data.classificacao_of.trim() || null,
+        classificacao_jv: data.classificacao_jv.trim() || null,
       } as any).eq('id', data.id);
       if (error) throw error;
     },
@@ -493,7 +510,7 @@ export default function AdminConfig() {
   };
 
   const openNewPeca = () => {
-    setPecaForm({ codigo: '', nome: '', descricao: '', omie_codigo: '', is_asset: false, familia: 'RumiFlow' });
+    setPecaForm({ codigo: '', nome: '', descricao: '', omie_codigo: '', is_asset: false, familia: 'RumiFlow', classificacao_of: '', classificacao_jv: '' });
     setCustomFamilia(false);
     setIsEditingPeca(false);
     setPecaOpen(true);
@@ -518,6 +535,8 @@ export default function AdminConfig() {
       omie_codigo: peca.omie_codigo || '',
       is_asset: (peca as any).is_asset ?? false,
       familia: fam,
+      classificacao_of: (peca as any).classificacao_of || '',
+      classificacao_jv: (peca as any).classificacao_jv || '',
     });
     setCustomFamilia(!isKnown);
     setIsEditingPeca(true);
@@ -526,7 +545,7 @@ export default function AdminConfig() {
 
   const closePecaDialog = () => {
     setPecaOpen(false);
-    setPecaForm({ codigo: '', nome: '', descricao: '', omie_codigo: '', is_asset: false, familia: 'RumiFlow' });
+    setPecaForm({ codigo: '', nome: '', descricao: '', omie_codigo: '', is_asset: false, familia: 'RumiFlow', classificacao_of: '', classificacao_jv: '' });
     setCustomFamilia(false);
     setIsEditingPeca(false);
   };
@@ -1297,6 +1316,30 @@ export default function AdminConfig() {
                       <option value="__other__">Outra...</option>
                     </select>
                   )}
+                </div>
+                <div className="space-y-2">
+                  <Label>Classificação OF</Label>
+                  <select
+                    className="flex h-10 w-full items-center rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                    value={pecaForm.classificacao_of}
+                    onChange={(e) => setPecaForm({ ...pecaForm, classificacao_of: e.target.value })}
+                  >
+                    {CLASSIFICACOES_CONTABEIS.map((c) => (
+                      <option key={c.value} value={c.value}>{c.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <Label>Classificação JV</Label>
+                  <select
+                    className="flex h-10 w-full items-center rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2"
+                    value={pecaForm.classificacao_jv}
+                    onChange={(e) => setPecaForm({ ...pecaForm, classificacao_jv: e.target.value })}
+                  >
+                    {CLASSIFICACOES_CONTABEIS.map((c) => (
+                      <option key={c.value} value={c.value}>{c.label}</option>
+                    ))}
+                  </select>
                 </div>
                 <div className="flex items-center justify-between rounded-lg border p-3">
                   <div className="space-y-0.5">
