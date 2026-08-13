@@ -19,6 +19,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { ExportarRelatorioOSDialog } from '@/components/oficina/ExportarRelatorioOSDialog';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { cn } from '@/lib/utils';
@@ -145,6 +146,7 @@ export default function GestaoOS() {
   const [openDialogOS, setOpenDialogOS] = useState<any | null>(null);
   const [activityComboOpen, setActivityComboOpen] = useState(false);
   const [clientComboOpen, setClientComboOpen] = useState(false);
+  const [exportDialogOpen, setExportDialogOpen] = useState(false);
 
   useEffect(() => {
     try {
@@ -776,10 +778,24 @@ export default function GestaoOS() {
             </BreadcrumbItem>
           </BreadcrumbList>
         </Breadcrumb>
-        <div className="flex items-center gap-3">
-          <Wrench className="h-7 w-7 text-primary" />
-          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Oficina · Gestão de OS</h1>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <Wrench className="h-7 w-7 text-primary" />
+            <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Oficina · Gestão de OS</h1>
+          </div>
+          <Button variant="outline" onClick={() => setExportDialogOpen(true)}>
+            <Download className="h-4 w-4 mr-2" />
+            Exportar relatório
+          </Button>
         </div>
+        <ExportarRelatorioOSDialog
+          open={exportDialogOpen}
+          onOpenChange={setExportDialogOpen}
+          initialDe={dateRange.from}
+          initialAte={dateRange.to}
+          initialClienteIds={selectedClients}
+          initialActivityIds={selectedActivities}
+        />
       </div>
 
       <Card>
