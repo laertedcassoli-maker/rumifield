@@ -32,10 +32,26 @@ function addSheet(
   name: string,
   headers: string[],
   rows: (string | number | null)[][],
-  widths: number[]
+  widths: number[],
+  opts?: { autoFilter?: boolean; boldRows?: number[] }
 ) {
   const ws = XLSX.utils.aoa_to_sheet([headers, ...rows.map((r) => r.map((c) => (c === null ? "" : c)))]);
   ws["!cols"] = widths.map((w) => ({ wch: w }));
+  if (opts?.autoFilter) {
+    ws["!autofilter"] = {
+      ref: XLSX.utils.encode_range(
+        { r: 0, c: 0 },
+        { r: rows.length, c: Math.max(0, headers.length - 1) }
+      ),
+    };
+  }
+  for (const r of opts?.boldRows ?? []) {
+    for (let c = 0; c < headers.length; c++) {
+      const addr = XLSX.utils.encode_cell({ r, c });
+      const cell = (ws as any)[addr];
+      if (cell) cell.s = { ...(cell.s ?? {}), font: { bold: true } };
+    }
+  }
   ws["!freeze"] = { xSplit: "0", ySplit: "1" } as any;
   ws["!panes"] = [{ pane: "bottomLeft", ySplit: 1, state: "frozen" }] as any;
   XLSX.utils.book_append_sheet(wb, ws, name);
@@ -266,6 +282,10 @@ export function gerarPlanilhaOSConcluidas(
     .sort((a, b) => b.qtd - a.qtd)
     .map((r) => [r.codigo, r.nome, r.familia, r.of, r.jv, r.os.size, r.qtd] as (string | number)[]);
 
+  const osDistintasGlobal = new Set(pecasUsadas.map((p) => p.work_order_id)).size;
+  const qtdTotalGlobal = pecasUsadas.reduce((s2, p) => s2 + (p.quantity ?? 0), 0);
+  rows3.push(["TOTAL", "", "", "", "", osDistintasGlobal, qtdTotalGlobal]);
+
   // ---------- Aba 4: Parâmetros ----------
   const rows4: (string | number)[][] = [
     ["Relatório", "OS concluídas · Oficina RumiField"],
@@ -305,13 +325,13 @@ export function gerarPlanilhaOSConcluidas(
   const wb = XLSX.utils.book_new();
   addSheet(wb, "Peças utilizadas", headers1, rows1, [
     12, 8, 10, 17, 10, 28, 24, 14, 20, 26, 14, 34, 18, 11, 24, 24, 8, 16, 16, 30, 22, 17, 22, 22, 14, 38,
-  ]);
+  ], { autoFilter: true });
   addSheet(wb, "OS concluídas", headers2, rows2, [
     12, 38, 28, 24, 14, 20, 26, 17, 17, 17, 10, 13, 14, 22, 22, 22, 12, 12, 12, 40,
-  ]);
+  ], { autoFilter: true });
   addSheet(wb, "Resumo por peça", ["Código da peça", "Peça", "Família", "Classificação OF", "Classificação JV", "Nº de OS distintas", "Quantidade total"], rows3, [
     14, 34, 18, 24, 24, 14, 14,
-  ]);
+  ], { boldRows: [rows3.length] });
   addSheet(wb, "Parâmetros", ["Rótulo", "Valor"], rows4, [36, 90]);
 
   const fileName = `RumiField_OS_Concluidas_${format(
