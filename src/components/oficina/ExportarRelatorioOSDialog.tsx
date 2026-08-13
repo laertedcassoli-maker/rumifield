@@ -34,6 +34,11 @@ interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   userName?: string;
+  /** Pré-preenchimento (ex.: filtros já ativos no dashboard) */
+  initialDe?: Date;
+  initialAte?: Date;
+  initialClienteIds?: string[];
+  initialActivityIds?: string[];
 }
 
 function rangeFromPreset(preset: Preset, de: Date, ate: Date): { de: Date; ate: Date } {
@@ -47,13 +52,24 @@ function rangeFromPreset(preset: Preset, de: Date, ate: Date): { de: Date; ate: 
   return { de, ate };
 }
 
-export function ExportarRelatorioOSDialog({ open, onOpenChange, userName }: Props) {
+export function ExportarRelatorioOSDialog({
+  open,
+  onOpenChange,
+  userName,
+  initialDe,
+  initialAte,
+  initialClienteIds,
+  initialActivityIds,
+}: Props) {
   const prevMonth = subMonths(new Date(), 1);
-  const [preset, setPreset] = useState<Preset>('mes_anterior');
-  const [customDe, setCustomDe] = useState<Date>(startOfMonth(prevMonth));
-  const [customAte, setCustomAte] = useState<Date>(endOfMonth(prevMonth));
-  const [clienteIds, setClienteIds] = useState<string[]>([]);
-  const [activityIds, setActivityIds] = useState<string[]>([]);
+  const hasInitialPeriod = !!(initialDe && initialAte);
+  const [preset, setPreset] = useState<Preset>(hasInitialPeriod ? 'personalizado' : 'mes_anterior');
+  const [customDe, setCustomDe] = useState<Date>(initialDe ?? startOfMonth(prevMonth));
+  const [customAte, setCustomAte] = useState<Date>(initialAte ?? endOfMonth(prevMonth));
+  const [clienteIds, setClienteIds] = useState<string[]>(
+    (initialClienteIds ?? []).filter((id) => id !== '__none__')
+  );
+  const [activityIds, setActivityIds] = useState<string[]>(initialActivityIds ?? []);
   const [loading, setLoading] = useState(false);
 
   const { data: clientes = [] } = useQuery({
