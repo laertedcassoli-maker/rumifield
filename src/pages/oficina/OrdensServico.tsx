@@ -406,10 +406,29 @@ export default function OrdensServico() {
           <h1 className="text-2xl font-bold">Ordens de Serviço</h1>
           <p className="text-muted-foreground">Gerencie as ordens de manutenção</p>
         </div>
-        <Button onClick={() => setNovaOSDialogOpen(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Nova OS
-        </Button>
+        <div className="flex items-center gap-2">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span>
+                  <Button
+                    variant="outline"
+                    onClick={() => setExportDialogOpen(true)}
+                    disabled={!isOnline}
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    Exportar relatório
+                  </Button>
+                </span>
+              </TooltipTrigger>
+              {!isOnline && <TooltipContent>Disponível apenas online</TooltipContent>}
+            </Tooltip>
+          </TooltipProvider>
+          <Button onClick={() => setNovaOSDialogOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Nova OS
+          </Button>
+        </div>
       </div>
 
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
