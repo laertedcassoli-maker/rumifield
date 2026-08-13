@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import { Plus, Search, Eye, Play, Pause, CheckCircle, Clock, Package, LayoutGrid, List, Wrench, Trash2 } from 'lucide-react';
+import { Plus, Search, Eye, Play, Pause, CheckCircle, Clock, Package, LayoutGrid, List, Wrench, Trash2, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -31,6 +31,9 @@ import { NovaOSDialog } from '@/components/oficina/NovaOSDialog';
 import { DetalheOSDialog } from '@/components/oficina/DetalheOSDialog';
 import { OSKanban } from '@/components/oficina/OSKanban';
 import { useMenuPermissions } from '@/hooks/useMenuPermissions';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { useOffline } from '@/contexts/OfflineContext';
+import { ExportarRelatorioOSDialog } from '@/components/oficina/ExportarRelatorioOSDialog';
 
 
 interface WorkOrder {
@@ -103,6 +106,8 @@ export default function OrdensServico() {
   const [selectedPart, setSelectedPart] = useState<string>('_all');
   const [selectedActivity, setSelectedActivity] = useState<string>('_all');
   const [deleteTarget, setDeleteTarget] = useState<WorkOrder | null>(null);
+  const [exportDialogOpen, setExportDialogOpen] = useState(false);
+  const { isOnline } = useOffline();
 
   const { canDelete, isLoading: permissionsLoading } = useMenuPermissions();
   const canDeleteOS = !permissionsLoading && canDelete('oficina_os');
@@ -753,6 +758,12 @@ export default function OrdensServico() {
           </CardContent>
         </Card>
       )}
+
+      <ExportarRelatorioOSDialog
+        open={exportDialogOpen}
+        onOpenChange={setExportDialogOpen}
+        userName={(user as any)?.user_metadata?.nome || user?.email || undefined}
+      />
 
       {/* Nova OS Dialog */}
       <NovaOSDialog
