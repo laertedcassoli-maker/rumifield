@@ -10,6 +10,7 @@ interface MenuPermission {
   can_edit: boolean;
   can_delete: boolean;
   can_edit_finalized: boolean;
+  can_export: boolean;
 }
 
 export function useMenuPermissions() {
