@@ -37,6 +37,7 @@ const roleLabels: Record<string, string> = {
   coordenador_logistica: 'Coordenador de Logística',
   tecnico_campo: 'Técnico de Campo',
   tecnico_oficina: 'Técnico de Oficina',
+  financeiro: 'Financeiro',
 };
 
 const roleColors: Record<string, string> = {
@@ -47,6 +48,7 @@ const roleColors: Record<string, string> = {
   consultor_rplus: 'bg-primary/10 text-primary border-primary/20',
   tecnico_campo: 'bg-green-500/10 text-green-600 border-green-500/20',
   tecnico_oficina: 'bg-blue-500/10 text-blue-600 border-blue-500/20',
+  financeiro: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20',
 };
 
 type SortField = 'nome' | 'email' | 'role';
@@ -57,11 +59,11 @@ const ITEMS_PER_PAGE = 10;
 const newUserSchema = z.object({
   nome: z.string().min(2, 'Nome deve ter no mínimo 2 caracteres'),
   email: z.string().email('Email inválido'),
-  role: z.enum(['admin', 'coordenador_rplus', 'consultor_rplus', 'coordenador_servicos', 'coordenador_logistica', 'tecnico_campo', 'tecnico_oficina']),
+  role: z.enum(['admin', 'coordenador_rplus', 'consultor_rplus', 'coordenador_servicos', 'coordenador_logistica', 'tecnico_campo', 'tecnico_oficina', 'financeiro']),
   cidade_base: z.string().optional(),
 });
 
-type AppRole = 'admin' | 'coordenador_rplus' | 'consultor_rplus' | 'coordenador_servicos' | 'coordenador_logistica' | 'tecnico_campo' | 'tecnico_oficina';
+type AppRole = 'admin' | 'coordenador_rplus' | 'consultor_rplus' | 'coordenador_servicos' | 'coordenador_logistica' | 'tecnico_campo' | 'tecnico_oficina' | 'financeiro';
 
 export default function AdminUsuarios() {
   const { role: currentUserRole, user: currentUser } = useAuth();
@@ -421,6 +423,7 @@ export default function AdminUsuarios() {
                         <SelectItem value="coordenador_logistica">Coordenador de Logística</SelectItem>
                         <SelectItem value="tecnico_campo">Técnico de Campo</SelectItem>
                         <SelectItem value="tecnico_oficina">Técnico de Oficina</SelectItem>
+                        <SelectItem value="financeiro">Financeiro</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -533,6 +536,7 @@ export default function AdminUsuarios() {
                                   <SelectItem value="coordenador_logistica">Coordenador de Logística</SelectItem>
                                   <SelectItem value="tecnico_campo">Técnico de Campo</SelectItem>
                                   <SelectItem value="tecnico_oficina">Técnico de Oficina</SelectItem>
+                                  <SelectItem value="financeiro">Financeiro</SelectItem>
                                 </SelectContent>
                               </Select>
                             ) : (
