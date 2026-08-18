@@ -722,7 +722,8 @@ export default function ExecucaoVisitaCorretiva() {
   const canAccess = isAdminOrCoordinator || visit?.field_technician_user_id === user?.id;
   const isVisitCompleted = visit?.status === 'finalizada' || !!completedResult;
   const canEditCompletedFn = useCanEditCompletedChecklist();
-  const { canEditFinalized, canDelete } = useMenuPermissions();
+  const { canEditFinalized, canDelete, canExport } = useMenuPermissions();
+  const podeExportar = canExport('chamados_listagem');
   const canDeleteVisit = canDelete(permissionContext);
   const canEditFinalizedVisit = canEditFinalized(permissionContext);
   // Option C: completed visit is read-only by default; "Edit" button opts in
@@ -1282,20 +1283,22 @@ export default function ExecucaoVisitaCorretiva() {
                     <Link2 className="h-4 w-4 mr-2" />
                     Copiar link
                   </Button>
-                  <Button
-                    variant="outline"
-                    className="flex-1"
-                    onClick={() => {
-                      toast({
-                        title: 'Gerando PDF...',
-                        description: 'O relatório será aberto em uma nova aba. Aguarde o carregamento completo das imagens antes de salvar o PDF.',
-                      });
-                      window.open(`${urlProdutor}?acao=pdf`, '_blank');
-                    }}
-                  >
-                    <Download className="h-4 w-4 mr-2" />
-                    Baixar PDF
-                  </Button>
+                  {podeExportar && (
+                    <Button
+                      variant="outline"
+                      className="flex-1"
+                      onClick={() => {
+                        toast({
+                          title: 'Gerando PDF...',
+                          description: 'O relatório será aberto em uma nova aba. Aguarde o carregamento completo das imagens antes de salvar o PDF.',
+                        });
+                        window.open(`${urlProdutor}?acao=pdf`, '_blank');
+                      }}
+                    >
+                      <Download className="h-4 w-4 mr-2" />
+                      Baixar PDF
+                    </Button>
+                  )}
                 </div>
 
                 <div className="flex gap-2 pt-2">

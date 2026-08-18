@@ -112,7 +112,8 @@ export default function ExecucaoRota() {
   const { user, role } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  const { canDelete } = useMenuPermissions();
+  const { canDelete, canExport } = useMenuPermissions();
+  const podeExportar = canExport('minhas_rotas_listagem');
   const canDeleteRoute = canDelete(permissionContext);
   const [checkinItem, setCheckinItem] = useState<RouteItem | null>(null);
   const [cancelItem, setCancelItem] = useState<RouteItem | null>(null);
@@ -775,18 +776,20 @@ export default function ExecucaoRota() {
                       <Link2 className="h-4 w-4 mr-2" />
                       Copiar link
                     </Button>
-                    <Button
-                      variant="outline"
-                      className="flex-1"
-                      onClick={() => {
-                        const urlProdutor = `${window.location.hostname.includes('lovableproject.com') ? 'https://rumifield.lovable.app' : window.location.origin}/relatorio/${item.public_token}`;
-                        window.open(`${urlProdutor}?acao=pdf`, '_blank');
-                        toast({ title: 'Abrindo relatório para download...' });
-                      }}
-                    >
-                      <Download className="h-4 w-4 mr-2" />
-                      Baixar PDF
-                    </Button>
+                    {podeExportar && (
+                      <Button
+                        variant="outline"
+                        className="flex-1"
+                        onClick={() => {
+                          const urlProdutor = `${window.location.hostname.includes('lovableproject.com') ? 'https://rumifield.lovable.app' : window.location.origin}/relatorio/${item.public_token}`;
+                          window.open(`${urlProdutor}?acao=pdf`, '_blank');
+                          toast({ title: 'Abrindo relatório para download...' });
+                        }}
+                      >
+                        <Download className="h-4 w-4 mr-2" />
+                        Baixar PDF
+                      </Button>
+                    )}
                   </div>
                 )}
               </CardContent>
