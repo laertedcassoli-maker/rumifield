@@ -423,6 +423,7 @@ export default function AdminUsuarios() {
                         <SelectItem value="coordenador_logistica">Coordenador de Logística</SelectItem>
                         <SelectItem value="tecnico_campo">Técnico de Campo</SelectItem>
                         <SelectItem value="tecnico_oficina">Técnico de Oficina</SelectItem>
+                        <SelectItem value="financeiro">Financeiro</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -535,6 +536,7 @@ export default function AdminUsuarios() {
                                   <SelectItem value="coordenador_logistica">Coordenador de Logística</SelectItem>
                                   <SelectItem value="tecnico_campo">Técnico de Campo</SelectItem>
                                   <SelectItem value="tecnico_oficina">Técnico de Oficina</SelectItem>
+                                  <SelectItem value="financeiro">Financeiro</SelectItem>
                                 </SelectContent>
                               </Select>
                             ) : (
