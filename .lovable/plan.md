@@ -1,30 +1,26 @@
-## Diagnóstico (confirmado no banco)
+# Corrigir aceite de convite ("Signups not allowed for this instance")
 
-Existem hoje **2 registros em `work_order_time_entries` com `status = 'running'`** apontando para a OS **OS-2026-00037**, que já está com status `concluido`. Um deles é do usuário do Phelipe. Como a validação atual só pergunta "existe algum timer running deste usuário?", ela bloqueia qualquer novo início de cronômetro — mesmo sem nenhuma OS em execução na tela.
+O cadastro público continua desabilitado. A criação da conta passa a acontecer no servidor, usando o token do convite como credencial.
 
-## O que fazer
+## 1. Nova Edge Function `accept-invite`
 
-Arquivo único: `src/components/oficina/DetalheOSDialog.tsx`, dentro de `startTimerMutation` (bloco atual nas linhas 551-561).
+`supabase/functions/accept-invite/index.ts`, rota pública (`verify_jwt = false` em `supabase/config.toml`), CORS/OPTIONS no mesmo padrão das funções existentes.
 
-Nova lógica:
+Recebe `{ token, password }` e, com a chave de serviço:
 
-1. Buscar os timers `running` do usuário trazendo junto a OS relacionada (`work_order_id`, `started_at`, e o `status`/`code` da OS via join).
-2. Separar em dois grupos:
-   - **Órfãos**: OS inexistente, ou com status diferente de `em_manutencao`/`aguardando` (ex.: `concluido`).
-   - **Ativos**: OS ainda existente e em `em_manutencao` ou `aguardando`.
-3. Para cada órfão, fazer auto-cleanup: `ended_at = now`, `duration_seconds = now - started_at` (em segundos, mínimo 0), `status = 'finished'`.
-4. Se sobrar algum timer **ativo**, bloquear com mensagem contendo o código da OS: `Você já tem um cronômetro ativo na OS OS-2026-00037`.
-5. Se só havia órfãos, seguir normalmente com o início do novo cronômetro.
+1. Busca o convite em `user_invites` pelo `token`.
+2. Erros 400 com mensagem clara: convite inexistente, já usado (`used_at` preenchido), expirado (`expires_at < now`), senha com menos de 6 caracteres.
+3. Cria o usuário via `auth.admin.createUser` com o e-mail do convite, `email_confirm: true` e `user_metadata: { nome }`.
+4. E-mail já existente → 409 `{ error: "Email já cadastrado" }`.
+5. Após criar, chama a função existente `accept_invite(_invite_id, _user_id, _role, _cidade_base)` com os dados do convite.
+6. Sucesso → `{ success: true }`. Token e senha nunca aparecem na resposta nem em logs.
 
-Também trocar `.maybeSingle()` por listagem (`select` sem single), já que hoje múltiplos registros running fariam o `maybeSingle` retornar erro/null silenciosamente.
+## 2. Ajuste em `src/pages/AceitarConvite.tsx`
 
-## Detalhes técnicos
+- Substitui `signUp()` + `setTimeout(1500)` + `rpc('accept_invite')` por uma única chamada `supabase.functions.invoke('accept-invite', { body: { token, password } })`.
+- Mantém validação zod, estados de loading/sucesso e redirecionamento para `/auth`.
+- 409 → toast "Email já cadastrado" já existente; outros erros exibem a mensagem devolvida pela função.
 
-- Consulta: `work_order_time_entries` com `select('id, work_order_id, started_at, work_orders(code, status)')`, filtrando `user_id` e `status='running'`.
-- O update de limpeza respeita o timeout padrão de mutações do projeto (`withTimeout`) e valida o retorno com `.select('id')` para detectar bloqueio silencioso de RLS.
-- Em caso de falha no cleanup, o erro é propagado e o `optimisticTimeEntry` é revertido pelo `onError` já existente.
+## Fora de escopo
 
-## Fora do escopo
-
-- Nenhuma alteração de schema, RLS ou outros arquivos.
-- Os 2 registros órfãos atuais serão limpos automaticamente na próxima tentativa de iniciar cronômetro; se preferir, posso também rodar uma limpeza pontual desses registros no banco — me avise.
+Nenhuma migration nova (`accept_invite` e `get_invite_by_token` já existem). Sem alterações em `src/components/ui/`, `src/pages/Auth.tsx`, `AuthContext` ou outras Edge Functions.
