@@ -17,6 +17,7 @@ const roleLabels: Record<string, string> = {
   coordenador_logistica: 'Coord. Logística',
   tecnico_campo: 'Técnico Campo',
   tecnico_oficina: 'Técnico Oficina',
+  financeiro: 'Financeiro',
 };
 
 export function AppSidebar() {
