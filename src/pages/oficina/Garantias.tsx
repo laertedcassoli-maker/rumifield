@@ -54,6 +54,7 @@ const statusConfig = {
 
 export default function Garantias() {
   const { user, role } = useAuth();
+  const { canExport } = useMenuPermissions();
   const isAdmin = role === 'admin' || role === 'coordenador_servicos';
   const queryClient = useQueryClient();
   const [activeTab, setActiveTab] = useState<string>('warranty');
