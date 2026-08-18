@@ -26,6 +26,7 @@ const roleLabels: Record<string, string> = {
   coordenador_logistica: 'Coordenador de Logística',
   tecnico_campo: 'Técnico de Campo',
   tecnico_oficina: 'Técnico de Oficina',
+  financeiro: 'Financeiro',
 };
 
 const roleColors: Record<string, string> = {
@@ -36,6 +37,7 @@ const roleColors: Record<string, string> = {
   consultor_rplus: 'bg-primary/10 text-primary border-primary/20',
   tecnico_campo: 'bg-green-500/10 text-green-600 border-green-500/20',
   tecnico_oficina: 'bg-blue-500/10 text-blue-600 border-blue-500/20',
+  financeiro: 'bg-emerald-500/10 text-emerald-600 border-emerald-500/20',
 };
 
 const menuGroupConfig: Record<string, { label: string; icon: typeof Home; order: number }> = {
@@ -56,6 +58,7 @@ const roles = [
   'coordenador_logistica',
   'tecnico_campo',
   'tecnico_oficina',
+  'financeiro',
 ] as const;
 
 interface Permission {
