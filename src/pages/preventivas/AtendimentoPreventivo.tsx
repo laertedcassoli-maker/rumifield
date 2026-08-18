@@ -72,7 +72,8 @@ export default function AtendimentoPreventivo() {
 
   const isAdminOrCoordinator = role === 'admin' || role === 'coordenador_servicos';
   const canEditCompletedFn = useCanEditCompletedChecklist();
-  const { canEditFinalized, canDelete } = useMenuPermissions();
+  const { canEditFinalized, canDelete, canExport } = useMenuPermissions();
+  const podeExportar = canExport('minhas_rotas_listagem');
   const { state: locationState } = useLocation();
   const permissionContext = (locationState as { permissionContext?: string } | null)?.permissionContext ?? 'minhas_rotas_listagem';
   const canEditFinalizedVisit = canEditFinalized(permissionContext);
@@ -978,17 +979,19 @@ export default function AtendimentoPreventivo() {
                 <Link2 className="h-4 w-4 mr-2" />
                 Copiar link
               </Button>
-              <Button
-                variant="outline"
-                className="flex-1"
-                onClick={() => {
-                  window.open(`${urlProdutor}?acao=pdf`, '_blank');
-                  toast({ title: 'Abrindo relatório para download...' });
-                }}
-              >
-                <Download className="h-4 w-4 mr-2" />
-                Baixar PDF
-              </Button>
+              {podeExportar && (
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => {
+                    window.open(`${urlProdutor}?acao=pdf`, '_blank');
+                    toast({ title: 'Abrindo relatório para download...' });
+                  }}
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Baixar PDF
+                </Button>
+              )}
             </div>
           </CardContent>
         </Card>

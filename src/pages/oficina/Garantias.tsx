@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { useMenuPermissions } from '@/hooks/useMenuPermissions';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { Shield, FileText, Check, Clock, Package, Plus, Download, Wrench, ChevronRight, User } from 'lucide-react';
@@ -719,10 +720,12 @@ export default function Garantias() {
           )}
 
           <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={generatePDF}>
-              <Download className="h-4 w-4 mr-2" />
-              Gerar PDF
-            </Button>
+            {canExport('oficina_garantias') && (
+              <Button variant="outline" onClick={generatePDF}>
+                <Download className="h-4 w-4 mr-2" />
+                Gerar PDF
+              </Button>
+            )}
             <Button variant="outline" onClick={() => setDetailDialogOpen(false)}>
               Fechar
             </Button>
