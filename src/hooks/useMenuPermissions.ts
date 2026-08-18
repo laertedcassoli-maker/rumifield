@@ -10,6 +10,7 @@ interface MenuPermission {
   can_edit: boolean;
   can_delete: boolean;
   can_edit_finalized: boolean;
+  can_export: boolean;
 }
 
 export function useMenuPermissions() {
@@ -22,7 +23,7 @@ export function useMenuPermissions() {
 
       const { data, error } = await supabase
         .from('role_menu_permissions')
-        .select('menu_key, menu_label, menu_group, can_access, can_edit, can_delete, can_edit_finalized')
+        .select('menu_key, menu_label, menu_group, can_access, can_edit, can_delete, can_edit_finalized, can_export')
         .eq('role', role);
 
       if (error) throw error;
@@ -68,6 +69,13 @@ export function useMenuPermissions() {
     return perm.can_edit_finalized;
   };
 
+  const canExport = (menuKey: string): boolean => {
+    if (!permissions) return false;
+    const perm = permissions.find(p => p.menu_key === menuKey);
+    if (!perm) return role === 'admin';
+    return perm.can_export;
+  };
+
   return {
     permissions,
     isLoading: permissionsLoading,
@@ -76,5 +84,6 @@ export function useMenuPermissions() {
     canEdit,
     canDelete,
     canEditFinalized,
+    canExport,
   };
 }

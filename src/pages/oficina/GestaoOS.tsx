@@ -742,7 +742,7 @@ export default function GestaoOS() {
     </div>
   );
 
-  const { canAccess, isLoading: permissionsLoading } = useMenuPermissions();
+  const { canAccess, canExport, isLoading: permissionsLoading } = useMenuPermissions();
   const allowed = canAccess('oficina_gestao_os');
 
   if (permissionsLoading) {
@@ -783,10 +783,12 @@ export default function GestaoOS() {
             <Wrench className="h-7 w-7 text-primary" />
             <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Oficina · Gestão de OS</h1>
           </div>
-          <Button variant="outline" onClick={() => setExportDialogOpen(true)}>
-            <Download className="h-4 w-4 mr-2" />
-            Exportar relatório
-          </Button>
+          {!permissionsLoading && canExport('oficina_gestao_os') && (
+            <Button variant="outline" onClick={() => setExportDialogOpen(true)}>
+              <Download className="h-4 w-4 mr-2" />
+              Exportar relatório
+            </Button>
+          )}
         </div>
         <ExportarRelatorioOSDialog
           open={exportDialogOpen}

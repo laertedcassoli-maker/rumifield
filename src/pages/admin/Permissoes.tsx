@@ -71,6 +71,7 @@ interface Permission {
   can_edit: boolean;
   can_delete: boolean;
   can_edit_finalized: boolean;
+  can_export: boolean;
 }
 
 const groupActionColumns: Record<string, Array<{ key: keyof Permission; label: string }>> = {
@@ -295,6 +296,7 @@ export default function AdminPermissoes() {
                                 {(groupActionColumns[group] || []).map(col => (
                                   <TableHead key={col.key} className="w-28 text-center">{col.label}</TableHead>
                                 ))}
+                                <TableHead className="w-24 text-center">Exportar</TableHead>
                               </TableRow>
                             </TableHeader>
                             <TableBody>
@@ -320,6 +322,13 @@ export default function AdminPermissoes() {
                                       </TableCell>
                                     );
                                   })}
+                                  <TableCell className="text-center">
+                                    <Switch
+                                      checked={Boolean(perm.can_export)}
+                                      onCheckedChange={(v) => updatePermission.mutate({ id: perm.id, field: 'can_export', value: v })}
+                                      disabled={updatePermission.isPending || !perm.can_access}
+                                    />
+                                  </TableCell>
                                 </TableRow>
                               ))}
                             </TableBody>

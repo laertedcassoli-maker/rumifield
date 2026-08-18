@@ -2772,6 +2772,7 @@ export type Database = {
           can_delete: boolean
           can_edit: boolean
           can_edit_finalized: boolean
+          can_export: boolean
           created_at: string
           id: string
           menu_group: string
@@ -2785,6 +2786,7 @@ export type Database = {
           can_delete?: boolean
           can_edit?: boolean
           can_edit_finalized?: boolean
+          can_export?: boolean
           created_at?: string
           id?: string
           menu_group?: string
@@ -2798,6 +2800,7 @@ export type Database = {
           can_delete?: boolean
           can_edit?: boolean
           can_edit_finalized?: boolean
+          can_export?: boolean
           created_at?: string
           id?: string
           menu_group?: string
