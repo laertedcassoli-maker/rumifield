@@ -1,5 +1,10 @@
 project_id = "gperaijwlecreqxoygjy"
 
+[functions.accept-invite]
+verify_jwt = false
+
+
+
 [functions.sync-imilk-clientes]
 verify_jwt = false
 

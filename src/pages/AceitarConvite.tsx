@@ -96,33 +96,42 @@ export default function AceitarConvite() {
     setIsSubmitting(true);
 
     try {
-      // 1. Criar usuário
-      const { data: authData, error: signUpError } = await supabase.auth.signUp({
-        email: invite.email,
-        password,
-        options: {
-          data: { nome: invite.nome },
-          emailRedirectTo: `${window.location.origin}/`,
-        },
+      const { data, error } = await supabase.functions.invoke('accept-invite', {
+        body: { token, password },
       });
 
-      if (signUpError) throw signUpError;
+      const fnError = (data as { error?: string } | null)?.error;
 
-      // 2. Aguardar o trigger criar o profile e role padrão
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      if (error || fnError) {
+        let message = fnError ?? error?.message ?? 'Não foi possível criar a conta.';
 
-      // 3. Usar função segura para atualizar role, cidade_base e marcar convite como usado
-      if (authData.user) {
-        const { error: acceptError } = await supabase.rpc('accept_invite', {
-          _invite_id: invite.id,
-          _user_id: authData.user.id,
-          _role: invite.role as any,
-          _cidade_base: invite.cidade_base || null,
-        });
-
-        if (acceptError) {
-          console.error('Erro ao aceitar convite:', acceptError);
+        // Tenta extrair a mensagem/status do corpo da resposta da função
+        const ctx = (error as unknown as { context?: Response })?.context;
+        let status = ctx?.status;
+        if (ctx && typeof ctx.json === 'function') {
+          try {
+            const body = await ctx.clone().json();
+            if (body?.error) message = body.error;
+          } catch {
+            // corpo não é JSON — mantém mensagem atual
+          }
         }
+        if (!status && fnError === 'Email já cadastrado') status = 409;
+
+        if (status === 409 || message === 'Email já cadastrado') {
+          toast({
+            variant: 'destructive',
+            title: 'Email já cadastrado',
+            description: 'Este email já está em uso. Faça login ou recupere sua senha.',
+          });
+        } else {
+          toast({
+            variant: 'destructive',
+            title: 'Erro ao criar conta',
+            description: message,
+          });
+        }
+        return;
       }
 
       setSuccess(true);
@@ -133,23 +142,16 @@ export default function AceitarConvite() {
 
       setTimeout(() => navigate('/auth'), 2000);
     } catch (err: any) {
-      if (err.message?.includes('already registered')) {
-        toast({
-          variant: 'destructive',
-          title: 'Email já cadastrado',
-          description: 'Este email já está em uso. Faça login ou recupere sua senha.',
-        });
-      } else {
-        toast({
-          variant: 'destructive',
-          title: 'Erro ao criar conta',
-          description: err.message,
-        });
-      }
+      toast({
+        variant: 'destructive',
+        title: 'Erro ao criar conta',
+        description: err?.message ?? 'Erro inesperado',
+      });
     } finally {
       setIsSubmitting(false);
     }
   };
+
 
   if (loading) {
     return (
