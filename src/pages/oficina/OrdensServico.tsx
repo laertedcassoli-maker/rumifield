@@ -109,8 +109,9 @@ export default function OrdensServico() {
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
   const { isOnline } = useOffline();
 
-  const { canDelete, isLoading: permissionsLoading } = useMenuPermissions();
+  const { canDelete, canExport, isLoading: permissionsLoading } = useMenuPermissions();
   const canDeleteOS = !permissionsLoading && canDelete('oficina_os');
+  const canExportOS = !permissionsLoading && canExport('oficina_os');
 
   const isAdmin = role === 'admin' || role === 'coordenador_rplus' || role === 'coordenador_servicos';
 
@@ -419,14 +420,16 @@ export default function OrdensServico() {
                   <Button
                     variant="outline"
                     onClick={() => setExportDialogOpen(true)}
-                    disabled={!isOnline}
+                    disabled={!isOnline || !canExportOS}
                   >
                     <Download className="h-4 w-4 mr-2" />
                     Exportar relatório
                   </Button>
                 </span>
               </TooltipTrigger>
-              {!isOnline && <TooltipContent>Disponível apenas online</TooltipContent>}
+              {!isOnline
+                ? <TooltipContent>Disponível apenas online</TooltipContent>
+                : !canExportOS ? <TooltipContent>Sem permissão para exportar</TooltipContent> : null}
             </Tooltip>
           </TooltipProvider>
           <Button onClick={() => setNovaOSDialogOpen(true)}>
