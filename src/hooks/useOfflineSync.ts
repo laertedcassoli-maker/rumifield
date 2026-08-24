@@ -84,7 +84,7 @@ export function useOfflineSync() {
           break;
         }
         case "pecas": {
-          const result = await supabase.from("pecas").select("*").eq("ativo", true);
+          const result = await supabase.from("pecas").select("*");
           if (result.error) throw result.error;
           data = result.data;
           if (data?.length) {
@@ -93,7 +93,7 @@ export function useOfflineSync() {
           break;
         }
         case "produtos_quimicos": {
-          const result = await supabase.from("produtos_quimicos").select("*").eq("ativo", true);
+          const result = await supabase.from("produtos_quimicos").select("*");
           if (result.error) throw result.error;
           data = result.data;
           if (data?.length) {
