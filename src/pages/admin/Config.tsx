@@ -1484,8 +1484,10 @@ export default function AdminConfig() {
                             {peca.nome}
                           </TableCell>
                           <TableCell>
-                            {(peca as any).ativo === false && (
+                            {(peca as any).ativo === false ? (
                               <Badge variant="outline" className="text-xs bg-muted text-muted-foreground">Inativa</Badge>
+                            ) : (
+                              <Badge variant="outline" className="text-xs border-primary/40 text-primary">Ativa</Badge>
                             )}
                           </TableCell>
 
