@@ -343,6 +343,7 @@ serve(async (req) => {
     // Peças sem omie_codigo (cadastro manual) nunca são desativadas por aqui.
     // ---------- Passada B: produtos INATIVOS ----------
     try {
+      await sleep(3000);
       const produtosInativos = (await fetchOmieProdutos('S')).filter(
         p => (p.inativo || '').toUpperCase() === 'S'
       );
