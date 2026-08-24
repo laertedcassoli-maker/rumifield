@@ -310,10 +310,54 @@ serve(async (req) => {
       }
     }
 
-    // NOTE: Não desativamos mais peças que não aparecem na resposta atual da Omie.
-    // A ausência em uma sincronização pode ser causada por filtro/paginação/instabilidade
-    // da API e não significa que a peça deva sumir dos seletores. A desativação fica
-    // restrita ao gerenciamento manual em Cadastros > Peças.
+    // NOTE: Nunca desativamos peças por AUSÊNCIA na resposta da Omie. A ausência em uma
+    // sincronização pode ser causada por filtro/paginação/instabilidade da API e não
+    // significa que a peça deva sumir dos seletores. A desativação só ocorre quando a Omie
+    // afirma explicitamente que o produto está inativo (ListarProdutos com inativo='S').
+    // Peças sem omie_codigo (cadastro manual) nunca são desativadas por aqui.
+    // ---------- Passada B: produtos INATIVOS ----------
+    try {
+      const produtosInativos = (await fetchOmieProdutos('S')).filter(
+        p => (p.inativo || '').toUpperCase() === 'S'
+      );
+      console.log(`Total inactive parts returned by Omie: ${produtosInativos.length}`);
+
+      const inativosSet = new Set<string>();
+      for (const p of produtosInativos) {
+        const codigo = p.codigo_produto ? String(p.codigo_produto) : '';
+        // A passada A vence: se o mesmo código veio como ativo, ignoramos.
+        if (!codigo || omieCodigoSet.has(codigo)) continue;
+        inativosSet.add(codigo);
+      }
+
+      for (const [omieCodigo, existing] of existingOmieCodigoMap) {
+        if (!omieCodigo) continue;
+        if (!inativosSet.has(String(omieCodigo))) continue;
+        if (existing.ativo === false) continue;
+
+        const { error: deactivateError } = await supabase
+          .from('pecas')
+          .update({ ativo: false })
+          .eq('id', existing.id);
+
+        if (deactivateError) {
+          console.error('Error deactivating part:', deactivateError);
+          errors.push(`Deactivate error for ${omieCodigo}: ${deactivateError.message}`);
+        } else {
+          deactivated++;
+          console.log(`Deactivated part ${omieCodigo} (inactive in Omie)`);
+        }
+      }
+
+      console.log(`Deactivation pass completed: ${deactivated} parts deactivated`);
+    } catch (inativosError) {
+      // Falha parcial: não desativa nada, mantém o resultado da passada A.
+      const msg = inativosError instanceof Error ? inativosError.message : String(inativosError);
+      console.warn('Skipping deactivation pass due to error:', msg);
+      errors.push(`Inactive pass error (no deactivation performed): ${msg}`);
+      deactivated = 0;
+    }
+
 
     console.log(`Sync completed: ${created} created, ${updated} updated, ${reactivated} reactivated, ${deactivated} deactivated, ${errors.length} errors`);
 
