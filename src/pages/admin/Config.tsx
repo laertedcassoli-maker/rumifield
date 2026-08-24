@@ -163,7 +163,7 @@ export default function AdminConfig() {
   // Pagination states
   const [produtoPage, setProdutoPage] = useState(1);
   const [pecaPage, setPecaPage] = useState(1);
-  const [showInativasPecas, setShowInativasPecas] = useState(false);
+  const [pecaStatusFilter, setPecaStatusFilter] = useState<'ativas' | 'inativas' | 'todas'>('ativas');
   const [produtoComercialPage, setProdutoComercialPage] = useState(1);
 
   const { data: produtos, isLoading: loadingProdutos } = useQuery({
@@ -231,7 +231,12 @@ export default function AdminConfig() {
   // Filtered and sorted pecas
   const filteredPecas = useMemo(() => {
     if (!pecas) return [];
-    let filtered = pecas.filter(p => (showInativasPecas || (p as any).ativo !== false)).filter(p =>
+    let filtered = pecas.filter(p => {
+      const inativa = (p as any).ativo === false;
+      if (pecaStatusFilter === 'ativas') return !inativa;
+      if (pecaStatusFilter === 'inativas') return inativa;
+      return true;
+    }).filter(p =>
       p.codigo.toLowerCase().includes(pecaSearch.toLowerCase()) ||
       p.nome.toLowerCase().includes(pecaSearch.toLowerCase()) ||
       (p.descricao?.toLowerCase().includes(pecaSearch.toLowerCase())) ||
@@ -244,7 +249,7 @@ export default function AdminConfig() {
       return pecaSortDirection === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
     });
     return filtered;
-  }, [pecas, pecaSearch, pecaSortField, pecaSortDirection, showInativasPecas]);
+  }, [pecas, pecaSearch, pecaSortField, pecaSortDirection, pecaStatusFilter]);
 
   const pecasInativasCount = useMemo(() => (pecas || []).filter(p => (p as any).ativo === false).length, [pecas]);
 
