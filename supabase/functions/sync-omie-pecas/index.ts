@@ -77,63 +77,69 @@ serve(async (req) => {
 
     console.log('Fetching parts from Omie API...');
 
-    const allPecas: OmieProduto[] = [];
-    let currentPage = 1;
-    let totalPages = 1;
+    // Reusable pagination over ListarProdutos for a given `inativo` flag ("N" | "S")
+    const fetchOmieProdutos = async (inativoFlag: 'N' | 'S'): Promise<OmieProduto[]> => {
+      const result: OmieProduto[] = [];
+      let currentPage = 1;
+      let totalPages = 1;
 
-    // Paginate through all results
-    while (currentPage <= totalPages) {
-      console.log(`Fetching page ${currentPage}...`);
-      
-      const omieResponse = await fetch('https://app.omie.com.br/api/v1/geral/produtos/', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          call: 'ListarProdutos',
-          app_key: omieAppKey,
-          app_secret: omieAppSecret,
-          param: [{
-            pagina: currentPage,
-            registros_por_pagina: 50,
-            apenas_importado_api: 'N',
-            inativo: 'N',
-            filtrar_apenas_omiepdv: 'N',
-          }],
-        }),
-      });
+      while (currentPage <= totalPages) {
+        console.log(`Fetching page ${currentPage} (inativo=${inativoFlag})...`);
 
-      if (!omieResponse.ok) {
-        const errorText = await omieResponse.text();
-        console.error('Omie API error:', omieResponse.status, errorText);
-        throw new Error(`Omie API error: ${omieResponse.status} - ${errorText}`);
-      }
-
-      const data: OmieResponse = await omieResponse.json();
-
-      if (data.faultstring) {
-        throw new Error(`Omie API fault: ${data.faultstring}`);
-      }
-
-      console.log(`Page ${currentPage}: ${data.registros || 0} records, total pages: ${data.total_de_paginas || 1}`);
-
-      if (data.produto_servico_cadastro) {
-        // Filter only ACTIVE products from RUMIFLOW family (case insensitive)
-        const rumiflowPecas = data.produto_servico_cadastro.filter(p => {
-          const familia = (p.descricao_familia || '').toUpperCase();
-          const ativo = (p.inativo || '').toUpperCase() === 'N';
-          return ativo && (familia === 'RUMIFLOW' || familia.includes('RUMIFLOW'));
+        const omieResponse = await fetch('https://app.omie.com.br/api/v1/geral/produtos/', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            call: 'ListarProdutos',
+            app_key: omieAppKey,
+            app_secret: omieAppSecret,
+            param: [{
+              pagina: currentPage,
+              registros_por_pagina: 50,
+              apenas_importado_api: 'N',
+              inativo: inativoFlag,
+              filtrar_apenas_omiepdv: 'N',
+            }],
+          }),
         });
-        console.log(`Found ${rumiflowPecas.length} RUMIFLOW products on page ${currentPage}`);
-        allPecas.push(...rumiflowPecas);
+
+        if (!omieResponse.ok) {
+          const errorText = await omieResponse.text();
+          console.error('Omie API error:', omieResponse.status, errorText);
+          throw new Error(`Omie API error: ${omieResponse.status} - ${errorText}`);
+        }
+
+        const data: OmieResponse = await omieResponse.json();
+
+        if (data.faultstring) {
+          throw new Error(`Omie API fault: ${data.faultstring}`);
+        }
+
+        console.log(`Page ${currentPage} (inativo=${inativoFlag}): ${data.registros || 0} records, total pages: ${data.total_de_paginas || 1}`);
+
+        if (data.produto_servico_cadastro) {
+          result.push(...data.produto_servico_cadastro);
+        }
+
+        totalPages = data.total_de_paginas || 1;
+        currentPage++;
       }
 
-      totalPages = data.total_de_paginas || 1;
-      currentPage++;
-    }
+      return result;
+    };
+
+    // ---------- Passada A: produtos ATIVOS ----------
+    const produtosAtivos = await fetchOmieProdutos('N');
+    const allPecas: OmieProduto[] = produtosAtivos.filter(p => {
+      const familia = (p.descricao_familia || '').toUpperCase();
+      const ativo = (p.inativo || '').toUpperCase() === 'N';
+      return ativo && (familia === 'RUMIFLOW' || familia.includes('RUMIFLOW'));
+    });
 
     console.log(`Total active parts found: ${allPecas.length}`);
+
 
     // Fetch stock information from Omie
     console.log('Fetching stock information from Omie...');
