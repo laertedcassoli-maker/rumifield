@@ -163,6 +163,7 @@ export default function AdminConfig() {
   // Pagination states
   const [produtoPage, setProdutoPage] = useState(1);
   const [pecaPage, setPecaPage] = useState(1);
+  const [showInativasPecas, setShowInativasPecas] = useState(false);
   const [produtoComercialPage, setProdutoComercialPage] = useState(1);
 
   const { data: produtos, isLoading: loadingProdutos } = useQuery({
@@ -230,7 +231,7 @@ export default function AdminConfig() {
   // Filtered and sorted pecas
   const filteredPecas = useMemo(() => {
     if (!pecas) return [];
-    let filtered = pecas.filter(p =>
+    let filtered = pecas.filter(p => (showInativasPecas || (p as any).ativo !== false)).filter(p =>
       p.codigo.toLowerCase().includes(pecaSearch.toLowerCase()) ||
       p.nome.toLowerCase().includes(pecaSearch.toLowerCase()) ||
       (p.descricao?.toLowerCase().includes(pecaSearch.toLowerCase())) ||
@@ -243,7 +244,9 @@ export default function AdminConfig() {
       return pecaSortDirection === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
     });
     return filtered;
-  }, [pecas, pecaSearch, pecaSortField, pecaSortDirection]);
+  }, [pecas, pecaSearch, pecaSortField, pecaSortDirection, showInativasPecas]);
+
+  const pecasInativasCount = useMemo(() => (pecas || []).filter(p => (p as any).ativo === false).length, [pecas]);
 
   const paginatedPecas = useMemo(() => {
     const start = (pecaPage - 1) * ITEMS_PER_PAGE;
@@ -681,7 +684,9 @@ export default function AdminConfig() {
       if (data.success) {
         toast({
           title: 'Sincronização concluída!',
-          description: `${data.created} criadas, ${data.updated} atualizadas de ${data.total} peças`,
+          description: data.deactivated
+            ? `${data.created} criadas, ${data.updated} atualizadas, ${data.deactivated} desativadas de ${data.total} peças`
+            : `${data.created} criadas, ${data.updated} atualizadas de ${data.total} peças`,
         });
         queryClient.invalidateQueries({ queryKey: ['pecas-config'] });
         queryClient.invalidateQueries({ queryKey: ['pecas'] });
@@ -1230,6 +1235,14 @@ export default function AdminConfig() {
                 className="pl-10"
               />
             </div>
+            <div className="flex items-center gap-2">
+              <Switch
+                id="show-inativas-pecas"
+                checked={showInativasPecas}
+                onCheckedChange={(v) => { setShowInativasPecas(v); setPecaPage(1); }}
+              />
+              <Label htmlFor="show-inativas-pecas" className="text-sm whitespace-nowrap">Mostrar inativas</Label>
+            </div>
             <div className="flex gap-2">
               <Button variant="outline" onClick={handleSyncOmiePecas} disabled={isSyncingOmie}>
                 {isSyncingOmie ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
@@ -1241,6 +1254,12 @@ export default function AdminConfig() {
               </Button>
             </div>
           </div>
+
+          {!showInativasPecas && pecasInativasCount > 0 && (
+            <p className="text-xs text-muted-foreground">
+              {pecasInativasCount} peça(s) inativa(s) oculta(s)
+            </p>
+          )}
 
           {/* Peça Dialog */}
           <Dialog open={pecaOpen} onOpenChange={(open) => !open && closePecaDialog()}>
@@ -1383,6 +1402,7 @@ export default function AdminConfig() {
                           Nome {getSortIcon('nome', pecaSortField, pecaSortDirection)}
                         </Button>
                       </TableHead>
+                      <TableHead>Status</TableHead>
                       <TableHead>
                         <Button variant="ghost" onClick={() => handlePecaSort('familia')} className="hover:bg-transparent p-0">
                           Família {getSortIcon('familia', pecaSortField, pecaSortDirection)}
@@ -1420,13 +1440,13 @@ export default function AdminConfig() {
                   <TableBody>
                     {paginatedPecas.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={11} className="text-center text-muted-foreground py-8">
+                        <TableCell colSpan={12} className="text-center text-muted-foreground py-8">
                           Nenhuma peça encontrada
                         </TableCell>
                       </TableRow>
                     ) : (
                       paginatedPecas.map((peca) => (
-                        <TableRow key={peca.id}>
+                        <TableRow key={peca.id} className={(peca as any).ativo === false ? 'opacity-60' : undefined}>
                           <TableCell>
                             {peca.imagem_url ? (
                               <Button
@@ -1454,6 +1474,12 @@ export default function AdminConfig() {
                           <TableCell>
                             {peca.nome}
                           </TableCell>
+                          <TableCell>
+                            {(peca as any).ativo === false && (
+                              <Badge variant="outline" className="text-xs bg-muted text-muted-foreground">Inativa</Badge>
+                            )}
+                          </TableCell>
+
                           <TableCell>
                             {peca.familia ? (
                               <Badge variant="secondary">{peca.familia}</Badge>
