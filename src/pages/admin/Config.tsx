@@ -163,7 +163,7 @@ export default function AdminConfig() {
   // Pagination states
   const [produtoPage, setProdutoPage] = useState(1);
   const [pecaPage, setPecaPage] = useState(1);
-  const [showInativasPecas, setShowInativasPecas] = useState(false);
+  const [pecaStatusFilter, setPecaStatusFilter] = useState<'ativas' | 'inativas' | 'todas'>('ativas');
   const [produtoComercialPage, setProdutoComercialPage] = useState(1);
 
   const { data: produtos, isLoading: loadingProdutos } = useQuery({
@@ -231,7 +231,12 @@ export default function AdminConfig() {
   // Filtered and sorted pecas
   const filteredPecas = useMemo(() => {
     if (!pecas) return [];
-    let filtered = pecas.filter(p => (showInativasPecas || (p as any).ativo !== false)).filter(p =>
+    let filtered = pecas.filter(p => {
+      const inativa = (p as any).ativo === false;
+      if (pecaStatusFilter === 'ativas') return !inativa;
+      if (pecaStatusFilter === 'inativas') return inativa;
+      return true;
+    }).filter(p =>
       p.codigo.toLowerCase().includes(pecaSearch.toLowerCase()) ||
       p.nome.toLowerCase().includes(pecaSearch.toLowerCase()) ||
       (p.descricao?.toLowerCase().includes(pecaSearch.toLowerCase())) ||
@@ -244,7 +249,7 @@ export default function AdminConfig() {
       return pecaSortDirection === 'asc' ? aVal.localeCompare(bVal) : bVal.localeCompare(aVal);
     });
     return filtered;
-  }, [pecas, pecaSearch, pecaSortField, pecaSortDirection, showInativasPecas]);
+  }, [pecas, pecaSearch, pecaSortField, pecaSortDirection, pecaStatusFilter]);
 
   const pecasInativasCount = useMemo(() => (pecas || []).filter(p => (p as any).ativo === false).length, [pecas]);
 
@@ -1235,13 +1240,22 @@ export default function AdminConfig() {
                 className="pl-10"
               />
             </div>
-            <div className="flex items-center gap-2">
-              <Switch
-                id="show-inativas-pecas"
-                checked={showInativasPecas}
-                onCheckedChange={(v) => { setShowInativasPecas(v); setPecaPage(1); }}
-              />
-              <Label htmlFor="show-inativas-pecas" className="text-sm whitespace-nowrap">Mostrar inativas</Label>
+            <div className="flex items-center gap-1">
+              {([
+                { value: 'ativas', label: 'Ativas' },
+                { value: 'inativas', label: 'Inativas' },
+                { value: 'todas', label: 'Todas' },
+              ] as const).map(opt => (
+                <Button
+                  key={opt.value}
+                  size="sm"
+                  variant={pecaStatusFilter === opt.value ? 'default' : 'outline'}
+                  onClick={() => { setPecaStatusFilter(opt.value); setPecaPage(1); }}
+                >
+                  {opt.label}
+                  {opt.value === 'inativas' && pecasInativasCount > 0 && ` (${pecasInativasCount})`}
+                </Button>
+              ))}
             </div>
             <div className="flex gap-2">
               <Button variant="outline" onClick={handleSyncOmiePecas} disabled={isSyncingOmie}>
@@ -1255,11 +1269,6 @@ export default function AdminConfig() {
             </div>
           </div>
 
-          {!showInativasPecas && pecasInativasCount > 0 && (
-            <p className="text-xs text-muted-foreground">
-              {pecasInativasCount} peça(s) inativa(s) oculta(s)
-            </p>
-          )}
 
           {/* Peça Dialog */}
           <Dialog open={pecaOpen} onOpenChange={(open) => !open && closePecaDialog()}>
@@ -1475,8 +1484,10 @@ export default function AdminConfig() {
                             {peca.nome}
                           </TableCell>
                           <TableCell>
-                            {(peca as any).ativo === false && (
+                            {(peca as any).ativo === false ? (
                               <Badge variant="outline" className="text-xs bg-muted text-muted-foreground">Inativa</Badge>
+                            ) : (
+                              <Badge variant="outline" className="text-xs border-primary/40 text-primary">Ativa</Badge>
                             )}
                           </TableCell>
 
