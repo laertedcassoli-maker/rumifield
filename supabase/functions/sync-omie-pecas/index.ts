@@ -77,45 +77,65 @@ serve(async (req) => {
 
     console.log('Fetching parts from Omie API...');
 
+    const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
     // Reusable pagination over ListarProdutos for a given `inativo` flag ("N" | "S")
+    // Retries automatically on Omie rate limit ("Consumo redundante ... REDUNDANT").
     const fetchOmieProdutos = async (inativoFlag: 'N' | 'S'): Promise<OmieProduto[]> => {
       const result: OmieProduto[] = [];
       let currentPage = 1;
       let totalPages = 1;
 
+      const fetchPage = async (page: number): Promise<OmieResponse> => {
+        const maxAttempts = 6;
+        for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+          const omieResponse = await fetch('https://app.omie.com.br/api/v1/geral/produtos/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              call: 'ListarProdutos',
+              app_key: omieAppKey,
+              app_secret: omieAppSecret,
+              param: [{
+                pagina: page,
+                registros_por_pagina: 50,
+                apenas_importado_api: 'N',
+                inativo: inativoFlag,
+                filtrar_apenas_omiepdv: 'N',
+              }],
+            }),
+          });
+
+          const rawText = await omieResponse.text();
+          const isRateLimited = /REDUNDANT|Consumo redundante|BLOQUEADO|LOCKED/i.test(rawText);
+
+          if (isRateLimited && attempt < maxAttempts) {
+            const waitMatch = rawText.match(/Aguarde\s+(\d+)\s+segundos/i);
+            const waitSeconds = waitMatch ? Number(waitMatch[1]) + 2 : attempt * 5;
+            console.warn(`Omie rate limit on page ${page} (inativo=${inativoFlag}); waiting ${waitSeconds}s (attempt ${attempt})`);
+            await sleep(waitSeconds * 1000);
+            continue;
+          }
+
+          if (!omieResponse.ok) {
+            console.error('Omie API error:', omieResponse.status, rawText);
+            throw new Error(`Omie API error: ${omieResponse.status} - ${rawText}`);
+          }
+
+          const data: OmieResponse = JSON.parse(rawText);
+          if (data.faultstring) {
+            throw new Error(`Omie API fault: ${data.faultstring}`);
+          }
+          return data;
+        }
+
+        throw new Error(`Omie API error: rate limit persisted on page ${page} (inativo=${inativoFlag})`);
+      };
+
       while (currentPage <= totalPages) {
         console.log(`Fetching page ${currentPage} (inativo=${inativoFlag})...`);
 
-        const omieResponse = await fetch('https://app.omie.com.br/api/v1/geral/produtos/', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            call: 'ListarProdutos',
-            app_key: omieAppKey,
-            app_secret: omieAppSecret,
-            param: [{
-              pagina: currentPage,
-              registros_por_pagina: 50,
-              apenas_importado_api: 'N',
-              inativo: inativoFlag,
-              filtrar_apenas_omiepdv: 'N',
-            }],
-          }),
-        });
-
-        if (!omieResponse.ok) {
-          const errorText = await omieResponse.text();
-          console.error('Omie API error:', omieResponse.status, errorText);
-          throw new Error(`Omie API error: ${omieResponse.status} - ${errorText}`);
-        }
-
-        const data: OmieResponse = await omieResponse.json();
-
-        if (data.faultstring) {
-          throw new Error(`Omie API fault: ${data.faultstring}`);
-        }
+        const data = await fetchPage(currentPage);
 
         console.log(`Page ${currentPage} (inativo=${inativoFlag}): ${data.registros || 0} records, total pages: ${data.total_de_paginas || 1}`);
 
@@ -125,10 +145,16 @@ serve(async (req) => {
 
         totalPages = data.total_de_paginas || 1;
         currentPage++;
+
+        // Espaça as chamadas para não disparar o limite de consumo da Omie.
+        if (currentPage <= totalPages) {
+          await sleep(700);
+        }
       }
 
       return result;
     };
+
 
     // ---------- Passada A: produtos ATIVOS ----------
     const produtosAtivos = await fetchOmieProdutos('N');
