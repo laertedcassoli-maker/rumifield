@@ -1240,13 +1240,22 @@ export default function AdminConfig() {
                 className="pl-10"
               />
             </div>
-            <div className="flex items-center gap-2">
-              <Switch
-                id="show-inativas-pecas"
-                checked={showInativasPecas}
-                onCheckedChange={(v) => { setShowInativasPecas(v); setPecaPage(1); }}
-              />
-              <Label htmlFor="show-inativas-pecas" className="text-sm whitespace-nowrap">Mostrar inativas</Label>
+            <div className="flex items-center gap-1">
+              {([
+                { value: 'ativas', label: 'Ativas' },
+                { value: 'inativas', label: 'Inativas' },
+                { value: 'todas', label: 'Todas' },
+              ] as const).map(opt => (
+                <Button
+                  key={opt.value}
+                  size="sm"
+                  variant={pecaStatusFilter === opt.value ? 'default' : 'outline'}
+                  onClick={() => { setPecaStatusFilter(opt.value); setPecaPage(1); }}
+                >
+                  {opt.label}
+                  {opt.value === 'inativas' && pecasInativasCount > 0 && ` (${pecasInativasCount})`}
+                </Button>
+              ))}
             </div>
             <div className="flex gap-2">
               <Button variant="outline" onClick={handleSyncOmiePecas} disabled={isSyncingOmie}>
@@ -1260,11 +1269,6 @@ export default function AdminConfig() {
             </div>
           </div>
 
-          {!showInativasPecas && pecasInativasCount > 0 && (
-            <p className="text-xs text-muted-foreground">
-              {pecasInativasCount} peça(s) inativa(s) oculta(s)
-            </p>
-          )}
 
           {/* Peça Dialog */}
           <Dialog open={pecaOpen} onOpenChange={(open) => !open && closePecaDialog()}>
