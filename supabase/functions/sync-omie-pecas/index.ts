@@ -77,63 +77,69 @@ serve(async (req) => {
 
     console.log('Fetching parts from Omie API...');
 
-    const allPecas: OmieProduto[] = [];
-    let currentPage = 1;
-    let totalPages = 1;
+    // Reusable pagination over ListarProdutos for a given `inativo` flag ("N" | "S")
+    const fetchOmieProdutos = async (inativoFlag: 'N' | 'S'): Promise<OmieProduto[]> => {
+      const result: OmieProduto[] = [];
+      let currentPage = 1;
+      let totalPages = 1;
 
-    // Paginate through all results
-    while (currentPage <= totalPages) {
-      console.log(`Fetching page ${currentPage}...`);
-      
-      const omieResponse = await fetch('https://app.omie.com.br/api/v1/geral/produtos/', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          call: 'ListarProdutos',
-          app_key: omieAppKey,
-          app_secret: omieAppSecret,
-          param: [{
-            pagina: currentPage,
-            registros_por_pagina: 50,
-            apenas_importado_api: 'N',
-            inativo: 'N',
-            filtrar_apenas_omiepdv: 'N',
-          }],
-        }),
-      });
+      while (currentPage <= totalPages) {
+        console.log(`Fetching page ${currentPage} (inativo=${inativoFlag})...`);
 
-      if (!omieResponse.ok) {
-        const errorText = await omieResponse.text();
-        console.error('Omie API error:', omieResponse.status, errorText);
-        throw new Error(`Omie API error: ${omieResponse.status} - ${errorText}`);
-      }
-
-      const data: OmieResponse = await omieResponse.json();
-
-      if (data.faultstring) {
-        throw new Error(`Omie API fault: ${data.faultstring}`);
-      }
-
-      console.log(`Page ${currentPage}: ${data.registros || 0} records, total pages: ${data.total_de_paginas || 1}`);
-
-      if (data.produto_servico_cadastro) {
-        // Filter only ACTIVE products from RUMIFLOW family (case insensitive)
-        const rumiflowPecas = data.produto_servico_cadastro.filter(p => {
-          const familia = (p.descricao_familia || '').toUpperCase();
-          const ativo = (p.inativo || '').toUpperCase() === 'N';
-          return ativo && (familia === 'RUMIFLOW' || familia.includes('RUMIFLOW'));
+        const omieResponse = await fetch('https://app.omie.com.br/api/v1/geral/produtos/', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            call: 'ListarProdutos',
+            app_key: omieAppKey,
+            app_secret: omieAppSecret,
+            param: [{
+              pagina: currentPage,
+              registros_por_pagina: 50,
+              apenas_importado_api: 'N',
+              inativo: inativoFlag,
+              filtrar_apenas_omiepdv: 'N',
+            }],
+          }),
         });
-        console.log(`Found ${rumiflowPecas.length} RUMIFLOW products on page ${currentPage}`);
-        allPecas.push(...rumiflowPecas);
+
+        if (!omieResponse.ok) {
+          const errorText = await omieResponse.text();
+          console.error('Omie API error:', omieResponse.status, errorText);
+          throw new Error(`Omie API error: ${omieResponse.status} - ${errorText}`);
+        }
+
+        const data: OmieResponse = await omieResponse.json();
+
+        if (data.faultstring) {
+          throw new Error(`Omie API fault: ${data.faultstring}`);
+        }
+
+        console.log(`Page ${currentPage} (inativo=${inativoFlag}): ${data.registros || 0} records, total pages: ${data.total_de_paginas || 1}`);
+
+        if (data.produto_servico_cadastro) {
+          result.push(...data.produto_servico_cadastro);
+        }
+
+        totalPages = data.total_de_paginas || 1;
+        currentPage++;
       }
 
-      totalPages = data.total_de_paginas || 1;
-      currentPage++;
-    }
+      return result;
+    };
+
+    // ---------- Passada A: produtos ATIVOS ----------
+    const produtosAtivos = await fetchOmieProdutos('N');
+    const allPecas: OmieProduto[] = produtosAtivos.filter(p => {
+      const familia = (p.descricao_familia || '').toUpperCase();
+      const ativo = (p.inativo || '').toUpperCase() === 'N';
+      return ativo && (familia === 'RUMIFLOW' || familia.includes('RUMIFLOW'));
+    });
 
     console.log(`Total active parts found: ${allPecas.length}`);
+
 
     // Fetch stock information from Omie
     console.log('Fetching stock information from Omie...');
@@ -304,10 +310,54 @@ serve(async (req) => {
       }
     }
 
-    // NOTE: Não desativamos mais peças que não aparecem na resposta atual da Omie.
-    // A ausência em uma sincronização pode ser causada por filtro/paginação/instabilidade
-    // da API e não significa que a peça deva sumir dos seletores. A desativação fica
-    // restrita ao gerenciamento manual em Cadastros > Peças.
+    // NOTE: Nunca desativamos peças por AUSÊNCIA na resposta da Omie. A ausência em uma
+    // sincronização pode ser causada por filtro/paginação/instabilidade da API e não
+    // significa que a peça deva sumir dos seletores. A desativação só ocorre quando a Omie
+    // afirma explicitamente que o produto está inativo (ListarProdutos com inativo='S').
+    // Peças sem omie_codigo (cadastro manual) nunca são desativadas por aqui.
+    // ---------- Passada B: produtos INATIVOS ----------
+    try {
+      const produtosInativos = (await fetchOmieProdutos('S')).filter(
+        p => (p.inativo || '').toUpperCase() === 'S'
+      );
+      console.log(`Total inactive parts returned by Omie: ${produtosInativos.length}`);
+
+      const inativosSet = new Set<string>();
+      for (const p of produtosInativos) {
+        const codigo = p.codigo_produto ? String(p.codigo_produto) : '';
+        // A passada A vence: se o mesmo código veio como ativo, ignoramos.
+        if (!codigo || omieCodigoSet.has(codigo)) continue;
+        inativosSet.add(codigo);
+      }
+
+      for (const [omieCodigo, existing] of existingOmieCodigoMap) {
+        if (!omieCodigo) continue;
+        if (!inativosSet.has(String(omieCodigo))) continue;
+        if (existing.ativo === false) continue;
+
+        const { error: deactivateError } = await supabase
+          .from('pecas')
+          .update({ ativo: false })
+          .eq('id', existing.id);
+
+        if (deactivateError) {
+          console.error('Error deactivating part:', deactivateError);
+          errors.push(`Deactivate error for ${omieCodigo}: ${deactivateError.message}`);
+        } else {
+          deactivated++;
+          console.log(`Deactivated part ${omieCodigo} (inactive in Omie)`);
+        }
+      }
+
+      console.log(`Deactivation pass completed: ${deactivated} parts deactivated`);
+    } catch (inativosError) {
+      // Falha parcial: não desativa nada, mantém o resultado da passada A.
+      const msg = inativosError instanceof Error ? inativosError.message : String(inativosError);
+      console.warn('Skipping deactivation pass due to error:', msg);
+      errors.push(`Inactive pass error (no deactivation performed): ${msg}`);
+      deactivated = 0;
+    }
+
 
     console.log(`Sync completed: ${created} created, ${updated} updated, ${reactivated} reactivated, ${deactivated} deactivated, ${errors.length} errors`);
 
