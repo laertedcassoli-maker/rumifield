@@ -58,7 +58,8 @@ export default function Pedidos() {
   const [form, setForm] = useState({ cliente_id: '', observacoes: '', urgencia: 'normal', tipo_envio: '', solenoide_modelo: '' });
   const [itens, setItens] = useState<{ peca_id: string; quantidade: number }[]>([]);
   const [autoLinkDismissed, setAutoLinkDismissed] = useState(false);
-  const [viewAll, setViewAll] = useState(false);
+  // UI-only filter: true = all orders (default), false = only mine
+  const [viewAll, setViewAll] = useState(true);
   const [solicitanteFilter, setSolicitanteFilter] = useState<string>('all');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
