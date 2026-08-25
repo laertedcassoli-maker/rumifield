@@ -122,9 +122,8 @@ export default function Pedidos() {
         .order('created_at', { ascending: false })
         .limit(500);
 
-      if (!isAdmin || !viewAll) {
-        query = query.eq('solicitante_id', user!.id);
-      }
+
+
 
       const { data, error } = await query;
       if (error) throw error;
