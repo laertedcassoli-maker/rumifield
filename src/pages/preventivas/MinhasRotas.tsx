@@ -549,9 +549,13 @@ export default function MinhasRotas() {
         if (statusFilter === 'concluidas' && !isCompleted) return false;
       }
 
+      // Owner filter (apenas de tela)
+      if (ownerFilter === 'minhas' && route.field_technician_user_id !== user?.id) return false;
+
       // Technician filter
       const techId = route.field_technician_user_id;
       if (technicianFilter !== 'all' && techId !== technicianFilter) return false;
+
 
       // Client filter
       if (clientFilter !== 'all') {
