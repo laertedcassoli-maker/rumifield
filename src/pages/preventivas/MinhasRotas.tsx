@@ -259,21 +259,18 @@ export default function MinhasRotas() {
 
   // Fetch preventive routes with offline fallback
   const { data: preventiveRoutes, isLoading: isLoadingPreventive, isOfflineData: isPreventiveOffline } = useOfflineQuery<PreventiveRoute[]>({
-    queryKey: ['my-preventive-routes', user?.id, isAdminOrCoordinator],
+    queryKey: ['my-preventive-routes'],
     queryFn: async () => {
       if (!user?.id) return [];
 
-      let query = supabase
+      const query = supabase
         .from('preventive_routes')
         .select('id, route_code, start_date, end_date, status, field_technician_user_id, created_at')
         .in('status', ['planejada', 'em_execucao', 'finalizada'])
         .order('start_date', { ascending: true });
 
-      if (!isAdminOrCoordinator) {
-        query = query.eq('field_technician_user_id', user.id);
-      }
-
       const { data: routesData, error: routesError } = await query;
+
 
       if (routesError) throw routesError;
       if (!routesData?.length) return [];
