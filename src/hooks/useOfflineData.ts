@@ -79,16 +79,12 @@ export function useOfflineProdutosQuimicos() {
 }
 
 // Hook for offline visitas with write capability
-export function useOfflineVisitas(tecnicoId?: string) {
+export function useOfflineVisitas(_tecnicoId?: string) {
+  // Leitura não é filtrada por técnico: quem chama aplica o recorte "só as minhas".
   const visitas = useLiveQuery(() => {
-    if (tecnicoId) {
-      return offlineDb.visitas
-        .filter(v => v.tecnico_id === tecnicoId)
-        .reverse()
-        .sortBy("data_visita");
-    }
     return offlineDb.visitas.reverse().sortBy("data_visita");
-  }, [tecnicoId]);
+  }, []);
+
   
   const getVisitaById = useCallback(async (id: string) => {
     return offlineDb.visitas.get(id);
