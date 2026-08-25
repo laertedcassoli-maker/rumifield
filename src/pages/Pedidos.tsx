@@ -105,7 +105,7 @@ export default function Pedidos() {
 
   // Fetch pedidos from Supabase
   const { data: pedidos, isLoading } = useQuery({
-    queryKey: ['pedidos', user?.id, viewAll, isAdmin],
+    queryKey: ['pedidos'],
     queryFn: async () => {
       let query = supabase
         .from('pedidos')
