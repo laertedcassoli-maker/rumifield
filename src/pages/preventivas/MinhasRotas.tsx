@@ -361,10 +361,8 @@ export default function MinhasRotas() {
     offlineFn: async () => {
       // Load from Dexie
       let rotas = await offlineDb.rotas.toArray();
-      if (!isAdminOrCoordinator && user?.id) {
-        rotas = rotas.filter(r => r.field_technician_user_id === user.id);
-      }
       rotas = rotas.filter(r => ['planejada', 'em_execucao', 'finalizada'].includes(r.status));
+
 
       const allItems = await offlineDb.rota_items.toArray();
       const allClients = await offlineDb.clientes.toArray();
