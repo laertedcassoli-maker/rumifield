@@ -909,7 +909,29 @@ export default function MinhasRotas() {
 
         {/* Filters - Stacked on mobile */}
         <div className="space-y-3">
+          {/* Owner Filter (filtro de tela) */}
+          <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+            <Button
+              variant={ownerFilter === 'minhas' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setOwnerFilter('minhas')}
+              className="shrink-0 gap-1"
+            >
+              <User className="h-3 w-3" />
+              Minhas
+            </Button>
+            <Button
+              variant={ownerFilter === 'todas' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setOwnerFilter('todas')}
+              className="shrink-0"
+            >
+              Todas as rotas
+            </Button>
+          </div>
+
           {/* Type Filter */}
+
           <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
             <Button
               variant={typeFilter === 'all' ? 'default' : 'outline'}
