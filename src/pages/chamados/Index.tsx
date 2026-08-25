@@ -186,8 +186,8 @@ export default function ChamadosIndex() {
       const [clientsResult, profilesResult, visitsResult] = await Promise.all([
         supabase.from('clientes').select('id, nome, fazenda').in('id', clientIds),
         allProfileIds.length > 0 
-          ? supabase.from('profiles').select('id, nome').in('id', allProfileIds)
-          : Promise.resolve({ data: [] }),
+          ? supabase.from('profiles').select('id, nome, email').in('id', allProfileIds)
+          : Promise.resolve({ data: [] as { id: string; nome: string | null; email: string | null }[] }),
         supabase.from('ticket_visits').select('ticket_id').in('ticket_id', ticketIds)
       ]);
 
@@ -195,7 +195,9 @@ export default function ChamadosIndex() {
         clientsResult.data?.map(c => [c.id, c] as [string, { id: string; nome: string; fazenda: string | null }]) || []
       );
       const profilesMap = new Map<string, string>(
-        profilesResult.data?.map(p => [p.id, p.nome] as [string, string]) || []
+        (profilesResult.data as { id: string; nome: string | null; email: string | null }[] | null)?.map(
+          p => [p.id, p.nome || p.email || '-'] as [string, string]
+        ) || []
       );
       
       // Count visits per ticket
