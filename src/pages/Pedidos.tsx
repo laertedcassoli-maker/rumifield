@@ -149,10 +149,8 @@ export default function Pedidos() {
     refetchOnWindowFocus: true,
   });
 
-  // Auto-set viewAll for coordinators/admins
-  useEffect(() => {
-    if (isAdmin) setViewAll(true);
-  }, [isAdmin]);
+
+
 
   // Tab state for drafts vs submitted
   const [activeTab, setActiveTab] = useState<'rascunhos' | 'pedidos'>('pedidos');
