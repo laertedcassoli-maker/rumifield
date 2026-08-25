@@ -251,7 +251,10 @@ export default function Pedidos() {
 
         const matchesSolicitante = solicitanteFilter === 'all' || pedido.solicitante_id === solicitanteFilter;
 
-        return matchesSearch && matchesStatus && matchesDate && matchesTipoEnvio && matchesTipoLogistica && matchesSolicitante;
+        // UI-only ownership filter (does not restrict what is read from the database)
+        const matchesOwner = viewAll || pedido.solicitante_id === user?.id;
+
+        return matchesSearch && matchesStatus && matchesDate && matchesTipoEnvio && matchesTipoLogistica && matchesSolicitante && matchesOwner;
       });
     
     filtered.sort((a, b) => {
