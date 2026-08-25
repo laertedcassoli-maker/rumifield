@@ -149,7 +149,7 @@ export default function ChamadosIndex() {
   const { data: tickets, isLoading } = useQuery<TicketWithDetails[]>({
     queryKey: ['technical-tickets'],
     queryFn: async () => {
-      let query = supabase
+      const query = supabase
         .from('technical_tickets')
         .select(`
           id,
@@ -166,12 +166,11 @@ export default function ChamadosIndex() {
         `)
         .order('created_at', { ascending: false });
 
-      // Defesa em profundidade além da RLS: técnicos de campo só veem seus tickets
-      if (!isAdminOrCoordinator && user) {
-        query = query.eq('assigned_technician_id', user.id);
-      }
+      // Leitura aberta a qualquer usuário autenticado com acesso ao menu
+      // (mesmo padrão da Oficina). Papéis seguem valendo apenas para escrita/UI.
 
       const { data, error } = await query;
+
 
       if (error) throw error;
       if (!data?.length) return [];
