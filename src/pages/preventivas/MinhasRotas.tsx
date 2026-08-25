@@ -414,11 +414,11 @@ export default function MinhasRotas() {
 
   // Fetch corrective visits — online-first, no offline fallback
   const { data: correctiveVisits, isLoading: isLoadingCorrective } = useQuery<CorrectiveVisit[]>({
-    queryKey: ['my-corrective-visits', user?.id, isAdminOrCoordinator],
+    queryKey: ['my-corrective-visits'],
     queryFn: async () => {
       if (!user?.id) return [];
 
-      let query = supabase
+      const query = supabase
         .from('ticket_visits')
         .select(`
           id,
@@ -433,11 +433,8 @@ export default function MinhasRotas() {
         .in('status', ['planejada', 'em_elaboracao', 'em_execucao', 'finalizada'])
         .order('planned_start_date', { ascending: true });
 
-      if (!isAdminOrCoordinator) {
-        query = query.eq('field_technician_user_id', user.id);
-      }
-
       const { data: visitsData, error: visitsError } = await query;
+
 
       if (visitsError) throw visitsError;
       if (!visitsData?.length) return [];
