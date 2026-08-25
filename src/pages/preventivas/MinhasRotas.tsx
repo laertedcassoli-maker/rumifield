@@ -160,8 +160,13 @@ export default function MinhasRotas() {
   const [datePopoverOpen, setDatePopoverOpen] = useState(false);
 
   const isAdminOrCoordinator = role === 'admin' || role === 'coordenador_servicos';
+  // Visibilidade: leitura nunca é filtrada no banco. "Minhas / Todas" é filtro de tela.
+  const [ownerFilter, setOwnerFilter] = useState<'minhas' | 'todas'>(
+    role === 'tecnico_campo' || role === 'tecnico_oficina' ? 'minhas' : 'todas'
+  );
   const { canDelete } = useMenuPermissions();
   const canDeleteRoute = canDelete('minhas_rotas_listagem');
+
   const queryClient = useQueryClient();
   const [deleteTarget, setDeleteTarget] = useState<
     { type: 'route'; id: string; label: string }
@@ -254,21 +259,18 @@ export default function MinhasRotas() {
 
   // Fetch preventive routes with offline fallback
   const { data: preventiveRoutes, isLoading: isLoadingPreventive, isOfflineData: isPreventiveOffline } = useOfflineQuery<PreventiveRoute[]>({
-    queryKey: ['my-preventive-routes', user?.id, isAdminOrCoordinator],
+    queryKey: ['my-preventive-routes'],
     queryFn: async () => {
       if (!user?.id) return [];
 
-      let query = supabase
+      const query = supabase
         .from('preventive_routes')
         .select('id, route_code, start_date, end_date, status, field_technician_user_id, created_at')
         .in('status', ['planejada', 'em_execucao', 'finalizada'])
         .order('start_date', { ascending: true });
 
-      if (!isAdminOrCoordinator) {
-        query = query.eq('field_technician_user_id', user.id);
-      }
-
       const { data: routesData, error: routesError } = await query;
+
 
       if (routesError) throw routesError;
       if (!routesData?.length) return [];
@@ -359,10 +361,8 @@ export default function MinhasRotas() {
     offlineFn: async () => {
       // Load from Dexie
       let rotas = await offlineDb.rotas.toArray();
-      if (!isAdminOrCoordinator && user?.id) {
-        rotas = rotas.filter(r => r.field_technician_user_id === user.id);
-      }
       rotas = rotas.filter(r => ['planejada', 'em_execucao', 'finalizada'].includes(r.status));
+
 
       const allItems = await offlineDb.rota_items.toArray();
       const allClients = await offlineDb.clientes.toArray();
@@ -414,11 +414,11 @@ export default function MinhasRotas() {
 
   // Fetch corrective visits — online-first, no offline fallback
   const { data: correctiveVisits, isLoading: isLoadingCorrective } = useQuery<CorrectiveVisit[]>({
-    queryKey: ['my-corrective-visits', user?.id, isAdminOrCoordinator],
+    queryKey: ['my-corrective-visits'],
     queryFn: async () => {
       if (!user?.id) return [];
 
-      let query = supabase
+      const query = supabase
         .from('ticket_visits')
         .select(`
           id,
@@ -433,11 +433,8 @@ export default function MinhasRotas() {
         .in('status', ['planejada', 'em_elaboracao', 'em_execucao', 'finalizada'])
         .order('planned_start_date', { ascending: true });
 
-      if (!isAdminOrCoordinator) {
-        query = query.eq('field_technician_user_id', user.id);
-      }
-
       const { data: visitsData, error: visitsError } = await query;
+
 
       if (visitsError) throw visitsError;
       if (!visitsData?.length) return [];
@@ -552,9 +549,13 @@ export default function MinhasRotas() {
         if (statusFilter === 'concluidas' && !isCompleted) return false;
       }
 
+      // Owner filter (apenas de tela)
+      if (ownerFilter === 'minhas' && route.field_technician_user_id !== user?.id) return false;
+
       // Technician filter
       const techId = route.field_technician_user_id;
       if (technicianFilter !== 'all' && techId !== technicianFilter) return false;
+
 
       // Client filter
       if (clientFilter !== 'all') {
@@ -616,7 +617,7 @@ export default function MinhasRotas() {
       const prioB = STATUS_PRIORITY[b.status] ?? 99;
       return prioA - prioB;
     });
-  }, [preventiveRoutes, correctiveVisits, filter, technicianFilter, typeFilter, statusFilter, clientFilter, dateRange]);
+  }, [preventiveRoutes, correctiveVisits, filter, technicianFilter, typeFilter, statusFilter, clientFilter, dateRange, ownerFilter, user?.id]);
 
   const renderStatusBadge = (route: UnifiedRoute) => {
     if (route.type === 'preventive') {
@@ -908,7 +909,29 @@ export default function MinhasRotas() {
 
         {/* Filters - Stacked on mobile */}
         <div className="space-y-3">
+          {/* Owner Filter (filtro de tela) */}
+          <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+            <Button
+              variant={ownerFilter === 'minhas' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setOwnerFilter('minhas')}
+              className="shrink-0 gap-1"
+            >
+              <User className="h-3 w-3" />
+              Minhas
+            </Button>
+            <Button
+              variant={ownerFilter === 'todas' ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setOwnerFilter('todas')}
+              className="shrink-0"
+            >
+              Todas as rotas
+            </Button>
+          </div>
+
           {/* Type Filter */}
+
           <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
             <Button
               variant={typeFilter === 'all' ? 'default' : 'outline'}
