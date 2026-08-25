@@ -160,8 +160,13 @@ export default function MinhasRotas() {
   const [datePopoverOpen, setDatePopoverOpen] = useState(false);
 
   const isAdminOrCoordinator = role === 'admin' || role === 'coordenador_servicos';
+  // Visibilidade: leitura nunca é filtrada no banco. "Minhas / Todas" é filtro de tela.
+  const [ownerFilter, setOwnerFilter] = useState<'minhas' | 'todas'>(
+    role === 'tecnico_campo' || role === 'tecnico_oficina' ? 'minhas' : 'todas'
+  );
   const { canDelete } = useMenuPermissions();
   const canDeleteRoute = canDelete('minhas_rotas_listagem');
+
   const queryClient = useQueryClient();
   const [deleteTarget, setDeleteTarget] = useState<
     { type: 'route'; id: string; label: string }
