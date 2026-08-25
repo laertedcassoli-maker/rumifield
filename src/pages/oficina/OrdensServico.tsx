@@ -162,9 +162,9 @@ export default function OrdensServico() {
       if (userIds.length > 0) {
         const { data: profiles } = await supabase
           .from('profiles')
-          .select('id, nome')
+          .select('id, nome, email')
           .in('id', userIds);
-        profilesMap = (profiles || []).reduce((acc, p) => ({ ...acc, [p.id]: p.nome }), {});
+        profilesMap = (profiles || []).reduce((acc, p) => ({ ...acc, [p.id]: p.nome || p.email || '-' }), {});
       }
 
       // Fetch work order items with workshop items and products

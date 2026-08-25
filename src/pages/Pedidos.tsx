@@ -58,7 +58,8 @@ export default function Pedidos() {
   const [form, setForm] = useState({ cliente_id: '', observacoes: '', urgencia: 'normal', tipo_envio: '', solenoide_modelo: '' });
   const [itens, setItens] = useState<{ peca_id: string; quantidade: number }[]>([]);
   const [autoLinkDismissed, setAutoLinkDismissed] = useState(false);
-  const [viewAll, setViewAll] = useState(false);
+  // UI-only filter: true = all orders (default), false = only mine
+  const [viewAll, setViewAll] = useState(true);
   const [solicitanteFilter, setSolicitanteFilter] = useState<string>('all');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
@@ -104,7 +105,7 @@ export default function Pedidos() {
 
   // Fetch pedidos from Supabase
   const { data: pedidos, isLoading } = useQuery({
-    queryKey: ['pedidos', user?.id, viewAll, isAdmin],
+    queryKey: ['pedidos'],
     queryFn: async () => {
       let query = supabase
         .from('pedidos')
@@ -121,9 +122,8 @@ export default function Pedidos() {
         .order('created_at', { ascending: false })
         .limit(500);
 
-      if (!isAdmin || !viewAll) {
-        query = query.eq('solicitante_id', user!.id);
-      }
+
+
 
       const { data, error } = await query;
       if (error) throw error;
@@ -149,10 +149,8 @@ export default function Pedidos() {
     refetchOnWindowFocus: true,
   });
 
-  // Auto-set viewAll for coordinators/admins
-  useEffect(() => {
-    if (isAdmin) setViewAll(true);
-  }, [isAdmin]);
+
+
 
   // Tab state for drafts vs submitted
   const [activeTab, setActiveTab] = useState<'rascunhos' | 'pedidos'>('pedidos');
@@ -253,7 +251,10 @@ export default function Pedidos() {
 
         const matchesSolicitante = solicitanteFilter === 'all' || pedido.solicitante_id === solicitanteFilter;
 
-        return matchesSearch && matchesStatus && matchesDate && matchesTipoEnvio && matchesTipoLogistica && matchesSolicitante;
+        // UI-only ownership filter (does not restrict what is read from the database)
+        const matchesOwner = viewAll || pedido.solicitante_id === user?.id;
+
+        return matchesSearch && matchesStatus && matchesDate && matchesTipoEnvio && matchesTipoLogistica && matchesSolicitante && matchesOwner;
       });
     
     filtered.sort((a, b) => {
@@ -272,7 +273,7 @@ export default function Pedidos() {
     });
     
     return filtered;
-  }, [pedidos, rascunhos, pedidosTransmitidos, activeTab, searchTerm, statusFilter, dateFilter, tipoEnvioFilter, tipoLogisticaFilter, solicitanteFilter, sortField, sortOrder]);
+  }, [pedidos, rascunhos, pedidosTransmitidos, activeTab, searchTerm, statusFilter, dateFilter, tipoEnvioFilter, tipoLogisticaFilter, solicitanteFilter, sortField, sortOrder, viewAll, user?.id]);
 
   // Paginated data (only for Transmitidos tab)
   const paginatedPedidos = useMemo(() => {
@@ -1466,8 +1467,31 @@ export default function Pedidos() {
                 </div>
               )}
 
-              {/* Solicitante filter - only for admins with viewAll */}
-              {isAdmin && viewAll && solicitantesUnicos.length > 1 && (
+              {/* Visibilidade (filtro apenas de UI) - disponível para todos os papéis */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-sm text-muted-foreground">Visualizar:</span>
+                <div className="flex gap-1">
+                  <Button
+                    variant={viewAll ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setViewAll(true)}
+                    className="h-7 text-xs"
+                  >
+                    Todos os pedidos
+                  </Button>
+                  <Button
+                    variant={!viewAll ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setViewAll(false)}
+                    className="h-7 text-xs"
+                  >
+                    Apenas os meus
+                  </Button>
+                </div>
+              </div>
+
+              {/* Solicitante filter - visível para todos os papéis */}
+              {solicitantesUnicos.length > 1 && (
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-sm text-muted-foreground">Solicitante:</span>
                   <Select value={solicitanteFilter} onValueChange={setSolicitanteFilter}>
@@ -1483,6 +1507,7 @@ export default function Pedidos() {
                   </Select>
                 </div>
               )}
+
 
               {filteredAndSortedPedidos.length > 0 && (
                 <Badge variant="outline" className="ml-2 h-6 px-2">
