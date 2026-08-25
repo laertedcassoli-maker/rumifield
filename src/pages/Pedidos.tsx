@@ -1467,8 +1467,31 @@ export default function Pedidos() {
                 </div>
               )}
 
-              {/* Solicitante filter - only for admins with viewAll */}
-              {isAdmin && viewAll && solicitantesUnicos.length > 1 && (
+              {/* Visibilidade (filtro apenas de UI) - disponível para todos os papéis */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-sm text-muted-foreground">Visualizar:</span>
+                <div className="flex gap-1">
+                  <Button
+                    variant={viewAll ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setViewAll(true)}
+                    className="h-7 text-xs"
+                  >
+                    Todos os pedidos
+                  </Button>
+                  <Button
+                    variant={!viewAll ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setViewAll(false)}
+                    className="h-7 text-xs"
+                  >
+                    Apenas os meus
+                  </Button>
+                </div>
+              </div>
+
+              {/* Solicitante filter - visível para todos os papéis */}
+              {solicitantesUnicos.length > 1 && (
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-sm text-muted-foreground">Solicitante:</span>
                   <Select value={solicitanteFilter} onValueChange={setSolicitanteFilter}>
@@ -1484,6 +1507,7 @@ export default function Pedidos() {
                   </Select>
                 </div>
               )}
+
 
               {filteredAndSortedPedidos.length > 0 && (
                 <Badge variant="outline" className="ml-2 h-6 px-2">
