@@ -768,10 +768,11 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
       // Validate motor codes if it's a motor part
       if (isMotorPart) {
         const codePattern = /^DD-\d{5}$/;
-        if (!motorCodeInstalled.trim()) {
+        // For internal-stock clients the motor code is optional
+        if (!isEstoqueInterno && !motorCodeInstalled.trim()) {
           throw new Error('Informe o código do motor novo (formato DD-XXXXX)');
         }
-        if (!codePattern.test(motorCodeInstalled)) {
+        if (motorCodeInstalled.trim() && !codePattern.test(motorCodeInstalled)) {
           throw new Error('Código do motor novo deve seguir o formato DD-XXXXX (5 dígitos)');
         }
         if (motorCodeRemoved && !codePattern.test(motorCodeRemoved)) {
