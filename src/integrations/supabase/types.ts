@@ -539,6 +539,7 @@ export type Database = {
           email: string | null
           endereco: string | null
           estado: string | null
+          estoque_interno: boolean
           fazenda: string | null
           id: string
           imilk_csm: string | null
@@ -573,6 +574,7 @@ export type Database = {
           email?: string | null
           endereco?: string | null
           estado?: string | null
+          estoque_interno?: boolean
           fazenda?: string | null
           id?: string
           imilk_csm?: string | null
@@ -607,6 +609,7 @@ export type Database = {
           email?: string | null
           endereco?: string | null
           estado?: string | null
+          estoque_interno?: boolean
           fazenda?: string | null
           id?: string
           imilk_csm?: string | null
