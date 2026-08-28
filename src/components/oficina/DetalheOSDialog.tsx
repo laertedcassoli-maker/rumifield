@@ -53,6 +53,12 @@ interface WorkOrder {
   created_by_user_id: string;
   concluded_by_user_id?: string | null;
   created_at: string;
+  cliente_id?: string | null;
+  clientes?: {
+    id: string;
+    nome: string;
+    estoque_interno: boolean;
+  } | null;
   activities?: {
     id: string;
     name: string;
@@ -198,6 +204,23 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
     },
     enabled: open,
   });
+
+  // Fetch client info to determine whether this is an internal-stock work order
+  const { data: workOrderClient } = useQuery({
+    queryKey: ['work-order-client', workOrder.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('work_orders')
+        .select('cliente_id, clientes:cliente_id (id, nome, estoque_interno)')
+        .eq('id', workOrder.id)
+        .maybeSingle();
+      if (error) throw error;
+      return data as { cliente_id: string | null; clientes: { id: string; nome: string; estoque_interno: boolean } | null } | null;
+    },
+    enabled: open,
+  });
+
+  const isEstoqueInterno = workOrderClient?.clientes?.estoque_interno === true;
 
   const saveTagsMutation = useMutation({
     mutationFn: async (tagIds: string[]) => {
@@ -745,10 +768,11 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
       // Validate motor codes if it's a motor part
       if (isMotorPart) {
         const codePattern = /^DD-\d{5}$/;
-        if (!motorCodeInstalled.trim()) {
+        // For internal-stock clients the motor code is optional
+        if (!isEstoqueInterno && !motorCodeInstalled.trim()) {
           throw new Error('Informe o código do motor novo (formato DD-XXXXX)');
         }
-        if (!codePattern.test(motorCodeInstalled)) {
+        if (motorCodeInstalled.trim() && !codePattern.test(motorCodeInstalled)) {
           throw new Error('Código do motor novo deve seguir o formato DD-XXXXX (5 dígitos)');
         }
         if (motorCodeRemoved && !codePattern.test(motorCodeRemoved)) {
@@ -1435,7 +1459,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
                 {workOrder.status !== 'concluido' && univocaItem?.workshop_item_id && !currentMotorCode && (
                   <div className="pt-2 border-t space-y-1">
                     <span className={`text-sm ${motorCodeConfirmError ? 'text-destructive font-medium' : 'text-muted-foreground'}`}>
-                      Nº Motor Atual: <span className="text-destructive">*</span>
+                      Nº Motor Atual: {!isEstoqueInterno && <span className="text-destructive">*</span>}
                     </span>
                     <Input
                       id="motor-code-confirm-input"
@@ -1662,7 +1686,8 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
                     // Validate motor code if univoca item exists
                     if (requiresMeterHours && univocaItem?.workshop_item_id && !currentMotorCode) {
                       const codePattern = /^DD-\d{5}$/;
-                      if (!motorCodeConfirm.trim()) {
+                      // For internal-stock clients the motor code is optional
+                      if (!isEstoqueInterno && !motorCodeConfirm.trim()) {
                         setMotorCodeConfirmError(true);
                         toast.error('Informe o número atual do motor antes de concluir');
                         setTimeout(() => {
@@ -1671,7 +1696,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
                         }, 100);
                         return;
                       }
-                      if (!codePattern.test(motorCodeConfirm.trim())) {
+                      if (motorCodeConfirm.trim() && !codePattern.test(motorCodeConfirm.trim())) {
                         setMotorCodeConfirmError(true);
                         toast.error('Código do motor deve seguir o formato DD-XXXXX (5 dígitos)');
                         return;
@@ -1951,7 +1976,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
                         </div>
                         <div>
                           <Label className="text-xs">
-                            Motor Novo (DD-XXXXX) <span className="text-destructive">*</span>
+                            Motor Novo (DD-XXXXX) {!isEstoqueInterno && <span className="text-destructive">*</span>}
                           </Label>
                           <Input
                             placeholder="DD-00000"
@@ -1961,6 +1986,11 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
                             maxLength={8}
                           />
                         </div>
+                        {isEstoqueInterno && (
+                          <p className="text-xs text-muted-foreground">
+                            Cliente de estoque interno — código do motor opcional.
+                          </p>
+                        )}
                       </div>
                     </div>
                   );
