@@ -1976,7 +1976,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
                         </div>
                         <div>
                           <Label className="text-xs">
-                            Motor Novo (DD-XXXXX) <span className="text-destructive">*</span>
+                            Motor Novo (DD-XXXXX) {!isEstoqueInterno && <span className="text-destructive">*</span>}
                           </Label>
                           <Input
                             placeholder="DD-00000"
@@ -1986,6 +1986,11 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
                             maxLength={8}
                           />
                         </div>
+                        {isEstoqueInterno && (
+                          <p className="text-xs text-muted-foreground">
+                            Cliente de estoque interno — código do motor opcional.
+                          </p>
+                        )}
                       </div>
                     </div>
                   );
