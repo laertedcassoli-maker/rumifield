@@ -205,6 +205,23 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
     enabled: open,
   });
 
+  // Fetch client info to determine whether this is an internal-stock work order
+  const { data: workOrderClient } = useQuery({
+    queryKey: ['work-order-client', workOrder.id],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('work_orders')
+        .select('cliente_id, clientes:cliente_id (id, nome, estoque_interno)')
+        .eq('id', workOrder.id)
+        .maybeSingle();
+      if (error) throw error;
+      return data as { cliente_id: string | null; clientes: { id: string; nome: string; estoque_interno: boolean } | null } | null;
+    },
+    enabled: open,
+  });
+
+  const isEstoqueInterno = workOrderClient?.clientes?.estoque_interno === true;
+
   const saveTagsMutation = useMutation({
     mutationFn: async (tagIds: string[]) => {
       const { error: delErr } = await supabase
