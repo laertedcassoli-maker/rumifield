@@ -1459,7 +1459,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
                 {workOrder.status !== 'concluido' && univocaItem?.workshop_item_id && !currentMotorCode && (
                   <div className="pt-2 border-t space-y-1">
                     <span className={`text-sm ${motorCodeConfirmError ? 'text-destructive font-medium' : 'text-muted-foreground'}`}>
-                      Nº Motor Atual: <span className="text-destructive">*</span>
+                      Nº Motor Atual: {!isEstoqueInterno && <span className="text-destructive">*</span>}
                     </span>
                     <Input
                       id="motor-code-confirm-input"
