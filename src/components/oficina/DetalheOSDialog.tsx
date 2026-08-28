@@ -1686,7 +1686,8 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
                     // Validate motor code if univoca item exists
                     if (requiresMeterHours && univocaItem?.workshop_item_id && !currentMotorCode) {
                       const codePattern = /^DD-\d{5}$/;
-                      if (!motorCodeConfirm.trim()) {
+                      // For internal-stock clients the motor code is optional
+                      if (!isEstoqueInterno && !motorCodeConfirm.trim()) {
                         setMotorCodeConfirmError(true);
                         toast.error('Informe o número atual do motor antes de concluir');
                         setTimeout(() => {
@@ -1695,7 +1696,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
                         }, 100);
                         return;
                       }
-                      if (!codePattern.test(motorCodeConfirm.trim())) {
+                      if (motorCodeConfirm.trim() && !codePattern.test(motorCodeConfirm.trim())) {
                         setMotorCodeConfirmError(true);
                         toast.error('Código do motor deve seguir o formato DD-XXXXX (5 dígitos)');
                         return;
