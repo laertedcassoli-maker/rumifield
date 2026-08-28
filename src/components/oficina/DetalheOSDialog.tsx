@@ -53,6 +53,12 @@ interface WorkOrder {
   created_by_user_id: string;
   concluded_by_user_id?: string | null;
   created_at: string;
+  cliente_id?: string | null;
+  clientes?: {
+    id: string;
+    nome: string;
+    estoque_interno: boolean;
+  } | null;
   activities?: {
     id: string;
     name: string;
