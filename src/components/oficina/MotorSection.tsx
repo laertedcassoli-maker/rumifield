@@ -32,6 +32,8 @@ interface MotorSectionProps {
   workshopItemId: string;
   isAdmin: boolean;
   currentMeterValue?: number;
+  /** Motor milestone as of this OS (ignores later replacements). */
+  motorMilestoneOverride?: number;
   workOrderId?: string;
   workOrderStatus?: 'aguardando' | 'em_manutencao' | 'concluido';
 }
@@ -40,6 +42,7 @@ export function MotorSection({
   workshopItemId, 
   isAdmin, 
   currentMeterValue,
+  motorMilestoneOverride,
   workOrderId,
   workOrderStatus 
 }: MotorSectionProps) {
