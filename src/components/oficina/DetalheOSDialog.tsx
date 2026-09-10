@@ -917,10 +917,10 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
               .eq('id', univocaItem.workshop_item_id)
               .single();
 
-            // Calculate how many hours the old motor was used
-            const previousMilestone = currentWorkshopItem?.motor_replaced_at_meter_hours ?? 
-                                      univocaItem.workshop_items?.meter_hours_last ?? 
-                                      0;
+            // Calculate how many hours the old motor was used.
+            // No replacement milestone = original motor => count from 0,
+            // never from the last meter reading.
+            const previousMilestone = currentWorkshopItem?.motor_replaced_at_meter_hours ?? 0;
             const motorHoursUsed = meterValue - previousMilestone;
 
             // Get motor codes from parts used in this OS
