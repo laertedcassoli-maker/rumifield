@@ -428,6 +428,29 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
     enabled: open,
   });
 
+  // Fetch the last meter reading BEFORE this OS was created (excludes readings
+  // from this OS itself and from later OSes). If none exists, the asset had no
+  // prior reading — the "Última Leitura" block must be hidden.
+  const univocaWorkshopItemId = workOrderItems.find(item => item.workshop_item_id)?.workshop_item_id ?? null;
+  const { data: previousMeterReading = null } = useQuery({
+    queryKey: ['previous-meter-reading', workOrder.id, univocaWorkshopItemId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('asset_meter_readings')
+        .select('reading_value, measured_at')
+        .eq('workshop_item_id', univocaWorkshopItemId!)
+        .neq('work_order_id', workOrder.id)
+        .lt('measured_at', workOrder.created_at)
+        .order('measured_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      return data as { reading_value: number; measured_at: string } | null;
+    },
+    enabled: open && !!univocaWorkshopItemId,
+  });
+
+
   // Fetch activity_products to check if requires_meter_hours
   const { data: activityProducts = [] } = useQuery({
     queryKey: ['activity-products', workOrder.activity_id],
