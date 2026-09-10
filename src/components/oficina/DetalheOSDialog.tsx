@@ -1411,13 +1411,14 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
                     )}
                   </div>
 
-                  {/* Meter readings section - subtle */}
+                  {/* Meter readings section - scoped to THIS OS (never future data) */}
                   {(() => {
-                    const totalHours = univocaItem.workshop_items?.meter_hours_last ?? univocaItem.meter_hours_entry;
-                    const motorReplacedAt = univocaItem.workshop_items?.motor_replaced_at_meter_hours;
-                    const motorHours = totalHours != null 
+                    const totalHours = univocaItem.meter_hours_entry ?? previousMeterReading?.reading_value ?? null;
+                    const motorReplacedAt = priorMotorMilestone;
+                    const motorHours = totalHours != null
                       ? (motorReplacedAt != null ? totalHours - motorReplacedAt : totalHours)
                       : null;
+
                     
                     return (
                       <div className="mt-2 space-y-1 text-sm">
