@@ -1435,20 +1435,20 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
                 </div>
 
                 <div className="grid grid-cols-2 gap-3 text-sm">
-                  {/* Previous reading */}
-                  <div>
-                    <span className="text-muted-foreground">Última Leitura:</span>
-                    <p className="font-mono font-medium">
-                      {univocaItem.workshop_items?.meter_hours_last != null 
-                        ? `${univocaItem.workshop_items.meter_hours_last}h` 
-                        : <span className="text-muted-foreground italic">-</span>}
-                    </p>
-                    {univocaItem.workshop_items?.meter_hours_updated_at && (
-                      <p className="text-xs text-muted-foreground">
-                        {format(new Date(univocaItem.workshop_items.meter_hours_updated_at), "dd/MM/yy", { locale: ptBR })}
+                  {/* Previous reading — hidden until the asset has one */}
+                  {univocaItem.workshop_items?.meter_hours_last != null && (
+                    <div>
+                      <span className="text-muted-foreground">Última Leitura:</span>
+                      <p className="font-mono font-medium">
+                        {univocaItem.workshop_items.meter_hours_last}h
                       </p>
-                    )}
-                  </div>
+                      {univocaItem.workshop_items?.meter_hours_updated_at && (
+                        <p className="text-xs text-muted-foreground">
+                          {format(new Date(univocaItem.workshop_items.meter_hours_updated_at), "dd/MM/yy", { locale: ptBR })}
+                        </p>
+                      )}
+                    </div>
+                  )}
                   
                   {/* Current reading */}
                   <div>
