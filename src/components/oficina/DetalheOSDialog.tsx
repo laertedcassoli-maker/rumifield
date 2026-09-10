@@ -450,6 +450,28 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
     enabled: open && !!univocaWorkshopItemId,
   });
 
+  // Motor replacements that happened BEFORE this OS (never later ones — a future
+  // replacement must not change the numbers shown on an older OS).
+  const { data: priorMotorMilestone = null } = useQuery({
+    queryKey: ['prior-motor-milestone', workOrder.id, univocaWorkshopItemId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('motor_replacement_history')
+        .select('replaced_at_meter_hours, replaced_at, work_order_id')
+        .eq('workshop_item_id', univocaWorkshopItemId!)
+        .neq('work_order_id', workOrder.id)
+        .lt('replaced_at', workOrder.created_at)
+        .order('replaced_at_meter_hours', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      return (data?.replaced_at_meter_hours ?? null) as number | null;
+    },
+    enabled: open && !!univocaWorkshopItemId,
+  });
+
+
+
 
   // Fetch activity_products to check if requires_meter_hours
   const { data: activityProducts = [] } = useQuery({
@@ -1389,13 +1411,14 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
                     )}
                   </div>
 
-                  {/* Meter readings section - subtle */}
+                  {/* Meter readings section - scoped to THIS OS (never future data) */}
                   {(() => {
-                    const totalHours = univocaItem.workshop_items?.meter_hours_last ?? univocaItem.meter_hours_entry;
-                    const motorReplacedAt = univocaItem.workshop_items?.motor_replaced_at_meter_hours;
-                    const motorHours = totalHours != null 
+                    const totalHours = univocaItem.meter_hours_entry ?? previousMeterReading?.reading_value ?? null;
+                    const motorReplacedAt = priorMotorMilestone;
+                    const motorHours = totalHours != null
                       ? (motorReplacedAt != null ? totalHours - motorReplacedAt : totalHours)
                       : null;
+
                     
                     return (
                       <div className="mt-2 space-y-1 text-sm">
