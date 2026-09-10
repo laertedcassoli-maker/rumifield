@@ -1128,7 +1128,17 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
   // reopened before completion): the saved part is the source of truth for the
   // replacement branch in completeOSMutation, so the toggle must reflect it.
   useEffect(() => {
-    if (!motorPartInThisOS || workOrder.status === 'concluido') return;
+    if (workOrder.status === 'concluido') return;
+    if (!motorPartInThisOS) {
+      // Motor part was removed: revert UI to the "no replacement" state so
+      // motorCodeConfirm (persisted on completion in this branch) doesn't keep
+      // the removed motor's code.
+      setIsMotorReplacement(false);
+      setMotorCodeRemoved('');
+      setMotorCodeInstalled('');
+      setMotorCodeConfirm('');
+      return;
+    }
     setIsMotorReplacement(true);
     setMotorCodeRemoved(motorPartInThisOS.motor_code_removed ?? '');
     setMotorCodeInstalled(motorPartInThisOS.motor_code_installed ?? '');
