@@ -470,6 +470,26 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
     enabled: open && !!univocaWorkshopItemId,
   });
 
+  // Reading recorded BY this OS itself (this is the "current" value for this OS).
+  const { data: ownMeterReading = null } = useQuery({
+    queryKey: ['own-meter-reading', workOrder.id, univocaWorkshopItemId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('asset_meter_readings')
+        .select('reading_value, measured_at')
+        .eq('workshop_item_id', univocaWorkshopItemId!)
+        .eq('work_order_id', workOrder.id)
+        .order('measured_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw error;
+      return data as { reading_value: number; measured_at: string } | null;
+    },
+    enabled: open && !!univocaWorkshopItemId,
+  });
+
+
+
 
 
 
