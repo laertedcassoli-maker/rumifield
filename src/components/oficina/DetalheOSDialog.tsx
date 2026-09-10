@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -85,6 +85,8 @@ interface PartUsed {
   omie_product_id: string;
   quantity: number;
   notes: string | null;
+  motor_code_removed?: string | null;
+  motor_code_installed?: string | null;
   pecas?: {
     nome: string;
     codigo: string;
@@ -1114,9 +1116,11 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
   });
 
   // Check if any part contains "motor" in name - for visual indicator
-  const hasMotorPart = partsUsed.some(part => 
-    part.pecas?.nome?.toLowerCase().includes('motor')
+  const motorPartInThisOS = useMemo(
+    () => partsUsed.find(part => part.pecas?.nome?.toLowerCase().includes('motor')) ?? null,
+    [partsUsed]
   );
+  const hasMotorPart = Boolean(motorPartInThisOS);
 
   const formatTime = (seconds: number) => {
     const hours = Math.floor(seconds / 3600);
