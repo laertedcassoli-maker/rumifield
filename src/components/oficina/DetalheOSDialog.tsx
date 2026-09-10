@@ -1458,16 +1458,16 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
                 </div>
 
                 <div className="grid grid-cols-2 gap-3 text-sm">
-                  {/* Previous reading — hidden until the asset has one */}
-                  {univocaItem.workshop_items?.meter_hours_last != null && (
+                  {/* Previous reading — only if the asset had a reading before this OS */}
+                  {previousMeterReading != null && (
                     <div>
                       <span className="text-muted-foreground">Última Leitura:</span>
                       <p className="font-mono font-medium">
-                        {univocaItem.workshop_items.meter_hours_last}h
+                        {previousMeterReading.reading_value}h
                       </p>
-                      {univocaItem.workshop_items?.meter_hours_updated_at && (
+                      {previousMeterReading.measured_at && (
                         <p className="text-xs text-muted-foreground">
-                          {format(new Date(univocaItem.workshop_items.meter_hours_updated_at), "dd/MM/yy", { locale: ptBR })}
+                          {format(new Date(previousMeterReading.measured_at), "dd/MM/yy", { locale: ptBR })}
                         </p>
                       )}
                     </div>
