@@ -1613,10 +1613,16 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
               <MotorSection 
                 workshopItemId={univocaItem.workshop_item_id} 
                 isAdmin={isAdmin}
-                currentMeterValue={meterHoursCurrent ? parseFloat(meterHoursCurrent) : undefined}
+                currentMeterValue={
+                  meterHoursCurrent
+                    ? parseFloat(meterHoursCurrent)
+                    : (ownMeterReading?.reading_value ?? previousMeterReading?.reading_value ?? undefined)
+                }
+                motorMilestoneOverride={priorMotorMilestone ?? 0}
                 workOrderId={workOrder.id}
                 workOrderStatus={workOrder.status}
               />
+
             )}
 
             {/* Parts Used Section */}
