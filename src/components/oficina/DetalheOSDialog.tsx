@@ -907,7 +907,9 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
         // Update workshop item meter hours
         if (univocaItem.workshop_item_id) {
           // If motor was replaced, record history BEFORE updating the milestone
-          if (isMotorReplacement) {
+          // Source of truth: persisted motor part in work_order_parts_used,
+          // not the UI-only isMotorReplacement flag (reset on dialog reopen)
+          if (motorPartInThisOS) {
             // Get current workshop item data to calculate motor hours used
             const { data: currentWorkshopItem } = await supabase
               .from('workshop_items')
@@ -1056,7 +1058,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
               work_order_id: workOrder.id,
               reading_value: meterValue,
               user_id: user?.id,
-              notes: isMotorReplacement ? 'Troca de motor realizada' : null,
+              notes: motorPartInThisOS ? 'Troca de motor realizada' : null,
             });
           if (readingError) throw readingError;
         }
@@ -1121,6 +1123,18 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
     [partsUsed]
   );
   const hasMotorPart = Boolean(motorPartInThisOS);
+
+  // Sync UI state when the OS already has a persisted motor part (e.g. dialog
+  // reopened before completion): the saved part is the source of truth for the
+  // replacement branch in completeOSMutation, so the toggle must reflect it.
+  useEffect(() => {
+    if (!motorPartInThisOS || workOrder.status === 'concluido') return;
+    setIsMotorReplacement(true);
+    setMotorCodeRemoved(motorPartInThisOS.motor_code_removed ?? '');
+    setMotorCodeInstalled(motorPartInThisOS.motor_code_installed ?? '');
+    setMotorCodeConfirm(motorPartInThisOS.motor_code_installed || currentMotorCode);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [motorPartInThisOS?.id, workOrder.id, workOrder.status]);
 
   const formatTime = (seconds: number) => {
     const hours = Math.floor(seconds / 3600);
@@ -1495,7 +1509,10 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
                         ? 'bg-amber-50 dark:bg-amber-950/30 border-amber-300 dark:border-amber-700' 
                         : 'hover:bg-muted/50'
                     }`}
-                    onClick={() => setIsMotorReplacement(!isMotorReplacement)}
+                    onClick={() => {
+                      // Persisted motor part locks the toggle ON (source of truth)
+                      if (!motorPartInThisOS) setIsMotorReplacement(!isMotorReplacement);
+                    }}
                   >
                     <div className="flex items-center gap-2">
                       <Wrench className={`h-4 w-4 ${isMotorReplacement ? 'text-amber-700 dark:text-amber-300' : 'text-muted-foreground'}`} />
