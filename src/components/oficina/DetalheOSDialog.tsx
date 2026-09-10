@@ -1433,7 +1433,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
 
                   {/* Meter readings section - scoped to THIS OS (never future data) */}
                   {(() => {
-                    const totalHours = univocaItem.meter_hours_entry ?? previousMeterReading?.reading_value ?? null;
+                    const totalHours = ownMeterReading?.reading_value ?? univocaItem.meter_hours_entry ?? previousMeterReading?.reading_value ?? null;
                     const motorReplacedAt = priorMotorMilestone;
                     const motorHours = totalHours != null
                       ? (motorReplacedAt != null ? totalHours - motorReplacedAt : totalHours)
