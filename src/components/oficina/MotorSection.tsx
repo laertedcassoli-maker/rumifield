@@ -153,7 +153,7 @@ export function MotorSection({
     // OS em andamento ou sem troca - mostrar motor ATUAL
     const currentMotorCode = (workshopItem as { current_motor_code?: string | null } | undefined)?.current_motor_code;
     const meterHoursLast = workshopItem?.meter_hours_last ?? 0;
-    const motorReplacedAt = workshopItem?.motor_replaced_at_meter_hours ?? 0;
+    const motorReplacedAt = motorMilestoneOverride ?? workshopItem?.motor_replaced_at_meter_hours ?? 0;
     const effectiveMeter = currentMeterValue ?? meterHoursLast;
     
     displayMotorCode = currentMotorCode ?? null;
