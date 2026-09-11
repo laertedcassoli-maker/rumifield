@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { format } from 'date-fns';
+import { differenceInCalendarDays } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -20,6 +20,7 @@ interface WorkshopItemRow {
 }
 
 interface MotorHistoryRow {
+  id: string;
   workshop_item_id: string | null;
   old_motor_code: string | null;
   new_motor_code: string | null;
@@ -52,13 +53,23 @@ export function SaudeAtivosMotores() {
   const { data: history = [], isLoading: loadingHistory } = useQuery({
     queryKey: ['gestao-os-motor-history'],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from('motor_replacement_history')
-        .select('workshop_item_id, old_motor_code, new_motor_code, motor_hours_used, replaced_at')
-        .order('replaced_at', { ascending: false })
-        .limit(10);
-      if (error) throw error;
-      return (data || []) as MotorHistoryRow[];
+      const pageSize = 1000;
+      const allRows: MotorHistoryRow[] = [];
+
+      for (let from = 0; ; from += pageSize) {
+        const { data, error } = await supabase
+          .from('motor_replacement_history')
+          .select('id, workshop_item_id, old_motor_code, new_motor_code, motor_hours_used, replaced_at')
+          .order('replaced_at', { ascending: true })
+          .range(from, from + pageSize - 1);
+        if (error) throw error;
+
+        const page = (data || []) as MotorHistoryRow[];
+        allRows.push(...page);
+        if (page.length < pageSize) break;
+      }
+
+      return allRows;
     },
   });
 
@@ -79,6 +90,75 @@ export function SaudeAtivosMotores() {
     items.forEach(it => m.set(it.id, it));
     return m;
   }, [items]);
+
+  const motorLifetime = useMemo(() => {
+    type Cycle = {
+      workshopItemId: string;
+      hours: number;
+      days: number;
+    };
+
+    const historyByItem = new Map<string, MotorHistoryRow[]>();
+
+    history.forEach(entry => {
+      if (!entry.workshop_item_id) return;
+      const entries = historyByItem.get(entry.workshop_item_id) || [];
+      entries.push(entry);
+      historyByItem.set(entry.workshop_item_id, entries);
+    });
+
+    const cycles: Cycle[] = [];
+    historyByItem.forEach((entries, workshopItemId) => {
+      if (entries.length < 2) return;
+
+      const ordered = [...entries].sort(
+        (a, b) => new Date(a.replaced_at || 0).getTime() - new Date(b.replaced_at || 0).getTime(),
+      );
+
+      for (let index = 0; index < ordered.length - 1; index += 1) {
+        const installation = ordered[index];
+        const removal = ordered[index + 1];
+        if (!installation.replaced_at || !removal.replaced_at || removal.motor_hours_used == null) continue;
+
+        const hours = Number(removal.motor_hours_used);
+        const days = differenceInCalendarDays(new Date(removal.replaced_at), new Date(installation.replaced_at));
+        if (!Number.isFinite(hours) || hours < 0 || days < 0) continue;
+
+        cycles.push({ workshopItemId, hours, days });
+      }
+    });
+
+    const byItem = new Map<string, { count: number; totalHours: number; totalDays: number }>();
+    cycles.forEach(cycle => {
+      const aggregate = byItem.get(cycle.workshopItemId) || { count: 0, totalHours: 0, totalDays: 0 };
+      aggregate.count += 1;
+      aggregate.totalHours += cycle.hours;
+      aggregate.totalDays += cycle.days;
+      byItem.set(cycle.workshopItemId, aggregate);
+    });
+
+    const rowsByItem = Array.from(byItem.entries())
+      .map(([workshopItemId, aggregate]) => ({
+        workshopItemId,
+        assetCode: itemsById.get(workshopItemId)?.unique_code || '—',
+        cycleCount: aggregate.count,
+        averageHours: aggregate.totalHours / aggregate.count,
+        averageDays: aggregate.totalDays / aggregate.count,
+      }))
+      .sort((a, b) => b.averageHours - a.averageHours || a.assetCode.localeCompare(b.assetCode));
+
+    const totalHours = cycles.reduce((sum, cycle) => sum + cycle.hours, 0);
+    const totalDays = cycles.reduce((sum, cycle) => sum + cycle.days, 0);
+
+    return {
+      cycleCount: cycles.length,
+      averageHours: cycles.length > 0 ? totalHours / cycles.length : 0,
+      averageDays: cycles.length > 0 ? totalDays / cycles.length : 0,
+      rowsByItem,
+    };
+  }, [history, itemsById]);
+
+  const formatAverage = (value: number) => value.toLocaleString('pt-BR', { maximumFractionDigits: 1 });
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -108,9 +188,9 @@ export function SaudeAtivosMotores() {
                       <td className="py-2 pr-2 font-medium">{r.unique_code || '—'}</td>
                       <td className="py-2 pr-2">{r.current_motor_code || '—'}</td>
                       <td className="py-2 pr-2 text-right tabular-nums">
-                        {r.hoursSinceReplacement!.toLocaleString('pt-BR', { maximumFractionDigits: 1 })} h
+                        {Number(r.hoursSinceReplacement).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} h
                       </td>
-                      <td className="py-2">{badgeForHours(r.hoursSinceReplacement!)}</td>
+                      <td className="py-2">{badgeForHours(Number(r.hoursSinceReplacement))}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -122,46 +202,54 @@ export function SaudeAtivosMotores() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Últimas trocas de motor</CardTitle>
+          <CardTitle className="text-base">Tempo médio de vida útil do motor</CardTitle>
         </CardHeader>
         <CardContent>
           {loadingHistory ? (
             <p className="text-sm text-muted-foreground">Carregando…</p>
-          ) : history.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Nenhuma troca registrada.</p>
+          ) : motorLifetime.cycleCount === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              Ainda não há ativos com duas trocas consecutivas válidas para calcular a vida útil.
+            </p>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="text-left text-xs text-muted-foreground border-b">
-                    <th className="py-2 pr-2">Ativo</th>
-                    <th className="py-2 pr-2">Motor anterior → novo</th>
-                    <th className="py-2 pr-2 text-right">Horas de uso</th>
-                    <th className="py-2">Data</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {history.map((h, idx) => {
-                    const item = h.workshop_item_id ? itemsById.get(h.workshop_item_id) : null;
-                    return (
-                      <tr key={idx} className="border-b last:border-0">
-                        <td className="py-2 pr-2 font-medium">{item?.unique_code || '—'}</td>
-                        <td className="py-2 pr-2">
-                          {(h.old_motor_code || '—')} → {(h.new_motor_code || '—')}
-                        </td>
-                        <td className="py-2 pr-2 text-right tabular-nums">
-                          {h.motor_hours_used != null
-                            ? `${Number(h.motor_hours_used).toLocaleString('pt-BR', { maximumFractionDigits: 1 })} h`
-                            : '—'}
-                        </td>
-                        <td className="py-2">
-                          {h.replaced_at ? format(new Date(h.replaced_at), 'dd/MM/yyyy') : '—'}
-                        </td>
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 border-b pb-4">
+                <div>
+                  <p className="text-xs text-muted-foreground">Média em horas</p>
+                  <p className="text-xl font-semibold tabular-nums">{formatAverage(motorLifetime.averageHours)} h</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Média em dias</p>
+                  <p className="text-xl font-semibold tabular-nums">{formatAverage(motorLifetime.averageDays)} dias</p>
+                </div>
+                <div>
+                  <p className="text-xs text-muted-foreground">Ciclos completos</p>
+                  <p className="text-xl font-semibold tabular-nums">{motorLifetime.cycleCount}</p>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-left text-xs text-muted-foreground border-b">
+                      <th className="py-2 pr-2">Ativo</th>
+                      <th className="py-2 pr-2 text-right">Ciclos</th>
+                      <th className="py-2 pr-2 text-right">Média em horas</th>
+                      <th className="py-2 text-right">Média em dias</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {motorLifetime.rowsByItem.map(row => (
+                      <tr key={row.workshopItemId} className="border-b last:border-0">
+                        <td className="py-2 pr-2 font-medium">{row.assetCode}</td>
+                        <td className="py-2 pr-2 text-right tabular-nums">{row.cycleCount}</td>
+                        <td className="py-2 pr-2 text-right tabular-nums">{formatAverage(row.averageHours)} h</td>
+                        <td className="py-2 text-right tabular-nums">{formatAverage(row.averageDays)} dias</td>
                       </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           )}
         </CardContent>
