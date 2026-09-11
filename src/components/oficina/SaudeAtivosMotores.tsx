@@ -220,7 +220,7 @@ export function SaudeAtivosMotores() {
             <p className="text-sm text-muted-foreground">Carregando…</p>
           ) : motorLifetime.cycleCount === 0 ? (
             <p className="text-sm text-muted-foreground">
-              Ainda não há ativos com duas trocas consecutivas válidas para calcular a vida útil.
+              Ainda não há trocas de motor registradas para calcular a vida útil.
             </p>
           ) : (
             <div className="space-y-4">
@@ -231,13 +231,19 @@ export function SaudeAtivosMotores() {
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground">Média em dias</p>
-                  <p className="text-xl font-semibold tabular-nums">{formatAverage(motorLifetime.averageDays)} dias</p>
+                  <p className="text-xl font-semibold tabular-nums">
+                    {motorLifetime.averageDays != null ? `${formatAverage(motorLifetime.averageDays)} dias` : '—'}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground">
+                    {motorLifetime.daysCycleCount} troca(s) com data de instalação conhecida
+                  </p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Ciclos completos</p>
+                  <p className="text-xs text-muted-foreground">Trocas consideradas</p>
                   <p className="text-xl font-semibold tabular-nums">{motorLifetime.cycleCount}</p>
                 </div>
               </div>
+
 
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
