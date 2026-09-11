@@ -101,6 +101,7 @@ interface WorkOrderItem {
   omie_product_id: string | null;
   meter_hours_entry: number | null;
   meter_hours_exit: number | null;
+  meter_damaged?: boolean | null;
   workshop_items?: {
     unique_code: string;
     meter_hours_last: number | null;
@@ -169,6 +170,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
   const [motorCodeInstalled, setMotorCodeInstalled] = useState('');
   const [motorWasOriginal, setMotorWasOriginal] = useState(false);
   const [meterHoursCurrent, setMeterHoursCurrent] = useState('');
+  const [meterDamaged, setMeterDamaged] = useState(false);
   const [isMotorReplacement, setIsMotorReplacement] = useState(false);
   const [timeHistoryOpen, setTimeHistoryOpen] = useState(false);
   const [meterHoursError, setMeterHoursError] = useState(false);
@@ -284,6 +286,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
   useEffect(() => {
     setLocalTotalSeconds(workOrder.total_time_seconds);
     setMeterHoursCurrent('');
+    setMeterDamaged(false);
     setMotorCodeConfirm('');
     setMotorCodeRemoved('');
     setMotorCodeInstalled('');
@@ -440,9 +443,10 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
     queryFn: async () => {
       const { data, error } = await supabase
         .from('asset_meter_readings')
-        .select('reading_value, measured_at')
+        .select('reading_value, measured_at, meter_damaged')
         .eq('workshop_item_id', univocaWorkshopItemId!)
         .neq('work_order_id', workOrder.id)
+        .eq('meter_damaged', false)
         .lt('measured_at', workOrder.created_at)
         .order('measured_at', { ascending: false })
         .limit(1)
@@ -479,14 +483,14 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
     queryFn: async () => {
       const { data, error } = await supabase
         .from('asset_meter_readings')
-        .select('reading_value, measured_at')
+        .select('reading_value, measured_at, meter_damaged')
         .eq('workshop_item_id', univocaWorkshopItemId!)
         .eq('work_order_id', workOrder.id)
         .order('measured_at', { ascending: false })
         .limit(1)
         .maybeSingle();
       if (error) throw error;
-      return data as { reading_value: number; measured_at: string } | null;
+      return data as { reading_value: number; measured_at: string; meter_damaged: boolean | null } | null;
     },
     enabled: open && !!univocaWorkshopItemId,
   });
