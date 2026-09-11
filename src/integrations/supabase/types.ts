@@ -175,6 +175,7 @@ export type Database = {
           created_at: string
           id: string
           measured_at: string
+          meter_damaged: boolean
           meter_type: Database["public"]["Enums"]["meter_type"]
           notes: string | null
           reading_unit: string
@@ -187,6 +188,7 @@ export type Database = {
           created_at?: string
           id?: string
           measured_at?: string
+          meter_damaged?: boolean
           meter_type?: Database["public"]["Enums"]["meter_type"]
           notes?: string | null
           reading_unit?: string
@@ -199,6 +201,7 @@ export type Database = {
           created_at?: string
           id?: string
           measured_at?: string
+          meter_damaged?: boolean
           meter_type?: Database["public"]["Enums"]["meter_type"]
           notes?: string | null
           reading_unit?: string
@@ -1717,7 +1720,8 @@ export type Database = {
         Row: {
           created_at: string
           id: string
-          motor_hours_used: number
+          motor_hours_unknown: boolean
+          motor_hours_used: number | null
           new_motor_code: string | null
           notes: string | null
           old_motor_code: string | null
@@ -1732,7 +1736,8 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
-          motor_hours_used: number
+          motor_hours_unknown?: boolean
+          motor_hours_used?: number | null
           new_motor_code?: string | null
           notes?: string | null
           old_motor_code?: string | null
@@ -1747,7 +1752,8 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
-          motor_hours_used?: number
+          motor_hours_unknown?: boolean
+          motor_hours_used?: number | null
           new_motor_code?: string | null
           notes?: string | null
           old_motor_code?: string | null
@@ -3594,6 +3600,7 @@ export type Database = {
         Row: {
           created_at: string
           id: string
+          meter_damaged: boolean
           meter_hours_entry: number | null
           meter_hours_exit: number | null
           notes: string | null
@@ -3606,6 +3613,7 @@ export type Database = {
         Insert: {
           created_at?: string
           id?: string
+          meter_damaged?: boolean
           meter_hours_entry?: number | null
           meter_hours_exit?: number | null
           notes?: string | null
@@ -3618,6 +3626,7 @@ export type Database = {
         Update: {
           created_at?: string
           id?: string
+          meter_damaged?: boolean
           meter_hours_entry?: number | null
           meter_hours_exit?: number | null
           notes?: string | null
