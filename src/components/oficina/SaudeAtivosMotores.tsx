@@ -26,6 +26,7 @@ interface MotorHistoryRow {
   new_motor_code: string | null;
   motor_hours_used: number | null;
   replaced_at: string | null;
+  was_original_motor: boolean | null;
 }
 
 function badgeForHours(hours: number) {
@@ -59,7 +60,7 @@ export function SaudeAtivosMotores() {
       for (let from = 0; ; from += pageSize) {
         const { data, error } = await supabase
           .from('motor_replacement_history')
-          .select('id, workshop_item_id, old_motor_code, new_motor_code, motor_hours_used, replaced_at')
+          .select('id, workshop_item_id, old_motor_code, new_motor_code, motor_hours_used, replaced_at, was_original_motor')
           .order('replaced_at', { ascending: true })
           .range(from, from + pageSize - 1);
         if (error) throw error;
@@ -119,8 +120,14 @@ export function SaudeAtivosMotores() {
         const hours = Number(removal.motor_hours_used);
         if (!Number.isFinite(hours) || hours < 0) return;
 
-        // Primeira troca: motor original, sem data de instalação comprovada — desconsiderado
-        if (index === 0) return;
+        if (index === 0) {
+          // Primeira troca: só entra quando confirmada como motor original na OS.
+          // Sem data de instalação conhecida, contribui apenas com horas.
+          if (removal.was_original_motor === true) {
+            cycles.push({ workshopItemId, hours, days: null });
+          }
+          return;
+        }
 
         const installation = ordered[index - 1];
         if (!installation.replaced_at) return;
@@ -217,7 +224,8 @@ export function SaudeAtivosMotores() {
             <p className="text-sm text-muted-foreground">Carregando…</p>
           ) : motorLifetime.cycleCount === 0 ? (
             <p className="text-sm text-muted-foreground">
-              Sem ciclos completos: é necessário ao menos duas trocas de motor no mesmo ativo para calcular a vida útil.
+              Sem ciclos completos: é necessário ao menos duas trocas de motor no mesmo ativo, ou uma troca marcada como
+              "Motor original?" na OS.
             </p>
           ) : (
             <div className="space-y-4">
