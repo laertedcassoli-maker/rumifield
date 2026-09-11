@@ -1463,7 +1463,11 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
 
                   {/* Meter readings section - scoped to THIS OS (never future data) */}
                   {(() => {
-                    const totalHours = ownMeterReading?.reading_value ?? univocaItem.meter_hours_entry ?? previousMeterReading?.reading_value ?? null;
+                    // A damaged-meter reading is 0 by convention, never real hours
+                    const ownValue = ownMeterReading && !ownMeterReading.meter_damaged
+                      ? ownMeterReading.reading_value
+                      : null;
+                    const totalHours = ownValue ?? univocaItem.meter_hours_entry ?? previousMeterReading?.reading_value ?? null;
                     const motorReplacedAt = priorMotorMilestone;
                     const motorHours = totalHours != null
                       ? (motorReplacedAt != null ? totalHours - motorReplacedAt : totalHours)
@@ -1872,8 +1876,8 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
                       setMotorCodeConfirmError(false);
                     }
 
-                    // Validate meter hours if required
-                    if (requiresMeterHours) {
+                    // Validate meter hours if required (skipped when the meter is damaged)
+                    if (requiresMeterHours && !meterDamaged) {
                       const currentValue = parseFloat(meterHoursCurrent);
                       const lastValue = univocaItem?.workshop_items?.meter_hours_last ?? 0;
                       
