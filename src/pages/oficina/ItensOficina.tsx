@@ -53,7 +53,7 @@ interface MeterReading {
 interface MotorReplacement {
   id: string;
   replaced_at_meter_hours: number;
-  motor_hours_used: number;
+  motor_hours_used: number | null;
   replaced_at: string;
   work_order_id: string | null;
   notes: string | null;
@@ -531,7 +531,9 @@ export default function ItensOficina() {
                         <div className="flex items-center gap-2">
                           <Wrench className="h-4 w-4 text-amber-600" />
                           <span className="font-medium text-amber-800 dark:text-amber-200">
-                            Motor durou {replacement.motor_hours_used}h
+                            {replacement.motor_hours_used != null
+                              ? `Motor durou ${replacement.motor_hours_used}h`
+                              : 'Motor trocado — horas desconhecidas'}
                           </span>
                         </div>
                         {replacement.work_order_id && (
