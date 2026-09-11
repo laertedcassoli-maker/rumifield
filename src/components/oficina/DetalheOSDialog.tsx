@@ -1093,12 +1093,16 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
               }
             }
 
-            // Update workshop item with new motor code if provided
+            // Update workshop item with new motor code if provided.
+            // Damaged meter: preserve the asset history — never write the fake 0
+            // as last reading nor as the motor milestone.
             const workshopUpdate: Record<string, unknown> = {
-              meter_hours_last: meterValue,
               status: 'disponivel',
-              motor_replaced_at_meter_hours: meterValue,
             };
+            if (!meterDamaged) {
+              workshopUpdate.meter_hours_last = meterValue;
+              workshopUpdate.motor_replaced_at_meter_hours = meterValue;
+            }
             if (newMotorCode) {
               workshopUpdate.current_motor_code = newMotorCode;
             }
@@ -1115,9 +1119,11 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
           } else {
             // No motor replacement - update meter hours and confirm motor code
             const workshopUpdateNoReplacement: Record<string, unknown> = {
-              meter_hours_last: meterValue,
               status: 'disponivel',
             };
+            if (!meterDamaged) {
+              workshopUpdateNoReplacement.meter_hours_last = meterValue;
+            }
             if (motorCodeConfirm.trim()) {
               workshopUpdateNoReplacement.current_motor_code = motorCodeConfirm.trim();
             }
@@ -1139,9 +1145,14 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
               workshop_item_id: univocaItem.workshop_item_id,
               work_order_id: workOrder.id,
               reading_value: meterValue,
+              meter_damaged: meterDamaged,
               user_id: user?.id,
-              notes: motorPartInThisOS ? 'Troca de motor realizada' : null,
-            });
+              notes: meterDamaged
+                ? (motorPartInThisOS
+                    ? 'Horímetro danificado — troca de motor realizada'
+                    : 'Horímetro danificado')
+                : (motorPartInThisOS ? 'Troca de motor realizada' : null),
+            } as never);
           if (readingError) throw readingError;
         }
       } else if (univocaItem?.workshop_item_id) {
