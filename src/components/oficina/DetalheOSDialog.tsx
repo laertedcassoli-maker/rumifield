@@ -1549,35 +1549,66 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
                   {/* Current reading */}
                   <div>
                     <span className={`text-muted-foreground ${meterHoursError ? 'text-destructive font-medium' : ''}`}>
-                      Atual: <span className="text-destructive">*</span>
+                      Atual: {!meterDamaged && <span className="text-destructive">*</span>}
                     </span>
                     {workOrder.status !== 'concluido' ? (
                       <Input
                         id="meter-hours-input"
                         type="number"
-                        min={univocaItem.workshop_items?.meter_hours_last ?? 0}
+                        min={meterDamaged ? 0 : (univocaItem.workshop_items?.meter_hours_last ?? 0)}
                         step="0.1"
-                        value={meterHoursCurrent}
+                        value={meterDamaged ? '0' : meterHoursCurrent}
+                        disabled={meterDamaged}
                         onChange={(e) => {
                           setMeterHoursCurrent(e.target.value);
                           setMeterHoursError(false);
                         }}
                         placeholder=""
-                        className={`font-mono h-8 mt-1 ${meterHoursError 
-                          ? 'border-destructive bg-destructive/10 focus:border-destructive ring-2 ring-destructive/30' 
-                          : 'border-primary/50 bg-primary/5 focus:border-primary'
+                        className={`font-mono h-8 mt-1 ${meterDamaged
+                          ? 'border-muted bg-muted/50 text-muted-foreground'
+                          : meterHoursError 
+                            ? 'border-destructive bg-destructive/10 focus:border-destructive ring-2 ring-destructive/30' 
+                            : 'border-primary/50 bg-primary/5 focus:border-primary'
                         }`}
-                        required
+                        required={!meterDamaged}
                       />
                     ) : (
                       <p className="font-mono font-medium">
-                        {univocaItem.meter_hours_exit != null 
-                          ? `${univocaItem.meter_hours_exit}h` 
-                          : '-'}
+                        {univocaItem.meter_damaged
+                          ? <span className="text-xs font-sans text-muted-foreground">Horímetro danificado</span>
+                          : univocaItem.meter_hours_exit != null 
+                            ? `${univocaItem.meter_hours_exit}h` 
+                            : '-'}
                       </p>
                     )}
                   </div>
                 </div>
+
+                {/* Damaged meter flag */}
+                {workOrder.status !== 'concluido' ? (
+                  <label
+                    htmlFor="meter-damaged-checkbox"
+                    className="flex items-center gap-2 cursor-pointer text-sm"
+                  >
+                    <Checkbox
+                      id="meter-damaged-checkbox"
+                      checked={meterDamaged}
+                      onCheckedChange={(checked) => {
+                        const next = checked === true;
+                        setMeterDamaged(next);
+                        setMeterHoursError(false);
+                        setMeterHoursCurrent(next ? '0' : '');
+                      }}
+                    />
+                    <span className={meterDamaged ? 'font-medium' : 'text-muted-foreground'}>
+                      Horímetro danificado
+                    </span>
+                  </label>
+                ) : univocaItem.meter_damaged ? (
+                  <p className="text-xs text-muted-foreground">
+                    Horímetro danificado nesta OS — leitura registrada como 0 e histórico do ativo preservado.
+                  </p>
+                ) : null}
 
                 {/* Motor code confirmation - required */}
                 {workOrder.status !== 'concluido' && univocaItem?.workshop_item_id && !currentMotorCode && (
@@ -1644,9 +1675,13 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
                 workshopItemId={univocaItem.workshop_item_id} 
                 isAdmin={isAdmin}
                 currentMeterValue={
-                  meterHoursCurrent
-                    ? parseFloat(meterHoursCurrent)
-                    : (ownMeterReading?.reading_value ?? previousMeterReading?.reading_value ?? undefined)
+                  meterDamaged || (workOrder.status === 'concluido' && univocaItem.meter_damaged)
+                    ? undefined
+                    : meterHoursCurrent
+                      ? parseFloat(meterHoursCurrent)
+                      : (ownMeterReading?.meter_damaged
+                          ? previousMeterReading?.reading_value ?? undefined
+                          : ownMeterReading?.reading_value ?? previousMeterReading?.reading_value ?? undefined)
                 }
                 motorMilestoneOverride={priorMotorMilestone ?? 0}
                 workOrderId={workOrder.id}
