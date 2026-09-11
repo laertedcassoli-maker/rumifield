@@ -119,11 +119,8 @@ export function SaudeAtivosMotores() {
         const hours = Number(removal.motor_hours_used);
         if (!Number.isFinite(hours) || hours < 0) return;
 
-        // Primeira troca: motor original, sem data de instalação conhecida
-        if (index === 0) {
-          cycles.push({ workshopItemId, hours, days: null });
-          return;
-        }
+        // Primeira troca: motor original, sem data de instalação comprovada — desconsiderado
+        if (index === 0) return;
 
         const installation = ordered[index - 1];
         if (!installation.replaced_at) return;
@@ -220,7 +217,7 @@ export function SaudeAtivosMotores() {
             <p className="text-sm text-muted-foreground">Carregando…</p>
           ) : motorLifetime.cycleCount === 0 ? (
             <p className="text-sm text-muted-foreground">
-              Ainda não há trocas de motor registradas para calcular a vida útil.
+              Sem ciclos completos: é necessário ao menos duas trocas de motor no mesmo ativo para calcular a vida útil.
             </p>
           ) : (
             <div className="space-y-4">
@@ -239,7 +236,7 @@ export function SaudeAtivosMotores() {
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Trocas consideradas</p>
+                  <p className="text-xs text-muted-foreground">Ciclos completos</p>
                   <p className="text-xl font-semibold tabular-nums">{motorLifetime.cycleCount}</p>
                 </div>
               </div>
