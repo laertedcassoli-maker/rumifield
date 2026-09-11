@@ -969,14 +969,14 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
       if (freshItemsError) throw freshItemsError;
       const univocaItem = (freshItems || []).find(item => item.workshop_item_id);
       
-      // Save meter hours if provided
-      if (univocaItem && meterHoursCurrent) {
-        const meterValue = parseFloat(meterHoursCurrent);
+      // Save meter hours if provided (a damaged meter records 0 and is flagged)
+      if (univocaItem && (meterHoursCurrent || meterDamaged)) {
+        const meterValue = meterDamaged ? 0 : parseFloat(meterHoursCurrent);
         
         // Update work order item with meter hours (stored in meter_hours_exit for simplicity)
         const { error: itemError } = await supabase
           .from('work_order_items')
-          .update({ meter_hours_exit: meterValue })
+          .update({ meter_hours_exit: meterValue, meter_damaged: meterDamaged } as never)
           .eq('id', univocaItem.id);
         if (itemError) throw itemError;
 
@@ -996,8 +996,9 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
             // Calculate how many hours the old motor was used.
             // No replacement milestone = original motor => count from 0,
             // never from the last meter reading.
+            // Damaged meter => hours are unknown, never computed from the fake 0.
             const previousMilestone = currentWorkshopItem?.motor_replaced_at_meter_hours ?? 0;
-            const motorHoursUsed = meterValue - previousMilestone;
+            const motorHoursUsed = meterDamaged ? null : meterValue - previousMilestone;
 
             // Get motor codes from parts used in this OS
             const { data: motorParts } = await supabase
@@ -1039,10 +1040,14 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
             const historyInsert: Record<string, unknown> = {
               workshop_item_id: univocaItem.workshop_item_id,
               work_order_id: workOrder.id,
-              replaced_at_meter_hours: meterValue,
+              // Damaged meter: keep the previous milestone instead of a fake 0
+              replaced_at_meter_hours: meterDamaged ? previousMilestone : meterValue,
               motor_hours_used: motorHoursUsed,
+              motor_hours_unknown: meterDamaged,
               user_id: user?.id,
-              notes: `Motor substituído com ${motorHoursUsed}h de uso`,
+              notes: meterDamaged
+                ? 'Motor substituído — horímetro danificado, horas de uso desconhecidas'
+                : `Motor substituído com ${motorHoursUsed}h de uso`,
               was_original_motor: motorPartInThisOS.motor_was_original ?? false,
             };
             if (oldMotorCode) historyInsert.old_motor_code = oldMotorCode;
@@ -1064,7 +1069,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
             
             const warrantyHours = warrantyConfig?.valor ? parseInt(warrantyConfig.valor) : 400;
             
-            if (motorHoursUsed < warrantyHours && oldMotorCode) {
+            if (motorHoursUsed != null && motorHoursUsed < warrantyHours && oldMotorCode) {
               const warrantyInsert = {
                 motor_code: oldMotorCode,
                 description: `Motor retirado com ${motorHoursUsed.toFixed(0)}h de uso (garantia: ${warrantyHours}h)`,
