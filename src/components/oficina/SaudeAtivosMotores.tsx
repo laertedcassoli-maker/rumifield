@@ -98,7 +98,6 @@ export function SaudeAtivosMotores() {
       days: number;
     };
 
-    const normalizeMotorCode = (code: string | null) => code?.trim().toLocaleUpperCase('pt-BR') || null;
     const historyByItem = new Map<string, MotorHistoryRow[]>();
 
     history.forEach(entry => {
@@ -119,9 +118,6 @@ export function SaudeAtivosMotores() {
       for (let index = 0; index < ordered.length - 1; index += 1) {
         const installation = ordered[index];
         const removal = ordered[index + 1];
-        const installedMotor = normalizeMotorCode(installation.new_motor_code);
-        const removedMotor = normalizeMotorCode(removal.old_motor_code);
-        if (!installedMotor || installedMotor !== removedMotor) continue;
         if (!installation.replaced_at || !removal.replaced_at || removal.motor_hours_used == null) continue;
 
         const hours = Number(removal.motor_hours_used);
