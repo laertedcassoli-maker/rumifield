@@ -18,7 +18,8 @@ interface WarrantyBatch {
 interface MotorReplacementHistory {
   id: string;
   replaced_at_meter_hours: number;
-  motor_hours_used: number;
+  motor_hours_used: number | null;
+  motor_hours_unknown?: boolean | null;
   old_motor_code: string | null;
   new_motor_code: string | null;
   replaced_at: string;
@@ -139,7 +140,7 @@ export function MotorSection({
 
   // Determine what to display based on OS status and motor replacement
   let displayMotorCode: string | null = null;
-  let displayMotorHours: number = 0;
+  let displayMotorHours: number | null = 0;
   let displayLabel: string = 'Motor Atual';
   let showReplacedMotor = false;
 
@@ -161,7 +162,7 @@ export function MotorSection({
     displayLabel = 'Motor Atual';
   }
 
-  const isWithinWarranty = displayMotorHours < warrantyLimit;
+  const isWithinWarranty = displayMotorHours != null && displayMotorHours < warrantyLimit;
 
   // Filter history to exclude the motor shown in main display (if showing replaced motor)
   const historyToShow = showReplacedMotor
@@ -208,18 +209,24 @@ export function MotorSection({
         <div className="flex items-center gap-2">
           <div>
             <span className="text-muted-foreground">Horas Motor:</span>
-            <p className="font-mono font-medium">{displayMotorHours.toFixed(0)}h</p>
+            <p className="font-mono font-medium">
+              {displayMotorHours != null
+                ? `${displayMotorHours.toFixed(0)}h`
+                : <span className="font-sans text-xs text-muted-foreground">Horas desconhecidas</span>}
+            </p>
           </div>
-          <Badge 
-            variant={isWithinWarranty ? "default" : "secondary"}
-            className={`text-xs ${isWithinWarranty 
-              ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 hover:bg-green-100" 
-              : "bg-muted text-muted-foreground"
-            }`}
-          >
-            <Shield className="h-3 w-3 mr-1" />
-            {isWithinWarranty ? 'Garantia' : 'S/ Garantia'}
-          </Badge>
+          {displayMotorHours != null && (
+            <Badge 
+              variant={isWithinWarranty ? "default" : "secondary"}
+              className={`text-xs ${isWithinWarranty 
+                ? "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300 hover:bg-green-100" 
+                : "bg-muted text-muted-foreground"
+              }`}
+            >
+              <Shield className="h-3 w-3 mr-1" />
+              {isWithinWarranty ? 'Garantia' : 'S/ Garantia'}
+            </Badge>
+          )}
         </div>
       </div>
 
