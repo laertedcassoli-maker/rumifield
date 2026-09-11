@@ -217,7 +217,7 @@ export function SaudeAtivosMotores() {
             <p className="text-sm text-muted-foreground">Carregando…</p>
           ) : motorLifetime.cycleCount === 0 ? (
             <p className="text-sm text-muted-foreground">
-              Ainda não há trocas de motor registradas para calcular a vida útil.
+              Sem ciclos completos: é necessário ao menos duas trocas de motor no mesmo ativo para calcular a vida útil.
             </p>
           ) : (
             <div className="space-y-4">
@@ -236,7 +236,7 @@ export function SaudeAtivosMotores() {
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Trocas consideradas</p>
+                  <p className="text-xs text-muted-foreground">Ciclos completos</p>
                   <p className="text-xl font-semibold tabular-nums">{motorLifetime.cycleCount}</p>
                 </div>
               </div>
