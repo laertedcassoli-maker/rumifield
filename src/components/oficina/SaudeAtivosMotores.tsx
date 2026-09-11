@@ -119,11 +119,8 @@ export function SaudeAtivosMotores() {
         const hours = Number(removal.motor_hours_used);
         if (!Number.isFinite(hours) || hours < 0) return;
 
-        // Primeira troca: motor original, sem data de instalação conhecida
-        if (index === 0) {
-          cycles.push({ workshopItemId, hours, days: null });
-          return;
-        }
+        // Primeira troca: motor original, sem data de instalação comprovada — desconsiderado
+        if (index === 0) return;
 
         const installation = ordered[index - 1];
         if (!installation.replaced_at) return;
