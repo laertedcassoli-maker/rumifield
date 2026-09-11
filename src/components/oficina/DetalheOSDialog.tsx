@@ -20,6 +20,7 @@ import {
   AlertDialogTitle as AlertDialogTitleUI,
 } from '@/components/ui/alert-dialog';
 import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
@@ -87,6 +88,7 @@ interface PartUsed {
   notes: string | null;
   motor_code_removed?: string | null;
   motor_code_installed?: string | null;
+  motor_was_original?: boolean | null;
   pecas?: {
     nome: string;
     codigo: string;
@@ -165,6 +167,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
   const [partSearchQuery, setPartSearchQuery] = useState('');
   const [motorCodeRemoved, setMotorCodeRemoved] = useState('');
   const [motorCodeInstalled, setMotorCodeInstalled] = useState('');
+  const [motorWasOriginal, setMotorWasOriginal] = useState(false);
   const [meterHoursCurrent, setMeterHoursCurrent] = useState('');
   const [isMotorReplacement, setIsMotorReplacement] = useState(false);
   const [timeHistoryOpen, setTimeHistoryOpen] = useState(false);
@@ -861,6 +864,9 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
       if (isMotorPart && motorCodeInstalled) {
         insertData.motor_code_installed = motorCodeInstalled;
       }
+      if (isMotorPart) {
+        insertData.motor_was_original = motorWasOriginal;
+      }
 
       const { error } = await supabase
         .from('work_order_parts_used')
@@ -876,6 +882,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
       setPartQuantity(1);
       setMotorCodeRemoved('');
       setMotorCodeInstalled('');
+      setMotorWasOriginal(false);
       
       if (result?.isMotorPart) {
         const codeInfo = result.motorCodeInstalled ? ` (Novo: ${result.motorCodeInstalled})` : '';
@@ -1032,6 +1039,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
               motor_hours_used: motorHoursUsed,
               user_id: user?.id,
               notes: `Motor substituído com ${motorHoursUsed}h de uso`,
+              was_original_motor: motorPartInThisOS.motor_was_original ?? false,
             };
             if (oldMotorCode) historyInsert.old_motor_code = oldMotorCode;
             if (newMotorCode) historyInsert.new_motor_code = newMotorCode;
@@ -1202,12 +1210,14 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
       setMotorCodeRemoved('');
       setMotorCodeInstalled('');
       setMotorCodeConfirm('');
+      setMotorWasOriginal(false);
       return;
     }
     setIsMotorReplacement(true);
     setMotorCodeRemoved(motorPartInThisOS.motor_code_removed ?? '');
     setMotorCodeInstalled(motorPartInThisOS.motor_code_installed ?? '');
     setMotorCodeConfirm(motorPartInThisOS.motor_code_installed || currentMotorCode);
+    setMotorWasOriginal(motorPartInThisOS.motor_was_original ?? false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [motorPartInThisOS?.id, workOrder.id, workOrder.status]);
 
@@ -2094,6 +2104,23 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
                             Cliente de estoque interno — código do motor opcional.
                           </p>
                         )}
+                        <div className="flex items-start gap-2 pt-1">
+                          <Checkbox
+                            id="motor-was-original"
+                            checked={motorWasOriginal}
+                            onCheckedChange={(checked) => setMotorWasOriginal(checked === true)}
+                            className="mt-0.5"
+                          />
+                          <div className="space-y-0.5">
+                            <Label htmlFor="motor-was-original" className="text-xs cursor-pointer">
+                              Motor original?
+                            </Label>
+                            <p className="text-[11px] text-muted-foreground">
+                              Marque se o motor retirado é o original do ativo (nunca trocado antes).
+                              Assim a vida útil dele entra no dashboard.
+                            </p>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   );

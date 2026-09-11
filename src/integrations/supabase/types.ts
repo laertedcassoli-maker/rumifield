@@ -1725,6 +1725,7 @@ export type Database = {
           replaced_at_meter_hours: number
           user_id: string
           warranty_batch_id: string | null
+          was_original_motor: boolean
           work_order_id: string | null
           workshop_item_id: string
         }
@@ -1739,6 +1740,7 @@ export type Database = {
           replaced_at_meter_hours: number
           user_id: string
           warranty_batch_id?: string | null
+          was_original_motor?: boolean
           work_order_id?: string | null
           workshop_item_id: string
         }
@@ -1753,6 +1755,7 @@ export type Database = {
           replaced_at_meter_hours?: number
           user_id?: string
           warranty_batch_id?: string | null
+          was_original_motor?: boolean
           work_order_id?: string | null
           workshop_item_id?: string
         }
@@ -3655,6 +3658,7 @@ export type Database = {
           id: string
           motor_code_installed: string | null
           motor_code_removed: string | null
+          motor_was_original: boolean
           notes: string | null
           omie_product_id: string
           quantity: number
@@ -3666,6 +3670,7 @@ export type Database = {
           id?: string
           motor_code_installed?: string | null
           motor_code_removed?: string | null
+          motor_was_original?: boolean
           notes?: string | null
           omie_product_id: string
           quantity?: number
@@ -3677,6 +3682,7 @@ export type Database = {
           id?: string
           motor_code_installed?: string | null
           motor_code_removed?: string | null
+          motor_was_original?: boolean
           notes?: string | null
           omie_product_id?: string
           quantity?: number
