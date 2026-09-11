@@ -1241,6 +1241,18 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [motorPartInThisOS?.id, workOrder.id, workOrder.status]);
 
+  // Restore the "damaged meter" flag when an unfinished OS is reopened
+  const persistedMeterDamaged = workOrderItems.find(item => item.workshop_item_id)?.meter_damaged ?? false;
+  useEffect(() => {
+    if (workOrder.status === 'concluido') return;
+    if (persistedMeterDamaged) {
+      setMeterDamaged(true);
+      setMeterHoursCurrent('0');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [persistedMeterDamaged, workOrder.id, workOrder.status]);
+
+
   const formatTime = (seconds: number) => {
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
