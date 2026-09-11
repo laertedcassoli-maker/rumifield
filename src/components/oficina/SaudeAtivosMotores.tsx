@@ -250,7 +250,7 @@ export function SaudeAtivosMotores() {
                   <thead>
                     <tr className="text-left text-xs text-muted-foreground border-b">
                       <th className="py-2 pr-2">Ativo</th>
-                      <th className="py-2 pr-2 text-right">Ciclos</th>
+                      <th className="py-2 pr-2 text-right">Trocas</th>
                       <th className="py-2 pr-2 text-right">Média em horas</th>
                       <th className="py-2 text-right">Média em dias</th>
                     </tr>
@@ -261,7 +261,10 @@ export function SaudeAtivosMotores() {
                         <td className="py-2 pr-2 font-medium">{row.assetCode}</td>
                         <td className="py-2 pr-2 text-right tabular-nums">{row.cycleCount}</td>
                         <td className="py-2 pr-2 text-right tabular-nums">{formatAverage(row.averageHours)} h</td>
-                        <td className="py-2 text-right tabular-nums">{formatAverage(row.averageDays)} dias</td>
+                        <td className="py-2 text-right tabular-nums">
+                          {row.averageDays != null ? `${formatAverage(row.averageDays)} dias` : '—'}
+                        </td>
+
                       </tr>
                     ))}
                   </tbody>
