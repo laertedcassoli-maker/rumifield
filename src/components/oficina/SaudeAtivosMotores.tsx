@@ -95,7 +95,7 @@ export function SaudeAtivosMotores() {
     type Cycle = {
       workshopItemId: string;
       hours: number;
-      days: number;
+      days: number | null;
     };
 
     const historyByItem = new Map<string, MotorHistoryRow[]>();
@@ -109,31 +109,39 @@ export function SaudeAtivosMotores() {
 
     const cycles: Cycle[] = [];
     historyByItem.forEach((entries, workshopItemId) => {
-      if (entries.length < 2) return;
-
       const ordered = [...entries].sort(
         (a, b) => new Date(a.replaced_at || 0).getTime() - new Date(b.replaced_at || 0).getTime(),
       );
 
-      for (let index = 0; index < ordered.length - 1; index += 1) {
-        const installation = ordered[index];
-        const removal = ordered[index + 1];
-        if (!installation.replaced_at || !removal.replaced_at || removal.motor_hours_used == null) continue;
+      ordered.forEach((removal, index) => {
+        if (!removal.replaced_at || removal.motor_hours_used == null) return;
 
         const hours = Number(removal.motor_hours_used);
-        const days = differenceInCalendarDays(new Date(removal.replaced_at), new Date(installation.replaced_at));
-        if (!Number.isFinite(hours) || hours < 0 || days < 0) continue;
+        if (!Number.isFinite(hours) || hours < 0) return;
 
-        cycles.push({ workshopItemId, hours, days });
-      }
+        // Primeira troca: motor original, sem data de instalação conhecida
+        if (index === 0) {
+          cycles.push({ workshopItemId, hours, days: null });
+          return;
+        }
+
+        const installation = ordered[index - 1];
+        if (!installation.replaced_at) return;
+
+        const days = differenceInCalendarDays(new Date(removal.replaced_at), new Date(installation.replaced_at));
+        cycles.push({ workshopItemId, hours, days: days >= 0 ? days : null });
+      });
     });
 
-    const byItem = new Map<string, { count: number; totalHours: number; totalDays: number }>();
+    const byItem = new Map<string, { count: number; totalHours: number; totalDays: number; daysCount: number }>();
     cycles.forEach(cycle => {
-      const aggregate = byItem.get(cycle.workshopItemId) || { count: 0, totalHours: 0, totalDays: 0 };
+      const aggregate = byItem.get(cycle.workshopItemId) || { count: 0, totalHours: 0, totalDays: 0, daysCount: 0 };
       aggregate.count += 1;
       aggregate.totalHours += cycle.hours;
-      aggregate.totalDays += cycle.days;
+      if (cycle.days != null) {
+        aggregate.totalDays += cycle.days;
+        aggregate.daysCount += 1;
+      }
       byItem.set(cycle.workshopItemId, aggregate);
     });
 
@@ -143,20 +151,23 @@ export function SaudeAtivosMotores() {
         assetCode: itemsById.get(workshopItemId)?.unique_code || '—',
         cycleCount: aggregate.count,
         averageHours: aggregate.totalHours / aggregate.count,
-        averageDays: aggregate.totalDays / aggregate.count,
+        averageDays: aggregate.daysCount > 0 ? aggregate.totalDays / aggregate.daysCount : null,
       }))
       .sort((a, b) => b.averageHours - a.averageHours || a.assetCode.localeCompare(b.assetCode));
 
     const totalHours = cycles.reduce((sum, cycle) => sum + cycle.hours, 0);
-    const totalDays = cycles.reduce((sum, cycle) => sum + cycle.days, 0);
+    const cyclesWithDays = cycles.filter(cycle => cycle.days != null);
+    const totalDays = cyclesWithDays.reduce((sum, cycle) => sum + (cycle.days ?? 0), 0);
 
     return {
       cycleCount: cycles.length,
       averageHours: cycles.length > 0 ? totalHours / cycles.length : 0,
-      averageDays: cycles.length > 0 ? totalDays / cycles.length : 0,
+      averageDays: cyclesWithDays.length > 0 ? totalDays / cyclesWithDays.length : null,
+      daysCycleCount: cyclesWithDays.length,
       rowsByItem,
     };
   }, [history, itemsById]);
+
 
   const formatAverage = (value: number) => value.toLocaleString('pt-BR', { maximumFractionDigits: 1 });
 
@@ -209,7 +220,7 @@ export function SaudeAtivosMotores() {
             <p className="text-sm text-muted-foreground">Carregando…</p>
           ) : motorLifetime.cycleCount === 0 ? (
             <p className="text-sm text-muted-foreground">
-              Ainda não há ativos com duas trocas consecutivas válidas para calcular a vida útil.
+              Ainda não há trocas de motor registradas para calcular a vida útil.
             </p>
           ) : (
             <div className="space-y-4">
@@ -220,20 +231,26 @@ export function SaudeAtivosMotores() {
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground">Média em dias</p>
-                  <p className="text-xl font-semibold tabular-nums">{formatAverage(motorLifetime.averageDays)} dias</p>
+                  <p className="text-xl font-semibold tabular-nums">
+                    {motorLifetime.averageDays != null ? `${formatAverage(motorLifetime.averageDays)} dias` : '—'}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground">
+                    {motorLifetime.daysCycleCount} troca(s) com data de instalação conhecida
+                  </p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">Ciclos completos</p>
+                  <p className="text-xs text-muted-foreground">Trocas consideradas</p>
                   <p className="text-xl font-semibold tabular-nums">{motorLifetime.cycleCount}</p>
                 </div>
               </div>
+
 
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="text-left text-xs text-muted-foreground border-b">
                       <th className="py-2 pr-2">Ativo</th>
-                      <th className="py-2 pr-2 text-right">Ciclos</th>
+                      <th className="py-2 pr-2 text-right">Trocas</th>
                       <th className="py-2 pr-2 text-right">Média em horas</th>
                       <th className="py-2 text-right">Média em dias</th>
                     </tr>
@@ -244,7 +261,10 @@ export function SaudeAtivosMotores() {
                         <td className="py-2 pr-2 font-medium">{row.assetCode}</td>
                         <td className="py-2 pr-2 text-right tabular-nums">{row.cycleCount}</td>
                         <td className="py-2 pr-2 text-right tabular-nums">{formatAverage(row.averageHours)} h</td>
-                        <td className="py-2 text-right tabular-nums">{formatAverage(row.averageDays)} dias</td>
+                        <td className="py-2 text-right tabular-nums">
+                          {row.averageDays != null ? `${formatAverage(row.averageDays)} dias` : '—'}
+                        </td>
+
                       </tr>
                     ))}
                   </tbody>
