@@ -49,6 +49,144 @@ const statusLabels: Record<string, string> = {
   entregue: 'Entregue',
 };
 
+const emptyForm = {
+  cliente_id: '',
+  observacoes: '',
+  urgencia: 'normal',
+  tipo_envio: '',
+  solenoide_modelo: '',
+  tipo_solicitacao: 'envio',
+  gera_coleta_reversa: false,
+  tipo_coleta: '',
+  tecnico_responsavel_user_id: '',
+  csm_responsavel_user_id: '',
+  coleta_responsavel_tipo: '',
+  coleta_auto_tipo: '',
+  coleta_auto_responsavel_tipo: '',
+  coleta_auto_tecnico_id: '',
+  coleta_auto_csm_id: '',
+};
+
+const tipoEnvioReviewLabels: Record<string, string> = {
+  envio_fisico: 'Envio Físico',
+  envio_pelo_tecnico: 'Envio pelo Técnico',
+  apenas_nf: 'Apenas NF',
+};
+
+const tipoColetaLabels: Record<string, string> = {
+  correios: 'Correios',
+  coleta_tecnico_csm: 'Coleta pelo Técnico/CSM',
+  apenas_nf: 'Apenas NF',
+};
+
+// Técnicos fixos do formulário (resolvidos entre usuários com papel tecnico_campo)
+const TECNICOS_FIXOS = ['phelipe', 'roger', 'lenilton'];
+
+interface ResponsavelColetaPickerProps {
+  respTipo: string;
+  tecnicoId: string;
+  csmId: string;
+  tecnicosFixos: { id: string; nome: string }[];
+  consultores: { id: string; nome: string }[];
+  onRespTipo: (v: string) => void;
+  onTecnico: (id: string) => void;
+  onCsm: (id: string) => void;
+}
+
+function ResponsavelColetaPicker({ respTipo, tecnicoId, csmId, tecnicosFixos, consultores, onRespTipo, onTecnico, onCsm }: ResponsavelColetaPickerProps) {
+  const [csmSearch, setCsmSearch] = useState('');
+  const csmMatches = useMemo(() => {
+    const q = csmSearch.trim().toLowerCase();
+    const list = consultores || [];
+    if (!q) return list.slice(0, 5);
+    return list.filter(c => {
+      const nome = (c.nome || '').toLowerCase();
+      if (nome.includes(q)) return true;
+      const iniciais = nome.split(/\s+/).map(w => w[0]).join('');
+      return iniciais.startsWith(q);
+    }).slice(0, 5);
+  }, [csmSearch, consultores]);
+
+  const csmNome = consultores?.find(c => c.id === csmId)?.nome;
+
+  return (
+    <div className="space-y-2 rounded-md border bg-muted/30 p-3">
+      <Label className="text-xs">Responsável</Label>
+      <ToggleGroup
+        type="single"
+        value={respTipo}
+        onValueChange={(v) => v && onRespTipo(v)}
+        className="justify-start"
+      >
+        <ToggleGroupItem value="tecnico" className="text-xs gap-1 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
+          <User className="h-3 w-3" />
+          Técnico
+        </ToggleGroupItem>
+        <ToggleGroupItem value="csm" className="text-xs gap-1 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
+          <HandHelping className="h-3 w-3" />
+          CSM
+        </ToggleGroupItem>
+      </ToggleGroup>
+
+      {respTipo === 'tecnico' && (
+        <div className="space-y-1">
+          <ToggleGroup
+            type="single"
+            value={tecnicoId}
+            onValueChange={(v) => v && onTecnico(v)}
+            className="justify-start"
+          >
+            {tecnicosFixos.map(t => (
+              <ToggleGroupItem key={t.id} value={t.id} className="text-xs gap-1 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
+                <User className="h-3 w-3" />
+                {t.nome.split(' ')[0]}
+              </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
+          {tecnicosFixos.length === 0 && (
+            <p className="text-xs text-muted-foreground">Nenhum Técnico de Campo encontrado (Phelipe, Roger, Lenilton).</p>
+          )}
+        </div>
+      )}
+
+      {respTipo === 'csm' && (
+        <div className="space-y-1">
+          {csmId ? (
+            <div className="flex items-center justify-between p-2 rounded border bg-primary/5">
+              <span className="text-sm font-medium truncate min-w-0">{csmNome}</span>
+              <Button type="button" variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => onCsm('')} aria-label="Remover CSM">
+                <X className="h-3 w-3" />
+              </Button>
+            </div>
+          ) : (
+            <>
+              <Input
+                placeholder="Buscar CSM por nome ou iniciais..."
+                value={csmSearch}
+                onChange={(e) => setCsmSearch(e.target.value)}
+              />
+              <div className="max-h-32 overflow-y-auto rounded border divide-y">
+                {csmMatches.length === 0 ? (
+                  <p className="text-xs text-muted-foreground p-2">Nenhum consultor encontrado</p>
+                ) : csmMatches.map(c => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    className="w-full text-left text-sm px-2 py-1.5 hover:bg-muted/50 truncate min-w-0"
+                    onClick={() => onCsm(c.id)}
+                  >
+                    {c.nome}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Pedidos() {
   const { user, role } = useAuth();
   const { toast } = useToast();
@@ -56,7 +194,7 @@ export default function Pedidos() {
   const [open, setOpen] = useState(false);
   const [editingPedido, setEditingPedido] = useState<any>(null);
   const [viewingPedido, setViewingPedido] = useState<any>(null);
-  const [form, setForm] = useState({ cliente_id: '', observacoes: '', urgencia: 'normal', tipo_envio: '', solenoide_modelo: '', tipo_solicitacao: 'envio', gera_coleta_reversa: false });
+  const [form, setForm] = useState({ ...emptyForm });
   const [itens, setItens] = useState<{ peca_id: string; quantidade: number }[]>([]);
   const [autoLinkDismissed, setAutoLinkDismissed] = useState(false);
   // UI-only filter: true = all orders (default), false = only mine
@@ -100,6 +238,42 @@ export default function Pedidos() {
     enabled: !!user,
     staleTime: 60_000,
   });
+
+  // Técnicos de campo (papel tecnico_campo) — Envio pelo Técnico e Coleta pelo Técnico/CSM
+  const { data: tecnicosCampo } = useQuery({
+    queryKey: ['pedidos-tecnicos-campo'],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('list_pedidos_responsaveis', { p_role: 'tecnico_campo' });
+      if (error) throw error;
+      return (data || []) as { user_id: string; nome: string }[];
+    },
+    enabled: !!user,
+    staleTime: 60_000,
+  });
+
+  // Consultores R+ (CSM) — responsáveis de coleta
+  const { data: consultoresRplus } = useQuery({
+    queryKey: ['pedidos-consultores-rplus'],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('list_pedidos_responsaveis', { p_role: 'consultor_rplus' });
+      if (error) throw error;
+      return (data || []) as { user_id: string; nome: string }[];
+    },
+    enabled: !!user,
+    staleTime: 60_000,
+  });
+
+  const tecnicosFixos = useMemo(() => {
+    const all = (tecnicosCampo || []).map(t => ({ id: t.user_id, nome: t.nome }));
+    return TECNICOS_FIXOS
+      .map(slug => all.find(t => (t.nome || '').trim().toLowerCase().split(/\s+/)[0] === slug))
+      .filter(Boolean) as { id: string; nome: string }[];
+  }, [tecnicosCampo]);
+
+  const getUserName = (id: string) =>
+    tecnicosCampo?.find(t => t.user_id === id)?.nome
+    || consultoresRplus?.find(c => c.user_id === id)?.nome
+    || '—';
 
   // Realtime: refresh part catalog when pecas table changes
   useRealtimePecas([['pedidos-pecas']]);
@@ -379,7 +553,7 @@ export default function Pedidos() {
       toast({ title: 'Rascunho excluído!' });
       setOpen(false);
       setEditingPedido(null);
-      setForm({ cliente_id: '', observacoes: '', urgencia: 'normal', tipo_envio: '', solenoide_modelo: '', tipo_solicitacao: 'envio', gera_coleta_reversa: false });
+      setForm({ ...emptyForm });
       setItens([]);
       setAutoLinkDismissed(false);
     } catch (error: any) {
@@ -485,6 +659,7 @@ export default function Pedidos() {
     }
     setEditingPedido(pedido);
     setForm({
+      ...emptyForm,
       cliente_id: pedido.cliente_id,
       observacoes: pedido.observacoes || '',
       urgencia: pedido.urgencia || 'normal',
@@ -492,6 +667,10 @@ export default function Pedidos() {
       solenoide_modelo: (pedido as any).solenoide_modelo || '',
       tipo_solicitacao: (pedido as any).tipo_solicitacao || 'envio',
       gera_coleta_reversa: false,
+      tipo_coleta: (pedido as any).tipo_coleta || '',
+      tecnico_responsavel_user_id: (pedido as any).tecnico_responsavel_user_id || '',
+      csm_responsavel_user_id: (pedido as any).csm_responsavel_user_id || '',
+      coleta_responsavel_tipo: (pedido as any).tecnico_responsavel_user_id ? 'tecnico' : ((pedido as any).csm_responsavel_user_id ? 'csm' : ''),
     });
     setItens(
       pedido.pedido_itens?.map((item: any) => ({
@@ -581,6 +760,30 @@ export default function Pedidos() {
     if (hasSolenoide && !form.solenoide_modelo) {
       toast({ variant: 'destructive', title: 'Selecione o Modelo (2x ou 3x) da solenóide' });
       return;
+    }
+    if (form.tipo_solicitacao === 'envio' && form.tipo_envio === 'envio_pelo_tecnico' && !form.tecnico_responsavel_user_id) {
+      toast({ variant: 'destructive', title: 'Selecione o técnico responsável pelo envio' });
+      return;
+    }
+    if (form.tipo_solicitacao === 'coleta_reversa') {
+      if (!form.tipo_coleta) {
+        toast({ variant: 'destructive', title: 'Selecione o Tipo de Coleta' });
+        return;
+      }
+      if (form.tipo_coleta === 'coleta_tecnico_csm' && !form.tecnico_responsavel_user_id && !form.csm_responsavel_user_id) {
+        toast({ variant: 'destructive', title: 'Selecione o Técnico ou CSM responsável pela coleta' });
+        return;
+      }
+    }
+    if (form.tipo_solicitacao === 'envio' && form.gera_coleta_reversa && !editingPedido) {
+      if (!form.coleta_auto_tipo) {
+        toast({ variant: 'destructive', title: 'Selecione o Tipo de Coleta da coleta reversa automática' });
+        return;
+      }
+      if (form.coleta_auto_tipo === 'coleta_tecnico_csm' && !form.coleta_auto_tecnico_id && !form.coleta_auto_csm_id) {
+        toast({ variant: 'destructive', title: 'Selecione o Técnico ou CSM responsável pela coleta reversa automática' });
+        return;
+      }
     }
     setShowConfirmation(true);
   };
@@ -709,7 +912,7 @@ export default function Pedidos() {
       }
       setOpen(false);
       setEditingPedido(null);
-      setForm({ cliente_id: '', observacoes: '', urgencia: 'normal', tipo_envio: '', solenoide_modelo: '', tipo_solicitacao: 'envio', gera_coleta_reversa: false });
+      setForm({ ...emptyForm });
       setItens([]);
       setAutoLinkDismissed(false);
       setShowConfirmation(false);
