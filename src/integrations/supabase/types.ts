@@ -1686,6 +1686,141 @@ export type Database = {
           },
         ]
       }
+      installation_checklists: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          id: string
+          installation_stage_id: string
+          started_at: string
+          status: Database["public"]["Enums"]["checklist_execution_status"]
+          template_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          installation_stage_id: string
+          started_at?: string
+          status?: Database["public"]["Enums"]["checklist_execution_status"]
+          template_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          installation_stage_id?: string
+          started_at?: string
+          status?: Database["public"]["Enums"]["checklist_execution_status"]
+          template_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "installation_checklists_installation_stage_id_fkey"
+            columns: ["installation_stage_id"]
+            isOneToOne: false
+            referencedRelation: "installation_stages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "installation_checklists_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "checklist_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      installation_stages: {
+        Row: {
+          checklist_template_id: string | null
+          created_at: string
+          id: string
+          installation_id: string
+          planned_date: string | null
+          stage: string
+          status: string
+          technician_user_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          checklist_template_id?: string | null
+          created_at?: string
+          id?: string
+          installation_id: string
+          planned_date?: string | null
+          stage: string
+          status?: string
+          technician_user_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          checklist_template_id?: string | null
+          created_at?: string
+          id?: string
+          installation_id?: string
+          planned_date?: string | null
+          stage?: string
+          status?: string
+          technician_user_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "installation_stages_checklist_template_id_fkey"
+            columns: ["checklist_template_id"]
+            isOneToOne: false
+            referencedRelation: "checklist_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "installation_stages_installation_id_fkey"
+            columns: ["installation_id"]
+            isOneToOne: false
+            referencedRelation: "installations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      installations: {
+        Row: {
+          cliente_id: string
+          created_at: string
+          id: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          cliente_id: string
+          created_at?: string
+          id?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          cliente_id?: string
+          created_at?: string
+          id?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "installations_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "client_preventive_overview"
+            referencedColumns: ["client_id"]
+          },
+          {
+            foreignKeyName: "installations_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       mcp_query_audit: {
         Row: {
           created_at: string
