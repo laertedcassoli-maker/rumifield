@@ -202,6 +202,36 @@ export function AppSidebar() {
                 </SidebarMenuItem>
               ))}
 
+              {/* Solicitação de Peças com submenu */}
+              {showPedidosMenu && (
+                <Collapsible defaultOpen={isPedidosActive} className="group/collapsible">
+                  <SidebarMenuItem>
+                    <CollapsibleTrigger asChild>
+                      <SidebarMenuButton isActive={isPedidosActive}>
+                        <ShoppingCart className="h-4 w-4" />
+                        <span>Solicitação de Peças</span>
+                        <ChevronDown className="ml-auto h-4 w-4 transition-transform group-data-[state=open]/collapsible:rotate-180" />
+                      </SidebarMenuButton>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <SidebarMenuSub>
+                        {pedidosItems.map(item => (
+                          <SidebarMenuSubItem key={item.title}>
+                            <SidebarMenuSubButton asChild isActive={location.pathname + location.search === item.url}>
+                              <Link to={item.url} onClick={handleMenuClick}>
+                                <item.icon className="h-4 w-4" />
+                                <span>{item.title}</span>
+                              </Link>
+                            </SidebarMenuSubButton>
+                          </SidebarMenuSubItem>
+                        ))}
+                      </SidebarMenuSub>
+                    </CollapsibleContent>
+                  </SidebarMenuItem>
+                </Collapsible>
+              )}
+
+
               {/* CRM com submenu */}
               {showCrmMenu && (
                 <Collapsible defaultOpen={isCrmActive} className="group/collapsible">
