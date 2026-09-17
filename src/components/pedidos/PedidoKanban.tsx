@@ -45,6 +45,8 @@ interface PedidoKanbanProps {
   onConcluir: (pedidoId: string, nfNumero: string, dataFaturamento: string, tipoLogistica: string, itemsWithAssets?: Record<string, string[]>, nfNumero2?: string) => Promise<void>;
   onProcessarPendencia?: (pedidoId: string, codigoRastreio: string, anexoFile?: File) => Promise<void>;
   isResponsavelPendencia?: (pedido: PedidoComItens) => boolean;
+  /** Oculta a coluna "Pendente" (só usada por Coleta Reversa) na visão Envios */
+  showPendenteColumn?: boolean;
   isProcessing: boolean;
   consultorNames: Record<string, string>;
   currentUserId?: string;
@@ -136,10 +138,10 @@ function PedidoCard({
   );
 }
 
-export default function PedidoKanban({ 
+export default function PedidoKanban({
   pedidos, onViewPedido, onProcessar, onConcluir, isProcessing, consultorNames,
   currentUserId, canManage = false, canDeleteAny = false, onEdit, onDelete,
-  onProcessarPendencia, isResponsavelPendencia,
+  onProcessarPendencia, isResponsavelPendencia, showPendenteColumn = true,
 }: PedidoKanbanProps) {
   const [concluirPedidoId, setConcluirPedidoId] = useState<string | null>(null);
   const [processarPedidoId, setProcessarPedidoId] = useState<string | null>(null);
@@ -256,10 +258,17 @@ export default function PedidoKanban({
     },
   ];
 
+  const visibleColumns = showPendenteColumn
+    ? columns
+    : columns.filter(col => col.title !== 'Pendente');
+
   return (
     <>
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
-        {columns.map(col => (
+      <div className={cn(
+        'grid grid-cols-1 md:grid-cols-2 gap-4',
+        visibleColumns.length === 4 ? 'xl:grid-cols-4' : 'xl:grid-cols-3'
+      )}>
+        {visibleColumns.map(col => (
           <div key={col.title} className="space-y-3">
             <div className={cn('rounded-lg p-3', col.bgColor)}>
               <h3 className={cn('font-semibold text-sm flex items-center gap-2', col.color)}>
