@@ -1,4 +1,4 @@
-import { Home, MapPin, ShoppingCart, Users, Settings, LogOut, Beaker, Truck, RefreshCcw, ChevronDown, ClipboardCheck, TrendingDown, Play, Building2, History, Package, FlaskConical, Shield, Wrench, ListChecks, Box, FileText, Calendar, Route, CalendarDays, ClipboardList, AlertTriangle, Navigation, BookOpen, Bot, Contact, Briefcase, BarChart3, BarChart2, Eye, Brain, Sheet } from 'lucide-react';
+import { Home, MapPin, ShoppingCart, Users, Settings, LogOut, Beaker, Truck, RefreshCcw, ChevronDown, ClipboardCheck, TrendingDown, Play, Building2, History, Package, FlaskConical, Shield, Wrench, ListChecks, ListTodo, Box, FileText, Calendar, Route, CalendarDays, ClipboardList, AlertTriangle, Navigation, BookOpen, Bot, Contact, Briefcase, BarChart3, BarChart2, Eye, Brain, Sheet } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarMenuSub, SidebarMenuSubItem, SidebarMenuSubButton } from '@/components/ui/sidebar';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -8,6 +8,8 @@ import { Link, useLocation } from 'react-router-dom';
 import { OfflineIndicator } from '@/components/OfflineIndicator';
 import { useMenuPermissions } from '@/hooks/useMenuPermissions';
 import { usePendenciasCount } from '@/hooks/usePendenciasCount';
+import { useMinhasPendenciasCount } from '@/hooks/useMinhasPendencias';
+
 import { Badge } from '@/components/ui/badge';
 import { useSidebar } from '@/components/ui/sidebar';
 
@@ -28,6 +30,8 @@ export function AppSidebar() {
   const { setOpenMobile, isMobile } = useSidebar();
   const { canAccess, isLoading } = useMenuPermissions();
   const pendenciasCount = usePendenciasCount();
+  const minhasPendenciasCount = useMinhasPendenciasCount();
+
 
   const handleMenuClick = () => {
     if (isMobile) {
@@ -38,8 +42,10 @@ export function AppSidebar() {
   // Main menu items with permission keys
   const mainMenuItems = [
     { title: 'Início', icon: Home, url: '/', permKey: 'inicio' },
+    { title: 'Minhas Pendências', icon: ListTodo, url: '/minhas-pendencias', permKey: 'minhas_pendencias' },
     { title: 'Minhas Rotas', icon: Navigation, url: '/preventivas/minhas-rotas', permKey: 'minhas_rotas' },
   ].filter(item => canAccess(item.permKey));
+
 
   // Solicitação de Peças submenu
   const pedidosItems = [
