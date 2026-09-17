@@ -1200,6 +1200,43 @@ export default function Pedidos() {
     }
   }, [toast, queryClient, pedidos]);
 
+  // Responsável pela pendência da coleta reversa (definido na criação)
+  const isResponsavelPendencia = useCallback((pedido: any) => {
+    if (!user?.id) return false;
+    return pedido?.tecnico_responsavel_user_id === user.id
+      || pedido?.csm_responsavel_user_id === user.id
+      || (pedido?.tipo_coleta === 'correios' && pedido?.solicitante_id === user.id);
+  }, [user?.id]);
+
+  // Processar pendência da coleta reversa (pendente -> processamento + código de rastreio)
+  const handleProcessarPendencia = useCallback(async (pedidoId: string, codigoRastreio: string, anexoFile?: File) => {
+    setIsProcessingAction(true);
+    try {
+      const updateData: any = { status: 'processamento', codigo_rastreio: codigoRastreio };
+
+      if (anexoFile) {
+        const safeName = anexoFile.name.replace(/[^\w.\-]/g, '_');
+        const path = `${pedidoId}/${Date.now()}-${safeName}`;
+        const { error: uploadError } = await supabase.storage
+          .from('pedido-anexos')
+          .upload(path, anexoFile, { upsert: false });
+        if (uploadError) throw uploadError;
+        updateData.anexo_rastreio_path = path;
+      }
+
+      const { error } = await supabase.from('pedidos').update(updateData).eq('id', pedidoId);
+      if (error) throw error;
+
+      queryClient.invalidateQueries({ queryKey: ['pedidos'] });
+      track('pedido_pendencia_processada', {}, { entity: 'pedido', entity_id: pedidoId });
+      toast({ title: 'Pendência processada!', description: 'A coleta reversa foi movida para Em Processamento.' });
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: 'Erro', description: err.message });
+    } finally {
+      setIsProcessingAction(false);
+    }
+  }, [toast, queryClient]);
+
   // Concluir pedido (processamento -> faturado + NF + tipo_logistica)
   const handleConcluir = useCallback(async (pedidoId: string, nfNumero: string, dataFaturamento: string, tipoLogistica: string, itemsWithAssets?: Record<string, string[]>, nfNumero2?: string) => {
     setIsProcessingAction(true);
