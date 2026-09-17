@@ -19,7 +19,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Plus, Loader2, Trash2, Minus, ArrowUpDown, Search, X, Eye, Pencil, ShoppingCart, Package, ImageIcon, Send, FileText, ChevronLeft, ChevronRight, Truck, HandHelping, AlertTriangle, User, RefreshCcw } from 'lucide-react';
+import { Plus, Loader2, Trash2, Minus, ArrowUpDown, Search, X, Eye, Pencil, ShoppingCart, Package, ImageIcon, Send, FileText, ChevronLeft, ChevronRight, ArrowLeft, Truck, HandHelping, AlertTriangle, User, RefreshCcw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -193,7 +193,26 @@ export default function Pedidos() {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [editingPedido, setEditingPedido] = useState<any>(null);
-  const [viewingPedido, setViewingPedido] = useState<any>(null);
+  const [viewingStack, setViewingStack] = useState<any[]>([]);
+  const viewingPedido = viewingStack.length > 0 ? viewingStack[viewingStack.length - 1] : null;
+  const setViewingPedido = useCallback((next: any) => {
+    setViewingStack((stack) => {
+      const current = stack.length > 0 ? stack[stack.length - 1] : null;
+      const value = typeof next === 'function' ? next(current) : next;
+      if (!value) return [];
+      // Abrir um pedido diferente a partir da listagem reinicia a pilha
+      if (!current || current.id !== value.id) return [value];
+      return [...stack.slice(0, -1), value];
+    });
+  }, []);
+  const pushPedido = useCallback((pedido: any) => {
+    setIsEditingSolicitado(false);
+    setViewingStack((stack) => [...stack, pedido]);
+  }, []);
+  const popPedido = useCallback(() => {
+    setIsEditingSolicitado(false);
+    setViewingStack((stack) => (stack.length > 1 ? stack.slice(0, -1) : stack));
+  }, []);
   const [form, setForm] = useState({ ...emptyForm });
   const [itens, setItens] = useState<{ peca_id: string; quantidade: number }[]>([]);
   const [autoLinkDismissed, setAutoLinkDismissed] = useState(false);
@@ -323,6 +342,52 @@ export default function Pedidos() {
     staleTime: 30_000,
     refetchOnWindowFocus: true,
   });
+
+  // Pedidos vinculados (envio <-> coleta reversa) do pedido no topo da pilha
+  const { data: pedidoVinculos } = useQuery({
+    queryKey: ['pedido-vinculos', viewingPedido?.id, viewingPedido?.tipo_solicitacao, viewingPedido?.coleta_reversa_origem_id],
+    enabled: !!viewingPedido?.id,
+    queryFn: async () => {
+      const selectStr = `
+        *,
+        clientes(nome, fazenda, consultor_rplus_id),
+        pedido_itens(
+          *,
+          pecas(nome, codigo, familia, is_asset, imagem_url),
+          workshop_items:workshop_item_id(id, unique_code),
+          pedido_item_assets(id, pedido_item_id, workshop_item_id, workshop_items:workshop_item_id(id, unique_code))
+        )
+      `;
+      const normalize = (p: any) => ({
+        ...p,
+        pedido_itens: (p.pedido_itens || []).map((item: any) => ({
+          ...item,
+          workshop_item: item.workshop_items || null,
+        })),
+      });
+
+      if (viewingPedido.tipo_solicitacao === 'coleta_reversa') {
+        if (!viewingPedido.coleta_reversa_origem_id) return { origem: null, coletas: [] as any[] };
+        const { data, error } = await supabase
+          .from('pedidos')
+          .select(selectStr)
+          .eq('id', viewingPedido.coleta_reversa_origem_id)
+          .maybeSingle();
+        if (error) throw error;
+        return { origem: data ? normalize(data) : null, coletas: [] as any[] };
+      }
+
+      const { data, error } = await supabase
+        .from('pedidos')
+        .select(selectStr)
+        .eq('coleta_reversa_origem_id', viewingPedido.id)
+        .order('created_at', { ascending: true });
+      if (error) throw error;
+      return { origem: null, coletas: (data || []).map(normalize) };
+    },
+  });
+
+
 
 
 
@@ -2265,7 +2330,14 @@ export default function Pedidos() {
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Eye className="h-5 w-5" />
+              {viewingStack.length > 1 ? (
+                <Button variant="ghost" size="sm" className="h-7 gap-1 px-2 -ml-2" onClick={popPedido}>
+                  <ArrowLeft className="h-4 w-4" />
+                  Voltar
+                </Button>
+              ) : (
+                <Eye className="h-5 w-5" />
+              )}
               {isEditingSolicitado ? 'Editar Pedido' : 'Detalhes do Pedido'}
               {viewingPedido?.pedido_code && (
                 <span className="font-mono text-sm font-normal text-muted-foreground">{viewingPedido.pedido_code}</span>
@@ -2521,6 +2593,47 @@ export default function Pedidos() {
                   )}
                 </div>
               )}
+
+              {/* Coleta(s) reversa(s) vinculada(s) */}
+              {(pedidoVinculos?.coletas?.length ?? 0) > 0 && (
+                <div className="space-y-2">
+                  <Label>Coleta(s) Reversa(s) vinculada(s)</Label>
+                  <div className="space-y-2">
+                    {pedidoVinculos!.coletas.map((coleta: any) => (
+                      <button
+                        key={coleta.id}
+                        type="button"
+                        onClick={() => pushPedido(coleta)}
+                        className="w-full flex items-center justify-between gap-2 p-3 rounded-lg bg-muted/50 border text-left hover:bg-muted transition-colors"
+                      >
+                        <span className="font-mono text-sm">{coleta.pedido_code || '—'}</span>
+                        <Badge variant="outline" className={cn(statusColors[coleta.status], 'text-xs')}>
+                          {statusLabels[coleta.status]}
+                        </Badge>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Envio de origem */}
+              {pedidoVinculos?.origem && (
+                <div className="space-y-2">
+                  <Label>Envio de origem</Label>
+                  <button
+                    type="button"
+                    onClick={() => pushPedido(pedidoVinculos.origem)}
+                    className="w-full flex items-center justify-between gap-2 p-3 rounded-lg bg-muted/50 border text-left hover:bg-muted transition-colors"
+                  >
+                    <span className="font-mono text-sm">{pedidoVinculos.origem.pedido_code || '—'}</span>
+                    <Badge variant="outline" className={cn(statusColors[pedidoVinculos.origem.status], 'text-xs')}>
+                      {statusLabels[pedidoVinculos.origem.status]}
+                    </Badge>
+                  </button>
+                </div>
+              )}
+
+
 
               {/* Close button */}
               <Button variant="outline" className="w-full" onClick={() => setViewingPedido(null)}>
