@@ -213,8 +213,19 @@ export default function PedidoKanban({
       color: 'text-amber-600',
       bgColor: 'bg-amber-50 dark:bg-amber-950/20',
       items: pendentes,
-      // Sem ação nesta fase — o Código de Rastreio será tratado na Fase 5
-      renderAction: undefined,
+      // Processar pendência: admin/coordenador OU o responsável definido na criação
+      renderAction: (pedido: PedidoComItens) =>
+        onProcessarPendencia && (canManage || isResponsavelPendencia?.(pedido)) ? (
+          <Button
+            size="sm"
+            className="h-7 text-xs flex-1 gap-1"
+            onClick={() => setPendenciaPedidoId(pedido.id)}
+            disabled={isProcessing}
+          >
+            <ArrowRight className="h-3 w-3" />
+            Processar
+          </Button>
+        ) : null,
     },
     {
       title: 'Em Processamento',
