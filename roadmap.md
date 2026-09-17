@@ -1,7 +1,8 @@
 # Roadmap
 
 ## Em andamento
-- [ ] (Futuro) Dialog de detalhe/vínculo de coleta reversa — aguardando o usuário.
+- [x] Dialog de detalhe: navegação em cadeia entre envio e coletas reversas vinculadas (pilha + botão Voltar).
+- [ ] (Próximo) Badges de vínculo no Kanban de pedidos.
 - [ ] Pendente decisão do usuário: Phelipe está com role coordenador_servicos (não tecnico_campo) — seletor de técnicos fixos mostra só Roger e Lenilton conforme regra "apenas tecnico_campo".
 
 ## Concluído
