@@ -2330,7 +2330,14 @@ export default function Pedidos() {
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Eye className="h-5 w-5" />
+              {viewingStack.length > 1 ? (
+                <Button variant="ghost" size="sm" className="h-7 gap-1 px-2 -ml-2" onClick={popPedido}>
+                  <ArrowLeft className="h-4 w-4" />
+                  Voltar
+                </Button>
+              ) : (
+                <Eye className="h-5 w-5" />
+              )}
               {isEditingSolicitado ? 'Editar Pedido' : 'Detalhes do Pedido'}
               {viewingPedido?.pedido_code && (
                 <span className="font-mono text-sm font-normal text-muted-foreground">{viewingPedido.pedido_code}</span>
@@ -2586,6 +2593,47 @@ export default function Pedidos() {
                   )}
                 </div>
               )}
+
+              {/* Coleta(s) reversa(s) vinculada(s) */}
+              {(pedidoVinculos?.coletas?.length ?? 0) > 0 && (
+                <div className="space-y-2">
+                  <Label>Coleta(s) Reversa(s) vinculada(s)</Label>
+                  <div className="space-y-2">
+                    {pedidoVinculos!.coletas.map((coleta: any) => (
+                      <button
+                        key={coleta.id}
+                        type="button"
+                        onClick={() => pushPedido(coleta)}
+                        className="w-full flex items-center justify-between gap-2 p-3 rounded-lg bg-muted/50 border text-left hover:bg-muted transition-colors"
+                      >
+                        <span className="font-mono text-sm">{coleta.pedido_code || '—'}</span>
+                        <Badge variant="outline" className={cn(statusColors[coleta.status], 'text-xs')}>
+                          {statusLabels[coleta.status]}
+                        </Badge>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Envio de origem */}
+              {pedidoVinculos?.origem && (
+                <div className="space-y-2">
+                  <Label>Envio de origem</Label>
+                  <button
+                    type="button"
+                    onClick={() => pushPedido(pedidoVinculos.origem)}
+                    className="w-full flex items-center justify-between gap-2 p-3 rounded-lg bg-muted/50 border text-left hover:bg-muted transition-colors"
+                  >
+                    <span className="font-mono text-sm">{pedidoVinculos.origem.pedido_code || '—'}</span>
+                    <Badge variant="outline" className={cn(statusColors[pedidoVinculos.origem.status], 'text-xs')}>
+                      {statusLabels[pedidoVinculos.origem.status]}
+                    </Badge>
+                  </button>
+                </div>
+              )}
+
+
 
               {/* Close button */}
               <Button variant="outline" className="w-full" onClick={() => setViewingPedido(null)}>
