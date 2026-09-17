@@ -6,7 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Shield, Loader2, ChevronDown, Home, Beaker, Wrench, Settings, AlertTriangle, BookOpen, Briefcase, Route, MapPin } from 'lucide-react';
+import { Shield, Loader2, ChevronDown, Home, Beaker, Wrench, Settings, AlertTriangle, BookOpen, Briefcase, Route, MapPin, ShoppingCart } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
@@ -44,11 +44,12 @@ const menuGroupConfig: Record<string, { label: string; icon: typeof Home; order:
   principal: { label: 'Menu Principal', icon: Home, order: 1 },
   crm: { label: 'CRM', icon: Briefcase, order: 2 },
   instalacoes_existentes: { label: 'Instalações Existentes', icon: MapPin, order: 3 },
-  estoque: { label: 'Estoque Químicos', icon: Beaker, order: 4 },
-  oficina: { label: 'Centro de Serviços', icon: Wrench, order: 5 },
-  minhas_rotas: { label: 'Minhas Rotas', icon: Route, order: 6 },
-  chamados: { label: 'Chamados Técnicos', icon: AlertTriangle, order: 7 },
-  admin: { label: 'Administração', icon: Settings, order: 8 },
+  pedidos: { label: 'Solicitação de Peças', icon: ShoppingCart, order: 4 },
+  estoque: { label: 'Estoque Químicos', icon: Beaker, order: 5 },
+  oficina: { label: 'Centro de Serviços', icon: Wrench, order: 6 },
+  minhas_rotas: { label: 'Minhas Rotas', icon: Route, order: 7 },
+  chamados: { label: 'Chamados Técnicos', icon: AlertTriangle, order: 8 },
+  admin: { label: 'Administração', icon: Settings, order: 9 },
 };
 
 const roles = [
