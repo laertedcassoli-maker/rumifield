@@ -14,7 +14,8 @@
 - Antes do estado do filtro: `const [searchParams] = useSearchParams();`
 - Inicializar o estado (linha ~173) de forma lazy, uma única vez:
   `useState<'all'|'envio'|'coleta_reversa'>(() => { const t = searchParams.get('tipo'); return t === 'envio' || t === 'coleta_reversa' ? t : 'all'; })`
-- Nada mais muda: sem `useEffect` de sincronização, sem travas, sem alterar os botões, a aba "Rascunhos" ou `activeTab`.
+- Sincronizar com mudanças de query string na mesma página (o componente não desmonta ao trocar só `?tipo=`): `useEffect` que lê `const t = searchParams.get('tipo')` e faz `setTipoSolicitacaoFilter(t === 'envio' || t === 'coleta_reversa' ? t : 'all')`, com dependência apenas em `t` — assim roda só quando o parâmetro da URL muda e não sobrescreve a escolha manual do usuário em re-renders.
+- Nada mais muda: sem travas, sem alterar os botões, a aba "Rascunhos" ou `activeTab`.
 
 ## 3. Migration (dados apenas)
 Nova migration em `supabase/migrations/` inserindo em `role_menu_permissions`, para cada role, uma linha por novo `menu_key`, derivada da linha de `'pedidos'`:
