@@ -19,7 +19,8 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Plus, Loader2, Trash2, Minus, ArrowUpDown, Search, X, Eye, Pencil, ShoppingCart, Package, ImageIcon, Send, FileText, ChevronLeft, ChevronRight, ArrowLeft, Truck, HandHelping, AlertTriangle, User, RefreshCcw } from 'lucide-react';
+import { Plus, Loader2, Trash2, Minus, ArrowUpDown, Search, X, Eye, Pencil, ShoppingCart, Package, ImageIcon, Send, FileText, ChevronLeft, ChevronRight, ArrowLeft, ArrowRight, Truck, HandHelping, AlertTriangle, User, RefreshCcw } from 'lucide-react';
+import ProcessarPendenciaDialog from '@/components/pedidos/ProcessarPendenciaDialog';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -234,6 +235,7 @@ export default function Pedidos() {
   const [isEditingSolicitado, setIsEditingSolicitado] = useState(false);
   const [consultorNames, setConsultorNames] = useState<Record<string, string>>({});
   const [pedidoToDelete, setPedidoToDelete] = useState<PedidoComItens | null>(null);
+  const [pendenciaPedido, setPendenciaPedido] = useState<PedidoComItens | null>(null);
   const [isDeletingPedido, setIsDeletingPedido] = useState(false);
   
   const isAdmin = role === 'admin' || role === 'coordenador_rplus' || role === 'coordenador_servicos' || role === 'coordenador_logistica';
