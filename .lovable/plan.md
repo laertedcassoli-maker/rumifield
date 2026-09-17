@@ -45,7 +45,7 @@ Nova migration:
   - Toast final adaptado ("Coleta reversa marcada como pendente!").
 - `statusColors`/`statusLabels`: entrada `pendente` → label "Pendente", cor de destaque (tom âmbar/warning distinto do "Em Processamento").
 - `statusOrder` (ordenação da lista): `pendente` entre `solicitado` e `processamento`.
-- `PedidoKanban.tsx`: nova coluna **Pendente** entre "Aberto" e "Em Processamento", listando `status === 'pendente'`; cards com o mesmo layout e a ação "Concluir" (mesmo tratamento da coluna Em Processamento, já que o Concluir da Coleta Reversa é a Fase 5). Nenhuma coluna existente removida ou alterada.
+- `PedidoKanban.tsx`: nova coluna **Pendente** entre "Aberto" e "Em Processamento", listando `status === 'pendente'`; cards com o mesmo layout (badge de status e dados do pedido) e **sem nenhum botão de ação** — a ação correta ("Processar", pedindo Código de Rastreio) entra na Fase 5. Nenhuma coluna existente removida ou alterada.
 
 ## Fora de escopo (fases seguintes)
 
