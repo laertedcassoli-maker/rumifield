@@ -292,7 +292,7 @@ export default function Atividades() {
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold">Atividades de Oficina</h1>
+          <h1 className="text-2xl font-bold">Atividades do Centro de Serviços</h1>
           <p className="text-muted-foreground">Gerencie as atividades de manutenção</p>
         </div>
         {isAdmin && (
