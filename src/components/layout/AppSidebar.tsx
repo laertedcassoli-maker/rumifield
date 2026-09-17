@@ -125,7 +125,7 @@ export function AppSidebar() {
     { title: 'Config. CRM', icon: Briefcase, url: '/admin/crm', permKey: 'admin_cadastros' },
     { title: 'Tags', icon: AlertTriangle, url: '/admin/ticket-tags', permKey: 'admin_cadastros' },
     { title: 'Templates Checklist', icon: ClipboardList, url: '/preventivas/checklists', permKey: 'admin_cadastros' },
-    { title: 'Atividades Oficina', icon: ListChecks, url: '/oficina/atividades', permKey: 'oficina_atividades' },
+    { title: 'Atividades Centro de Serviços', icon: ListChecks, url: '/oficina/atividades', permKey: 'oficina_atividades' },
     { title: 'Google Sheets', icon: Sheet, url: '/admin/config/google-sheets', permKey: 'admin_cadastros' },
   ].filter(item => canAccess(item.permKey));
 
