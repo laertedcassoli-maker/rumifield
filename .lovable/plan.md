@@ -27,7 +27,10 @@ SELECT role, 'pedidos_envios', 'Envios', 'pedidos', can_access, can_edit, can_de
 FROM public.role_menu_permissions WHERE menu_key = 'pedidos'
 ON CONFLICT (role, menu_key) DO UPDATE SET menu_label = EXCLUDED.menu_label, menu_group = EXCLUDED.menu_group, updated_at = now();
 ```
-(idem para `'pedidos_coleta_reversa'` / rótulo 'Coleta Reversa'). A linha `'pedidos'` permanece intocada. Nenhuma policy nova, nenhuma coluna nova — `types.ts` não precisa ser regenerado.
+(idem para `'pedidos_coleta_reversa'` / rótulo 'Coleta Reversa'). Um `UPDATE` apenas de agrupamento visual coloca a linha `'pedidos'` no `menu_group = 'pedidos'` (rótulo 'Solicitação de Peças'), sem tocar em nenhum valor de permissão. Nenhuma policy nova, nenhuma coluna nova — `types.ts` não precisa ser regenerado.
+
+## 4. Tela de permissões (`src/pages/admin/Permissoes.tsx`)
+Adicionar a `menuGroupConfig` (linha ~43) a entrada `pedidos: { label: 'Solicitação de Peças', icon: ShoppingCart, order: 4 }`, deslocando os `order` seguintes (estoque 5, oficina 6, minhas_rotas 7, chamados 8, admin 9), e importar `ShoppingCart` do lucide-react. Assim as três linhas (`pedidos`, `pedidos_envios`, `pedidos_coleta_reversa`) aparecem agrupadas com rótulo próprio, em vez do fallback genérico.
 
 ## O que NÃO muda
 Rota `/pedidos`, permKey `pedidos`, lógica dos filtros existentes, aba Rascunhos, formulário, demais itens do menu, valores de acesso já concedidos.
