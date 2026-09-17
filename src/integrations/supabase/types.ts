@@ -2005,7 +2005,9 @@ export type Database = {
       pedidos: {
         Row: {
           cliente_id: string
+          coleta_reversa_origem_id: string | null
           created_at: string
+          gera_coleta_reversa_automatica: boolean
           id: string
           observacoes: string | null
           omie_data_faturamento: string | null
@@ -2020,12 +2022,15 @@ export type Database = {
           status: Database["public"]["Enums"]["pedido_status"]
           tipo_envio: string | null
           tipo_logistica: string | null
+          tipo_solicitacao: string
           updated_at: string
           urgencia: string
         }
         Insert: {
           cliente_id: string
+          coleta_reversa_origem_id?: string | null
           created_at?: string
+          gera_coleta_reversa_automatica?: boolean
           id?: string
           observacoes?: string | null
           omie_data_faturamento?: string | null
@@ -2040,12 +2045,15 @@ export type Database = {
           status?: Database["public"]["Enums"]["pedido_status"]
           tipo_envio?: string | null
           tipo_logistica?: string | null
+          tipo_solicitacao?: string
           updated_at?: string
           urgencia?: string
         }
         Update: {
           cliente_id?: string
+          coleta_reversa_origem_id?: string | null
           created_at?: string
+          gera_coleta_reversa_automatica?: boolean
           id?: string
           observacoes?: string | null
           omie_data_faturamento?: string | null
@@ -2060,6 +2068,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["pedido_status"]
           tipo_envio?: string | null
           tipo_logistica?: string | null
+          tipo_solicitacao?: string
           updated_at?: string
           urgencia?: string
         }
@@ -2076,6 +2085,13 @@ export type Database = {
             columns: ["cliente_id"]
             isOneToOne: false
             referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "pedidos_coleta_reversa_origem_id_fkey"
+            columns: ["coleta_reversa_origem_id"]
+            isOneToOne: false
+            referencedRelation: "pedidos"
             referencedColumns: ["id"]
           },
           {
