@@ -145,7 +145,7 @@ export default function AssetSearchField({
 
   return (
     <div className="space-y-2">
-      <Label>Código do Ativo (se aplicável)</Label>
+      <Label>Número do Lacre:</Label>
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
           <Button

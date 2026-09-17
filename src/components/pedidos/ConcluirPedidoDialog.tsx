@@ -84,15 +84,17 @@ export default function ConcluirPedidoDialog({ open, onOpenChange, pedido, onCon
               autoFocus
             />
           </div>
-          <div className="space-y-2">
-            <Label htmlFor="nf-numero-2">Número da NF (Adicional) <span className="text-muted-foreground font-normal">(opcional)</span></Label>
-            <Input
-              id="nf-numero-2"
-              placeholder="Ex: 67890"
-              value={nfNumero2}
-              onChange={(e) => setNfNumero2(e.target.value)}
-            />
-          </div>
+          {pedido?.tipo_solicitacao !== 'coleta_reversa' && (
+            <div className="space-y-2">
+              <Label htmlFor="nf-numero-2">Número da NF (Adicional) <span className="text-muted-foreground font-normal">(opcional)</span></Label>
+              <Input
+                id="nf-numero-2"
+                placeholder="Ex: 67890"
+                value={nfNumero2}
+                onChange={(e) => setNfNumero2(e.target.value)}
+              />
+            </div>
+          )}
           <div className="space-y-2">
             <Label htmlFor="data-faturamento">Data de Faturamento</Label>
             <Input

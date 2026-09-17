@@ -31,7 +31,8 @@ export default function ProcessarPedidoDialog({ open, onOpenChange, pedido, onCo
   const submittingRef = useRef(false);
 
   const itemsNeedingAssets = useMemo(() => {
-    if (!pedido?.pedido_itens) return [];
+    // Coleta Reversa já teve o vínculo de ativos feito na criação — não pedir de novo
+    if (!pedido?.pedido_itens || pedido?.tipo_solicitacao === 'coleta_reversa') return [];
     return pedido.pedido_itens.filter(item => 
       item.pecas?.is_asset && !item.cancelled_at
     );

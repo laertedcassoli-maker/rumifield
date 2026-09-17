@@ -853,11 +853,8 @@ export default function Pedidos() {
   const assetItens = itens
     .map((item, index) => ({ index, item, peca: pecas?.find(p => p.id === item.peca_id) }))
     .filter(entry => !!entry.peca?.is_asset);
-  // Ativos exigidos na criação apenas em Coleta Reversa (manual ou automática)
-  const requiresAssetsOnCreate =
-    !editingPedido &&
-    (form.tipo_solicitacao === 'coleta_reversa' || (form.tipo_solicitacao === 'envio' && form.gera_coleta_reversa)) &&
-    assetItens.length > 0;
+  // Ativos exigidos na criação sempre que houver peça is_asset (qualquer tipo de solicitação)
+  const requiresAssetsOnCreate = !editingPedido && assetItens.length > 0;
   const missingAssetItem = assetItens.find(entry => (itemAssets[entry.index] || []).filter(Boolean).length === 0);
 
   const assetsByPecaId = () => {
@@ -2016,7 +2013,7 @@ export default function Pedidos() {
                     </div>
                   )}
 
-                  {/* Ativos a coletar (Coleta Reversa, peças que exigem ativo) */}
+                  {/* Ativos a coletar (qualquer tipo com peças que exigem ativo) */}
                   {requiresAssetsOnCreate && (
                     <div className="space-y-2">
                       <Label>Ativos a coletar <span className="text-destructive">*</span></Label>
