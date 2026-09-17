@@ -31,7 +31,7 @@ export interface PendenciaPedido {
   status: string;
 }
 
-const ROUTE_ITEM_PENDING = ['planejado', 'reagendado'] as const;
+const ROUTE_ITEM_PENDING = ["planejado", "reagendado"] as const;
 const ROUTE_PENDING = ['planejada', 'em_execucao'] as const;
 const VISIT_PENDING = ['em_elaboracao', 'planejada', 'em_execucao'] as const;
 const ENVIO_FINALIZADOS = ['faturado', 'enviado', 'entregue'] as const;
@@ -61,7 +61,7 @@ export function useMinhasPendencias() {
         .from('preventive_routes')
         .select('id, route_code, status')
         .eq('field_technician_user_id', uid!)
-        .in('status', ROUTE_PENDING as unknown as string[]);
+        .in('status', ROUTE_PENDING);
       if (routesError) throw routesError;
       if (!routes?.length) return [];
 
@@ -69,7 +69,7 @@ export function useMinhasPendencias() {
         .from('preventive_route_items')
         .select('id, route_id, client_id, planned_date, status, order_index')
         .in('route_id', routes.map(r => r.id))
-        .in('status', ROUTE_ITEM_PENDING as unknown as string[])
+        .in('status', ROUTE_ITEM_PENDING)
         .order('planned_date', { ascending: true })
         .order('order_index', { ascending: true });
       if (itemsError) throw itemsError;
@@ -101,7 +101,7 @@ export function useMinhasPendencias() {
         .from('ticket_visits')
         .select('id, visit_code, ticket_id, client_id, planned_start_date, status')
         .eq('field_technician_user_id', uid!)
-        .in('status', VISIT_PENDING as unknown as string[])
+        .in('status', VISIT_PENDING)
         .order('planned_start_date', { ascending: true });
       if (error) throw error;
       if (!visits?.length) return [];
