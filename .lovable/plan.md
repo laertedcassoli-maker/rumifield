@@ -36,4 +36,4 @@ Comentário da linha 856 atualizado para refletir a regra: ativos exigidos na cr
 
 ## Validação
 - Typecheck (tsgo) e build OK.
-- Playwright no preview: abrir "Novo Pedido" na visão Todos, adicionar item com peça is_asset (ex.: DD-DA001-35) — seção "Ativos a coletar" deve aparecer sem o toggle de coleta reversa marcado (Envio comum) e deve aparecer com o toggle marcado (Envio + coleta automática). Screenshots em /tmp/browser/lacre-scope-revert/.
+- Playwright no preview: abrir "Novo Pedido" na visão Todos (Envio padrão), adicionar item com peça is_asset (ex.: DD-DA001-35) e confirmar que a seção "Ativos a coletar" NÃO aparece com o toggle "Gera automaticamente coleta reversa?" desmarcado (Envio comum) — o vínculo volta a ser exigido só no Processar. Em seguida, marcar o toggle e confirmar que a seção passa a aparecer, exigindo o vínculo na criação (comportamento esperado para a coleta reversa que será gerada). Screenshots em /tmp/browser/lacre-scope-revert/.
