@@ -23,22 +23,26 @@ RLS/GRANTs (todas as tabelas novas + revisão das 3 existentes):
 - `GRANT SELECT/INSERT/UPDATE/DELETE` para `authenticated` conforme policies + `GRANT ALL` para `service_role`.
 - Regenerar `types.ts`.
 
+Base offline (código, mesma fase):
+- `src/lib/offline-db.ts`: novas tabelas Dexie `installation_stages`, `installation_checklists` e espelhos de execução (blocks/items/actions/nonconformities/part_consumption), replicando exatamente o padrão já usado para `preventive_checklists`/`preventive_part_consumption` — incluindo `_pendingSync`, fila de sync e dead-letter após 5 tentativas.
+
 ## Fase 2 — Menu e tela de Instalações
 
 - `AppSidebar.tsx`: item "Instalações" (ícone lucide-react) no Menu Principal, com permKey `instalacoes`; submenu existente "Instalações Existentes" não é alterado.
-- Migration de seed: `role_menu_permissions` para `menu_key='instalacoes'` (grupo `principal`), `can_access=true` para admin, coordenador_rplus, consultor_rplus, coordenador_servicos (com `ON CONFLICT (role, menu_key) DO UPDATE`); demais roles sem acesso.
+- Migration de seed: `role_menu_permissions` para `menu_key='instalacoes'` (grupo `principal`), `can_access=true` para admin, coordenador_rplus, consultor_rplus, coordenador_servicos **e tecnico_campo** (com `ON CONFLICT (role, menu_key) DO UPDATE`); demais roles sem acesso.
 - `src/pages/instalacoes/Index.tsx` + rota `/instalacoes` (dentro de AppLayout):
   - Listagem de instalações (busca por cliente, Badge de status, colunas com as 3 etapas pré-venda/pré-instalação/instalação e seus status).
-  - Criar instalação (dialog: seleção de cliente; uma instalação por cliente — erro claro se já existir).
-  - Gerenciar etapa (dialog: técnico entre usuários ativos `tecnico_campo`, data planejada, template de checklist, status `planejado/em_andamento/concluido`).
-  - Acesso à execução da etapa (link quando em andamento ou com checklist iniciado).
+  - Visão por papel (filtro na consulta/UI, não na RLS — leitura já é ampla): admin/coordenador_rplus/consultor_rplus/coordenador_servicos veem tudo; `tecnico_campo` vê apenas instalações/etapas onde é `technician_user_id` designado (padrão MinhasRotas).
+  - Criar instalação (dialog: seleção de cliente; uma instalação por cliente — erro claro se já existir) — **não visível para tecnico_campo**.
+  - Gerenciar etapa (dialog: técnico entre usuários ativos `tecnico_campo`, data planejada, template de checklist, status `planejado/em_andamento/concluido`) — **não visível para tecnico_campo**.
+  - Acesso à execução da etapa (link quando em andamento ou com checklist iniciado) — única ação do tecnico_campo.
 
 ## Fase 3 — Tela de execução da etapa
 
 - `src/pages/instalacoes/ExecucaoEtapa.tsx` + rota `/instalacoes/etapa/:stageId` (padrão visual de `AtendimentoPreventivo`: dados do cliente, status, botão Iniciar/Finalizar etapa).
-- `src/components/instalacoes/ChecklistExecution.tsx`: motor adaptado do preventivo, **100% online** (sem Dexie/offline — este módulo nunca entra no PWA offline), reutilizando os sub-componentes compartilhados `ChecklistItemStatusButtons`, `SelectableOptionCard`, `ChecklistBlockNav`, `ChecklistItemNotes`, `NonconformityPartsManager`.
+- `src/components/instalacoes/ChecklistExecution.tsx`: motor adaptado do preventivo **com suporte offline**, seguindo o padrão write-local-first de `src/hooks/useOfflineChecklist.ts` e `src/components/preventivas/ChecklistExecution.tsx` (analisados antes da adaptação): grava local primeiro com `_pendingSync: true`, enfileira em `checklistSyncQueue`, sincroniza quando online, trata erro 23505 como sucesso, dead-letter após 5 tentativas — **nunca** `supabase.from()` direto nas mutações de execução (regra do CLAUDE.md para entidades offline-capable). Reutiliza os sub-componentes compartilhados `ChecklistItemStatusButtons`, `SelectableOptionCard`, `ChecklistBlockNav`, `ChecklistItemNotes`, `NonconformityPartsManager`.
   - Query keys próprios (`['installation-checklist', stageId]` etc.).
-  - Criação da execução a partir do template da etapa (snapshots de blocos/itens), marcação S/N/NA, notas, não conformidades e ações corretivas com auto-consumo das peças mapeadas ("Troca"), igual ao preventivo, mas gravando em `installation_checklists`/mirror/`installation_part_consumption`.
+  - Criação da execução a partir do template da etapa (snapshots de blocos/itens), marcação S/N/NA, notas, não conformidades e ações corretivas com auto-consumo das peças mapeadas ("Troca"), igual ao preventivo, mas gravando em `installation_checklists`/mirror/`installation_part_consumption` (via sync offline).
   - Finalizar: valida itens pendentes como no preventivo, marca checklist `concluido` e etapa `concluido`.
 - Sem relatório público nesta fase (fica para depois, como nas preventivas).
 
