@@ -3,7 +3,7 @@
 ## Contexto
 - Schema base já aplicado: `installations`, `installation_stages`, `installation_checklists` (FKs a `installation_stages`/`checklist_templates`, nunca a `preventive_maintenance`).
 - Motor preventivo (`ChecklistExecution.tsx`) é 100% acoplado a `preventive_checklists`/`preventive_part_consumption` — não será generalizado; o fluxo preventivo e o proxy `preventive_maintenance` usado por visitas corretivas ficam intactos.
-- Decisões confirmadas: menu = item próprio no Menu Principal; gestão inclui `consultor_rplus`; execução completa (não conformidades, ações, peças consumidas, auto-consumo "Troca"); instalação criada manualmente na nova tela.
+- Decisões confirmadas: menu = item próprio no Menu Principal; gestão = admin/coordenador_rplus/consultor_rplus/coordenador_servicos; tecnico_campo só executa a própria etapa atribuída (padrão "Minhas Rotas"); execução completa (não conformidades, ações, peças consumidas, auto-consumo "Troca"); execução com suporte offline (Dexie + syncQueue, write-local-first como no motor preventivo); instalação criada manualmente na nova tela.
 
 ## Fase 1 — Migration (mirror das tabelas de execução + peças)
 
