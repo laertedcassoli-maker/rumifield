@@ -2553,6 +2553,7 @@ export default function Pedidos() {
             onDelete={(p) => setPedidoToDelete(p)}
             onProcessarPendencia={handleProcessarPendencia}
             isResponsavelPendencia={isResponsavelPendencia}
+            showPendenteColumn={showPendentesTab}
           />
         ) : (
           /* Tabela somente leitura para perfis sem permissão de gestão */
