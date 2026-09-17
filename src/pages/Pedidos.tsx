@@ -563,7 +563,7 @@ export default function Pedidos() {
     });
     
     return filtered;
-  }, [pedidos, rascunhos, pedidosTransmitidos, activeTab, searchTerm, statusFilter, dateFilter, tipoEnvioFilter, tipoLogisticaFilter, tipoSolicitacaoFilter, solicitanteFilter, sortField, sortOrder, viewAll, user?.id]);
+  }, [pedidos, rascunhos, pedidosTransmitidos, pendenciasVisiveis, activeTab, searchTerm, statusFilter, dateFilter, tipoEnvioFilter, tipoLogisticaFilter, tipoSolicitacaoFilter, solicitanteFilter, sortField, sortOrder, viewAll, user?.id]);
 
   // Paginated data (only for Transmitidos tab)
   const paginatedPedidos = useMemo(() => {
