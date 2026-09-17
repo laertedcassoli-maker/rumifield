@@ -9,8 +9,10 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Loader2, ArrowRight, Truck, HandHelping, Container } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 import MultiAssetField from './MultiAssetField';
 import type { PedidoComItens } from '@/types/pedidos';
 
@@ -18,12 +20,16 @@ interface ProcessarPedidoDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   pedido?: PedidoComItens;
-  onConfirm: (tipoLogistica?: string, itemsWithAssets?: Record<string, string[]>) => Promise<void>;
+  onConfirm: (tipoLogistica?: string, itemsWithAssets?: Record<string, string[]>, codigoPostagem?: string, anexoFile?: File) => Promise<void>;
 }
 
 export default function ProcessarPedidoDialog({ open, onOpenChange, pedido, onConfirm }: ProcessarPedidoDialogProps) {
+  const { toast } = useToast();
   const [tipoLogistica, setTipoLogistica] = useState('');
+  const [codigoPostagem, setCodigoPostagem] = useState('');
+  const [anexoFile, setAnexoFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const isColetaReversa = pedido?.tipo_solicitacao === 'coleta_reversa';
   const needsLogistica = pedido?.tipo_solicitacao === 'coleta_reversa'
     ? pedido?.tipo_coleta !== 'apenas_nf'
     : pedido?.tipo_envio !== 'apenas_nf';
