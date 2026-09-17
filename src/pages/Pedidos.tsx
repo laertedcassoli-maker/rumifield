@@ -65,6 +65,9 @@ const emptyForm = {
   coleta_auto_responsavel_tipo: '',
   coleta_auto_tecnico_id: '',
   coleta_auto_csm_id: '',
+  motivo_relato: '',
+  quantidade_volumes: '',
+  coleta_auto_volumes: '',
 };
 
 const tipoEnvioReviewLabels: Record<string, string> = {
@@ -215,6 +218,8 @@ export default function Pedidos() {
   }, []);
   const [form, setForm] = useState({ ...emptyForm });
   const [itens, setItens] = useState<{ peca_id: string; quantidade: number }[]>([]);
+  // Ativos vinculados na criação (índice do item em `itens` -> workshop_item_ids)
+  const [itemAssets, setItemAssets] = useState<Record<number, string[]>>({});
   const [autoLinkDismissed, setAutoLinkDismissed] = useState(false);
   // UI-only filter: true = all orders (default), false = only mine
   const [viewAll, setViewAll] = useState(true);
@@ -620,6 +625,7 @@ export default function Pedidos() {
       setEditingPedido(null);
       setForm({ ...emptyForm });
       setItens([]);
+      setItemAssets({});
       setAutoLinkDismissed(false);
     } catch (error: any) {
       toast({ variant: 'destructive', title: 'Erro ao excluir', description: error.message });
@@ -674,6 +680,13 @@ export default function Pedidos() {
   const updateItem = (index: number, field: 'peca_id' | 'quantidade', value: string | number) => {
     const newItens = [...itens];
     newItens[index] = { ...newItens[index], [field]: value };
+    if (field === 'peca_id') {
+      setItemAssets((prev) => {
+        const next = { ...prev };
+        delete next[index];
+        return next;
+      });
+    }
     setItens(applyAutoLinks(newItens));
   };
 
@@ -705,6 +718,16 @@ export default function Pedidos() {
     if (removed?.peca_id && targetIdLocal && removed.peca_id === targetIdLocal) {
       setAutoLinkDismissed(true);
     }
+    // Reindexa os ativos vinculados após a remoção
+    setItemAssets((prev) => {
+      const reindexed: Record<number, string[]> = {};
+      itens.forEach((_, i) => {
+        if (i === index) return;
+        const target = i > index ? i - 1 : i;
+        if (prev[i]) reindexed[target] = prev[i];
+      });
+      return reindexed;
+    });
     // Remoção manual: não reinsere PRD00639 automaticamente
     setItens(next);
   };
@@ -736,12 +759,22 @@ export default function Pedidos() {
       tecnico_responsavel_user_id: (pedido as any).tecnico_responsavel_user_id || '',
       csm_responsavel_user_id: (pedido as any).csm_responsavel_user_id || '',
       coleta_responsavel_tipo: (pedido as any).tecnico_responsavel_user_id ? 'tecnico' : ((pedido as any).csm_responsavel_user_id ? 'csm' : ''),
+      motivo_relato: (pedido as any).motivo_relato || '',
+      quantidade_volumes: (pedido as any).quantidade_volumes != null ? String((pedido as any).quantidade_volumes) : '',
     });
     setItens(
       pedido.pedido_itens?.map((item: any) => ({
         peca_id: item.peca_id,
         quantidade: item.quantidade,
       })) || []
+    );
+    setItemAssets(
+      Object.fromEntries(
+        (pedido.pedido_itens || []).map((item: any, idx: number) => [
+          idx,
+          (item.pedido_item_assets || []).map((a: any) => a.workshop_item_id).filter(Boolean),
+        ]).filter(([, ids]: any) => (ids as string[]).length > 0)
+      ) as Record<number, string[]>
     );
     setOpen(true);
   };
@@ -805,6 +838,7 @@ export default function Pedidos() {
       setEditingPedido(null);
       setForm({ ...emptyForm });
       setItens([]);
+      setItemAssets({});
       setAutoLinkDismissed(false);
       setShowConfirmation(false);
       setClienteSearch('');
@@ -996,6 +1030,7 @@ export default function Pedidos() {
       setEditingPedido(null);
       setForm({ ...emptyForm });
       setItens([]);
+      setItemAssets({});
       setAutoLinkDismissed(false);
       setShowConfirmation(false);
       setClienteSearch('');
