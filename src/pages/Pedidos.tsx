@@ -1147,6 +1147,55 @@ export default function Pedidos() {
                     )}
                   </div>
 
+                  {/* Responsáveis e tipo de coleta */}
+                  {(form.tipo_solicitacao === 'envio' && form.tipo_envio) || (form.tipo_solicitacao === 'coleta_reversa' && form.tipo_coleta) ? (
+                    <div className="text-sm space-y-1 p-3 rounded-md border bg-muted/30">
+                      {form.tipo_solicitacao === 'envio' && form.tipo_envio && (
+                        <p className="flex items-center justify-between gap-2">
+                          <span className="text-muted-foreground shrink-0">Tipo de envio</span>
+                          <span className="font-medium truncate min-w-0">{tipoEnvioReviewLabels[form.tipo_envio] || form.tipo_envio}</span>
+                        </p>
+                      )}
+                      {form.tipo_solicitacao === 'envio' && form.tipo_envio === 'envio_pelo_tecnico' && (
+                        <p className="flex items-center justify-between gap-2">
+                          <span className="text-muted-foreground shrink-0">Técnico responsável</span>
+                          <span className="font-medium truncate min-w-0">{getUserName(form.tecnico_responsavel_user_id)}</span>
+                        </p>
+                      )}
+                      {form.tipo_solicitacao === 'coleta_reversa' && form.tipo_coleta && (
+                        <p className="flex items-center justify-between gap-2">
+                          <span className="text-muted-foreground shrink-0">Tipo de coleta</span>
+                          <span className="font-medium truncate min-w-0">{tipoColetaLabels[form.tipo_coleta] || form.tipo_coleta}</span>
+                        </p>
+                      )}
+                      {form.tipo_solicitacao === 'coleta_reversa' && form.tipo_coleta === 'coleta_tecnico_csm' && form.coleta_responsavel_tipo === 'tecnico' && (
+                        <p className="flex items-center justify-between gap-2">
+                          <span className="text-muted-foreground shrink-0">Técnico responsável</span>
+                          <span className="font-medium truncate min-w-0">{getUserName(form.tecnico_responsavel_user_id)}</span>
+                        </p>
+                      )}
+                      {form.tipo_solicitacao === 'coleta_reversa' && form.tipo_coleta === 'coleta_tecnico_csm' && form.coleta_responsavel_tipo === 'csm' && (
+                        <p className="flex items-center justify-between gap-2">
+                          <span className="text-muted-foreground shrink-0">CSM responsável</span>
+                          <span className="font-medium truncate min-w-0">{getUserName(form.csm_responsavel_user_id)}</span>
+                        </p>
+                      )}
+                      {form.tipo_solicitacao === 'envio' && form.gera_coleta_reversa && form.coleta_auto_tipo && (
+                        <p className="flex items-center justify-between gap-2">
+                          <span className="text-muted-foreground shrink-0">Coleta reversa automática</span>
+                          <span className="font-medium truncate min-w-0">
+                            {tipoColetaLabels[form.coleta_auto_tipo] || form.coleta_auto_tipo}
+                            {form.coleta_auto_tipo === 'coleta_tecnico_csm' && (
+                              form.coleta_auto_responsavel_tipo === 'tecnico' ? ` — ${getUserName(form.coleta_auto_tecnico_id)}`
+                              : form.coleta_auto_responsavel_tipo === 'csm' ? ` — ${getUserName(form.coleta_auto_csm_id)}`
+                              : ''
+                            )}
+                          </span>
+                        </p>
+                      )}
+                    </div>
+                  ) : null}
+
                   {/* Cliente destaque */}
                   <div className="p-4 rounded-lg bg-primary/10 border border-primary/20">
                     <p className="text-xs text-muted-foreground mb-1">Cliente</p>
@@ -1550,29 +1599,54 @@ export default function Pedidos() {
                     </ToggleGroup>
                   </div>
 
-                   {/* Tipo de Envio */}
-                  <div className="space-y-2">
-                    <Label>Tipo de Envio</Label>
-                    <ToggleGroup 
-                      type="single" 
-                      value={form.tipo_envio} 
-                      onValueChange={(v) => setForm({ ...form, tipo_envio: v || '' })}
-                      className="justify-start"
-                    >
-                      <ToggleGroupItem value="envio_fisico" className="text-xs gap-1">
-                        <Truck className="h-3 w-3" />
-                        Envio Físico
-                      </ToggleGroupItem>
-                      <ToggleGroupItem value="envio_pelo_tecnico" className="text-xs gap-1">
-                        <User className="h-3 w-3" />
-                        Envio pelo Técnico
-                      </ToggleGroupItem>
-                      <ToggleGroupItem value="apenas_nf" className="text-xs gap-1">
-                        <FileText className="h-3 w-3" />
-                        Apenas NF
-                      </ToggleGroupItem>
-                    </ToggleGroup>
-                   </div>
+                   {/* Tipo de Envio (apenas para pedidos do tipo Envio) */}
+                  {form.tipo_solicitacao === 'envio' && (
+                    <div className="space-y-2">
+                      <Label>Tipo de Envio</Label>
+                      <ToggleGroup
+                        type="single"
+                        value={form.tipo_envio}
+                        onValueChange={(v) => setForm({ ...form, tipo_envio: v || '', tecnico_responsavel_user_id: v === 'envio_pelo_tecnico' ? form.tecnico_responsavel_user_id : '' })}
+                        className="justify-start"
+                      >
+                        <ToggleGroupItem value="envio_fisico" className="text-xs gap-1">
+                          <Truck className="h-3 w-3" />
+                          Envio Físico
+                        </ToggleGroupItem>
+                        <ToggleGroupItem value="envio_pelo_tecnico" className="text-xs gap-1">
+                          <User className="h-3 w-3" />
+                          Envio pelo Técnico
+                        </ToggleGroupItem>
+                        <ToggleGroupItem value="apenas_nf" className="text-xs gap-1">
+                          <FileText className="h-3 w-3" />
+                          Apenas NF
+                        </ToggleGroupItem>
+                      </ToggleGroup>
+                    </div>
+                  )}
+
+                  {/* Técnico responsável (Envio pelo Técnico) */}
+                  {form.tipo_solicitacao === 'envio' && form.tipo_envio === 'envio_pelo_tecnico' && (
+                    <div className="space-y-2">
+                      <Label>Técnico Responsável</Label>
+                      <ToggleGroup
+                        type="single"
+                        value={form.tecnico_responsavel_user_id}
+                        onValueChange={(v) => v && setForm({ ...form, tecnico_responsavel_user_id: v })}
+                        className="justify-start"
+                      >
+                        {tecnicosFixos.map(t => (
+                          <ToggleGroupItem key={t.id} value={t.id} className="text-xs gap-1 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
+                            <User className="h-3 w-3" />
+                            {t.nome.split(' ')[0]}
+                          </ToggleGroupItem>
+                        ))}
+                      </ToggleGroup>
+                      {tecnicosFixos.length === 0 && (
+                        <p className="text-xs text-muted-foreground">Nenhum Técnico de Campo encontrado (Phelipe, Roger, Lenilton).</p>
+                      )}
+                    </div>
+                  )}
 
                   {/* Gera automaticamente coleta reversa? (apenas Envio) */}
                   {form.tipo_solicitacao === 'envio' && !editingPedido && (
