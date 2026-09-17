@@ -4,7 +4,7 @@
 - [x] Dialog de detalhe: navegação em cadeia entre envio e coletas reversas vinculadas (pilha + botão Voltar).
 - [x] Motivo/relato obrigatório (ambos os tipos), Quantidade de Volumes e vínculo de ativos na criação de Coleta Reversa (inclusive automática) + revisão exibindo os novos campos.
 - [x] Tipo de solicitação fixo na criação: com filtro Envios/Coleta Reversa ativo, "Novo pedido" abre com o tipo travado (badge) e sem o seletor; com "Todos", seletor livre como antes.
-- [x] Rótulo "Número do Lacre:" em AssetSearchField + ativo obrigatório na criação para qualquer tipo (Envio incluído).
+- [x] Rótulo "Número do Lacre:" em AssetSearchField; exigência de ativo na criação revertida ao escopo da coleta reversa (Coleta Reversa manual e Envio com geração automática; Envio comum vincula só no Processar — validado no preview).
 - [x] Processar de Coleta Reversa sem seção de ativos; Concluir de Coleta Reversa sem NF Adicional (validado no preview).
 - [ ] Badges de vínculo no Kanban de pedidos.
 - [ ] Pendente decisão do usuário: Phelipe está com role coordenador_servicos (não tecnico_campo) — seletor de técnicos fixos mostra só Roger e Lenilton conforme regra "apenas tecnico_campo".
