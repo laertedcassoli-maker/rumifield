@@ -4071,6 +4071,13 @@ export type Database = {
         Args: { _route_id: string; _user_id: string }
         Returns: boolean
       }
+      list_pedidos_responsaveis: {
+        Args: { p_role: Database["public"]["Enums"]["app_role"] }
+        Returns: {
+          nome: string
+          user_id: string
+        }[]
+      }
       mcp_describe_table: { Args: { p_table: string }; Returns: Json }
       mcp_list_tables: {
         Args: never
