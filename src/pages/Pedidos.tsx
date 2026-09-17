@@ -343,6 +343,52 @@ export default function Pedidos() {
     refetchOnWindowFocus: true,
   });
 
+  // Pedidos vinculados (envio <-> coleta reversa) do pedido no topo da pilha
+  const { data: pedidoVinculos } = useQuery({
+    queryKey: ['pedido-vinculos', viewingPedido?.id, viewingPedido?.tipo_solicitacao, viewingPedido?.coleta_reversa_origem_id],
+    enabled: !!viewingPedido?.id,
+    queryFn: async () => {
+      const selectStr = `
+        *,
+        clientes(nome, fazenda, consultor_rplus_id),
+        pedido_itens(
+          *,
+          pecas(nome, codigo, familia, is_asset, imagem_url),
+          workshop_items:workshop_item_id(id, unique_code),
+          pedido_item_assets(id, pedido_item_id, workshop_item_id, workshop_items:workshop_item_id(id, unique_code))
+        )
+      `;
+      const normalize = (p: any) => ({
+        ...p,
+        pedido_itens: (p.pedido_itens || []).map((item: any) => ({
+          ...item,
+          workshop_item: item.workshop_items || null,
+        })),
+      });
+
+      if (viewingPedido.tipo_solicitacao === 'coleta_reversa') {
+        if (!viewingPedido.coleta_reversa_origem_id) return { origem: null, coletas: [] as any[] };
+        const { data, error } = await supabase
+          .from('pedidos')
+          .select(selectStr)
+          .eq('id', viewingPedido.coleta_reversa_origem_id)
+          .maybeSingle();
+        if (error) throw error;
+        return { origem: data ? normalize(data) : null, coletas: [] as any[] };
+      }
+
+      const { data, error } = await supabase
+        .from('pedidos')
+        .select(selectStr)
+        .eq('coleta_reversa_origem_id', viewingPedido.id)
+        .order('created_at', { ascending: true });
+      if (error) throw error;
+      return { origem: null, coletas: (data || []).map(normalize) };
+    },
+  });
+
+
+
 
 
 
