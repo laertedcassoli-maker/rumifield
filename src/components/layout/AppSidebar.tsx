@@ -7,6 +7,8 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Link, useLocation } from 'react-router-dom';
 import { OfflineIndicator } from '@/components/OfflineIndicator';
 import { useMenuPermissions } from '@/hooks/useMenuPermissions';
+import { usePendenciasCount } from '@/hooks/usePendenciasCount';
+import { Badge } from '@/components/ui/badge';
 import { useSidebar } from '@/components/ui/sidebar';
 
 const roleLabels: Record<string, string> = {
@@ -25,6 +27,7 @@ export function AppSidebar() {
   const location = useLocation();
   const { setOpenMobile, isMobile } = useSidebar();
   const { canAccess, isLoading } = useMenuPermissions();
+  const pendenciasCount = usePendenciasCount();
 
   const handleMenuClick = () => {
     if (isMobile) {
@@ -221,6 +224,11 @@ export function AppSidebar() {
                               <Link to={item.url} onClick={handleMenuClick}>
                                 <item.icon className="h-4 w-4" />
                                 <span>{item.title}</span>
+                                {item.permKey === 'pedidos_coleta_reversa' && pendenciasCount > 0 && (
+                                  <Badge variant="secondary" className="ml-auto h-5 px-1.5 text-[10px]">
+                                    {pendenciasCount}
+                                  </Badge>
+                                )}
                               </Link>
                             </SidebarMenuSubButton>
                           </SidebarMenuSubItem>
