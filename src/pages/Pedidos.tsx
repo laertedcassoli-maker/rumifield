@@ -34,6 +34,7 @@ import { track } from '@/lib/analytics';
 const statusColors: Record<string, string> = {
   rascunho: 'bg-muted text-muted-foreground border-muted-foreground/30',
   solicitado: 'bg-info/10 text-info border-info/20',
+  pendente: 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-900/40',
   processamento: 'bg-warning/10 text-warning border-warning/20',
   faturado: 'bg-primary/10 text-primary border-primary/20',
   enviado: 'bg-success/10 text-success border-success/20',
@@ -43,6 +44,7 @@ const statusColors: Record<string, string> = {
 const statusLabels: Record<string, string> = {
   rascunho: 'Rascunho',
   solicitado: 'Solicitado',
+  pendente: 'Pendente',
   processamento: 'Em Processamento',
   faturado: 'Faturado',
   enviado: 'Enviado',
@@ -527,7 +529,7 @@ export default function Pedidos() {
       } else if (sortField === 'cliente') {
         comparison = (a.clientes?.nome || '').localeCompare(b.clientes?.nome || '');
       } else if (sortField === 'status') {
-        const statusOrder = ['rascunho', 'solicitado', 'processamento', 'faturado', 'enviado', 'entregue'];
+        const statusOrder = ['rascunho', 'solicitado', 'pendente', 'processamento', 'faturado', 'enviado', 'entregue'];
         comparison = statusOrder.indexOf(a.status) - statusOrder.indexOf(b.status);
       }
       
@@ -1132,11 +1134,28 @@ export default function Pedidos() {
   };
 
   // Processar pedido (solicitado -> processamento)
-  const handleProcessar = useCallback(async (pedidoId: string, tipoLogistica?: string, itemsWithAssets?: Record<string, string[]>) => {
+  const handleProcessar = useCallback(async (pedidoId: string, tipoLogistica?: string, itemsWithAssets?: Record<string, string[]>, codigoPostagem?: string, anexoFile?: File) => {
     setIsProcessingAction(true);
     try {
-      const updateData: any = { status: 'processamento' };
+      const pedidoAtual = pedidos.find(p => p.id === pedidoId);
+      const isColetaReversa = pedidoAtual?.tipo_solicitacao === 'coleta_reversa';
+
+      const updateData: any = { status: isColetaReversa ? 'pendente' : 'processamento' };
       if (tipoLogistica) updateData.tipo_logistica = tipoLogistica;
+
+      if (isColetaReversa) {
+        if (codigoPostagem) updateData.codigo_postagem = codigoPostagem;
+        if (anexoFile) {
+          const safeName = anexoFile.name.replace(/[^\w.\-]/g, '_');
+          const path = `${pedidoId}/${Date.now()}-${safeName}`;
+          const { error: uploadError } = await supabase.storage
+            .from('pedido-anexos')
+            .upload(path, anexoFile, { upsert: false });
+          if (uploadError) throw uploadError;
+          updateData.anexo_postagem_path = path;
+        }
+      }
+      
       
       const { error } = await supabase
         .from('pedidos')
@@ -1173,13 +1192,13 @@ export default function Pedidos() {
         tipo_logistica: tipoLogistica || null,
         assets_linked_items: itemsWithAssets ? Object.keys(itemsWithAssets).filter(k => (itemsWithAssets[k] || []).length > 0).length : 0,
       }, { entity: 'pedido', entity_id: pedidoId });
-      toast({ title: 'Pedido movido para processamento!' });
+      toast({ title: isColetaReversa ? 'Coleta reversa marcada como pendente!' : 'Pedido movido para processamento!' });
     } catch (err: any) {
       toast({ variant: 'destructive', title: 'Erro', description: err.message });
     } finally {
       setIsProcessingAction(false);
     }
-  }, [toast, queryClient]);
+  }, [toast, queryClient, pedidos]);
 
   // Concluir pedido (processamento -> faturado + NF + tipo_logistica)
   const handleConcluir = useCallback(async (pedidoId: string, nfNumero: string, dataFaturamento: string, tipoLogistica: string, itemsWithAssets?: Record<string, string[]>, nfNumero2?: string) => {

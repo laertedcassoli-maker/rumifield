@@ -9,8 +9,10 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 import { Loader2, ArrowRight, Truck, HandHelping, Container } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 import MultiAssetField from './MultiAssetField';
 import type { PedidoComItens } from '@/types/pedidos';
 
@@ -18,12 +20,16 @@ interface ProcessarPedidoDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   pedido?: PedidoComItens;
-  onConfirm: (tipoLogistica?: string, itemsWithAssets?: Record<string, string[]>) => Promise<void>;
+  onConfirm: (tipoLogistica?: string, itemsWithAssets?: Record<string, string[]>, codigoPostagem?: string, anexoFile?: File) => Promise<void>;
 }
 
 export default function ProcessarPedidoDialog({ open, onOpenChange, pedido, onConfirm }: ProcessarPedidoDialogProps) {
+  const { toast } = useToast();
   const [tipoLogistica, setTipoLogistica] = useState('');
+  const [codigoPostagem, setCodigoPostagem] = useState('');
+  const [anexoFile, setAnexoFile] = useState<File | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const isColetaReversa = pedido?.tipo_solicitacao === 'coleta_reversa';
   const needsLogistica = pedido?.tipo_solicitacao === 'coleta_reversa'
     ? pedido?.tipo_coleta !== 'apenas_nf'
     : pedido?.tipo_envio !== 'apenas_nf';
@@ -40,12 +46,27 @@ export default function ProcessarPedidoDialog({ open, onOpenChange, pedido, onCo
 
   const handleConfirm = async () => {
     if (submittingRef.current) return;
+    if (isColetaReversa && tipoLogistica === 'correios' && !codigoPostagem.trim()) {
+      toast({
+        variant: 'destructive',
+        title: 'Código de Postagem obrigatório',
+        description: 'Informe o Código de Postagem para processar a coleta reversa via Correios.',
+      });
+      return;
+    }
     submittingRef.current = true;
     setIsSubmitting(true);
     try {
-      await onConfirm(tipoLogistica || undefined, itemsWithAssets);
+      await onConfirm(
+        tipoLogistica || undefined,
+        itemsWithAssets,
+        isColetaReversa ? (codigoPostagem.trim() || undefined) : undefined,
+        isColetaReversa ? (anexoFile || undefined) : undefined,
+      );
       setTipoLogistica('');
       setItemsWithAssets({});
+      setCodigoPostagem('');
+      setAnexoFile(null);
     } finally {
       submittingRef.current = false;
       setIsSubmitting(false);
@@ -88,6 +109,32 @@ export default function ProcessarPedidoDialog({ open, onOpenChange, pedido, onCo
                   Entrega Própria
                 </ToggleGroupItem>
               </ToggleGroup>
+            </div>
+          )}
+
+          {isColetaReversa && tipoLogistica === 'correios' && (
+            <div className="space-y-2">
+              <Label htmlFor="codigo-postagem">Código de Postagem:</Label>
+              <Input
+                id="codigo-postagem"
+                value={codigoPostagem}
+                onChange={(e) => setCodigoPostagem(e.target.value)}
+                placeholder="Informe o código de postagem"
+              />
+            </div>
+          )}
+
+          {isColetaReversa && (
+            <div className="space-y-2">
+              <Label htmlFor="anexo-postagem">Anexo (opcional)</Label>
+              <Input
+                id="anexo-postagem"
+                type="file"
+                onChange={(e) => setAnexoFile(e.target.files?.[0] || null)}
+              />
+              {anexoFile && (
+                <p className="text-xs text-muted-foreground">{anexoFile.name}</p>
+              )}
             </div>
           )}
 
