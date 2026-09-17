@@ -738,7 +738,7 @@ export default function Pedidos() {
     setOpen(isOpen);
     if (!isOpen) {
       setEditingPedido(null);
-      setForm({ cliente_id: '', observacoes: '', urgencia: 'normal', tipo_envio: '', solenoide_modelo: '', tipo_solicitacao: 'envio', gera_coleta_reversa: false });
+      setForm({ ...emptyForm });
       setItens([]);
       setAutoLinkDismissed(false);
       setShowConfirmation(false);
