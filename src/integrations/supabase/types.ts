@@ -2004,7 +2004,9 @@ export type Database = {
       }
       pedidos: {
         Row: {
+          anexo_postagem_path: string | null
           cliente_id: string
+          codigo_postagem: string | null
           coleta_reversa_origem_id: string | null
           created_at: string
           csm_responsavel_user_id: string | null
@@ -2032,7 +2034,9 @@ export type Database = {
           urgencia: string
         }
         Insert: {
+          anexo_postagem_path?: string | null
           cliente_id: string
+          codigo_postagem?: string | null
           coleta_reversa_origem_id?: string | null
           created_at?: string
           csm_responsavel_user_id?: string | null
@@ -2060,7 +2064,9 @@ export type Database = {
           urgencia?: string
         }
         Update: {
+          anexo_postagem_path?: string | null
           cliente_id?: string
+          codigo_postagem?: string | null
           coleta_reversa_origem_id?: string | null
           created_at?: string
           csm_responsavel_user_id?: string | null
@@ -4146,6 +4152,7 @@ export type Database = {
         | "faturado"
         | "enviado"
         | "entregue"
+        | "pendente"
       preventive_maintenance_status: "planejada" | "concluida" | "cancelada"
       preventive_route_item_status:
         | "planejado"
@@ -4345,6 +4352,7 @@ export const Constants = {
         "faturado",
         "enviado",
         "entregue",
+        "pendente",
       ],
       preventive_maintenance_status: ["planejada", "concluida", "cancelada"],
       preventive_route_item_status: [
