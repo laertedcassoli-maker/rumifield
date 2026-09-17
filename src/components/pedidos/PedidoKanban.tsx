@@ -11,6 +11,7 @@ import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import ConcluirPedidoDialog from './ConcluirPedidoDialog';
 import ProcessarPedidoDialog from './ProcessarPedidoDialog';
+import ProcessarPendenciaDialog from './ProcessarPendenciaDialog';
 import type { PedidoComItens } from '@/types/pedidos';
 
 const urgenciaConfig: Record<string, { label: string; className: string }> = {
