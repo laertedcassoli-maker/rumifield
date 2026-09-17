@@ -34,6 +34,7 @@ import { track } from '@/lib/analytics';
 const statusColors: Record<string, string> = {
   rascunho: 'bg-muted text-muted-foreground border-muted-foreground/30',
   solicitado: 'bg-info/10 text-info border-info/20',
+  pendente: 'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-900/40',
   processamento: 'bg-warning/10 text-warning border-warning/20',
   faturado: 'bg-primary/10 text-primary border-primary/20',
   enviado: 'bg-success/10 text-success border-success/20',
