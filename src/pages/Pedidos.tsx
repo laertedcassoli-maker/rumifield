@@ -402,7 +402,7 @@ export default function Pedidos() {
 
 
   // Tab state for drafts vs submitted
-  const [activeTab, setActiveTab] = useState<'rascunhos' | 'pedidos'>('pedidos');
+  const [activeTab, setActiveTab] = useState<'rascunhos' | 'pedidos' | 'pendentes'>('pedidos');
   const [isTransmitting, setIsTransmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   
@@ -455,8 +455,32 @@ export default function Pedidos() {
     return pedidos.filter(p => p.status !== 'rascunho');
   }, [pedidos]);
 
+  // Coletas reversas pendentes: responsável (técnico/CSM/solicitante em Correios) ou gestão vê todas
+  const pendenciasVisiveis = useMemo(() => {
+    if (!pedidos) return [];
+    return pedidos.filter((p: any) => {
+      if (p.status !== 'pendente') return false;
+      if (canManagePedidos) return true;
+      if (!user?.id) return false;
+      return p.tecnico_responsavel_user_id === user.id
+        || p.csm_responsavel_user_id === user.id
+        || (p.tipo_coleta === 'correios' && p.solicitante_id === user.id);
+    });
+  }, [pedidos, canManagePedidos, user?.id]);
+
+  // A aba Pendentes não faz sentido na visão "Envios" (envio nunca fica pendente)
+  const showPendentesTab = tipoSolicitacaoFilter !== 'envio';
+
+  useEffect(() => {
+    if (!showPendentesTab && activeTab === 'pendentes') setActiveTab('pedidos');
+  }, [showPendentesTab, activeTab]);
+
   const filteredAndSortedPedidos = useMemo(() => {
-    const source = activeTab === 'rascunhos' ? rascunhos : pedidosTransmitidos;
+    const source = activeTab === 'rascunhos'
+      ? rascunhos
+      : activeTab === 'pendentes'
+        ? pendenciasVisiveis
+        : pedidosTransmitidos;
     if (!source.length) return [];
     
     let filtered = source.filter(pedido => {
