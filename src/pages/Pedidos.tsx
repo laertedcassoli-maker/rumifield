@@ -49,6 +49,144 @@ const statusLabels: Record<string, string> = {
   entregue: 'Entregue',
 };
 
+const emptyForm = {
+  cliente_id: '',
+  observacoes: '',
+  urgencia: 'normal',
+  tipo_envio: '',
+  solenoide_modelo: '',
+  tipo_solicitacao: 'envio',
+  gera_coleta_reversa: false,
+  tipo_coleta: '',
+  tecnico_responsavel_user_id: '',
+  csm_responsavel_user_id: '',
+  coleta_responsavel_tipo: '',
+  coleta_auto_tipo: '',
+  coleta_auto_responsavel_tipo: '',
+  coleta_auto_tecnico_id: '',
+  coleta_auto_csm_id: '',
+};
+
+const tipoEnvioReviewLabels: Record<string, string> = {
+  envio_fisico: 'Envio Físico',
+  envio_pelo_tecnico: 'Envio pelo Técnico',
+  apenas_nf: 'Apenas NF',
+};
+
+const tipoColetaLabels: Record<string, string> = {
+  correios: 'Correios',
+  coleta_tecnico_csm: 'Coleta pelo Técnico/CSM',
+  apenas_nf: 'Apenas NF',
+};
+
+// Técnicos fixos do formulário (resolvidos entre usuários com papel tecnico_campo)
+const TECNICOS_FIXOS = ['phelipe', 'roger', 'lenilton'];
+
+interface ResponsavelColetaPickerProps {
+  respTipo: string;
+  tecnicoId: string;
+  csmId: string;
+  tecnicosFixos: { id: string; nome: string }[];
+  consultores: { id: string; nome: string }[];
+  onRespTipo: (v: string) => void;
+  onTecnico: (id: string) => void;
+  onCsm: (id: string) => void;
+}
+
+function ResponsavelColetaPicker({ respTipo, tecnicoId, csmId, tecnicosFixos, consultores, onRespTipo, onTecnico, onCsm }: ResponsavelColetaPickerProps) {
+  const [csmSearch, setCsmSearch] = useState('');
+  const csmMatches = useMemo(() => {
+    const q = csmSearch.trim().toLowerCase();
+    const list = consultores || [];
+    if (!q) return list.slice(0, 5);
+    return list.filter(c => {
+      const nome = (c.nome || '').toLowerCase();
+      if (nome.includes(q)) return true;
+      const iniciais = nome.split(/\s+/).map(w => w[0]).join('');
+      return iniciais.startsWith(q);
+    }).slice(0, 5);
+  }, [csmSearch, consultores]);
+
+  const csmNome = consultores?.find(c => c.id === csmId)?.nome;
+
+  return (
+    <div className="space-y-2 rounded-md border bg-muted/30 p-3">
+      <Label className="text-xs">Responsável</Label>
+      <ToggleGroup
+        type="single"
+        value={respTipo}
+        onValueChange={(v) => v && onRespTipo(v)}
+        className="justify-start"
+      >
+        <ToggleGroupItem value="tecnico" className="text-xs gap-1 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
+          <User className="h-3 w-3" />
+          Técnico
+        </ToggleGroupItem>
+        <ToggleGroupItem value="csm" className="text-xs gap-1 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
+          <HandHelping className="h-3 w-3" />
+          CSM
+        </ToggleGroupItem>
+      </ToggleGroup>
+
+      {respTipo === 'tecnico' && (
+        <div className="space-y-1">
+          <ToggleGroup
+            type="single"
+            value={tecnicoId}
+            onValueChange={(v) => v && onTecnico(v)}
+            className="justify-start"
+          >
+            {tecnicosFixos.map(t => (
+              <ToggleGroupItem key={t.id} value={t.id} className="text-xs gap-1 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
+                <User className="h-3 w-3" />
+                {t.nome.split(' ')[0]}
+              </ToggleGroupItem>
+            ))}
+          </ToggleGroup>
+          {tecnicosFixos.length === 0 && (
+            <p className="text-xs text-muted-foreground">Nenhum Técnico de Campo encontrado (Phelipe, Roger, Lenilton).</p>
+          )}
+        </div>
+      )}
+
+      {respTipo === 'csm' && (
+        <div className="space-y-1">
+          {csmId ? (
+            <div className="flex items-center justify-between p-2 rounded border bg-primary/5">
+              <span className="text-sm font-medium truncate min-w-0">{csmNome}</span>
+              <Button type="button" variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={() => onCsm('')} aria-label="Remover CSM">
+                <X className="h-3 w-3" />
+              </Button>
+            </div>
+          ) : (
+            <>
+              <Input
+                placeholder="Buscar CSM por nome ou iniciais..."
+                value={csmSearch}
+                onChange={(e) => setCsmSearch(e.target.value)}
+              />
+              <div className="max-h-32 overflow-y-auto rounded border divide-y">
+                {csmMatches.length === 0 ? (
+                  <p className="text-xs text-muted-foreground p-2">Nenhum consultor encontrado</p>
+                ) : csmMatches.map(c => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    className="w-full text-left text-sm px-2 py-1.5 hover:bg-muted/50 truncate min-w-0"
+                    onClick={() => onCsm(c.id)}
+                  >
+                    {c.nome}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function Pedidos() {
   const { user, role } = useAuth();
   const { toast } = useToast();
@@ -56,7 +194,7 @@ export default function Pedidos() {
   const [open, setOpen] = useState(false);
   const [editingPedido, setEditingPedido] = useState<any>(null);
   const [viewingPedido, setViewingPedido] = useState<any>(null);
-  const [form, setForm] = useState({ cliente_id: '', observacoes: '', urgencia: 'normal', tipo_envio: '', solenoide_modelo: '', tipo_solicitacao: 'envio', gera_coleta_reversa: false });
+  const [form, setForm] = useState({ ...emptyForm });
   const [itens, setItens] = useState<{ peca_id: string; quantidade: number }[]>([]);
   const [autoLinkDismissed, setAutoLinkDismissed] = useState(false);
   // UI-only filter: true = all orders (default), false = only mine
@@ -100,6 +238,42 @@ export default function Pedidos() {
     enabled: !!user,
     staleTime: 60_000,
   });
+
+  // Técnicos de campo (papel tecnico_campo) — Envio pelo Técnico e Coleta pelo Técnico/CSM
+  const { data: tecnicosCampo } = useQuery({
+    queryKey: ['pedidos-tecnicos-campo'],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('list_pedidos_responsaveis', { p_role: 'tecnico_campo' });
+      if (error) throw error;
+      return (data || []) as { user_id: string; nome: string }[];
+    },
+    enabled: !!user,
+    staleTime: 60_000,
+  });
+
+  // Consultores R+ (CSM) — responsáveis de coleta
+  const { data: consultoresRplus } = useQuery({
+    queryKey: ['pedidos-consultores-rplus'],
+    queryFn: async () => {
+      const { data, error } = await supabase.rpc('list_pedidos_responsaveis', { p_role: 'consultor_rplus' });
+      if (error) throw error;
+      return (data || []) as { user_id: string; nome: string }[];
+    },
+    enabled: !!user,
+    staleTime: 60_000,
+  });
+
+  const tecnicosFixos = useMemo(() => {
+    const all = (tecnicosCampo || []).map(t => ({ id: t.user_id, nome: t.nome }));
+    return TECNICOS_FIXOS
+      .map(slug => all.find(t => (t.nome || '').trim().toLowerCase().split(/\s+/)[0] === slug))
+      .filter(Boolean) as { id: string; nome: string }[];
+  }, [tecnicosCampo]);
+
+  const getUserName = (id: string) =>
+    tecnicosCampo?.find(t => t.user_id === id)?.nome
+    || consultoresRplus?.find(c => c.user_id === id)?.nome
+    || '—';
 
   // Realtime: refresh part catalog when pecas table changes
   useRealtimePecas([['pedidos-pecas']]);
@@ -379,7 +553,7 @@ export default function Pedidos() {
       toast({ title: 'Rascunho excluído!' });
       setOpen(false);
       setEditingPedido(null);
-      setForm({ cliente_id: '', observacoes: '', urgencia: 'normal', tipo_envio: '', solenoide_modelo: '', tipo_solicitacao: 'envio', gera_coleta_reversa: false });
+      setForm({ ...emptyForm });
       setItens([]);
       setAutoLinkDismissed(false);
     } catch (error: any) {
@@ -485,6 +659,7 @@ export default function Pedidos() {
     }
     setEditingPedido(pedido);
     setForm({
+      ...emptyForm,
       cliente_id: pedido.cliente_id,
       observacoes: pedido.observacoes || '',
       urgencia: pedido.urgencia || 'normal',
@@ -492,6 +667,10 @@ export default function Pedidos() {
       solenoide_modelo: (pedido as any).solenoide_modelo || '',
       tipo_solicitacao: (pedido as any).tipo_solicitacao || 'envio',
       gera_coleta_reversa: false,
+      tipo_coleta: (pedido as any).tipo_coleta || '',
+      tecnico_responsavel_user_id: (pedido as any).tecnico_responsavel_user_id || '',
+      csm_responsavel_user_id: (pedido as any).csm_responsavel_user_id || '',
+      coleta_responsavel_tipo: (pedido as any).tecnico_responsavel_user_id ? 'tecnico' : ((pedido as any).csm_responsavel_user_id ? 'csm' : ''),
     });
     setItens(
       pedido.pedido_itens?.map((item: any) => ({
@@ -559,7 +738,7 @@ export default function Pedidos() {
     setOpen(isOpen);
     if (!isOpen) {
       setEditingPedido(null);
-      setForm({ cliente_id: '', observacoes: '', urgencia: 'normal', tipo_envio: '', solenoide_modelo: '', tipo_solicitacao: 'envio', gera_coleta_reversa: false });
+      setForm({ ...emptyForm });
       setItens([]);
       setAutoLinkDismissed(false);
       setShowConfirmation(false);
@@ -582,6 +761,30 @@ export default function Pedidos() {
       toast({ variant: 'destructive', title: 'Selecione o Modelo (2x ou 3x) da solenóide' });
       return;
     }
+    if (form.tipo_solicitacao === 'envio' && form.tipo_envio === 'envio_pelo_tecnico' && !form.tecnico_responsavel_user_id) {
+      toast({ variant: 'destructive', title: 'Selecione o técnico responsável pelo envio' });
+      return;
+    }
+    if (form.tipo_solicitacao === 'coleta_reversa') {
+      if (!form.tipo_coleta) {
+        toast({ variant: 'destructive', title: 'Selecione o Tipo de Coleta' });
+        return;
+      }
+      if (form.tipo_coleta === 'coleta_tecnico_csm' && !form.tecnico_responsavel_user_id && !form.csm_responsavel_user_id) {
+        toast({ variant: 'destructive', title: 'Selecione o Técnico ou CSM responsável pela coleta' });
+        return;
+      }
+    }
+    if (form.tipo_solicitacao === 'envio' && form.gera_coleta_reversa && !editingPedido) {
+      if (!form.coleta_auto_tipo) {
+        toast({ variant: 'destructive', title: 'Selecione o Tipo de Coleta da coleta reversa automática' });
+        return;
+      }
+      if (form.coleta_auto_tipo === 'coleta_tecnico_csm' && !form.coleta_auto_tecnico_id && !form.coleta_auto_csm_id) {
+        toast({ variant: 'destructive', title: 'Selecione o Técnico ou CSM responsável pela coleta reversa automática' });
+        return;
+      }
+    }
     setShowConfirmation(true);
   };
 
@@ -590,10 +793,18 @@ export default function Pedidos() {
     try {
       if (editingPedido) {
         // Update pedido
+        const tecnicoRespId = form.tipo_solicitacao === 'envio'
+          ? (form.tipo_envio === 'envio_pelo_tecnico' ? (form.tecnico_responsavel_user_id || null) : null)
+          : (form.tipo_coleta === 'coleta_tecnico_csm' && form.coleta_responsavel_tipo === 'tecnico' ? (form.tecnico_responsavel_user_id || null) : null);
+        const csmRespId = form.tipo_solicitacao === 'coleta_reversa' && form.tipo_coleta === 'coleta_tecnico_csm' && form.coleta_responsavel_tipo === 'csm'
+          ? (form.csm_responsavel_user_id || null) : null;
         const { error: pedidoError } = await supabase.from('pedidos').update({
           cliente_id: form.cliente_id,
           observacoes: form.observacoes || null,
           solenoide_modelo: hasSolenoide ? form.solenoide_modelo : null,
+          tipo_coleta: form.tipo_solicitacao === 'coleta_reversa' ? (form.tipo_coleta || null) : null,
+          tecnico_responsavel_user_id: tecnicoRespId,
+          csm_responsavel_user_id: csmRespId,
         } as any).eq('id', editingPedido.id);
         if (pedidoError) throw pedidoError;
 
@@ -628,6 +839,12 @@ export default function Pedidos() {
             solenoide_modelo: hasSolenoide ? form.solenoide_modelo : null,
             tipo_solicitacao: form.tipo_solicitacao,
             gera_coleta_reversa_automatica: geraColetaReversa,
+            tipo_coleta: form.tipo_solicitacao === 'coleta_reversa' ? (form.tipo_coleta || null) : null,
+            tecnico_responsavel_user_id: form.tipo_solicitacao === 'envio'
+              ? (form.tipo_envio === 'envio_pelo_tecnico' ? (form.tecnico_responsavel_user_id || null) : null)
+              : (form.tipo_coleta === 'coleta_tecnico_csm' && form.coleta_responsavel_tipo === 'tecnico' ? (form.tecnico_responsavel_user_id || null) : null),
+            csm_responsavel_user_id: form.tipo_solicitacao === 'coleta_reversa' && form.tipo_coleta === 'coleta_tecnico_csm' && form.coleta_responsavel_tipo === 'csm'
+              ? (form.csm_responsavel_user_id || null) : null,
           } as any)
           .select('id')
           .single();
@@ -675,6 +892,9 @@ export default function Pedidos() {
                 tipo_solicitacao: 'coleta_reversa',
                 gera_coleta_reversa_automatica: false,
                 coleta_reversa_origem_id: pedido.id,
+                tipo_coleta: form.coleta_auto_tipo || null,
+                tecnico_responsavel_user_id: form.coleta_auto_tipo === 'coleta_tecnico_csm' && form.coleta_auto_responsavel_tipo === 'tecnico' ? (form.coleta_auto_tecnico_id || null) : null,
+                csm_responsavel_user_id: form.coleta_auto_tipo === 'coleta_tecnico_csm' && form.coleta_auto_responsavel_tipo === 'csm' ? (form.coleta_auto_csm_id || null) : null,
               } as any)
               .select('id')
               .single();
@@ -709,7 +929,7 @@ export default function Pedidos() {
       }
       setOpen(false);
       setEditingPedido(null);
-      setForm({ cliente_id: '', observacoes: '', urgencia: 'normal', tipo_envio: '', solenoide_modelo: '', tipo_solicitacao: 'envio', gera_coleta_reversa: false });
+      setForm({ ...emptyForm });
       setItens([]);
       setAutoLinkDismissed(false);
       setShowConfirmation(false);
@@ -927,6 +1147,55 @@ export default function Pedidos() {
                     )}
                   </div>
 
+                  {/* Responsáveis e tipo de coleta */}
+                  {(form.tipo_solicitacao === 'envio' && form.tipo_envio) || (form.tipo_solicitacao === 'coleta_reversa' && form.tipo_coleta) ? (
+                    <div className="text-sm space-y-1 p-3 rounded-md border bg-muted/30">
+                      {form.tipo_solicitacao === 'envio' && form.tipo_envio && (
+                        <p className="flex items-center justify-between gap-2">
+                          <span className="text-muted-foreground shrink-0">Tipo de envio</span>
+                          <span className="font-medium truncate min-w-0">{tipoEnvioReviewLabels[form.tipo_envio] || form.tipo_envio}</span>
+                        </p>
+                      )}
+                      {form.tipo_solicitacao === 'envio' && form.tipo_envio === 'envio_pelo_tecnico' && (
+                        <p className="flex items-center justify-between gap-2">
+                          <span className="text-muted-foreground shrink-0">Técnico responsável</span>
+                          <span className="font-medium truncate min-w-0">{getUserName(form.tecnico_responsavel_user_id)}</span>
+                        </p>
+                      )}
+                      {form.tipo_solicitacao === 'coleta_reversa' && form.tipo_coleta && (
+                        <p className="flex items-center justify-between gap-2">
+                          <span className="text-muted-foreground shrink-0">Tipo de coleta</span>
+                          <span className="font-medium truncate min-w-0">{tipoColetaLabels[form.tipo_coleta] || form.tipo_coleta}</span>
+                        </p>
+                      )}
+                      {form.tipo_solicitacao === 'coleta_reversa' && form.tipo_coleta === 'coleta_tecnico_csm' && form.coleta_responsavel_tipo === 'tecnico' && (
+                        <p className="flex items-center justify-between gap-2">
+                          <span className="text-muted-foreground shrink-0">Técnico responsável</span>
+                          <span className="font-medium truncate min-w-0">{getUserName(form.tecnico_responsavel_user_id)}</span>
+                        </p>
+                      )}
+                      {form.tipo_solicitacao === 'coleta_reversa' && form.tipo_coleta === 'coleta_tecnico_csm' && form.coleta_responsavel_tipo === 'csm' && (
+                        <p className="flex items-center justify-between gap-2">
+                          <span className="text-muted-foreground shrink-0">CSM responsável</span>
+                          <span className="font-medium truncate min-w-0">{getUserName(form.csm_responsavel_user_id)}</span>
+                        </p>
+                      )}
+                      {form.tipo_solicitacao === 'envio' && form.gera_coleta_reversa && form.coleta_auto_tipo && (
+                        <p className="flex items-center justify-between gap-2">
+                          <span className="text-muted-foreground shrink-0">Coleta reversa automática</span>
+                          <span className="font-medium truncate min-w-0">
+                            {tipoColetaLabels[form.coleta_auto_tipo] || form.coleta_auto_tipo}
+                            {form.coleta_auto_tipo === 'coleta_tecnico_csm' && (
+                              form.coleta_auto_responsavel_tipo === 'tecnico' ? ` — ${getUserName(form.coleta_auto_tecnico_id)}`
+                              : form.coleta_auto_responsavel_tipo === 'csm' ? ` — ${getUserName(form.coleta_auto_csm_id)}`
+                              : ''
+                            )}
+                          </span>
+                        </p>
+                      )}
+                    </div>
+                  ) : null}
+
                   {/* Cliente destaque */}
                   <div className="p-4 rounded-lg bg-primary/10 border border-primary/20">
                     <p className="text-xs text-muted-foreground mb-1">Cliente</p>
@@ -1034,7 +1303,15 @@ export default function Pedidos() {
                     <ToggleGroup
                       type="single"
                       value={form.tipo_solicitacao}
-                      onValueChange={(v) => v && setForm({ ...form, tipo_solicitacao: v, gera_coleta_reversa: v === 'envio' ? form.gera_coleta_reversa : false })}
+                      onValueChange={(v) => v && setForm({
+                        ...form,
+                        tipo_solicitacao: v,
+                        gera_coleta_reversa: v === 'envio' ? form.gera_coleta_reversa : false,
+                        tipo_envio: v === 'envio' ? form.tipo_envio : '',
+                        tecnico_responsavel_user_id: v === 'envio' ? form.tecnico_responsavel_user_id : '',
+                        tipo_coleta: v === 'coleta_reversa' ? form.tipo_coleta : '',
+                        coleta_responsavel_tipo: v === 'coleta_reversa' ? form.coleta_responsavel_tipo : '',
+                      })}
                       className="justify-start"
                       disabled={!!editingPedido}
                     >
@@ -1322,29 +1599,54 @@ export default function Pedidos() {
                     </ToggleGroup>
                   </div>
 
-                   {/* Tipo de Envio */}
-                  <div className="space-y-2">
-                    <Label>Tipo de Envio</Label>
-                    <ToggleGroup 
-                      type="single" 
-                      value={form.tipo_envio} 
-                      onValueChange={(v) => setForm({ ...form, tipo_envio: v || '' })}
-                      className="justify-start"
-                    >
-                      <ToggleGroupItem value="envio_fisico" className="text-xs gap-1">
-                        <Truck className="h-3 w-3" />
-                        Envio Físico
-                      </ToggleGroupItem>
-                      <ToggleGroupItem value="envio_pelo_tecnico" className="text-xs gap-1">
-                        <User className="h-3 w-3" />
-                        Envio pelo Técnico
-                      </ToggleGroupItem>
-                      <ToggleGroupItem value="apenas_nf" className="text-xs gap-1">
-                        <FileText className="h-3 w-3" />
-                        Apenas NF
-                      </ToggleGroupItem>
-                    </ToggleGroup>
-                   </div>
+                   {/* Tipo de Envio (apenas para pedidos do tipo Envio) */}
+                  {form.tipo_solicitacao === 'envio' && (
+                    <div className="space-y-2">
+                      <Label>Tipo de Envio</Label>
+                      <ToggleGroup
+                        type="single"
+                        value={form.tipo_envio}
+                        onValueChange={(v) => setForm({ ...form, tipo_envio: v || '', tecnico_responsavel_user_id: v === 'envio_pelo_tecnico' ? form.tecnico_responsavel_user_id : '' })}
+                        className="justify-start"
+                      >
+                        <ToggleGroupItem value="envio_fisico" className="text-xs gap-1">
+                          <Truck className="h-3 w-3" />
+                          Envio Físico
+                        </ToggleGroupItem>
+                        <ToggleGroupItem value="envio_pelo_tecnico" className="text-xs gap-1">
+                          <User className="h-3 w-3" />
+                          Envio pelo Técnico
+                        </ToggleGroupItem>
+                        <ToggleGroupItem value="apenas_nf" className="text-xs gap-1">
+                          <FileText className="h-3 w-3" />
+                          Apenas NF
+                        </ToggleGroupItem>
+                      </ToggleGroup>
+                    </div>
+                  )}
+
+                  {/* Técnico responsável (Envio pelo Técnico) */}
+                  {form.tipo_solicitacao === 'envio' && form.tipo_envio === 'envio_pelo_tecnico' && (
+                    <div className="space-y-2">
+                      <Label>Técnico Responsável</Label>
+                      <ToggleGroup
+                        type="single"
+                        value={form.tecnico_responsavel_user_id}
+                        onValueChange={(v) => v && setForm({ ...form, tecnico_responsavel_user_id: v })}
+                        className="justify-start"
+                      >
+                        {tecnicosFixos.map(t => (
+                          <ToggleGroupItem key={t.id} value={t.id} className="text-xs gap-1 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
+                            <User className="h-3 w-3" />
+                            {t.nome.split(' ')[0]}
+                          </ToggleGroupItem>
+                        ))}
+                      </ToggleGroup>
+                      {tecnicosFixos.length === 0 && (
+                        <p className="text-xs text-muted-foreground">Nenhum Técnico de Campo encontrado (Phelipe, Roger, Lenilton).</p>
+                      )}
+                    </div>
+                  )}
 
                   {/* Gera automaticamente coleta reversa? (apenas Envio) */}
                   {form.tipo_solicitacao === 'envio' && !editingPedido && (
@@ -1360,6 +1662,84 @@ export default function Pedidos() {
                         <ToggleGroupItem value="sim" className="text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">Sim</ToggleGroupItem>
                       </ToggleGroup>
                     </div>
+                  )}
+
+                  {/* Tipo de Coleta (apenas Coleta Reversa) */}
+                  {form.tipo_solicitacao === 'coleta_reversa' && (
+                    <div className="space-y-2">
+                      <Label>Tipo de Coleta</Label>
+                      <ToggleGroup
+                        type="single"
+                        value={form.tipo_coleta}
+                        onValueChange={(v) => setForm({ ...form, tipo_coleta: v || '', coleta_responsavel_tipo: v === 'coleta_tecnico_csm' ? form.coleta_responsavel_tipo : '' })}
+                        className="justify-start"
+                      >
+                        <ToggleGroupItem value="correios" className="text-xs gap-1">
+                          <Truck className="h-3 w-3" />
+                          Correios
+                        </ToggleGroupItem>
+                        <ToggleGroupItem value="coleta_tecnico_csm" className="text-xs gap-1">
+                          <User className="h-3 w-3" />
+                          Coleta pelo Técnico/CSM
+                        </ToggleGroupItem>
+                        <ToggleGroupItem value="apenas_nf" className="text-xs gap-1">
+                          <FileText className="h-3 w-3" />
+                          Apenas NF
+                        </ToggleGroupItem>
+                      </ToggleGroup>
+                    </div>
+                  )}
+
+                  {/* Responsável da coleta (Técnico ou CSM) */}
+                  {form.tipo_solicitacao === 'coleta_reversa' && form.tipo_coleta === 'coleta_tecnico_csm' && (
+                    <ResponsavelColetaPicker
+                      respTipo={form.coleta_responsavel_tipo}
+                      tecnicoId={form.tecnico_responsavel_user_id}
+                      csmId={form.csm_responsavel_user_id}
+                      tecnicosFixos={tecnicosFixos}
+                      consultores={(consultoresRplus || []).map(c => ({ id: c.user_id, nome: c.nome }))}
+                      onRespTipo={(v) => setForm({ ...form, coleta_responsavel_tipo: v, tecnico_responsavel_user_id: v === 'tecnico' ? form.tecnico_responsavel_user_id : '', csm_responsavel_user_id: v === 'csm' ? form.csm_responsavel_user_id : '' })}
+                      onTecnico={(id) => setForm({ ...form, tecnico_responsavel_user_id: id, csm_responsavel_user_id: '' })}
+                      onCsm={(id) => setForm({ ...form, csm_responsavel_user_id: id, tecnico_responsavel_user_id: '' })}
+                    />
+                  )}
+
+                  {/* Tipo de Coleta da coleta reversa automática (Envio + geração automática) */}
+                  {form.tipo_solicitacao === 'envio' && form.gera_coleta_reversa && !editingPedido && (
+                    <div className="space-y-2">
+                      <Label>Tipo de Coleta <span className="text-muted-foreground font-normal">(coleta reversa automática)</span></Label>
+                      <ToggleGroup
+                        type="single"
+                        value={form.coleta_auto_tipo}
+                        onValueChange={(v) => setForm({ ...form, coleta_auto_tipo: v || '', coleta_auto_responsavel_tipo: v === 'coleta_tecnico_csm' ? form.coleta_auto_responsavel_tipo : '' })}
+                        className="justify-start"
+                      >
+                        <ToggleGroupItem value="correios" className="text-xs gap-1">
+                          <Truck className="h-3 w-3" />
+                          Correios
+                        </ToggleGroupItem>
+                        <ToggleGroupItem value="coleta_tecnico_csm" className="text-xs gap-1">
+                          <User className="h-3 w-3" />
+                          Coleta pelo Técnico/CSM
+                        </ToggleGroupItem>
+                        <ToggleGroupItem value="apenas_nf" className="text-xs gap-1">
+                          <FileText className="h-3 w-3" />
+                          Apenas NF
+                        </ToggleGroupItem>
+                      </ToggleGroup>
+                    </div>
+                  )}
+                  {form.tipo_solicitacao === 'envio' && form.gera_coleta_reversa && !editingPedido && form.coleta_auto_tipo === 'coleta_tecnico_csm' && (
+                    <ResponsavelColetaPicker
+                      respTipo={form.coleta_auto_responsavel_tipo}
+                      tecnicoId={form.coleta_auto_tecnico_id}
+                      csmId={form.coleta_auto_csm_id}
+                      tecnicosFixos={tecnicosFixos}
+                      consultores={(consultoresRplus || []).map(c => ({ id: c.user_id, nome: c.nome }))}
+                      onRespTipo={(v) => setForm({ ...form, coleta_auto_responsavel_tipo: v, coleta_auto_tecnico_id: v === 'tecnico' ? form.coleta_auto_tecnico_id : '', coleta_auto_csm_id: v === 'csm' ? form.coleta_auto_csm_id : '' })}
+                      onTecnico={(id) => setForm({ ...form, coleta_auto_tecnico_id: id, coleta_auto_csm_id: '' })}
+                      onCsm={(id) => setForm({ ...form, coleta_auto_csm_id: id, coleta_auto_tecnico_id: '' })}
+                    />
                   )}
 
                   <div className="space-y-2">

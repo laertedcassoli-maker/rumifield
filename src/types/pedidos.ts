@@ -37,6 +37,12 @@ export interface PedidoComItens {
   origem?: string | null;
   tipo_envio?: string | null;
   tipo_logistica?: string | null;
+  tipo_solicitacao?: 'envio' | 'coleta_reversa' | null;
+  gera_coleta_reversa_automatica?: boolean | null;
+  coleta_reversa_origem_id?: string | null;
+  tipo_coleta?: string | null;
+  tecnico_responsavel_user_id?: string | null;
+  csm_responsavel_user_id?: string | null;
   urgencia?: string;
   pedido_code?: string | null;
   preventive_id?: string | null;

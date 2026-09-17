@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
-import { Loader2, FileText, Truck, HandHelping } from 'lucide-react';
+import { Loader2, FileText, Truck, HandHelping, Container } from 'lucide-react';
 import MultiAssetField from './MultiAssetField';
 import type { PedidoComItens } from '@/types/pedidos';
 
@@ -29,7 +29,9 @@ export default function ConcluirPedidoDialog({ open, onOpenChange, pedido, onCon
   const [dataFaturamento, setDataFaturamento] = useState(new Date().toISOString().split('T')[0]);
   const [tipoLogistica, setTipoLogistica] = useState(currentTipoLogistica || '');
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const needsLogistica = pedido?.tipo_envio !== 'apenas_nf';
+  const needsLogistica = pedido?.tipo_solicitacao === 'coleta_reversa'
+    ? pedido?.tipo_coleta !== 'apenas_nf'
+    : pedido?.tipo_envio !== 'apenas_nf';
   const [itemsWithAssets, setItemsWithAssets] = useState<Record<string, string[]>>({});
   const submittingRef = useRef(false);
 
@@ -112,6 +114,10 @@ export default function ConcluirPedidoDialog({ open, onOpenChange, pedido, onCon
                 <ToggleGroupItem value="correios" className="text-xs gap-1">
                   <Truck className="h-3 w-3" />
                   Correios
+                </ToggleGroupItem>
+                <ToggleGroupItem value="transportadora" className="text-xs gap-1">
+                  <Container className="h-3 w-3" />
+                  Transportadora
                 </ToggleGroupItem>
                 <ToggleGroupItem value="entrega_propria" className="text-xs gap-1">
                   <HandHelping className="h-3 w-3" />

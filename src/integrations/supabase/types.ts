@@ -2007,6 +2007,7 @@ export type Database = {
           cliente_id: string
           coleta_reversa_origem_id: string | null
           created_at: string
+          csm_responsavel_user_id: string | null
           gera_coleta_reversa_automatica: boolean
           id: string
           observacoes: string | null
@@ -2020,6 +2021,8 @@ export type Database = {
           solenoide_modelo: string | null
           solicitante_id: string
           status: Database["public"]["Enums"]["pedido_status"]
+          tecnico_responsavel_user_id: string | null
+          tipo_coleta: string | null
           tipo_envio: string | null
           tipo_logistica: string | null
           tipo_solicitacao: string
@@ -2030,6 +2033,7 @@ export type Database = {
           cliente_id: string
           coleta_reversa_origem_id?: string | null
           created_at?: string
+          csm_responsavel_user_id?: string | null
           gera_coleta_reversa_automatica?: boolean
           id?: string
           observacoes?: string | null
@@ -2043,6 +2047,8 @@ export type Database = {
           solenoide_modelo?: string | null
           solicitante_id: string
           status?: Database["public"]["Enums"]["pedido_status"]
+          tecnico_responsavel_user_id?: string | null
+          tipo_coleta?: string | null
           tipo_envio?: string | null
           tipo_logistica?: string | null
           tipo_solicitacao?: string
@@ -2053,6 +2059,7 @@ export type Database = {
           cliente_id?: string
           coleta_reversa_origem_id?: string | null
           created_at?: string
+          csm_responsavel_user_id?: string | null
           gera_coleta_reversa_automatica?: boolean
           id?: string
           observacoes?: string | null
@@ -2066,6 +2073,8 @@ export type Database = {
           solenoide_modelo?: string | null
           solicitante_id?: string
           status?: Database["public"]["Enums"]["pedido_status"]
+          tecnico_responsavel_user_id?: string | null
+          tipo_coleta?: string | null
           tipo_envio?: string | null
           tipo_logistica?: string | null
           tipo_solicitacao?: string
@@ -4061,6 +4070,13 @@ export type Database = {
       is_route_technician: {
         Args: { _route_id: string; _user_id: string }
         Returns: boolean
+      }
+      list_pedidos_responsaveis: {
+        Args: { p_role: Database["public"]["Enums"]["app_role"] }
+        Returns: {
+          nome: string
+          user_id: string
+        }[]
       }
       mcp_describe_table: { Args: { p_table: string }; Returns: Json }
       mcp_list_tables: {
