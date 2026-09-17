@@ -2454,6 +2454,80 @@ export default function Pedidos() {
             <p className="text-muted-foreground">Clique em "Novo Pedido" para solicitar peças.</p>
           </CardContent>
         </Card>
+      ) : activeTab === 'pendentes' ? (
+        /* Pendentes (coletas reversas aguardando ação do responsável) */
+        filteredAndSortedPedidos.length === 0 ? (
+          <Card>
+            <CardContent className="py-12 text-center">
+              <AlertTriangle className="mx-auto h-12 w-12 text-muted-foreground/50" />
+              <h3 className="mt-4 font-semibold">Nenhuma pendência</h3>
+              <p className="text-muted-foreground">Não há coletas reversas aguardando sua ação.</p>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="space-y-3">
+            {paginatedPedidos.map((pedido) => (
+              <Card key={pedido.id}>
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        {pedido.pedido_code && (
+                          <span className="font-mono text-xs text-muted-foreground">{pedido.pedido_code}</span>
+                        )}
+                        <Badge variant="outline" className={cn(statusColors[pedido.status], 'text-xs')}>
+                          {statusLabels[pedido.status]}
+                        </Badge>
+                        {(pedido as any).tipo_coleta && (
+                          <Badge variant="outline" className="text-xs gap-1">
+                            <RefreshCcw className="h-3 w-3" />
+                            {tipoColetaLabels[(pedido as any).tipo_coleta] || (pedido as any).tipo_coleta}
+                          </Badge>
+                        )}
+                        {pedido.urgencia === 'urgente' && (
+                          <Badge variant="outline" className="text-xs text-destructive border-destructive/30 gap-1">
+                            <AlertTriangle className="h-3 w-3" />
+                            Urgente
+                          </Badge>
+                        )}
+                      </div>
+                      <h3 className="font-medium mt-2 break-words">{pedido.clientes?.nome}</h3>
+                      {pedido.clientes?.fazenda && (
+                        <p className="text-sm text-muted-foreground break-words">{pedido.clientes.fazenda}</p>
+                      )}
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {(pedido.pedido_itens?.filter((i: any) => !i.cancelled_at)?.length || 0)} {(pedido.pedido_itens?.filter((i: any) => !i.cancelled_at)?.length || 0) === 1 ? 'item' : 'itens'} · {format(new Date(pedido.created_at), "dd/MM/yy", { locale: ptBR })}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1 shrink-0">
+                      {(canManagePedidos || isResponsavelPendencia(pedido)) && (
+                        <Button size="sm" className="h-8 gap-1.5" onClick={() => setPendenciaPedido(pedido)}>
+                          <ArrowRight className="h-4 w-4" />
+                          Processar
+                        </Button>
+                      )}
+                      <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={() => setViewingPedido(pedido)}>
+                        <Eye className="h-4 w-4" />
+                        Detalhes
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-center gap-2 pt-2">
+                <Button variant="outline" size="icon" className="h-8 w-8" disabled={currentPage <= 1} onClick={() => setCurrentPage(p => p - 1)}>
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <span className="text-sm text-muted-foreground">{currentPage} / {totalPages}</span>
+                <Button variant="outline" size="icon" className="h-8 w-8" disabled={currentPage >= totalPages} onClick={() => setCurrentPage(p => p + 1)}>
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
+          </div>
+        )
       ) : activeTab === 'pedidos' ? (
         /* Transmitidos */
         pedidosTransmitidos.length === 0 ? (
