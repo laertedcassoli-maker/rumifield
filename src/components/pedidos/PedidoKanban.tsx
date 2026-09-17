@@ -40,7 +40,7 @@ const tipoLogisticaConfig: Record<string, { label: string; icon: React.ReactNode
 interface PedidoKanbanProps {
   pedidos: PedidoComItens[];
   onViewPedido: (pedido: PedidoComItens) => void;
-  onProcessar: (pedidoId: string, tipoLogistica?: string, itemsWithAssets?: Record<string, string[]>) => Promise<void>;
+  onProcessar: (pedidoId: string, tipoLogistica?: string, itemsWithAssets?: Record<string, string[]>, codigoPostagem?: string, anexoFile?: File) => Promise<void>;
   onConcluir: (pedidoId: string, nfNumero: string, dataFaturamento: string, tipoLogistica: string, itemsWithAssets?: Record<string, string[]>, nfNumero2?: string) => Promise<void>;
   isProcessing: boolean;
   consultorNames: Record<string, string>;
@@ -141,6 +141,7 @@ export default function PedidoKanban({
   const [processarPedidoId, setProcessarPedidoId] = useState<string | null>(null);
 
   const abertos = pedidos.filter(p => p.status === 'solicitado');
+  const pendentes = pedidos.filter(p => p.status === 'pendente');
   const emProcessamento = pedidos.filter(p => p.status === 'processamento');
   const concluidos = pedidos.filter(p => p.status === 'faturado');
 
@@ -202,6 +203,15 @@ export default function PedidoKanban({
       ),
     },
     {
+      title: 'Pendente',
+      count: pendentes.length,
+      color: 'text-amber-600',
+      bgColor: 'bg-amber-50 dark:bg-amber-950/20',
+      items: pendentes,
+      // Sem ação nesta fase — o Código de Rastreio será tratado na Fase 5
+      renderAction: undefined,
+    },
+    {
       title: 'Em Processamento',
       count: emProcessamento.length,
       color: 'text-orange-600',
@@ -232,7 +242,7 @@ export default function PedidoKanban({
 
   return (
     <>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
         {columns.map(col => (
           <div key={col.title} className="space-y-3">
             <div className={cn('rounded-lg p-3', col.bgColor)}>
@@ -276,9 +286,9 @@ export default function PedidoKanban({
         open={!!processarPedidoId}
         onOpenChange={(open) => !open && setProcessarPedidoId(null)}
         pedido={processarPedidoId ? pedidos.find(p => p.id === processarPedidoId) : undefined}
-        onConfirm={async (tipoLogistica, itemsWithAssets) => {
+        onConfirm={async (tipoLogistica, itemsWithAssets, codigoPostagem, anexoFile) => {
           if (processarPedidoId) {
-            await onProcessar(processarPedidoId, tipoLogistica, itemsWithAssets);
+            await onProcessar(processarPedidoId, tipoLogistica, itemsWithAssets, codigoPostagem, anexoFile);
             setProcessarPedidoId(null);
           }
         }}

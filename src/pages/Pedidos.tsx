@@ -44,6 +44,7 @@ const statusColors: Record<string, string> = {
 const statusLabels: Record<string, string> = {
   rascunho: 'Rascunho',
   solicitado: 'Solicitado',
+  pendente: 'Pendente',
   processamento: 'Em Processamento',
   faturado: 'Faturado',
   enviado: 'Enviado',
@@ -528,7 +529,7 @@ export default function Pedidos() {
       } else if (sortField === 'cliente') {
         comparison = (a.clientes?.nome || '').localeCompare(b.clientes?.nome || '');
       } else if (sortField === 'status') {
-        const statusOrder = ['rascunho', 'solicitado', 'processamento', 'faturado', 'enviado', 'entregue'];
+        const statusOrder = ['rascunho', 'solicitado', 'pendente', 'processamento', 'faturado', 'enviado', 'entregue'];
         comparison = statusOrder.indexOf(a.status) - statusOrder.indexOf(b.status);
       }
       
