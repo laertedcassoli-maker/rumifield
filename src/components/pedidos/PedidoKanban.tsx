@@ -139,9 +139,11 @@ function PedidoCard({
 export default function PedidoKanban({ 
   pedidos, onViewPedido, onProcessar, onConcluir, isProcessing, consultorNames,
   currentUserId, canManage = false, canDeleteAny = false, onEdit, onDelete,
+  onProcessarPendencia, isResponsavelPendencia,
 }: PedidoKanbanProps) {
   const [concluirPedidoId, setConcluirPedidoId] = useState<string | null>(null);
   const [processarPedidoId, setProcessarPedidoId] = useState<string | null>(null);
+  const [pendenciaPedidoId, setPendenciaPedidoId] = useState<string | null>(null);
 
   const abertos = pedidos.filter(p => p.status === 'solicitado');
   const pendentes = pedidos.filter(p => p.status === 'pendente');
