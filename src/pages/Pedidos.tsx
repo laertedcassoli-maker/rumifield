@@ -506,7 +506,7 @@ export default function Pedidos() {
           });
         })();
       
-        const matchesStatus = activeTab === 'rascunhos' || statusFilter === 'all' || pedido.status === statusFilter;
+        const matchesStatus = activeTab === 'rascunhos' || activeTab === 'pendentes' || statusFilter === 'all' || pedido.status === statusFilter;
         
         let matchesDate = true;
         if (dateFilter !== 'all') {
