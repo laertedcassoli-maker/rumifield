@@ -1392,6 +1392,36 @@ export default function Pedidos() {
                     )}
                   </div>
 
+                  {/* Motivo / volumes / ativos */}
+                  <div className="text-sm space-y-2 p-3 rounded-md border bg-muted/30">
+                    <div>
+                      <p className="text-muted-foreground text-xs">Motivo da solicitação e relato da fazenda</p>
+                      <p className="whitespace-pre-wrap break-words">{form.motivo_relato}</p>
+                    </div>
+                    {form.tipo_solicitacao === 'coleta_reversa' && form.quantidade_volumes !== '' && (
+                      <p className="flex items-center justify-between gap-2">
+                        <span className="text-muted-foreground shrink-0">Quantidade de volumes</span>
+                        <span className="font-medium">{form.quantidade_volumes}</span>
+                      </p>
+                    )}
+                    {form.tipo_solicitacao === 'envio' && form.gera_coleta_reversa && form.coleta_auto_volumes !== '' && (
+                      <p className="flex items-center justify-between gap-2">
+                        <span className="text-muted-foreground shrink-0">Volumes (coleta reversa automática)</span>
+                        <span className="font-medium">{form.coleta_auto_volumes}</span>
+                      </p>
+                    )}
+                    {requiresAssetsOnCreate && assetItens.map(({ index, peca }) => (
+                      <p key={index} className="flex items-center justify-between gap-2">
+                        <span className="text-muted-foreground shrink-0">Ativos — {peca?.codigo}</span>
+                        <span className="font-medium">
+                          {(itemAssets[index] || []).filter(Boolean).length} vinculado(s)
+                        </span>
+                      </p>
+                    ))}
+                  </div>
+
+
+
                   {/* Itens do pedido */}
                   <div className="space-y-2">
                     <p className="text-sm font-medium">Itens do Pedido ({itens.length})</p>
@@ -1924,6 +1954,63 @@ export default function Pedidos() {
                       onCsm={(id) => setForm({ ...form, coleta_auto_csm_id: id, coleta_auto_tecnico_id: '' })}
                     />
                   )}
+
+                  {/* Motivo da solicitação (obrigatório em ambos os tipos) */}
+                  <div className="space-y-2">
+                    <Label>Motivo da solicitação e relato da fazenda: <span className="text-destructive">*</span></Label>
+                    <Textarea
+                      placeholder="Descreva o motivo da solicitação e o relato da fazenda..."
+                      value={form.motivo_relato}
+                      onChange={(e) => setForm({ ...form, motivo_relato: e.target.value })}
+                      rows={3}
+                    />
+                  </div>
+
+                  {/* Quantidade de Volumes (Coleta Reversa) */}
+                  {form.tipo_solicitacao === 'coleta_reversa' && (
+                    <div className="space-y-2">
+                      <Label>Quantidade de Volumes: <span className="text-destructive">*</span></Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        placeholder="1"
+                        value={form.quantidade_volumes}
+                        onChange={(e) => setForm({ ...form, quantidade_volumes: e.target.value })}
+                      />
+                    </div>
+                  )}
+
+                  {/* Quantidade de Volumes da coleta reversa automática */}
+                  {form.tipo_solicitacao === 'envio' && form.gera_coleta_reversa && !editingPedido && (
+                    <div className="space-y-2">
+                      <Label>Quantidade de Volumes: <span className="text-muted-foreground font-normal">(coleta reversa automática)</span> <span className="text-destructive">*</span></Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        placeholder="1"
+                        value={form.coleta_auto_volumes}
+                        onChange={(e) => setForm({ ...form, coleta_auto_volumes: e.target.value })}
+                      />
+                    </div>
+                  )}
+
+                  {/* Ativos a coletar (Coleta Reversa, peças que exigem ativo) */}
+                  {requiresAssetsOnCreate && (
+                    <div className="space-y-2">
+                      <Label>Ativos a coletar <span className="text-destructive">*</span></Label>
+                      {assetItens.map(({ index, item, peca }) => (
+                        <MultiAssetField
+                          key={`${index}-${item.peca_id}`}
+                          pecaId={item.peca_id}
+                          pecaNome={`${peca?.codigo || ''} — ${peca?.nome || ''}`}
+                          quantidade={item.quantidade}
+                          selectedAssets={itemAssets[index] || []}
+                          onAssetsChange={(assets) => setItemAssets((prev) => ({ ...prev, [index]: assets }))}
+                        />
+                      ))}
+                    </div>
+                  )}
+
 
                   <div className="space-y-2">
                     <Label>Observações</Label>
