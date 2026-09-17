@@ -307,7 +307,7 @@ export default function PreventiveMaintenanceIndex() {
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Manutenção Preventiva</h1>
+          <h1 className="text-2xl font-bold">Preventivas</h1>
           <p className="text-muted-foreground">Controle de elegibilidade e programação de rotas</p>
         </div>
         {isAdminOrCoordinator && (
