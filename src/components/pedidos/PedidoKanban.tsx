@@ -309,6 +309,18 @@ export default function PedidoKanban({
           }
         }}
       />
+
+      <ProcessarPendenciaDialog
+        open={!!pendenciaPedidoId}
+        onOpenChange={(open) => !open && setPendenciaPedidoId(null)}
+        pedido={pendenciaPedidoId ? pedidos.find(p => p.id === pendenciaPedidoId) : undefined}
+        onConfirm={async (codigoRastreio, anexoFile) => {
+          if (pendenciaPedidoId && onProcessarPendencia) {
+            await onProcessarPendencia(pendenciaPedidoId, codigoRastreio, anexoFile);
+            setPendenciaPedidoId(null);
+          }
+        }}
+      />
     </>
   );
 }
