@@ -55,7 +55,7 @@ export default function Pedidos() {
   const [open, setOpen] = useState(false);
   const [editingPedido, setEditingPedido] = useState<any>(null);
   const [viewingPedido, setViewingPedido] = useState<any>(null);
-  const [form, setForm] = useState({ cliente_id: '', observacoes: '', urgencia: 'normal', tipo_envio: '', solenoide_modelo: '' });
+  const [form, setForm] = useState({ cliente_id: '', observacoes: '', urgencia: 'normal', tipo_envio: '', solenoide_modelo: '', tipo_solicitacao: 'envio', gera_coleta_reversa: false });
   const [itens, setItens] = useState<{ peca_id: string; quantidade: number }[]>([]);
   const [autoLinkDismissed, setAutoLinkDismissed] = useState(false);
   // UI-only filter: true = all orders (default), false = only mine
@@ -360,7 +360,7 @@ export default function Pedidos() {
       toast({ title: 'Rascunho excluído!' });
       setOpen(false);
       setEditingPedido(null);
-      setForm({ cliente_id: '', observacoes: '', urgencia: 'normal', tipo_envio: '', solenoide_modelo: '' });
+      setForm({ cliente_id: '', observacoes: '', urgencia: 'normal', tipo_envio: '', solenoide_modelo: '', tipo_solicitacao: 'envio', gera_coleta_reversa: false });
       setItens([]);
       setAutoLinkDismissed(false);
     } catch (error: any) {
@@ -471,6 +471,8 @@ export default function Pedidos() {
       urgencia: pedido.urgencia || 'normal',
       tipo_envio: pedido.tipo_envio || '',
       solenoide_modelo: (pedido as any).solenoide_modelo || '',
+      tipo_solicitacao: (pedido as any).tipo_solicitacao || 'envio',
+      gera_coleta_reversa: false,
     });
     setItens(
       pedido.pedido_itens?.map((item: any) => ({
@@ -538,7 +540,7 @@ export default function Pedidos() {
     setOpen(isOpen);
     if (!isOpen) {
       setEditingPedido(null);
-      setForm({ cliente_id: '', observacoes: '', urgencia: 'normal', tipo_envio: '', solenoide_modelo: '' });
+      setForm({ cliente_id: '', observacoes: '', urgencia: 'normal', tipo_envio: '', solenoide_modelo: '', tipo_solicitacao: 'envio', gera_coleta_reversa: false });
       setItens([]);
       setAutoLinkDismissed(false);
       setShowConfirmation(false);
@@ -591,6 +593,8 @@ export default function Pedidos() {
 
         toast({ title: 'Pedido atualizado!' });
       } else {
+        const geraColetaReversa = form.tipo_solicitacao === 'envio' && form.gera_coleta_reversa;
+
         // Create new pedido
         const { data: pedido, error: pedidoError } = await supabase
           .from('pedidos')
@@ -603,6 +607,8 @@ export default function Pedidos() {
             urgencia: form.urgencia,
             status: 'rascunho',
             solenoide_modelo: hasSolenoide ? form.solenoide_modelo : null,
+            tipo_solicitacao: form.tipo_solicitacao,
+            gera_coleta_reversa_automatica: geraColetaReversa,
           } as any)
           .select('id')
           .single();
@@ -628,13 +634,63 @@ export default function Pedidos() {
           tipo_envio: form.tipo_envio || null,
           origem: 'chamado',
           has_solenoide: hasSolenoide,
+          tipo_solicitacao: form.tipo_solicitacao,
+          gera_coleta_reversa_automatica: geraColetaReversa,
         }, { entity: 'pedido', entity_id: pedido.id });
-        toast({ title: 'Rascunho salvo!', description: 'Clique em "Transmitir" para enviar o pedido.' });
+
+        // Coleta reversa automática (não reverte o envio em caso de falha)
+        let coletaReversaOk = true;
+        if (geraColetaReversa) {
+          try {
+            const { data: coleta, error: coletaError } = await supabase
+              .from('pedidos')
+              .insert({
+                solicitante_id: user!.id,
+                cliente_id: form.cliente_id,
+                observacoes: form.observacoes || null,
+                origem: 'chamado',
+                tipo_envio: null,
+                urgencia: form.urgencia,
+                status: 'rascunho',
+                solenoide_modelo: hasSolenoide ? form.solenoide_modelo : null,
+                tipo_solicitacao: 'coleta_reversa',
+                gera_coleta_reversa_automatica: false,
+                coleta_reversa_origem_id: pedido.id,
+              } as any)
+              .select('id')
+              .single();
+            if (coletaError) throw coletaError;
+
+            const coletaItens = itens.map(item => ({
+              pedido_id: coleta.id,
+              peca_id: item.peca_id,
+              quantidade: item.quantidade,
+            }));
+            const { error: coletaItensError } = await supabase.from('pedido_itens').insert(coletaItens);
+            if (coletaItensError) {
+              await supabase.from('pedidos').delete().eq('id', coleta.id);
+              throw coletaItensError;
+            }
+          } catch (coletaErr: any) {
+            coletaReversaOk = false;
+            toast({
+              variant: 'destructive',
+              title: 'Coleta reversa não gerada',
+              description: `O envio foi salvo, mas a coleta reversa automática falhou (${coletaErr.message}). Crie a coleta reversa manualmente depois.`,
+            });
+          }
+        }
+
+        if (geraColetaReversa && coletaReversaOk) {
+          toast({ title: 'Rascunhos salvos!', description: 'Envio e coleta reversa criados. Clique em "Transmitir" para enviar.' });
+        } else {
+          toast({ title: 'Rascunho salvo!', description: 'Clique em "Transmitir" para enviar o pedido.' });
+        }
         setActiveTab('rascunhos');
       }
       setOpen(false);
       setEditingPedido(null);
-      setForm({ cliente_id: '', observacoes: '', urgencia: 'normal', tipo_envio: '', solenoide_modelo: '' });
+      setForm({ cliente_id: '', observacoes: '', urgencia: 'normal', tipo_envio: '', solenoide_modelo: '', tipo_solicitacao: 'envio', gera_coleta_reversa: false });
       setItens([]);
       setAutoLinkDismissed(false);
       setShowConfirmation(false);
@@ -842,6 +898,16 @@ export default function Pedidos() {
                 </DialogHeader>
                 
                 <div className="space-y-4">
+                  {/* Tipo de solicitação */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant="secondary">
+                      {form.tipo_solicitacao === 'coleta_reversa' ? 'Coleta Reversa' : 'Envio'}
+                    </Badge>
+                    {form.tipo_solicitacao === 'envio' && form.gera_coleta_reversa && (
+                      <Badge variant="outline">Gera coleta reversa automática</Badge>
+                    )}
+                  </div>
+
                   {/* Cliente destaque */}
                   <div className="p-4 rounded-lg bg-primary/10 border border-primary/20">
                     <p className="text-xs text-muted-foreground mb-1">Cliente</p>
@@ -943,6 +1009,27 @@ export default function Pedidos() {
                   </DialogTitle>
                 </DialogHeader>
                 <form onSubmit={editingPedido ? (e) => { e.preventDefault(); handleSubmit(); } : handleShowConfirmation} className="space-y-4">
+                  {/* Tipo de Solicitação */}
+                  <div className="space-y-2">
+                    <Label>Tipo de Solicitação</Label>
+                    <ToggleGroup
+                      type="single"
+                      value={form.tipo_solicitacao}
+                      onValueChange={(v) => v && setForm({ ...form, tipo_solicitacao: v, gera_coleta_reversa: v === 'envio' ? form.gera_coleta_reversa : false })}
+                      className="justify-start"
+                      disabled={!!editingPedido}
+                    >
+                      <ToggleGroupItem value="envio" className="text-xs gap-1 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
+                        <Truck className="h-3 w-3" />
+                        Envio
+                      </ToggleGroupItem>
+                      <ToggleGroupItem value="coleta_reversa" className="text-xs gap-1 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
+                        <Package className="h-3 w-3" />
+                        Coleta Reversa
+                      </ToggleGroupItem>
+                    </ToggleGroup>
+                  </div>
+
                   <div className="space-y-2">
                     <Label>Cliente / Fazenda</Label>
                     {form.cliente_id ? (
@@ -1238,7 +1325,23 @@ export default function Pedidos() {
                         Apenas NF
                       </ToggleGroupItem>
                     </ToggleGroup>
-                  </div>
+                   </div>
+
+                  {/* Gera automaticamente coleta reversa? (apenas Envio) */}
+                  {form.tipo_solicitacao === 'envio' && !editingPedido && (
+                    <div className="space-y-2">
+                      <Label>Gera automaticamente coleta reversa?</Label>
+                      <ToggleGroup
+                        type="single"
+                        value={form.gera_coleta_reversa ? 'sim' : 'nao'}
+                        onValueChange={(v) => v && setForm({ ...form, gera_coleta_reversa: v === 'sim' })}
+                        className="justify-start"
+                      >
+                        <ToggleGroupItem value="nao" className="text-xs data-[state=on]:bg-muted">Não</ToggleGroupItem>
+                        <ToggleGroupItem value="sim" className="text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">Sim</ToggleGroupItem>
+                      </ToggleGroup>
+                    </div>
+                  )}
 
                   <div className="space-y-2">
                     <Label>Observações</Label>
