@@ -793,10 +793,18 @@ export default function Pedidos() {
     try {
       if (editingPedido) {
         // Update pedido
+        const tecnicoRespId = form.tipo_solicitacao === 'envio'
+          ? (form.tipo_envio === 'envio_pelo_tecnico' ? (form.tecnico_responsavel_user_id || null) : null)
+          : (form.tipo_coleta === 'coleta_tecnico_csm' && form.coleta_responsavel_tipo === 'tecnico' ? (form.tecnico_responsavel_user_id || null) : null);
+        const csmRespId = form.tipo_solicitacao === 'coleta_reversa' && form.tipo_coleta === 'coleta_tecnico_csm' && form.coleta_responsavel_tipo === 'csm'
+          ? (form.csm_responsavel_user_id || null) : null;
         const { error: pedidoError } = await supabase.from('pedidos').update({
           cliente_id: form.cliente_id,
           observacoes: form.observacoes || null,
           solenoide_modelo: hasSolenoide ? form.solenoide_modelo : null,
+          tipo_coleta: form.tipo_solicitacao === 'coleta_reversa' ? (form.tipo_coleta || null) : null,
+          tecnico_responsavel_user_id: tecnicoRespId,
+          csm_responsavel_user_id: csmRespId,
         } as any).eq('id', editingPedido.id);
         if (pedidoError) throw pedidoError;
 
@@ -831,6 +839,12 @@ export default function Pedidos() {
             solenoide_modelo: hasSolenoide ? form.solenoide_modelo : null,
             tipo_solicitacao: form.tipo_solicitacao,
             gera_coleta_reversa_automatica: geraColetaReversa,
+            tipo_coleta: form.tipo_solicitacao === 'coleta_reversa' ? (form.tipo_coleta || null) : null,
+            tecnico_responsavel_user_id: form.tipo_solicitacao === 'envio'
+              ? (form.tipo_envio === 'envio_pelo_tecnico' ? (form.tecnico_responsavel_user_id || null) : null)
+              : (form.tipo_coleta === 'coleta_tecnico_csm' && form.coleta_responsavel_tipo === 'tecnico' ? (form.tecnico_responsavel_user_id || null) : null),
+            csm_responsavel_user_id: form.tipo_solicitacao === 'coleta_reversa' && form.tipo_coleta === 'coleta_tecnico_csm' && form.coleta_responsavel_tipo === 'csm'
+              ? (form.csm_responsavel_user_id || null) : null,
           } as any)
           .select('id')
           .single();
@@ -878,6 +892,9 @@ export default function Pedidos() {
                 tipo_solicitacao: 'coleta_reversa',
                 gera_coleta_reversa_automatica: false,
                 coleta_reversa_origem_id: pedido.id,
+                tipo_coleta: form.coleta_auto_tipo || null,
+                tecnico_responsavel_user_id: form.coleta_auto_tipo === 'coleta_tecnico_csm' && form.coleta_auto_responsavel_tipo === 'tecnico' ? (form.coleta_auto_tecnico_id || null) : null,
+                csm_responsavel_user_id: form.coleta_auto_tipo === 'coleta_tecnico_csm' && form.coleta_auto_responsavel_tipo === 'csm' ? (form.coleta_auto_csm_id || null) : null,
               } as any)
               .select('id')
               .single();
@@ -1237,7 +1254,15 @@ export default function Pedidos() {
                     <ToggleGroup
                       type="single"
                       value={form.tipo_solicitacao}
-                      onValueChange={(v) => v && setForm({ ...form, tipo_solicitacao: v, gera_coleta_reversa: v === 'envio' ? form.gera_coleta_reversa : false })}
+                      onValueChange={(v) => v && setForm({
+                        ...form,
+                        tipo_solicitacao: v,
+                        gera_coleta_reversa: v === 'envio' ? form.gera_coleta_reversa : false,
+                        tipo_envio: v === 'envio' ? form.tipo_envio : '',
+                        tecnico_responsavel_user_id: v === 'envio' ? form.tecnico_responsavel_user_id : '',
+                        tipo_coleta: v === 'coleta_reversa' ? form.tipo_coleta : '',
+                        coleta_responsavel_tipo: v === 'coleta_reversa' ? form.coleta_responsavel_tipo : '',
+                      })}
                       className="justify-start"
                       disabled={!!editingPedido}
                     >
