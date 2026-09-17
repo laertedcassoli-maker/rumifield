@@ -7,7 +7,9 @@
 - [x] Rótulo "Número do Lacre:" em AssetSearchField; exigência de ativo na criação revertida ao escopo da coleta reversa (Coleta Reversa manual e Envio com geração automática; Envio comum vincula só no Processar — validado no preview).
 - [x] Processar de Coleta Reversa sem seção de ativos; Concluir de Coleta Reversa sem NF Adicional (validado no preview).
 - [x] Fase 4 — Processar Coleta Reversa: status 'pendente', Código de Postagem (Correios), anexo (bucket pedido-anexos), coluna Pendente no Kanban.
+- [x] Fase 5 — Processar Pendência: colunas codigo_rastreio/anexo_rastreio_path, policy de UPDATE para técnico/CSM responsável, ProcessarPendenciaDialog, botão Processar na coluna Pendente e na lista somente-leitura.
 - [ ] Badges de vínculo no Kanban de pedidos.
+- [ ] Fase 6 — aba "Pendentes"; Fase 7 — "Minhas Pendências".
 - [ ] Pendente decisão do usuário: Phelipe está com role coordenador_servicos (não tecnico_campo) — seletor de técnicos fixos mostra só Roger e Lenilton conforme regra "apenas tecnico_campo".
 
 ## Concluído

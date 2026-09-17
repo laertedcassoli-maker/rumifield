@@ -11,6 +11,7 @@ import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import ConcluirPedidoDialog from './ConcluirPedidoDialog';
 import ProcessarPedidoDialog from './ProcessarPedidoDialog';
+import ProcessarPendenciaDialog from './ProcessarPendenciaDialog';
 import type { PedidoComItens } from '@/types/pedidos';
 
 const urgenciaConfig: Record<string, { label: string; className: string }> = {
@@ -42,6 +43,8 @@ interface PedidoKanbanProps {
   onViewPedido: (pedido: PedidoComItens) => void;
   onProcessar: (pedidoId: string, tipoLogistica?: string, itemsWithAssets?: Record<string, string[]>, codigoPostagem?: string, anexoFile?: File) => Promise<void>;
   onConcluir: (pedidoId: string, nfNumero: string, dataFaturamento: string, tipoLogistica: string, itemsWithAssets?: Record<string, string[]>, nfNumero2?: string) => Promise<void>;
+  onProcessarPendencia?: (pedidoId: string, codigoRastreio: string, anexoFile?: File) => Promise<void>;
+  isResponsavelPendencia?: (pedido: PedidoComItens) => boolean;
   isProcessing: boolean;
   consultorNames: Record<string, string>;
   currentUserId?: string;
@@ -136,9 +139,11 @@ function PedidoCard({
 export default function PedidoKanban({ 
   pedidos, onViewPedido, onProcessar, onConcluir, isProcessing, consultorNames,
   currentUserId, canManage = false, canDeleteAny = false, onEdit, onDelete,
+  onProcessarPendencia, isResponsavelPendencia,
 }: PedidoKanbanProps) {
   const [concluirPedidoId, setConcluirPedidoId] = useState<string | null>(null);
   const [processarPedidoId, setProcessarPedidoId] = useState<string | null>(null);
+  const [pendenciaPedidoId, setPendenciaPedidoId] = useState<string | null>(null);
 
   const abertos = pedidos.filter(p => p.status === 'solicitado');
   const pendentes = pedidos.filter(p => p.status === 'pendente');
@@ -208,8 +213,19 @@ export default function PedidoKanban({
       color: 'text-amber-600',
       bgColor: 'bg-amber-50 dark:bg-amber-950/20',
       items: pendentes,
-      // Sem ação nesta fase — o Código de Rastreio será tratado na Fase 5
-      renderAction: undefined,
+      // Processar pendência: admin/coordenador OU o responsável definido na criação
+      renderAction: (pedido: PedidoComItens) =>
+        onProcessarPendencia && (canManage || isResponsavelPendencia?.(pedido)) ? (
+          <Button
+            size="sm"
+            className="h-7 text-xs flex-1 gap-1"
+            onClick={() => setPendenciaPedidoId(pedido.id)}
+            disabled={isProcessing}
+          >
+            <ArrowRight className="h-3 w-3" />
+            Processar
+          </Button>
+        ) : null,
     },
     {
       title: 'Em Processamento',
@@ -290,6 +306,18 @@ export default function PedidoKanban({
           if (processarPedidoId) {
             await onProcessar(processarPedidoId, tipoLogistica, itemsWithAssets, codigoPostagem, anexoFile);
             setProcessarPedidoId(null);
+          }
+        }}
+      />
+
+      <ProcessarPendenciaDialog
+        open={!!pendenciaPedidoId}
+        onOpenChange={(open) => !open && setPendenciaPedidoId(null)}
+        pedido={pendenciaPedidoId ? pedidos.find(p => p.id === pendenciaPedidoId) : undefined}
+        onConfirm={async (codigoRastreio, anexoFile) => {
+          if (pendenciaPedidoId && onProcessarPendencia) {
+            await onProcessarPendencia(pendenciaPedidoId, codigoRastreio, anexoFile);
+            setPendenciaPedidoId(null);
           }
         }}
       />

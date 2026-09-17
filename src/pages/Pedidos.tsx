@@ -19,7 +19,8 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Plus, Loader2, Trash2, Minus, ArrowUpDown, Search, X, Eye, Pencil, ShoppingCart, Package, ImageIcon, Send, FileText, ChevronLeft, ChevronRight, ArrowLeft, Truck, HandHelping, AlertTriangle, User, RefreshCcw } from 'lucide-react';
+import { Plus, Loader2, Trash2, Minus, ArrowUpDown, Search, X, Eye, Pencil, ShoppingCart, Package, ImageIcon, Send, FileText, ChevronLeft, ChevronRight, ArrowLeft, ArrowRight, Truck, HandHelping, AlertTriangle, User, RefreshCcw } from 'lucide-react';
+import ProcessarPendenciaDialog from '@/components/pedidos/ProcessarPendenciaDialog';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -234,6 +235,7 @@ export default function Pedidos() {
   const [isEditingSolicitado, setIsEditingSolicitado] = useState(false);
   const [consultorNames, setConsultorNames] = useState<Record<string, string>>({});
   const [pedidoToDelete, setPedidoToDelete] = useState<PedidoComItens | null>(null);
+  const [pendenciaPedido, setPendenciaPedido] = useState<PedidoComItens | null>(null);
   const [isDeletingPedido, setIsDeletingPedido] = useState(false);
   
   const isAdmin = role === 'admin' || role === 'coordenador_rplus' || role === 'coordenador_servicos' || role === 'coordenador_logistica';
@@ -1199,6 +1201,43 @@ export default function Pedidos() {
       setIsProcessingAction(false);
     }
   }, [toast, queryClient, pedidos]);
+
+  // Responsável pela pendência da coleta reversa (definido na criação)
+  const isResponsavelPendencia = useCallback((pedido: any) => {
+    if (!user?.id) return false;
+    return pedido?.tecnico_responsavel_user_id === user.id
+      || pedido?.csm_responsavel_user_id === user.id
+      || (pedido?.tipo_coleta === 'correios' && pedido?.solicitante_id === user.id);
+  }, [user?.id]);
+
+  // Processar pendência da coleta reversa (pendente -> processamento + código de rastreio)
+  const handleProcessarPendencia = useCallback(async (pedidoId: string, codigoRastreio: string, anexoFile?: File) => {
+    setIsProcessingAction(true);
+    try {
+      const updateData: any = { status: 'processamento', codigo_rastreio: codigoRastreio };
+
+      if (anexoFile) {
+        const safeName = anexoFile.name.replace(/[^\w.\-]/g, '_');
+        const path = `${pedidoId}/${Date.now()}-${safeName}`;
+        const { error: uploadError } = await supabase.storage
+          .from('pedido-anexos')
+          .upload(path, anexoFile, { upsert: false });
+        if (uploadError) throw uploadError;
+        updateData.anexo_rastreio_path = path;
+      }
+
+      const { error } = await supabase.from('pedidos').update(updateData).eq('id', pedidoId);
+      if (error) throw error;
+
+      queryClient.invalidateQueries({ queryKey: ['pedidos'] });
+      track('pedido_pendencia_processada', {}, { entity: 'pedido', entity_id: pedidoId });
+      toast({ title: 'Pendência processada!', description: 'A coleta reversa foi movida para Em Processamento.' });
+    } catch (err: any) {
+      toast({ variant: 'destructive', title: 'Erro', description: err.message });
+    } finally {
+      setIsProcessingAction(false);
+    }
+  }, [toast, queryClient]);
 
   // Concluir pedido (processamento -> faturado + NF + tipo_logistica)
   const handleConcluir = useCallback(async (pedidoId: string, nfNumero: string, dataFaturamento: string, tipoLogistica: string, itemsWithAssets?: Record<string, string[]>, nfNumero2?: string) => {
@@ -2403,6 +2442,8 @@ export default function Pedidos() {
             canDeleteAny={canDeleteAnyPedido}
             onEdit={handleEditPedido}
             onDelete={(p) => setPedidoToDelete(p)}
+            onProcessarPendencia={handleProcessarPendencia}
+            isResponsavelPendencia={isResponsavelPendencia}
           />
         ) : (
           /* Tabela somente leitura para perfis sem permissão de gestão */
@@ -2488,10 +2529,16 @@ export default function Pedidos() {
                           </Button>
                         </>
                       )}
-                      <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={() => setViewingPedido(pedido)}>
-                        <Eye className="h-4 w-4" />
-                        Detalhes
-                      </Button>
+                      {pedido.status === 'pendente' && isResponsavelPendencia(pedido) && (
+                        <Button size="sm" className="h-8 gap-1.5" onClick={() => setPendenciaPedido(pedido)}>
+                          <ArrowRight className="h-4 w-4" />
+                          Processar
+                        </Button>
+                      )}
+                       <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={() => setViewingPedido(pedido)}>
+                         <Eye className="h-4 w-4" />
+                         Detalhes
+                       </Button>
                     </div>
                   </div>
                 </CardContent>
@@ -2931,6 +2978,18 @@ export default function Pedidos() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <ProcessarPendenciaDialog
+        open={!!pendenciaPedido}
+        onOpenChange={(open) => !open && setPendenciaPedido(null)}
+        pedido={pendenciaPedido || undefined}
+        onConfirm={async (codigoRastreio, anexoFile) => {
+          if (pendenciaPedido) {
+            await handleProcessarPendencia(pendenciaPedido.id, codigoRastreio, anexoFile);
+            setPendenciaPedido(null);
+          }
+        }}
+      />
     </div>
   );
 }
