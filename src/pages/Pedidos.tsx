@@ -193,7 +193,26 @@ export default function Pedidos() {
   const queryClient = useQueryClient();
   const [open, setOpen] = useState(false);
   const [editingPedido, setEditingPedido] = useState<any>(null);
-  const [viewingPedido, setViewingPedido] = useState<any>(null);
+  const [viewingStack, setViewingStack] = useState<any[]>([]);
+  const viewingPedido = viewingStack.length > 0 ? viewingStack[viewingStack.length - 1] : null;
+  const setViewingPedido = useCallback((next: any) => {
+    setViewingStack((stack) => {
+      const current = stack.length > 0 ? stack[stack.length - 1] : null;
+      const value = typeof next === 'function' ? next(current) : next;
+      if (!value) return [];
+      // Abrir um pedido diferente a partir da listagem reinicia a pilha
+      if (!current || current.id !== value.id) return [value];
+      return [...stack.slice(0, -1), value];
+    });
+  }, []);
+  const pushPedido = useCallback((pedido: any) => {
+    setIsEditingSolicitado(false);
+    setViewingStack((stack) => [...stack, pedido]);
+  }, []);
+  const popPedido = useCallback(() => {
+    setIsEditingSolicitado(false);
+    setViewingStack((stack) => (stack.length > 1 ? stack.slice(0, -1) : stack));
+  }, []);
   const [form, setForm] = useState({ ...emptyForm });
   const [itens, setItens] = useState<{ peca_id: string; quantidade: number }[]>([]);
   const [autoLinkDismissed, setAutoLinkDismissed] = useState(false);
