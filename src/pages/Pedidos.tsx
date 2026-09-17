@@ -2440,6 +2440,8 @@ export default function Pedidos() {
             canDeleteAny={canDeleteAnyPedido}
             onEdit={handleEditPedido}
             onDelete={(p) => setPedidoToDelete(p)}
+            onProcessarPendencia={handleProcessarPendencia}
+            isResponsavelPendencia={isResponsavelPendencia}
           />
         ) : (
           /* Tabela somente leitura para perfis sem permissão de gestão */
