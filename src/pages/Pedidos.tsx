@@ -2978,6 +2978,18 @@ export default function Pedidos() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <ProcessarPendenciaDialog
+        open={!!pendenciaPedido}
+        onOpenChange={(open) => !open && setPendenciaPedido(null)}
+        pedido={pendenciaPedido || undefined}
+        onConfirm={async (codigoRastreio, anexoFile) => {
+          if (pendenciaPedido) {
+            await handleProcessarPendencia(pendenciaPedido.id, codigoRastreio, anexoFile);
+            setPendenciaPedido(null);
+          }
+        }}
+      />
     </div>
   );
 }
