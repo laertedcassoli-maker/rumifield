@@ -242,7 +242,7 @@ export function AppSidebar() {
                               <CollapsibleTrigger asChild>
                                 <SidebarMenuSubButton isActive={isPreventivasActive}>
                                   <Calendar className="h-4 w-4" />
-                                  <span>Manutenção Preventiva</span>
+                                  <span>Preventivas</span>
                                   <ChevronDown className="ml-auto h-4 w-4 transition-transform group-data-[state=open]/preventivas:rotate-180" />
                                 </SidebarMenuSubButton>
                               </CollapsibleTrigger>
