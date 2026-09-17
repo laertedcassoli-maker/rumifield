@@ -1471,7 +1471,7 @@ export default function Pedidos() {
                   </SelectContent>
                 </Select>
               )}
-              {(searchTerm || statusFilter !== 'all' || dateFilter !== 'all' || tipoEnvioFilter !== 'all' || tipoLogisticaFilter !== 'all' || solicitanteFilter !== 'all') && (
+              {(searchTerm || statusFilter !== 'all' || dateFilter !== 'all' || tipoEnvioFilter !== 'all' || tipoLogisticaFilter !== 'all' || tipoSolicitacaoFilter !== 'all' || solicitanteFilter !== 'all') && (
                 <Button variant="ghost" size="icon" onClick={clearFilters}>
                   <X className="h-4 w-4" />
                 </Button>
@@ -1574,6 +1574,41 @@ export default function Pedidos() {
                     >
                       <HandHelping className="h-3 w-3" />
                       Entrega Própria
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Tipo solicitacao filter */}
+              {activeTab === 'pedidos' && (
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-sm text-muted-foreground">Solicitação:</span>
+                  <div className="flex gap-1">
+                    <Button
+                      variant={tipoSolicitacaoFilter === 'all' ? 'secondary' : 'outline'}
+                      size="sm"
+                      onClick={() => setTipoSolicitacaoFilter('all')}
+                      className="h-7 text-xs"
+                    >
+                      Todos
+                    </Button>
+                    <Button
+                      variant={tipoSolicitacaoFilter === 'envio' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setTipoSolicitacaoFilter(tipoSolicitacaoFilter === 'envio' ? 'all' : 'envio')}
+                      className="h-7 text-xs gap-1"
+                    >
+                      <Truck className="h-3 w-3" />
+                      Envios
+                    </Button>
+                    <Button
+                      variant={tipoSolicitacaoFilter === 'coleta_reversa' ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setTipoSolicitacaoFilter(tipoSolicitacaoFilter === 'coleta_reversa' ? 'all' : 'coleta_reversa')}
+                      className="h-7 text-xs gap-1"
+                    >
+                      <RefreshCcw className="h-3 w-3" />
+                      Coleta Reversa
                     </Button>
                   </div>
                 </div>
