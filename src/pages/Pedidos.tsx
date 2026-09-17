@@ -1134,11 +1134,28 @@ export default function Pedidos() {
   };
 
   // Processar pedido (solicitado -> processamento)
-  const handleProcessar = useCallback(async (pedidoId: string, tipoLogistica?: string, itemsWithAssets?: Record<string, string[]>) => {
+  const handleProcessar = useCallback(async (pedidoId: string, tipoLogistica?: string, itemsWithAssets?: Record<string, string[]>, codigoPostagem?: string, anexoFile?: File) => {
     setIsProcessingAction(true);
     try {
-      const updateData: any = { status: 'processamento' };
+      const pedidoAtual = pedidos.find(p => p.id === pedidoId);
+      const isColetaReversa = pedidoAtual?.tipo_solicitacao === 'coleta_reversa';
+
+      const updateData: any = { status: isColetaReversa ? 'pendente' : 'processamento' };
       if (tipoLogistica) updateData.tipo_logistica = tipoLogistica;
+
+      if (isColetaReversa) {
+        if (codigoPostagem) updateData.codigo_postagem = codigoPostagem;
+        if (anexoFile) {
+          const safeName = anexoFile.name.replace(/[^\w.\-]/g, '_');
+          const path = `${pedidoId}/${Date.now()}-${safeName}`;
+          const { error: uploadError } = await supabase.storage
+            .from('pedido-anexos')
+            .upload(path, anexoFile, { upsert: false });
+          if (uploadError) throw uploadError;
+          updateData.anexo_postagem_path = path;
+        }
+      }
+      
       
       const { error } = await supabase
         .from('pedidos')
