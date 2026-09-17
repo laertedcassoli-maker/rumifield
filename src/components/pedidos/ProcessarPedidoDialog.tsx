@@ -112,6 +112,32 @@ export default function ProcessarPedidoDialog({ open, onOpenChange, pedido, onCo
             </div>
           )}
 
+          {isColetaReversa && tipoLogistica === 'correios' && (
+            <div className="space-y-2">
+              <Label htmlFor="codigo-postagem">Código de Postagem:</Label>
+              <Input
+                id="codigo-postagem"
+                value={codigoPostagem}
+                onChange={(e) => setCodigoPostagem(e.target.value)}
+                placeholder="Informe o código de postagem"
+              />
+            </div>
+          )}
+
+          {isColetaReversa && (
+            <div className="space-y-2">
+              <Label htmlFor="anexo-postagem">Anexo (opcional)</Label>
+              <Input
+                id="anexo-postagem"
+                type="file"
+                onChange={(e) => setAnexoFile(e.target.files?.[0] || null)}
+              />
+              {anexoFile && (
+                <p className="text-xs text-muted-foreground">{anexoFile.name}</p>
+              )}
+            </div>
+          )}
+
           {itemsNeedingAssets.length > 0 && (
             <div className="space-y-3 pt-2 border-t">
               <Label className="text-sm font-semibold">Vincular Ativos (Peças Controladas)</Label>
