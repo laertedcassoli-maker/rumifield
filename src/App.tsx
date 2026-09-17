@@ -41,6 +41,8 @@ import PreventivasRotas from "./pages/preventivas/Rotas";
 import PreventivasNovaRota from "./pages/preventivas/NovaRota";
 import PreventivasDetalheRota from "./pages/preventivas/DetalheRota";
 import PreventivasMinhasRotas from "./pages/preventivas/MinhasRotas";
+import MinhasPendencias from "./pages/MinhasPendencias";
+
 import PreventivasExecucaoRota from "./pages/preventivas/ExecucaoRota";
 import PreventivasAtendimento from "./pages/preventivas/AtendimentoPreventivo";
 import PreventivasCalendario from "./pages/preventivas/Calendario";
@@ -354,6 +356,15 @@ const App = () => (
                 </AppLayout>
               }
             />
+            <Route
+              path="/minhas-pendencias"
+              element={
+                <AppLayout>
+                  <MinhasPendencias />
+                </AppLayout>
+              }
+            />
+
             <Route
               path="/preventivas/execucao/:id"
               element={

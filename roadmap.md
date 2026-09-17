@@ -10,7 +10,7 @@
 - [x] Fase 5 — Processar Pendência: colunas codigo_rastreio/anexo_rastreio_path, policy de UPDATE para técnico/CSM responsável, ProcessarPendenciaDialog, botão Processar na coluna Pendente e na lista somente-leitura.
 - [ ] Badges de vínculo no Kanban de pedidos.
 - [x] Fase 6 — aba "Pendentes" (oculta na visão Envios, admin/coord veem todas) + contador no menu via usePendenciasCount (key ['pedidos','pendencias-count']).
-- [ ] Fase 7 — "Minhas Pendências".
+- [x] Fase 7 — "Minhas Pendências": tela somente leitura em /minhas-pendencias agregando Preventivas, Visitas Técnicas, Coleta Reversa e Envios do usuário logado; item no topo do Menu Principal com badge (useMinhasPendencias) e seed de role_menu_permissions (minhas_pendencias, todas as roles).
 - [ ] Pendente decisão do usuário: Phelipe está com role coordenador_servicos (não tecnico_campo) — seletor de técnicos fixos mostra só Roger e Lenilton conforme regra "apenas tecnico_campo".
 
 ## Concluído
