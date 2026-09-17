@@ -43,6 +43,8 @@ interface PedidoKanbanProps {
   onViewPedido: (pedido: PedidoComItens) => void;
   onProcessar: (pedidoId: string, tipoLogistica?: string, itemsWithAssets?: Record<string, string[]>, codigoPostagem?: string, anexoFile?: File) => Promise<void>;
   onConcluir: (pedidoId: string, nfNumero: string, dataFaturamento: string, tipoLogistica: string, itemsWithAssets?: Record<string, string[]>, nfNumero2?: string) => Promise<void>;
+  onProcessarPendencia?: (pedidoId: string, codigoRastreio: string, anexoFile?: File) => Promise<void>;
+  isResponsavelPendencia?: (pedido: PedidoComItens) => boolean;
   isProcessing: boolean;
   consultorNames: Record<string, string>;
   currentUserId?: string;
