@@ -2525,10 +2525,16 @@ export default function Pedidos() {
                           </Button>
                         </>
                       )}
-                      <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={() => setViewingPedido(pedido)}>
-                        <Eye className="h-4 w-4" />
-                        Detalhes
-                      </Button>
+                      {pedido.status === 'pendente' && isResponsavelPendencia(pedido) && (
+                        <Button size="sm" className="h-8 gap-1.5" onClick={() => setPendenciaPedido(pedido)}>
+                          <ArrowRight className="h-4 w-4" />
+                          Processar
+                        </Button>
+                      )}
+                       <Button variant="outline" size="sm" className="h-8 gap-1.5" onClick={() => setViewingPedido(pedido)}>
+                         <Eye className="h-4 w-4" />
+                         Detalhes
+                       </Button>
                     </div>
                   </div>
                 </CardContent>
