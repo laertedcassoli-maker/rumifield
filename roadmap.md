@@ -1,7 +1,7 @@
 # Roadmap
 
 ## Em andamento
-- [ ] Filtro "Tipo de Solicitação" (Todos / Envios / Coleta Reversa) na aba "Transmitidos" de Pedidos.tsx — planejamento em .lovable/plan.md, aguardando aprovação.
+- [x] Filtro "Tipo de Solicitação" na aba Transmitidos — implementado e validado no preview (Coleta Reversa: 0 resultados; Envios: 95; re-clique volta a "Todos").
 - [ ] (Próximo prompt) Dialog de detalhe/vínculo de coleta reversa — aguardando o usuário.
 
 ## Concluído
