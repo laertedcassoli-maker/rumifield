@@ -1192,13 +1192,13 @@ export default function Pedidos() {
         tipo_logistica: tipoLogistica || null,
         assets_linked_items: itemsWithAssets ? Object.keys(itemsWithAssets).filter(k => (itemsWithAssets[k] || []).length > 0).length : 0,
       }, { entity: 'pedido', entity_id: pedidoId });
-      toast({ title: 'Pedido movido para processamento!' });
+      toast({ title: isColetaReversa ? 'Coleta reversa marcada como pendente!' : 'Pedido movido para processamento!' });
     } catch (err: any) {
       toast({ variant: 'destructive', title: 'Erro', description: err.message });
     } finally {
       setIsProcessingAction(false);
     }
-  }, [toast, queryClient]);
+  }, [toast, queryClient, pedidos]);
 
   // Concluir pedido (processamento -> faturado + NF + tipo_logistica)
   const handleConcluir = useCallback(async (pedidoId: string, nfNumero: string, dataFaturamento: string, tipoLogistica: string, itemsWithAssets?: Record<string, string[]>, nfNumero2?: string) => {
