@@ -65,6 +65,9 @@ const emptyForm = {
   coleta_auto_responsavel_tipo: '',
   coleta_auto_tecnico_id: '',
   coleta_auto_csm_id: '',
+  motivo_relato: '',
+  quantidade_volumes: '',
+  coleta_auto_volumes: '',
 };
 
 const tipoEnvioReviewLabels: Record<string, string> = {
@@ -215,6 +218,8 @@ export default function Pedidos() {
   }, []);
   const [form, setForm] = useState({ ...emptyForm });
   const [itens, setItens] = useState<{ peca_id: string; quantidade: number }[]>([]);
+  // Ativos vinculados na criação (índice do item em `itens` -> workshop_item_ids)
+  const [itemAssets, setItemAssets] = useState<Record<number, string[]>>({});
   const [autoLinkDismissed, setAutoLinkDismissed] = useState(false);
   // UI-only filter: true = all orders (default), false = only mine
   const [viewAll, setViewAll] = useState(true);
@@ -620,6 +625,7 @@ export default function Pedidos() {
       setEditingPedido(null);
       setForm({ ...emptyForm });
       setItens([]);
+      setItemAssets({});
       setAutoLinkDismissed(false);
     } catch (error: any) {
       toast({ variant: 'destructive', title: 'Erro ao excluir', description: error.message });
@@ -674,6 +680,13 @@ export default function Pedidos() {
   const updateItem = (index: number, field: 'peca_id' | 'quantidade', value: string | number) => {
     const newItens = [...itens];
     newItens[index] = { ...newItens[index], [field]: value };
+    if (field === 'peca_id') {
+      setItemAssets((prev) => {
+        const next = { ...prev };
+        delete next[index];
+        return next;
+      });
+    }
     setItens(applyAutoLinks(newItens));
   };
 
@@ -705,6 +718,16 @@ export default function Pedidos() {
     if (removed?.peca_id && targetIdLocal && removed.peca_id === targetIdLocal) {
       setAutoLinkDismissed(true);
     }
+    // Reindexa os ativos vinculados após a remoção
+    setItemAssets((prev) => {
+      const reindexed: Record<number, string[]> = {};
+      itens.forEach((_, i) => {
+        if (i === index) return;
+        const target = i > index ? i - 1 : i;
+        if (prev[i]) reindexed[target] = prev[i];
+      });
+      return reindexed;
+    });
     // Remoção manual: não reinsere PRD00639 automaticamente
     setItens(next);
   };
@@ -736,12 +759,22 @@ export default function Pedidos() {
       tecnico_responsavel_user_id: (pedido as any).tecnico_responsavel_user_id || '',
       csm_responsavel_user_id: (pedido as any).csm_responsavel_user_id || '',
       coleta_responsavel_tipo: (pedido as any).tecnico_responsavel_user_id ? 'tecnico' : ((pedido as any).csm_responsavel_user_id ? 'csm' : ''),
+      motivo_relato: (pedido as any).motivo_relato || '',
+      quantidade_volumes: (pedido as any).quantidade_volumes != null ? String((pedido as any).quantidade_volumes) : '',
     });
     setItens(
       pedido.pedido_itens?.map((item: any) => ({
         peca_id: item.peca_id,
         quantidade: item.quantidade,
       })) || []
+    );
+    setItemAssets(
+      Object.fromEntries(
+        (pedido.pedido_itens || []).map((item: any, idx: number) => [
+          idx,
+          (item.pedido_item_assets || []).map((a: any) => a.workshop_item_id).filter(Boolean),
+        ]).filter(([, ids]: any) => (ids as string[]).length > 0)
+      ) as Record<number, string[]>
     );
     setOpen(true);
   };
@@ -805,10 +838,49 @@ export default function Pedidos() {
       setEditingPedido(null);
       setForm({ ...emptyForm });
       setItens([]);
+      setItemAssets({});
       setAutoLinkDismissed(false);
       setShowConfirmation(false);
       setClienteSearch('');
       setPecaSearches({});
+    }
+  };
+
+  // Itens da criação que exigem vínculo de ativo (peças is_asset)
+  const assetItens = itens
+    .map((item, index) => ({ index, item, peca: pecas?.find(p => p.id === item.peca_id) }))
+    .filter(entry => !!entry.peca?.is_asset);
+  // Ativos exigidos na criação apenas em Coleta Reversa (manual ou automática)
+  const requiresAssetsOnCreate =
+    !editingPedido &&
+    (form.tipo_solicitacao === 'coleta_reversa' || (form.tipo_solicitacao === 'envio' && form.gera_coleta_reversa)) &&
+    assetItens.length > 0;
+  const missingAssetItem = assetItens.find(entry => (itemAssets[entry.index] || []).filter(Boolean).length === 0);
+
+  const assetsByPecaId = () => {
+    const map: Record<string, string[]> = {};
+    itens.forEach((item, index) => {
+      const ids = (itemAssets[index] || []).filter(Boolean);
+      if (item.peca_id && ids.length > 0) map[item.peca_id] = ids;
+    });
+    return map;
+  };
+
+  const saveAssetsForItems = async (rows: { id: string; peca_id: string }[]) => {
+    const byPeca = assetsByPecaId();
+    for (const row of rows) {
+      const ids = byPeca[row.peca_id];
+      if (!ids || ids.length === 0) continue;
+      const { error: itemError } = await supabase.from('pedido_itens').update({ workshop_item_id: ids[0] }).eq('id', row.id);
+      if (itemError) throw itemError;
+      const { error: junctionError } = await supabase
+        .from('pedido_item_assets')
+        .upsert(ids.map(wsId => ({ pedido_item_id: row.id, workshop_item_id: wsId })), { onConflict: 'pedido_item_id,workshop_item_id', ignoreDuplicates: true });
+      if (junctionError) throw junctionError;
+      const { data: wsItems } = await supabase.from('workshop_items').select('unique_code').in('id', ids);
+      if (wsItems) {
+        await supabase.from('pedido_itens').update({ asset_codes: wsItems.map(w => w.unique_code) }).eq('id', row.id);
+      }
     }
   };
 
@@ -830,6 +902,10 @@ export default function Pedidos() {
       toast({ variant: 'destructive', title: 'Selecione o técnico responsável pelo envio' });
       return;
     }
+    if (!form.motivo_relato.trim()) {
+      toast({ variant: 'destructive', title: 'Informe o motivo da solicitação e o relato da fazenda' });
+      return;
+    }
     if (form.tipo_solicitacao === 'coleta_reversa') {
       if (!form.tipo_coleta) {
         toast({ variant: 'destructive', title: 'Selecione o Tipo de Coleta' });
@@ -837,6 +913,10 @@ export default function Pedidos() {
       }
       if (form.tipo_coleta === 'coleta_tecnico_csm' && !form.tecnico_responsavel_user_id && !form.csm_responsavel_user_id) {
         toast({ variant: 'destructive', title: 'Selecione o Técnico ou CSM responsável pela coleta' });
+        return;
+      }
+      if (!(Number(form.quantidade_volumes) >= 1)) {
+        toast({ variant: 'destructive', title: 'Informe a Quantidade de Volumes (mínimo 1)' });
         return;
       }
     }
@@ -849,6 +929,18 @@ export default function Pedidos() {
         toast({ variant: 'destructive', title: 'Selecione o Técnico ou CSM responsável pela coleta reversa automática' });
         return;
       }
+      if (!(Number(form.coleta_auto_volumes) >= 1)) {
+        toast({ variant: 'destructive', title: 'Informe a Quantidade de Volumes da coleta reversa automática (mínimo 1)' });
+        return;
+      }
+    }
+    if (requiresAssetsOnCreate && missingAssetItem) {
+      toast({
+        variant: 'destructive',
+        title: 'Vincule o ativo da coleta reversa',
+        description: `A peça ${missingAssetItem.peca?.codigo || ''} precisa de ao menos um ativo vinculado.`,
+      });
+      return;
     }
     setShowConfirmation(true);
   };
@@ -870,6 +962,8 @@ export default function Pedidos() {
           tipo_coleta: form.tipo_solicitacao === 'coleta_reversa' ? (form.tipo_coleta || null) : null,
           tecnico_responsavel_user_id: tecnicoRespId,
           csm_responsavel_user_id: csmRespId,
+          motivo_relato: form.motivo_relato || null,
+          quantidade_volumes: form.tipo_solicitacao === 'coleta_reversa' && form.quantidade_volumes !== '' ? Number(form.quantidade_volumes) : null,
         } as any).eq('id', editingPedido.id);
         if (pedidoError) throw pedidoError;
 
@@ -883,8 +977,11 @@ export default function Pedidos() {
           peca_id: item.peca_id,
           quantidade: item.quantidade,
         }));
-        const { error: itensError } = await supabase.from('pedido_itens').insert(newItens);
+        const { data: insertedItens, error: itensError } = await supabase.from('pedido_itens').insert(newItens).select('id, peca_id');
         if (itensError) throw itensError;
+        if (form.tipo_solicitacao === 'coleta_reversa' && insertedItens) {
+          await saveAssetsForItems(insertedItens as { id: string; peca_id: string }[]);
+        }
 
         toast({ title: 'Pedido atualizado!' });
       } else {
@@ -910,6 +1007,8 @@ export default function Pedidos() {
               : (form.tipo_coleta === 'coleta_tecnico_csm' && form.coleta_responsavel_tipo === 'tecnico' ? (form.tecnico_responsavel_user_id || null) : null),
             csm_responsavel_user_id: form.tipo_solicitacao === 'coleta_reversa' && form.tipo_coleta === 'coleta_tecnico_csm' && form.coleta_responsavel_tipo === 'csm'
               ? (form.csm_responsavel_user_id || null) : null,
+            motivo_relato: form.motivo_relato || null,
+            quantidade_volumes: form.tipo_solicitacao === 'coleta_reversa' && form.quantidade_volumes !== '' ? Number(form.quantidade_volumes) : null,
           } as any)
           .select('id')
           .single();
@@ -921,11 +1020,19 @@ export default function Pedidos() {
           peca_id: item.peca_id,
           quantidade: item.quantidade,
         }));
-        const { error: itensError } = await supabase.from('pedido_itens').insert(newItens);
+        const { data: insertedItens, error: itensError } = await supabase.from('pedido_itens').insert(newItens).select('id, peca_id');
         if (itensError) {
           // Rollback: delete orphan pedido
           await supabase.from('pedidos').delete().eq('id', pedido.id);
           throw itensError;
+        }
+        if (form.tipo_solicitacao === 'coleta_reversa' && insertedItens) {
+          try {
+            await saveAssetsForItems(insertedItens as { id: string; peca_id: string }[]);
+          } catch (assetErr: any) {
+            await supabase.from('pedidos').delete().eq('id', pedido.id);
+            throw assetErr;
+          }
         }
 
         track('pedido_created', {
@@ -960,6 +1067,8 @@ export default function Pedidos() {
                 tipo_coleta: form.coleta_auto_tipo || null,
                 tecnico_responsavel_user_id: form.coleta_auto_tipo === 'coleta_tecnico_csm' && form.coleta_auto_responsavel_tipo === 'tecnico' ? (form.coleta_auto_tecnico_id || null) : null,
                 csm_responsavel_user_id: form.coleta_auto_tipo === 'coleta_tecnico_csm' && form.coleta_auto_responsavel_tipo === 'csm' ? (form.coleta_auto_csm_id || null) : null,
+                motivo_relato: form.motivo_relato || null,
+                quantidade_volumes: form.coleta_auto_volumes !== '' ? Number(form.coleta_auto_volumes) : null,
               } as any)
               .select('id')
               .single();
@@ -970,10 +1079,18 @@ export default function Pedidos() {
               peca_id: item.peca_id,
               quantidade: item.quantidade,
             }));
-            const { error: coletaItensError } = await supabase.from('pedido_itens').insert(coletaItens);
+            const { data: insertedColetaItens, error: coletaItensError } = await supabase.from('pedido_itens').insert(coletaItens).select('id, peca_id');
             if (coletaItensError) {
               await supabase.from('pedidos').delete().eq('id', coleta.id);
               throw coletaItensError;
+            }
+            if (insertedColetaItens) {
+              try {
+                await saveAssetsForItems(insertedColetaItens as { id: string; peca_id: string }[]);
+              } catch (assetErr: any) {
+                await supabase.from('pedidos').delete().eq('id', coleta.id);
+                throw assetErr;
+              }
             }
           } catch (coletaErr: any) {
             coletaReversaOk = false;
@@ -996,6 +1113,7 @@ export default function Pedidos() {
       setEditingPedido(null);
       setForm({ ...emptyForm });
       setItens([]);
+      setItemAssets({});
       setAutoLinkDismissed(false);
       setShowConfirmation(false);
       setClienteSearch('');
@@ -1273,6 +1391,36 @@ export default function Pedidos() {
                       </p>
                     )}
                   </div>
+
+                  {/* Motivo / volumes / ativos */}
+                  <div className="text-sm space-y-2 p-3 rounded-md border bg-muted/30">
+                    <div>
+                      <p className="text-muted-foreground text-xs">Motivo da solicitação e relato da fazenda</p>
+                      <p className="whitespace-pre-wrap break-words">{form.motivo_relato}</p>
+                    </div>
+                    {form.tipo_solicitacao === 'coleta_reversa' && form.quantidade_volumes !== '' && (
+                      <p className="flex items-center justify-between gap-2">
+                        <span className="text-muted-foreground shrink-0">Quantidade de volumes</span>
+                        <span className="font-medium">{form.quantidade_volumes}</span>
+                      </p>
+                    )}
+                    {form.tipo_solicitacao === 'envio' && form.gera_coleta_reversa && form.coleta_auto_volumes !== '' && (
+                      <p className="flex items-center justify-between gap-2">
+                        <span className="text-muted-foreground shrink-0">Volumes (coleta reversa automática)</span>
+                        <span className="font-medium">{form.coleta_auto_volumes}</span>
+                      </p>
+                    )}
+                    {requiresAssetsOnCreate && assetItens.map(({ index, peca }) => (
+                      <p key={index} className="flex items-center justify-between gap-2">
+                        <span className="text-muted-foreground shrink-0">Ativos — {peca?.codigo}</span>
+                        <span className="font-medium">
+                          {(itemAssets[index] || []).filter(Boolean).length} vinculado(s)
+                        </span>
+                      </p>
+                    ))}
+                  </div>
+
+
 
                   {/* Itens do pedido */}
                   <div className="space-y-2">
@@ -1806,6 +1954,63 @@ export default function Pedidos() {
                       onCsm={(id) => setForm({ ...form, coleta_auto_csm_id: id, coleta_auto_tecnico_id: '' })}
                     />
                   )}
+
+                  {/* Motivo da solicitação (obrigatório em ambos os tipos) */}
+                  <div className="space-y-2">
+                    <Label>Motivo da solicitação e relato da fazenda: <span className="text-destructive">*</span></Label>
+                    <Textarea
+                      placeholder="Descreva o motivo da solicitação e o relato da fazenda..."
+                      value={form.motivo_relato}
+                      onChange={(e) => setForm({ ...form, motivo_relato: e.target.value })}
+                      rows={3}
+                    />
+                  </div>
+
+                  {/* Quantidade de Volumes (Coleta Reversa) */}
+                  {form.tipo_solicitacao === 'coleta_reversa' && (
+                    <div className="space-y-2">
+                      <Label>Quantidade de Volumes: <span className="text-destructive">*</span></Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        placeholder="1"
+                        value={form.quantidade_volumes}
+                        onChange={(e) => setForm({ ...form, quantidade_volumes: e.target.value })}
+                      />
+                    </div>
+                  )}
+
+                  {/* Quantidade de Volumes da coleta reversa automática */}
+                  {form.tipo_solicitacao === 'envio' && form.gera_coleta_reversa && !editingPedido && (
+                    <div className="space-y-2">
+                      <Label>Quantidade de Volumes: <span className="text-muted-foreground font-normal">(coleta reversa automática)</span> <span className="text-destructive">*</span></Label>
+                      <Input
+                        type="number"
+                        min={1}
+                        placeholder="1"
+                        value={form.coleta_auto_volumes}
+                        onChange={(e) => setForm({ ...form, coleta_auto_volumes: e.target.value })}
+                      />
+                    </div>
+                  )}
+
+                  {/* Ativos a coletar (Coleta Reversa, peças que exigem ativo) */}
+                  {requiresAssetsOnCreate && (
+                    <div className="space-y-2">
+                      <Label>Ativos a coletar <span className="text-destructive">*</span></Label>
+                      {assetItens.map(({ index, item, peca }) => (
+                        <MultiAssetField
+                          key={`${index}-${item.peca_id}`}
+                          pecaId={item.peca_id}
+                          pecaNome={`${peca?.codigo || ''} — ${peca?.nome || ''}`}
+                          quantidade={item.quantidade}
+                          selectedAssets={itemAssets[index] || []}
+                          onAssetsChange={(assets) => setItemAssets((prev) => ({ ...prev, [index]: assets }))}
+                        />
+                      ))}
+                    </div>
+                  )}
+
 
                   <div className="space-y-2">
                     <Label>Observações</Label>

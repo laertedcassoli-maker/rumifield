@@ -2010,6 +2010,7 @@ export type Database = {
           csm_responsavel_user_id: string | null
           gera_coleta_reversa_automatica: boolean
           id: string
+          motivo_relato: string | null
           observacoes: string | null
           omie_data_faturamento: string | null
           omie_nf_numero: string | null
@@ -2018,6 +2019,7 @@ export type Database = {
           origem: string | null
           pedido_code: string | null
           preventive_id: string | null
+          quantidade_volumes: number | null
           solenoide_modelo: string | null
           solicitante_id: string
           status: Database["public"]["Enums"]["pedido_status"]
@@ -2036,6 +2038,7 @@ export type Database = {
           csm_responsavel_user_id?: string | null
           gera_coleta_reversa_automatica?: boolean
           id?: string
+          motivo_relato?: string | null
           observacoes?: string | null
           omie_data_faturamento?: string | null
           omie_nf_numero?: string | null
@@ -2044,6 +2047,7 @@ export type Database = {
           origem?: string | null
           pedido_code?: string | null
           preventive_id?: string | null
+          quantidade_volumes?: number | null
           solenoide_modelo?: string | null
           solicitante_id: string
           status?: Database["public"]["Enums"]["pedido_status"]
@@ -2062,6 +2066,7 @@ export type Database = {
           csm_responsavel_user_id?: string | null
           gera_coleta_reversa_automatica?: boolean
           id?: string
+          motivo_relato?: string | null
           observacoes?: string | null
           omie_data_faturamento?: string | null
           omie_nf_numero?: string | null
@@ -2070,6 +2075,7 @@ export type Database = {
           origem?: string | null
           pedido_code?: string | null
           preventive_id?: string | null
+          quantidade_volumes?: number | null
           solenoide_modelo?: string | null
           solicitante_id?: string
           status?: Database["public"]["Enums"]["pedido_status"]
