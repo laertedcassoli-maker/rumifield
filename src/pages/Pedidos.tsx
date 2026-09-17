@@ -1664,6 +1664,84 @@ export default function Pedidos() {
                     </div>
                   )}
 
+                  {/* Tipo de Coleta (apenas Coleta Reversa) */}
+                  {form.tipo_solicitacao === 'coleta_reversa' && (
+                    <div className="space-y-2">
+                      <Label>Tipo de Coleta</Label>
+                      <ToggleGroup
+                        type="single"
+                        value={form.tipo_coleta}
+                        onValueChange={(v) => setForm({ ...form, tipo_coleta: v || '', coleta_responsavel_tipo: v === 'coleta_tecnico_csm' ? form.coleta_responsavel_tipo : '' })}
+                        className="justify-start"
+                      >
+                        <ToggleGroupItem value="correios" className="text-xs gap-1">
+                          <Truck className="h-3 w-3" />
+                          Correios
+                        </ToggleGroupItem>
+                        <ToggleGroupItem value="coleta_tecnico_csm" className="text-xs gap-1">
+                          <User className="h-3 w-3" />
+                          Coleta pelo Técnico/CSM
+                        </ToggleGroupItem>
+                        <ToggleGroupItem value="apenas_nf" className="text-xs gap-1">
+                          <FileText className="h-3 w-3" />
+                          Apenas NF
+                        </ToggleGroupItem>
+                      </ToggleGroup>
+                    </div>
+                  )}
+
+                  {/* Responsável da coleta (Técnico ou CSM) */}
+                  {form.tipo_solicitacao === 'coleta_reversa' && form.tipo_coleta === 'coleta_tecnico_csm' && (
+                    <ResponsavelColetaPicker
+                      respTipo={form.coleta_responsavel_tipo}
+                      tecnicoId={form.tecnico_responsavel_user_id}
+                      csmId={form.csm_responsavel_user_id}
+                      tecnicosFixos={tecnicosFixos}
+                      consultores={(consultoresRplus || []).map(c => ({ id: c.user_id, nome: c.nome }))}
+                      onRespTipo={(v) => setForm({ ...form, coleta_responsavel_tipo: v, tecnico_responsavel_user_id: v === 'tecnico' ? form.tecnico_responsavel_user_id : '', csm_responsavel_user_id: v === 'csm' ? form.csm_responsavel_user_id : '' })}
+                      onTecnico={(id) => setForm({ ...form, tecnico_responsavel_user_id: id, csm_responsavel_user_id: '' })}
+                      onCsm={(id) => setForm({ ...form, csm_responsavel_user_id: id, tecnico_responsavel_user_id: '' })}
+                    />
+                  )}
+
+                  {/* Tipo de Coleta da coleta reversa automática (Envio + geração automática) */}
+                  {form.tipo_solicitacao === 'envio' && form.gera_coleta_reversa && !editingPedido && (
+                    <div className="space-y-2">
+                      <Label>Tipo de Coleta <span className="text-muted-foreground font-normal">(coleta reversa automática)</span></Label>
+                      <ToggleGroup
+                        type="single"
+                        value={form.coleta_auto_tipo}
+                        onValueChange={(v) => setForm({ ...form, coleta_auto_tipo: v || '', coleta_auto_responsavel_tipo: v === 'coleta_tecnico_csm' ? form.coleta_auto_responsavel_tipo : '' })}
+                        className="justify-start"
+                      >
+                        <ToggleGroupItem value="correios" className="text-xs gap-1">
+                          <Truck className="h-3 w-3" />
+                          Correios
+                        </ToggleGroupItem>
+                        <ToggleGroupItem value="coleta_tecnico_csm" className="text-xs gap-1">
+                          <User className="h-3 w-3" />
+                          Coleta pelo Técnico/CSM
+                        </ToggleGroupItem>
+                        <ToggleGroupItem value="apenas_nf" className="text-xs gap-1">
+                          <FileText className="h-3 w-3" />
+                          Apenas NF
+                        </ToggleGroupItem>
+                      </ToggleGroup>
+                    </div>
+                  )}
+                  {form.tipo_solicitacao === 'envio' && form.gera_coleta_reversa && !editingPedido && form.coleta_auto_tipo === 'coleta_tecnico_csm' && (
+                    <ResponsavelColetaPicker
+                      respTipo={form.coleta_auto_responsavel_tipo}
+                      tecnicoId={form.coleta_auto_tecnico_id}
+                      csmId={form.coleta_auto_csm_id}
+                      tecnicosFixos={tecnicosFixos}
+                      consultores={(consultoresRplus || []).map(c => ({ id: c.user_id, nome: c.nome }))}
+                      onRespTipo={(v) => setForm({ ...form, coleta_auto_responsavel_tipo: v, coleta_auto_tecnico_id: v === 'tecnico' ? form.coleta_auto_tecnico_id : '', coleta_auto_csm_id: v === 'csm' ? form.coleta_auto_csm_id : '' })}
+                      onTecnico={(id) => setForm({ ...form, coleta_auto_tecnico_id: id, coleta_auto_csm_id: '' })}
+                      onCsm={(id) => setForm({ ...form, coleta_auto_csm_id: id, coleta_auto_tecnico_id: '' })}
+                    />
+                  )}
+
                   <div className="space-y-2">
                     <Label>Observações</Label>
                     <Textarea
