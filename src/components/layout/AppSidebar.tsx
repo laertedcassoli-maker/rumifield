@@ -224,6 +224,11 @@ export function AppSidebar() {
                               <Link to={item.url} onClick={handleMenuClick}>
                                 <item.icon className="h-4 w-4" />
                                 <span>{item.title}</span>
+                                {item.permKey === 'pedidos_coleta_reversa' && pendenciasCount > 0 && (
+                                  <Badge variant="secondary" className="ml-auto h-5 px-1.5 text-[10px]">
+                                    {pendenciasCount}
+                                  </Badge>
+                                )}
                               </Link>
                             </SidebarMenuSubButton>
                           </SidebarMenuSubItem>
