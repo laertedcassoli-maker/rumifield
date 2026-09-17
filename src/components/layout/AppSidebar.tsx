@@ -24,7 +24,7 @@ export function AppSidebar() {
   const { profile, role, signOut } = useAuth();
   const location = useLocation();
   const { setOpenMobile, isMobile } = useSidebar();
-  const { canAccess, canAccessAny, isLoading } = useMenuPermissions();
+  const { canAccess, isLoading } = useMenuPermissions();
 
   const handleMenuClick = () => {
     if (isMobile) {
@@ -36,14 +36,21 @@ export function AppSidebar() {
   const mainMenuItems = [
     { title: 'Início', icon: Home, url: '/', permKey: 'inicio' },
     { title: 'Minhas Rotas', icon: Navigation, url: '/preventivas/minhas-rotas', permKey: 'minhas_rotas' },
-    { title: 'Chamados', icon: AlertTriangle, url: '/chamados', permKey: 'chamados' },
+    { title: 'Solicitação Peças', icon: ShoppingCart, url: '/pedidos', permKey: 'pedidos' },
+  ].filter(item => canAccess(item.permKey));
+
+  // CRM submenu - Inteligência remains in Administração
+  const crmItems = [
     { title: 'Dashboard CRM', icon: BarChart3, url: '/crm/dashboard', permKey: 'crm_clientes' },
     { title: 'CRM Carteira', icon: Briefcase, url: '/crm/carteira', permKey: 'crm_clientes' },
     { title: 'Visitas CRM', icon: Eye, url: '/crm/visitas', permKey: 'crm_clientes' },
     { title: 'Pipeline', icon: BarChart3, url: '/crm/pipeline', permKey: 'crm_clientes' },
     { title: 'Tarefas CRM', icon: ListChecks, url: '/crm/acoes', permKey: 'crm_clientes' },
-    { title: 'Solicitação Peças', icon: ShoppingCart, url: '/pedidos', permKey: 'pedidos' },
   ].filter(item => canAccess(item.permKey));
+
+  const crmRoutes = ['/crm/dashboard', '/crm/carteira', '/crm/visitas', '/crm/pipeline', '/crm/acoes'];
+  const isCrmActive = crmRoutes.some(path => location.pathname === path || location.pathname.startsWith(path + '/'));
+  const showCrmMenu = canAccess('crm') && crmItems.length > 0;
 
   // Preventivas submenu - items vary by role
   const isTecnicoCampo = role === 'tecnico_campo';
@@ -62,6 +69,21 @@ export function AppSidebar() {
   const showPreventivasMenu = canAccess('preventivas') && filteredPreventivasItems.length > 0 && !isTecnicoCampo;
   const isPreventivasActive = location.pathname === '/preventivas' || (location.pathname.startsWith('/preventivas/') && !location.pathname.startsWith('/preventivas/minhas-rotas') && !location.pathname.startsWith('/preventivas/execucao'));
 
+  // Instalações Existentes submenu
+  const installationItems = [
+    { title: 'Chamados', icon: AlertTriangle, url: '/chamados', permKey: 'chamados' },
+    { title: 'Clientes', icon: Building2, url: '/crm/carteira', permKey: 'instalacoes_clientes' },
+    { title: 'Visita Técnica', icon: Contact, url: '/visita-tecnica', permKey: 'visita_tecnica' },
+  ].filter(item => canAccess(item.permKey));
+
+  const isClienteRouteActive = location.pathname === '/crm/carteira' || (
+    location.pathname.startsWith('/crm/') &&
+    !crmRoutes.some(path => location.pathname === path || location.pathname.startsWith(path + '/')) &&
+    location.pathname !== '/crm/inteligencia'
+  );
+  const isInstallationsActive = isPreventivasActive || location.pathname.startsWith('/chamados') || isClienteRouteActive || location.pathname.startsWith('/visita-tecnica');
+  const showInstallationsMenu = canAccess('instalacoes_existentes') && (showPreventivasMenu || installationItems.length > 0);
+
   // Estoque submenu
   const estoqueItems = [
     { title: 'Aferição', icon: ClipboardCheck, url: '/estoque', permKey: 'estoque_afericao' },
@@ -73,7 +95,7 @@ export function AppSidebar() {
   const showEstoqueMenu = canAccess('estoque') && estoqueItems.length > 0;
   const isEstoqueActive = location.pathname === '/estoque' || location.pathname.startsWith('/estoque/');
 
-  // Oficina submenu items (operational - OS and Assets)
+  // Centro de Serviços submenu items (technical keys and routes remain oficina_*)
   const oficinaItems = [
     { title: 'Ordens de Serviço', icon: FileText, url: '/oficina/os', permKey: 'oficina_os' },
     { title: 'Cadastro Ativos', icon: Box, url: '/oficina/itens', permKey: 'oficina_itens' },
@@ -172,6 +194,100 @@ export function AppSidebar() {
                 </SidebarMenuItem>
               ))}
 
+              {/* CRM com submenu */}
+              {showCrmMenu && (
+                <Collapsible defaultOpen={isCrmActive} className="group/collapsible">
+                  <SidebarMenuItem>
+                    <CollapsibleTrigger asChild>
+                      <SidebarMenuButton isActive={isCrmActive}>
+                        <Briefcase className="h-4 w-4" />
+                        <span>CRM</span>
+                        <ChevronDown className="ml-auto h-4 w-4 transition-transform group-data-[state=open]/collapsible:rotate-180" />
+                      </SidebarMenuButton>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <SidebarMenuSub>
+                        {crmItems.map(item => (
+                          <SidebarMenuSubItem key={item.title}>
+                            <SidebarMenuSubButton asChild isActive={location.pathname === item.url || location.pathname.startsWith(item.url + '/')}>
+                              <Link to={item.url} onClick={handleMenuClick}>
+                                <item.icon className="h-4 w-4" />
+                                <span>{item.title}</span>
+                              </Link>
+                            </SidebarMenuSubButton>
+                          </SidebarMenuSubItem>
+                        ))}
+                      </SidebarMenuSub>
+                    </CollapsibleContent>
+                  </SidebarMenuItem>
+                </Collapsible>
+              )}
+
+              {/* Instalações Existentes com submenu */}
+              {showInstallationsMenu && (
+                <Collapsible defaultOpen={isInstallationsActive} className="group/collapsible">
+                  <SidebarMenuItem>
+                    <CollapsibleTrigger asChild>
+                      <SidebarMenuButton isActive={isInstallationsActive}>
+                        <MapPin className="h-4 w-4" />
+                        <span>Instalações Existentes</span>
+                        <ChevronDown className="ml-auto h-4 w-4 transition-transform group-data-[state=open]/collapsible:rotate-180" />
+                      </SidebarMenuButton>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <SidebarMenuSub>
+                        {showPreventivasMenu && (
+                          <SidebarMenuSubItem>
+                            <Collapsible defaultOpen={isPreventivasActive} className="group/preventivas">
+                              <CollapsibleTrigger asChild>
+                                <SidebarMenuSubButton asChild isActive={isPreventivasActive}>
+                                  <button type="button" className="w-full">
+                                  <Calendar className="h-4 w-4" />
+                                  <span>Manutenção Preventiva</span>
+                                  <ChevronDown className="ml-auto h-4 w-4 transition-transform group-data-[state=open]/preventivas:rotate-180" />
+                                  </button>
+                                </SidebarMenuSubButton>
+                              </CollapsibleTrigger>
+                              <CollapsibleContent>
+                                <SidebarMenuSub className="ml-3 mr-0">
+                                  {filteredPreventivasItems.map(item => (
+                                    <SidebarMenuSubItem key={item.title}>
+                                      <SidebarMenuSubButton asChild size="sm" isActive={location.pathname === item.url || location.pathname.startsWith(item.url + '/')}>
+                                        <Link to={item.url} onClick={handleMenuClick}>
+                                          <item.icon className="h-4 w-4" />
+                                          <span>{item.title}</span>
+                                        </Link>
+                                      </SidebarMenuSubButton>
+                                    </SidebarMenuSubItem>
+                                  ))}
+                                </SidebarMenuSub>
+                              </CollapsibleContent>
+                            </Collapsible>
+                          </SidebarMenuSubItem>
+                        )}
+                        {installationItems.map(item => {
+                          const isClientesItem = item.title === 'Clientes';
+                          const isItemActive = isClientesItem
+                            ? isClienteRouteActive
+                            : location.pathname === item.url || location.pathname.startsWith(item.url + '/');
+
+                          return (
+                            <SidebarMenuSubItem key={item.title}>
+                              <SidebarMenuSubButton asChild isActive={isItemActive}>
+                                <Link to={item.url} onClick={handleMenuClick}>
+                                  <item.icon className="h-4 w-4" />
+                                  <span>{item.title}</span>
+                                </Link>
+                              </SidebarMenuSubButton>
+                            </SidebarMenuSubItem>
+                          );
+                        })}
+                      </SidebarMenuSub>
+                    </CollapsibleContent>
+                  </SidebarMenuItem>
+                </Collapsible>
+              )}
+
               {/* Estoque com submenu */}
               {showEstoqueMenu && (
                 <Collapsible defaultOpen={isEstoqueActive} className="group/collapsible">
@@ -201,43 +317,14 @@ export function AppSidebar() {
                 </Collapsible>
               )}
 
-              {/* Preventivas com submenu */}
-              {showPreventivasMenu && (
-                <Collapsible defaultOpen={isPreventivasActive} className="group/collapsible">
-                  <SidebarMenuItem>
-                    <CollapsibleTrigger asChild>
-                      <SidebarMenuButton isActive={isPreventivasActive}>
-                        <Calendar className="h-4 w-4" />
-                        <span>Preventivas</span>
-                        <ChevronDown className="ml-auto h-4 w-4 transition-transform group-data-[state=open]/collapsible:rotate-180" />
-                      </SidebarMenuButton>
-                    </CollapsibleTrigger>
-                    <CollapsibleContent>
-                      <SidebarMenuSub>
-                        {filteredPreventivasItems.map(item => (
-                          <SidebarMenuSubItem key={item.title}>
-                            <SidebarMenuSubButton asChild isActive={location.pathname === item.url || location.pathname.startsWith(item.url + '/')}>
-                              <Link to={item.url} onClick={handleMenuClick}>
-                                <item.icon className="h-4 w-4" />
-                                <span>{item.title}</span>
-                              </Link>
-                            </SidebarMenuSubButton>
-                          </SidebarMenuSubItem>
-                        ))}
-                      </SidebarMenuSub>
-                    </CollapsibleContent>
-                  </SidebarMenuItem>
-                </Collapsible>
-              )}
-
-              {/* Oficina com submenu */}
+              {/* Centro de Serviços com submenu */}
               {showOficinaMenu && (
                 <Collapsible defaultOpen={isOficinaActive} className="group/collapsible">
                   <SidebarMenuItem>
                     <CollapsibleTrigger asChild>
                       <SidebarMenuButton isActive={isOficinaActive}>
                         <Wrench className="h-4 w-4" />
-                        <span>Oficina</span>
+                        <span>Centro de Serviços</span>
                         <ChevronDown className="ml-auto h-4 w-4 transition-transform group-data-[state=open]/collapsible:rotate-180" />
                       </SidebarMenuButton>
                     </CollapsibleTrigger>

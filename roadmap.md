@@ -1,0 +1,4 @@
+- Confirmar pontos técnicos antes de prosseguir: regra de tecnico_campo em Manutenção Preventiva, menu_key do CRM, e migration versionada para novas permissões.
+- Reorganizar o menu lateral conforme plano aprovado após confirmação.
+- Atualizar rótulos visíveis de Oficina para Centro de Serviços nas telas solicitadas.
+- Criar migration versionada para novos menu_keys de permissão.
