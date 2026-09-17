@@ -2175,9 +2175,9 @@ export default function Pedidos() {
       </div>
 
       {/* Tabs for Drafts and Transmitted Orders */}
-      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'rascunhos' | 'pedidos')} className="w-full">
+      <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'rascunhos' | 'pedidos' | 'pendentes')} className="w-full">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
-          <TabsList className="grid grid-cols-2 w-full sm:w-auto">
+          <TabsList className={cn('grid w-full sm:w-auto', showPendentesTab ? 'grid-cols-3' : 'grid-cols-2')}>
             <TabsTrigger value="rascunhos" className="gap-2">
               <FileText className="h-4 w-4" />
               <span>Rascunhos</span>
@@ -2191,6 +2191,17 @@ export default function Pedidos() {
               <Send className="h-4 w-4" />
               <span>Transmitidos</span>
             </TabsTrigger>
+            {showPendentesTab && (
+              <TabsTrigger value="pendentes" className="gap-2">
+                <AlertTriangle className="h-4 w-4" />
+                <span>Pendentes</span>
+                {pendenciasVisiveis.length > 0 && (
+                  <Badge variant="secondary" className="ml-1 h-5 px-1.5">
+                    {pendenciasVisiveis.length}
+                  </Badge>
+                )}
+              </TabsTrigger>
+            )}
           </TabsList>
           
           {activeTab === 'rascunhos' && rascunhos.length > 0 && (
