@@ -18,7 +18,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Plus, Loader2, Trash2, Minus, ArrowUpDown, Search, X, Eye, Pencil, ShoppingCart, Package, ImageIcon, Send, FileText, ChevronLeft, ChevronRight, Truck, HandHelping, AlertTriangle, User } from 'lucide-react';
+import { Plus, Loader2, Trash2, Minus, ArrowUpDown, Search, X, Eye, Pencil, ShoppingCart, Package, ImageIcon, Send, FileText, ChevronLeft, ChevronRight, Truck, HandHelping, AlertTriangle, User, RefreshCcw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -170,6 +170,7 @@ export default function Pedidos() {
   const [dateFilter, setDateFilter] = useState<'30' | 'all'>('30');
   const [tipoEnvioFilter, setTipoEnvioFilter] = useState<'all' | 'envio' | 'apenas_nf' | 'envio_pelo_tecnico'>('all');
   const [tipoLogisticaFilter, setTipoLogisticaFilter] = useState<'all' | 'correios' | 'entrega_propria'>('all');
+  const [tipoSolicitacaoFilter, setTipoSolicitacaoFilter] = useState<'all' | 'envio' | 'coleta_reversa'>('all');
   const [sortField, setSortField] = useState<'created_at' | 'cliente' | 'status'>('created_at');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
@@ -249,12 +250,19 @@ export default function Pedidos() {
           matchesTipoLogistica = pedido.tipo_logistica === 'entrega_propria';
         }
 
+        let matchesTipoSolicitacao = true;
+        if (tipoSolicitacaoFilter === 'envio') {
+          matchesTipoSolicitacao = ((pedido as any).tipo_solicitacao ?? 'envio') === 'envio';
+        } else if (tipoSolicitacaoFilter === 'coleta_reversa') {
+          matchesTipoSolicitacao = ((pedido as any).tipo_solicitacao ?? 'envio') === 'coleta_reversa';
+        }
+
         const matchesSolicitante = solicitanteFilter === 'all' || pedido.solicitante_id === solicitanteFilter;
 
         // UI-only ownership filter (does not restrict what is read from the database)
         const matchesOwner = viewAll || pedido.solicitante_id === user?.id;
 
-        return matchesSearch && matchesStatus && matchesDate && matchesTipoEnvio && matchesTipoLogistica && matchesSolicitante && matchesOwner;
+        return matchesSearch && matchesStatus && matchesDate && matchesTipoEnvio && matchesTipoLogistica && matchesTipoSolicitacao && matchesSolicitante && matchesOwner;
       });
     
     filtered.sort((a, b) => {
@@ -273,7 +281,7 @@ export default function Pedidos() {
     });
     
     return filtered;
-  }, [pedidos, rascunhos, pedidosTransmitidos, activeTab, searchTerm, statusFilter, dateFilter, tipoEnvioFilter, tipoLogisticaFilter, solicitanteFilter, sortField, sortOrder, viewAll, user?.id]);
+  }, [pedidos, rascunhos, pedidosTransmitidos, activeTab, searchTerm, statusFilter, dateFilter, tipoEnvioFilter, tipoLogisticaFilter, tipoSolicitacaoFilter, solicitanteFilter, sortField, sortOrder, viewAll, user?.id]);
 
   // Paginated data (only for Transmitidos tab)
   const paginatedPedidos = useMemo(() => {
@@ -290,7 +298,7 @@ export default function Pedidos() {
   // Reset page when filters change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchTerm, statusFilter, dateFilter, tipoEnvioFilter, tipoLogisticaFilter, solicitanteFilter, activeTab]);
+  }, [searchTerm, statusFilter, dateFilter, tipoEnvioFilter, tipoLogisticaFilter, tipoSolicitacaoFilter, solicitanteFilter, activeTab]);
 
   const toggleSort = (field: 'created_at' | 'cliente' | 'status') => {
     if (sortField === field) {
@@ -307,6 +315,7 @@ export default function Pedidos() {
     setDateFilter('all');
     setTipoEnvioFilter('all');
     setTipoLogisticaFilter('all');
+    setTipoSolicitacaoFilter('all');
     setSolicitanteFilter('all');
   };
 
