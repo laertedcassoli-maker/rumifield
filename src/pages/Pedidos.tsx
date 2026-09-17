@@ -843,6 +843,9 @@ export default function Pedidos() {
       setShowConfirmation(false);
       setClienteSearch('');
       setPecaSearches({});
+    } else if (!editingPedido && tipoSolicitacaoFilter !== 'all') {
+      // Abertura do formulário de criação numa visão filtrada: tipo fixo pelo contexto
+      setForm({ ...emptyForm, tipo_solicitacao: tipoSolicitacaoFilter });
     }
   };
 
@@ -1513,6 +1516,24 @@ export default function Pedidos() {
                   {/* Tipo de Solicitação */}
                   <div className="space-y-2">
                     <Label>Tipo de Solicitação</Label>
+                    {!editingPedido && tipoSolicitacaoFilter !== 'all' ? (
+                      <div className="flex items-center gap-2">
+                        <Badge variant="secondary" className="gap-1 px-2 py-1">
+                          {tipoSolicitacaoFilter === 'envio' ? (
+                            <>
+                              <Truck className="h-3 w-3" />
+                              Envio
+                            </>
+                          ) : (
+                            <>
+                              <Package className="h-3 w-3" />
+                              Coleta Reversa
+                            </>
+                          )}
+                        </Badge>
+                        <span className="text-xs text-muted-foreground">definido pelo contexto atual</span>
+                      </div>
+                    ) : (
                     <ToggleGroup
                       type="single"
                       value={form.tipo_solicitacao}
@@ -1537,6 +1558,7 @@ export default function Pedidos() {
                         Coleta Reversa
                       </ToggleGroupItem>
                     </ToggleGroup>
+                    )}
                   </div>
 
                   <div className="space-y-2">

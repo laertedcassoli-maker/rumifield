@@ -3,6 +3,7 @@
 ## Em andamento
 - [x] Dialog de detalhe: navegação em cadeia entre envio e coletas reversas vinculadas (pilha + botão Voltar).
 - [x] Motivo/relato obrigatório (ambos os tipos), Quantidade de Volumes e vínculo de ativos na criação de Coleta Reversa (inclusive automática) + revisão exibindo os novos campos.
+- [x] Tipo de solicitação fixo na criação: com filtro Envios/Coleta Reversa ativo, "Novo pedido" abre com o tipo travado (badge) e sem o seletor; com "Todos", seletor livre como antes.
 - [ ] (Próximo) Badges de vínculo no Kanban de pedidos.
 - [ ] Pendente decisão do usuário: Phelipe está com role coordenador_servicos (não tecnico_campo) — seletor de técnicos fixos mostra só Roger e Lenilton conforme regra "apenas tecnico_campo".
 
