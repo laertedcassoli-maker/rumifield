@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -170,7 +171,16 @@ export default function Pedidos() {
   const [dateFilter, setDateFilter] = useState<'30' | 'all'>('30');
   const [tipoEnvioFilter, setTipoEnvioFilter] = useState<'all' | 'envio' | 'apenas_nf' | 'envio_pelo_tecnico'>('all');
   const [tipoLogisticaFilter, setTipoLogisticaFilter] = useState<'all' | 'correios' | 'entrega_propria'>('all');
-  const [tipoSolicitacaoFilter, setTipoSolicitacaoFilter] = useState<'all' | 'envio' | 'coleta_reversa'>('all');
+  const [searchParams] = useSearchParams();
+  const tipoParam = searchParams.get('tipo');
+  const [tipoSolicitacaoFilter, setTipoSolicitacaoFilter] = useState<'all' | 'envio' | 'coleta_reversa'>(
+    () => (tipoParam === 'envio' || tipoParam === 'coleta_reversa' ? tipoParam : 'all')
+  );
+
+  // Sincroniza o filtro quando apenas a query string muda (navegação pelo submenu)
+  useEffect(() => {
+    setTipoSolicitacaoFilter(tipoParam === 'envio' || tipoParam === 'coleta_reversa' ? tipoParam : 'all');
+  }, [tipoParam]);
   const [sortField, setSortField] = useState<'created_at' | 'cliente' | 'status'>('created_at');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
