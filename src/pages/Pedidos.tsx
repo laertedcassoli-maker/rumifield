@@ -846,6 +846,44 @@ export default function Pedidos() {
     }
   };
 
+  // Itens da criação que exigem vínculo de ativo (peças is_asset)
+  const assetItens = itens
+    .map((item, index) => ({ index, item, peca: pecas?.find(p => p.id === item.peca_id) }))
+    .filter(entry => !!entry.peca?.is_asset);
+  // Ativos exigidos na criação apenas em Coleta Reversa (manual ou automática)
+  const requiresAssetsOnCreate =
+    !editingPedido &&
+    (form.tipo_solicitacao === 'coleta_reversa' || (form.tipo_solicitacao === 'envio' && form.gera_coleta_reversa)) &&
+    assetItens.length > 0;
+  const missingAssetItem = assetItens.find(entry => (itemAssets[entry.index] || []).filter(Boolean).length === 0);
+
+  const assetsByPecaId = () => {
+    const map: Record<string, string[]> = {};
+    itens.forEach((item, index) => {
+      const ids = (itemAssets[index] || []).filter(Boolean);
+      if (item.peca_id && ids.length > 0) map[item.peca_id] = ids;
+    });
+    return map;
+  };
+
+  const saveAssetsForItems = async (rows: { id: string; peca_id: string }[]) => {
+    const byPeca = assetsByPecaId();
+    for (const row of rows) {
+      const ids = byPeca[row.peca_id];
+      if (!ids || ids.length === 0) continue;
+      const { error: itemError } = await supabase.from('pedido_itens').update({ workshop_item_id: ids[0] }).eq('id', row.id);
+      if (itemError) throw itemError;
+      const { error: junctionError } = await supabase
+        .from('pedido_item_assets')
+        .upsert(ids.map(wsId => ({ pedido_item_id: row.id, workshop_item_id: wsId })), { onConflict: 'pedido_item_id,workshop_item_id', ignoreDuplicates: true });
+      if (junctionError) throw junctionError;
+      const { data: wsItems } = await supabase.from('workshop_items').select('unique_code').in('id', ids);
+      if (wsItems) {
+        await supabase.from('pedido_itens').update({ asset_codes: wsItems.map(w => w.unique_code) }).eq('id', row.id);
+      }
+    }
+  };
+
   const handleShowConfirmation = (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.cliente_id) {
@@ -864,6 +902,10 @@ export default function Pedidos() {
       toast({ variant: 'destructive', title: 'Selecione o técnico responsável pelo envio' });
       return;
     }
+    if (!form.motivo_relato.trim()) {
+      toast({ variant: 'destructive', title: 'Informe o motivo da solicitação e o relato da fazenda' });
+      return;
+    }
     if (form.tipo_solicitacao === 'coleta_reversa') {
       if (!form.tipo_coleta) {
         toast({ variant: 'destructive', title: 'Selecione o Tipo de Coleta' });
@@ -871,6 +913,10 @@ export default function Pedidos() {
       }
       if (form.tipo_coleta === 'coleta_tecnico_csm' && !form.tecnico_responsavel_user_id && !form.csm_responsavel_user_id) {
         toast({ variant: 'destructive', title: 'Selecione o Técnico ou CSM responsável pela coleta' });
+        return;
+      }
+      if (!(Number(form.quantidade_volumes) >= 1)) {
+        toast({ variant: 'destructive', title: 'Informe a Quantidade de Volumes (mínimo 1)' });
         return;
       }
     }
@@ -883,6 +929,18 @@ export default function Pedidos() {
         toast({ variant: 'destructive', title: 'Selecione o Técnico ou CSM responsável pela coleta reversa automática' });
         return;
       }
+      if (!(Number(form.coleta_auto_volumes) >= 1)) {
+        toast({ variant: 'destructive', title: 'Informe a Quantidade de Volumes da coleta reversa automática (mínimo 1)' });
+        return;
+      }
+    }
+    if (requiresAssetsOnCreate && missingAssetItem) {
+      toast({
+        variant: 'destructive',
+        title: 'Vincule o ativo da coleta reversa',
+        description: `A peça ${missingAssetItem.peca?.codigo || ''} precisa de ao menos um ativo vinculado.`,
+      });
+      return;
     }
     setShowConfirmation(true);
   };
@@ -904,6 +962,8 @@ export default function Pedidos() {
           tipo_coleta: form.tipo_solicitacao === 'coleta_reversa' ? (form.tipo_coleta || null) : null,
           tecnico_responsavel_user_id: tecnicoRespId,
           csm_responsavel_user_id: csmRespId,
+          motivo_relato: form.motivo_relato || null,
+          quantidade_volumes: form.tipo_solicitacao === 'coleta_reversa' && form.quantidade_volumes !== '' ? Number(form.quantidade_volumes) : null,
         } as any).eq('id', editingPedido.id);
         if (pedidoError) throw pedidoError;
 
@@ -917,8 +977,11 @@ export default function Pedidos() {
           peca_id: item.peca_id,
           quantidade: item.quantidade,
         }));
-        const { error: itensError } = await supabase.from('pedido_itens').insert(newItens);
+        const { data: insertedItens, error: itensError } = await supabase.from('pedido_itens').insert(newItens).select('id, peca_id');
         if (itensError) throw itensError;
+        if (form.tipo_solicitacao === 'coleta_reversa' && insertedItens) {
+          await saveAssetsForItems(insertedItens as { id: string; peca_id: string }[]);
+        }
 
         toast({ title: 'Pedido atualizado!' });
       } else {
@@ -944,6 +1007,8 @@ export default function Pedidos() {
               : (form.tipo_coleta === 'coleta_tecnico_csm' && form.coleta_responsavel_tipo === 'tecnico' ? (form.tecnico_responsavel_user_id || null) : null),
             csm_responsavel_user_id: form.tipo_solicitacao === 'coleta_reversa' && form.tipo_coleta === 'coleta_tecnico_csm' && form.coleta_responsavel_tipo === 'csm'
               ? (form.csm_responsavel_user_id || null) : null,
+            motivo_relato: form.motivo_relato || null,
+            quantidade_volumes: form.tipo_solicitacao === 'coleta_reversa' && form.quantidade_volumes !== '' ? Number(form.quantidade_volumes) : null,
           } as any)
           .select('id')
           .single();
@@ -955,11 +1020,19 @@ export default function Pedidos() {
           peca_id: item.peca_id,
           quantidade: item.quantidade,
         }));
-        const { error: itensError } = await supabase.from('pedido_itens').insert(newItens);
+        const { data: insertedItens, error: itensError } = await supabase.from('pedido_itens').insert(newItens).select('id, peca_id');
         if (itensError) {
           // Rollback: delete orphan pedido
           await supabase.from('pedidos').delete().eq('id', pedido.id);
           throw itensError;
+        }
+        if (form.tipo_solicitacao === 'coleta_reversa' && insertedItens) {
+          try {
+            await saveAssetsForItems(insertedItens as { id: string; peca_id: string }[]);
+          } catch (assetErr: any) {
+            await supabase.from('pedidos').delete().eq('id', pedido.id);
+            throw assetErr;
+          }
         }
 
         track('pedido_created', {
@@ -994,6 +1067,8 @@ export default function Pedidos() {
                 tipo_coleta: form.coleta_auto_tipo || null,
                 tecnico_responsavel_user_id: form.coleta_auto_tipo === 'coleta_tecnico_csm' && form.coleta_auto_responsavel_tipo === 'tecnico' ? (form.coleta_auto_tecnico_id || null) : null,
                 csm_responsavel_user_id: form.coleta_auto_tipo === 'coleta_tecnico_csm' && form.coleta_auto_responsavel_tipo === 'csm' ? (form.coleta_auto_csm_id || null) : null,
+                motivo_relato: form.motivo_relato || null,
+                quantidade_volumes: form.coleta_auto_volumes !== '' ? Number(form.coleta_auto_volumes) : null,
               } as any)
               .select('id')
               .single();
@@ -1004,10 +1079,18 @@ export default function Pedidos() {
               peca_id: item.peca_id,
               quantidade: item.quantidade,
             }));
-            const { error: coletaItensError } = await supabase.from('pedido_itens').insert(coletaItens);
+            const { data: insertedColetaItens, error: coletaItensError } = await supabase.from('pedido_itens').insert(coletaItens).select('id, peca_id');
             if (coletaItensError) {
               await supabase.from('pedidos').delete().eq('id', coleta.id);
               throw coletaItensError;
+            }
+            if (insertedColetaItens) {
+              try {
+                await saveAssetsForItems(insertedColetaItens as { id: string; peca_id: string }[]);
+              } catch (assetErr: any) {
+                await supabase.from('pedidos').delete().eq('id', coleta.id);
+                throw assetErr;
+              }
             }
           } catch (coletaErr: any) {
             coletaReversaOk = false;
