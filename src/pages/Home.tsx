@@ -67,7 +67,7 @@ export default function Home() {
       permKey: 'crm_clientes',
     },
     {
-      title: 'Solicitação Peças',
+      title: 'Solicitação de Peças',
       icon: ShoppingCart,
       url: '/pedidos',
       color: 'text-blue-600',
