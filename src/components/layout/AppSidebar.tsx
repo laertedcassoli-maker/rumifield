@@ -36,7 +36,7 @@ export function AppSidebar() {
   const mainMenuItems = [
     { title: 'Início', icon: Home, url: '/', permKey: 'inicio' },
     { title: 'Minhas Rotas', icon: Navigation, url: '/preventivas/minhas-rotas', permKey: 'minhas_rotas' },
-    { title: 'Solicitação Peças', icon: ShoppingCart, url: '/pedidos', permKey: 'pedidos' },
+    { title: 'Solicitação de Peças', icon: ShoppingCart, url: '/pedidos', permKey: 'pedidos' },
   ].filter(item => canAccess(item.permKey));
 
   // CRM submenu - Inteligência remains in Administração
