@@ -898,6 +898,16 @@ export default function Pedidos() {
                 </DialogHeader>
                 
                 <div className="space-y-4">
+                  {/* Tipo de solicitação */}
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Badge variant="secondary">
+                      {form.tipo_solicitacao === 'coleta_reversa' ? 'Coleta Reversa' : 'Envio'}
+                    </Badge>
+                    {form.tipo_solicitacao === 'envio' && form.gera_coleta_reversa && (
+                      <Badge variant="outline">Gera coleta reversa automática</Badge>
+                    )}
+                  </div>
+
                   {/* Cliente destaque */}
                   <div className="p-4 rounded-lg bg-primary/10 border border-primary/20">
                     <p className="text-xs text-muted-foreground mb-1">Cliente</p>
@@ -999,6 +1009,27 @@ export default function Pedidos() {
                   </DialogTitle>
                 </DialogHeader>
                 <form onSubmit={editingPedido ? (e) => { e.preventDefault(); handleSubmit(); } : handleShowConfirmation} className="space-y-4">
+                  {/* Tipo de Solicitação */}
+                  <div className="space-y-2">
+                    <Label>Tipo de Solicitação</Label>
+                    <ToggleGroup
+                      type="single"
+                      value={form.tipo_solicitacao}
+                      onValueChange={(v) => v && setForm({ ...form, tipo_solicitacao: v, gera_coleta_reversa: v === 'envio' ? form.gera_coleta_reversa : false })}
+                      className="justify-start"
+                      disabled={!!editingPedido}
+                    >
+                      <ToggleGroupItem value="envio" className="text-xs gap-1 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
+                        <Truck className="h-3 w-3" />
+                        Envio
+                      </ToggleGroupItem>
+                      <ToggleGroupItem value="coleta_reversa" className="text-xs gap-1 data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">
+                        <Package className="h-3 w-3" />
+                        Coleta Reversa
+                      </ToggleGroupItem>
+                    </ToggleGroup>
+                  </div>
+
                   <div className="space-y-2">
                     <Label>Cliente / Fazenda</Label>
                     {form.cliente_id ? (
@@ -1294,7 +1325,23 @@ export default function Pedidos() {
                         Apenas NF
                       </ToggleGroupItem>
                     </ToggleGroup>
-                  </div>
+                   </div>
+
+                  {/* Gera automaticamente coleta reversa? (apenas Envio) */}
+                  {form.tipo_solicitacao === 'envio' && !editingPedido && (
+                    <div className="space-y-2">
+                      <Label>Gera automaticamente coleta reversa?</Label>
+                      <ToggleGroup
+                        type="single"
+                        value={form.gera_coleta_reversa ? 'sim' : 'nao'}
+                        onValueChange={(v) => v && setForm({ ...form, gera_coleta_reversa: v === 'sim' })}
+                        className="justify-start"
+                      >
+                        <ToggleGroupItem value="nao" className="text-xs data-[state=on]:bg-muted">Não</ToggleGroupItem>
+                        <ToggleGroupItem value="sim" className="text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">Sim</ToggleGroupItem>
+                      </ToggleGroup>
+                    </div>
+                  )}
 
                   <div className="space-y-2">
                     <Label>Observações</Label>
