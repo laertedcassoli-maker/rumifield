@@ -2005,8 +2005,10 @@ export type Database = {
       pedidos: {
         Row: {
           anexo_postagem_path: string | null
+          anexo_rastreio_path: string | null
           cliente_id: string
           codigo_postagem: string | null
+          codigo_rastreio: string | null
           coleta_reversa_origem_id: string | null
           created_at: string
           csm_responsavel_user_id: string | null
@@ -2035,8 +2037,10 @@ export type Database = {
         }
         Insert: {
           anexo_postagem_path?: string | null
+          anexo_rastreio_path?: string | null
           cliente_id: string
           codigo_postagem?: string | null
+          codigo_rastreio?: string | null
           coleta_reversa_origem_id?: string | null
           created_at?: string
           csm_responsavel_user_id?: string | null
@@ -2065,8 +2069,10 @@ export type Database = {
         }
         Update: {
           anexo_postagem_path?: string | null
+          anexo_rastreio_path?: string | null
           cliente_id?: string
           codigo_postagem?: string | null
+          codigo_rastreio?: string | null
           coleta_reversa_origem_id?: string | null
           created_at?: string
           csm_responsavel_user_id?: string | null
