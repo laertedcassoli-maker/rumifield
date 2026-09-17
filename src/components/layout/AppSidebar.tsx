@@ -7,6 +7,8 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Link, useLocation } from 'react-router-dom';
 import { OfflineIndicator } from '@/components/OfflineIndicator';
 import { useMenuPermissions } from '@/hooks/useMenuPermissions';
+import { usePendenciasCount } from '@/hooks/usePendenciasCount';
+import { Badge } from '@/components/ui/badge';
 import { useSidebar } from '@/components/ui/sidebar';
 
 const roleLabels: Record<string, string> = {
