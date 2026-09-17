@@ -27,6 +27,7 @@ export function AppSidebar() {
   const location = useLocation();
   const { setOpenMobile, isMobile } = useSidebar();
   const { canAccess, isLoading } = useMenuPermissions();
+  const pendenciasCount = usePendenciasCount();
 
   const handleMenuClick = () => {
     if (isMobile) {
