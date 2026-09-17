@@ -26,7 +26,7 @@ SELECT role, 'pedidos_envios', 'Envios', 'pedidos', can_access, can_edit, can_de
 FROM public.role_menu_permissions WHERE menu_key = 'pedidos'
 ON CONFLICT (role, menu_key) DO UPDATE SET menu_label = EXCLUDED.menu_label, menu_group = EXCLUDED.menu_group, updated_at = now();
 ```
-(idem para `'pedidos_coleta_reversa'` / rótulo 'Coleta Reversa'). Também atualizar `menu_group`/`menu_label` da linha `'pedidos'` para o grupo `pedidos` com rótulo 'Solicitação de Peças', sem tocar em valores de permissão. Nenhuma policy nova, nenhuma coluna nova — `types.ts` não precisa ser regenerado.
+(idem para `'pedidos_coleta_reversa'` / rótulo 'Coleta Reversa'). A linha `'pedidos'` permanece intocada. Nenhuma policy nova, nenhuma coluna nova — `types.ts` não precisa ser regenerado.
 
 ## O que NÃO muda
 Rota `/pedidos`, permKey `pedidos`, lógica dos filtros existentes, aba Rascunhos, formulário, demais itens do menu, valores de acesso já concedidos.
