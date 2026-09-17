@@ -46,12 +46,27 @@ export default function ProcessarPedidoDialog({ open, onOpenChange, pedido, onCo
 
   const handleConfirm = async () => {
     if (submittingRef.current) return;
+    if (isColetaReversa && tipoLogistica === 'correios' && !codigoPostagem.trim()) {
+      toast({
+        variant: 'destructive',
+        title: 'Código de Postagem obrigatório',
+        description: 'Informe o Código de Postagem para processar a coleta reversa via Correios.',
+      });
+      return;
+    }
     submittingRef.current = true;
     setIsSubmitting(true);
     try {
-      await onConfirm(tipoLogistica || undefined, itemsWithAssets);
+      await onConfirm(
+        tipoLogistica || undefined,
+        itemsWithAssets,
+        isColetaReversa ? (codigoPostagem.trim() || undefined) : undefined,
+        isColetaReversa ? (anexoFile || undefined) : undefined,
+      );
       setTipoLogistica('');
       setItemsWithAssets({});
+      setCodigoPostagem('');
+      setAnexoFile(null);
     } finally {
       submittingRef.current = false;
       setIsSubmitting(false);
