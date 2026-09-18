@@ -300,12 +300,25 @@ export default function ItensOficina() {
   );
 
   const statusLabels: Record<string, string> = {
-    PLACEHOLDER_STATUS: '',
-  };
     disponivel: 'Disponível',
     em_uso: 'Em Uso',
     em_manutencao: 'Em Manutenção',
     inativo: 'Inativo',
+  };
+
+  const statusPedidoLabels: Record<string, string> = {
+    rascunho: 'Rascunho',
+    solicitado: 'Solicitado',
+    processamento: 'Processamento',
+    faturado: 'Faturado',
+    enviado: 'Enviado',
+    entregue: 'Entregue',
+    pendente: 'Pendente',
+  };
+
+  const tipoSolicitacaoLabels: Record<string, string> = {
+    envio: 'Envio',
+    coleta_reversa: 'Coleta Reversa',
   };
 
   const statusColors: Record<string, string> = {
