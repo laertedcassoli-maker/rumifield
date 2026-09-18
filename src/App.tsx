@@ -54,8 +54,7 @@ import PreventivasAtendimento from "./pages/preventivas/AtendimentoPreventivo";
 import PreventivasCalendario from "./pages/preventivas/Calendario";
 import PreventivasChecklists from "./pages/preventivas/Checklists";
 import PreventivasChecklistEditor from "./pages/preventivas/ChecklistEditor";
-import TreinamentoTemplates from "./pages/treinamento/Templates";
-import TreinamentoTemplateEditor from "./pages/treinamento/TemplateEditor";
+import Treinamento from "./pages/treinamento/Treinamento";
 import Teste from "./pages/Teste";
 import Instalar from "./pages/Instalar";
 import Nfc from "./pages/Nfc";
@@ -456,18 +455,10 @@ const App = () => (
               }
             />
             <Route
-              path="/treinamento/templates"
+              path="/treinamento"
               element={
                 <AppLayout>
-                  <TreinamentoTemplates />
-                </AppLayout>
-              }
-            />
-            <Route
-              path="/treinamento/templates/:id"
-              element={
-                <AppLayout>
-                  <TreinamentoTemplateEditor />
+                  <Treinamento />
                 </AppLayout>
               }
             />
