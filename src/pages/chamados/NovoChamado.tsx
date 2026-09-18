@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { withTimeout } from '@/lib/supabase-helpers';
@@ -61,6 +61,7 @@ const PRODUCTS = [
 
 export default function NovoChamado() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -74,7 +75,7 @@ export default function NovoChamado() {
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
   const [categoryId, setCategoryId] = useState<string>('');
   const [selectedTagIds, setSelectedTagIds] = useState<string[]>([]);
-  const [shouldScheduleVisit, setShouldScheduleVisit] = useState(false);
+  const [shouldScheduleVisit, setShouldScheduleVisit] = useState(!!(location.state as { presetScheduleVisit?: boolean } | null)?.presetScheduleVisit);
 
   // Fetch active clients
   const { data: clients, isLoading: clientsLoading } = useQuery<Client[]>({

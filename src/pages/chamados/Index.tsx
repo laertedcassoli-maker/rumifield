@@ -363,13 +363,13 @@ export default function ChamadosIndex() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <Card className="cursor-pointer hover:border-primary/50 transition-colors" onClick={() => { setStatusFilter('all'); setCurrentPage(1); }}>
+        <Card className={cn('cursor-pointer hover:border-primary/50 transition-colors', statusFilter === 'all' && 'ring-2 ring-primary')} onClick={() => { setStatusFilter('all'); setCurrentPage(1); }}>
           <CardContent className="p-4">
             <div className="text-2xl font-bold">{stats.total}</div>
             <div className="text-sm text-muted-foreground">Total</div>
           </CardContent>
         </Card>
-        <Card className="cursor-pointer hover:border-primary/50 transition-colors border-blue-500/30" onClick={() => { setStatusFilter('aberto'); setCurrentPage(1); }}>
+        <Card className={cn('cursor-pointer hover:border-primary/50 transition-colors border-blue-500/30', statusFilter === 'aberto' && 'ring-2 ring-blue-500')} onClick={() => { setStatusFilter('aberto'); setCurrentPage(1); }}>
           <CardContent className="p-4">
             <div className="flex items-center gap-2">
               <Clock className="h-5 w-5 text-blue-600" />
@@ -378,7 +378,7 @@ export default function ChamadosIndex() {
             <div className="text-sm text-muted-foreground">Abertos</div>
           </CardContent>
         </Card>
-        <Card className="cursor-pointer hover:border-primary/50 transition-colors border-warning/30" onClick={() => { setStatusFilter('em_atendimento'); setCurrentPage(1); }}>
+        <Card className={cn('cursor-pointer hover:border-primary/50 transition-colors border-warning/30', statusFilter === 'em_atendimento' && 'ring-2 ring-warning')} onClick={() => { setStatusFilter('em_atendimento'); setCurrentPage(1); }}>
           <CardContent className="p-4">
             <div className="flex items-center gap-2">
               <AlertTriangle className="h-5 w-5 text-warning" />
@@ -387,7 +387,7 @@ export default function ChamadosIndex() {
             <div className="text-sm text-muted-foreground">Em Atendimento</div>
           </CardContent>
         </Card>
-        <Card className="cursor-pointer hover:border-primary/50 transition-colors border-purple-500/30" onClick={() => { setStatusFilter('aguardando_peca'); setCurrentPage(1); }}>
+        <Card className={cn('cursor-pointer hover:border-primary/50 transition-colors border-purple-500/30', statusFilter === 'aguardando_peca' && 'ring-2 ring-purple-500')} onClick={() => { setStatusFilter('aguardando_peca'); setCurrentPage(1); }}>
           <CardContent className="p-4">
             <div className="flex items-center gap-2">
               <Package className="h-5 w-5 text-purple-600" />
@@ -396,7 +396,7 @@ export default function ChamadosIndex() {
             <div className="text-sm text-muted-foreground">Aguardando Peça</div>
           </CardContent>
         </Card>
-        <Card className="cursor-pointer hover:border-primary/50 transition-colors border-green-500/30" onClick={() => { setStatusFilter('resolvido'); setCurrentPage(1); }}>
+        <Card className={cn('cursor-pointer hover:border-primary/50 transition-colors border-green-500/30', statusFilter === 'resolvido' && 'ring-2 ring-green-500')} onClick={() => { setStatusFilter('resolvido'); setCurrentPage(1); }}>
           <CardContent className="p-4">
             <div className="flex items-center gap-2">
               <CheckCircle className="h-5 w-5 text-green-600" />
