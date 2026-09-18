@@ -385,6 +385,15 @@ const App = () => (
                 </AppLayout>
               }
             />
+            <Route
+              path="/clientes-rf"
+              element={
+                <AppLayout>
+                  <ClientesRF />
+                </AppLayout>
+              }
+            />
+
 
             <Route
               path="/instalacoes"
