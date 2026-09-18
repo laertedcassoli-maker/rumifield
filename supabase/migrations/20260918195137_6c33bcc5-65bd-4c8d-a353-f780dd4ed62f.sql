@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.log_pedido_status_change() FROM anon, authenticated, PUBLIC;

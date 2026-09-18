@@ -27,6 +27,11 @@ const STATUS_LABELS: Record<string, string> = {
   pendente: 'Pendente',
 };
 
+/** Faturado em verde (mesma paleta de "Resolvido" nos chamados); demais neutros. */
+const STATUS_BADGE_CLASSES: Record<string, string> = {
+  faturado: 'bg-green-500/10 text-green-600 border-green-500/20',
+};
+
 /** Tela somente leitura: dados básicos do cliente, serviços técnicos e envios/coleta reversa. */
 export default function ClientesRFDetalhe() {
   const { id } = useParams<{ id: string }>();
@@ -61,6 +66,28 @@ export default function ClientesRFDetalhe() {
       return data ?? [];
     },
     enabled: !!id,
+  });
+
+  const pedidoIds = useMemo(() => pedidos.map((p: any) => p.id), [pedidos]);
+
+  // Data em que cada pedido virou "entregue" (histórico gravado pelo banco).
+  const { data: entregueEm = {} } = useQuery({
+    queryKey: ['clientes-rf-detalhe-entregue', pedidoIds],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('pedido_status_history')
+        .select('pedido_id, changed_at')
+        .in('pedido_id', pedidoIds)
+        .eq('status', 'entregue')
+        .order('changed_at', { ascending: false });
+      if (error) throw error;
+      const mapa: Record<string, string> = {};
+      for (const row of data ?? []) {
+        if (!mapa[row.pedido_id]) mapa[row.pedido_id] = row.changed_at;
+      }
+      return mapa;
+    },
+    enabled: pedidoIds.length > 0,
   });
 
   const pedidosFiltrados = useMemo(
@@ -168,14 +195,26 @@ export default function ClientesRFDetalhe() {
                         <span className="text-sm font-medium truncate">
                           {p.pedido_code || 'Sem código'}
                         </span>
-                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 shrink-0">
+                        <Badge
+                          variant="outline"
+                          className={`text-[10px] px-1.5 py-0 shrink-0 ${STATUS_BADGE_CLASSES[p.status] ?? ''}`}
+                        >
                           {STATUS_LABELS[p.status] ?? p.status}
                         </Badge>
                       </div>
                       <p className="text-xs text-muted-foreground truncate">
                         {TIPO_LABELS[p.tipo_solicitacao] ?? p.tipo_solicitacao ?? 'Tipo não informado'}
-                        {' · '}
-                        {format(new Date(p.created_at), "dd/MM/yyyy", { locale: ptBR })}
+                        {p.status === 'entregue' && entregueEm[p.id] ? (
+                          <>
+                            {' - Concluído em '}
+                            {format(new Date(entregueEm[p.id]), 'dd/MM/yyyy', { locale: ptBR })}
+                          </>
+                        ) : (
+                          <>
+                            {' · '}
+                            {format(new Date(p.created_at), 'dd/MM/yyyy', { locale: ptBR })}
+                          </>
+                        )}
                       </p>
                       {(p.codigo_rastreio || p.codigo_postagem) && (
                         <p className="text-xs text-muted-foreground truncate">

@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Package } from 'lucide-react';
+import { Clock, Package } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Badge } from '@/components/ui/badge';
 import {
@@ -26,6 +26,11 @@ const STATUS_LABELS: Record<string, string> = {
   enviado: 'Enviado',
   entregue: 'Entregue',
   pendente: 'Pendente',
+};
+
+/** Faturado em verde (mesma paleta de "Resolvido" nos chamados); demais neutros. */
+const STATUS_BADGE_CLASSES: Record<string, string> = {
+  faturado: 'bg-green-500/10 text-green-600 border-green-500/20',
 };
 
 interface PedidoDetalheDialogProps {
@@ -60,6 +65,21 @@ export function PedidoDetalheDialog({ pedidoId, open, onOpenChange }: PedidoDeta
     enabled: open && !!pedidoId,
   });
 
+  const { data: historico = [] } = useQuery({
+    queryKey: ['clientes-rf-pedido-historico', pedidoId],
+    queryFn: async () => {
+      if (!pedidoId) return [];
+      const { data, error } = await supabase
+        .from('pedido_status_history')
+        .select('id, status, changed_at')
+        .eq('pedido_id', pedidoId)
+        .order('changed_at', { ascending: true });
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: open && !!pedidoId,
+  });
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
@@ -87,7 +107,9 @@ export function PedidoDetalheDialog({ pedidoId, open, onOpenChange }: PedidoDeta
         ) : (
           <div className="space-y-4">
             <div className="flex flex-wrap gap-2">
-              <Badge variant="outline">{STATUS_LABELS[pedido.status] ?? pedido.status}</Badge>
+              <Badge variant="outline" className={STATUS_BADGE_CLASSES[pedido.status] ?? ''}>
+                {STATUS_LABELS[pedido.status] ?? pedido.status}
+              </Badge>
               <Badge variant="secondary">
                 {TIPO_LABELS[pedido.tipo_solicitacao] ?? pedido.tipo_solicitacao}
               </Badge>
@@ -134,6 +156,36 @@ export function PedidoDetalheDialog({ pedidoId, open, onOpenChange }: PedidoDeta
                         )}
                       </div>
                       <span className="shrink-0 text-sm font-semibold">x{item.quantidade}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-2">
+              <h3 className="text-sm font-medium">Linha do tempo</h3>
+              {historico.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  Nenhuma mudança de status registrada.
+                </p>
+              ) : (
+                <div className="space-y-4">
+                  {historico.map(evento => (
+                    <div key={evento.id} className="flex gap-3">
+                      <div className="shrink-0 w-8 h-8 rounded-full bg-muted flex items-center justify-center">
+                        <Clock className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <Badge
+                          variant="outline"
+                          className={STATUS_BADGE_CLASSES[evento.status] ?? ''}
+                        >
+                          {STATUS_LABELS[evento.status] ?? evento.status}
+                        </Badge>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {formatarData(evento.changed_at)}
+                        </p>
+                      </div>
                     </div>
                   ))}
                 </div>
