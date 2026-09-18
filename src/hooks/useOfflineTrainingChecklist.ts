@@ -287,6 +287,45 @@ export function useOfflineTrainingChecklist() {
     return offlineChecklistDb.getTrainingResponses(visitId);
   }, []);
 
+  /**
+   * Carrega uma visita já existente (fluxo avulso). Online: busca no servidor,
+   * cacheia localmente e traz também as respostas já salvas. Offline: lê o cache.
+   */
+  const getTrainingVisit = useCallback(
+    async (visitId: string): Promise<OfflineTrainingVisit> => {
+      if (isOnlineRef.current) {
+        const { data, error } = await supabase
+          .from("training_visits")
+          .select(
+            "id, cliente_id, checklist_template_id, technician_user_id, csm_user_id, created_by_user_id, planned_date, completed_date, status, contact_name, contact_phone, notes"
+          )
+          .eq("id", visitId)
+          .maybeSingle();
+        if (error) throw error;
+        if (!data) throw new Error("Visita de treinamento não encontrada.");
+        const visit = data as OfflineTrainingVisit;
+        await offlineChecklistDb.cacheTrainingVisit(visit);
+
+        const { data: resp, error: respError } = await supabase
+          .from("training_checklist_responses")
+          .select("id, training_visit_id, checklist_template_item_id, checked, notes")
+          .eq("training_visit_id", visitId);
+        if (respError) throw respError;
+        await offlineChecklistDb.cacheTrainingResponses(
+          (resp ?? []) as OfflineTrainingChecklistResponse[]
+        );
+        return visit;
+      }
+
+      const local = await offlineChecklistDb.getTrainingVisit(visitId);
+      if (!local) {
+        throw new Error("Visita não disponível offline. Conecte-se uma vez para baixá-la.");
+      }
+      return local;
+    },
+    []
+  );
+
   const cacheTemplates = useCallback(
     async (templates: Omit<OfflineTrainingTemplate, "_cachedAt">[]) => {
       await offlineChecklistDb.cacheTrainingTemplates(templates);
@@ -314,6 +353,7 @@ export function useOfflineTrainingChecklist() {
     updateTrainingVisit,
     setResponse,
     getResponses,
+    getTrainingVisit,
     completeTraining,
     cacheTemplates,
     getCachedTemplates,
