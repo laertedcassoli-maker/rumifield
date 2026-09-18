@@ -18,4 +18,5 @@
   - [x] Retroativo aprovado e aplicado: 33 vínculos, 28 preventivas promovidas (elegibilidade já reflete)
   - [x] ExecucaoVisitaCorretiva.tsx: grava preventive_maintenance_id no check-in; toggle "contou como preventiva?" no encerramento (só RumiFlow v1) — validado por typecheck/build; dialogo e2e não alcançável no preview (botão Encerrar desabilitado até checklist completo)
 - [x] Agenda: prefixo de ícone 🏗️/🔧 no título dos eventos + legenda (mantém border-radius) — validado no preview
-- [ ] Renomear item Admin "Envios" -> "Envios Químicos" (AppSidebar) e título da página Envios.tsx
+- [x] Renomear item Admin "Envios" -> "Envios Químicos" (AppSidebar, AppLayout pageTitles) e título da página Envios.tsx — validado no preview
+- [x] Carteira CRM: filtro por produto ativo (Select "Todos os produtos" + 5 produtos, filtra activeProducts) — validado no preview (81 -> 57 com RumiFlow)
