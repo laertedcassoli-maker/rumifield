@@ -44,9 +44,18 @@ export function AppSidebar() {
     { title: 'Início', icon: Home, url: '/', permKey: 'inicio' },
     { title: 'Minhas Pendências', icon: ListTodo, url: '/minhas-pendencias', permKey: 'minhas_pendencias' },
     { title: 'Minhas Rotas', icon: Navigation, url: '/preventivas/minhas-rotas', permKey: 'minhas_rotas' },
-    { title: 'Instalações', icon: HardHat, url: '/instalacoes', permKey: 'instalacoes' },
   ].filter(item => canAccess(item.permKey));
 
+
+  // Novas Instalações submenu (single permKey 'instalacoes' gates the whole group)
+  const instalacoesItems = [
+    { title: 'Pré Venda', icon: FileText, url: '/instalacoes?etapa=pre_venda' },
+    { title: 'Pré Instalação', icon: ListChecks, url: '/instalacoes?etapa=pre_instalacao' },
+    { title: 'Instalação', icon: HardHat, url: '/instalacoes?etapa=instalacao' },
+  ];
+
+  const isInstalacoesActive = location.pathname === '/instalacoes';
+  const showInstalacoesMenu = canAccess('instalacoes');
 
   // Solicitação de Peças submenu
   const pedidosItems = [
@@ -217,6 +226,35 @@ export function AppSidebar() {
                   </SidebarMenuButton>
                 </SidebarMenuItem>
               ))}
+
+              {/* Novas Instalações com submenu */}
+              {showInstalacoesMenu && (
+                <Collapsible defaultOpen={isInstalacoesActive} className="group/collapsible">
+                  <SidebarMenuItem>
+                    <CollapsibleTrigger asChild>
+                      <SidebarMenuButton isActive={isInstalacoesActive}>
+                        <HardHat className="h-4 w-4" />
+                        <span>Novas Instalações</span>
+                        <ChevronDown className="ml-auto h-4 w-4 transition-transform group-data-[state=open]/collapsible:rotate-180" />
+                      </SidebarMenuButton>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent>
+                      <SidebarMenuSub>
+                        {instalacoesItems.map(item => (
+                          <SidebarMenuSubItem key={item.title}>
+                            <SidebarMenuSubButton asChild isActive={location.pathname + location.search === item.url}>
+                              <Link to={item.url} onClick={handleMenuClick}>
+                                <item.icon className="h-4 w-4" />
+                                <span>{item.title}</span>
+                              </Link>
+                            </SidebarMenuSubButton>
+                          </SidebarMenuSubItem>
+                        ))}
+                      </SidebarMenuSub>
+                    </CollapsibleContent>
+                  </SidebarMenuItem>
+                </Collapsible>
+              )}
 
               {/* Solicitação de Peças com submenu */}
               {showPedidosMenu && (

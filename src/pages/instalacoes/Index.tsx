@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useMemo, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -63,6 +63,13 @@ export default function InstalacoesIndex() {
   const isTecnicoCampo = role === 'tecnico_campo';
   const canManage = !isTecnicoCampo;
 
+  // Optional stage filter via URL: /instalacoes?etapa=pre_venda|pre_instalacao|instalacao
+  const [searchParams] = useSearchParams();
+  const etapaParam = searchParams.get('etapa');
+  const etapaFiltro = (STAGE_ORDER as string[]).includes(etapaParam || '')
+    ? (etapaParam as StageType)
+    : null;
+
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [clienteId, setClienteId] = useState<string | null>(null);
   const [clientePopoverOpen, setClientePopoverOpen] = useState(false);
@@ -108,6 +115,16 @@ export default function InstalacoesIndex() {
     },
     staleTime: 30_000,
   });
+
+  // Stage-view filter: keep only installations that have the selected stage,
+  // and show just that stage row inside each card. No refetch involved.
+  const visibleInstallations = useMemo(() => {
+    if (!installations) return installations;
+    if (!etapaFiltro) return installations;
+    return installations
+      .filter(inst => inst.stages.some(s => s.stage === etapaFiltro))
+      .map(inst => ({ ...inst, stages: inst.stages.filter(s => s.stage === etapaFiltro) }));
+  }, [installations, etapaFiltro]);
 
   // Technician names for display
   const technicianIds = Array.from(new Set(
@@ -241,6 +258,11 @@ export default function InstalacoesIndex() {
         <div className="flex items-center gap-2 min-w-0">
           <HardHat className="h-6 w-6 text-primary shrink-0" />
           <h1 className="text-xl font-bold truncate">Instalações</h1>
+          {etapaFiltro && (
+            <Badge variant="secondary" className="text-xs shrink-0">
+              {STAGE_LABELS[etapaFiltro]}
+            </Badge>
+          )}
         </div>
         {canManage && (
           <Button onClick={() => setIsCreateOpen(true)}>
@@ -254,17 +276,19 @@ export default function InstalacoesIndex() {
         <div className="flex justify-center py-12">
           <Loader2 className="h-6 w-6 animate-spin text-primary" />
         </div>
-      ) : !installations || installations.length === 0 ? (
+      ) : !visibleInstallations || visibleInstallations.length === 0 ? (
         <Card>
           <CardContent className="p-8 text-center text-muted-foreground text-sm">
-            {isTecnicoCampo
-              ? 'Nenhuma etapa de instalação atribuída a você no momento.'
-              : 'Nenhuma instalação cadastrada. Crie a primeira para começar.'}
+            {etapaFiltro
+              ? `Nenhuma instalação com etapa "${STAGE_LABELS[etapaFiltro]}" encontrada.`
+              : isTecnicoCampo
+                ? 'Nenhuma etapa de instalação atribuída a você no momento.'
+                : 'Nenhuma instalação cadastrada. Crie a primeira para começar.'}
           </CardContent>
         </Card>
       ) : (
         <div className="space-y-4">
-          {installations.map((inst) => (
+          {visibleInstallations.map((inst) => (
             <Card key={inst.id} className="overflow-hidden">
               <CardHeader className="pb-3">
                 <div className="flex flex-wrap items-center justify-between gap-2 min-w-0">
@@ -283,7 +307,7 @@ export default function InstalacoesIndex() {
                 </div>
               </CardHeader>
               <CardContent className="space-y-2">
-                {STAGE_ORDER.map((stageType) => {
+                {(etapaFiltro ? [etapaFiltro] : STAGE_ORDER).map((stageType) => {
                   const stage = inst.stages.find(s => s.stage === stageType);
                   return (
                     <div
