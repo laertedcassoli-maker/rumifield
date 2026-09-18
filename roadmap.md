@@ -32,3 +32,9 @@
 
 ## Prompt 3 — Erro amigável ao excluir template em uso (pendente)
 - Checklists.tsx deleteTemplateMutation onError: error.code 23503 → mensagem amigável; outros erros mantêm error.message.
+
+## Prompt 4 — Ativos/OS: renomeação + rastreabilidade (pendente)
+- (a) AppSidebar.tsx linha ~130: 'Cadastro Ativos' → 'Ativos' (idem Home.tsx se houver).
+- (b) ItensOficina.tsx histórico: aba "Pedidos" (pedido_itens por workshop_item_id + join pedidos).
+- (c) NovaOSDialog/DetalheOSDialog: caixa informativa com motivo_relato do pedido vinculado (pedido_itens.workshop_item_id).
+- (d) ItensOficina.tsx: visão "Por Cliente" — ativos distintos atendidos por cliente via work_orders + work_order_items.
