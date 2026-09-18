@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Calendar, Wrench, RefreshCcw, Truck, ArrowRight, ListTodo } from 'lucide-react';
+import { Calendar, Wrench, RefreshCcw, Truck, ArrowRight, ListTodo, HardHat, ClipboardCheck } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -9,6 +9,8 @@ import { useMinhasPendencias } from '@/hooks/useMinhasPendencias';
 const statusLabels: Record<string, string> = {
   planejado: 'Planejado',
   reagendado: 'Reagendado',
+  em_andamento: 'Em andamento',
+  aguardando_aprovacao: 'Aguardando aprovação',
   em_elaboracao: 'Em elaboração',
   planejada: 'Planejada',
   em_execucao: 'Em execução',
@@ -16,6 +18,11 @@ const statusLabels: Record<string, string> = {
   solicitado: 'Solicitado',
   pendente: 'Pendente',
   processamento: 'Em processamento',
+};
+
+const STAGE_LABELS: Record<string, string> = {
+  pre_instalacao: 'Pré Instalação',
+  instalacao: 'Instalação',
 };
 
 function formatDate(value: string | null) {
