@@ -102,7 +102,7 @@ export function AppSidebar() {
   const installationItems = [
     { title: 'Chamados', icon: AlertTriangle, url: '/chamados', permKey: 'chamados' },
     { title: 'Visita Técnica', icon: Contact, url: '/visita-tecnica', permKey: 'visita_tecnica' },
-    { title: 'Clientes', icon: Building2, url: '/crm/carteira', permKey: 'instalacoes_clientes' },
+    { title: 'Clientes RF', icon: Building2, url: '/clientes-rf', permKey: 'instalacoes_clientes' },
   ].filter(item => canAccess(item.permKey));
 
   const isClienteRouteActive = location.pathname === '/crm/carteira' || (

@@ -44,6 +44,7 @@ import PreventivasMinhasRotas from "./pages/preventivas/MinhasRotas";
 import MinhasPendencias from "./pages/MinhasPendencias";
 import AgendaOperacoes from "./pages/AgendaOperacoes";
 import VisitaTecnica from "./pages/VisitaTecnica";
+import ClientesRF from "./pages/ClientesRF";
 import InstalacoesIndex from "./pages/instalacoes/Index";
 import InstalacoesExecucaoEtapa from "./pages/instalacoes/ExecucaoEtapa";
 
@@ -384,6 +385,15 @@ const App = () => (
                 </AppLayout>
               }
             />
+            <Route
+              path="/clientes-rf"
+              element={
+                <AppLayout>
+                  <ClientesRF />
+                </AppLayout>
+              }
+            />
+
 
             <Route
               path="/instalacoes"
