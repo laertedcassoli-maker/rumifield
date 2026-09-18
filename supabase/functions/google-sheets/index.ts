@@ -138,52 +138,52 @@ serve(async (req) => {
   try {
 
 
-    const credentialJson = Deno.env.get("CREDENCIAL_GOOGLE");
+    const credentialJson =
+      Deno.env.get("GOOGLE_SERVICE_ACCOUNT_JSON") || Deno.env.get("CREDENCIAL_GOOGLE");
     if (!credentialJson) {
-      throw new Error("CREDENCIAL_GOOGLE secret not configured");
+      throw new Error("GOOGLE_SERVICE_ACCOUNT_JSON secret not configured");
     }
 
-    const spreadsheetId = Deno.env.get("CHAVE_GOOGLE_SHEET_TABELA_BOARD");
-    if (!spreadsheetId) {
-      throw new Error("CHAVE_GOOGLE_SHEET_TABELA_BOARD secret not configured");
-    }
+    const defaultSpreadsheetId = Deno.env.get("CHAVE_GOOGLE_SHEET_TABELA_BOARD");
 
     // Clean the credential JSON - handle literal newlines that break JSON parsing
     let cleanedJson = credentialJson.trim();
-    // Remove surrounding single quotes if present
-    if (cleanedJson.startsWith("'") && cleanedJson.endsWith("'")) {
+    if (
+      (cleanedJson.startsWith("'") && cleanedJson.endsWith("'")) ||
+      (cleanedJson.startsWith('"') && cleanedJson.endsWith('"'))
+    ) {
       cleanedJson = cleanedJson.slice(1, -1);
     }
-    
+
     let credential;
     try {
       credential = JSON.parse(cleanedJson);
     } catch (_parseErr) {
-      // If direct parse fails, the \n in private_key became real newlines.
-      // Replace actual newlines inside string values with \\n so JSON can parse.
-      // Strategy: find content between -----BEGIN and -----END and fix newlines there.
       try {
         const fixed = cleanedJson.replace(
           /(-----BEGIN [A-Z ]+-----)([\s\S]*?)(-----END [A-Z ]+-----)/g,
-          (_match, begin, middle, end) => {
-            const cleaned = middle.replace(/\n/g, "\\n");
-            return begin + cleaned + end;
-          }
+          (_match, begin, middle, end) => begin + middle.replace(/\n/g, "\\n") + end
         );
         credential = JSON.parse(fixed);
-      } catch (parseErr2) {
-        throw new Error(`Failed to parse CREDENCIAL_GOOGLE as JSON. First 100 chars: ${cleanedJson.substring(0, 100)}`);
+      } catch (_parseErr2) {
+        throw new Error("Falha ao parsear a credencial da conta de serviço do Google.");
       }
     }
-    
+
     const { client_email, private_key } = credential;
 
     if (!client_email || !private_key) {
       throw new Error("Invalid service account credentials: missing client_email or private_key");
     }
 
+
     const body = await req.json();
-    const { action, range } = body;
+    const { action, range, gid } = body;
+    const spreadsheetId: string | undefined = body.spreadsheetId || defaultSpreadsheetId;
+    if (!spreadsheetId) {
+      throw new Error("No spreadsheetId provided and CHAVE_GOOGLE_SHEET_TABELA_BOARD secret not configured");
+    }
+
 
     // Generate JWT and get access token
     const jwt = await createSignedJWT(
@@ -192,6 +192,13 @@ serve(async (req) => {
       "https://www.googleapis.com/auth/spreadsheets.readonly"
     );
     const accessToken = await getAccessToken(jwt);
+
+    if (action === "whoami") {
+      return new Response(
+        JSON.stringify({ success: true, client_email }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     if (action === "test") {
       // Test connection by fetching spreadsheet metadata
@@ -208,11 +215,24 @@ serve(async (req) => {
     }
 
     if (action === "read") {
-      if (!range) {
-        throw new Error("Parameter 'range' is required for read action");
+      let effectiveRange = range as string | undefined;
+
+      if (!effectiveRange && gid !== undefined && gid !== null) {
+        const info = await getSpreadsheetInfo(accessToken, spreadsheetId);
+        const sheet = (info.sheets || []).find(
+          (s: any) => String(s.properties?.sheetId) === String(gid)
+        );
+        if (!sheet) {
+          throw new Error(`Sheet with gid '${gid}' not found in spreadsheet`);
+        }
+        effectiveRange = `'${sheet.properties.title}'!A:Z`;
       }
 
-      const data = await readSheet(accessToken, spreadsheetId, range);
+      if (!effectiveRange) {
+        throw new Error("Parameter 'range' or 'gid' is required for read action");
+      }
+
+      const data = await readSheet(accessToken, spreadsheetId, effectiveRange);
       return new Response(
         JSON.stringify({
           success: true,
