@@ -190,10 +190,13 @@ export default function Treinamento() {
 
   const excluirMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { error } = await withTimeout(
+      const { data, error } = await withTimeout(
         supabase.from('training_visits').delete().eq('id', id).select('id')
       );
       if (error) throw error;
+      if (!data || data.length === 0) {
+        throw new Error('A exclusão não foi confirmada pelo servidor. Verifique suas permissões.');
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['training-visits'] });
@@ -269,6 +272,9 @@ export default function Treinamento() {
   const podeConcluir = (v: TreinamentoItem) =>
     v.status === 'pendente' &&
     (canAbrirVisita || user?.id === v.technician_user_id || user?.id === v.csm_user_id);
+
+  // Editar/excluir: só gestores e apenas enquanto a visita estiver pendente
+  const podeGerenciar = (v: TreinamentoItem) => canAbrirVisita && v.status === 'pendente';
 
   const responsavelNome = (v: TreinamentoItem) => {
     const id = v.technician_user_id ?? v.csm_user_id;
