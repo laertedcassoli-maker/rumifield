@@ -192,19 +192,38 @@ export default function NovaVisitaTreinamentoDialog({ open, onOpenChange, editin
   const createVisita = useMutation({
     mutationFn: async () => {
       const responsavel = responsaveis?.find(r => r.id === responsavelId);
+      const payload = {
+        cliente_id: clientId,
+        checklist_template_id: checklistTemplateId || null,
+        technician_user_id: responsavel?.tipo === 'tecnico' ? responsavelId : null,
+        csm_user_id: responsavel?.tipo === 'csm' ? responsavelId : null,
+        planned_date: plannedDate ? format(plannedDate, 'yyyy-MM-dd') : null,
+        contact_name: contactName.trim() || null,
+        contact_phone: contactPhone.trim() || null,
+        notes: notes.trim() || null,
+      };
+
+      if (editingVisit) {
+        const { data, error } = await withTimeout(
+          supabase
+            .from('training_visits')
+            .update(payload)
+            .eq('id', editingVisit.id)
+            .select('id')
+        );
+        if (error) throw error;
+        if (!data || data.length === 0) {
+          throw new Error('A edição não foi confirmada pelo servidor. Verifique suas permissões.');
+        }
+        return editingVisit.id;
+      }
+
       const { data, error } = await withTimeout(
         supabase
           .from('training_visits')
           .insert({
-            cliente_id: clientId,
-            checklist_template_id: checklistTemplateId || null,
-            technician_user_id: responsavel?.tipo === 'tecnico' ? responsavelId : null,
-            csm_user_id: responsavel?.tipo === 'csm' ? responsavelId : null,
-            planned_date: plannedDate ? format(plannedDate, 'yyyy-MM-dd') : null,
+            ...payload,
             status: 'pendente',
-            contact_name: contactName.trim() || null,
-            contact_phone: contactPhone.trim() || null,
-            notes: notes.trim() || null,
             created_by_user_id: user!.id,
           })
           .select('id')
@@ -216,13 +235,19 @@ export default function NovaVisitaTreinamentoDialog({ open, onOpenChange, editin
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['training-visits'] });
-      toast({ title: 'Visita de treinamento solicitada com sucesso!' });
+      toast({
+        title: editingVisit
+          ? 'Visita de treinamento atualizada com sucesso!'
+          : 'Visita de treinamento solicitada com sucesso!',
+      });
       handleClose();
     },
     onError: (error: Error) => {
       toast({
         variant: 'destructive',
-        title: 'Erro ao solicitar visita de treinamento',
+        title: editingVisit
+          ? 'Erro ao atualizar visita de treinamento'
+          : 'Erro ao solicitar visita de treinamento',
         description: error.message,
       });
     },
