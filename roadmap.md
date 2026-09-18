@@ -20,3 +20,4 @@
 - [x] Agenda: prefixo de ícone 🏗️/🔧 no título dos eventos + legenda (mantém border-radius) — validado no preview
 - [x] Renomear item Admin "Envios" -> "Envios Químicos" (AppSidebar, AppLayout pageTitles) e título da página Envios.tsx — validado no preview
 - [x] Carteira CRM: filtro por produto ativo (Select "Todos os produtos" + 5 produtos, filtra activeProducts) — validado no preview (81 -> 57 com RumiFlow)
+- [ ] Trocar ícone de "Novas Instalações" de House para Construction (lucide-react)
