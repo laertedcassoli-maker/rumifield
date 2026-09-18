@@ -963,6 +963,7 @@ export default function ExecucaoVisitaCorretiva() {
 
   const handleResultSelection = (result: 'resolvido' | 'parcial' | 'aguardando_peca') => {
     setSelectedResult(result);
+    setContouComoPreventiva(false);
     setShowResultDialog(false);
     setShowCompleteDialog(true);
   };
@@ -1501,12 +1502,39 @@ export default function ExecucaoVisitaCorretiva() {
                     {format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
                   </p>
                 </div>
+
+                {visit?.checklist_template_id === RUMIFLOW_V1_TEMPLATE_ID && (
+                  <div className="rounded-lg border p-3 space-y-2">
+                    <p className="text-sm font-medium">Esta visita também contou como uma preventiva?</p>
+                    <p className="text-xs text-muted-foreground">
+                      Se sim, ela passará a contar como a última preventiva deste cliente.
+                    </p>
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={contouComoPreventiva ? 'default' : 'outline'}
+                        onClick={() => setContouComoPreventiva(true)}
+                      >
+                        Sim
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={!contouComoPreventiva ? 'default' : 'outline'}
+                        onClick={() => setContouComoPreventiva(false)}
+                      >
+                        Não
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setSelectedResult(null)}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction 
+            <AlertDialogCancel onClick={() => { setSelectedResult(null); setContouComoPreventiva(false); }}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
               onClick={(e) => {
                 if (!selectedResult) return;
                 if (hasSolenoideConsumed && !solenoideModelo) {
@@ -1515,7 +1543,7 @@ export default function ExecucaoVisitaCorretiva() {
                     : null;
                   if (stored === '2x' || stored === '3x') {
                     setSolenoideModelo(stored);
-                    completeMutation.mutate(selectedResult);
+                    completeMutation.mutate({ result: selectedResult, marcarComoPreventiva: contouComoPreventiva });
                     return;
                   }
                   e.preventDefault();
@@ -1523,7 +1551,7 @@ export default function ExecucaoVisitaCorretiva() {
                   setShowSolenoideDialog(true);
                   return;
                 }
-                completeMutation.mutate(selectedResult);
+                completeMutation.mutate({ result: selectedResult, marcarComoPreventiva: contouComoPreventiva });
               }}
               disabled={completeMutation.isPending || !selectedResult}
             >
@@ -1542,7 +1570,7 @@ export default function ExecucaoVisitaCorretiva() {
         onConfirm={(modelo) => {
           setSolenoideModelo(modelo);
           setShowSolenoideDialog(false);
-          if (selectedResult) completeMutation.mutate(selectedResult);
+          if (selectedResult) completeMutation.mutate({ result: selectedResult, marcarComoPreventiva: contouComoPreventiva });
         }}
         description="A peça PRD00605 foi consumida nesta visita. Selecione o modelo (2x ou 3x) antes de encerrar."
       />
