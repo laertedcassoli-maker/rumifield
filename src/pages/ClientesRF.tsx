@@ -128,16 +128,16 @@ export default function ClientesRF() {
       const tb = b.ocorrencia ? new Date(b.ocorrencia.data).getTime() : -Infinity;
       return tb - ta;
     });
-  }, [clientes, clientProducts, ocorrencias, debouncedSearch]);
+  }, [clientes, ocorrencias, debouncedSearch]);
 
-  const isLoading = loadingCrm || loadingOcorrencias;
+  const isLoading = loadingClientes || loadingOcorrencias;
 
   return (
     <div className="space-y-3 animate-fade-in pb-24 overflow-x-hidden">
       <div>
         <h1 className="text-lg font-bold">Clientes RF</h1>
         <p className="text-xs text-muted-foreground">
-          Clientes com RumiFlow ativo, da ocorrência mais recente para a mais antiga.
+          Clientes ativos, da ocorrência mais recente para a mais antiga.
         </p>
       </div>
 
@@ -160,7 +160,7 @@ export default function ClientesRF() {
       ) : lista.length === 0 ? (
         <Card>
           <CardContent className="py-10 text-center text-sm text-muted-foreground">
-            Nenhum cliente com RumiFlow ativo encontrado.
+            Nenhum cliente encontrado.
           </CardContent>
         </Card>
       ) : (
@@ -169,7 +169,7 @@ export default function ClientesRF() {
             <Card
               key={c.id}
               className="cursor-pointer hover:bg-accent/40 transition-colors"
-              onClick={() => navigate(`/crm/${c.id}`)}
+              onClick={() => navigate(`/clientes-rf/${c.id}`)}
             >
               <CardContent className="p-3 flex items-center gap-3">
                 <div className="flex-1 min-w-0 space-y-1">
