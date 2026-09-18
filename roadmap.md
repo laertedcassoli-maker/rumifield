@@ -1,6 +1,6 @@
 # Roadmap
 
-- [ ] Visita Técnica: nova tela listando visitas corretivas (ticket_visits) + preventivas (preventive_route_items), filtro Todos/Corretivas/Preventivas, navegação aos detalhes existentes, rota /visita-tecnica
+- [x] Visita Técnica: nova tela listando visitas corretivas (ticket_visits) + preventivas (preventive_route_items), filtro Todos/Corretivas/Preventivas, navegação aos detalhes existentes, rota /visita-tecnica — validado no preview (38 corretivas + 66 preventivas, filtro e navegação OK)
 - [x] Menu: "Novas Instalações" com ícone House; ordem em "Instalações Existentes": Preventivas → Chamados → Visita Técnica → Clientes
 
 - [x] Migration idempotente documentando retroativo corretiva→preventiva — aplicada; 0 linhas pendentes (idempotência confirmada)
