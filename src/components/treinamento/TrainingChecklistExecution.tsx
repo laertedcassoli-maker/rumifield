@@ -52,6 +52,7 @@ export default function TrainingChecklistExecution({
     completeTraining,
     cacheTemplates,
     getCachedTemplates,
+    syncPendingChanges,
   } = useOfflineTrainingChecklist();
 
   const [templateId, setTemplateId] = useState('');
@@ -259,6 +260,11 @@ export default function TrainingChecklistExecution({
         contactName: contactName.trim(),
         contactPhone: contactPhone.trim(),
       });
+      // Online: força a sincronização agora — no fluxo avulso o diálogo desmonta
+      // o componente ao fechar, o que cancelaria o envio agendado (debounce de 2s)
+      if (isOnline) {
+        await syncPendingChanges();
+      }
       setCompleted(true);
       queryClient.invalidateQueries({ queryKey: ['training-visits'] });
       toast.success(
