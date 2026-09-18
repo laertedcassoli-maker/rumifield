@@ -22,6 +22,15 @@ export interface PendenciaVisita {
   status: string;
 }
 
+export interface PendenciaChamado {
+  id: string;
+  ticketCode: string | null;
+  clienteNome: string;
+  fazenda: string | null;
+  createdAt: string;
+  status: string;
+}
+
 export interface PendenciaPedido {
   id: string;
   pedidoCode: string | null;
@@ -41,6 +50,7 @@ export interface PendenciaInstalacao {
   status: string;
 }
 
+const CHAMADO_PENDING = ['aberto', 'em_atendimento', 'aguardando_peca'] as const;
 const ROUTE_ITEM_PENDING = ["planejado", "reagendado"] as const;
 const ROUTE_PENDING = ['planejada', 'em_execucao'] as const;
 const VISIT_PENDING = ['em_elaboracao', 'planejada', 'em_execucao'] as const;
@@ -141,6 +151,33 @@ export function useMinhasPendencias() {
     },
   });
 
+  const chamados = useQuery({
+    queryKey: ['technical_tickets', 'pendencias', uid],
+    enabled: !!uid,
+    queryFn: async (): Promise<PendenciaChamado[]> => {
+      const { data, error } = await supabase
+        .from('technical_tickets')
+        .select('id, ticket_code, client_id, status, created_at')
+        .eq('assigned_technician_id', uid!)
+        .in('status', CHAMADO_PENDING)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      if (!data?.length) return [];
+      const clientesMap = await fetchClientesMap([...new Set(data.map(t => t.client_id).filter(Boolean) as string[])]);
+      return data.map(t => {
+        const cliente = t.client_id ? clientesMap.get(t.client_id) : undefined;
+        return {
+          id: t.id,
+          ticketCode: t.ticket_code,
+          clienteNome: cliente?.nome ?? 'Cliente',
+          fazenda: cliente?.fazenda ?? null,
+          createdAt: t.created_at,
+          status: t.status as string,
+        };
+      });
+    },
+  });
+
   const coletaReversa = useQuery({
     queryKey: ['pedidos', 'pendencias-coleta', uid],
     enabled: !!uid,
@@ -234,6 +271,7 @@ export function useMinhasPendencias() {
   const total =
     (preventivas.data?.length ?? 0) +
     (visitas.data?.length ?? 0) +
+    (chamados.data?.length ?? 0) +
     (coletaReversa.data?.length ?? 0) +
     (envios.data?.length ?? 0) +
     (instalacoes.data?.length ?? 0) +
@@ -242,6 +280,7 @@ export function useMinhasPendencias() {
   return {
     preventivas,
     visitas,
+    chamados,
     coletaReversa,
     envios,
     instalacoes,
@@ -251,6 +290,7 @@ export function useMinhasPendencias() {
     isLoading:
       preventivas.isLoading ||
       visitas.isLoading ||
+      chamados.isLoading ||
       coletaReversa.isLoading ||
       envios.isLoading ||
       instalacoes.isLoading ||
