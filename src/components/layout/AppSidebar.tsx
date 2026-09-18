@@ -49,7 +49,6 @@ export function AppSidebar() {
 
   // Novas Instalações submenu (single permKey 'instalacoes' gates the whole group)
   const instalacoesItems = [
-    { title: 'Pré Venda', icon: FileText, url: '/instalacoes?etapa=pre_venda' },
     { title: 'Pré Instalação', icon: ListChecks, url: '/instalacoes?etapa=pre_instalacao' },
     { title: 'Instalação', icon: HardHat, url: '/instalacoes?etapa=instalacao' },
   ];

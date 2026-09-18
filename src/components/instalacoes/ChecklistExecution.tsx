@@ -707,7 +707,22 @@ export default function InstallationChecklistExecution({ stageId, stageTemplateI
     }
   }, [queryClient, queryKey, patchChecklistCache, itemHasTrocaAction, getNcParts, stageId, updatePendingCount, debouncedSync]);
 
-  // Complete checklist — requires online and zero pending syncs
+  // Stage type — Pré Instalação goes to approval instead of straight to "concluido"
+  const { data: stageInfo } = useQuery<{ stage: string } | null>({
+    queryKey: ['installation-stage-type', stageId],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from('installation_stages')
+        .select('stage')
+        .eq('id', stageId)
+        .maybeSingle();
+      if (error) throw error;
+      return data ?? null;
+    },
+    staleTime: 300_000,
+  });
+  const isPreInstalacao = stageInfo?.stage === 'pre_instalacao';
+
   const completeChecklistMutation = useMutation({
     mutationFn: async () => {
       if (!existingChecklist) throw new Error('Checklist não encontrado');
@@ -730,16 +745,25 @@ export default function InstallationChecklistExecution({ stageId, stageTemplateI
 
       if (error) throw error;
 
-      // Stage -> concluido
+      // Read the stage type to decide the transition
+      const { data: currentStage } = await (supabase as any)
+        .from('installation_stages')
+        .select('stage, installation_id')
+        .eq('id', stageId)
+        .maybeSingle();
+
+      const preInstalacao = currentStage?.stage === 'pre_instalacao';
+
+      // Pré Instalação -> aguardando aprovação do Coordenador de Serviços
       const { data: stageRow } = await (supabase as any)
         .from('installation_stages')
-        .update({ status: 'concluido' })
+        .update({ status: preInstalacao ? 'aguardando_aprovacao' : 'concluido' })
         .eq('id', stageId)
         .select('installation_id')
         .single();
 
-      // If every stage of the installation is done, conclude the installation too
-      if (stageRow?.installation_id) {
+      // Pré Instalação never concludes the installation — it waits for approval
+      if (!preInstalacao && stageRow?.installation_id) {
         const { data: siblings } = await (supabase as any)
           .from('installation_stages')
           .select('status')
@@ -752,16 +776,20 @@ export default function InstallationChecklistExecution({ stageId, stageTemplateI
             .eq('id', stageRow.installation_id);
         }
       }
+
+      return { preInstalacao };
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       track('installation_checklist_completed', {
         stage_id: stageId,
         checklist_id: existingChecklist?.id ?? null,
+        sent_to_approval: !!result?.preInstalacao,
       }, { entity: 'installation_checklist', entity_id: existingChecklist?.id ?? stageId });
       queryClient.invalidateQueries({ queryKey });
       queryClient.invalidateQueries({ queryKey: ['installations'] });
       queryClient.invalidateQueries({ queryKey: ['installation-stage', stageId] });
-      toast.success('Checklist concluído!');
+      queryClient.invalidateQueries({ queryKey: ['installation-stage-type', stageId] });
+      toast.success(result?.preInstalacao ? 'Checklist enviado para aprovação!' : 'Checklist concluído!');
       setIsConfirmCompleteOpen(false);
       onStatusChange?.('completed');
     },
@@ -1329,10 +1357,13 @@ export default function InstallationChecklistExecution({ stageId, stageTemplateI
       <AlertDialog open={isConfirmCompleteOpen} onOpenChange={setIsConfirmCompleteOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Concluir Checklist</AlertDialogTitle>
+            <AlertDialogTitle>
+              {isPreInstalacao ? 'Enviar para aprovação' : 'Concluir Checklist'}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja concluir o checklist desta etapa?
-              Após a conclusão, a etapa será marcada como concluída.
+              {isPreInstalacao
+                ? 'Tem certeza que deseja concluir o checklist desta etapa? A etapa ficará aguardando a aprovação do Coordenador de Serviços.'
+                : 'Tem certeza que deseja concluir o checklist desta etapa? Após a conclusão, a etapa será marcada como concluída.'}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

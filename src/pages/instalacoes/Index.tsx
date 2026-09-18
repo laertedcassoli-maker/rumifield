@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -15,7 +15,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { toast } from "sonner";
-import { HardHat, Plus, Loader2, Play, Settings2, Check, ChevronsUpDown, Building2, CalendarDays, User, Trash2 } from "lucide-react";
+import { HardHat, Plus, Loader2, Play, Settings2, Check, ChevronsUpDown, Building2, CalendarDays, User, Trash2, Paperclip } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type StageType = 'pre_venda' | 'pre_instalacao' | 'instalacao';
@@ -31,12 +31,14 @@ const STAGE_LABELS: Record<StageType, string> = {
 const STAGE_STATUS_LABELS: Record<string, string> = {
   planejado: 'Planejado',
   em_andamento: 'Em Andamento',
+  aguardando_aprovacao: 'Aguardando Aprovação',
   concluido: 'Concluído',
 };
 
 const STAGE_STATUS_VARIANTS: Record<string, 'secondary' | 'default' | 'outline'> = {
   planejado: 'secondary',
   em_andamento: 'default',
+  aguardando_aprovacao: 'default',
   concluido: 'outline',
 };
 
@@ -45,6 +47,8 @@ interface StageRow {
   stage: StageType;
   status: string;
   technician_user_id: string | null;
+  csm_user_id: string | null;
+  sales_email_attachment_path: string | null;
   planned_date: string | null;
   checklist_template_id: string | null;
 }
@@ -82,8 +86,14 @@ export default function InstalacoesIndex() {
   } | null>(null);
   const [instalacaoParaExcluir, setInstalacaoParaExcluir] = useState<InstallationRow | null>(null);
   const [stageTechnicianId, setStageTechnicianId] = useState<string>('');
+  const [stageCsmId, setStageCsmId] = useState<string>('');
+  const [stageResponsavelTipo, setStageResponsavelTipo] = useState<'tecnico' | 'csm'>('tecnico');
   const [stagePlannedDate, setStagePlannedDate] = useState<string>('');
   const [stageTemplateId, setStageTemplateId] = useState<string>('');
+  const [stageAnexoPath, setStageAnexoPath] = useState<string | null>(null);
+  const [isUploadingAnexo, setIsUploadingAnexo] = useState(false);
+  const [anexoPreview, setAnexoPreview] = useState<{ url: string; path: string; isImage: boolean } | null>(null);
+  const anexoClickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Installations with stages (tecnico_campo sees only installations containing his stages)
   const { data: installations, isLoading } = useQuery<InstallationRow[]>({
@@ -96,7 +106,7 @@ export default function InstalacoesIndex() {
           status,
           created_at,
           cliente:clientes(nome, fazenda),
-          stages:installation_stages(id, stage, status, technician_user_id, planned_date, checklist_template_id)
+          stages:installation_stages(id, stage, status, technician_user_id, csm_user_id, sales_email_attachment_path, planned_date, checklist_template_id)
         `)
         .order('created_at', { ascending: false });
 
@@ -130,9 +140,9 @@ export default function InstalacoesIndex() {
       .map(inst => ({ ...inst, stages: inst.stages.filter(s => s.stage === etapaFiltro) }));
   }, [installations, etapaFiltro, canManage]);
 
-  // Technician names for display
+  // Responsible names for display (technician or CSM)
   const technicianIds = Array.from(new Set(
-    (installations || []).flatMap(i => i.stages.map(s => s.technician_user_id).filter(Boolean) as string[])
+    (installations || []).flatMap(i => i.stages.flatMap(s => [s.technician_user_id, s.csm_user_id].filter(Boolean) as string[]))
   ));
 
   const { data: technicianNames } = useQuery<Record<string, string>>({
@@ -175,6 +185,17 @@ export default function InstalacoesIndex() {
     enabled: !!stageDialog,
   });
 
+  // CSMs (consultor_rplus) for stage assignment
+  const { data: csms } = useQuery<{ user_id: string; nome: string }[]>({
+    queryKey: ['pedidos-responsaveis', 'consultor_rplus'],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).rpc('list_pedidos_responsaveis', { p_role: 'consultor_rplus' });
+      if (error) throw error;
+      return (data || []) as { user_id: string; nome: string }[];
+    },
+    enabled: !!stageDialog,
+  });
+
   // Active checklist templates
   const { data: templates } = useQuery({
     queryKey: ['active-checklist-templates'],
@@ -207,9 +228,9 @@ export default function InstalacoesIndex() {
       setIsCreateOpen(false);
       setClienteId(null);
       // Jump straight into configuring the first stage: the one matching the
-      // current filtered view, or Pré Venda when there is no filter active.
+      // current filtered view, or Pré Instalação when there is no filter active.
       if (data?.id) {
-        openStageDialog(data.id, etapaFiltro ?? 'pre_venda');
+        openStageDialog(data.id, etapaFiltro ?? 'pre_instalacao');
       }
     },
     onError: (error) => {
@@ -244,11 +265,17 @@ export default function InstalacoesIndex() {
   const saveStageMutation = useMutation({
     mutationFn: async () => {
       if (!stageDialog) return;
-      const payload = {
-        technician_user_id: stageTechnicianId || null,
+      // Exactly one responsible: technician OR CSM, never both
+      const payload: Record<string, any> = {
+        technician_user_id: stageResponsavelTipo === 'tecnico' ? (stageTechnicianId || null) : null,
+        csm_user_id: stageResponsavelTipo === 'csm' ? (stageCsmId || null) : null,
         planned_date: stagePlannedDate || null,
         checklist_template_id: stageTemplateId || null,
       };
+
+      if (stageDialog.stage === 'pre_instalacao') {
+        payload.sales_email_attachment_path = stageAnexoPath || null;
+      }
 
       if (stageDialog.existing) {
         const { error } = await (supabase as any)
@@ -281,8 +308,83 @@ export default function InstalacoesIndex() {
   const openStageDialog = (installationId: string, stage: StageType, existing?: StageRow) => {
     setStageDialog({ installationId, stage, existing });
     setStageTechnicianId(existing?.technician_user_id || '');
+    setStageCsmId(existing?.csm_user_id || '');
+    setStageResponsavelTipo(existing?.csm_user_id ? 'csm' : 'tecnico');
     setStagePlannedDate(existing?.planned_date || '');
     setStageTemplateId(existing?.checklist_template_id || '');
+    setStageAnexoPath(existing?.sales_email_attachment_path || null);
+  };
+
+  // --- Sales e-mail attachment (bucket instalacao-anexos, path <stage_id>/<file>) ---
+  const uploadSalesEmail = async (file: File) => {
+    const stageId = stageDialog?.existing?.id;
+    if (!stageId) {
+      toast.error('Salve a etapa antes de anexar o e-mail de venda.');
+      return;
+    }
+    setIsUploadingAnexo(true);
+    try {
+      const safeName = file.name.replace(/[^\w.\-]+/g, '_');
+      const path = `${stageId}/${Date.now()}-${safeName}`;
+      const { error: upErr } = await supabase.storage
+        .from('instalacao-anexos')
+        .upload(path, file, { upsert: false });
+      if (upErr) throw upErr;
+
+      const { data, error } = await (supabase as any)
+        .from('installation_stages')
+        .update({ sales_email_attachment_path: path })
+        .eq('id', stageId)
+        .select('id');
+      if (error) throw error;
+      if (!data || data.length === 0) {
+        throw new Error('O anexo não foi confirmado pelo servidor. Verifique suas permissões.');
+      }
+
+      setStageAnexoPath(path);
+      queryClient.invalidateQueries({ queryKey: ['installations'] });
+      toast.success('E-mail de venda anexado!');
+    } catch (e: any) {
+      toast.error('Erro ao anexar: ' + (e?.message || 'falha no envio'));
+    } finally {
+      setIsUploadingAnexo(false);
+    }
+  };
+
+  const getAnexoSignedUrl = async (path: string) => {
+    const { data, error } = await supabase.storage
+      .from('instalacao-anexos')
+      .createSignedUrl(path, 3600);
+    if (error || !data?.signedUrl) throw error || new Error('Não foi possível abrir o anexo.');
+    return data.signedUrl;
+  };
+
+  // Single click -> inline preview; double click -> new browser tab
+  const handleAnexoClick = (path: string) => {
+    if (anexoClickTimer.current) return;
+    anexoClickTimer.current = setTimeout(async () => {
+      anexoClickTimer.current = null;
+      try {
+        const url = await getAnexoSignedUrl(path);
+        const isImage = /\.(png|jpe?g|gif|webp|bmp|heic)$/i.test(path);
+        setAnexoPreview({ url, path, isImage });
+      } catch (e: any) {
+        toast.error('Erro ao abrir anexo: ' + (e?.message || ''));
+      }
+    }, 260);
+  };
+
+  const handleAnexoDoubleClick = async (path: string) => {
+    if (anexoClickTimer.current) {
+      clearTimeout(anexoClickTimer.current);
+      anexoClickTimer.current = null;
+    }
+    try {
+      const url = await getAnexoSignedUrl(path);
+      window.open(url, '_blank', 'noopener');
+    } catch (e: any) {
+      toast.error('Erro ao abrir anexo: ' + (e?.message || ''));
+    }
   };
 
   return (
@@ -377,10 +479,12 @@ export default function InstalacoesIndex() {
                         </div>
                         {stage ? (
                           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-xs text-muted-foreground">
-                            {stage.technician_user_id && (
+                            {(stage.technician_user_id || stage.csm_user_id) && (
                               <span className="flex items-center gap-1">
                                 <User className="h-3 w-3" />
-                                {technicianNames?.[stage.technician_user_id] || 'Técnico'}
+                                {stage.csm_user_id
+                                  ? `${technicianNames?.[stage.csm_user_id] || 'CSM'} (CSM)`
+                                  : (technicianNames?.[stage.technician_user_id!] || 'Técnico')}
                               </span>
                             )}
                             {stage.planned_date && (
@@ -502,26 +606,66 @@ export default function InstalacoesIndex() {
               {stageDialog?.existing ? 'Editar' : 'Configurar'} etapa: {stageDialog ? STAGE_LABELS[stageDialog.stage] : ''}
             </DialogTitle>
             <DialogDescription>
-              Defina o técnico responsável, a data planejada e o template de checklist desta etapa.
+              Defina o responsável (técnico ou CSM), a data planejada e o template de checklist desta etapa.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>Técnico responsável</Label>
-              <Select value={stageTechnicianId} onValueChange={setStageTechnicianId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione o técnico" />
-                </SelectTrigger>
-                <SelectContent>
-                  {tecnicos?.map(t => (
-                    <SelectItem key={t.user_id} value={t.user_id}>{t.nome}</SelectItem>
-                  ))}
-                  {tecnicos?.length === 0 && (
-                    <div className="p-2 text-sm text-muted-foreground">Nenhum técnico de campo ativo.</div>
-                  )}
-                </SelectContent>
-              </Select>
+              <Label>Tipo de responsável</Label>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant={stageResponsavelTipo === 'tecnico' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => { setStageResponsavelTipo('tecnico'); setStageCsmId(''); }}
+                >
+                  Técnico
+                </Button>
+                <Button
+                  type="button"
+                  variant={stageResponsavelTipo === 'csm' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => { setStageResponsavelTipo('csm'); setStageTechnicianId(''); }}
+                >
+                  CSM
+                </Button>
+              </div>
             </div>
+            {stageResponsavelTipo === 'tecnico' ? (
+              <div className="space-y-2">
+                <Label>Técnico responsável</Label>
+                <Select value={stageTechnicianId} onValueChange={setStageTechnicianId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o técnico" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {tecnicos?.map(t => (
+                      <SelectItem key={t.user_id} value={t.user_id}>{t.nome}</SelectItem>
+                    ))}
+                    {tecnicos?.length === 0 && (
+                      <div className="p-2 text-sm text-muted-foreground">Nenhum técnico de campo ativo.</div>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <Label>CSM responsável</Label>
+                <Select value={stageCsmId} onValueChange={setStageCsmId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o CSM" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {csms?.map(c => (
+                      <SelectItem key={c.user_id} value={c.user_id}>{c.nome}</SelectItem>
+                    ))}
+                    {csms?.length === 0 && (
+                      <div className="p-2 text-sm text-muted-foreground">Nenhum CSM ativo.</div>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div className="space-y-2">
               <Label>Data planejada</Label>
               <Input
@@ -543,13 +687,57 @@ export default function InstalacoesIndex() {
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Sales e-mail attachment — Pré Instalação only */}
+            {stageDialog?.stage === 'pre_instalacao' && (
+              <div className="space-y-2">
+                <Label>E-mail de venda (opcional)</Label>
+                {stageAnexoPath ? (
+                  <button
+                    type="button"
+                    className="flex w-full items-center gap-2 rounded-md border p-2 text-left text-sm hover:bg-muted/50 min-w-0"
+                    onClick={() => handleAnexoClick(stageAnexoPath)}
+                    onDoubleClick={() => handleAnexoDoubleClick(stageAnexoPath)}
+                  >
+                    <Paperclip className="h-4 w-4 shrink-0 text-primary" />
+                    <span className="truncate min-w-0">{stageAnexoPath.split('/').pop()}</span>
+                  </button>
+                ) : null}
+                {stageDialog?.existing ? (
+                  <>
+                    <Input
+                      type="file"
+                      disabled={isUploadingAnexo}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        e.target.value = '';
+                        if (file) uploadSalesEmail(file);
+                      }}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      {isUploadingAnexo
+                        ? 'Enviando anexo...'
+                        : 'Um clique no anexo abre a pré-visualização; dois cliques abrem em outra guia.'}
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    Salve a etapa primeiro para poder anexar o e-mail de venda.
+                  </p>
+                )}
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setStageDialog(null)}>Cancelar</Button>
             <Button
               onClick={() => {
-                if (!stageTechnicianId) {
+                if (stageResponsavelTipo === 'tecnico' && !stageTechnicianId) {
                   toast.error('Selecione o técnico responsável pela etapa.');
+                  return;
+                }
+                if (stageResponsavelTipo === 'csm' && !stageCsmId) {
+                  toast.error('Selecione o CSM responsável pela etapa.');
                   return;
                 }
                 saveStageMutation.mutate();
@@ -558,6 +746,35 @@ export default function InstalacoesIndex() {
             >
               {saveStageMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               Salvar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Sales e-mail attachment inline preview */}
+      <Dialog open={!!anexoPreview} onOpenChange={(open) => !open && setAnexoPreview(null)}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle className="truncate">{anexoPreview?.path.split('/').pop()}</DialogTitle>
+            <DialogDescription>Pré-visualização do e-mail de venda anexado.</DialogDescription>
+          </DialogHeader>
+          {anexoPreview?.isImage ? (
+            <img
+              src={anexoPreview.url}
+              alt="E-mail de venda"
+              className="max-h-[60vh] w-full rounded-md object-contain"
+            />
+          ) : (
+            <div className="rounded-md border p-4 text-sm text-muted-foreground">
+              Este arquivo não pode ser exibido aqui. Abra em outra guia para visualizá-lo.
+            </div>
+          )}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => anexoPreview && window.open(anexoPreview.url, '_blank', 'noopener')}
+            >
+              Abrir em outra guia
             </Button>
           </DialogFooter>
         </DialogContent>
