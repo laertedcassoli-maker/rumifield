@@ -14,3 +14,4 @@
   - [x] Migration schema: corrective_maintenance + preventive_maintenance_id, contou_como_preventiva
   - [x] Retroativo aprovado e aplicado: 33 vínculos, 28 preventivas promovidas (elegibilidade já reflete)
   - [x] ExecucaoVisitaCorretiva.tsx: grava preventive_maintenance_id no check-in; toggle "contou como preventiva?" no encerramento (só RumiFlow v1) — validado por typecheck/build; dialogo e2e não alcançável no preview (botão Encerrar desabilitado até checklist completo)
+- [ ] Agenda: prefixo de ícone 🏗️/🔧 no título dos eventos + legenda (mantém border-radius)
