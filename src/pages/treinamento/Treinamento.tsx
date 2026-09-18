@@ -38,7 +38,7 @@ import { useToast } from '@/hooks/use-toast';
 
 interface TreinamentoItem {
   id: string;
-  clienteId: string;
+  cliente_id: string;
   status: string;
   planned_date: string | null;
   completed_date: string | null;
@@ -119,7 +119,7 @@ export default function Treinamento() {
 
   const lista = useMemo(() => visitas ?? [], [visitas]);
 
-  const clienteIds = useMemo(() => [...new Set(lista.map(v => v.clienteId))], [lista]);
+  const clienteIds = useMemo(() => [...new Set(lista.map(v => v.cliente_id))], [lista]);
   const responsavelIds = useMemo(
     () => [...new Set(lista.flatMap(v => [v.technician_user_id, v.csm_user_id]).filter(Boolean) as string[])],
     [lista],
@@ -197,7 +197,7 @@ export default function Treinamento() {
     return lista.filter(v => {
       if (filtroStatus !== 'all' && v.status !== filtroStatus) return false;
       if (termo) {
-        const cliente = clientesMap?.get(v.clienteId);
+        const cliente = clientesMap?.get(v.cliente_id);
         const respId = v.technician_user_id ?? v.csm_user_id;
         const alvo = [
           cliente?.nome ?? '',
@@ -221,12 +221,12 @@ export default function Treinamento() {
   const clientesResumo = useMemo<ClienteResumo[]>(() => {
     const map = new Map<string, ClienteResumo>();
     lista.forEach(v => {
-      const cliente = clientesMap?.get(v.clienteId);
+      const cliente = clientesMap?.get(v.cliente_id);
       const dataRef = v.completed_date ?? v.planned_date;
-      const atual = map.get(v.clienteId);
+      const atual = map.get(v.cliente_id);
       if (!atual) {
-        map.set(v.clienteId, {
-          clienteId: v.clienteId,
+        map.set(v.cliente_id, {
+          clienteId: v.cliente_id,
           nome: cliente?.nome ?? 'Cliente',
           fazenda: cliente?.fazenda ?? null,
           total: 1,
@@ -245,7 +245,7 @@ export default function Treinamento() {
   const historicoCliente = useMemo(() => {
     if (!clienteDetalhe) return [];
     return lista
-      .filter(v => v.clienteId === clienteDetalhe.clienteId)
+      .filter(v => v.cliente_id === clienteDetalhe.clienteId)
       .sort((a, b) => (b.completed_date ?? b.planned_date ?? '').localeCompare(a.completed_date ?? a.planned_date ?? ''));
   }, [lista, clienteDetalhe]);
 
@@ -363,7 +363,7 @@ export default function Treinamento() {
                 </TableHeader>
                 <TableBody>
                   {filtradas.map(v => {
-                    const cliente = clientesMap?.get(v.clienteId);
+                    const cliente = clientesMap?.get(v.cliente_id);
                     return (
                       <TableRow key={v.id}>
                         <TableCell>
