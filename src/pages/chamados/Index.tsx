@@ -540,98 +540,80 @@ export default function ChamadosIndex() {
                 <TableRow>
                   <TableHead>Código</TableHead>
                   <TableHead>Título</TableHead>
-                  <TableHead>Cliente</TableHead>
-                  <TableHead>Duração</TableHead>
-                  <TableHead>Prioridade</TableHead>
-                  <TableHead>Status</TableHead>
+                  <TableHead>Cliente/Fazenda</TableHead>
                   <TableHead>Técnico</TableHead>
-                  <TableHead>Criado por</TableHead>
+                  <TableHead>Criado em</TableHead>
+                  <TableHead>Resolvido em</TableHead>
+                  <TableHead>Status</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {paginatedTickets.map((ticket) => (
-                  <TableRow key={ticket.id}>
-                    <TableCell className="font-medium">{ticket.ticket_code}</TableCell>
-                    <TableCell>
-                      <div className="max-w-[200px]">
-                        <div className="font-medium truncate">{ticket.title}</div>
-                        <div className="text-sm text-muted-foreground">
-                          {format(new Date(ticket.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Building2 className="h-4 w-4 text-muted-foreground shrink-0" />
-                        <div>
-                          <div className="font-medium">{ticket.client_name}</div>
-                          {ticket.client_fazenda && (
-                            <div className="text-sm text-muted-foreground">{ticket.client_fazenda}</div>
-                          )}
-                        </div>
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      {(() => {
-                        const seconds = calculateDuration(ticket.created_at, ticket.resolved_at);
-                        const isResolved = ticket.status === 'resolvido' || ticket.status === 'cancelado';
-                        const colorClass = !isResolved && seconds > 604800
-                          ? 'text-destructive'
-                          : !isResolved && seconds > 172800
-                            ? 'text-warning'
-                            : 'text-muted-foreground';
-                        return (
-                          <div className={`flex items-center gap-1.5 ${colorClass}`}>
-                            <Clock className="h-3.5 w-3.5" />
-                            <span className="text-sm font-medium">
-                              {formatDuration(seconds)}
-                            </span>
+                {paginatedTickets.map((ticket) => {
+                  const seconds = calculateDuration(ticket.created_at, ticket.resolved_at);
+                  const isResolved = ticket.status === 'resolvido' || ticket.status === 'cancelado';
+                  const durationColorClass = !isResolved && seconds > 604800
+                    ? 'text-destructive border-destructive/20 bg-destructive/10'
+                    : !isResolved && seconds > 172800
+                      ? 'text-warning border-warning/20 bg-warning/10'
+                      : 'text-muted-foreground';
+                  return (
+                    <TableRow key={ticket.id}>
+                      <TableCell className="font-medium font-mono">{ticket.ticket_code}</TableCell>
+                      <TableCell>
+                        <div className="max-w-[220px]">
+                          <div className="font-medium truncate">{ticket.title}</div>
+                          <div className="mt-0.5">
+                            {renderPriorityBadge(ticket.priority)}
                           </div>
-                        );
-                      })()}
-                    </TableCell>
-                    <TableCell>{renderPriorityBadge(ticket.priority)}</TableCell>
-                    <TableCell>{renderStatusBadge(ticket.status)}</TableCell>
-                    <TableCell>
-                      {ticket.technician_name ? (
-                        <div className="flex items-center gap-2">
-                          <User className="h-4 w-4 text-muted-foreground" />
-                          <span>{ticket.technician_name}</span>
                         </div>
-                      ) : (
-                        <span className="text-muted-foreground">Não atribuído</span>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {ticket.creator_name ? (
-                        <div className="flex items-center gap-2">
-                          <UserPlus className="h-4 w-4 text-muted-foreground" />
-                          <span>{ticket.creator_name}</span>
+                      </TableCell>
+                      <TableCell>
+                        <div className="font-medium">{ticket.client_name}</div>
+                        {ticket.client_fazenda && (
+                          <div className="text-sm text-muted-foreground">{ticket.client_fazenda}</div>
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        {ticket.technician_name ?? <span className="text-muted-foreground">Não atribuído</span>}
+                      </TableCell>
+                      <TableCell>
+                        {format(new Date(ticket.created_at), 'dd/MM/yyyy', { locale: ptBR })}
+                      </TableCell>
+                      <TableCell>
+                        {ticket.resolved_at
+                          ? format(new Date(ticket.resolved_at), 'dd/MM/yyyy', { locale: ptBR })
+                          : '—'}
+                      </TableCell>
+                      <TableCell>
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          {renderStatusBadge(ticket.status)}
+                          <Badge variant="outline" className={durationColorClass}>
+                            <Clock className="mr-1 h-3 w-3" />
+                            {formatDuration(seconds)}
+                          </Badge>
                         </div>
-                      ) : (
-                        <span className="text-muted-foreground">—</span>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right">
-                      <Button variant="ghost" size="sm" asChild>
-                        <Link to={`/chamados/${ticket.id}`}>
-                          <Eye className="h-4 w-4" />
-                        </Link>
-                      </Button>
-                      {canEditInList && (
-                        <Button variant="ghost" size="sm" onClick={() => navigate(`/chamados/${ticket.id}`, { state: { openEdit: true } })}>
-                          <Pencil className="h-4 w-4" />
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button variant="ghost" size="sm" asChild>
+                          <Link to={`/chamados/${ticket.id}`}>
+                            <Eye className="h-4 w-4" />
+                          </Link>
                         </Button>
-                      )}
-                      {canDeleteInList && (
-                        <Button variant="ghost" size="sm" onClick={() => setDeleteTarget(ticket.id)}>
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
+                        {canEditInList && (
+                          <Button variant="ghost" size="sm" onClick={() => navigate(`/chamados/${ticket.id}`, { state: { openEdit: true } })}>
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {canDeleteInList && (
+                          <Button variant="ghost" size="sm" onClick={() => setDeleteTarget(ticket.id)}>
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        )}
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </Card>
