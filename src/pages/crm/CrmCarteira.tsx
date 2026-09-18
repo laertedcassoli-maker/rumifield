@@ -100,7 +100,7 @@ export default function CrmCarteira() {
     }
 
     return list;
-  }, [clienteData, debouncedSearch, consultorFilter]);
+  }, [clienteData, debouncedSearch, consultorFilter, produtoFilter]);
 
   return (
     <div className="space-y-3 animate-fade-in pb-24 overflow-x-hidden">
