@@ -1,6 +1,6 @@
 # Roadmap
 
-- [ ] Agenda de Operações: cor por técnico + filtro por técnico + legenda (plano aprovado — implementando agora)
+- [x] Agenda de Operações: cor por técnico + filtro por técnico + legenda (validado no preview)
 - [ ] Vínculo corretiva↔preventiva "RumiFlow v1":
   - [ ] Investigar template "RumiFlow v1" no banco e reportar nome exato + contagens (ANTES de qualquer migration de dados)
   - [ ] Migration schema: corrective_maintenance + preventive_maintenance_id, contou_como_preventiva; backfill do vínculo pelo padrão CORR-VISIT-
