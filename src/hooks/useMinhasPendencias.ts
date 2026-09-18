@@ -187,20 +187,74 @@ export function useMinhasPendencias() {
     },
   });
 
+  const mapInstalacaoRows = (rows: any[]): PendenciaInstalacao[] =>
+    rows.map(s => ({
+      id: s.id,
+      installationId: s.installation_id,
+      stage: s.stage as string,
+      clienteNome: s.installations?.clientes?.nome ?? 'Cliente',
+      fazenda: s.installations?.clientes?.fazenda ?? null,
+      plannedDate: s.planned_date,
+      status: s.status as string,
+    }));
+
+  const STAGE_SELECT =
+    'id, installation_id, stage, status, planned_date, installations(clientes(nome, fazenda))';
+
+  const instalacoes = useQuery({
+    queryKey: ['installations', 'pendencias', uid],
+    enabled: !!uid,
+    queryFn: async (): Promise<PendenciaInstalacao[]> => {
+      const { data, error } = await (supabase as any)
+        .from('installation_stages')
+        .select(STAGE_SELECT)
+        .or(`technician_user_id.eq.${uid},csm_user_id.eq.${uid}`)
+        .in('status', ['planejado', 'em_andamento'])
+        .order('planned_date', { ascending: true, nullsFirst: false });
+      if (error) throw error;
+      return mapInstalacaoRows(data ?? []);
+    },
+  });
+
+  const aprovacoesInstalacao = useQuery({
+    queryKey: ['installations', 'pendencias-aprovacao', uid],
+    enabled: !!uid && canApproveInstalacao,
+    queryFn: async (): Promise<PendenciaInstalacao[]> => {
+      const { data, error } = await (supabase as any)
+        .from('installation_stages')
+        .select(STAGE_SELECT)
+        .eq('stage', 'pre_instalacao')
+        .eq('status', 'aguardando_aprovacao')
+        .order('planned_date', { ascending: true, nullsFirst: false });
+      if (error) throw error;
+      return mapInstalacaoRows(data ?? []);
+    },
+  });
+
   const total =
     (preventivas.data?.length ?? 0) +
     (visitas.data?.length ?? 0) +
     (coletaReversa.data?.length ?? 0) +
-    (envios.data?.length ?? 0);
+    (envios.data?.length ?? 0) +
+    (instalacoes.data?.length ?? 0) +
+    (aprovacoesInstalacao.data?.length ?? 0);
 
   return {
     preventivas,
     visitas,
     coletaReversa,
     envios,
+    instalacoes,
+    aprovacoesInstalacao,
+    canApproveInstalacao,
     total,
     isLoading:
-      preventivas.isLoading || visitas.isLoading || coletaReversa.isLoading || envios.isLoading,
+      preventivas.isLoading ||
+      visitas.isLoading ||
+      coletaReversa.isLoading ||
+      envios.isLoading ||
+      instalacoes.isLoading ||
+      (canApproveInstalacao && aprovacoesInstalacao.isLoading),
   };
 }
 
