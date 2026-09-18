@@ -72,7 +72,7 @@ export function useAgendaOperacoes() {
         const tecnicoNome = respId ? profiles.get(respId) ?? null : null;
         return {
           id: `stage-${r.id}`,
-          titulo: buildTitulo(fazenda ?? clienteNome, tecnicoNome),
+          titulo: buildTitulo(clienteNome, fazenda, tecnicoNome),
           data: r.planned_date as string,
           tecnicoNome,
           clienteNome,
@@ -111,7 +111,7 @@ export function useAgendaOperacoes() {
           : null;
         return {
           id: `visita-${r.id}`,
-          titulo: buildTitulo(fazenda ?? clienteNome, tecnicoNome),
+          titulo: buildTitulo(clienteNome, fazenda, tecnicoNome),
           data: r.planned_start_date as string,
           tecnicoNome,
           clienteNome,
@@ -157,7 +157,7 @@ export function useAgendaOperacoes() {
           const tecnicoNome = techId ? profiles.get(techId) ?? null : null;
           return {
             id: `preventiva-${r.id}`,
-            titulo: buildTitulo(fazenda ?? clienteNome, tecnicoNome),
+            titulo: buildTitulo(clienteNome, fazenda, tecnicoNome),
             data: r.planned_date as string,
             tecnicoNome,
             clienteNome,
