@@ -31,6 +31,16 @@ export interface PendenciaPedido {
   status: string;
 }
 
+export interface PendenciaInstalacao {
+  id: string;
+  installationId: string;
+  stage: string;
+  clienteNome: string;
+  fazenda: string | null;
+  plannedDate: string | null;
+  status: string;
+}
+
 const ROUTE_ITEM_PENDING = ["planejado", "reagendado"] as const;
 const ROUTE_PENDING = ['planejada', 'em_execucao'] as const;
 const VISIT_PENDING = ['em_elaboracao', 'planejada', 'em_execucao'] as const;
@@ -50,8 +60,9 @@ async function fetchClientesMap(ids: string[]) {
  * Somente leitura — nenhuma mutação. RLS de cada tabela continua valendo.
  */
 export function useMinhasPendencias() {
-  const { user } = useAuth();
+  const { user, role } = useAuth();
   const uid = user?.id;
+  const canApproveInstalacao = role === 'coordenador_servicos' || role === 'admin';
 
   const preventivas = useQuery({
     queryKey: ['my-preventive-routes', 'pendencias', uid],
