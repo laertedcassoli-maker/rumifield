@@ -1993,33 +1993,45 @@ export type Database = {
       }
       installation_stages: {
         Row: {
+          approved_at: string | null
+          approved_by: string | null
           checklist_template_id: string | null
           created_at: string
+          csm_user_id: string | null
           id: string
           installation_id: string
           planned_date: string | null
+          sales_email_attachment_path: string | null
           stage: string
           status: string
           technician_user_id: string | null
           updated_at: string
         }
         Insert: {
+          approved_at?: string | null
+          approved_by?: string | null
           checklist_template_id?: string | null
           created_at?: string
+          csm_user_id?: string | null
           id?: string
           installation_id: string
           planned_date?: string | null
+          sales_email_attachment_path?: string | null
           stage: string
           status?: string
           technician_user_id?: string | null
           updated_at?: string
         }
         Update: {
+          approved_at?: string | null
+          approved_by?: string | null
           checklist_template_id?: string | null
           created_at?: string
+          csm_user_id?: string | null
           id?: string
           installation_id?: string
           planned_date?: string | null
+          sales_email_attachment_path?: string | null
           stage?: string
           status?: string
           technician_user_id?: string | null
@@ -4475,6 +4487,10 @@ export type Database = {
       }
       is_crm_client_owner: {
         Args: { _client_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_installation_stage_responsible: {
+        Args: { _stage_id: string; _user_id: string }
         Returns: boolean
       }
       is_installation_stage_technician: {
