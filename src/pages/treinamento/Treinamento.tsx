@@ -102,6 +102,9 @@ export default function Treinamento() {
   const canAbrirVisita = role === 'admin' || role === 'coordenador_servicos' || role === 'coordenador_rplus';
 
   const [novaVisitaOpen, setNovaVisitaOpen] = useState(false);
+  const [editingVisita, setEditingVisita] = useState<TreinamentoItem | null>(null);
+  const [concluindoVisita, setConcluindoVisita] = useState<TreinamentoItem | null>(null);
+  const [excluindoVisita, setExcluindoVisita] = useState<TreinamentoItem | null>(null);
   const [filtroStatus, setFiltroStatus] = useState<'all' | 'pendente' | 'concluida'>('all');
   const [search, setSearch] = useState('');
   const [clienteDetalhe, setClienteDetalhe] = useState<ClienteResumo | null>(null);
@@ -185,24 +188,20 @@ export default function Treinamento() {
     enabled: templateIds.length > 0,
   });
 
-  const concluirMutation = useMutation({
+  const excluirMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { data, error } = await supabase
-        .from('training_visits')
-        .update({ status: 'concluida', completed_date: new Date().toISOString().slice(0, 10) })
-        .eq('id', id)
-        .select('id');
+      const { error } = await withTimeout(
+        supabase.from('training_visits').delete().eq('id', id).select('id')
+      );
       if (error) throw error;
-      if (!data || data.length === 0) {
-        throw new Error('A conclusão não foi confirmada pelo servidor. Verifique suas permissões.');
-      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['training-visits'] });
-      toast({ title: 'Treinamento marcado como concluído!' });
+      toast({ title: 'Visita de treinamento excluída.' });
+      setExcluindoVisita(null);
     },
     onError: (err: Error) => {
-      toast({ variant: 'destructive', title: 'Erro ao concluir', description: err.message });
+      toast({ variant: 'destructive', title: 'Erro ao excluir', description: err.message });
     },
   });
 
