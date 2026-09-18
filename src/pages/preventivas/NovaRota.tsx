@@ -184,6 +184,7 @@ export default function NovaRota() {
           .from('clientes')
           .select('id, nome, fazenda, estado, consultor_rplus_id, preventive_frequency_days, status, latitude, longitude, link_maps')
           .eq('status', 'ativo')
+          .eq('estoque_interno', false)
           .order('nome') as unknown as Promise<{ data: Array<{
             id: string;
             nome: string;
