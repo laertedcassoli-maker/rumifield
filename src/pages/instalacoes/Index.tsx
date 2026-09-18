@@ -11,10 +11,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { toast } from "sonner";
-import { HardHat, Plus, Loader2, Play, Settings2, Check, ChevronsUpDown, Building2, CalendarDays, User } from "lucide-react";
+import { HardHat, Plus, Loader2, Play, Settings2, Check, ChevronsUpDown, Building2, CalendarDays, User, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type StageType = 'pre_venda' | 'pre_instalacao' | 'instalacao';
@@ -79,6 +80,7 @@ export default function InstalacoesIndex() {
     stage: StageType;
     existing?: StageRow;
   } | null>(null);
+  const [instalacaoParaExcluir, setInstalacaoParaExcluir] = useState<InstallationRow | null>(null);
   const [stageTechnicianId, setStageTechnicianId] = useState<string>('');
   const [stagePlannedDate, setStagePlannedDate] = useState<string>('');
   const [stageTemplateId, setStageTemplateId] = useState<string>('');
@@ -215,6 +217,30 @@ export default function InstalacoesIndex() {
     },
   });
 
+  const deleteInstallationMutation = useMutation({
+    mutationFn: async (installationId: string) => {
+      const { data, error } = await (supabase as any)
+        .from('installations')
+        .delete()
+        .eq('id', installationId)
+        .select('id');
+      if (error) throw error;
+      if (!data || data.length === 0) {
+        throw new Error('A exclusão não foi confirmada pelo servidor. Verifique suas permissões e tente novamente.');
+      }
+      return data;
+    },
+    onSuccess: () => {
+      track('installation_deleted', {}, { entity: 'installation', entity_id: instalacaoParaExcluir?.id });
+      queryClient.invalidateQueries({ queryKey: ['installations'] });
+      toast.success('Instalação excluída!');
+      setInstalacaoParaExcluir(null);
+    },
+    onError: (error) => {
+      toast.error('Erro ao excluir instalação: ' + error.message);
+    },
+  });
+
   const saveStageMutation = useMutation({
     mutationFn: async () => {
       if (!stageDialog) return;
@@ -308,9 +334,22 @@ export default function InstalacoesIndex() {
                       </span>
                     )}
                   </CardTitle>
-                  <Badge variant={inst.status === 'concluido' ? 'outline' : 'secondary'} className="shrink-0">
-                    {inst.status === 'concluido' ? 'Concluída' : 'Em Andamento'}
-                  </Badge>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <Badge variant={inst.status === 'concluido' ? 'outline' : 'secondary'}>
+                      {inst.status === 'concluido' ? 'Concluída' : 'Em Andamento'}
+                    </Badge>
+                    {canManage && (
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                        aria-label={`Excluir instalação de ${inst.cliente?.nome || 'cliente'}`}
+                        onClick={() => setInstalacaoParaExcluir(inst)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </CardHeader>
               <CardContent className="space-y-2">
@@ -523,6 +562,36 @@ export default function InstalacoesIndex() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete installation confirmation */}
+      <AlertDialog open={!!instalacaoParaExcluir} onOpenChange={(open) => !open && !deleteInstallationMutation.isPending && setInstalacaoParaExcluir(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir instalação permanentemente?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação é irreversível e remove a instalação de{' '}
+              <strong>{instalacaoParaExcluir?.cliente?.nome || 'cliente'}</strong> junto com{' '}
+              <strong>todas as suas etapas, checklists respondidos e consumo de peças</strong>.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteInstallationMutation.isPending}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteInstallationMutation.isPending}
+              onClick={(e) => {
+                e.preventDefault();
+                if (instalacaoParaExcluir) {
+                  deleteInstallationMutation.mutate(instalacaoParaExcluir.id);
+                }
+              }}
+            >
+              {deleteInstallationMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Confirmar exclusão
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
