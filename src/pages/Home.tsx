@@ -129,7 +129,7 @@ export default function Home() {
       permKey: 'oficina_os',
     },
     {
-      title: 'Cadastro Ativos',
+      title: 'Ativos',
       icon: Box,
       url: '/oficina/itens',
       color: 'text-lime-600',
