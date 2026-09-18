@@ -692,9 +692,11 @@ export type Database = {
           checkout_lat: number | null
           checkout_lon: number | null
           client_id: string
+          contou_como_preventiva: boolean
           created_at: string
           id: string
           notes: string | null
+          preventive_maintenance_id: string | null
           public_token: string | null
           status: string
           updated_at: string
@@ -709,9 +711,11 @@ export type Database = {
           checkout_lat?: number | null
           checkout_lon?: number | null
           client_id: string
+          contou_como_preventiva?: boolean
           created_at?: string
           id?: string
           notes?: string | null
+          preventive_maintenance_id?: string | null
           public_token?: string | null
           status?: string
           updated_at?: string
@@ -726,9 +730,11 @@ export type Database = {
           checkout_lat?: number | null
           checkout_lon?: number | null
           client_id?: string
+          contou_como_preventiva?: boolean
           created_at?: string
           id?: string
           notes?: string | null
+          preventive_maintenance_id?: string | null
           public_token?: string | null
           status?: string
           updated_at?: string
@@ -754,6 +760,13 @@ export type Database = {
             columns: ["client_id"]
             isOneToOne: false
             referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "corrective_maintenance_preventive_maintenance_id_fkey"
+            columns: ["preventive_maintenance_id"]
+            isOneToOne: false
+            referencedRelation: "preventive_maintenance"
             referencedColumns: ["id"]
           },
           {
