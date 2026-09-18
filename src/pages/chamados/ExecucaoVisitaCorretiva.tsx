@@ -675,7 +675,7 @@ export default function ExecucaoVisitaCorretiva() {
 
       return result;
     },
-    onSuccess: (result) => {
+    onSuccess: (result, variables) => {
       track('corrective_visit_finalized', {
         result,
         ticket_id: visit?.ticket_id ?? null,
@@ -692,14 +692,18 @@ export default function ExecucaoVisitaCorretiva() {
         aguardando_peca: 'Visita encerrada - aguardando peça.'
       };
       
+      const contouPreventiva =
+        variables?.marcarComoPreventiva && visit?.checklist_template_id === RUMIFLOW_V1_TEMPLATE_ID;
       toast({
         title: messages[result],
-        description: result === 'resolvido' 
-          ? 'O chamado foi marcado como resolvido.' 
-          : 'O chamado permanece aberto para acompanhamento.',
+        description: (result === 'resolvido'
+          ? 'O chamado foi marcado como resolvido.'
+          : 'O chamado permanece aberto para acompanhamento.') +
+          (contouPreventiva ? ' A visita também foi registrada como preventiva do cliente.' : ''),
       });
-      
+
       setSelectedResult(null);
+      setContouComoPreventiva(false);
       setShowCompleteDialog(false);
       
       navigate(-1);
