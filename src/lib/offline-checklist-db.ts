@@ -104,14 +104,67 @@ export interface ChecklistSyncQueueItem {
   retryCount: number;
 }
 
+/** Fila dedicada ao treinamento combinado (separada para não colidir com o dispatch do checklist) */
+export interface TrainingSyncQueueItem {
+  id?: number;
+  table: 'training_visits' | 'training_checklist_responses';
+  operation: 'insert' | 'update';
+  data: Record<string, unknown>;
+  createdAt: string;
+  retryCount: number;
+}
+
 export interface ChecklistDeadLetterItem {
   id?: number;
-  table: ChecklistSyncQueueItem['table'];
+  table: ChecklistSyncQueueItem['table'] | TrainingSyncQueueItem['table'];
   operation: ChecklistSyncQueueItem['operation'];
   data: Record<string, unknown>;
   retryCount: number;
   errorMessage: string | null;
   createdAt: string;
+}
+
+/** Visita de treinamento armazenada localmente (espelha public.training_visits) */
+export interface OfflineTrainingVisit {
+  id: string;
+  cliente_id: string;
+  checklist_template_id: string | null;
+  technician_user_id: string | null;
+  csm_user_id: string | null;
+  created_by_user_id: string;
+  planned_date: string | null;
+  completed_date: string | null;
+  status: string;
+  contact_name: string | null;
+  contact_phone: string | null;
+  notes: string | null;
+  _pendingSync?: boolean;
+  _localId?: string;
+}
+
+/** Resposta de item do checklist de treinamento (espelha public.training_checklist_responses) */
+export interface OfflineTrainingChecklistResponse {
+  id: string;
+  training_visit_id: string;
+  checklist_template_item_id: string;
+  checked: boolean;
+  notes: string | null;
+  _pendingSync?: boolean;
+  _localId?: string;
+}
+
+/** Cache do modelo de checklist (template + blocos + itens) para uso sem sinal */
+export interface OfflineTrainingTemplate {
+  id: string;
+  name: string;
+  description: string | null;
+  blocks: {
+    id: string;
+    block_name: string;
+    order_index: number;
+    items: { id: string; item_name: string; order_index: number }[];
+  }[];
+  _cachedAt: string;
 }
 
 class OfflineChecklistDatabase extends Dexie {
