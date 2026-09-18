@@ -57,6 +57,9 @@ interface ValidationResult {
   warnings: string[];
 }
 
+// Template cuja visita corretiva pode contar também como preventiva
+const RUMIFLOW_V1_TEMPLATE_ID = '3b86c956-891a-4a82-9871-d8a5c2981a6d';
+
 export default function ExecucaoVisitaCorretiva() {
   const { visitId } = useParams<{ visitId: string }>();
   const navigate = useNavigate();
@@ -70,6 +73,7 @@ export default function ExecucaoVisitaCorretiva() {
   const [showWarningDialog, setShowWarningDialog] = useState(false);
   const [showResultDialog, setShowResultDialog] = useState(false);
   const [selectedResult, setSelectedResult] = useState<'resolvido' | 'parcial' | 'aguardando_peca' | null>(null);
+  const [contouComoPreventiva, setContouComoPreventiva] = useState(false);
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
   const [checklistStatus, setChecklistStatus] = useState<'not_started' | 'in_progress' | 'completed'>('not_started');
   const [sharingTarget, setSharingTarget] = useState<'produtor' | 'interno' | null>(null);
@@ -161,10 +165,15 @@ export default function ExecucaoVisitaCorretiva() {
 
       const { data: correctiveReport, error: correctiveReportError } = await supabase
         .from('corrective_maintenance')
-        .select('public_token')
+        .select('public_token, preventive_maintenance_id')
         .eq('visit_id', visitData.id)
         .maybeSingle();
       if (correctiveReportError) throw correctiveReportError;
+
+      // Vínculo real passa a ser a fonte preferencial; match por notes fica como fallback legado
+      if (!preventiveId && correctiveReport?.preventive_maintenance_id) {
+        preventiveId = correctiveReport.preventive_maintenance_id;
+      }
 
       const publicToken = correctiveReport?.public_token || null;
 
@@ -274,6 +283,7 @@ export default function ExecucaoVisitaCorretiva() {
             visit_id: visitId,
             client_id: visit?.client_id,
             checklist_template_id: visit?.checklist_template_id || null,
+            preventive_maintenance_id: preventiveId,
             status: 'em_andamento',
             checkin_at: checkinAt,
             checkin_lat: lat,
@@ -336,7 +346,13 @@ export default function ExecucaoVisitaCorretiva() {
 
   // Complete visit mutation
   const completeMutation = useMutation({
-    mutationFn: async (result: 'resolvido' | 'parcial' | 'aguardando_peca') => {
+    mutationFn: async ({
+      result,
+      marcarComoPreventiva,
+    }: {
+      result: 'resolvido' | 'parcial' | 'aguardando_peca';
+      marcarComoPreventiva: boolean;
+    }) => {
       if (!visit) throw new Error('Visita não encontrada');
       // Fallback: pick up modelo previously chosen in the manual add dialog
       const storedModelo = visit.preventiveId
@@ -419,6 +435,26 @@ export default function ExecucaoVisitaCorretiva() {
               public_token: publicToken,
             }, { onConflict: 'visit_id' });
           if (cmError) throw cmError;
+        }
+
+        // Promover o placeholder para preventiva concluída — apenas checklist RumiFlow v1 com confirmação explícita
+        if (
+          marcarComoPreventiva &&
+          visit.checklist_template_id === RUMIFLOW_V1_TEMPLATE_ID &&
+          visit.preventiveId
+        ) {
+          const hoje = new Date().toISOString().split('T')[0];
+          const { error: pmPromoError } = await supabase
+            .from('preventive_maintenance')
+            .update({ status: 'concluida', completed_date: hoje })
+            .eq('id', visit.preventiveId);
+          if (pmPromoError) throw pmPromoError;
+
+          const { error: cmFlagError } = await supabase
+            .from('corrective_maintenance')
+            .update({ contou_como_preventiva: true })
+            .eq('visit_id', visit.id);
+          if (cmFlagError) throw cmFlagError;
         }
 
         // Auto-create pedidos for consumed parts
@@ -639,7 +675,7 @@ export default function ExecucaoVisitaCorretiva() {
 
       return result;
     },
-    onSuccess: (result) => {
+    onSuccess: (result, variables) => {
       track('corrective_visit_finalized', {
         result,
         ticket_id: visit?.ticket_id ?? null,
@@ -656,14 +692,18 @@ export default function ExecucaoVisitaCorretiva() {
         aguardando_peca: 'Visita encerrada - aguardando peça.'
       };
       
+      const contouPreventiva =
+        variables?.marcarComoPreventiva && visit?.checklist_template_id === RUMIFLOW_V1_TEMPLATE_ID;
       toast({
         title: messages[result],
-        description: result === 'resolvido' 
-          ? 'O chamado foi marcado como resolvido.' 
-          : 'O chamado permanece aberto para acompanhamento.',
+        description: (result === 'resolvido'
+          ? 'O chamado foi marcado como resolvido.'
+          : 'O chamado permanece aberto para acompanhamento.') +
+          (contouPreventiva ? ' A visita também foi registrada como preventiva do cliente.' : ''),
       });
-      
+
       setSelectedResult(null);
+      setContouComoPreventiva(false);
       setShowCompleteDialog(false);
       
       navigate(-1);
@@ -923,6 +963,7 @@ export default function ExecucaoVisitaCorretiva() {
 
   const handleResultSelection = (result: 'resolvido' | 'parcial' | 'aguardando_peca') => {
     setSelectedResult(result);
+    setContouComoPreventiva(false);
     setShowResultDialog(false);
     setShowCompleteDialog(true);
   };
@@ -1461,12 +1502,39 @@ export default function ExecucaoVisitaCorretiva() {
                     {format(new Date(), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}
                   </p>
                 </div>
+
+                {visit?.checklist_template_id === RUMIFLOW_V1_TEMPLATE_ID && (
+                  <div className="rounded-lg border p-3 space-y-2">
+                    <p className="text-sm font-medium">Esta visita também contou como uma preventiva?</p>
+                    <p className="text-xs text-muted-foreground">
+                      Se sim, ela passará a contar como a última preventiva deste cliente.
+                    </p>
+                    <div className="flex gap-2">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={contouComoPreventiva ? 'default' : 'outline'}
+                        onClick={() => setContouComoPreventiva(true)}
+                      >
+                        Sim
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={!contouComoPreventiva ? 'default' : 'outline'}
+                        onClick={() => setContouComoPreventiva(false)}
+                      >
+                        Não
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => setSelectedResult(null)}>Cancelar</AlertDialogCancel>
-            <AlertDialogAction 
+            <AlertDialogCancel onClick={() => { setSelectedResult(null); setContouComoPreventiva(false); }}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
               onClick={(e) => {
                 if (!selectedResult) return;
                 if (hasSolenoideConsumed && !solenoideModelo) {
@@ -1475,7 +1543,7 @@ export default function ExecucaoVisitaCorretiva() {
                     : null;
                   if (stored === '2x' || stored === '3x') {
                     setSolenoideModelo(stored);
-                    completeMutation.mutate(selectedResult);
+                    completeMutation.mutate({ result: selectedResult, marcarComoPreventiva: contouComoPreventiva });
                     return;
                   }
                   e.preventDefault();
@@ -1483,7 +1551,7 @@ export default function ExecucaoVisitaCorretiva() {
                   setShowSolenoideDialog(true);
                   return;
                 }
-                completeMutation.mutate(selectedResult);
+                completeMutation.mutate({ result: selectedResult, marcarComoPreventiva: contouComoPreventiva });
               }}
               disabled={completeMutation.isPending || !selectedResult}
             >
@@ -1502,7 +1570,7 @@ export default function ExecucaoVisitaCorretiva() {
         onConfirm={(modelo) => {
           setSolenoideModelo(modelo);
           setShowSolenoideDialog(false);
-          if (selectedResult) completeMutation.mutate(selectedResult);
+          if (selectedResult) completeMutation.mutate({ result: selectedResult, marcarComoPreventiva: contouComoPreventiva });
         }}
         description="A peça PRD00605 foi consumida nesta visita. Selecione o modelo (2x ou 3x) antes de encerrar."
       />
