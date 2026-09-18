@@ -745,16 +745,25 @@ export default function InstallationChecklistExecution({ stageId, stageTemplateI
 
       if (error) throw error;
 
-      // Stage -> concluido
+      // Read the stage type to decide the transition
+      const { data: currentStage } = await (supabase as any)
+        .from('installation_stages')
+        .select('stage, installation_id')
+        .eq('id', stageId)
+        .maybeSingle();
+
+      const preInstalacao = currentStage?.stage === 'pre_instalacao';
+
+      // Pré Instalação -> aguardando aprovação do Coordenador de Serviços
       const { data: stageRow } = await (supabase as any)
         .from('installation_stages')
-        .update({ status: 'concluido' })
+        .update({ status: preInstalacao ? 'aguardando_aprovacao' : 'concluido' })
         .eq('id', stageId)
         .select('installation_id')
         .single();
 
-      // If every stage of the installation is done, conclude the installation too
-      if (stageRow?.installation_id) {
+      // Pré Instalação never concludes the installation — it waits for approval
+      if (!preInstalacao && stageRow?.installation_id) {
         const { data: siblings } = await (supabase as any)
           .from('installation_stages')
           .select('status')
@@ -767,16 +776,20 @@ export default function InstallationChecklistExecution({ stageId, stageTemplateI
             .eq('id', stageRow.installation_id);
         }
       }
+
+      return { preInstalacao };
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       track('installation_checklist_completed', {
         stage_id: stageId,
         checklist_id: existingChecklist?.id ?? null,
+        sent_to_approval: !!result?.preInstalacao,
       }, { entity: 'installation_checklist', entity_id: existingChecklist?.id ?? stageId });
       queryClient.invalidateQueries({ queryKey });
       queryClient.invalidateQueries({ queryKey: ['installations'] });
       queryClient.invalidateQueries({ queryKey: ['installation-stage', stageId] });
-      toast.success('Checklist concluído!');
+      queryClient.invalidateQueries({ queryKey: ['installation-stage-type', stageId] });
+      toast.success(result?.preInstalacao ? 'Checklist enviado para aprovação!' : 'Checklist concluído!');
       setIsConfirmCompleteOpen(false);
       onStatusChange?.('completed');
     },
