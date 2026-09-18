@@ -2,8 +2,6 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { useCarteiraData } from '@/hooks/useCrmData';
-import type { ProductCode } from '@/hooks/useCrmData';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -40,7 +38,19 @@ function melhor(a: Ocorrencia | null, b: Ocorrencia | null): Ocorrencia | null {
 export default function ClientesRF() {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { clientes, clientProducts, isLoading: loadingCrm } = useCarteiraData();
+  const { data: clientes, isLoading: loadingClientes } = useQuery({
+    queryKey: ['clientes-rf-lista'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('clientes')
+        .select('id, nome, fazenda, cidade, estado, status')
+        .eq('estoque_interno', false)
+        .eq('status', 'ativo')
+        .order('nome');
+      if (error) throw error;
+      return data ?? [];
+    },
+  });
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search, 300);
 
@@ -98,14 +108,7 @@ export default function ClientesRF() {
   }, [error, toast]);
 
   const lista = useMemo(() => {
-    const rumiflowIds = new Set(
-      (clientProducts ?? [])
-        .filter((p: any) => p.stage === 'ganho' && (p.product_code as ProductCode) === 'rumiflow')
-        .map((p: any) => p.client_id as string)
-    );
-
     let items = (clientes ?? [])
-      .filter((c: any) => rumiflowIds.has(c.id))
       .map((c: any) => ({
         ...c,
         ocorrencia: ocorrencias?.get(c.id) ?? null,
