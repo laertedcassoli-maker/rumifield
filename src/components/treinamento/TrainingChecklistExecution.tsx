@@ -168,10 +168,21 @@ export default function TrainingChecklistExecution({
 
   const selectedTemplate = availableTemplates.find(t => t.id === templateId);
 
-  // Ao escolher o checklist, cria a visita de treinamento local
+  // Ao escolher o checklist: modo existente grava na própria visita; modo combinado cria a visita local
   const handleSelectTemplate = useCallback(
     async (newTemplateId: string) => {
       setTemplateId(newTemplateId);
+      if (existingVisitId) {
+        if (visitHadTemplate || !visitId) return;
+        try {
+          await updateTrainingVisit(visitId, { checklist_template_id: newTemplateId });
+          setVisitHadTemplate(true);
+        } catch (error) {
+          console.error(error);
+          toast.error('Não foi possível gravar o checklist na visita.');
+        }
+        return;
+      }
       if (visitId) return; // visita já criada nesta sessão
       setCreating(true);
       try {
@@ -198,7 +209,18 @@ export default function TrainingChecklistExecution({
         setCreating(false);
       }
     },
-    [clienteId, createTrainingVisit, getResponses, responsavelTipo, responsavelUserId, user, visitId]
+    [
+      clienteId,
+      createTrainingVisit,
+      existingVisitId,
+      getResponses,
+      responsavelTipo,
+      responsavelUserId,
+      updateTrainingVisit,
+      user,
+      visitHadTemplate,
+      visitId,
+    ]
   );
 
   const handleToggleItem = async (itemId: string, checked: boolean) => {
