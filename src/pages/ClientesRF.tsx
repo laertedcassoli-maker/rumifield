@@ -4,7 +4,6 @@ import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Search, ChevronRight, CalendarDays } from 'lucide-react';
 import { format } from 'date-fns';
@@ -18,11 +17,6 @@ interface Ocorrencia {
   data: string;
   origem: OrigemOcorrencia;
 }
-
-const ORIGEM_LABELS: Record<OrigemOcorrencia, string> = {
-  pedido: 'Pedido de peças',
-  visita: 'Visita técnica',
-};
 
 function melhor(a: Ocorrencia | null, b: Ocorrencia | null): Ocorrencia | null {
   if (!a) return b;
@@ -186,11 +180,6 @@ export default function ClientesRF() {
                       </span>
                     ) : (
                       <span>Sem ocorrências</span>
-                    )}
-                    {c.ocorrencia && (
-                      <Badge variant="outline" className="text-[10px] px-1.5 py-0">
-                        {ORIGEM_LABELS[c.ocorrencia.origem]}
-                      </Badge>
                     )}
                   </div>
                 </div>

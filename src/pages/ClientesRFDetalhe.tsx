@@ -1,3 +1,4 @@
+import { useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -5,10 +6,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, MapPin, Package, Truck } from 'lucide-react';
+import { ArrowLeft, MapPin, Package, RefreshCcw, Truck } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { ClienteHistoricoTab } from '@/components/crm/ClienteHistoricoTab';
+import { PedidoDetalheDialog } from '@/components/clientes-rf/PedidoDetalheDialog';
 
 const TIPO_LABELS: Record<string, string> = {
   envio: 'Envio',
@@ -29,6 +31,8 @@ const STATUS_LABELS: Record<string, string> = {
 export default function ClientesRFDetalhe() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const [tipoFilter, setTipoFilter] = useState<'all' | 'envio' | 'coleta_reversa'>('all');
+  const [pedidoSelecionadoId, setPedidoSelecionadoId] = useState<string | null>(null);
 
   const { data: cliente, isLoading: loadingCliente } = useQuery({
     queryKey: ['clientes-rf-detalhe', id],
@@ -59,6 +63,13 @@ export default function ClientesRFDetalhe() {
     enabled: !!id,
   });
 
+  const pedidosFiltrados = useMemo(
+    () => tipoFilter === 'all'
+      ? pedidos
+      : pedidos.filter(pedido => pedido.tipo_solicitacao === tipoFilter),
+    [pedidos, tipoFilter],
+  );
+
   return (
     <div className="space-y-4 animate-fade-in pb-24 overflow-x-hidden">
       <Button variant="ghost" size="sm" className="-ml-2" onClick={() => navigate('/clientes-rf')}>
@@ -84,32 +95,67 @@ export default function ClientesRFDetalhe() {
         </div>
       )}
 
-      <section className="space-y-2">
-        <h2 className="text-sm font-semibold">Serviços Técnicos</h2>
-        {id && <ClienteHistoricoTab clientId={id} />}
-      </section>
+      <div className="grid gap-4 md:grid-cols-2 items-start">
+        <section className="space-y-2 min-w-0">
+          <h2 className="text-sm font-semibold">Serviços Técnicos</h2>
+          {id && <ClienteHistoricoTab clientId={id} />}
+        </section>
 
-      <section className="space-y-2">
-        <h2 className="text-sm font-semibold">Envios/Coleta Reversa</h2>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base">Histórico de solicitações</CardTitle>
-          </CardHeader>
-          <CardContent>
+        <section className="space-y-2 min-w-0">
+          <h2 className="text-sm font-semibold">Envios/Coleta Reversa</h2>
+          <Card>
+            <CardHeader className="pb-2 space-y-3">
+              <CardTitle className="text-base">Histórico de solicitações</CardTitle>
+              <div className="flex items-center gap-1 flex-wrap">
+                <Button
+                  variant={tipoFilter === 'all' ? 'secondary' : 'outline'}
+                  size="sm"
+                  onClick={() => setTipoFilter('all')}
+                  className="h-7 text-xs"
+                >
+                  Todos
+                </Button>
+                <Button
+                  variant={tipoFilter === 'envio' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setTipoFilter(tipoFilter === 'envio' ? 'all' : 'envio')}
+                  className="h-7 text-xs gap-1"
+                >
+                  <Truck className="h-3 w-3" />
+                  Envios
+                </Button>
+                <Button
+                  variant={tipoFilter === 'coleta_reversa' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => setTipoFilter(tipoFilter === 'coleta_reversa' ? 'all' : 'coleta_reversa')}
+                  className="h-7 text-xs gap-1"
+                >
+                  <RefreshCcw className="h-3 w-3" />
+                  Coleta Reversa
+                </Button>
+              </div>
+            </CardHeader>
+            <CardContent>
             {loadingPedidos ? (
               <div className="space-y-2">
                 {[0, 1, 2].map(i => (
                   <Skeleton key={i} className="h-16 w-full" />
                 ))}
               </div>
-            ) : pedidos.length === 0 ? (
+            ) : pedidosFiltrados.length === 0 ? (
               <p className="text-center text-sm text-muted-foreground py-4">
                 Nenhum envio ou coleta reversa registrado
               </p>
             ) : (
               <div className="space-y-3">
-                {pedidos.map((p: any) => (
-                  <div key={p.id} className="flex gap-3 border-b last:border-0 pb-3 last:pb-0">
+                {pedidosFiltrados.map((p: any) => (
+                  <Button
+                    key={p.id}
+                    type="button"
+                    variant="ghost"
+                    onClick={() => setPedidoSelecionadoId(p.id)}
+                    className="h-auto w-full justify-start gap-3 rounded-none border-b px-0 pb-3 pt-0 text-left last:border-0 last:pb-0"
+                  >
                     <div className="shrink-0 w-8 h-8 rounded-full bg-muted flex items-center justify-center">
                       {p.tipo_solicitacao === 'coleta_reversa' ? (
                         <Truck className="h-4 w-4 text-muted-foreground" />
@@ -139,13 +185,22 @@ export default function ClientesRFDetalhe() {
                         </p>
                       )}
                     </div>
-                  </div>
+                  </Button>
                 ))}
               </div>
             )}
-          </CardContent>
-        </Card>
-      </section>
+            </CardContent>
+          </Card>
+        </section>
+      </div>
+
+      <PedidoDetalheDialog
+        pedidoId={pedidoSelecionadoId}
+        open={!!pedidoSelecionadoId}
+        onOpenChange={open => {
+          if (!open) setPedidoSelecionadoId(null);
+        }}
+      />
     </div>
   );
 }
