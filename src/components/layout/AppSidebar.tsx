@@ -242,7 +242,7 @@ export function AppSidebar() {
                   <SidebarMenuItem>
                     <CollapsibleTrigger asChild>
                       <SidebarMenuButton isActive={isInstalacoesActive}>
-                        <NewGearIcon className="h-4 w-4" />
+                        <GearWrenchIcon className="h-4 w-4" />
                         <span>Novas Instalações</span>
                         <ChevronDown className="ml-auto h-4 w-4 transition-transform group-data-[state=open]/collapsible:rotate-180" />
                       </SidebarMenuButton>
