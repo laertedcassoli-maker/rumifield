@@ -231,6 +231,128 @@ class OfflineChecklistDatabase extends Dexie {
     this.version(5).stores({
       checklistDeadLetter: "++id, table, operation, createdAt",
     });
+
+    // Version 6: treinamento combinado (visitas, respostas e cache de templates)
+    this.version(6).stores({
+      trainingVisits: "id, cliente_id, status, _pendingSync",
+      trainingChecklistResponses: "id, training_visit_id, checklist_template_item_id, _pendingSync",
+      trainingTemplates: "id",
+      trainingSyncQueue: "++id, table, operation, createdAt",
+    });
+  }
+
+  // ============ Treinamento combinado ============
+
+  async addToTrainingSyncQueue(
+    table: TrainingSyncQueueItem['table'],
+    operation: TrainingSyncQueueItem['operation'],
+    data: Record<string, unknown>
+  ): Promise<void> {
+    await this.trainingSyncQueue.add({
+      table,
+      operation,
+      data,
+      createdAt: new Date().toISOString(),
+      retryCount: 0,
+    });
+  }
+
+  async getPendingTrainingSyncItems(): Promise<TrainingSyncQueueItem[]> {
+    return this.trainingSyncQueue.toArray();
+  }
+
+  async removeTrainingSyncItem(id: number): Promise<void> {
+    await this.trainingSyncQueue.delete(id);
+  }
+
+  async incrementTrainingRetryCount(id: number): Promise<void> {
+    const item = await this.trainingSyncQueue.get(id);
+    if (item) {
+      await this.trainingSyncQueue.update(id, { retryCount: item.retryCount + 1 });
+    }
+  }
+
+  async moveTrainingToDeadLetter(item: TrainingSyncQueueItem, errorMessage: string | null): Promise<void> {
+    await this.transaction("rw", this.trainingSyncQueue, this.checklistDeadLetter, async () => {
+      await this.checklistDeadLetter.add({
+        table: item.table,
+        operation: item.operation,
+        data: item.data,
+        retryCount: item.retryCount,
+        errorMessage,
+        createdAt: new Date().toISOString(),
+      });
+      if (item.id != null) {
+        await this.trainingSyncQueue.delete(item.id);
+      }
+    });
+  }
+
+  async getTrainingPendingCount(): Promise<number> {
+    return this.trainingSyncQueue.count();
+  }
+
+  /** Cria a visita de treinamento localmente e enfileira o envio */
+  async createTrainingVisitLocally(visit: OfflineTrainingVisit): Promise<void> {
+    await this.trainingVisits.put({ ...visit, _pendingSync: true, _localId: visit.id });
+    await this.addToTrainingSyncQueue('training_visits', 'insert', {
+      id: visit.id,
+      cliente_id: visit.cliente_id,
+      checklist_template_id: visit.checklist_template_id,
+      technician_user_id: visit.technician_user_id,
+      csm_user_id: visit.csm_user_id,
+      created_by_user_id: visit.created_by_user_id,
+      planned_date: visit.planned_date,
+      completed_date: visit.completed_date,
+      status: visit.status,
+      contact_name: visit.contact_name,
+      contact_phone: visit.contact_phone,
+      notes: visit.notes,
+    });
+  }
+
+  /** Atualiza a visita local e enfileira a atualização */
+  async updateTrainingVisitLocally(
+    id: string,
+    updates: Partial<Pick<OfflineTrainingVisit, 'status' | 'completed_date' | 'contact_name' | 'contact_phone' | 'notes' | 'checklist_template_id'>>
+  ): Promise<void> {
+    await this.trainingVisits.update(id, { ...updates, _pendingSync: true });
+    await this.addToTrainingSyncQueue('training_visits', 'update', { id, ...updates });
+  }
+
+  async getTrainingVisit(id: string): Promise<OfflineTrainingVisit | undefined> {
+    return this.trainingVisits.get(id);
+  }
+
+  /** Grava (ou regrava) a resposta de um item e enfileira o envio */
+  async setTrainingResponseLocally(response: OfflineTrainingChecklistResponse): Promise<void> {
+    await this.trainingChecklistResponses.put({ ...response, _pendingSync: true, _localId: response.id });
+    await this.addToTrainingSyncQueue('training_checklist_responses', 'insert', {
+      id: response.id,
+      training_visit_id: response.training_visit_id,
+      checklist_template_item_id: response.checklist_template_item_id,
+      checked: response.checked,
+      notes: response.notes,
+    });
+  }
+
+  async getTrainingResponses(visitId: string): Promise<OfflineTrainingChecklistResponse[]> {
+    return this.trainingChecklistResponses
+      .where('training_visit_id')
+      .equals(visitId)
+      .toArray();
+  }
+
+  async cacheTrainingTemplates(templates: Omit<OfflineTrainingTemplate, '_cachedAt'>[]): Promise<void> {
+    if (templates.length === 0) return;
+    await this.trainingTemplates.bulkPut(
+      templates.map(t => ({ ...t, _cachedAt: new Date().toISOString() }))
+    );
+  }
+
+  async getCachedTrainingTemplates(): Promise<OfflineTrainingTemplate[]> {
+    const all = await this.trainingTemplates.toArray();
+    return all.sort((a, b) => a.name.localeCompare(b.name));
   }
 
   // Add item to sync queue
