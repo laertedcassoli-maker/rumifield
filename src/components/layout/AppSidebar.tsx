@@ -42,6 +42,7 @@ export function AppSidebar() {
   // Main menu items with permission keys
   const mainMenuItems = [
     { title: 'Início', icon: Home, url: '/', permKey: 'inicio' },
+    { title: 'Agenda de Operações', icon: CalendarDays, url: '/agenda-operacoes', permKey: 'agenda_operacoes' },
     { title: 'Minhas Pendências', icon: ListTodo, url: '/minhas-pendencias', permKey: 'minhas_pendencias' },
     { title: 'Minhas Rotas', icon: Navigation, url: '/preventivas/minhas-rotas', permKey: 'minhas_rotas' },
   ].filter(item => canAccess(item.permKey));

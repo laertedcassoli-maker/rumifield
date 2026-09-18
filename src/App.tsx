@@ -42,6 +42,7 @@ import PreventivasNovaRota from "./pages/preventivas/NovaRota";
 import PreventivasDetalheRota from "./pages/preventivas/DetalheRota";
 import PreventivasMinhasRotas from "./pages/preventivas/MinhasRotas";
 import MinhasPendencias from "./pages/MinhasPendencias";
+import AgendaOperacoes from "./pages/AgendaOperacoes";
 import InstalacoesIndex from "./pages/instalacoes/Index";
 import InstalacoesExecucaoEtapa from "./pages/instalacoes/ExecucaoEtapa";
 
@@ -366,6 +367,15 @@ const App = () => (
                 </AppLayout>
               }
             />
+            <Route
+              path="/agenda-operacoes"
+              element={
+                <AppLayout>
+                  <AgendaOperacoes />
+                </AppLayout>
+              }
+            />
+
             <Route
               path="/instalacoes"
               element={
