@@ -22,3 +22,7 @@
 - [x] Carteira CRM: filtro por produto ativo (Select "Todos os produtos" + 5 produtos, filtra activeProducts) — validado no preview (81 -> 57 com RumiFlow)
 - [x] Trocar ícone de "Novas Instalações" de House para Construction (lucide-react) — validado no preview
 - [x] Ícone comum engrenagem + selo NEW (NewGearIcon) em "Novas Instalações" e item filho "Instalação" — validado no preview
+- [x] clientes.fazenda preenchido via planilha Google Sheets: 76 na 1ª rodada + 3 prováveis (Canto Porto, Agro Guia, Giongo e Hammel) + Mauricio Coelho (Sede/Rotatória)
+- [ ] Revisar possível duplicata: dois cadastros "MAURICIO SILVEIRA COELHO" (16a722fd = Santa Luzia - Sede; bfd139dc = Santa Luzia - Rotatória) — verificar se algum tem pedidos/visitas/OS vinculados que o outro não tem; confirmar se são dois pontos de ordenha reais ou duplicata a mesclar (aguardando revisão do usuário)
+- [ ] Fazenda: 2 duvidosos não gravados (Cristian Martins Pereira/Ferreira, João Carlos/Cezar Gatti) e 6 sem correspondência — aguardando decisão
+- [ ] sync-imilk-clientes: mapeamento dos campos imilk_* confirmado parcialmente — aguardando confirmação se grava também city/state
