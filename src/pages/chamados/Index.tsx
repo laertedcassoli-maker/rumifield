@@ -35,9 +35,6 @@ import {
   XCircle,
   ChevronLeft,
   ChevronRight,
-  Building2,
-  User,
-  UserPlus,
   Calendar as CalendarIcon,
   Check,
 } from 'lucide-react';
