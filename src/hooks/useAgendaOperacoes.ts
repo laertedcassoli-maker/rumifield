@@ -41,14 +41,10 @@ function buildTitulo(clienteNome: string, fazenda: string | null, tecnicoNome: s
   return tecnicoNome ? `${base} — ${tecnicoNome}` : base;
 }
 
-// Ícone de grupo no início do título — único ponto de montagem usado pelas 3 fontes.
-const ICONE_GRUPO: Record<AgendaGrupo, string> = {
-  novas_instalacoes: '🏗️',
-  instalacoes_existentes: '🔧',
-};
-
-function tituloEvento(grupo: AgendaGrupo, clienteNome: string, fazenda: string | null, tecnicoNome: string | null) {
-  return `${ICONE_GRUPO[grupo]} ${buildTitulo(clienteNome, fazenda, tecnicoNome)}`;
+// O ícone de grupo é renderizado no evento/legenda da página (AgendaOperacoes.tsx);
+// o título do evento fica livre de prefixos, pois o FullCalendar é customizado lá.
+function tituloEvento(clienteNome: string, fazenda: string | null, tecnicoNome: string | null) {
+  return buildTitulo(clienteNome, fazenda, tecnicoNome);
 }
 
 /**
@@ -83,7 +79,7 @@ export function useAgendaOperacoes() {
         const tecnicoNome = respId ? profiles.get(respId) ?? null : null;
         return {
           id: `stage-${r.id}`,
-          titulo: tituloEvento('novas_instalacoes', clienteNome, fazenda, tecnicoNome),
+          titulo: tituloEvento(clienteNome, fazenda, tecnicoNome),
           data: r.planned_date as string,
           tecnicoNome,
           clienteNome,
@@ -122,7 +118,7 @@ export function useAgendaOperacoes() {
           : null;
         return {
           id: `visita-${r.id}`,
-          titulo: tituloEvento('instalacoes_existentes', clienteNome, fazenda, tecnicoNome),
+          titulo: tituloEvento(clienteNome, fazenda, tecnicoNome),
           data: r.planned_start_date as string,
           tecnicoNome,
           clienteNome,
@@ -168,7 +164,7 @@ export function useAgendaOperacoes() {
           const tecnicoNome = techId ? profiles.get(techId) ?? null : null;
           return {
             id: `preventiva-${r.id}`,
-          titulo: tituloEvento('instalacoes_existentes', clienteNome, fazenda, tecnicoNome),
+          titulo: tituloEvento(clienteNome, fazenda, tecnicoNome),
           data: r.planned_date as string,
             tecnicoNome,
             clienteNome,

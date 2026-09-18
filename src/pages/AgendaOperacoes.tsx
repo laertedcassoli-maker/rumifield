@@ -5,7 +5,8 @@ import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import listPlugin from '@fullcalendar/list';
 import ptBrLocale from '@fullcalendar/core/locales/pt-br';
-import { CalendarDays } from 'lucide-react';
+import { CalendarDays, MapPin } from 'lucide-react';
+import { GearWrenchIcon } from '@/components/icons/GearWrenchIcon';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -44,6 +45,15 @@ const PALETA_TECNICOS = [
 ];
 
 const COR_SEM_RESPONSAVEL = 'hsl(215, 16%, 55%)'; // cinza neutro
+
+/** Ícone de grupo — os mesmos usados no menu lateral (engrenagem+chave / MapPin).
+ *  Cor neutra: herda a cor de texto do evento via currentColor. */
+function GrupoIcon({ grupo, className }: { grupo: AgendaGrupo; className?: string }) {
+  if (grupo === 'novas_instalacoes') {
+    return <GearWrenchIcon className={className} wrenchClassName="h-1.5 w-1.5" />;
+  }
+  return <MapPin className={className} />;
+}
 
 /** Cores fixas (tons suaves) para os técnicos de campo do fluxo de peças.
  *  O banco guarda nome completo (ex.: "Phelipe Rogerio"), por isso usamos prefixo. */
@@ -138,11 +148,13 @@ export default function AgendaOperacoes() {
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground">
         <span className="flex items-center gap-1.5">
           <span className="inline-block h-3 w-3 rounded-none border-2 border-solid border-foreground/60" />
-          🏗️ Novas Instalações
+          <GearWrenchIcon className="h-3 w-3" wrenchClassName="h-1.5 w-1.5" />
+          Novas Instalações
         </span>
         <span className="flex items-center gap-1.5">
           <span className="inline-block h-3 w-3 rounded-full border-2 border-solid border-foreground/60" />
-          🔧 Instalações Existentes
+          <MapPin className="h-3 w-3" />
+          Instalações Existentes
         </span>
         <span className="text-muted-foreground/60">|</span>
         {tecnicos.map(nome => (
@@ -182,6 +194,15 @@ export default function AgendaOperacoes() {
                   right: 'dayGridMonth,timeGridWeek,timeGridDay,listWeek',
                 }}
                 events={calendarEvents}
+                eventContent={arg => {
+                  const grupo = arg.event.extendedProps.grupo as AgendaGrupo;
+                  return (
+                    <span className="flex min-w-0 items-center gap-1 overflow-hidden">
+                      <GrupoIcon grupo={grupo} className="h-3 w-3 shrink-0" />
+                      <span className="truncate">{arg.event.title}</span>
+                    </span>
+                  );
+                }}
                 eventClick={info => {
                   info.jsEvent.preventDefault();
                   const linkTo = info.event.extendedProps.linkTo as string | undefined;
