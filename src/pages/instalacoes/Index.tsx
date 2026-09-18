@@ -185,6 +185,17 @@ export default function InstalacoesIndex() {
     enabled: !!stageDialog,
   });
 
+  // CSMs (consultor_rplus) for stage assignment
+  const { data: csms } = useQuery<{ user_id: string; nome: string }[]>({
+    queryKey: ['pedidos-responsaveis', 'consultor_rplus'],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).rpc('list_pedidos_responsaveis', { p_role: 'consultor_rplus' });
+      if (error) throw error;
+      return (data || []) as { user_id: string; nome: string }[];
+    },
+    enabled: !!stageDialog,
+  });
+
   // Active checklist templates
   const { data: templates } = useQuery({
     queryKey: ['active-checklist-templates'],
@@ -217,9 +228,9 @@ export default function InstalacoesIndex() {
       setIsCreateOpen(false);
       setClienteId(null);
       // Jump straight into configuring the first stage: the one matching the
-      // current filtered view, or Pré Venda when there is no filter active.
+      // current filtered view, or Pré Instalação when there is no filter active.
       if (data?.id) {
-        openStageDialog(data.id, etapaFiltro ?? 'pre_venda');
+        openStageDialog(data.id, etapaFiltro ?? 'pre_instalacao');
       }
     },
     onError: (error) => {
