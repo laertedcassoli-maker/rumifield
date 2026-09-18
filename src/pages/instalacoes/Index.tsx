@@ -604,26 +604,66 @@ export default function InstalacoesIndex() {
               {stageDialog?.existing ? 'Editar' : 'Configurar'} etapa: {stageDialog ? STAGE_LABELS[stageDialog.stage] : ''}
             </DialogTitle>
             <DialogDescription>
-              Defina o técnico responsável, a data planejada e o template de checklist desta etapa.
+              Defina o responsável (técnico ou CSM), a data planejada e o template de checklist desta etapa.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>Técnico responsável</Label>
-              <Select value={stageTechnicianId} onValueChange={setStageTechnicianId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione o técnico" />
-                </SelectTrigger>
-                <SelectContent>
-                  {tecnicos?.map(t => (
-                    <SelectItem key={t.user_id} value={t.user_id}>{t.nome}</SelectItem>
-                  ))}
-                  {tecnicos?.length === 0 && (
-                    <div className="p-2 text-sm text-muted-foreground">Nenhum técnico de campo ativo.</div>
-                  )}
-                </SelectContent>
-              </Select>
+              <Label>Tipo de responsável</Label>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant={stageResponsavelTipo === 'tecnico' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => { setStageResponsavelTipo('tecnico'); setStageCsmId(''); }}
+                >
+                  Técnico
+                </Button>
+                <Button
+                  type="button"
+                  variant={stageResponsavelTipo === 'csm' ? 'default' : 'outline'}
+                  size="sm"
+                  onClick={() => { setStageResponsavelTipo('csm'); setStageTechnicianId(''); }}
+                >
+                  CSM
+                </Button>
+              </div>
             </div>
+            {stageResponsavelTipo === 'tecnico' ? (
+              <div className="space-y-2">
+                <Label>Técnico responsável</Label>
+                <Select value={stageTechnicianId} onValueChange={setStageTechnicianId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o técnico" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {tecnicos?.map(t => (
+                      <SelectItem key={t.user_id} value={t.user_id}>{t.nome}</SelectItem>
+                    ))}
+                    {tecnicos?.length === 0 && (
+                      <div className="p-2 text-sm text-muted-foreground">Nenhum técnico de campo ativo.</div>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <Label>CSM responsável</Label>
+                <Select value={stageCsmId} onValueChange={setStageCsmId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione o CSM" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {csms?.map(c => (
+                      <SelectItem key={c.user_id} value={c.user_id}>{c.nome}</SelectItem>
+                    ))}
+                    {csms?.length === 0 && (
+                      <div className="p-2 text-sm text-muted-foreground">Nenhum CSM ativo.</div>
+                    )}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div className="space-y-2">
               <Label>Data planejada</Label>
               <Input
@@ -645,6 +685,46 @@ export default function InstalacoesIndex() {
                 </SelectContent>
               </Select>
             </div>
+
+            {/* Sales e-mail attachment — Pré Instalação only */}
+            {stageDialog?.stage === 'pre_instalacao' && (
+              <div className="space-y-2">
+                <Label>E-mail de venda (opcional)</Label>
+                {stageAnexoPath ? (
+                  <button
+                    type="button"
+                    className="flex w-full items-center gap-2 rounded-md border p-2 text-left text-sm hover:bg-muted/50 min-w-0"
+                    onClick={() => handleAnexoClick(stageAnexoPath)}
+                    onDoubleClick={() => handleAnexoDoubleClick(stageAnexoPath)}
+                  >
+                    <Paperclip className="h-4 w-4 shrink-0 text-primary" />
+                    <span className="truncate min-w-0">{stageAnexoPath.split('/').pop()}</span>
+                  </button>
+                ) : null}
+                {stageDialog?.existing ? (
+                  <>
+                    <Input
+                      type="file"
+                      disabled={isUploadingAnexo}
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        e.target.value = '';
+                        if (file) uploadSalesEmail(file);
+                      }}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      {isUploadingAnexo
+                        ? 'Enviando anexo...'
+                        : 'Um clique no anexo abre a pré-visualização; dois cliques abrem em outra guia.'}
+                    </p>
+                  </>
+                ) : (
+                  <p className="text-xs text-muted-foreground">
+                    Salve a etapa primeiro para poder anexar o e-mail de venda.
+                  </p>
+                )}
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setStageDialog(null)}>Cancelar</Button>
