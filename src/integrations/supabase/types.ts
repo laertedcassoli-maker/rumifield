@@ -3842,6 +3842,100 @@ export type Database = {
           },
         ]
       }
+      training_template_blocks: {
+        Row: {
+          block_name: string
+          created_at: string
+          id: string
+          order_index: number
+          template_id: string
+        }
+        Insert: {
+          block_name: string
+          created_at?: string
+          id?: string
+          order_index?: number
+          template_id: string
+        }
+        Update: {
+          block_name?: string
+          created_at?: string
+          id?: string
+          order_index?: number
+          template_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "training_template_blocks_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "training_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      training_template_items: {
+        Row: {
+          active: boolean
+          block_id: string
+          created_at: string
+          id: string
+          item_name: string
+          order_index: number
+        }
+        Insert: {
+          active?: boolean
+          block_id: string
+          created_at?: string
+          id?: string
+          item_name: string
+          order_index?: number
+        }
+        Update: {
+          active?: boolean
+          block_id?: string
+          created_at?: string
+          id?: string
+          item_name?: string
+          order_index?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "training_template_items_block_id_fkey"
+            columns: ["block_id"]
+            isOneToOne: false
+            referencedRelation: "training_template_blocks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      training_templates: {
+        Row: {
+          active: boolean
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       user_invites: {
         Row: {
           cidade_base: string | null
