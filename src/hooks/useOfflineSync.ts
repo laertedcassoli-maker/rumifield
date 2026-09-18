@@ -519,6 +519,18 @@ export function useOfflineSync() {
             .update(cleanData as never)
             .eq("id", id);
           if (error && (error as any).code !== '23505') throw error;
+        } else if (tableName === "training_visits") {
+          const { error } = await supabase
+            .from("training_visits")
+            .update(cleanData as never)
+            .eq("id", id);
+          if (error && (error as any).code !== '23505') throw error;
+        } else if (tableName === "training_checklist_responses") {
+          const { error } = await supabase
+            .from("training_checklist_responses")
+            .update(cleanData as never)
+            .eq("id", id);
+          if (error && (error as any).code !== '23505') throw error;
         } else {
           console.warn(
             `[Sync] Sem handler para update em '${tableName}'. Mantendo na fila para retry.`
