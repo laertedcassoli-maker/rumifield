@@ -253,6 +253,28 @@ export default function ExecucaoEtapa() {
             </div>
           )}
 
+          {stage.stage === 'pre_instalacao' && ['planejado', 'em_andamento'].includes(stage.status) && (
+            <div className="pt-2 space-y-1">
+              <p className="text-xs font-medium">
+                {stage.sales_email_attachment_path ? 'Substituir e-mail de venda' : 'Anexar e-mail de venda (opcional)'}
+              </p>
+              <Input
+                type="file"
+                disabled={isUploadingAnexo}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  e.target.value = '';
+                  if (file) uploadSalesEmail(file);
+                }}
+              />
+              <p className="text-xs text-muted-foreground">
+                {isUploadingAnexo
+                  ? 'Enviando anexo...'
+                  : 'O anexo fica visível ao Coordenador de Serviços na revisão da aprovação.'}
+              </p>
+            </div>
+          )}
+
           {aguardandoAprovacao && (
             canApprove ? (
               <div className="pt-3 flex flex-wrap items-center justify-between gap-2 border-t">
