@@ -20,10 +20,15 @@ interface TrainingChecklistExecutionProps {
   responsavelUserId: string;
   /** Define em qual coluna o responsável é gravado (técnico x CSM) */
   responsavelTipo?: 'tecnico' | 'csm';
+  /** Modo "visita existente" (fluxo avulso): carrega a visita em vez de criar uma nova */
+  existingVisitId?: string;
+  /** Chamado após a conclusão (ex.: fechar o diálogo) */
+  onCompleted?: () => void;
 }
 
 /**
- * Treinamento combinado a uma visita (corretiva, preventiva ou etapa de instalação).
+ * Treinamento combinado a uma visita (corretiva, preventiva ou etapa de instalação),
+ * ou conclusão de uma visita avulsa já existente (existingVisitId).
  * Independente do ChecklistExecution compartilhado: grava offline-first em
  * training_visits / training_checklist_responses.
  */
@@ -31,6 +36,8 @@ export default function TrainingChecklistExecution({
   clienteId,
   responsavelUserId,
   responsavelTipo = 'tecnico',
+  existingVisitId,
+  onCompleted,
 }: TrainingChecklistExecutionProps) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -38,11 +45,14 @@ export default function TrainingChecklistExecution({
     isOnline,
     pendingCount,
     createTrainingVisit,
+    updateTrainingVisit,
     setResponse,
     getResponses,
+    getTrainingVisit,
     completeTraining,
     cacheTemplates,
     getCachedTemplates,
+    syncPendingChanges,
   } = useOfflineTrainingChecklist();
 
   const [templateId, setTemplateId] = useState('');
@@ -54,6 +64,50 @@ export default function TrainingChecklistExecution({
   const [contactPhone, setContactPhone] = useState('');
   const [checkedItems, setCheckedItems] = useState<Record<string, boolean>>({});
   const [cachedTemplates, setCachedTemplates] = useState<OfflineTrainingTemplate[]>([]);
+  const [loadingVisit, setLoadingVisit] = useState(false);
+  const [visitHadTemplate, setVisitHadTemplate] = useState(false);
+
+  // Modo "visita existente": carrega a visita, pré-preenche contato/checklist e respostas
+  useEffect(() => {
+    if (!existingVisitId) return;
+    let active = true;
+    setLoadingVisit(true);
+    (async () => {
+      try {
+        const visit = await getTrainingVisit(existingVisitId);
+        if (!active) return;
+        setVisitId(visit.id);
+        if (visit.checklist_template_id) {
+          setTemplateId(visit.checklist_template_id);
+          setVisitHadTemplate(true);
+        }
+        setContactName(visit.contact_name ?? '');
+        setContactPhone(visit.contact_phone ?? '');
+        const existing = await getResponses(visit.id);
+        if (!active) return;
+        setCheckedItems(
+          existing.reduce<Record<string, boolean>>((acc, r) => {
+            acc[r.checklist_template_item_id] = r.checked;
+            return acc;
+          }, {})
+        );
+      } catch (error) {
+        console.error(error);
+        if (active) {
+          toast.error(
+            error instanceof Error && error.message.includes('offline')
+              ? error.message
+              : 'Não foi possível carregar a visita de treinamento.'
+          );
+        }
+      } finally {
+        if (active) setLoadingVisit(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [existingVisitId, getTrainingVisit, getResponses]);
 
   // Templates ativos com blocos e itens. Quando online, alimenta o cache offline.
   const { data: templates, isLoading: templatesLoading } = useQuery({
@@ -115,10 +169,21 @@ export default function TrainingChecklistExecution({
 
   const selectedTemplate = availableTemplates.find(t => t.id === templateId);
 
-  // Ao escolher o checklist, cria a visita de treinamento local
+  // Ao escolher o checklist: modo existente grava na própria visita; modo combinado cria a visita local
   const handleSelectTemplate = useCallback(
     async (newTemplateId: string) => {
       setTemplateId(newTemplateId);
+      if (existingVisitId) {
+        if (visitHadTemplate || !visitId) return;
+        try {
+          await updateTrainingVisit(visitId, { checklist_template_id: newTemplateId });
+          setVisitHadTemplate(true);
+        } catch (error) {
+          console.error(error);
+          toast.error('Não foi possível gravar o checklist na visita.');
+        }
+        return;
+      }
       if (visitId) return; // visita já criada nesta sessão
       setCreating(true);
       try {
@@ -145,7 +210,18 @@ export default function TrainingChecklistExecution({
         setCreating(false);
       }
     },
-    [clienteId, createTrainingVisit, getResponses, responsavelTipo, responsavelUserId, user, visitId]
+    [
+      clienteId,
+      createTrainingVisit,
+      existingVisitId,
+      getResponses,
+      responsavelTipo,
+      responsavelUserId,
+      updateTrainingVisit,
+      user,
+      visitHadTemplate,
+      visitId,
+    ]
   );
 
   const handleToggleItem = async (itemId: string, checked: boolean) => {
@@ -169,12 +245,26 @@ export default function TrainingChecklistExecution({
       toast.error('Informe o nome e o telefone de quem recebeu o treinamento.');
       return;
     }
+    // Fluxo avulso (visita existente): checklist com itens, todos obrigatórios
+    if (existingVisitId && totalItems === 0) {
+      toast.error('O checklist selecionado não tem itens. Escolha outro checklist.');
+      return;
+    }
+    if (existingVisitId && markedItems < totalItems) {
+      toast.error(`Marque todos os itens do checklist (${markedItems} de ${totalItems}).`);
+      return;
+    }
     setCompleting(true);
     try {
       await completeTraining(visitId, {
         contactName: contactName.trim(),
         contactPhone: contactPhone.trim(),
       });
+      // Online: força a sincronização agora — no fluxo avulso o diálogo desmonta
+      // o componente ao fechar, o que cancelaria o envio agendado (debounce de 2s)
+      if (isOnline) {
+        await syncPendingChanges();
+      }
       setCompleted(true);
       queryClient.invalidateQueries({ queryKey: ['training-visits'] });
       toast.success(
@@ -182,6 +272,7 @@ export default function TrainingChecklistExecution({
           ? 'Treinamento concluído!'
           : 'Treinamento salvo no aparelho. Será enviado quando houver conexão.'
       );
+      onCompleted?.();
     } catch (error) {
       console.error(error);
       toast.error('Não foi possível concluir o treinamento.');
@@ -225,7 +316,11 @@ export default function TrainingChecklistExecution({
         {/* Checklist do treinamento */}
         <div className="space-y-2">
           <Label>Checklist do treinamento *</Label>
-          <Select value={templateId} onValueChange={handleSelectTemplate} disabled={creating || completed}>
+          <Select
+            value={templateId}
+            onValueChange={handleSelectTemplate}
+            disabled={creating || completed || loadingVisit}
+          >
             <SelectTrigger>
               <SelectValue
                 placeholder={templatesLoading ? 'Carregando...' : 'Selecione o checklist'}
@@ -269,6 +364,13 @@ export default function TrainingChecklistExecution({
         </div>
 
         {/* Itens do checklist */}
+        {loadingVisit && (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Carregando treinamento...
+          </div>
+        )}
+
         {creating && (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" />

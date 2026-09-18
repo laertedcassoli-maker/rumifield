@@ -1,16 +1,20 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { withTimeout } from '@/lib/supabase-helpers';
 import { useAuth } from '@/contexts/AuthContext';
 import NovaVisitaTreinamentoDialog from '@/components/treinamento/NovaVisitaTreinamentoDialog';
+import TrainingChecklistExecution from '@/components/treinamento/TrainingChecklistExecution';
 import {
   CheckCircle2,
   Clock,
   GraduationCap,
   Loader2,
   ListChecks,
+  Pencil,
   Plus,
   Search,
+  Trash2,
   User,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -33,6 +37,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 
@@ -88,6 +102,9 @@ export default function Treinamento() {
   const canAbrirVisita = role === 'admin' || role === 'coordenador_servicos' || role === 'coordenador_rplus';
 
   const [novaVisitaOpen, setNovaVisitaOpen] = useState(false);
+  const [editingVisita, setEditingVisita] = useState<TreinamentoItem | null>(null);
+  const [concluindoVisita, setConcluindoVisita] = useState<TreinamentoItem | null>(null);
+  const [excluindoVisita, setExcluindoVisita] = useState<TreinamentoItem | null>(null);
   const [filtroStatus, setFiltroStatus] = useState<'all' | 'pendente' | 'concluida'>('all');
   const [search, setSearch] = useState('');
   const [clienteDetalhe, setClienteDetalhe] = useState<ClienteResumo | null>(null);
@@ -171,24 +188,23 @@ export default function Treinamento() {
     enabled: templateIds.length > 0,
   });
 
-  const concluirMutation = useMutation({
+  const excluirMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { data, error } = await supabase
-        .from('training_visits')
-        .update({ status: 'concluida', completed_date: new Date().toISOString().slice(0, 10) })
-        .eq('id', id)
-        .select('id');
+      const { data, error } = await withTimeout(
+        supabase.from('training_visits').delete().eq('id', id).select('id')
+      );
       if (error) throw error;
       if (!data || data.length === 0) {
-        throw new Error('A conclusão não foi confirmada pelo servidor. Verifique suas permissões.');
+        throw new Error('A exclusão não foi confirmada pelo servidor. Verifique suas permissões.');
       }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['training-visits'] });
-      toast({ title: 'Treinamento marcado como concluído!' });
+      toast({ title: 'Visita de treinamento excluída.' });
+      setExcluindoVisita(null);
     },
     onError: (err: Error) => {
-      toast({ variant: 'destructive', title: 'Erro ao concluir', description: err.message });
+      toast({ variant: 'destructive', title: 'Erro ao excluir', description: err.message });
     },
   });
 
@@ -256,6 +272,9 @@ export default function Treinamento() {
   const podeConcluir = (v: TreinamentoItem) =>
     v.status === 'pendente' &&
     (canAbrirVisita || user?.id === v.technician_user_id || user?.id === v.csm_user_id);
+
+  // Editar/excluir: só gestores e apenas enquanto a visita estiver pendente
+  const podeGerenciar = (v: TreinamentoItem) => canAbrirVisita && v.status === 'pendente';
 
   const responsavelNome = (v: TreinamentoItem) => {
     const id = v.technician_user_id ?? v.csm_user_id;
@@ -388,17 +407,39 @@ export default function Treinamento() {
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right">
-                          {podeConcluir(v) && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              disabled={concluirMutation.isPending}
-                              onClick={() => concluirMutation.mutate(v.id)}
-                            >
-                              <CheckCircle2 className="h-4 w-4 mr-1.5" />
-                              Concluir
-                            </Button>
-                          )}
+                          <div className="flex items-center justify-end gap-1">
+                            {podeConcluir(v) && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setConcluindoVisita(v)}
+                              >
+                                <CheckCircle2 className="h-4 w-4 mr-1.5" />
+                                Concluir
+                              </Button>
+                            )}
+                            {podeGerenciar(v) && (
+                              <>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => setEditingVisita(v)}
+                                >
+                                  <Pencil className="h-4 w-4 mr-1.5" />
+                                  Editar
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="text-destructive hover:text-destructive"
+                                  onClick={() => setExcluindoVisita(v)}
+                                >
+                                  <Trash2 className="h-4 w-4 mr-1.5" />
+                                  Excluir
+                                </Button>
+                              </>
+                            )}
+                          </div>
                         </TableCell>
                       </TableRow>
                     );
@@ -499,7 +540,73 @@ export default function Treinamento() {
         </DialogContent>
       </Dialog>
 
-      <NovaVisitaTreinamentoDialog open={novaVisitaOpen} onOpenChange={setNovaVisitaOpen} />
+      {/* Conclusão da visita com checklist obrigatório */}
+      <Dialog
+        open={!!concluindoVisita}
+        onOpenChange={(open) => !open && setConcluindoVisita(null)}
+      >
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Concluir Treinamento</DialogTitle>
+            <DialogDescription>
+              {concluindoVisita
+                ? `${clientesMap?.get(concluindoVisita.cliente_id)?.nome ?? 'Cliente'} — marque todos os itens e informe quem recebeu o treinamento.`
+                : ''}
+            </DialogDescription>
+          </DialogHeader>
+          {concluindoVisita && (
+            <TrainingChecklistExecution
+              existingVisitId={concluindoVisita.id}
+              clienteId={concluindoVisita.cliente_id}
+              responsavelUserId={
+                concluindoVisita.technician_user_id ?? concluindoVisita.csm_user_id ?? user!.id
+              }
+              responsavelTipo={concluindoVisita.technician_user_id ? 'tecnico' : 'csm'}
+              onCompleted={() => setConcluindoVisita(null)}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirmação de exclusão */}
+      <AlertDialog
+        open={!!excluindoVisita}
+        onOpenChange={(open) => !open && setExcluindoVisita(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir visita de treinamento?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação não pode ser desfeita. As respostas de checklist vinculadas, se houver,
+              serão excluídas junto.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={excluirMutation.isPending}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => excluindoVisita && excluirMutation.mutate(excluindoVisita.id)}
+              disabled={excluirMutation.isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {excluirMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <NovaVisitaTreinamentoDialog
+        open={novaVisitaOpen || !!editingVisita}
+        onOpenChange={(open) => {
+          if (!open) {
+            setNovaVisitaOpen(false);
+            setEditingVisita(null);
+          } else {
+            setNovaVisitaOpen(true);
+          }
+        }}
+        editingVisit={editingVisita}
+      />
     </div>
   );
 }

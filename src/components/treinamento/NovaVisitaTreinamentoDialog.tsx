@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { withTimeout } from '@/lib/supabase-helpers';
@@ -45,16 +45,31 @@ const ROLE_LABELS: Record<string, string> = {
   coordenador_rplus: 'Coordenador R+',
 };
 
+export interface EditingTrainingVisit {
+  id: string;
+  cliente_id: string;
+  checklist_template_id: string | null;
+  technician_user_id: string | null;
+  csm_user_id: string | null;
+  planned_date: string | null;
+  contact_name: string | null;
+  contact_phone: string | null;
+  notes: string | null;
+}
+
 interface NovaVisitaTreinamentoDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Quando informado, o diálogo edita a visita existente em vez de criar uma nova */
+  editingVisit?: EditingTrainingVisit | null;
 }
 
 /**
  * Solicitação de visita de treinamento em um único passo: insere direto em
  * training_visits (status 'pendente'), sem tabelas intermediárias.
+ * Com editingVisit, atua como edição da visita pendente.
  */
-export default function NovaVisitaTreinamentoDialog({ open, onOpenChange }: NovaVisitaTreinamentoDialogProps) {
+export default function NovaVisitaTreinamentoDialog({ open, onOpenChange, editingVisit }: NovaVisitaTreinamentoDialogProps) {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -69,6 +84,20 @@ export default function NovaVisitaTreinamentoDialog({ open, onOpenChange }: Nova
   const [contactName, setContactName] = useState('');
   const [contactPhone, setContactPhone] = useState('');
   const [notes, setNotes] = useState('');
+
+  // Modo edição: pré-preenche todos os campos a partir da visita existente
+  useEffect(() => {
+    if (!open || !editingVisit) return;
+    setClientId(editingVisit.cliente_id);
+    setResponsavelId(editingVisit.technician_user_id ?? editingVisit.csm_user_id ?? '');
+    setChecklistTemplateId(editingVisit.checklist_template_id ?? '');
+    setPlannedDate(
+      editingVisit.planned_date ? new Date(`${editingVisit.planned_date}T12:00:00`) : undefined
+    );
+    setContactName(editingVisit.contact_name ?? '');
+    setContactPhone(editingVisit.contact_phone ?? '');
+    setNotes(editingVisit.notes ?? '');
+  }, [open, editingVisit]);
 
   const { data: clients, isLoading: clientsLoading } = useQuery<Client[]>({
     queryKey: ['active-clients'],
@@ -163,19 +192,38 @@ export default function NovaVisitaTreinamentoDialog({ open, onOpenChange }: Nova
   const createVisita = useMutation({
     mutationFn: async () => {
       const responsavel = responsaveis?.find(r => r.id === responsavelId);
+      const payload = {
+        cliente_id: clientId,
+        checklist_template_id: checklistTemplateId || null,
+        technician_user_id: responsavel?.tipo === 'tecnico' ? responsavelId : null,
+        csm_user_id: responsavel?.tipo === 'csm' ? responsavelId : null,
+        planned_date: plannedDate ? format(plannedDate, 'yyyy-MM-dd') : null,
+        contact_name: contactName.trim() || null,
+        contact_phone: contactPhone.trim() || null,
+        notes: notes.trim() || null,
+      };
+
+      if (editingVisit) {
+        const { data, error } = await withTimeout(
+          supabase
+            .from('training_visits')
+            .update(payload)
+            .eq('id', editingVisit.id)
+            .select('id')
+        );
+        if (error) throw error;
+        if (!data || data.length === 0) {
+          throw new Error('A edição não foi confirmada pelo servidor. Verifique suas permissões.');
+        }
+        return editingVisit.id;
+      }
+
       const { data, error } = await withTimeout(
         supabase
           .from('training_visits')
           .insert({
-            cliente_id: clientId,
-            checklist_template_id: checklistTemplateId || null,
-            technician_user_id: responsavel?.tipo === 'tecnico' ? responsavelId : null,
-            csm_user_id: responsavel?.tipo === 'csm' ? responsavelId : null,
-            planned_date: plannedDate ? format(plannedDate, 'yyyy-MM-dd') : null,
+            ...payload,
             status: 'pendente',
-            contact_name: contactName.trim() || null,
-            contact_phone: contactPhone.trim() || null,
-            notes: notes.trim() || null,
             created_by_user_id: user!.id,
           })
           .select('id')
@@ -187,13 +235,19 @@ export default function NovaVisitaTreinamentoDialog({ open, onOpenChange }: Nova
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['training-visits'] });
-      toast({ title: 'Visita de treinamento solicitada com sucesso!' });
+      toast({
+        title: editingVisit
+          ? 'Visita de treinamento atualizada com sucesso!'
+          : 'Visita de treinamento solicitada com sucesso!',
+      });
       handleClose();
     },
     onError: (error: Error) => {
       toast({
         variant: 'destructive',
-        title: 'Erro ao solicitar visita de treinamento',
+        title: editingVisit
+          ? 'Erro ao atualizar visita de treinamento'
+          : 'Erro ao solicitar visita de treinamento',
         description: error.message,
       });
     },
@@ -215,9 +269,13 @@ export default function NovaVisitaTreinamentoDialog({ open, onOpenChange }: Nova
     <Dialog open={open} onOpenChange={(v) => (v ? onOpenChange(true) : handleClose())}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Nova Visita de Treinamento</DialogTitle>
+          <DialogTitle>
+            {editingVisit ? 'Editar Visita de Treinamento' : 'Nova Visita de Treinamento'}
+          </DialogTitle>
           <DialogDescription>
-            Solicite uma visita para treinar a equipe do cliente.
+            {editingVisit
+              ? 'Atualize os dados da visita de treinamento.'
+              : 'Solicite uma visita para treinar a equipe do cliente.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -393,7 +451,7 @@ export default function NovaVisitaTreinamentoDialog({ open, onOpenChange }: Nova
           </Button>
           <Button onClick={handleSubmit} disabled={createVisita.isPending}>
             {createVisita.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Solicitar Treinamento
+            {editingVisit ? 'Salvar Alterações' : 'Solicitar Treinamento'}
           </Button>
         </DialogFooter>
       </DialogContent>

@@ -324,6 +324,25 @@ class OfflineChecklistDatabase extends Dexie {
     return this.trainingVisits.get(id);
   }
 
+  /** Cacheia uma visita vinda do servidor sem marcar como pendente.
+   *  Não sobrescreve alterações locais ainda não enviadas. */
+  async cacheTrainingVisit(visit: OfflineTrainingVisit): Promise<void> {
+    const existing = await this.trainingVisits.get(visit.id);
+    if (existing?._pendingSync) return;
+    await this.trainingVisits.put({ ...visit, _pendingSync: false });
+  }
+
+  /** Cacheia respostas vindas do servidor (ignora as já existentes localmente) */
+  async cacheTrainingResponses(responses: OfflineTrainingChecklistResponse[]): Promise<void> {
+    if (responses.length === 0) return;
+    for (const r of responses) {
+      const existing = await this.trainingChecklistResponses.get(r.id);
+      if (!existing) {
+        await this.trainingChecklistResponses.put({ ...r, _pendingSync: false });
+      }
+    }
+  }
+
   /** Grava (ou regrava) a resposta de um item e enfileira o envio */
   async setTrainingResponseLocally(response: OfflineTrainingChecklistResponse): Promise<void> {
     await this.trainingChecklistResponses.put({ ...response, _pendingSync: true, _localId: response.id });
