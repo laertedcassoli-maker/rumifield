@@ -1,5 +1,6 @@
 # Roadmap
 
+- [ ] Migration idempotente documentando retroativo corretiva→preventiva (backfill FK, promoção concluida, contou_como_preventiva)
 - [x] Agenda: cores pastéis fixas (Lenilton/Phelipe/Roger) antes do hash — validado no preview
 - [x] Menu Administração: "Usuários" virou submenu colapsável com Usuários + Permissões (gate por qualquer um dos dois permKeys)
 - [x] Agenda de Operações: cor por técnico + filtro por técnico + legenda (validado no preview)
