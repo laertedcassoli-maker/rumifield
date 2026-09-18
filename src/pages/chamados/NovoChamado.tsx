@@ -97,7 +97,7 @@ export default function NovoChamado() {
       const { data: roles } = await supabase
         .from('user_roles')
         .select('user_id')
-        .eq('role', 'tecnico_campo');
+        .in('role', ['tecnico_campo', 'tecnico_oficina']);
       
       if (!roles?.length) return [];
 
@@ -372,7 +372,7 @@ export default function NovoChamado() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label>Técnico de Campo</Label>
+                <Label>Técnico</Label>
                 <Select value={technicianId} onValueChange={setTechnicianId}>
                   <SelectTrigger>
                     <SelectValue placeholder="Selecione um técnico (opcional)" />

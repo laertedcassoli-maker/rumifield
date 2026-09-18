@@ -535,7 +535,7 @@ export default function DetalheChamado() {
       const { data: roles } = await supabase
         .from('user_roles')
         .select('user_id')
-        .eq('role', 'tecnico_campo');
+        .in('role', ['tecnico_campo', 'tecnico_oficina']);
       
       if (!roles?.length) return [];
 
@@ -1057,7 +1057,7 @@ export default function DetalheChamado() {
               {/* Technician Assignment */}
               {isAdminOrCoordinator && (
                 <div>
-                  <div className="text-sm font-medium mb-2">Técnico de Campo</div>
+                  <div className="text-sm font-medium mb-2">Técnico</div>
                   {isEditMode && ticketIsActive ? (
                     <Select
                       value={editValues?.assignedTechnicianId || ''}
