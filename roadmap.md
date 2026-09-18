@@ -42,7 +42,7 @@
 ## Prompt 2 — Foto obrigatória por item de checklist (concluído)
 - [x] Migration checklist_template_items.requires_photo + Switch "Exigir foto" no ChecklistEditor (Fase 1: só schema + editor).
 
-## Treinamento (novo módulo — substitui Templates Treinamento)
+## Treinamento (CONCLUÍDO — módulo novo no ar)
 - [x] Dropar training_templates/blocks/items, remover telas/rotas/menu antigos
 - [x] Migration training_visits (RLS aberto authenticated)
 - [x] Menu primeiro nivel "Treinamento" permKey treinamento + role_menu_permissions (5 papeis)
