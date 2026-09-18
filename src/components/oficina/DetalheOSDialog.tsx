@@ -434,6 +434,31 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
     enabled: open,
   });
 
+  // Pedidos vinculados aos ativos desta OS (para mostrar o motivo do relato)
+  const { data: pedidosVinculadosOS = [] } = useQuery({
+    queryKey: ['work-order-pedidos-vinculados', workOrder.id],
+    queryFn: async () => {
+      const { data: woItems, error: e1 } = await supabase
+        .from('work_order_items')
+        .select('workshop_item_id')
+        .eq('work_order_id', workOrder.id)
+        .not('workshop_item_id', 'is', null);
+      if (e1) throw e1;
+      const ids = (woItems || []).map((i: any) => i.workshop_item_id).filter(Boolean);
+      if (!ids.length) return [];
+      const { data, error } = await supabase
+        .from('pedido_itens')
+        .select('workshop_item_id, pedidos:pedido_id (pedido_code, tipo_solicitacao, motivo_relato)')
+        .in('workshop_item_id', ids);
+      if (error) throw error;
+      return (data || []).filter((d: any) => d.pedidos?.motivo_relato) as {
+        workshop_item_id: string | null;
+        pedidos: { pedido_code: string; tipo_solicitacao: string | null; motivo_relato: string } | null;
+      }[];
+    },
+    enabled: open,
+  });
+
   // Fetch the last meter reading BEFORE this OS was created (excludes readings
   // from this OS itself and from later OSes). If none exists, the asset had no
   // prior reading — the "Última Leitura" block must be hidden.
@@ -1472,6 +1497,23 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
                       </p>
                     )}
                   </div>
+
+                  {/* Motivo do relato do cliente (pedido vinculado ao ativo) */}
+                  {pedidosVinculadosOS
+                    .filter((p) => p.pedidos && (!p.workshop_item_id || p.workshop_item_id === univocaItem.workshop_item_id))
+                    .map((p, idx) => (
+                      <div key={idx} className="p-3 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg">
+                        <p className="text-sm text-blue-800 dark:text-blue-200">
+                          <span className="font-medium">Motivo do relato do cliente:</span> {p.pedidos!.motivo_relato}
+                        </p>
+                        <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+                          Pedido {p.pedidos!.pedido_code}
+                          {p.pedidos!.tipo_solicitacao
+                            ? ` · ${p.pedidos!.tipo_solicitacao === 'coleta_reversa' ? 'Coleta Reversa' : 'Envio'}`
+                            : ''}
+                        </p>
+                      </div>
+                    ))}
 
                   {/* Meter readings section - scoped to THIS OS (never future data) */}
                   {(() => {

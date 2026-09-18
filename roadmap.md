@@ -29,3 +29,15 @@
 - [ ] sync-imilk-clientes: mapeamento dos campos imilk_* confirmado parcialmente — aguardando confirmação se grava também city/state
 - [x] Histórico de status de pedidos (tabela pedido_status_history + 2 triggers) + "Concluído em" em Clientes RF, badge faturado verde e linha do tempo no dialog — validado no preview
 - [x] Visita Técnica no modelo de Chamados: cards-filtro, busca, selects status/cliente, período, tabela 15/pág (104 registros, 38+66) — validado no preview
+
+## Prompt 3 — Erro amigável ao excluir template em uso (concluído)
+- [x] Checklists.tsx deleteTemplateMutation onError: error.code 23503 → mensagem amigável; outros erros mantêm error.message.
+
+## Prompt 4 — Ativos/OS: renomeação + rastreabilidade (concluído)
+- [x] (a) AppSidebar.tsx + Home.tsx: 'Cadastro Ativos' → 'Ativos' (url/permKey preservados).
+- [x] (b) ItensOficina.tsx histórico: aba "Pedidos" (pedido_itens por workshop_item_id + join pedidos; código, tipo Envio/Coleta Reversa, data, status) — validado no preview.
+- [x] (c) NovaOSDialog/DetalheOSDialog: caixa informativa com motivo_relato do pedido vinculado (pedido_itens.workshop_item_id); só aparece quando há pedido com motivo.
+- [x] (d) ItensOficina.tsx: visão "Por Cliente" (toggle Itens/Por Cliente) — ativos distintos + contagem de OS por cliente — validado no preview (16/16, 15/15 etc.).
+
+## Prompt 2 — Foto obrigatória por item de checklist (concluído)
+- [x] Migration checklist_template_items.requires_photo + Switch "Exigir foto" no ChecklistEditor (Fase 1: só schema + editor).

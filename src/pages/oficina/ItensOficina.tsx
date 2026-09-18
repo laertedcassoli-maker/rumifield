@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import { Plus, Search, Edit, History, Clock, Check, ChevronsUpDown, Wrench } from 'lucide-react';
+import { Plus, Search, Edit, History, Clock, Check, ChevronsUpDown, Wrench, Package, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -59,6 +59,25 @@ interface MotorReplacement {
   notes: string | null;
 }
 
+interface ItemPedidoHist {
+  id: string;
+  quantidade: number;
+  created_at: string;
+  pedidos: {
+    pedido_code: string;
+    tipo_solicitacao: string | null;
+    status: string;
+    created_at: string;
+  } | null;
+}
+
+interface ClienteResumo {
+  clienteId: string;
+  nome: string;
+  ativosCount: number;
+  osCount: number;
+}
+
 interface Peca {
   id: string;
   codigo: string;
@@ -84,6 +103,7 @@ export default function ItensOficina() {
   });
 
   const isAdmin = role === 'admin' || role === 'coordenador_rplus' || role === 'coordenador_servicos' || role === 'coordenador_logistica';
+  const [visualizacao, setVisualizacao] = useState<'itens' | 'clientes'>('itens');
 
   // Fetch workshop items
   const { data: items = [], isLoading } = useQuery({
@@ -147,6 +167,59 @@ export default function ItensOficina() {
       return data as MotorReplacement[];
     },
     enabled: !!selectedItemForHistory?.id,
+  });
+
+  // Fetch pedidos in which this specific asset appeared (history tab)
+  const { data: itemPedidos = [] } = useQuery({
+    queryKey: ['item-pedidos', selectedItemForHistory?.id],
+    queryFn: async () => {
+      if (!selectedItemForHistory?.id) return [];
+      const { data, error } = await supabase
+        .from('pedido_itens')
+        .select('id, quantidade, created_at, pedidos:pedido_id (pedido_code, tipo_solicitacao, status, created_at)')
+        .eq('workshop_item_id', selectedItemForHistory.id)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return data as ItemPedidoHist[];
+    },
+    enabled: !!selectedItemForHistory?.id,
+  });
+
+  // "Por Cliente" view: distinct assets served per client via work orders
+  const { data: clientesResumo = [], isLoading: isLoadingClientesResumo } = useQuery({
+    queryKey: ['workshop-os-por-cliente'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('work_order_items')
+        .select('work_order_id, workshop_item_id, work_orders(cliente_id)')
+        .not('workshop_item_id', 'is', null);
+      if (error) throw error;
+      const acc = new Map<string, { ativos: Set<string>; os: Set<string> }>();
+      (data || []).forEach((r: any) => {
+        const clienteId = r.work_orders?.cliente_id;
+        if (!clienteId || !r.workshop_item_id) return;
+        const entry = acc.get(clienteId) || { ativos: new Set<string>(), os: new Set<string>() };
+        entry.ativos.add(r.workshop_item_id);
+        entry.os.add(r.work_order_id);
+        acc.set(clienteId, entry);
+      });
+      const clienteIds = [...acc.keys()];
+      if (!clienteIds.length) return [];
+      const { data: clientes } = await supabase
+        .from('clientes')
+        .select('id, nome')
+        .in('id', clienteIds);
+      const nomes = new Map((clientes || []).map((c: any) => [c.id, c.nome]));
+      return [...acc.entries()]
+        .map(([clienteId, e]) => ({
+          clienteId,
+          nome: nomes.get(clienteId) || 'Cliente',
+          ativosCount: e.ativos.size,
+          osCount: e.os.size,
+        }))
+        .sort((a, b) => b.ativosCount - a.ativosCount || b.osCount - a.osCount) as ClienteResumo[];
+    },
+    enabled: visualizacao === 'clientes',
   });
 
   // Create/Update mutation
@@ -231,6 +304,21 @@ export default function ItensOficina() {
     em_uso: 'Em Uso',
     em_manutencao: 'Em Manutenção',
     inativo: 'Inativo',
+  };
+
+  const statusPedidoLabels: Record<string, string> = {
+    rascunho: 'Rascunho',
+    solicitado: 'Solicitado',
+    processamento: 'Processamento',
+    faturado: 'Faturado',
+    enviado: 'Enviado',
+    entregue: 'Entregue',
+    pendente: 'Pendente',
+  };
+
+  const tipoSolicitacaoLabels: Record<string, string> = {
+    envio: 'Envio',
+    coleta_reversa: 'Coleta Reversa',
   };
 
   const statusColors: Record<string, string> = {
@@ -370,7 +458,7 @@ export default function ItensOficina() {
 
       <Card>
         <CardHeader className="pb-3">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <Search className="h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Buscar itens..."
@@ -378,10 +466,58 @@ export default function ItensOficina() {
               onChange={(e) => setSearch(e.target.value)}
               className="max-w-sm"
             />
+            <div className="flex gap-1 ml-auto">
+              <Button
+                variant={visualizacao === 'itens' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setVisualizacao('itens')}
+              >
+                Itens
+              </Button>
+              <Button
+                variant={visualizacao === 'clientes' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setVisualizacao('clientes')}
+              >
+                <Users className="h-4 w-4 mr-1" />
+                Por Cliente
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
-          {isLoading ? (
+          {visualizacao === 'clientes' ? (
+            isLoadingClientesResumo ? (
+              <div className="text-center py-8 text-muted-foreground">Carregando...</div>
+            ) : clientesResumo.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                Nenhuma OS com ativos vinculados
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Cliente</TableHead>
+                    <TableHead className="text-center">Ativos distintos atendidos</TableHead>
+                    <TableHead className="text-center">OS</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {clientesResumo.map((c) => (
+                    <TableRow key={c.clienteId}>
+                      <TableCell className="font-medium">{c.nome}</TableCell>
+                      <TableCell className="text-center">
+                        <Badge variant="secondary">{c.ativosCount}</Badge>
+                      </TableCell>
+                      <TableCell className="text-center text-sm text-muted-foreground">
+                        {c.osCount}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )
+          ) : isLoading ? (
             <div className="text-center py-8 text-muted-foreground">Carregando...</div>
           ) : filteredItems.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
@@ -474,7 +610,7 @@ export default function ItensOficina() {
           </DialogHeader>
           
           <Tabs defaultValue="horimetro" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="horimetro" className="flex items-center gap-1">
                 <Clock className="h-3 w-3" />
                 Horímetro
@@ -482,6 +618,10 @@ export default function ItensOficina() {
               <TabsTrigger value="motor" className="flex items-center gap-1">
                 <Wrench className="h-3 w-3" />
                 Trocas Motor
+              </TabsTrigger>
+              <TabsTrigger value="pedidos" className="flex items-center gap-1">
+                <Package className="h-3 w-3" />
+                Pedidos
               </TabsTrigger>
             </TabsList>
             
@@ -549,6 +689,38 @@ export default function ItensOficina() {
                       {replacement.notes && (
                         <p className="text-xs text-muted-foreground mt-1">{replacement.notes}</p>
                       )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+
+            <TabsContent value="pedidos" className="mt-4">
+              {itemPedidos.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  Nenhum pedido registrado
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-[350px] overflow-auto">
+                  {itemPedidos.map((ip) => (
+                    <div
+                      key={ip.id}
+                      className="flex items-center justify-between p-3 border rounded-lg"
+                    >
+                      <div className="min-w-0">
+                        <p className="font-medium font-mono">{ip.pedidos?.pedido_code || '—'}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {ip.pedidos?.tipo_solicitacao && tipoSolicitacaoLabels[ip.pedidos.tipo_solicitacao]
+                            ? `${tipoSolicitacaoLabels[ip.pedidos.tipo_solicitacao]} · `
+                            : ''}
+                          {format(new Date(ip.created_at), 'dd/MM/yyyy', { locale: ptBR })}
+                        </p>
+                      </div>
+                      <Badge variant="outline">
+                        {ip.pedidos?.status
+                          ? (statusPedidoLabels[ip.pedidos.status] || ip.pedidos.status)
+                          : '—'}
+                      </Badge>
                     </div>
                   ))}
                 </div>

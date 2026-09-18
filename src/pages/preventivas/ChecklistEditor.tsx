@@ -40,6 +40,7 @@ interface ChecklistItem {
   item_name: string;
   order_index: number;
   active: boolean;
+  requires_photo?: boolean;
   actions: CorrectiveAction[];
   nonconformities: Nonconformity[];
 }
@@ -269,10 +270,11 @@ export default function ChecklistEditor() {
 
   // Update item mutation
   const updateItemMutation = useMutation({
-    mutationFn: async ({ itemId, itemName, active }: { itemId: string; itemName?: string; active?: boolean }) => {
+    mutationFn: async ({ itemId, itemName, active, requiresPhoto }: { itemId: string; itemName?: string; active?: boolean; requiresPhoto?: boolean }) => {
       const updates: any = {};
       if (itemName !== undefined) updates.item_name = itemName;
       if (active !== undefined) updates.active = active;
+      if (requiresPhoto !== undefined) updates.requires_photo = requiresPhoto;
       
       const { error } = await supabase
         .from('checklist_template_items')
@@ -300,7 +302,8 @@ export default function ChecklistEditor() {
         .insert({
           block_id: block?.id,
           item_name: `${item.item_name} (cópia)`,
-          active: item.active
+          active: item.active,
+          requires_photo: item.requires_photo ?? false
         })
         .select()
         .single();
@@ -1161,6 +1164,13 @@ function SortableItem({
             {item.nonconformities?.length || 0} NC | {item.actions?.length || 0} ações
           </Badge>
           <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground">Exigir foto</span>
+            <Switch
+              checked={item.requires_photo ?? false}
+              onCheckedChange={(checked: boolean) =>
+                updateItemMutation.mutate({ itemId: item.id, requiresPhoto: checked })
+              }
+            />
             <span className="text-xs text-muted-foreground">Ativo</span>
             <Switch
               checked={item.active}

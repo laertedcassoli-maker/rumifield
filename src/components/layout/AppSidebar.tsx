@@ -127,7 +127,7 @@ export function AppSidebar() {
   // Centro de Serviços submenu items (technical keys and routes remain oficina_*)
   const oficinaItems = [
     { title: 'Ordens de Serviço', icon: FileText, url: '/oficina/os', permKey: 'oficina_os' },
-    { title: 'Cadastro Ativos', icon: Box, url: '/oficina/itens', permKey: 'oficina_itens' },
+    { title: 'Ativos', icon: Box, url: '/oficina/itens', permKey: 'oficina_itens' },
     { title: 'Garantias Motor', icon: Shield, url: '/oficina/garantias', permKey: 'oficina_garantias' },
 
   ].filter(item => canAccess(item.permKey));
