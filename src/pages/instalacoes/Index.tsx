@@ -481,24 +481,32 @@ export default function InstalacoesIndex() {
                         {stage && (
                           <Button
                             size="sm"
-                            variant={stage.status === 'concluido' ? 'outline' : 'default'}
+                            variant={isReadOnlyStage ? 'outline' : 'default'}
                             onClick={() => navigate(`/instalacoes/etapa/${stage.id}`)}
                           >
                             <Play className="h-3.5 w-3.5 mr-1" />
-                            {stage.status === 'concluido' ? 'Ver' : 'Executar'}
+                            {isReadOnlyStage ? 'Ver' : 'Executar'}
                           </Button>
                         )}
                         {canManage && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => openStageDialog(inst.id, stageType, stage)}
-                          >
-                            <Settings2 className="h-3.5 w-3.5 mr-1" />
-                            {stage ? 'Editar' : 'Configurar'}
-                          </Button>
+                          instalacaoBloqueada ? (
+                            <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                              <Lock className="h-3.5 w-3.5 shrink-0" />
+                              {preInstalacaoStage ? 'Aguardando aprovação da Pré Instalação' : 'Configure a Pré Instalação primeiro'}
+                            </span>
+                          ) : (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => openStageDialog(inst.id, stageType, stage)}
+                            >
+                              <Settings2 className="h-3.5 w-3.5 mr-1" />
+                              {stage ? 'Editar' : 'Configurar'}
+                            </Button>
+                          )
                         )}
                       </div>
+
                     </div>
                   );
                 })}
