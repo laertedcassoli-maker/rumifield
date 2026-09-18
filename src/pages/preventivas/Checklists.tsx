@@ -119,8 +119,12 @@ export default function Checklists() {
       queryClient.invalidateQueries({ queryKey: ['checklist-templates'] });
       toast.success('Template excluído com sucesso!');
     },
-    onError: (error) => {
-      toast.error('Erro ao excluir: ' + error.message);
+    onError: (error: any) => {
+      if (error?.code === '23503') {
+        toast.error('Este checklist já foi usado em uma ou mais execuções e não pode ser excluído. Use o botão Ativo/Inativo para desativá-lo.');
+      } else {
+        toast.error('Erro ao excluir: ' + error.message);
+      }
     }
   });
 
