@@ -407,17 +407,39 @@ export default function Treinamento() {
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right">
-                          {podeConcluir(v) && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              disabled={concluirMutation.isPending}
-                              onClick={() => concluirMutation.mutate(v.id)}
-                            >
-                              <CheckCircle2 className="h-4 w-4 mr-1.5" />
-                              Concluir
-                            </Button>
-                          )}
+                          <div className="flex items-center justify-end gap-1">
+                            {podeConcluir(v) && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setConcluindoVisita(v)}
+                              >
+                                <CheckCircle2 className="h-4 w-4 mr-1.5" />
+                                Concluir
+                              </Button>
+                            )}
+                            {podeGerenciar(v) && (
+                              <>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => setEditingVisita(v)}
+                                >
+                                  <Pencil className="h-4 w-4 mr-1.5" />
+                                  Editar
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="text-destructive hover:text-destructive"
+                                  onClick={() => setExcluindoVisita(v)}
+                                >
+                                  <Trash2 className="h-4 w-4 mr-1.5" />
+                                  Excluir
+                                </Button>
+                              </>
+                            )}
+                          </div>
                         </TableCell>
                       </TableRow>
                     );
