@@ -106,7 +106,7 @@ function Section({ title, icon: Icon, count, isLoading, emptyText, children }: S
 }
 
 export default function MinhasPendencias() {
-  const { preventivas, visitas, coletaReversa, envios, total, isLoading } = useMinhasPendencias();
+  const { preventivas, visitas, coletaReversa, envios, instalacoes, aprovacoesInstalacao, canApproveInstalacao, total, isLoading } = useMinhasPendencias();
 
   return (
     <div className="space-y-6 pb-8 animate-fade-in">
