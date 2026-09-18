@@ -143,10 +143,7 @@ serve(async (req) => {
       throw new Error("CREDENCIAL_GOOGLE secret not configured");
     }
 
-    const spreadsheetId = Deno.env.get("CHAVE_GOOGLE_SHEET_TABELA_BOARD");
-    if (!spreadsheetId) {
-      throw new Error("CHAVE_GOOGLE_SHEET_TABELA_BOARD secret not configured");
-    }
+    const defaultSpreadsheetId = Deno.env.get("CHAVE_GOOGLE_SHEET_TABELA_BOARD");
 
     // Clean the credential JSON - handle literal newlines that break JSON parsing
     let cleanedJson = credentialJson.trim();
