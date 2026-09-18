@@ -30,7 +30,7 @@ Migration única:
   - `installation_part_consumption`
 - `installation_stages`: policy de escrita do responsável passa a aceitar `technician_user_id = auth.uid() OR csm_user_id = auth.uid()`.
 - `is_installation_stage_technician` permanece existindo, sem alteração.
-- Bucket privado `instalacao-anexos` criado pela ferramenta de storage; policies de `storage.objects` para `authenticated` (SELECT/INSERT/UPDATE/DELETE), no padrão de `pedido-anexos`: `bucket_id = 'instalacao-anexos' AND ((storage.foldername(name))[1]::uuid IN (SELECT id FROM public.installation_stages WHERE technician_user_id = auth.uid() OR csm_user_id = auth.uid()) OR public.can_manage_installations())`. Path `<stage_id>/<arquivo>`.
+- Bucket privado `instalacao-anexos` criado pela ferramenta de storage; policies de `storage.objects` para `authenticated` (SELECT/INSERT/UPDATE/DELETE), no padrão de `pedido-anexos`, comparando o id da etapa como texto (sem cast para uuid, evitando erro em caminhos inválidos): `bucket_id = 'instalacao-anexos' AND (EXISTS (SELECT 1 FROM public.installation_stages s WHERE s.id::text = (storage.foldername(name))[1] AND (s.technician_user_id = auth.uid() OR s.csm_user_id = auth.uid())) OR public.can_manage_installations())`. Path `<stage_id>/<arquivo>`.
 - Regenerar `src/integrations/supabase/types.ts` ao final.
 
 ## Fora de escopo
