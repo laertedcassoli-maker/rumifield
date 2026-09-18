@@ -15,7 +15,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { toast } from "sonner";
-import { HardHat, Plus, Loader2, Play, Settings2, Check, ChevronsUpDown, Building2, CalendarDays, User, Trash2 } from "lucide-react";
+import { HardHat, Plus, Loader2, Play, Settings2, Check, ChevronsUpDown, Building2, CalendarDays, User, Trash2, Paperclip } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type StageType = 'pre_venda' | 'pre_instalacao' | 'instalacao';
@@ -730,8 +730,12 @@ export default function InstalacoesIndex() {
             <Button variant="outline" onClick={() => setStageDialog(null)}>Cancelar</Button>
             <Button
               onClick={() => {
-                if (!stageTechnicianId) {
+                if (stageResponsavelTipo === 'tecnico' && !stageTechnicianId) {
                   toast.error('Selecione o técnico responsável pela etapa.');
+                  return;
+                }
+                if (stageResponsavelTipo === 'csm' && !stageCsmId) {
+                  toast.error('Selecione o CSM responsável pela etapa.');
                   return;
                 }
                 saveStageMutation.mutate();
@@ -740,6 +744,35 @@ export default function InstalacoesIndex() {
             >
               {saveStageMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               Salvar
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Sales e-mail attachment inline preview */}
+      <Dialog open={!!anexoPreview} onOpenChange={(open) => !open && setAnexoPreview(null)}>
+        <DialogContent className="max-w-3xl">
+          <DialogHeader>
+            <DialogTitle className="truncate">{anexoPreview?.path.split('/').pop()}</DialogTitle>
+            <DialogDescription>Pré-visualização do e-mail de venda anexado.</DialogDescription>
+          </DialogHeader>
+          {anexoPreview?.isImage ? (
+            <img
+              src={anexoPreview.url}
+              alt="E-mail de venda"
+              className="max-h-[60vh] w-full rounded-md object-contain"
+            />
+          ) : (
+            <div className="rounded-md border p-4 text-sm text-muted-foreground">
+              Este arquivo não pode ser exibido aqui. Abra em outra guia para visualizá-lo.
+            </div>
+          )}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => anexoPreview && window.open(anexoPreview.url, '_blank', 'noopener')}
+            >
+              Abrir em outra guia
             </Button>
           </DialogFooter>
         </DialogContent>
