@@ -1686,6 +1686,183 @@ export type Database = {
           },
         ]
       }
+      installation_checklist_blocks: {
+        Row: {
+          block_name_snapshot: string
+          checklist_id: string
+          created_at: string
+          id: string
+          order_index: number
+          template_block_id: string | null
+        }
+        Insert: {
+          block_name_snapshot: string
+          checklist_id: string
+          created_at?: string
+          id?: string
+          order_index?: number
+          template_block_id?: string | null
+        }
+        Update: {
+          block_name_snapshot?: string
+          checklist_id?: string
+          created_at?: string
+          id?: string
+          order_index?: number
+          template_block_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "installation_checklist_blocks_checklist_id_fkey"
+            columns: ["checklist_id"]
+            isOneToOne: false
+            referencedRelation: "installation_checklists"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "installation_checklist_blocks_template_block_id_fkey"
+            columns: ["template_block_id"]
+            isOneToOne: false
+            referencedRelation: "checklist_template_blocks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      installation_checklist_item_actions: {
+        Row: {
+          action_label_snapshot: string
+          created_at: string
+          exec_item_id: string
+          id: string
+          selected_at: string
+          template_action_id: string | null
+        }
+        Insert: {
+          action_label_snapshot: string
+          created_at?: string
+          exec_item_id: string
+          id?: string
+          selected_at?: string
+          template_action_id?: string | null
+        }
+        Update: {
+          action_label_snapshot?: string
+          created_at?: string
+          exec_item_id?: string
+          id?: string
+          selected_at?: string
+          template_action_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "installation_checklist_item_actions_exec_item_id_fkey"
+            columns: ["exec_item_id"]
+            isOneToOne: false
+            referencedRelation: "installation_checklist_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "installation_checklist_item_actions_template_action_id_fkey"
+            columns: ["template_action_id"]
+            isOneToOne: false
+            referencedRelation: "checklist_item_corrective_actions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      installation_checklist_item_nonconformities: {
+        Row: {
+          created_at: string
+          exec_item_id: string
+          id: string
+          nonconformity_label_snapshot: string
+          selected_at: string
+          template_nonconformity_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          exec_item_id: string
+          id?: string
+          nonconformity_label_snapshot: string
+          selected_at?: string
+          template_nonconformity_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          exec_item_id?: string
+          id?: string
+          nonconformity_label_snapshot?: string
+          selected_at?: string
+          template_nonconformity_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "installation_checklist_item_nonc_template_nonconformity_id_fkey"
+            columns: ["template_nonconformity_id"]
+            isOneToOne: false
+            referencedRelation: "checklist_item_nonconformities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "installation_checklist_item_nonconformities_exec_item_id_fkey"
+            columns: ["exec_item_id"]
+            isOneToOne: false
+            referencedRelation: "installation_checklist_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      installation_checklist_items: {
+        Row: {
+          answered_at: string | null
+          created_at: string
+          exec_block_id: string
+          id: string
+          item_name_snapshot: string
+          notes: string | null
+          order_index: number
+          status: Database["public"]["Enums"]["checklist_item_status"] | null
+          template_item_id: string | null
+        }
+        Insert: {
+          answered_at?: string | null
+          created_at?: string
+          exec_block_id: string
+          id?: string
+          item_name_snapshot: string
+          notes?: string | null
+          order_index?: number
+          status?: Database["public"]["Enums"]["checklist_item_status"] | null
+          template_item_id?: string | null
+        }
+        Update: {
+          answered_at?: string | null
+          created_at?: string
+          exec_block_id?: string
+          id?: string
+          item_name_snapshot?: string
+          notes?: string | null
+          order_index?: number
+          status?: Database["public"]["Enums"]["checklist_item_status"] | null
+          template_item_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "installation_checklist_items_exec_block_id_fkey"
+            columns: ["exec_block_id"]
+            isOneToOne: false
+            referencedRelation: "installation_checklist_blocks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "installation_checklist_items_template_item_id_fkey"
+            columns: ["template_item_id"]
+            isOneToOne: false
+            referencedRelation: "checklist_template_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       installation_checklists: {
         Row: {
           completed_at: string | null
@@ -1727,6 +1904,89 @@ export type Database = {
             columns: ["template_id"]
             isOneToOne: false
             referencedRelation: "checklist_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      installation_part_consumption: {
+        Row: {
+          asset_unique_code: string | null
+          consumed_at: string
+          created_at: string
+          exec_item_id: string | null
+          exec_nonconformity_id: string | null
+          id: string
+          installation_stage_id: string
+          is_manual: boolean | null
+          notes: string | null
+          part_code_snapshot: string
+          part_id: string
+          part_name_snapshot: string
+          quantity: number
+          stock_source: string | null
+          unit_cost_snapshot: number | null
+        }
+        Insert: {
+          asset_unique_code?: string | null
+          consumed_at?: string
+          created_at?: string
+          exec_item_id?: string | null
+          exec_nonconformity_id?: string | null
+          id?: string
+          installation_stage_id: string
+          is_manual?: boolean | null
+          notes?: string | null
+          part_code_snapshot: string
+          part_id: string
+          part_name_snapshot: string
+          quantity: number
+          stock_source?: string | null
+          unit_cost_snapshot?: number | null
+        }
+        Update: {
+          asset_unique_code?: string | null
+          consumed_at?: string
+          created_at?: string
+          exec_item_id?: string | null
+          exec_nonconformity_id?: string | null
+          id?: string
+          installation_stage_id?: string
+          is_manual?: boolean | null
+          notes?: string | null
+          part_code_snapshot?: string
+          part_id?: string
+          part_name_snapshot?: string
+          quantity?: number
+          stock_source?: string | null
+          unit_cost_snapshot?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "installation_part_consumption_exec_item_id_fkey"
+            columns: ["exec_item_id"]
+            isOneToOne: false
+            referencedRelation: "installation_checklist_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "installation_part_consumption_exec_nonconformity_id_fkey"
+            columns: ["exec_nonconformity_id"]
+            isOneToOne: false
+            referencedRelation: "installation_checklist_item_nonconformities"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "installation_part_consumption_installation_stage_id_fkey"
+            columns: ["installation_stage_id"]
+            isOneToOne: false
+            referencedRelation: "installation_stages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "installation_part_consumption_part_id_fkey"
+            columns: ["part_id"]
+            isOneToOne: false
+            referencedRelation: "pecas"
             referencedColumns: ["id"]
           },
         ]
@@ -4167,6 +4427,7 @@ export type Database = {
         Args: { _user_id: string }
         Returns: boolean
       }
+      can_manage_installations: { Args: never; Returns: boolean }
       duplicate_checklist_template: {
         Args: { p_template_id: string }
         Returns: string
@@ -4214,6 +4475,10 @@ export type Database = {
       }
       is_crm_client_owner: {
         Args: { _client_id: string; _user_id: string }
+        Returns: boolean
+      }
+      is_installation_stage_technician: {
+        Args: { _stage_id: string; _user_id: string }
         Returns: boolean
       }
       is_public_corrective_visit: {
