@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Calendar, Wrench, RefreshCcw, Truck, ArrowRight, ListTodo } from 'lucide-react';
+import { Calendar, Wrench, RefreshCcw, Truck, ArrowRight, ListTodo, HardHat, ClipboardCheck } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -9,6 +9,8 @@ import { useMinhasPendencias } from '@/hooks/useMinhasPendencias';
 const statusLabels: Record<string, string> = {
   planejado: 'Planejado',
   reagendado: 'Reagendado',
+  em_andamento: 'Em andamento',
+  aguardando_aprovacao: 'Aguardando aprovação',
   em_elaboracao: 'Em elaboração',
   planejada: 'Planejada',
   em_execucao: 'Em execução',
@@ -16,6 +18,11 @@ const statusLabels: Record<string, string> = {
   solicitado: 'Solicitado',
   pendente: 'Pendente',
   processamento: 'Em processamento',
+};
+
+const STAGE_LABELS: Record<string, string> = {
+  pre_instalacao: 'Pré Instalação',
+  instalacao: 'Instalação',
 };
 
 function formatDate(value: string | null) {
@@ -99,7 +106,7 @@ function Section({ title, icon: Icon, count, isLoading, emptyText, children }: S
 }
 
 export default function MinhasPendencias() {
-  const { preventivas, visitas, coletaReversa, envios, total, isLoading } = useMinhasPendencias();
+  const { preventivas, visitas, coletaReversa, envios, instalacoes, aprovacoesInstalacao, canApproveInstalacao, total, isLoading } = useMinhasPendencias();
 
   return (
     <div className="space-y-6 pb-8 animate-fade-in">
@@ -197,6 +204,48 @@ export default function MinhasPendencias() {
             />
           ))}
         </Section>
+
+        <Section
+          title="Instalações"
+          icon={HardHat}
+          count={instalacoes.data?.length ?? 0}
+          isLoading={instalacoes.isLoading}
+          emptyText="Nenhuma pendência em Instalações"
+        >
+          {instalacoes.data?.map(item => (
+            <PendenciaRow
+              key={item.id}
+              code={STAGE_LABELS[item.stage] ?? item.stage}
+              cliente={item.clienteNome}
+              fazenda={item.fazenda}
+              date={formatDate(item.plannedDate)}
+              status={item.status}
+              to={`/instalacoes/etapa/${item.id}`}
+            />
+          ))}
+        </Section>
+
+        {canApproveInstalacao && (
+          <Section
+            title="Aprovações de Instalação"
+            icon={ClipboardCheck}
+            count={aprovacoesInstalacao.data?.length ?? 0}
+            isLoading={aprovacoesInstalacao.isLoading}
+            emptyText="Nenhuma aprovação pendente"
+          >
+            {aprovacoesInstalacao.data?.map(item => (
+              <PendenciaRow
+                key={item.id}
+                code={STAGE_LABELS[item.stage] ?? item.stage}
+                cliente={item.clienteNome}
+                fazenda={item.fazenda}
+                date={formatDate(item.plannedDate)}
+                status={item.status}
+                to={`/instalacoes/etapa/${item.id}`}
+              />
+            ))}
+          </Section>
+        )}
       </div>
     </div>
   );
