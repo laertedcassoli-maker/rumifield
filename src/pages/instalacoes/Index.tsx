@@ -23,10 +23,10 @@ import AnexoPreviewDialog from "@/components/instalacoes/AnexoPreviewDialog";
 
 type StageType = 'pre_venda' | 'pre_instalacao' | 'instalacao';
 
-const STAGE_ORDER: StageType[] = ['pre_venda', 'pre_instalacao', 'instalacao'];
+// 'pre_venda' foi removida da UI — permanece no tipo/DB apenas para dados legados
+const STAGE_ORDER: StageType[] = ['pre_instalacao', 'instalacao'];
 
-const STAGE_LABELS: Record<StageType, string> = {
-  pre_venda: 'Pré Venda',
+const STAGE_LABELS: Partial<Record<StageType, string>> = {
   pre_instalacao: 'Pré Instalação',
   instalacao: 'Instalação',
 };
@@ -166,6 +166,25 @@ export default function InstalacoesIndex() {
         allStages: inst.stages,
       }));
   }, [installations, etapaFiltro, canManage]);
+
+  // Resumo por situação — usa os dados já carregados (recorte de acesso do usuário,
+  // incluindo o filtro de técnico/CSM para tecnico_campo) e IGNORA o filtro ?etapa= da URL.
+  const resumo = useMemo(() => {
+    const list = installations || [];
+    return {
+      total: list.length,
+      concluidas: list.filter(i => i.status === 'concluido').length,
+      emPreInstalacao: list.filter(i =>
+        i.status !== 'concluido' &&
+        i.stages.some(s => s.stage === 'pre_instalacao') &&
+        !i.stages.some(s => s.stage === 'instalacao')
+      ).length,
+      emInstalacao: list.filter(i =>
+        i.status !== 'concluido' && i.stages.some(s => s.stage === 'instalacao')
+      ).length,
+      semEtapa: list.filter(i => i.stages.length === 0).length,
+    };
+  }, [installations]);
 
 
   // Responsible names for display (technician or CSM)
