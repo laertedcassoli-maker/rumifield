@@ -6,6 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Input } from "@/components/ui/input";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -46,6 +47,7 @@ export default function ExecucaoEtapa() {
   const canApprove = role === 'coordenador_servicos' || role === 'admin';
 
   const [confirmApprove, setConfirmApprove] = useState(false);
+  const [isUploadingAnexo, setIsUploadingAnexo] = useState(false);
   const {
     preview: anexoPreview,
     setPreview: setAnexoPreview,
@@ -129,6 +131,39 @@ export default function ExecucaoEtapa() {
       toast.error('Erro ao aprovar: ' + (error?.message || ''));
     },
   });
+
+  // Upload/replace of the sales e-mail during execution — only while the Pré
+  // Instalação is still 'planejado'/'em_andamento' (never after approval).
+  const uploadSalesEmail = async (file: File) => {
+    if (!stageId) return;
+    setIsUploadingAnexo(true);
+    try {
+      const safeName = file.name.replace(/[^\w.\-]+/g, '_');
+      const path = `${stageId}/${Date.now()}-${safeName}`;
+      const { error: upErr } = await supabase.storage
+        .from('instalacao-anexos')
+        .upload(path, file, { upsert: false });
+      if (upErr) throw upErr;
+
+      const { data, error } = await (supabase as any)
+        .from('installation_stages')
+        .update({ sales_email_attachment_path: path })
+        .eq('id', stageId)
+        .select('id');
+      if (error) throw error;
+      if (!data || data.length === 0) {
+        throw new Error('O anexo não foi confirmado pelo servidor. Verifique suas permissões.');
+      }
+
+      queryClient.invalidateQueries({ queryKey: ['installation-stage', stageId] });
+      queryClient.invalidateQueries({ queryKey: ['installations'] });
+      toast.success('E-mail de venda anexado!');
+    } catch (e: any) {
+      toast.error('Erro ao anexar: ' + (e?.message || 'falha no envio'));
+    } finally {
+      setIsUploadingAnexo(false);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -214,6 +249,28 @@ export default function ExecucaoEtapa() {
               </button>
               <p className="text-xs text-muted-foreground">
                 Um clique abre a pré-visualização; dois cliques abrem em outra guia.
+              </p>
+            </div>
+          )}
+
+          {stage.stage === 'pre_instalacao' && ['planejado', 'em_andamento'].includes(stage.status) && (
+            <div className="pt-2 space-y-1">
+              <p className="text-xs font-medium">
+                {stage.sales_email_attachment_path ? 'Substituir e-mail de venda' : 'Anexar e-mail de venda (opcional)'}
+              </p>
+              <Input
+                type="file"
+                disabled={isUploadingAnexo}
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  e.target.value = '';
+                  if (file) uploadSalesEmail(file);
+                }}
+              />
+              <p className="text-xs text-muted-foreground">
+                {isUploadingAnexo
+                  ? 'Enviando anexo...'
+                  : 'O anexo fica visível ao Coordenador de Serviços na revisão da aprovação.'}
               </p>
             </div>
           )}

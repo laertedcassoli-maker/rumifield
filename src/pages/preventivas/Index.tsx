@@ -92,6 +92,7 @@ export default function PreventiveMaintenanceIndex() {
         .from('clientes')
         .select('id, nome, fazenda, preventive_frequency_days, consultor_rplus_id, status')
         .eq('status', 'ativo')
+        .eq('estoque_interno', false)
         .order('nome');
       
       if (clientsError) throw clientsError;

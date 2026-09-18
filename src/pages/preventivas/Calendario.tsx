@@ -75,6 +75,7 @@ export default function CalendarioPreventivas() {
         .from('clientes')
         .select('id, nome, fazenda, estado, consultor_rplus_id')
         .eq('status', 'ativo')
+        .eq('estoque_interno', false)
         .order('nome');
       
       if (error) throw error;
