@@ -106,7 +106,9 @@ async function fetchClientesMap(ids: string[]) {
  */
 export default function VisitaTecnica() {
   const navigate = useNavigate();
+  const { role } = useAuth();
   const { toast } = useToast();
+  const canAbrirVisita = role === 'admin' || role === 'coordenador_servicos' || role === 'coordenador_rplus';
   const [filtroTipo, setFiltroTipo] = useState<'all' | TipoVisita>('all');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -270,11 +272,19 @@ export default function VisitaTecnica() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div>
-        <h1 className="text-2xl font-bold">Visita Técnica</h1>
-        <p className="text-muted-foreground">
-          Idas presenciais do técnico à fazenda — corretivas e preventivas.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold">Visita Técnica</h1>
+          <p className="text-muted-foreground">
+            Idas presenciais do técnico à fazenda — corretivas e preventivas.
+          </p>
+        </div>
+        {canAbrirVisita && (
+          <Button onClick={() => navigate('/chamados/novo', { state: { presetScheduleVisit: true } })}>
+            <Plus className="mr-2 h-4 w-4" />
+            Abrir Visita Técnica
+          </Button>
+        )}
       </div>
 
       {/* Stats Cards */}
