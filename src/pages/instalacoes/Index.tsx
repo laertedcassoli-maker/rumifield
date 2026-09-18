@@ -479,10 +479,12 @@ export default function InstalacoesIndex() {
                         </div>
                         {stage ? (
                           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-xs text-muted-foreground">
-                            {stage.technician_user_id && (
+                            {(stage.technician_user_id || stage.csm_user_id) && (
                               <span className="flex items-center gap-1">
                                 <User className="h-3 w-3" />
-                                {technicianNames?.[stage.technician_user_id] || 'Técnico'}
+                                {stage.csm_user_id
+                                  ? `${technicianNames?.[stage.csm_user_id] || 'CSM'} (CSM)`
+                                  : (technicianNames?.[stage.technician_user_id!] || 'Técnico')}
                               </span>
                             )}
                             {stage.planned_date && (
