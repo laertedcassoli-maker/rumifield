@@ -66,7 +66,10 @@ interface InstallationRow {
   created_at: string;
   cliente: { nome: string; fazenda: string | null } | null;
   stages: StageRow[];
+  /** All stages of the installation, kept when the view filters stages */
+  allStages?: StageRow[];
 }
+
 
 export default function InstalacoesIndex() {
   const navigate = useNavigate();
