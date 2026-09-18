@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import { Plus, Search, Edit, History, Clock, Check, ChevronsUpDown, Wrench } from 'lucide-react';
+import { Plus, Search, Edit, History, Clock, Check, ChevronsUpDown, Wrench, Package, Users } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -59,6 +59,25 @@ interface MotorReplacement {
   notes: string | null;
 }
 
+interface ItemPedidoHist {
+  id: string;
+  quantidade: number;
+  created_at: string;
+  pedidos: {
+    pedido_code: string;
+    tipo_solicitacao: string | null;
+    status: string;
+    created_at: string;
+  } | null;
+}
+
+interface ClienteResumo {
+  clienteId: string;
+  nome: string;
+  ativosCount: number;
+  osCount: number;
+}
+
 interface Peca {
   id: string;
   codigo: string;
@@ -84,6 +103,7 @@ export default function ItensOficina() {
   });
 
   const isAdmin = role === 'admin' || role === 'coordenador_rplus' || role === 'coordenador_servicos' || role === 'coordenador_logistica';
+  const [visualizacao, setVisualizacao] = useState<'itens' | 'clientes'>('itens');
 
   // Fetch workshop items
   const { data: items = [], isLoading } = useQuery({
