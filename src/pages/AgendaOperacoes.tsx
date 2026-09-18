@@ -46,6 +46,15 @@ const PALETA_TECNICOS = [
 
 const COR_SEM_RESPONSAVEL = 'hsl(215, 16%, 55%)'; // cinza neutro
 
+/** Ícone de grupo — os mesmos usados no menu lateral (engrenagem+chave / MapPin).
+ *  Cor neutra: herda a cor de texto do evento via currentColor. */
+function GrupoIcon({ grupo, className }: { grupo: AgendaGrupo; className?: string }) {
+  if (grupo === 'novas_instalacoes') {
+    return <GearWrenchIcon className={className} wrenchClassName="h-1.5 w-1.5" />;
+  }
+  return <MapPin className={className} />;
+}
+
 /** Cores fixas (tons suaves) para os técnicos de campo do fluxo de peças.
  *  O banco guarda nome completo (ex.: "Phelipe Rogerio"), por isso usamos prefixo. */
 const CORES_FIXAS_TECNICOS: Array<[string, string]> = [
