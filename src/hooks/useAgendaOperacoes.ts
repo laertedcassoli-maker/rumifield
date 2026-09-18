@@ -36,8 +36,9 @@ async function fetchClientesMap(ids: string[]) {
   return new Map((data ?? []).map(c => [c.id, { nome: c.nome, fazenda: c.fazenda ?? null }]));
 }
 
-function buildTitulo(fazendaOuCliente: string, tecnicoNome: string | null) {
-  return tecnicoNome ? `${fazendaOuCliente} — ${tecnicoNome}` : fazendaOuCliente;
+function buildTitulo(clienteNome: string, fazenda: string | null, tecnicoNome: string | null) {
+  const base = fazenda ? `${clienteNome} — ${fazenda}` : clienteNome;
+  return tecnicoNome ? `${base} — ${tecnicoNome}` : base;
 }
 
 /**
