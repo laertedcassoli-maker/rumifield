@@ -244,6 +244,11 @@ export default function TrainingChecklistExecution({
       toast.error('Informe o nome e o telefone de quem recebeu o treinamento.');
       return;
     }
+    // Fluxo avulso (visita existente): todos os itens do checklist são obrigatórios
+    if (existingVisitId && totalItems > 0 && markedItems < totalItems) {
+      toast.error(`Marque todos os itens do checklist (${markedItems} de ${totalItems}).`);
+      return;
+    }
     setCompleting(true);
     try {
       await completeTraining(visitId, {
@@ -257,6 +262,7 @@ export default function TrainingChecklistExecution({
           ? 'Treinamento concluído!'
           : 'Treinamento salvo no aparelho. Será enviado quando houver conexão.'
       );
+      onCompleted?.();
     } catch (error) {
       console.error(error);
       toast.error('Não foi possível concluir o treinamento.');
