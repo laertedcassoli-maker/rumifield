@@ -708,6 +708,22 @@ export default function InstallationChecklistExecution({ stageId, stageTemplateI
   }, [queryClient, queryKey, patchChecklistCache, itemHasTrocaAction, getNcParts, stageId, updatePendingCount, debouncedSync]);
 
   // Complete checklist — requires online and zero pending syncs
+  // Stage type — Pré Instalação goes to approval instead of straight to "concluido"
+  const { data: stageInfo } = useQuery<{ stage: string } | null>({
+    queryKey: ['installation-stage-type', stageId],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .from('installation_stages')
+        .select('stage')
+        .eq('id', stageId)
+        .maybeSingle();
+      if (error) throw error;
+      return data ?? null;
+    },
+    staleTime: 300_000,
+  });
+  const isPreInstalacao = stageInfo?.stage === 'pre_instalacao';
+
   const completeChecklistMutation = useMutation({
     mutationFn: async () => {
       if (!existingChecklist) throw new Error('Checklist não encontrado');
