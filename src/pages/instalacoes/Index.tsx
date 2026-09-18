@@ -627,10 +627,11 @@ export default function InstalacoesIndex() {
                   size="sm"
                   onClick={() => { setStageResponsavelTipo('csm'); setStageTechnicianId(''); }}
                 >
-
                   CSM
                 </Button>
+                )}
               </div>
+
             </div>
             {stageResponsavelTipo === 'tecnico' ? (
               <div className="space-y-2">
