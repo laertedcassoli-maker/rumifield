@@ -346,7 +346,13 @@ export default function ExecucaoVisitaCorretiva() {
 
   // Complete visit mutation
   const completeMutation = useMutation({
-    mutationFn: async (result: 'resolvido' | 'parcial' | 'aguardando_peca') => {
+    mutationFn: async ({
+      result,
+      marcarComoPreventiva,
+    }: {
+      result: 'resolvido' | 'parcial' | 'aguardando_peca';
+      marcarComoPreventiva: boolean;
+    }) => {
       if (!visit) throw new Error('Visita não encontrada');
       // Fallback: pick up modelo previously chosen in the manual add dialog
       const storedModelo = visit.preventiveId
