@@ -367,6 +367,15 @@ const App = () => (
               }
             />
             <Route
+              path="/agenda-operacoes"
+              element={
+                <AppLayout>
+                  <AgendaOperacoes />
+                </AppLayout>
+              }
+            />
+
+            <Route
               path="/instalacoes"
               element={
                 <AppLayout>
