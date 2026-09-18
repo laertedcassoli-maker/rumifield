@@ -148,11 +148,13 @@ export default function AgendaOperacoes() {
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground">
         <span className="flex items-center gap-1.5">
           <span className="inline-block h-3 w-3 rounded-none border-2 border-solid border-foreground/60" />
-          🏗️ Novas Instalações
+          <GearWrenchIcon className="h-3 w-3" wrenchClassName="h-1.5 w-1.5" />
+          Novas Instalações
         </span>
         <span className="flex items-center gap-1.5">
           <span className="inline-block h-3 w-3 rounded-full border-2 border-solid border-foreground/60" />
-          🔧 Instalações Existentes
+          <MapPin className="h-3 w-3" />
+          Instalações Existentes
         </span>
         <span className="text-muted-foreground/60">|</span>
         {tecnicos.map(nome => (
@@ -192,6 +194,15 @@ export default function AgendaOperacoes() {
                   right: 'dayGridMonth,timeGridWeek,timeGridDay,listWeek',
                 }}
                 events={calendarEvents}
+                eventContent={arg => {
+                  const grupo = arg.event.extendedProps.grupo as AgendaGrupo;
+                  return (
+                    <span className="flex min-w-0 items-center gap-1 overflow-hidden">
+                      <GrupoIcon grupo={grupo} className="h-3 w-3 shrink-0" />
+                      <span className="truncate">{arg.event.title}</span>
+                    </span>
+                  );
+                }}
                 eventClick={info => {
                   info.jsEvent.preventDefault();
                   const linkTo = info.event.extendedProps.linkTo as string | undefined;
