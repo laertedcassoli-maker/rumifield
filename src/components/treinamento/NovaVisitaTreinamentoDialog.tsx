@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { withTimeout } from '@/lib/supabase-helpers';
@@ -45,16 +45,31 @@ const ROLE_LABELS: Record<string, string> = {
   coordenador_rplus: 'Coordenador R+',
 };
 
+export interface EditingTrainingVisit {
+  id: string;
+  cliente_id: string;
+  checklist_template_id: string | null;
+  technician_user_id: string | null;
+  csm_user_id: string | null;
+  planned_date: string | null;
+  contact_name: string | null;
+  contact_phone: string | null;
+  notes: string | null;
+}
+
 interface NovaVisitaTreinamentoDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Quando informado, o diálogo edita a visita existente em vez de criar uma nova */
+  editingVisit?: EditingTrainingVisit | null;
 }
 
 /**
  * Solicitação de visita de treinamento em um único passo: insere direto em
  * training_visits (status 'pendente'), sem tabelas intermediárias.
+ * Com editingVisit, atua como edição da visita pendente.
  */
-export default function NovaVisitaTreinamentoDialog({ open, onOpenChange }: NovaVisitaTreinamentoDialogProps) {
+export default function NovaVisitaTreinamentoDialog({ open, onOpenChange, editingVisit }: NovaVisitaTreinamentoDialogProps) {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
