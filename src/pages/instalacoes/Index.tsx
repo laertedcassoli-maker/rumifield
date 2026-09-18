@@ -144,13 +144,26 @@ export default function InstalacoesIndex() {
   // and show just that stage row inside each card. Installations with NO stages
   // yet (freshly created, not even the first stage configured) always stay
   // visible for managers so they can never become unreachable in a filtered view.
+  // In the "Instalação" view, installations whose Pré Instalação already exists
+  // also stay visible so managers can configure (or see the lock on) that stage.
   const visibleInstallations = useMemo(() => {
     if (!installations) return installations;
     if (!etapaFiltro) return installations;
     return installations
-      .filter(inst => inst.stages.length === 0 ? canManage : inst.stages.some(s => s.stage === etapaFiltro))
-      .map(inst => ({ ...inst, stages: inst.stages.filter(s => s.stage === etapaFiltro) }));
+      .filter(inst => {
+        if (inst.stages.length === 0) return canManage;
+        if (inst.stages.some(s => s.stage === etapaFiltro)) return true;
+        return canManage && etapaFiltro === 'instalacao' && inst.stages.some(s => s.stage === 'pre_instalacao');
+      })
+      .map(inst => ({
+        ...inst,
+        // keep the Pré Instalação row out of the Instalação view, but preserve it
+        // in a side field so the lock rule can read its status
+        stages: inst.stages.filter(s => s.stage === etapaFiltro),
+        allStages: inst.stages,
+      }));
   }, [installations, etapaFiltro, canManage]);
+
 
   // Responsible names for display (technician or CSM)
   const technicianIds = Array.from(new Set(
