@@ -1,3 +1,4 @@
+import { Fragment } from 'react';
 import { Home, MapPin, ShoppingCart, Users, Settings, LogOut, Beaker, Truck, RefreshCcw, ChevronDown, ClipboardCheck, TrendingDown, Play, Building2, History, Package, FlaskConical, Shield, Wrench, ListChecks, ListTodo, Box, FileText, Calendar, Route, CalendarDays, ClipboardList, AlertTriangle, Navigation, BookOpen, Bot, Contact, Briefcase, BarChart3, BarChart2, Eye, Brain, Sheet, HardHat } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarMenuSub, SidebarMenuSubItem, SidebarMenuSubButton } from '@/components/ui/sidebar';
@@ -137,13 +138,20 @@ export function AppSidebar() {
   const adminTopItems = [
     { title: 'Dashboards', icon: BarChart2, url: '/admin/dashboards', permKey: 'oficina_gestao_os' },
     { title: 'Clientes', icon: Building2, url: '/admin/clientes', permKey: 'admin_clientes' },
-    { title: 'Usuários', icon: Users, url: '/admin/usuarios', permKey: 'admin_usuarios' },
-    { title: 'Permissões', icon: Shield, url: '/admin/permissoes', permKey: 'admin_permissoes' },
     { title: 'Envios', icon: Truck, url: '/admin/envios', permKey: 'admin_envios' },
     { title: 'Inteligência', icon: Brain, url: '/crm/inteligencia', permKey: 'crm_inteligencia' },
     { title: 'Analytics', icon: BarChart2, url: '/admin/analytics', permKey: 'admin_analytics' },
 
   ].filter(item => canAccess(item.permKey));
+
+  // Admin > Usuários submenu (Usuários + Permissões)
+  const adminUsuariosItems = [
+    { title: 'Usuários', icon: Users, url: '/admin/usuarios', permKey: 'admin_usuarios' },
+    { title: 'Permissões', icon: Shield, url: '/admin/permissoes', permKey: 'admin_permissoes' },
+  ].filter(item => canAccess(item.permKey));
+
+  const isAdminUsuariosActive = location.pathname.startsWith('/admin/usuarios') || location.pathname.startsWith('/admin/permissoes');
+  const showUsuariosMenu = (canAccess('admin_usuarios') || canAccess('admin_permissoes')) && adminUsuariosItems.length > 0;
 
   // Admin > Cadastros submenu
   const adminCadastrosItems = [
@@ -451,14 +459,45 @@ export function AppSidebar() {
             <SidebarGroupContent>
               <SidebarMenu>
                 {adminTopItems.map(item => (
-                  <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton asChild isActive={location.pathname === item.url}>
-                      <Link to={item.url} onClick={handleMenuClick}>
-                        <item.icon className="h-4 w-4" />
-                        <span>{item.title}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
+                  <Fragment key={item.title}>
+                    <SidebarMenuItem>
+                      <SidebarMenuButton asChild isActive={location.pathname === item.url}>
+                        <Link to={item.url} onClick={handleMenuClick}>
+                          <item.icon className="h-4 w-4" />
+                          <span>{item.title}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+
+                    {/* Usuários submenu (após Clientes, onde ficava o item solto) */}
+                    {item.title === 'Clientes' && showUsuariosMenu && (
+                      <Collapsible defaultOpen={isAdminUsuariosActive} className="group/collapsible">
+                        <SidebarMenuItem>
+                          <CollapsibleTrigger asChild>
+                            <SidebarMenuButton isActive={isAdminUsuariosActive}>
+                              <Users className="h-4 w-4" />
+                              <span>Usuários</span>
+                              <ChevronDown className="ml-auto h-4 w-4 transition-transform group-data-[state=open]/collapsible:rotate-180" />
+                            </SidebarMenuButton>
+                          </CollapsibleTrigger>
+                          <CollapsibleContent>
+                            <SidebarMenuSub>
+                              {adminUsuariosItems.map(sub => (
+                                <SidebarMenuSubItem key={sub.title}>
+                                  <SidebarMenuSubButton asChild isActive={location.pathname === sub.url}>
+                                    <Link to={sub.url} onClick={handleMenuClick}>
+                                      <sub.icon className="h-4 w-4" />
+                                      <span>{sub.title}</span>
+                                    </Link>
+                                  </SidebarMenuSubButton>
+                                </SidebarMenuSubItem>
+                              ))}
+                            </SidebarMenuSub>
+                          </CollapsibleContent>
+                        </SidebarMenuItem>
+                      </Collapsible>
+                    )}
+                  </Fragment>
                 ))}
 
                 {/* Cadastros submenu */}

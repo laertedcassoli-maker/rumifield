@@ -45,9 +45,21 @@ const PALETA_TECNICOS = [
 
 const COR_SEM_RESPONSAVEL = 'hsl(215, 16%, 55%)'; // cinza neutro
 
+/** Cores fixas (tons suaves) para os técnicos de campo do fluxo de peças.
+ *  O banco guarda nome completo (ex.: "Phelipe Rogerio"), por isso usamos prefixo. */
+const CORES_FIXAS_TECNICOS: Array<[string, string]> = [
+  ['lenilton', 'hsl(32, 70%, 55%)'],  // laranja suave
+  ['phelipe',  'hsl(270, 40%, 65%)'], // lilás suave (antes de "roger": "Phelipe Rogerio")
+  ['roger',    'hsl(142, 45%, 48%)'], // verde suave
+];
+
 /** Cor determinística por nome: mesmo nome -> mesma cor, sempre. */
 function corPorTecnico(nome: string | null): string {
   if (!nome) return COR_SEM_RESPONSAVEL;
+  const normalized = nome.trim().toLowerCase();
+  for (const [key, color] of CORES_FIXAS_TECNICOS) {
+    if (normalized.startsWith(key)) return color;
+  }
   let hash = 5381;
   for (let i = 0; i < nome.length; i++) {
     hash = (hash * 33) ^ nome.charCodeAt(i);
