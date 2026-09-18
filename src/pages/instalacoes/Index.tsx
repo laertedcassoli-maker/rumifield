@@ -164,38 +164,37 @@ export default function InstalacoesIndex() {
   // also stay visible so managers can configure (or see the lock on) that stage.
   const visibleInstallations = useMemo(() => {
     if (!installations) return installations;
-    if (!etapaFiltro) return installations;
-    return installations
-      .filter(inst => {
+    let list = installations;
+    if (etapaFiltro) {
+      list = list.filter(inst => {
         if (inst.stages.length === 0) return canManage;
         if (inst.stages.some(s => s.stage === etapaFiltro)) return true;
         return canManage && etapaFiltro === 'instalacao' && inst.stages.some(s => s.stage === 'pre_instalacao');
-      })
-      .map(inst => ({
-        ...inst,
-        // keep the Pré Instalação row out of the Instalação view, but preserve it
-        // in a side field so the lock rule can read its status
-        stages: inst.stages.filter(s => s.stage === etapaFiltro),
-        allStages: inst.stages,
-      }));
-  }, [installations, etapaFiltro, canManage]);
+      });
+    }
+    if (filtroSituacao !== 'all') {
+      list = list.filter(inst => classificarSituacao(inst) === filtroSituacao);
+    }
+    return list.map(inst => ({
+      ...inst,
+      // keep the Pré Instalação row out of the Instalação view, but preserve it
+      // in a side field so the lock rule can read its status
+      stages: inst.stages.filter(s => !etapaFiltro || s.stage === etapaFiltro),
+      allStages: inst.stages,
+    }));
+  }, [installations, etapaFiltro, canManage, filtroSituacao]);
 
   // Resumo por situação — usa os dados já carregados (recorte de acesso do usuário,
   // incluindo o filtro de técnico/CSM para tecnico_campo) e IGNORA o filtro ?etapa= da URL.
+  // A contagem sempre reflete o total real de cada categoria (não o resultado filtrado).
   const resumo = useMemo(() => {
     const list = installations || [];
     return {
       total: list.length,
-      concluidas: list.filter(i => i.status === 'concluido').length,
-      emPreInstalacao: list.filter(i =>
-        i.status !== 'concluido' &&
-        i.stages.some(s => s.stage === 'pre_instalacao') &&
-        !i.stages.some(s => s.stage === 'instalacao')
-      ).length,
-      emInstalacao: list.filter(i =>
-        i.status !== 'concluido' && i.stages.some(s => s.stage === 'instalacao')
-      ).length,
-      semEtapa: list.filter(i => i.stages.length === 0).length,
+      concluidas: list.filter(i => classificarSituacao(i) === 'concluida').length,
+      emPreInstalacao: list.filter(i => classificarSituacao(i) === 'pre_instalacao').length,
+      emInstalacao: list.filter(i => classificarSituacao(i) === 'instalacao').length,
+      semEtapa: list.filter(i => classificarSituacao(i) === 'sem_etapa').length,
     };
   }, [installations]);
 
