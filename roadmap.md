@@ -29,3 +29,6 @@
 - [ ] sync-imilk-clientes: mapeamento dos campos imilk_* confirmado parcialmente — aguardando confirmação se grava também city/state
 - [x] Histórico de status de pedidos (tabela pedido_status_history + 2 triggers) + "Concluído em" em Clientes RF, badge faturado verde e linha do tempo no dialog — validado no preview
 - [x] Visita Técnica no modelo de Chamados: cards-filtro, busca, selects status/cliente, período, tabela 15/pág (104 registros, 38+66) — validado no preview
+
+## Prompt 3 — Erro amigável ao excluir template em uso (pendente)
+- Checklists.tsx deleteTemplateMutation onError: error.code 23503 → mensagem amigável; outros erros mantêm error.message.
