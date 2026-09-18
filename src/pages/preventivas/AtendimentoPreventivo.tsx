@@ -31,6 +31,7 @@ import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
 import ChecklistExecution from '@/components/preventivas/ChecklistExecution';
+import CombinarTreinamentoSection from '@/components/treinamento/CombinarTreinamentoSection';
 import VisitMediaUpload from '@/components/preventivas/VisitMediaUpload';
 import ConsumedPartsBlock from '@/components/preventivas/ConsumedPartsBlock';
 import ObservationsBlock from '@/components/preventivas/ObservationsBlock';
@@ -869,6 +870,14 @@ export default function AtendimentoPreventivo() {
             </p>
           </CardContent>
         </Card>
+      )}
+
+      {/* Treinamento combinado */}
+      {routeItem.client_id && (routeItem.route?.field_technician_user_id || user?.id) && (
+        <CombinarTreinamentoSection
+          clienteId={routeItem.client_id}
+          responsavelUserId={routeItem.route?.field_technician_user_id || user!.id}
+        />
       )}
 
       {/* Consumed Parts Block */}
