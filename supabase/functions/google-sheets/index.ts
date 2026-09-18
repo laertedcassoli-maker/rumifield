@@ -180,7 +180,12 @@ serve(async (req) => {
     }
 
     const body = await req.json();
-    const { action, range } = body;
+    const { action, range, gid } = body;
+    const spreadsheetId: string | undefined = body.spreadsheetId || defaultSpreadsheetId;
+    if (!spreadsheetId) {
+      throw new Error("No spreadsheetId provided and CHAVE_GOOGLE_SHEET_TABELA_BOARD secret not configured");
+    }
+
 
     // Generate JWT and get access token
     const jwt = await createSignedJWT(
