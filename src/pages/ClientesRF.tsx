@@ -54,12 +54,10 @@ export default function ClientesRF() {
           .in('tipo_solicitacao', ['envio', 'coleta_reversa']),
         supabase
           .from('ticket_visits')
-          .select('client_id, planned_start_date, checkout_at, status')
-          .not('status', 'in', '(cancelada,cancelado)'),
+          .select('client_id, planned_start_date, checkout_at, status'),
         supabase
           .from('preventive_route_items')
-          .select('client_id, planned_date, checkin_at, status')
-          .not('status', 'in', '(cancelada,cancelado)'),
+          .select('client_id, planned_date, checkin_at, status'),
       ]);
 
       if (pedidosRes.error) throw pedidosRes.error;
@@ -67,6 +65,7 @@ export default function ClientesRF() {
       if (preventivasRes.error) throw preventivasRes.error;
 
       const mapa = new Map<string, Ocorrencia>();
+      const CANCELADOS = ['cancelada', 'cancelado'];
 
       const registrar = (clientId: string | null, data: string | null, origem: OrigemOcorrencia) => {
         if (!clientId || !data) return;
@@ -76,12 +75,13 @@ export default function ClientesRF() {
       };
 
       (pedidosRes.data ?? []).forEach((p: any) => registrar(p.cliente_id, p.created_at, 'pedido'));
-      (corretivasRes.data ?? []).forEach((v: any) =>
-        registrar(v.client_id, v.checkout_at ?? v.planned_start_date, 'visita')
-      );
-      (preventivasRes.data ?? []).forEach((i: any) =>
-        registrar(i.client_id, i.checkin_at ?? i.planned_date, 'visita')
-      );
+      (corretivasRes.data ?? [])
+        .filter((v: any) => !CANCELADOS.includes(v.status))
+        .forEach((v: any) => registrar(v.client_id, v.checkout_at ?? v.planned_start_date, 'visita'));
+      (preventivasRes.data ?? [])
+        .filter((i: any) => !CANCELADOS.includes(i.status))
+        .forEach((i: any) => registrar(i.client_id, i.checkin_at ?? i.planned_date, 'visita'));
+
 
       return mapa;
     },
