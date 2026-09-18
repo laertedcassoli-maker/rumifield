@@ -157,6 +157,28 @@ export function NovaOSDialog({ open, onOpenChange, onSuccess }: NovaOSDialogProp
     ap => ap.omie_product_id === selectedItem.omie_product_id && ap.requires_meter_hours
   );
 
+  // Pedido vinculado ao ativo selecionado (para mostrar o motivo do relato)
+  const { data: pedidoVinculado } = useQuery<{
+    pedido_code: string;
+    tipo_solicitacao: string | null;
+    motivo_relato: string;
+  } | null>({
+    queryKey: ['pedido-vinculado-item', selectedItemId],
+    queryFn: async () => {
+      if (!selectedItemId) return null;
+      const { data, error } = await supabase
+        .from('pedido_itens')
+        .select('pedidos:pedido_id (pedido_code, tipo_solicitacao, motivo_relato)')
+        .eq('workshop_item_id', selectedItemId)
+        .order('created_at', { ascending: false })
+        .limit(1);
+      if (error) throw error;
+      const pedido = (data?.[0] as any)?.pedidos;
+      return pedido?.motivo_relato ? pedido : null;
+    },
+    enabled: !!selectedItemId,
+  });
+
   // Filter activities based on selected item (via activity_products)
   const filteredActivitiesForItem = activities.filter(activity => {
     if (!selectedItem) return true;
@@ -576,7 +598,22 @@ export function NovaOSDialog({ open, onOpenChange, onSuccess }: NovaOSDialogProp
                         <p className="font-medium">{selectedCliente.nome}</p>
                         {selectedCliente.status !== 'ativo' && (
                           <Badge variant="outline" className="text-xs text-destructive border-destructive">inativo</Badge>
-                        )}
+        )}
+
+        {/* Motivo do relato do cliente (pedido vinculado ao ativo) */}
+        {selectedItem && pedidoVinculado && (
+          <div className="p-3 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg">
+            <p className="text-sm text-blue-800 dark:text-blue-200">
+              <span className="font-medium">Motivo do relato do cliente:</span> {pedidoVinculado.motivo_relato}
+            </p>
+            <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+              Pedido {pedidoVinculado.pedido_code}
+              {pedidoVinculado.tipo_solicitacao
+                ? ` · ${pedidoVinculado.tipo_solicitacao === 'coleta_reversa' ? 'Coleta Reversa' : 'Envio'}`
+                : ''}
+            </p>
+          </div>
+        )}
                       </div>
                       {selectedCliente.fazenda && (
                         <p className="text-sm text-muted-foreground">{selectedCliente.fazenda}</p>

@@ -458,7 +458,7 @@ export default function ItensOficina() {
 
       <Card>
         <CardHeader className="pb-3">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <Search className="h-4 w-4 text-muted-foreground" />
             <Input
               placeholder="Buscar itens..."
@@ -466,10 +466,58 @@ export default function ItensOficina() {
               onChange={(e) => setSearch(e.target.value)}
               className="max-w-sm"
             />
+            <div className="flex gap-1 ml-auto">
+              <Button
+                variant={visualizacao === 'itens' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setVisualizacao('itens')}
+              >
+                Itens
+              </Button>
+              <Button
+                variant={visualizacao === 'clientes' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setVisualizacao('clientes')}
+              >
+                <Users className="h-4 w-4 mr-1" />
+                Por Cliente
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
-          {isLoading ? (
+          {visualizacao === 'clientes' ? (
+            isLoadingClientesResumo ? (
+              <div className="text-center py-8 text-muted-foreground">Carregando...</div>
+            ) : clientesResumo.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                Nenhuma OS com ativos vinculados
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Cliente</TableHead>
+                    <TableHead className="text-center">Ativos distintos atendidos</TableHead>
+                    <TableHead className="text-center">OS</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {clientesResumo.map((c) => (
+                    <TableRow key={c.clienteId}>
+                      <TableCell className="font-medium">{c.nome}</TableCell>
+                      <TableCell className="text-center">
+                        <Badge variant="secondary">{c.ativosCount}</Badge>
+                      </TableCell>
+                      <TableCell className="text-center text-sm text-muted-foreground">
+                        {c.osCount}
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )
+          ) : isLoading ? (
             <div className="text-center py-8 text-muted-foreground">Carregando...</div>
           ) : filteredItems.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">
@@ -562,7 +610,7 @@ export default function ItensOficina() {
           </DialogHeader>
           
           <Tabs defaultValue="horimetro" className="w-full">
-            <TabsList className="grid w-full grid-cols-2">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="horimetro" className="flex items-center gap-1">
                 <Clock className="h-3 w-3" />
                 Horímetro
@@ -570,6 +618,10 @@ export default function ItensOficina() {
               <TabsTrigger value="motor" className="flex items-center gap-1">
                 <Wrench className="h-3 w-3" />
                 Trocas Motor
+              </TabsTrigger>
+              <TabsTrigger value="pedidos" className="flex items-center gap-1">
+                <Package className="h-3 w-3" />
+                Pedidos
               </TabsTrigger>
             </TabsList>
             
@@ -637,6 +689,38 @@ export default function ItensOficina() {
                       {replacement.notes && (
                         <p className="text-xs text-muted-foreground mt-1">{replacement.notes}</p>
                       )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+
+            <TabsContent value="pedidos" className="mt-4">
+              {itemPedidos.length === 0 ? (
+                <div className="text-center py-8 text-muted-foreground">
+                  Nenhum pedido registrado
+                </div>
+              ) : (
+                <div className="space-y-2 max-h-[350px] overflow-auto">
+                  {itemPedidos.map((ip) => (
+                    <div
+                      key={ip.id}
+                      className="flex items-center justify-between p-3 border rounded-lg"
+                    >
+                      <div className="min-w-0">
+                        <p className="font-medium font-mono">{ip.pedidos?.pedido_code || '—'}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {ip.pedidos?.tipo_solicitacao && tipoSolicitacaoLabels[ip.pedidos.tipo_solicitacao]
+                            ? `${tipoSolicitacaoLabels[ip.pedidos.tipo_solicitacao]} · `
+                            : ''}
+                          {format(new Date(ip.created_at), 'dd/MM/yyyy', { locale: ptBR })}
+                        </p>
+                      </div>
+                      <Badge variant="outline">
+                        {ip.pedidos?.status
+                          ? (statusPedidoLabels[ip.pedidos.status] || ip.pedidos.status)
+                          : '—'}
+                      </Badge>
                     </div>
                   ))}
                 </div>
