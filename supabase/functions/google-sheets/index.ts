@@ -193,6 +193,13 @@ serve(async (req) => {
     );
     const accessToken = await getAccessToken(jwt);
 
+    if (action === "whoami") {
+      return new Response(
+        JSON.stringify({ success: true, client_email }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
     if (action === "test") {
       // Test connection by fetching spreadsheet metadata
       const info = await getSpreadsheetInfo(accessToken, spreadsheetId);
