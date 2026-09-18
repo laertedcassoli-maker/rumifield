@@ -2,11 +2,38 @@ import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
-import { CalendarDays, ExternalLink } from 'lucide-react';
+import {
+  Calendar as CalendarIcon,
+  CalendarDays,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Eye,
+  Loader2,
+  Search,
+  Wrench,
+  XCircle,
+} from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { Skeleton } from '@/components/ui/skeleton';
+import { Input } from '@/components/ui/input';
+import { Calendar } from '@/components/ui/calendar';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { cn } from '@/lib/utils';
+import type { DateRange } from 'react-day-picker';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
 
 type TipoVisita = 'corretiva' | 'preventiva';
@@ -15,6 +42,7 @@ interface VisitaItem {
   id: string;
   tipo: TipoVisita;
   codigo: string;
+  clienteId: string | null;
   clienteNome: string;
   fazenda: string | null;
   tecnicoNome: string | null;
@@ -35,10 +63,17 @@ const STATUS_LABELS: Record<string, string> = {
   cancelado: 'Cancelado',
 };
 
-function statusBadgeVariant(status: string): 'default' | 'secondary' | 'outline' {
-  if (status === 'em_execucao') return 'default';
-  if (status === 'finalizada' || status === 'executado') return 'secondary';
-  return 'outline';
+const ITEMS_PER_PAGE = 15;
+
+function statusBadgeClass(status: string) {
+  if (status === 'finalizada' || status === 'executado') {
+    return 'bg-green-500/10 text-green-600 border-green-500/20';
+  }
+  if (status === 'em_execucao') return 'bg-warning/10 text-warning border-warning/20';
+  if (status === 'planejada' || status === 'planejado') {
+    return 'bg-blue-500/10 text-blue-600 border-blue-500/20';
+  }
+  return '';
 }
 
 function formatDate(value: string | null | undefined) {
@@ -71,6 +106,13 @@ export default function VisitaTecnica() {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [filtroTipo, setFiltroTipo] = useState<'all' | TipoVisita>('all');
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [clientFilter, setClientFilter] = useState('all');
+  const [clientPopoverOpen, setClientPopoverOpen] = useState(false);
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
+  const [datePopoverOpen, setDatePopoverOpen] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
 
   const { data: visitas, isLoading, error } = useQuery({
     queryKey: ['visita-tecnica'],
@@ -111,6 +153,7 @@ export default function VisitaTecnica() {
           id: r.id,
           tipo: 'corretiva',
           codigo: r.visit_code ?? r.technical_tickets?.ticket_code ?? '—',
+          clienteId: r.client_id ?? null,
           clienteNome: cliente?.nome ?? 'Cliente',
           fazenda: cliente?.fazenda ?? null,
           tecnicoNome: r.field_technician_user_id ? profiles.get(r.field_technician_user_id) ?? null : null,
@@ -128,6 +171,7 @@ export default function VisitaTecnica() {
           id: r.id,
           tipo: 'preventiva',
           codigo: r.preventive_routes?.route_code ?? '—',
+          clienteId: r.client_id ?? null,
           clienteNome: cliente?.nome ?? 'Cliente',
           fazenda: cliente?.fazenda ?? null,
           tecnicoNome: techId ? profiles.get(techId) ?? null : null,
@@ -156,106 +200,324 @@ export default function VisitaTecnica() {
     }
   }, [error, toast]);
 
-  const visiveis = useMemo(() => {
-    const lista = visitas ?? [];
-    return filtroTipo === 'all' ? lista : lista.filter(v => v.tipo === filtroTipo);
-  }, [visitas, filtroTipo]);
+  const lista = visitas ?? [];
 
-  const totais = useMemo(() => {
-    const lista = visitas ?? [];
-    return {
-      all: lista.length,
-      corretiva: lista.filter(v => v.tipo === 'corretiva').length,
-      preventiva: lista.filter(v => v.tipo === 'preventiva').length,
-    };
-  }, [visitas]);
+  const statusDisponiveis = useMemo(() => {
+    const set = new Set(lista.map(v => v.status));
+    return [...set].sort((a, b) => (STATUS_LABELS[a] ?? a).localeCompare(STATUS_LABELS[b] ?? b));
+  }, [lista]);
+
+  const uniqueClients = useMemo(() => {
+    const map = new Map<string, string>();
+    lista.forEach(v => {
+      if (v.clienteId && !map.has(v.clienteId)) {
+        map.set(v.clienteId, v.fazenda ? `${v.clienteNome} — ${v.fazenda}` : v.clienteNome);
+      }
+    });
+    return [...map.entries()]
+      .map(([id, label]) => ({ id, label }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [lista]);
+
+  const selectedClientLabel = clientFilter === 'all'
+    ? 'Todos os produtores'
+    : uniqueClients.find(c => c.id === clientFilter)?.label ?? 'Todos os produtores';
+
+  const filtradas = useMemo(() => {
+    const termo = search.trim().toLowerCase();
+    return lista.filter(v => {
+      if (filtroTipo !== 'all' && v.tipo !== filtroTipo) return false;
+      if (statusFilter !== 'all' && v.status !== statusFilter) return false;
+      if (clientFilter !== 'all' && v.clienteId !== clientFilter) return false;
+      if (termo) {
+        const alvo = [v.codigo, v.clienteNome, v.fazenda ?? '', v.tecnicoNome ?? '']
+          .join(' ')
+          .toLowerCase();
+        if (!alvo.includes(termo)) return false;
+      }
+      if (dateRange?.from) {
+        if (!v.dataPlanejada) return false;
+        const d = new Date(v.dataPlanejada);
+        if (Number.isNaN(d.getTime())) return false;
+        const inicio = new Date(dateRange.from);
+        inicio.setHours(0, 0, 0, 0);
+        const fim = new Date(dateRange.to ?? dateRange.from);
+        fim.setHours(23, 59, 59, 999);
+        if (d < inicio || d > fim) return false;
+      }
+      return true;
+    });
+  }, [lista, filtroTipo, statusFilter, clientFilter, search, dateRange]);
+
+  const totalPages = Math.max(1, Math.ceil(filtradas.length / ITEMS_PER_PAGE));
+  const paginadas = useMemo(
+    () => filtradas.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE),
+    [filtradas, currentPage],
+  );
+
+  const stats = useMemo(() => ({
+    total: lista.length,
+    corretiva: lista.filter(v => v.tipo === 'corretiva').length,
+    preventiva: lista.filter(v => v.tipo === 'preventiva').length,
+  }), [lista]);
+
+  const aplicarTipo = (tipo: 'all' | TipoVisita) => {
+    setFiltroTipo(prev => (tipo !== 'all' && prev === tipo ? 'all' : tipo));
+    setCurrentPage(1);
+  };
 
   return (
-    <div className="min-h-screen bg-background p-4 md:p-6 max-w-5xl mx-auto">
-      <div className="flex items-center gap-3 mb-1">
-        <CalendarDays className="h-6 w-6 text-primary" />
+    <div className="space-y-6 animate-fade-in">
+      <div>
         <h1 className="text-2xl font-bold">Visita Técnica</h1>
-      </div>
-      <p className="text-muted-foreground mb-4">
-        Idas presenciais do técnico à fazenda — corretivas e preventivas.
-      </p>
-
-      <div className="flex flex-wrap items-center gap-2 mb-4">
-        <Button
-          variant={filtroTipo === 'all' ? 'default' : 'outline'}
-          size="sm"
-          onClick={() => setFiltroTipo('all')}
-        >
-          Todos ({totais.all})
-        </Button>
-        <Button
-          variant={filtroTipo === 'corretiva' ? 'default' : 'outline'}
-          size="sm"
-          onClick={() => setFiltroTipo(filtroTipo === 'corretiva' ? 'all' : 'corretiva')}
-        >
-          Corretivas ({totais.corretiva})
-        </Button>
-        <Button
-          variant={filtroTipo === 'preventiva' ? 'default' : 'outline'}
-          size="sm"
-          onClick={() => setFiltroTipo(filtroTipo === 'preventiva' ? 'all' : 'preventiva')}
-        >
-          Preventivas ({totais.preventiva})
-        </Button>
+        <p className="text-muted-foreground">
+          Idas presenciais do técnico à fazenda — corretivas e preventivas.
+        </p>
       </div>
 
-      {isLoading ? (
-        <div className="space-y-3">
-          {[1, 2, 3, 4, 5].map(i => (
-            <Skeleton key={i} className="h-20 w-full rounded-lg" />
-          ))}
-        </div>
-      ) : visiveis.length === 0 ? (
-        <Card>
-          <CardContent className="py-10 text-center text-muted-foreground">
-            Nenhuma visita encontrada para o filtro selecionado.
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <Card
+          className="cursor-pointer hover:border-primary/50 transition-colors"
+          onClick={() => aplicarTipo('all')}
+        >
+          <CardContent className="p-4">
+            <div className="text-2xl font-bold">{stats.total}</div>
+            <div className="text-sm text-muted-foreground">Total</div>
           </CardContent>
         </Card>
-      ) : (
-        <div className="space-y-2">
-          {visiveis.map(v => (
-            <Card
-              key={`${v.tipo}-${v.id}`}
-              className="cursor-pointer transition-colors hover:bg-muted/50"
-              onClick={() => navigate(v.linkTo)}
-            >
-              <CardContent className="py-3 px-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-semibold text-sm truncate">{v.clienteNome}</span>
-                      {v.fazenda && (
-                        <span className="text-sm text-muted-foreground truncate">{v.fazenda}</span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-3 flex-wrap mt-1 text-xs text-muted-foreground">
-                      <span className="font-mono">{v.codigo}</span>
-                      <span>
-                        {v.tecnicoNome ? `Técnico: ${v.tecnicoNome}` : 'Técnico: —'}
-                      </span>
-                      <span>Planejada: {formatDate(v.dataPlanejada)}</span>
-                      {v.dataRealizada && <span>Realizada: {formatDate(v.dataRealizada)}</span>}
-                    </div>
-                  </div>
-                  <div className="flex flex-col items-end gap-1.5 shrink-0">
-                    <Badge variant={v.tipo === 'corretiva' ? 'default' : 'secondary'}>
-                      {v.tipo === 'corretiva' ? 'Corretiva' : 'Preventiva'}
-                    </Badge>
-                    <Badge variant={statusBadgeVariant(v.status)}>
-                      {STATUS_LABELS[v.status] ?? v.status}
-                    </Badge>
-                    <ExternalLink className="h-3.5 w-3.5 text-muted-foreground" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+        <Card
+          className={cn(
+            'cursor-pointer hover:border-primary/50 transition-colors border-blue-500/30',
+            filtroTipo === 'corretiva' && 'ring-2 ring-blue-500',
+          )}
+          onClick={() => aplicarTipo('corretiva')}
+        >
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2">
+              <Wrench className="h-5 w-5 text-blue-600" />
+              <div className="text-2xl font-bold text-blue-600">{stats.corretiva}</div>
+            </div>
+            <div className="text-sm text-muted-foreground">Corretivas</div>
+          </CardContent>
+        </Card>
+        <Card
+          className={cn(
+            'cursor-pointer hover:border-primary/50 transition-colors border-green-500/30',
+            filtroTipo === 'preventiva' && 'ring-2 ring-green-500',
+          )}
+          onClick={() => aplicarTipo('preventiva')}
+        >
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2">
+              <CalendarDays className="h-5 w-5 text-green-600" />
+              <div className="text-2xl font-bold text-green-600">{stats.preventiva}</div>
+            </div>
+            <div className="text-sm text-muted-foreground">Preventivas</div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Filters */}
+      <div className="flex flex-col md:flex-row gap-4">
+        <div className="relative flex-1 min-w-0">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input
+            placeholder="Buscar por código, cliente, fazenda ou técnico..."
+            value={search}
+            onChange={e => { setSearch(e.target.value); setCurrentPage(1); }}
+            className="pl-10"
+          />
         </div>
+        <Select value={statusFilter} onValueChange={v => { setStatusFilter(v); setCurrentPage(1); }}>
+          <SelectTrigger className="w-full md:w-[200px]">
+            <SelectValue placeholder="Status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">Todos os Status</SelectItem>
+            {statusDisponiveis.map(s => (
+              <SelectItem key={s} value={s}>{STATUS_LABELS[s] ?? s}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Popover open={clientPopoverOpen} onOpenChange={setClientPopoverOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              role="combobox"
+              className={cn(
+                'w-full md:w-[240px] justify-between font-normal',
+                clientFilter === 'all' && 'text-muted-foreground',
+              )}
+            >
+              <span className="truncate">{selectedClientLabel}</span>
+              <Search className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-[300px] p-0 pointer-events-auto" align="start">
+            <Command>
+              <CommandInput placeholder="Buscar produtor..." />
+              <CommandList>
+                <CommandEmpty>Nenhum produtor encontrado.</CommandEmpty>
+                <CommandGroup>
+                  <CommandItem
+                    value="__all__"
+                    onSelect={() => { setClientFilter('all'); setCurrentPage(1); setClientPopoverOpen(false); }}
+                  >
+                    <Check className={cn('mr-2 h-4 w-4', clientFilter === 'all' ? 'opacity-100' : 'opacity-0')} />
+                    Todos os produtores
+                  </CommandItem>
+                  {uniqueClients.map(c => (
+                    <CommandItem
+                      key={c.id}
+                      value={c.label}
+                      onSelect={() => { setClientFilter(c.id); setCurrentPage(1); setClientPopoverOpen(false); }}
+                    >
+                      <Check className={cn('mr-2 h-4 w-4', clientFilter === c.id ? 'opacity-100' : 'opacity-0')} />
+                      <span className="truncate">{c.label}</span>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              </CommandList>
+            </Command>
+          </PopoverContent>
+        </Popover>
+        <Popover open={datePopoverOpen} onOpenChange={setDatePopoverOpen}>
+          <PopoverTrigger asChild>
+            <Button
+              variant="outline"
+              className={cn(
+                'w-full md:w-[260px] justify-start text-left font-normal',
+                !dateRange?.from && 'text-muted-foreground',
+              )}
+            >
+              <CalendarIcon className="mr-2 h-4 w-4" />
+              {dateRange?.from ? (
+                dateRange.to ? (
+                  <>
+                    {format(dateRange.from, 'dd/MM/yyyy')} — {format(dateRange.to, 'dd/MM/yyyy')}
+                  </>
+                ) : (
+                  format(dateRange.from, 'dd/MM/yyyy')
+                )
+              ) : (
+                <span>Período planejado</span>
+              )}
+              {dateRange?.from && (
+                <XCircle
+                  className="ml-auto h-4 w-4 opacity-60 hover:opacity-100"
+                  onClick={e => { e.stopPropagation(); setDateRange(undefined); setCurrentPage(1); }}
+                />
+              )}
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0 pointer-events-auto" align="start">
+            <Calendar
+              mode="range"
+              selected={dateRange}
+              onSelect={range => { setDateRange(range); setCurrentPage(1); }}
+              numberOfMonths={2}
+              initialFocus
+              locale={ptBR}
+              className="p-3 pointer-events-auto"
+            />
+          </PopoverContent>
+        </Popover>
+      </div>
+
+      {/* Table */}
+      {isLoading ? (
+        <div className="flex justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      ) : paginadas.length > 0 ? (
+        <>
+          <Card className="overflow-auto">
+            <Table className="min-w-[900px]">
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Código</TableHead>
+                  <TableHead>Cliente/Fazenda</TableHead>
+                  <TableHead>Tipo</TableHead>
+                  <TableHead>Técnico</TableHead>
+                  <TableHead>Planejada</TableHead>
+                  <TableHead>Realizada</TableHead>
+                  <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Ações</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {paginadas.map(v => (
+                  <TableRow key={`${v.tipo}-${v.id}`}>
+                    <TableCell className="font-medium font-mono">{v.codigo}</TableCell>
+                    <TableCell>
+                      <div className="font-medium">{v.clienteNome}</div>
+                      {v.fazenda && (
+                        <div className="text-sm text-muted-foreground">{v.fazenda}</div>
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={v.tipo === 'corretiva' ? 'default' : 'secondary'}>
+                        {v.tipo === 'corretiva' ? 'Corretiva' : 'Preventiva'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell>
+                      {v.tecnicoNome ?? <span className="text-muted-foreground">—</span>}
+                    </TableCell>
+                    <TableCell>{formatDate(v.dataPlanejada)}</TableCell>
+                    <TableCell>{formatDate(v.dataRealizada)}</TableCell>
+                    <TableCell>
+                      <Badge variant="outline" className={statusBadgeClass(v.status)}>
+                        {STATUS_LABELS[v.status] ?? v.status}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button variant="ghost" size="sm" onClick={() => navigate(v.linkTo)}>
+                        <Eye className="h-4 w-4" />
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </Card>
+
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-muted-foreground">
+                Mostrando {((currentPage - 1) * ITEMS_PER_PAGE) + 1} a{' '}
+                {Math.min(currentPage * ITEMS_PER_PAGE, filtradas.length)} de {filtradas.length} registros
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                  disabled={currentPage === 1}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <span className="text-sm">
+                  Página {currentPage} de {totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                  disabled={currentPage === totalPages}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          )}
+        </>
+      ) : (
+        <Card>
+          <CardContent className="py-10 text-center text-muted-foreground">
+            Nenhuma visita encontrada para os filtros selecionados.
+          </CardContent>
+        </Card>
       )}
     </div>
   );
