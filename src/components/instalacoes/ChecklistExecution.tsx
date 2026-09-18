@@ -707,7 +707,6 @@ export default function InstallationChecklistExecution({ stageId, stageTemplateI
     }
   }, [queryClient, queryKey, patchChecklistCache, itemHasTrocaAction, getNcParts, stageId, updatePendingCount, debouncedSync]);
 
-  // Complete checklist — requires online and zero pending syncs
   // Stage type — Pré Instalação goes to approval instead of straight to "concluido"
   const { data: stageInfo } = useQuery<{ stage: string } | null>({
     queryKey: ['installation-stage-type', stageId],
