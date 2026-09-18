@@ -1,5 +1,6 @@
 # Roadmap
 
+- [x] Clientes RF: remover selo de origem, detalhe em duas colunas, filtro local Envio/Coleta Reversa e diálogo de pedido 100% somente leitura — validado no preview
 - [x] Visita Técnica: nova tela listando visitas corretivas (ticket_visits) + preventivas (preventive_route_items), filtro Todos/Corretivas/Preventivas, navegação aos detalhes existentes, rota /visita-tecnica — validado no preview (38 corretivas + 66 preventivas, filtro e navegação OK)
 - [x] Menu: "Novas Instalações" com ícone House; ordem em "Instalações Existentes": Preventivas → Chamados → Visita Técnica → Clientes
 
