@@ -63,6 +63,28 @@ export default function ClientesRFDetalhe() {
     enabled: !!id,
   });
 
+  const pedidoIds = useMemo(() => pedidos.map((p: any) => p.id), [pedidos]);
+
+  // Data em que cada pedido virou "entregue" (histórico gravado pelo banco).
+  const { data: entregueEm = {} } = useQuery({
+    queryKey: ['clientes-rf-detalhe-entregue', pedidoIds],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('pedido_status_history')
+        .select('pedido_id, changed_at')
+        .in('pedido_id', pedidoIds)
+        .eq('status', 'entregue')
+        .order('changed_at', { ascending: false });
+      if (error) throw error;
+      const mapa: Record<string, string> = {};
+      for (const row of data ?? []) {
+        if (!mapa[row.pedido_id]) mapa[row.pedido_id] = row.changed_at;
+      }
+      return mapa;
+    },
+    enabled: pedidoIds.length > 0,
+  });
+
   const pedidosFiltrados = useMemo(
     () => tipoFilter === 'all'
       ? pedidos
