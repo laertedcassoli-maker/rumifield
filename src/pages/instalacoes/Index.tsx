@@ -423,6 +423,28 @@ export default function InstalacoesIndex() {
         )}
       </div>
 
+      {(installations && installations.length > 0) && (
+        <div className="flex flex-wrap gap-2">
+          {([
+            { label: 'Total', value: resumo.total },
+            { label: 'Concluídas', value: resumo.concluidas },
+            { label: 'Em Pré Instalação', value: resumo.emPreInstalacao },
+            { label: 'Em Instalação', value: resumo.emInstalacao },
+            { label: 'Sem etapa', value: resumo.semEtapa },
+          ] as { label: string; value: number }[])
+            .filter(r => r.label !== 'Sem etapa' || resumo.semEtapa > 0)
+            .map(r => (
+              <div
+                key={r.label}
+                className="flex items-center gap-1.5 rounded-full border bg-card px-3 py-1 text-xs"
+              >
+                <span className="font-semibold">{r.value}</span>
+                <span className="text-muted-foreground">{r.label}</span>
+              </div>
+            ))}
+        </div>
+      )}
+
       {isLoading ? (
         <div className="flex justify-center py-12">
           <Loader2 className="h-6 w-6 animate-spin text-primary" />
