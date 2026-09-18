@@ -1,51 +1,37 @@
-# Conclusão de treinamento avulso com checklist obrigatório
+# Treinamento: conclusão com checklist obrigatório + Editar/Excluir visitas
 
-## Objetivo
+## Parte 1 — Conclusão com checklist obrigatório (plano já aprovado)
 
-Hoje, na tela Treinamento, o botão "Concluir" de uma visita pendente marca a visita como concluída em um clique, sem checklist e sem nome/telefone do treinado. A conclusão passa a abrir o checklist completo em um diálogo, exigindo nome, telefone e todos os itens marcados antes de liberar a conclusão.
+- `TrainingChecklistExecution.tsx`: nova prop `existingVisitId`. Quando informada, não cria visita nova: carrega a existente (online busca no servidor e guarda cópia local; offline lê o cache), pré-preenche checklist/nome/telefone e as respostas já salvas. Se a visita não tiver checklist, o seletor grava a escolha na própria visita.
+- Botão "Concluir Treinamento" no modo avulso só libera com nome + telefone + **todos os itens marcados** (clique mostra aviso do que falta). Fluxo combinado (corretiva/preventiva/instalação) permanece igual.
+- Hook `useOfflineTrainingChecklist`: novo `getTrainingVisit(id)` com cache local.
+- `Treinamento.tsx`: botão "Concluir" abre Dialog com o checklist; removida a conclusão direta (`concluirMutation`).
 
-## O que muda
+## Parte 2 — Editar e Excluir visitas (novo)
 
-### 1. TrainingChecklistExecution.tsx — novo modo "visita existente"
+### NovaVisitaTreinamentoDialog.tsx
+- Nova prop opcional `editingVisit` (linha de `training_visits`).
+- Quando informada: título "Editar Visita de Treinamento", campos pré-preenchidos (cliente, responsável derivado de `technician_user_id ?? csm_user_id`, checklist, data planejada, nome/telefone, motivo) e salvamento via `.update().eq('id', ...)` em vez de `.insert()`.
+- Sem `editingVisit`, a criação continua exatamente igual.
 
-Nova prop opcional `existingVisitId`. Quando informada:
-
-- **Não cria** uma nova visita de treinamento. Carrega a visita existente do banco (e guarda uma cópia local no aparelho para funcionar sem sinal) ou lê a cópia local quando já estiver offline.
-- Se a visita **já tiver checklist definido**, abre direto os itens desse checklist (seletor já preenchido). Se **não tiver**, mostra o seletor normalmente e, ao escolher, grava o checklist na própria visita (via `updateTrainingVisit`, já existente no hook).
-- **Pré-preenche nome e telefone** com o que já estiver salvo na visita (campos continuam editáveis).
-- **Carrega as respostas já salvas** e marca os itens correspondentes.
-
-### 2. Regra de liberação do botão "Concluir Treinamento"
-
-- **Modo visita existente (novo):** botão só habilita quando nome preenchido + telefone preenchido + **todos os itens do checklist marcados**. Mensagens de orientação indicam o que falta.
-- **Modo combinado (corretiva/preventiva/instalação):** permanece como está — exige nome/telefone, sem exigir todos os itens. Nenhuma mudança nesse fluxo.
-- Mantido o comportamento de validação com toast ao clicar (botão nunca fica mudo), conforme padrão do projeto: o botão continua clicável e informa o que falta, em vez de desabilitar silenciosamente.
-
-### 3. Treinamento.tsx — conclusão via diálogo
-
-- O botão "Concluir" da tabela passa a abrir um **Dialog** com `<TrainingChecklistExecution existingVisitId={v.id} clienteId={v.cliente_id} responsavelUserId={v.technician_user_id ?? v.csm_user_id} responsavelTipo={v.technician_user_id ? 'tecnico' : 'csm'} />`.
-- Remover `concluirMutation` (deixa de existir conclusão direta).
-- Ao concluir dentro do diálogo, a lista já é atualizada (o componente já invalida `['training-visits']`); adicionar callback `onCompleted` para fechar o diálogo automaticamente.
-- Quem pode concluir continua o mesmo: admin/coordenadores e o responsável pela visita.
-
-### 4. Camada offline (hook + banco local)
-
-- Acrescentar no hook `getTrainingVisit(id)`: online, busca a visita no servidor e grava no cache local; offline, lê do cache. Necessário para o modo existente.
-- Nenhuma migration nova — as tabelas `training_visits` e `training_checklist_responses` já existem com RLS aberta para usuários autenticados.
+### Treinamento.tsx — coluna Ações
+- Botões "Editar" (Pencil) e "Excluir" (Trash2) ao lado do "Concluir", visíveis **somente** quando `canAbrirVisita` (admin, coordenador de serviços, coordenador R+) **e** `v.status === 'pendente'`.
+- "Editar" abre `NovaVisitaTreinamentoDialog` com `editingVisit={v}`.
+- "Excluir" abre AlertDialog de confirmação; ao confirmar, apaga a visita (as respostas de checklist são removidas em cascata). Lista atualizada em seguida.
+- Técnicos nunca veem esses botões; visitas concluídas ficam travadas para todos (histórico preservado).
 
 ## O que NÃO será alterado
 
-- `NovaVisitaTreinamentoDialog.tsx` — a criação continua permitindo checklist/nome/telefone em branco; só a conclusão passa a exigir.
-- `CombinarTreinamentoSection.tsx` e as 3 telas de execução (corretiva, preventiva, instalação) — fluxo combinado inalterado.
-- Nenhuma mudança em schema/RLS.
+- Fluxo combinado: `CombinarTreinamentoSection.tsx` e as 3 telas de execução (corretiva, preventiva, instalação).
+- Criação avulsa sem `editingVisit` continua permitindo campos em branco.
+- Nenhuma mudança de schema/RLS (exclusão usa as permissões já existentes para usuários autenticados).
 
 ## Critérios de aceite
 
-- Clicar em "Concluir" numa visita pendente abre o checklist (ou o seletor, se a visita não tiver checklist definido), com itens marcáveis e nome/telefone pré-preenchidos quando já salvos.
-- A visita só fica "Concluída" depois de nome + telefone + todos os itens marcados.
-- Funciona offline: marcações ficam no aparelho e sincronizam quando a conexão volta.
+- Concluir visita avulsa exige checklist completo + nome + telefone.
+- Admin/coordenador edita e exclui visitas pendentes; técnico não vê Editar/Excluir; visitas concluídas não mostram essas ações.
 
 ## Validação
 
 - `bunx tsgo --noEmit` e build limpos.
-- Teste no preview: criar visita avulsa sem checklist, abrir conclusão, escolher checklist, marcar itens, preencher nome/telefone, concluir; conferir que aparece como "Concluída" na lista e no histórico do cliente.
+- Preview: concluir visita com checklist; editar visita pendente; excluir visita com confirmação; conferir ausência dos botões para técnico e para visitas concluídas. Registros de teste removidos ao final.
