@@ -2,6 +2,7 @@
 
 - [x] Migration idempotente documentando retroativo corretiva→preventiva — aplicada; 0 linhas pendentes (idempotência confirmada)
 - [x] Agenda: cores pastéis fixas (Lenilton/Phelipe/Roger) antes do hash — validado no preview
+- [x] Agenda: ocultar etapas só-CSM (hook filtra technician_user_id) + distinção de grupo por cantos quadrados/arredondados e legenda atualizada — validado no preview
 - [x] Preventiva: excluir estoque_interno em Calendario/Index/NovaRota + view client_preventive_overview — aplicado e validado (view com security_invoker + grants, linter de volta aos 53 avisos padrão)
 - [x] Instalações: 'pre_venda' removido de STAGE_ORDER/STAGE_LABELS — Playwright confirma ausência com e sem filtro
 - [x] Instalações: upload/substituição de "E-mail de venda" na execução de Pré Instalação — testado e2e (toast, substituição, read-only após aprovação)

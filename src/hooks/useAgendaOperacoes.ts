@@ -57,7 +57,8 @@ export function useAgendaOperacoes() {
         .not('planned_date', 'is', null)
         .in('stage', ['pre_instalacao', 'instalacao']);
       if (error) throw error;
-      const rows = (data ?? []) as any[];
+      // Só compromissos de técnico de campo: etapa atribuída apenas a um CSM não entra na agenda.
+      const rows = ((data ?? []) as any[]).filter(r => !!r.technician_user_id);
       if (!rows.length) return [];
 
       const profiles = await fetchProfilesMap(
