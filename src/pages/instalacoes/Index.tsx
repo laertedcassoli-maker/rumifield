@@ -117,14 +117,16 @@ export default function InstalacoesIndex() {
   });
 
   // Stage-view filter: keep only installations that have the selected stage,
-  // and show just that stage row inside each card. No refetch involved.
+  // and show just that stage row inside each card. Installations with NO stages
+  // yet (freshly created, not even the first stage configured) always stay
+  // visible for managers so they can never become unreachable in a filtered view.
   const visibleInstallations = useMemo(() => {
     if (!installations) return installations;
     if (!etapaFiltro) return installations;
     return installations
-      .filter(inst => inst.stages.some(s => s.stage === etapaFiltro))
+      .filter(inst => inst.stages.length === 0 ? canManage : inst.stages.some(s => s.stage === etapaFiltro))
       .map(inst => ({ ...inst, stages: inst.stages.filter(s => s.stage === etapaFiltro) }));
-  }, [installations, etapaFiltro]);
+  }, [installations, etapaFiltro, canManage]);
 
   // Technician names for display
   const technicianIds = Array.from(new Set(
@@ -196,12 +198,17 @@ export default function InstalacoesIndex() {
       if (error) throw error;
       return data;
     },
-    onSuccess: () => {
+    onSuccess: (data: { id: string }) => {
       track('installation_created', {}, { entity: 'installation' });
       queryClient.invalidateQueries({ queryKey: ['installations'] });
       toast.success('Instalação criada! Configure as etapas.');
       setIsCreateOpen(false);
       setClienteId(null);
+      // Jump straight into configuring the first stage: the one matching the
+      // current filtered view, or Pré Venda when there is no filter active.
+      if (data?.id) {
+        openStageDialog(data.id, etapaFiltro ?? 'pre_venda');
+      }
     },
     onError: (error) => {
       toast.error('Erro ao criar instalação: ' + error.message);
@@ -307,6 +314,12 @@ export default function InstalacoesIndex() {
                 </div>
               </CardHeader>
               <CardContent className="space-y-2">
+                {inst.stages.length === 0 && canManage && (
+                  <div className="flex items-center gap-2 rounded-lg border border-dashed p-3 text-sm text-muted-foreground">
+                    <Settings2 className="h-4 w-4 shrink-0" />
+                    <span>Nenhuma etapa configurada ainda — configure a primeira etapa desta instalação.</span>
+                  </div>
+                )}
                 {(etapaFiltro ? [etapaFiltro] : STAGE_ORDER).map((stageType) => {
                   const stage = inst.stages.find(s => s.stage === stageType);
                   return (
