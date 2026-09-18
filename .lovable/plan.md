@@ -22,7 +22,8 @@ Passar a registrar, a partir de agora, a data de cada mudança de status dos ped
 
 ## Detalhes técnicos
 - Migration: `pedido_status_history` (id, pedido_id → pedidos on delete cascade, status `pedido_status`, changed_at, changed_by → auth.users), índice `(pedido_id, changed_at)`, RLS ativo, GRANT SELECT para `authenticated` + GRANT ALL para `service_role`, policy SELECT `USING (true)`.
-- Function `log_pedido_status_change()` SECURITY DEFINER + trigger `AFTER INSERT OR UPDATE OF status ON pedidos` com `WHEN (TG_OP = 'INSERT' OR OLD.status IS DISTINCT FROM NEW.status)`, gravando `auth.uid()` em `changed_by`.
+- Function `log_pedido_status_change()` SECURITY DEFINER, gravando `NEW.id`, `NEW.status` e `auth.uid()` em `changed_by`.
+- Dois triggers separados chamando a mesma função: `trg_log_pedido_status_insert` (`AFTER INSERT ON pedidos FOR EACH ROW`) e `trg_log_pedido_status_update` (`AFTER UPDATE OF status ON pedidos FOR EACH ROW WHEN (OLD.status IS DISTINCT FROM NEW.status)`).
 - Regenerar `types.ts` após a migration.
 - `ClientesRFDetalhe.tsx`: query extra em `pedido_status_history` por `pedido_id in (...)` e `status = 'entregue'`, pegando o registro mais recente por pedido; mapa usado na linha inferior do item.
 - `PedidoDetalheDialog.tsx`: query do histórico do pedido (`order by changed_at asc`) + seção de timeline; helper de cor do badge com verde para `faturado`.
