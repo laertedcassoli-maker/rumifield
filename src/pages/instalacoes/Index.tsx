@@ -71,6 +71,18 @@ interface InstallationRow {
 }
 
 
+type SituacaoInstalacao = 'concluida' | 'pre_instalacao' | 'instalacao' | 'sem_etapa';
+
+// Classificação única usada tanto pelo resumo (contagens) quanto pelo filtro clicável
+// — mesma precedência do resumo original: concluída > instalacao > pre_instalacao > sem etapa.
+function classificarSituacao(inst: InstallationRow): SituacaoInstalacao {
+  if (inst.status === 'concluido') return 'concluida';
+  if (inst.stages.some(s => s.stage === 'instalacao')) return 'instalacao';
+  if (inst.stages.some(s => s.stage === 'pre_instalacao')) return 'pre_instalacao';
+  return 'sem_etapa';
+}
+
+
 export default function InstalacoesIndex() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -88,6 +100,7 @@ export default function InstalacoesIndex() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [clienteId, setClienteId] = useState<string | null>(null);
   const [clientePopoverOpen, setClientePopoverOpen] = useState(false);
+  const [filtroSituacao, setFiltroSituacao] = useState<'all' | SituacaoInstalacao>('all');
 
   const [stageDialog, setStageDialog] = useState<{
     installationId: string;
@@ -151,38 +164,37 @@ export default function InstalacoesIndex() {
   // also stay visible so managers can configure (or see the lock on) that stage.
   const visibleInstallations = useMemo(() => {
     if (!installations) return installations;
-    if (!etapaFiltro) return installations;
-    return installations
-      .filter(inst => {
+    let list = installations;
+    if (etapaFiltro) {
+      list = list.filter(inst => {
         if (inst.stages.length === 0) return canManage;
         if (inst.stages.some(s => s.stage === etapaFiltro)) return true;
         return canManage && etapaFiltro === 'instalacao' && inst.stages.some(s => s.stage === 'pre_instalacao');
-      })
-      .map(inst => ({
-        ...inst,
-        // keep the Pré Instalação row out of the Instalação view, but preserve it
-        // in a side field so the lock rule can read its status
-        stages: inst.stages.filter(s => s.stage === etapaFiltro),
-        allStages: inst.stages,
-      }));
-  }, [installations, etapaFiltro, canManage]);
+      });
+    }
+    if (filtroSituacao !== 'all') {
+      list = list.filter(inst => classificarSituacao(inst) === filtroSituacao);
+    }
+    return list.map(inst => ({
+      ...inst,
+      // keep the Pré Instalação row out of the Instalação view, but preserve it
+      // in a side field so the lock rule can read its status
+      stages: inst.stages.filter(s => !etapaFiltro || s.stage === etapaFiltro),
+      allStages: inst.stages,
+    }));
+  }, [installations, etapaFiltro, canManage, filtroSituacao]);
 
   // Resumo por situação — usa os dados já carregados (recorte de acesso do usuário,
   // incluindo o filtro de técnico/CSM para tecnico_campo) e IGNORA o filtro ?etapa= da URL.
+  // A contagem sempre reflete o total real de cada categoria (não o resultado filtrado).
   const resumo = useMemo(() => {
     const list = installations || [];
     return {
       total: list.length,
-      concluidas: list.filter(i => i.status === 'concluido').length,
-      emPreInstalacao: list.filter(i =>
-        i.status !== 'concluido' &&
-        i.stages.some(s => s.stage === 'pre_instalacao') &&
-        !i.stages.some(s => s.stage === 'instalacao')
-      ).length,
-      emInstalacao: list.filter(i =>
-        i.status !== 'concluido' && i.stages.some(s => s.stage === 'instalacao')
-      ).length,
-      semEtapa: list.filter(i => i.stages.length === 0).length,
+      concluidas: list.filter(i => classificarSituacao(i) === 'concluida').length,
+      emPreInstalacao: list.filter(i => classificarSituacao(i) === 'pre_instalacao').length,
+      emInstalacao: list.filter(i => classificarSituacao(i) === 'instalacao').length,
+      semEtapa: list.filter(i => classificarSituacao(i) === 'sem_etapa').length,
     };
   }, [installations]);
 
@@ -426,21 +438,27 @@ export default function InstalacoesIndex() {
       {(installations && installations.length > 0) && (
         <div className="flex flex-wrap gap-2">
           {([
-            { label: 'Total', value: resumo.total },
-            { label: 'Concluídas', value: resumo.concluidas },
-            { label: 'Em Pré Instalação', value: resumo.emPreInstalacao },
-            { label: 'Em Instalação', value: resumo.emInstalacao },
-            { label: 'Sem etapa', value: resumo.semEtapa },
-          ] as { label: string; value: number }[])
-            .filter(r => r.label !== 'Sem etapa' || resumo.semEtapa > 0)
+            { label: 'Total', value: resumo.total, key: 'all' as const },
+            { label: 'Concluídas', value: resumo.concluidas, key: 'concluida' as const },
+            { label: 'Em Pré Instalação', value: resumo.emPreInstalacao, key: 'pre_instalacao' as const },
+            { label: 'Em Instalação', value: resumo.emInstalacao, key: 'instalacao' as const },
+            { label: 'Sem etapa', value: resumo.semEtapa, key: 'sem_etapa' as const },
+          ])
+            .filter(r => r.key !== 'sem_etapa' || resumo.semEtapa > 0)
             .map(r => (
-              <div
-                key={r.label}
-                className="flex items-center gap-1.5 rounded-full border bg-card px-3 py-1 text-xs"
+              <Button
+                key={r.key}
+                type="button"
+                size="sm"
+                variant={filtroSituacao === r.key ? 'default' : 'outline'}
+                onClick={() => setFiltroSituacao(prev => (prev === r.key ? 'all' : r.key))}
+                className="h-auto rounded-full gap-1.5 px-3 py-1 text-xs"
               >
                 <span className="font-semibold">{r.value}</span>
-                <span className="text-muted-foreground">{r.label}</span>
-              </div>
+                <span className={filtroSituacao === r.key ? 'text-primary-foreground/80' : 'text-muted-foreground'}>
+                  {r.label}
+                </span>
+              </Button>
             ))}
         </div>
       )}
