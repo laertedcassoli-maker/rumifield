@@ -2,6 +2,10 @@
 
 - [x] Migration idempotente documentando retroativo corretiva→preventiva — aplicada; 0 linhas pendentes (idempotência confirmada)
 - [x] Agenda: cores pastéis fixas (Lenilton/Phelipe/Roger) antes do hash — validado no preview
+- [ ] Preventiva: excluir estoque_interno em Calendario/Index/NovaRota + view client_preventive_overview — frontend aplicado, migration aplicada (corrigir security_invoker da view)
+- [ ] Instalações: remover 'pre_venda' de STAGE_ORDER/STAGE_LABELS (Index.tsx)
+- [ ] Instalações: upload/substituição de "E-mail de venda" na execução de Pré Instalação (ExecucaoEtapa.tsx)
+- [ ] Instalações: resumo de contagem por situação no topo da listagem (Index.tsx, sem nova query, ignora filtro ?etapa=)
 - [x] Menu Administração: "Usuários" virou submenu colapsável com Usuários + Permissões (gate por qualquer um dos dois permKeys)
 - [x] Agenda de Operações: cor por técnico + filtro por técnico + legenda (validado no preview)
 - [x] Vínculo corretiva↔preventiva "RumiFlow v1":
