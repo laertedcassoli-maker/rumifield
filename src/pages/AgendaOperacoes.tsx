@@ -137,11 +137,11 @@ export default function AgendaOperacoes() {
 
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground">
         <span className="flex items-center gap-1.5">
-          <span className="inline-block h-3 w-3 rounded-sm border-2 border-solid border-foreground/60" />
+          <span className="inline-block h-3 w-3 rounded-none border-2 border-solid border-foreground/60" />
           Novas Instalações
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="inline-block h-3 w-3 rounded-sm border-2 border-dashed border-foreground/60" />
+          <span className="inline-block h-3 w-3 rounded-full border-2 border-solid border-foreground/60" />
           Instalações Existentes
         </span>
         <span className="text-muted-foreground/60">|</span>
@@ -192,9 +192,8 @@ export default function AgendaOperacoes() {
                   const grupo = info.event.extendedProps.grupo as AgendaGrupo;
                   info.el.title = `${AGENDA_TIPO_LABELS[tipo] ?? tipo}: ${info.event.title}`;
                   info.el.style.cursor = 'pointer';
-                  if (grupo === 'instalacoes_existentes') {
-                    info.el.style.borderStyle = 'dashed';
-                    info.el.style.borderWidth = '2px';
+                  if (grupo === 'novas_instalacoes') {
+                    info.el.style.borderRadius = '0';
                   }
                 }}
                 dayMaxEvents={3}
