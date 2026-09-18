@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -86,8 +86,14 @@ export default function InstalacoesIndex() {
   } | null>(null);
   const [instalacaoParaExcluir, setInstalacaoParaExcluir] = useState<InstallationRow | null>(null);
   const [stageTechnicianId, setStageTechnicianId] = useState<string>('');
+  const [stageCsmId, setStageCsmId] = useState<string>('');
+  const [stageResponsavelTipo, setStageResponsavelTipo] = useState<'tecnico' | 'csm'>('tecnico');
   const [stagePlannedDate, setStagePlannedDate] = useState<string>('');
   const [stageTemplateId, setStageTemplateId] = useState<string>('');
+  const [stageAnexoPath, setStageAnexoPath] = useState<string | null>(null);
+  const [isUploadingAnexo, setIsUploadingAnexo] = useState(false);
+  const [anexoPreview, setAnexoPreview] = useState<{ url: string; path: string; isImage: boolean } | null>(null);
+  const anexoClickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Installations with stages (tecnico_campo sees only installations containing his stages)
   const { data: installations, isLoading } = useQuery<InstallationRow[]>({
