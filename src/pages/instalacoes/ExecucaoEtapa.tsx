@@ -16,6 +16,7 @@ const STAGE_LABELS: Record<string, string> = {
 const STAGE_STATUS_LABELS: Record<string, string> = {
   planejado: 'Planejado',
   em_andamento: 'Em Andamento',
+  aguardando_aprovacao: 'Aguardando Aprovação',
   concluido: 'Concluído',
 };
 
