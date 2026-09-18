@@ -161,6 +161,41 @@ export function PedidoDetalheDialog({ pedidoId, open, onOpenChange }: PedidoDeta
                 </div>
               )}
             </div>
+
+            <div className="space-y-2">
+              <h3 className="text-sm font-medium">Linha do tempo</h3>
+              {historico.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  Nenhuma mudança de status registrada.
+                </p>
+              ) : (
+                <div className="space-y-4">
+                  {historico.map(evento => (
+                    <div key={evento.id} className="flex gap-3">
+                      <div className="shrink-0 w-8 h-8 rounded-full bg-muted flex items-center justify-center">
+                        <Clock className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-sm font-medium truncate">
+                            {STATUS_LABELS[evento.status] ?? evento.status}
+                          </span>
+                          <Badge
+                            variant="outline"
+                            className={STATUS_BADGE_CLASSES[evento.status] ?? ''}
+                          >
+                            {STATUS_LABELS[evento.status] ?? evento.status}
+                          </Badge>
+                        </div>
+                        <p className="mt-1 text-xs text-muted-foreground">
+                          {formatarData(evento.changed_at)}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         )}
       </DialogContent>
