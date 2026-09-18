@@ -2422,6 +2422,38 @@ export type Database = {
           },
         ]
       }
+      pedido_status_history: {
+        Row: {
+          changed_at: string
+          changed_by: string | null
+          id: string
+          pedido_id: string
+          status: Database["public"]["Enums"]["pedido_status"]
+        }
+        Insert: {
+          changed_at?: string
+          changed_by?: string | null
+          id?: string
+          pedido_id: string
+          status: Database["public"]["Enums"]["pedido_status"]
+        }
+        Update: {
+          changed_at?: string
+          changed_by?: string | null
+          id?: string
+          pedido_id?: string
+          status?: Database["public"]["Enums"]["pedido_status"]
+        }
+        Relationships: [
+          {
+            foreignKeyName: "pedido_status_history_pedido_id_fkey"
+            columns: ["pedido_id"]
+            isOneToOne: false
+            referencedRelation: "pedidos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       pedidos: {
         Row: {
           anexo_postagem_path: string | null
