@@ -79,7 +79,7 @@ export function useAgendaOperacoes() {
         const tecnicoNome = respId ? profiles.get(respId) ?? null : null;
         return {
           id: `stage-${r.id}`,
-          titulo: tituloEvento('novas_instalacoes', clienteNome, fazenda, tecnicoNome),
+          titulo: tituloEvento(clienteNome, fazenda, tecnicoNome),
           data: r.planned_date as string,
           tecnicoNome,
           clienteNome,
@@ -118,7 +118,7 @@ export function useAgendaOperacoes() {
           : null;
         return {
           id: `visita-${r.id}`,
-          titulo: tituloEvento('instalacoes_existentes', clienteNome, fazenda, tecnicoNome),
+          titulo: tituloEvento(clienteNome, fazenda, tecnicoNome),
           data: r.planned_start_date as string,
           tecnicoNome,
           clienteNome,
@@ -164,7 +164,7 @@ export function useAgendaOperacoes() {
           const tecnicoNome = techId ? profiles.get(techId) ?? null : null;
           return {
             id: `preventiva-${r.id}`,
-          titulo: tituloEvento('instalacoes_existentes', clienteNome, fazenda, tecnicoNome),
+          titulo: tituloEvento(clienteNome, fazenda, tecnicoNome),
           data: r.planned_date as string,
             tecnicoNome,
             clienteNome,
