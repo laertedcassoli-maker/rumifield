@@ -116,6 +116,16 @@ export default function InstalacoesIndex() {
     staleTime: 30_000,
   });
 
+  // Stage-view filter: keep only installations that have the selected stage,
+  // and show just that stage row inside each card. No refetch involved.
+  const visibleInstallations = useMemo(() => {
+    if (!installations) return installations;
+    if (!etapaFiltro) return installations;
+    return installations
+      .filter(inst => inst.stages.some(s => s.stage === etapaFiltro))
+      .map(inst => ({ ...inst, stages: inst.stages.filter(s => s.stage === etapaFiltro) }));
+  }, [installations, etapaFiltro]);
+
   // Technician names for display
   const technicianIds = Array.from(new Set(
     (installations || []).flatMap(i => i.stages.map(s => s.technician_user_id).filter(Boolean) as string[])
