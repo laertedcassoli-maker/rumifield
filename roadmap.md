@@ -43,8 +43,8 @@
 - [x] Migration checklist_template_items.requires_photo + Switch "Exigir foto" no ChecklistEditor (Fase 1: só schema + editor).
 
 ## Treinamento (novo módulo — substitui Templates Treinamento)
-- [ ] Dropar training_templates/blocks/items, remover telas/rotas/menu antigos
-- [ ] Migration training_visits (RLS aberto authenticated)
-- [ ] Menu primeiro nivel "Treinamento" permKey treinamento + role_menu_permissions (5 papeis)
-- [ ] Treinamento.tsx (abas Treinamentos/Clientes, cards filtro, concluir)
-- [ ] NovaVisitaTreinamentoDialog.tsx
+- [x] Dropar training_templates/blocks/items, remover telas/rotas/menu antigos
+- [x] Migration training_visits (RLS aberto authenticated)
+- [x] Menu primeiro nivel "Treinamento" permKey treinamento + role_menu_permissions (5 papeis)
+- [x] Treinamento.tsx (abas Treinamentos/Clientes, cards filtro, concluir)
+- [x] NovaVisitaTreinamentoDialog.tsx
