@@ -140,9 +140,9 @@ export default function InstalacoesIndex() {
       .map(inst => ({ ...inst, stages: inst.stages.filter(s => s.stage === etapaFiltro) }));
   }, [installations, etapaFiltro, canManage]);
 
-  // Technician names for display
+  // Responsible names for display (technician or CSM)
   const technicianIds = Array.from(new Set(
-    (installations || []).flatMap(i => i.stages.map(s => s.technician_user_id).filter(Boolean) as string[])
+    (installations || []).flatMap(i => i.stages.flatMap(s => [s.technician_user_id, s.csm_user_id].filter(Boolean) as string[]))
   ));
 
   const { data: technicianNames } = useQuery<Record<string, string>>({
