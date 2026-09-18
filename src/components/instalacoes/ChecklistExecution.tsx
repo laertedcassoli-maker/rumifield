@@ -1357,10 +1357,13 @@ export default function InstallationChecklistExecution({ stageId, stageTemplateI
       <AlertDialog open={isConfirmCompleteOpen} onOpenChange={setIsConfirmCompleteOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Concluir Checklist</AlertDialogTitle>
+            <AlertDialogTitle>
+              {isPreInstalacao ? 'Enviar para aprovação' : 'Concluir Checklist'}
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              Tem certeza que deseja concluir o checklist desta etapa?
-              Após a conclusão, a etapa será marcada como concluída.
+              {isPreInstalacao
+                ? 'Tem certeza que deseja concluir o checklist desta etapa? A etapa ficará aguardando a aprovação do Coordenador de Serviços.'
+                : 'Tem certeza que deseja concluir o checklist desta etapa? Após a conclusão, a etapa será marcada como concluída.'}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
