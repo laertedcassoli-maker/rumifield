@@ -210,11 +210,24 @@ serve(async (req) => {
     }
 
     if (action === "read") {
-      if (!range) {
-        throw new Error("Parameter 'range' is required for read action");
+      let effectiveRange = range as string | undefined;
+
+      if (!effectiveRange && gid !== undefined && gid !== null) {
+        const info = await getSpreadsheetInfo(accessToken, spreadsheetId);
+        const sheet = (info.sheets || []).find(
+          (s: any) => String(s.properties?.sheetId) === String(gid)
+        );
+        if (!sheet) {
+          throw new Error(`Sheet with gid '${gid}' not found in spreadsheet`);
+        }
+        effectiveRange = `'${sheet.properties.title}'!A:Z`;
       }
 
-      const data = await readSheet(accessToken, spreadsheetId, range);
+      if (!effectiveRange) {
+        throw new Error("Parameter 'range' or 'gid' is required for read action");
+      }
+
+      const data = await readSheet(accessToken, spreadsheetId, effectiveRange);
       return new Response(
         JSON.stringify({
           success: true,
