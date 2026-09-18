@@ -300,6 +300,8 @@ export default function ItensOficina() {
   );
 
   const statusLabels: Record<string, string> = {
+    PLACEHOLDER_STATUS: '',
+  };
     disponivel: 'Disponível',
     em_uso: 'Em Uso',
     em_manutencao: 'Em Manutenção',
