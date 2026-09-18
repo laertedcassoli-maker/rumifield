@@ -61,7 +61,7 @@ Seção colapsável "Combinar com Treinamento" renderizando o componente em:
 
 - `src/pages/chamados/ExecucaoVisitaCorretiva.tsx` (o resto da tela continua 100% online);
 - `src/pages/preventivas/AtendimentoPreventivo.tsx`, ao lado da chamada existente de ChecklistExecution;
-- `src/pages/instalacoes/ExecucaoEtapa.tsx`.
+- `src/pages/instalacoes/ExecucaoEtapa.tsx`, **somente quando `stage.stage === 'instalacao'`** — na etapa Pré Instalação (`pre_instalacao`) a seção não é renderizada de forma alguma.
 
 ## Fora de escopo
 
