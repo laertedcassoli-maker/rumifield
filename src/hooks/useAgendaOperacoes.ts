@@ -168,8 +168,8 @@ export function useAgendaOperacoes() {
           const tecnicoNome = techId ? profiles.get(techId) ?? null : null;
           return {
             id: `preventiva-${r.id}`,
-            titulo: buildTitulo(clienteNome, fazenda, tecnicoNome),
-            data: r.planned_date as string,
+          titulo: tituloEvento('instalacoes_existentes', clienteNome, fazenda, tecnicoNome),
+          data: r.planned_date as string,
             tecnicoNome,
             clienteNome,
             fazenda,
