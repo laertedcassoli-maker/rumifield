@@ -85,6 +85,20 @@ export default function NovaVisitaTreinamentoDialog({ open, onOpenChange, editin
   const [contactPhone, setContactPhone] = useState('');
   const [notes, setNotes] = useState('');
 
+  // Modo edição: pré-preenche todos os campos a partir da visita existente
+  useEffect(() => {
+    if (!open || !editingVisit) return;
+    setClientId(editingVisit.cliente_id);
+    setResponsavelId(editingVisit.technician_user_id ?? editingVisit.csm_user_id ?? '');
+    setChecklistTemplateId(editingVisit.checklist_template_id ?? '');
+    setPlannedDate(
+      editingVisit.planned_date ? new Date(`${editingVisit.planned_date}T12:00:00`) : undefined
+    );
+    setContactName(editingVisit.contact_name ?? '');
+    setContactPhone(editingVisit.contact_phone ?? '');
+    setNotes(editingVisit.notes ?? '');
+  }, [open, editingVisit]);
+
   const { data: clients, isLoading: clientsLoading } = useQuery<Client[]>({
     queryKey: ['active-clients'],
     queryFn: async () => {
