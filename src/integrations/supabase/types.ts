@@ -3842,99 +3842,78 @@ export type Database = {
           },
         ]
       }
-      training_template_blocks: {
+      training_visits: {
         Row: {
-          block_name: string
+          checklist_template_id: string | null
+          cliente_id: string
+          completed_date: string | null
+          contact_name: string | null
+          contact_phone: string | null
           created_at: string
+          created_by_user_id: string
+          csm_user_id: string | null
           id: string
-          order_index: number
-          template_id: string
-        }
-        Insert: {
-          block_name: string
-          created_at?: string
-          id?: string
-          order_index?: number
-          template_id: string
-        }
-        Update: {
-          block_name?: string
-          created_at?: string
-          id?: string
-          order_index?: number
-          template_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "training_template_blocks_template_id_fkey"
-            columns: ["template_id"]
-            isOneToOne: false
-            referencedRelation: "training_templates"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      training_template_items: {
-        Row: {
-          active: boolean
-          block_id: string
-          created_at: string
-          id: string
-          item_name: string
-          order_index: number
-        }
-        Insert: {
-          active?: boolean
-          block_id: string
-          created_at?: string
-          id?: string
-          item_name: string
-          order_index?: number
-        }
-        Update: {
-          active?: boolean
-          block_id?: string
-          created_at?: string
-          id?: string
-          item_name?: string
-          order_index?: number
-        }
-        Relationships: [
-          {
-            foreignKeyName: "training_template_items_block_id_fkey"
-            columns: ["block_id"]
-            isOneToOne: false
-            referencedRelation: "training_template_blocks"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      training_templates: {
-        Row: {
-          active: boolean
-          created_at: string
-          description: string | null
-          id: string
-          name: string
+          notes: string | null
+          planned_date: string | null
+          status: string
+          technician_user_id: string | null
           updated_at: string
         }
         Insert: {
-          active?: boolean
+          checklist_template_id?: string | null
+          cliente_id: string
+          completed_date?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
           created_at?: string
-          description?: string | null
+          created_by_user_id: string
+          csm_user_id?: string | null
           id?: string
-          name: string
+          notes?: string | null
+          planned_date?: string | null
+          status?: string
+          technician_user_id?: string | null
           updated_at?: string
         }
         Update: {
-          active?: boolean
+          checklist_template_id?: string | null
+          cliente_id?: string
+          completed_date?: string | null
+          contact_name?: string | null
+          contact_phone?: string | null
           created_at?: string
-          description?: string | null
+          created_by_user_id?: string
+          csm_user_id?: string | null
           id?: string
-          name?: string
+          notes?: string | null
+          planned_date?: string | null
+          status?: string
+          technician_user_id?: string | null
           updated_at?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "training_visits_checklist_template_id_fkey"
+            columns: ["checklist_template_id"]
+            isOneToOne: false
+            referencedRelation: "checklist_templates"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "training_visits_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "client_preventive_overview"
+            referencedColumns: ["client_id"]
+          },
+          {
+            foreignKeyName: "training_visits_cliente_id_fkey"
+            columns: ["cliente_id"]
+            isOneToOne: false
+            referencedRelation: "clientes"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       user_invites: {
         Row: {
