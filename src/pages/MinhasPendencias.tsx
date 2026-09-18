@@ -204,6 +204,48 @@ export default function MinhasPendencias() {
             />
           ))}
         </Section>
+
+        <Section
+          title="Instalações"
+          icon={HardHat}
+          count={instalacoes.data?.length ?? 0}
+          isLoading={instalacoes.isLoading}
+          emptyText="Nenhuma pendência em Instalações"
+        >
+          {instalacoes.data?.map(item => (
+            <PendenciaRow
+              key={item.id}
+              code={STAGE_LABELS[item.stage] ?? item.stage}
+              cliente={item.clienteNome}
+              fazenda={item.fazenda}
+              date={formatDate(item.plannedDate)}
+              status={item.status}
+              to={`/instalacoes/etapa/${item.id}`}
+            />
+          ))}
+        </Section>
+
+        {canApproveInstalacao && (
+          <Section
+            title="Aprovações de Instalação"
+            icon={ClipboardCheck}
+            count={aprovacoesInstalacao.data?.length ?? 0}
+            isLoading={aprovacoesInstalacao.isLoading}
+            emptyText="Nenhuma aprovação pendente"
+          >
+            {aprovacoesInstalacao.data?.map(item => (
+              <PendenciaRow
+                key={item.id}
+                code={STAGE_LABELS[item.stage] ?? item.stage}
+                cliente={item.clienteNome}
+                fazenda={item.fazenda}
+                date={formatDate(item.plannedDate)}
+                status={item.status}
+                to={`/instalacoes/etapa/${item.id}`}
+              />
+            ))}
+          </Section>
+        )}
       </div>
     </div>
   );
