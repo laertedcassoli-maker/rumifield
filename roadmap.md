@@ -27,3 +27,5 @@
 - [ ] Revisar possível duplicata: dois cadastros "MAURICIO SILVEIRA COELHO" (16a722fd = Santa Luzia - Sede; bfd139dc = Santa Luzia - Rotatória) — verificar se algum tem pedidos/visitas/OS vinculados que o outro não tem; confirmar se são dois pontos de ordenha reais ou duplicata a mesclar (aguardando revisão do usuário)
 - [ ] Fazenda: 2 duvidosos não gravados (Cristian Martins Pereira/Ferreira, João Carlos/Cezar Gatti) e 6 sem correspondência — aguardando decisão
 - [ ] sync-imilk-clientes: mapeamento dos campos imilk_* confirmado parcialmente — aguardando confirmação se grava também city/state
+- [ ] Histórico de status de pedidos (tabela + trigger) + "Concluído em" em Clientes RF, badge faturado verde e linha do tempo no dialog
+- [ ] Visita Técnica no modelo de Chamados: cards-filtro, busca, selects de status/cliente, período, tabela + paginação (somente leitura)
