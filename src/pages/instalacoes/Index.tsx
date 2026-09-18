@@ -321,7 +321,9 @@ export default function InstalacoesIndex() {
     setStageDialog({ installationId, stage, existing });
     setStageTechnicianId(existing?.technician_user_id || '');
     setStageCsmId(existing?.csm_user_id || '');
-    setStageResponsavelTipo(existing?.csm_user_id ? 'csm' : 'tecnico');
+    // Instalação is always a técnico's stage — never offer CSM there
+    setStageResponsavelTipo(stage !== 'instalacao' && existing?.csm_user_id ? 'csm' : 'tecnico');
+
     setStagePlannedDate(existing?.planned_date || '');
     setStageTemplateId(existing?.checklist_template_id || '');
     setStageAnexoPath(existing?.sales_email_attachment_path || null);
