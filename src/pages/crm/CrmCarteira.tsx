@@ -23,6 +23,7 @@ export default function CrmCarteira() {
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search, 300);
   const [consultorFilter, setConsultorFilter] = useState<string>('todos');
+  const [produtoFilter, setProdutoFilter] = useState<string>('todos');
   const [actionModal, setActionModal] = useState<{ open: boolean; clientId: string }>({ open: false, clientId: '' });
 
   const clienteData = useMemo(() => {
@@ -83,6 +84,10 @@ export default function CrmCarteira() {
 
     if (consultorFilter !== 'todos') {
       list = list.filter(c => c.consultor_rplus_id === consultorFilter);
+    }
+
+    if (produtoFilter !== 'todos') {
+      list = list.filter(c => c.activeProducts.includes(produtoFilter as ProductCode));
     }
 
     if (debouncedSearch) {
