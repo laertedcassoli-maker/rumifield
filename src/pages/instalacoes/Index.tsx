@@ -71,6 +71,18 @@ interface InstallationRow {
 }
 
 
+type SituacaoInstalacao = 'concluida' | 'pre_instalacao' | 'instalacao' | 'sem_etapa';
+
+// Classificação única usada tanto pelo resumo (contagens) quanto pelo filtro clicável
+// — mesma precedência do resumo original: concluída > instalacao > pre_instalacao > sem etapa.
+function classificarSituacao(inst: InstallationRow): SituacaoInstalacao {
+  if (inst.status === 'concluido') return 'concluida';
+  if (inst.stages.some(s => s.stage === 'instalacao')) return 'instalacao';
+  if (inst.stages.some(s => s.stage === 'pre_instalacao')) return 'pre_instalacao';
+  return 'sem_etapa';
+}
+
+
 export default function InstalacoesIndex() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -88,6 +100,7 @@ export default function InstalacoesIndex() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [clienteId, setClienteId] = useState<string | null>(null);
   const [clientePopoverOpen, setClientePopoverOpen] = useState(false);
+  const [filtroSituacao, setFiltroSituacao] = useState<'all' | SituacaoInstalacao>('all');
 
   const [stageDialog, setStageDialog] = useState<{
     installationId: string;
