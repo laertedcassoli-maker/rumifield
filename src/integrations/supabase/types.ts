@@ -3842,6 +3842,51 @@ export type Database = {
           },
         ]
       }
+      training_checklist_responses: {
+        Row: {
+          checked: boolean
+          checklist_template_item_id: string
+          created_at: string
+          id: string
+          notes: string | null
+          training_visit_id: string
+          updated_at: string
+        }
+        Insert: {
+          checked?: boolean
+          checklist_template_item_id: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          training_visit_id: string
+          updated_at?: string
+        }
+        Update: {
+          checked?: boolean
+          checklist_template_item_id?: string
+          created_at?: string
+          id?: string
+          notes?: string | null
+          training_visit_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "training_checklist_responses_checklist_template_item_id_fkey"
+            columns: ["checklist_template_item_id"]
+            isOneToOne: false
+            referencedRelation: "checklist_template_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "training_checklist_responses_training_visit_id_fkey"
+            columns: ["training_visit_id"]
+            isOneToOne: false
+            referencedRelation: "training_visits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       training_visits: {
         Row: {
           checklist_template_id: string | null

@@ -48,3 +48,11 @@
 - [x] Menu primeiro nivel "Treinamento" permKey treinamento + role_menu_permissions (5 papeis)
 - [x] Treinamento.tsx (abas Treinamentos/Clientes, cards filtro, concluir)
 - [x] NovaVisitaTreinamentoDialog.tsx
+
+## Treinamento combinado às visitas (concluído)
+- [x] Tabela training_checklist_responses (RLS authenticated, índice único visita+item)
+- [x] Dexie v6: trainingVisits, trainingChecklistResponses, trainingTemplates, trainingSyncQueue
+- [x] useOfflineTrainingChecklist.ts (offline-first, dead-letter após 5 tentativas)
+- [x] TrainingChecklistExecution.tsx + CombinarTreinamentoSection.tsx
+- [x] Integrado em corretiva, preventiva e etapa de instalação (apenas stage instalacao)
+- [x] Validado no preview: criação, marcação de itens e conclusão (registros de teste removidos)

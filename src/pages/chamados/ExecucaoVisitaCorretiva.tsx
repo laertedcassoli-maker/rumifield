@@ -35,6 +35,7 @@ import { ptBR } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
 import { useGeolocation } from '@/hooks/useGeolocation';
 import ChecklistExecution from '@/components/preventivas/ChecklistExecution';
+import CombinarTreinamentoSection from '@/components/treinamento/CombinarTreinamentoSection';
 import VisitMediaUpload from '@/components/preventivas/VisitMediaUpload';
 import ConsumedPartsBlock from '@/components/preventivas/ConsumedPartsBlock';
 import ObservationsBlock from '@/components/preventivas/ObservationsBlock';
@@ -1210,6 +1211,14 @@ export default function ExecucaoVisitaCorretiva() {
                 </p>
               </CardContent>
             </Card>
+          )}
+
+          {/* Treinamento combinado */}
+          {visit.client_id && (visit.field_technician_user_id || user?.id) && (
+            <CombinarTreinamentoSection
+              clienteId={visit.client_id}
+              responsavelUserId={visit.field_technician_user_id || user!.id}
+            />
           )}
 
           {/* Consumed Parts Block */}
