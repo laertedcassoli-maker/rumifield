@@ -269,9 +269,13 @@ export default function NovaVisitaTreinamentoDialog({ open, onOpenChange, editin
     <Dialog open={open} onOpenChange={(v) => (v ? onOpenChange(true) : handleClose())}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Nova Visita de Treinamento</DialogTitle>
+          <DialogTitle>
+            {editingVisit ? 'Editar Visita de Treinamento' : 'Nova Visita de Treinamento'}
+          </DialogTitle>
           <DialogDescription>
-            Solicite uma visita para treinar a equipe do cliente.
+            {editingVisit
+              ? 'Atualize os dados da visita de treinamento.'
+              : 'Solicite uma visita para treinar a equipe do cliente.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -447,7 +451,7 @@ export default function NovaVisitaTreinamentoDialog({ open, onOpenChange, editin
           </Button>
           <Button onClick={handleSubmit} disabled={createVisita.isPending}>
             {createVisita.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Solicitar Treinamento
+            {editingVisit ? 'Salvar Alterações' : 'Solicitar Treinamento'}
           </Button>
         </DialogFooter>
       </DialogContent>
