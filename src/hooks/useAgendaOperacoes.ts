@@ -41,14 +41,10 @@ function buildTitulo(clienteNome: string, fazenda: string | null, tecnicoNome: s
   return tecnicoNome ? `${base} — ${tecnicoNome}` : base;
 }
 
-// Ícone de grupo no início do título — único ponto de montagem usado pelas 3 fontes.
-const ICONE_GRUPO: Record<AgendaGrupo, string> = {
-  novas_instalacoes: '🏗️',
-  instalacoes_existentes: '🔧',
-};
-
-function tituloEvento(grupo: AgendaGrupo, clienteNome: string, fazenda: string | null, tecnicoNome: string | null) {
-  return `${ICONE_GRUPO[grupo]} ${buildTitulo(clienteNome, fazenda, tecnicoNome)}`;
+// O ícone de grupo é renderizado no evento/legenda da página (AgendaOperacoes.tsx);
+// o título do evento fica livre de prefixos, pois o FullCalendar é customizado lá.
+function tituloEvento(clienteNome: string, fazenda: string | null, tecnicoNome: string | null) {
+  return buildTitulo(clienteNome, fazenda, tecnicoNome);
 }
 
 /**
