@@ -602,7 +602,9 @@ export default function InstalacoesIndex() {
               {stageDialog?.existing ? 'Editar' : 'Configurar'} etapa: {stageDialog ? STAGE_LABELS[stageDialog.stage] : ''}
             </DialogTitle>
             <DialogDescription>
-              Defina o responsável (técnico ou CSM), a data planejada e o template de checklist desta etapa.
+              {stageDialog?.stage === 'instalacao'
+                ? 'Defina o técnico responsável, a data planejada e o template de checklist desta etapa.'
+                : 'Defina o responsável (técnico ou CSM), a data planejada e o template de checklist desta etapa.'}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -617,12 +619,15 @@ export default function InstalacoesIndex() {
                 >
                   Técnico
                 </Button>
+                {/* Instalação is always executed by a técnico, never a CSM */}
+                {stageDialog?.stage !== 'instalacao' && (
                 <Button
                   type="button"
                   variant={stageResponsavelTipo === 'csm' ? 'default' : 'outline'}
                   size="sm"
                   onClick={() => { setStageResponsavelTipo('csm'); setStageTechnicianId(''); }}
                 >
+
                   CSM
                 </Button>
               </div>
@@ -748,33 +753,8 @@ export default function InstalacoesIndex() {
       </Dialog>
 
       {/* Sales e-mail attachment inline preview */}
-      <Dialog open={!!anexoPreview} onOpenChange={(open) => !open && setAnexoPreview(null)}>
-        <DialogContent className="max-w-3xl">
-          <DialogHeader>
-            <DialogTitle className="truncate">{anexoPreview?.path.split('/').pop()}</DialogTitle>
-            <DialogDescription>Pré-visualização do e-mail de venda anexado.</DialogDescription>
-          </DialogHeader>
-          {anexoPreview?.isImage ? (
-            <img
-              src={anexoPreview.url}
-              alt="E-mail de venda"
-              className="max-h-[60vh] w-full rounded-md object-contain"
-            />
-          ) : (
-            <div className="rounded-md border p-4 text-sm text-muted-foreground">
-              Este arquivo não pode ser exibido aqui. Abra em outra guia para visualizá-lo.
-            </div>
-          )}
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => anexoPreview && window.open(anexoPreview.url, '_blank', 'noopener')}
-            >
-              Abrir em outra guia
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <AnexoPreviewDialog preview={anexoPreview} onClose={() => setAnexoPreview(null)} />
+
 
       {/* Delete installation confirmation */}
       <AlertDialog open={!!instalacaoParaExcluir} onOpenChange={(open) => !open && !deleteInstallationMutation.isPending && setInstalacaoParaExcluir(null)}>
