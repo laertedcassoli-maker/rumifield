@@ -106,7 +106,7 @@ export default function InstalacoesIndex() {
           status,
           created_at,
           cliente:clientes(nome, fazenda),
-          stages:installation_stages(id, stage, status, technician_user_id, planned_date, checklist_template_id)
+          stages:installation_stages(id, stage, status, technician_user_id, csm_user_id, sales_email_attachment_path, planned_date, checklist_template_id)
         `)
         .order('created_at', { ascending: false });
 
