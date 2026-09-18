@@ -569,6 +569,21 @@ export function NovaOSDialog({ open, onOpenChange, onSuccess }: NovaOSDialogProp
           </div>
         )}
 
+        {/* Motivo do relato do cliente (pedido vinculado ao ativo) */}
+        {selectedItem && pedidoVinculado && (
+          <div className="p-3 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg">
+            <p className="text-sm text-blue-800 dark:text-blue-200">
+              <span className="font-medium">Motivo do relato do cliente:</span> {pedidoVinculado.motivo_relato}
+            </p>
+            <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
+              Pedido {pedidoVinculado.pedido_code}
+              {pedidoVinculado.tipo_solicitacao
+                ? ` · ${pedidoVinculado.tipo_solicitacao === 'coleta_reversa' ? 'Coleta Reversa' : 'Envio'}`
+                : ''}
+            </p>
+          </div>
+        )}
+
         {/* Campo de Cliente */}
         <div>
           <Label>
@@ -598,22 +613,7 @@ export function NovaOSDialog({ open, onOpenChange, onSuccess }: NovaOSDialogProp
                         <p className="font-medium">{selectedCliente.nome}</p>
                         {selectedCliente.status !== 'ativo' && (
                           <Badge variant="outline" className="text-xs text-destructive border-destructive">inativo</Badge>
-        )}
-
-        {/* Motivo do relato do cliente (pedido vinculado ao ativo) */}
-        {selectedItem && pedidoVinculado && (
-          <div className="p-3 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg">
-            <p className="text-sm text-blue-800 dark:text-blue-200">
-              <span className="font-medium">Motivo do relato do cliente:</span> {pedidoVinculado.motivo_relato}
-            </p>
-            <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
-              Pedido {pedidoVinculado.pedido_code}
-              {pedidoVinculado.tipo_solicitacao
-                ? ` · ${pedidoVinculado.tipo_solicitacao === 'coleta_reversa' ? 'Coleta Reversa' : 'Envio'}`
-                : ''}
-            </p>
-          </div>
-        )}
+                        )}
                       </div>
                       {selectedCliente.fazenda && (
                         <p className="text-sm text-muted-foreground">{selectedCliente.fazenda}</p>
