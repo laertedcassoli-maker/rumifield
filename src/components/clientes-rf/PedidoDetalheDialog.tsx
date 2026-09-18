@@ -65,6 +65,21 @@ export function PedidoDetalheDialog({ pedidoId, open, onOpenChange }: PedidoDeta
     enabled: open && !!pedidoId,
   });
 
+  const { data: historico = [] } = useQuery({
+    queryKey: ['clientes-rf-pedido-historico', pedidoId],
+    queryFn: async () => {
+      if (!pedidoId) return [];
+      const { data, error } = await supabase
+        .from('pedido_status_history')
+        .select('id, status, changed_at')
+        .eq('pedido_id', pedidoId)
+        .order('changed_at', { ascending: true });
+      if (error) throw error;
+      return data ?? [];
+    },
+    enabled: open && !!pedidoId,
+  });
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
