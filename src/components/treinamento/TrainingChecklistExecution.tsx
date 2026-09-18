@@ -20,10 +20,15 @@ interface TrainingChecklistExecutionProps {
   responsavelUserId: string;
   /** Define em qual coluna o responsável é gravado (técnico x CSM) */
   responsavelTipo?: 'tecnico' | 'csm';
+  /** Modo "visita existente" (fluxo avulso): carrega a visita em vez de criar uma nova */
+  existingVisitId?: string;
+  /** Chamado após a conclusão (ex.: fechar o diálogo) */
+  onCompleted?: () => void;
 }
 
 /**
- * Treinamento combinado a uma visita (corretiva, preventiva ou etapa de instalação).
+ * Treinamento combinado a uma visita (corretiva, preventiva ou etapa de instalação),
+ * ou conclusão de uma visita avulsa já existente (existingVisitId).
  * Independente do ChecklistExecution compartilhado: grava offline-first em
  * training_visits / training_checklist_responses.
  */
@@ -31,6 +36,8 @@ export default function TrainingChecklistExecution({
   clienteId,
   responsavelUserId,
   responsavelTipo = 'tecnico',
+  existingVisitId,
+  onCompleted,
 }: TrainingChecklistExecutionProps) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -38,8 +45,10 @@ export default function TrainingChecklistExecution({
     isOnline,
     pendingCount,
     createTrainingVisit,
+    updateTrainingVisit,
     setResponse,
     getResponses,
+    getTrainingVisit,
     completeTraining,
     cacheTemplates,
     getCachedTemplates,
@@ -54,6 +63,50 @@ export default function TrainingChecklistExecution({
   const [contactPhone, setContactPhone] = useState('');
   const [checkedItems, setCheckedItems] = useState<Record<string, boolean>>({});
   const [cachedTemplates, setCachedTemplates] = useState<OfflineTrainingTemplate[]>([]);
+  const [loadingVisit, setLoadingVisit] = useState(false);
+  const [visitHadTemplate, setVisitHadTemplate] = useState(false);
+
+  // Modo "visita existente": carrega a visita, pré-preenche contato/checklist e respostas
+  useEffect(() => {
+    if (!existingVisitId) return;
+    let active = true;
+    setLoadingVisit(true);
+    (async () => {
+      try {
+        const visit = await getTrainingVisit(existingVisitId);
+        if (!active) return;
+        setVisitId(visit.id);
+        if (visit.checklist_template_id) {
+          setTemplateId(visit.checklist_template_id);
+          setVisitHadTemplate(true);
+        }
+        setContactName(visit.contact_name ?? '');
+        setContactPhone(visit.contact_phone ?? '');
+        const existing = await getResponses(visit.id);
+        if (!active) return;
+        setCheckedItems(
+          existing.reduce<Record<string, boolean>>((acc, r) => {
+            acc[r.checklist_template_item_id] = r.checked;
+            return acc;
+          }, {})
+        );
+      } catch (error) {
+        console.error(error);
+        if (active) {
+          toast.error(
+            error instanceof Error && error.message.includes('offline')
+              ? error.message
+              : 'Não foi possível carregar a visita de treinamento.'
+          );
+        }
+      } finally {
+        if (active) setLoadingVisit(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [existingVisitId, getTrainingVisit, getResponses]);
 
   // Templates ativos com blocos e itens. Quando online, alimenta o cache offline.
   const { data: templates, isLoading: templatesLoading } = useQuery({
