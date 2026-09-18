@@ -348,7 +348,7 @@ export default function ChamadosIndex() {
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Chamados Técnicos</h1>
+          <h1 className="text-2xl font-bold">Chamados</h1>
           <p className="text-muted-foreground">Gestão de chamados e visitas corretivas</p>
         </div>
         <div className="flex items-center gap-2">
