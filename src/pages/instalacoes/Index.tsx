@@ -15,8 +15,11 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { toast } from "sonner";
-import { HardHat, Plus, Loader2, Play, Settings2, Check, ChevronsUpDown, Building2, CalendarDays, User, Trash2, Paperclip } from "lucide-react";
+import { HardHat, Plus, Loader2, Play, Settings2, Check, ChevronsUpDown, Building2, CalendarDays, User, Trash2, Paperclip, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAnexoPreview } from "@/hooks/useAnexoPreview";
+import AnexoPreviewDialog from "@/components/instalacoes/AnexoPreviewDialog";
+
 
 type StageType = 'pre_venda' | 'pre_instalacao' | 'instalacao';
 
@@ -38,9 +41,13 @@ const STAGE_STATUS_LABELS: Record<string, string> = {
 const STAGE_STATUS_VARIANTS: Record<string, 'secondary' | 'default' | 'outline'> = {
   planejado: 'secondary',
   em_andamento: 'default',
-  aguardando_aprovacao: 'default',
+  aguardando_aprovacao: 'outline',
   concluido: 'outline',
 };
+
+// Amber emphasis for the "waiting for approval" state
+export const AGUARDANDO_APROVACAO_CLASS = 'bg-amber-500/15 text-amber-700 border-amber-500/30';
+
 
 interface StageRow {
   id: string;
@@ -92,8 +99,13 @@ export default function InstalacoesIndex() {
   const [stageTemplateId, setStageTemplateId] = useState<string>('');
   const [stageAnexoPath, setStageAnexoPath] = useState<string | null>(null);
   const [isUploadingAnexo, setIsUploadingAnexo] = useState(false);
-  const [anexoPreview, setAnexoPreview] = useState<{ url: string; path: string; isImage: boolean } | null>(null);
-  const anexoClickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const {
+    preview: anexoPreview,
+    setPreview: setAnexoPreview,
+    handleClick: handleAnexoClick,
+    handleDoubleClick: handleAnexoDoubleClick,
+  } = useAnexoPreview('instalacao-anexos');
+
 
   // Installations with stages (tecnico_campo sees only installations containing his stages)
   const { data: installations, isLoading } = useQuery<InstallationRow[]>({
@@ -351,41 +363,8 @@ export default function InstalacoesIndex() {
     }
   };
 
-  const getAnexoSignedUrl = async (path: string) => {
-    const { data, error } = await supabase.storage
-      .from('instalacao-anexos')
-      .createSignedUrl(path, 3600);
-    if (error || !data?.signedUrl) throw error || new Error('Não foi possível abrir o anexo.');
-    return data.signedUrl;
-  };
+  // Preview/open behaviour lives in the shared useAnexoPreview hook
 
-  // Single click -> inline preview; double click -> new browser tab
-  const handleAnexoClick = (path: string) => {
-    if (anexoClickTimer.current) return;
-    anexoClickTimer.current = setTimeout(async () => {
-      anexoClickTimer.current = null;
-      try {
-        const url = await getAnexoSignedUrl(path);
-        const isImage = /\.(png|jpe?g|gif|webp|bmp|heic)$/i.test(path);
-        setAnexoPreview({ url, path, isImage });
-      } catch (e: any) {
-        toast.error('Erro ao abrir anexo: ' + (e?.message || ''));
-      }
-    }, 260);
-  };
-
-  const handleAnexoDoubleClick = async (path: string) => {
-    if (anexoClickTimer.current) {
-      clearTimeout(anexoClickTimer.current);
-      anexoClickTimer.current = null;
-    }
-    try {
-      const url = await getAnexoSignedUrl(path);
-      window.open(url, '_blank', 'noopener');
-    } catch (e: any) {
-      toast.error('Erro ao abrir anexo: ' + (e?.message || ''));
-    }
-  };
 
   return (
     <div className="space-y-4 p-4 sm:p-6 max-w-5xl mx-auto">
