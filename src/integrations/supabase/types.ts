@@ -478,6 +478,7 @@ export type Database = {
           id: string
           item_name: string
           order_index: number
+          requires_photo: boolean
         }
         Insert: {
           active?: boolean
@@ -486,6 +487,7 @@ export type Database = {
           id?: string
           item_name: string
           order_index?: number
+          requires_photo?: boolean
         }
         Update: {
           active?: boolean
@@ -494,6 +496,7 @@ export type Database = {
           id?: string
           item_name?: string
           order_index?: number
+          requires_photo?: boolean
         }
         Relationships: [
           {

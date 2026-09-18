@@ -1,0 +1,1 @@
+ALTER TABLE public.checklist_template_items ADD COLUMN IF NOT EXISTS requires_photo boolean NOT NULL DEFAULT false;
