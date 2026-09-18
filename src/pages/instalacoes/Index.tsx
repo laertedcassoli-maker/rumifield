@@ -438,21 +438,27 @@ export default function InstalacoesIndex() {
       {(installations && installations.length > 0) && (
         <div className="flex flex-wrap gap-2">
           {([
-            { label: 'Total', value: resumo.total },
-            { label: 'Concluídas', value: resumo.concluidas },
-            { label: 'Em Pré Instalação', value: resumo.emPreInstalacao },
-            { label: 'Em Instalação', value: resumo.emInstalacao },
-            { label: 'Sem etapa', value: resumo.semEtapa },
-          ] as { label: string; value: number }[])
-            .filter(r => r.label !== 'Sem etapa' || resumo.semEtapa > 0)
+            { label: 'Total', value: resumo.total, key: 'all' as const },
+            { label: 'Concluídas', value: resumo.concluidas, key: 'concluida' as const },
+            { label: 'Em Pré Instalação', value: resumo.emPreInstalacao, key: 'pre_instalacao' as const },
+            { label: 'Em Instalação', value: resumo.emInstalacao, key: 'instalacao' as const },
+            { label: 'Sem etapa', value: resumo.semEtapa, key: 'sem_etapa' as const },
+          ])
+            .filter(r => r.key !== 'sem_etapa' || resumo.semEtapa > 0)
             .map(r => (
-              <div
-                key={r.label}
-                className="flex items-center gap-1.5 rounded-full border bg-card px-3 py-1 text-xs"
+              <Button
+                key={r.key}
+                type="button"
+                size="sm"
+                variant={filtroSituacao === r.key ? 'default' : 'outline'}
+                onClick={() => setFiltroSituacao(prev => (prev === r.key ? 'all' : r.key))}
+                className="h-auto rounded-full gap-1.5 px-3 py-1 text-xs"
               >
                 <span className="font-semibold">{r.value}</span>
-                <span className="text-muted-foreground">{r.label}</span>
-              </div>
+                <span className={filtroSituacao === r.key ? 'text-primary-foreground/80' : 'text-muted-foreground'}>
+                  {r.label}
+                </span>
+              </Button>
             ))}
         </div>
       )}
