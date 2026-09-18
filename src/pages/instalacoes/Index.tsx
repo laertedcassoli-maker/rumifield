@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -15,8 +15,11 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { toast } from "sonner";
-import { HardHat, Plus, Loader2, Play, Settings2, Check, ChevronsUpDown, Building2, CalendarDays, User, Trash2, Paperclip } from "lucide-react";
+import { HardHat, Plus, Loader2, Play, Settings2, Check, ChevronsUpDown, Building2, CalendarDays, User, Trash2, Paperclip, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAnexoPreview } from "@/hooks/useAnexoPreview";
+import AnexoPreviewDialog from "@/components/instalacoes/AnexoPreviewDialog";
+
 
 type StageType = 'pre_venda' | 'pre_instalacao' | 'instalacao';
 
@@ -38,9 +41,13 @@ const STAGE_STATUS_LABELS: Record<string, string> = {
 const STAGE_STATUS_VARIANTS: Record<string, 'secondary' | 'default' | 'outline'> = {
   planejado: 'secondary',
   em_andamento: 'default',
-  aguardando_aprovacao: 'default',
+  aguardando_aprovacao: 'outline',
   concluido: 'outline',
 };
+
+// Amber emphasis for the "waiting for approval" state
+export const AGUARDANDO_APROVACAO_CLASS = 'bg-amber-500/15 text-amber-700 border-amber-500/30';
+
 
 interface StageRow {
   id: string;
@@ -59,7 +66,10 @@ interface InstallationRow {
   created_at: string;
   cliente: { nome: string; fazenda: string | null } | null;
   stages: StageRow[];
+  /** All stages of the installation, kept when the view filters stages */
+  allStages?: StageRow[];
 }
+
 
 export default function InstalacoesIndex() {
   const navigate = useNavigate();
@@ -92,8 +102,13 @@ export default function InstalacoesIndex() {
   const [stageTemplateId, setStageTemplateId] = useState<string>('');
   const [stageAnexoPath, setStageAnexoPath] = useState<string | null>(null);
   const [isUploadingAnexo, setIsUploadingAnexo] = useState(false);
-  const [anexoPreview, setAnexoPreview] = useState<{ url: string; path: string; isImage: boolean } | null>(null);
-  const anexoClickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const {
+    preview: anexoPreview,
+    setPreview: setAnexoPreview,
+    handleClick: handleAnexoClick,
+    handleDoubleClick: handleAnexoDoubleClick,
+  } = useAnexoPreview('instalacao-anexos');
+
 
   // Installations with stages (tecnico_campo sees only installations containing his stages)
   const { data: installations, isLoading } = useQuery<InstallationRow[]>({
@@ -132,13 +147,26 @@ export default function InstalacoesIndex() {
   // and show just that stage row inside each card. Installations with NO stages
   // yet (freshly created, not even the first stage configured) always stay
   // visible for managers so they can never become unreachable in a filtered view.
+  // In the "Instalação" view, installations whose Pré Instalação already exists
+  // also stay visible so managers can configure (or see the lock on) that stage.
   const visibleInstallations = useMemo(() => {
     if (!installations) return installations;
     if (!etapaFiltro) return installations;
     return installations
-      .filter(inst => inst.stages.length === 0 ? canManage : inst.stages.some(s => s.stage === etapaFiltro))
-      .map(inst => ({ ...inst, stages: inst.stages.filter(s => s.stage === etapaFiltro) }));
+      .filter(inst => {
+        if (inst.stages.length === 0) return canManage;
+        if (inst.stages.some(s => s.stage === etapaFiltro)) return true;
+        return canManage && etapaFiltro === 'instalacao' && inst.stages.some(s => s.stage === 'pre_instalacao');
+      })
+      .map(inst => ({
+        ...inst,
+        // keep the Pré Instalação row out of the Instalação view, but preserve it
+        // in a side field so the lock rule can read its status
+        stages: inst.stages.filter(s => s.stage === etapaFiltro),
+        allStages: inst.stages,
+      }));
   }, [installations, etapaFiltro, canManage]);
+
 
   // Responsible names for display (technician or CSM)
   const technicianIds = Array.from(new Set(
@@ -309,7 +337,9 @@ export default function InstalacoesIndex() {
     setStageDialog({ installationId, stage, existing });
     setStageTechnicianId(existing?.technician_user_id || '');
     setStageCsmId(existing?.csm_user_id || '');
-    setStageResponsavelTipo(existing?.csm_user_id ? 'csm' : 'tecnico');
+    // Instalação is always a técnico's stage — never offer CSM there
+    setStageResponsavelTipo(stage !== 'instalacao' && existing?.csm_user_id ? 'csm' : 'tecnico');
+
     setStagePlannedDate(existing?.planned_date || '');
     setStageTemplateId(existing?.checklist_template_id || '');
     setStageAnexoPath(existing?.sales_email_attachment_path || null);
@@ -351,41 +381,8 @@ export default function InstalacoesIndex() {
     }
   };
 
-  const getAnexoSignedUrl = async (path: string) => {
-    const { data, error } = await supabase.storage
-      .from('instalacao-anexos')
-      .createSignedUrl(path, 3600);
-    if (error || !data?.signedUrl) throw error || new Error('Não foi possível abrir o anexo.');
-    return data.signedUrl;
-  };
+  // Preview/open behaviour lives in the shared useAnexoPreview hook
 
-  // Single click -> inline preview; double click -> new browser tab
-  const handleAnexoClick = (path: string) => {
-    if (anexoClickTimer.current) return;
-    anexoClickTimer.current = setTimeout(async () => {
-      anexoClickTimer.current = null;
-      try {
-        const url = await getAnexoSignedUrl(path);
-        const isImage = /\.(png|jpe?g|gif|webp|bmp|heic)$/i.test(path);
-        setAnexoPreview({ url, path, isImage });
-      } catch (e: any) {
-        toast.error('Erro ao abrir anexo: ' + (e?.message || ''));
-      }
-    }, 260);
-  };
-
-  const handleAnexoDoubleClick = async (path: string) => {
-    if (anexoClickTimer.current) {
-      clearTimeout(anexoClickTimer.current);
-      anexoClickTimer.current = null;
-    }
-    try {
-      const url = await getAnexoSignedUrl(path);
-      window.open(url, '_blank', 'noopener');
-    } catch (e: any) {
-      toast.error('Erro ao abrir anexo: ' + (e?.message || ''));
-    }
-  };
 
   return (
     <div className="space-y-4 p-4 sm:p-6 max-w-5xl mx-auto">
@@ -455,7 +452,7 @@ export default function InstalacoesIndex() {
                 </div>
               </CardHeader>
               <CardContent className="space-y-2">
-                {inst.stages.length === 0 && canManage && (
+                {(inst.allStages ?? inst.stages).length === 0 && canManage && (
                   <div className="flex items-center gap-2 rounded-lg border border-dashed p-3 text-sm text-muted-foreground">
                     <Settings2 className="h-4 w-4 shrink-0" />
                     <span>Nenhuma etapa configurada ainda — configure a primeira etapa desta instalação.</span>
@@ -463,6 +460,12 @@ export default function InstalacoesIndex() {
                 )}
                 {(etapaFiltro ? [etapaFiltro] : STAGE_ORDER).map((stageType) => {
                   const stage = inst.stages.find(s => s.stage === stageType);
+                  const isReadOnlyStage = !!stage && ['concluido', 'aguardando_aprovacao'].includes(stage.status);
+                  const preInstalacaoStage = (inst.allStages ?? inst.stages).find(s => s.stage === 'pre_instalacao');
+                  // Instalação can only be configured after Pré Instalação is approved
+                  const instalacaoBloqueada =
+                    stageType === 'instalacao' && preInstalacaoStage?.status !== 'concluido';
+
                   return (
                     <div
                       key={stageType}
@@ -472,11 +475,15 @@ export default function InstalacoesIndex() {
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="font-medium text-sm">{STAGE_LABELS[stageType]}</span>
                           {stage && (
-                            <Badge variant={STAGE_STATUS_VARIANTS[stage.status] || 'secondary'} className="text-xs">
+                            <Badge
+                              variant={STAGE_STATUS_VARIANTS[stage.status] || 'secondary'}
+                              className={cn('text-xs', stage.status === 'aguardando_aprovacao' && AGUARDANDO_APROVACAO_CLASS)}
+                            >
                               {STAGE_STATUS_LABELS[stage.status] || stage.status}
                             </Badge>
                           )}
                         </div>
+
                         {stage ? (
                           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-xs text-muted-foreground">
                             {(stage.technician_user_id || stage.csm_user_id) && (
@@ -502,24 +509,32 @@ export default function InstalacoesIndex() {
                         {stage && (
                           <Button
                             size="sm"
-                            variant={stage.status === 'concluido' ? 'outline' : 'default'}
+                            variant={isReadOnlyStage ? 'outline' : 'default'}
                             onClick={() => navigate(`/instalacoes/etapa/${stage.id}`)}
                           >
                             <Play className="h-3.5 w-3.5 mr-1" />
-                            {stage.status === 'concluido' ? 'Ver' : 'Executar'}
+                            {isReadOnlyStage ? 'Ver' : 'Executar'}
                           </Button>
                         )}
                         {canManage && (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() => openStageDialog(inst.id, stageType, stage)}
-                          >
-                            <Settings2 className="h-3.5 w-3.5 mr-1" />
-                            {stage ? 'Editar' : 'Configurar'}
-                          </Button>
+                          instalacaoBloqueada ? (
+                            <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                              <Lock className="h-3.5 w-3.5 shrink-0" />
+                              {preInstalacaoStage ? 'Aguardando aprovação da Pré Instalação' : 'Configure a Pré Instalação primeiro'}
+                            </span>
+                          ) : (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => openStageDialog(inst.id, stageType, stage)}
+                            >
+                              <Settings2 className="h-3.5 w-3.5 mr-1" />
+                              {stage ? 'Editar' : 'Configurar'}
+                            </Button>
+                          )
                         )}
                       </div>
+
                     </div>
                   );
                 })}
@@ -606,7 +621,9 @@ export default function InstalacoesIndex() {
               {stageDialog?.existing ? 'Editar' : 'Configurar'} etapa: {stageDialog ? STAGE_LABELS[stageDialog.stage] : ''}
             </DialogTitle>
             <DialogDescription>
-              Defina o responsável (técnico ou CSM), a data planejada e o template de checklist desta etapa.
+              {stageDialog?.stage === 'instalacao'
+                ? 'Defina o técnico responsável, a data planejada e o template de checklist desta etapa.'
+                : 'Defina o responsável (técnico ou CSM), a data planejada e o template de checklist desta etapa.'}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
@@ -621,6 +638,8 @@ export default function InstalacoesIndex() {
                 >
                   Técnico
                 </Button>
+                {/* Instalação is always executed by a técnico, never a CSM */}
+                {stageDialog?.stage !== 'instalacao' && (
                 <Button
                   type="button"
                   variant={stageResponsavelTipo === 'csm' ? 'default' : 'outline'}
@@ -629,7 +648,9 @@ export default function InstalacoesIndex() {
                 >
                   CSM
                 </Button>
+                )}
               </div>
+
             </div>
             {stageResponsavelTipo === 'tecnico' ? (
               <div className="space-y-2">
@@ -752,33 +773,8 @@ export default function InstalacoesIndex() {
       </Dialog>
 
       {/* Sales e-mail attachment inline preview */}
-      <Dialog open={!!anexoPreview} onOpenChange={(open) => !open && setAnexoPreview(null)}>
-        <DialogContent className="max-w-3xl">
-          <DialogHeader>
-            <DialogTitle className="truncate">{anexoPreview?.path.split('/').pop()}</DialogTitle>
-            <DialogDescription>Pré-visualização do e-mail de venda anexado.</DialogDescription>
-          </DialogHeader>
-          {anexoPreview?.isImage ? (
-            <img
-              src={anexoPreview.url}
-              alt="E-mail de venda"
-              className="max-h-[60vh] w-full rounded-md object-contain"
-            />
-          ) : (
-            <div className="rounded-md border p-4 text-sm text-muted-foreground">
-              Este arquivo não pode ser exibido aqui. Abra em outra guia para visualizá-lo.
-            </div>
-          )}
-          <DialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => anexoPreview && window.open(anexoPreview.url, '_blank', 'noopener')}
-            >
-              Abrir em outra guia
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <AnexoPreviewDialog preview={anexoPreview} onClose={() => setAnexoPreview(null)} />
+
 
       {/* Delete installation confirmation */}
       <AlertDialog open={!!instalacaoParaExcluir} onOpenChange={(open) => !open && !deleteInstallationMutation.isPending && setInstalacaoParaExcluir(null)}>
