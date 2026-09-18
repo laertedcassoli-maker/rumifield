@@ -20,6 +20,7 @@ import {
 import { toast } from "sonner";
 import { ArrowLeft, Loader2, Building2, CalendarDays, User, Paperclip, CheckCircle2, Clock } from "lucide-react";
 import InstallationChecklistExecution from "@/components/instalacoes/ChecklistExecution";
+import CombinarTreinamentoSection from "@/components/treinamento/CombinarTreinamentoSection";
 import { useAnexoPreview } from "@/hooks/useAnexoPreview";
 import AnexoPreviewDialog from "@/components/instalacoes/AnexoPreviewDialog";
 import { cn } from "@/lib/utils";
@@ -72,6 +73,7 @@ export default function ExecucaoEtapa() {
           installation:installations(
             id,
             status,
+            cliente_id,
             cliente:clientes(nome, fazenda)
           )
         `)
@@ -300,6 +302,15 @@ export default function ExecucaoEtapa() {
         stageId={stage.id}
         stageTemplateId={stage.checklist_template_id}
       />
+
+      {/* Treinamento combinado: apenas na etapa de Instalação */}
+      {stage.stage === 'instalacao' && stage.installation?.cliente_id && responsavelId && (
+        <CombinarTreinamentoSection
+          clienteId={stage.installation.cliente_id}
+          responsavelUserId={responsavelId}
+          responsavelTipo={isCsm ? 'csm' : 'tecnico'}
+        />
+      )}
 
       <AnexoPreviewDialog preview={anexoPreview} onClose={() => setAnexoPreview(null)} />
 
