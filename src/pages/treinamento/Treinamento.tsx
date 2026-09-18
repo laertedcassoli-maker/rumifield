@@ -540,7 +540,73 @@ export default function Treinamento() {
         </DialogContent>
       </Dialog>
 
-      <NovaVisitaTreinamentoDialog open={novaVisitaOpen} onOpenChange={setNovaVisitaOpen} />
+      {/* Conclusão da visita com checklist obrigatório */}
+      <Dialog
+        open={!!concluindoVisita}
+        onOpenChange={(open) => !open && setConcluindoVisita(null)}
+      >
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Concluir Treinamento</DialogTitle>
+            <DialogDescription>
+              {concluindoVisita
+                ? `${clientesMap?.get(concluindoVisita.cliente_id)?.nome ?? 'Cliente'} — marque todos os itens e informe quem recebeu o treinamento.`
+                : ''}
+            </DialogDescription>
+          </DialogHeader>
+          {concluindoVisita && (
+            <TrainingChecklistExecution
+              existingVisitId={concluindoVisita.id}
+              clienteId={concluindoVisita.cliente_id}
+              responsavelUserId={
+                concluindoVisita.technician_user_id ?? concluindoVisita.csm_user_id ?? user!.id
+              }
+              responsavelTipo={concluindoVisita.technician_user_id ? 'tecnico' : 'csm'}
+              onCompleted={() => setConcluindoVisita(null)}
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirmação de exclusão */}
+      <AlertDialog
+        open={!!excluindoVisita}
+        onOpenChange={(open) => !open && setExcluindoVisita(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir visita de treinamento?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação não pode ser desfeita. As respostas de checklist vinculadas, se houver,
+              serão excluídas junto.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={excluirMutation.isPending}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => excluindoVisita && excluirMutation.mutate(excluindoVisita.id)}
+              disabled={excluirMutation.isPending}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {excluirMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <NovaVisitaTreinamentoDialog
+        open={novaVisitaOpen || !!editingVisita}
+        onOpenChange={(open) => {
+          if (!open) {
+            setNovaVisitaOpen(false);
+            setEditingVisita(null);
+          } else {
+            setNovaVisitaOpen(true);
+          }
+        }}
+        editingVisit={editingVisita}
+      />
     </div>
   );
 }
