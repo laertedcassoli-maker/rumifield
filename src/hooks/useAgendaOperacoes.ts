@@ -25,8 +25,8 @@ const TIPO_LABELS: Record<string, string> = {
 async function fetchProfilesMap(ids: string[]) {
   const unique = [...new Set(ids.filter(Boolean))];
   if (!unique.length) return new Map<string, string>();
-  const { data } = await supabase.from('profiles').select('user_id, nome').in('user_id', unique);
-  return new Map((data ?? []).map(p => [p.user_id, p.nome as string]));
+  const { data } = await supabase.from('profiles').select('id, nome').in('id', unique);
+  return new Map<string, string>((data ?? []).map(p => [p.id as string, p.nome as string]));
 }
 
 async function fetchClientesMap(ids: string[]) {
