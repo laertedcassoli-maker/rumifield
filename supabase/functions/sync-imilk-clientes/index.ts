@@ -77,9 +77,28 @@ serve(async (req) => {
     for (const imilkCliente of imilkClientes) {
       try {
         // Map iMilk fields to local fields based on actual API response
+        // valor/valor_bruto arrive as strings ("14309.00") -> store as number, null when empty/invalid
+        const parseValor = (raw: unknown): number | null => {
+          if (typeof raw === 'number' && Number.isFinite(raw)) return raw;
+          if (typeof raw !== 'string') return null;
+          const trimmed = raw.trim();
+          if (!trimmed) return null;
+          const parsed = parseFloat(trimmed);
+          return Number.isFinite(parsed) ? parsed : null;
+        };
+
         const clienteData = {
           nome: imilkCliente.nome_cliente || 'Sem nome',
           cod_imilk: String(imilkCliente.id_cliente || ''),
+          cidade: imilkCliente.city ?? null,
+          estado: imilkCliente.state ?? null,
+          imilk_id_contrato: imilkCliente.id_contrato ?? null,
+          imilk_csm: imilkCliente.csm ?? null,
+          imilk_produto: imilkCliente.produto ?? null,
+          imilk_valor: parseValor(imilkCliente.valor),
+          imilk_valor_bruto: parseValor(imilkCliente.valor_bruto),
+          imilk_plano_congelado: imilkCliente.plano_congelado ?? null,
+          imilk_data_proximo_faturamento: imilkCliente.data_proximo_faturamento ?? null,
         };
 
         if (!clienteData.cod_imilk) {
