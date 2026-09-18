@@ -31,12 +31,14 @@ const STAGE_LABELS: Record<StageType, string> = {
 const STAGE_STATUS_LABELS: Record<string, string> = {
   planejado: 'Planejado',
   em_andamento: 'Em Andamento',
+  aguardando_aprovacao: 'Aguardando Aprovação',
   concluido: 'Concluído',
 };
 
 const STAGE_STATUS_VARIANTS: Record<string, 'secondary' | 'default' | 'outline'> = {
   planejado: 'secondary',
   em_andamento: 'default',
+  aguardando_aprovacao: 'default',
   concluido: 'outline',
 };
 
@@ -45,6 +47,8 @@ interface StageRow {
   stage: StageType;
   status: string;
   technician_user_id: string | null;
+  csm_user_id: string | null;
+  sales_email_attachment_path: string | null;
   planned_date: string | null;
   checklist_template_id: string | null;
 }
