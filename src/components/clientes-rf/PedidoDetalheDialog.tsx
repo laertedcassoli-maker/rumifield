@@ -176,17 +176,12 @@ export function PedidoDetalheDialog({ pedidoId, open, onOpenChange }: PedidoDeta
                         <Clock className="h-4 w-4 text-muted-foreground" />
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="text-sm font-medium truncate">
-                            {STATUS_LABELS[evento.status] ?? evento.status}
-                          </span>
-                          <Badge
-                            variant="outline"
-                            className={STATUS_BADGE_CLASSES[evento.status] ?? ''}
-                          >
-                            {STATUS_LABELS[evento.status] ?? evento.status}
-                          </Badge>
-                        </div>
+                        <Badge
+                          variant="outline"
+                          className={STATUS_BADGE_CLASSES[evento.status] ?? ''}
+                        >
+                          {STATUS_LABELS[evento.status] ?? evento.status}
+                        </Badge>
                         <p className="mt-1 text-xs text-muted-foreground">
                           {formatarData(evento.changed_at)}
                         </p>
