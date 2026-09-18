@@ -57,6 +57,9 @@ interface ValidationResult {
   warnings: string[];
 }
 
+// Template cuja visita corretiva pode contar também como preventiva
+const RUMIFLOW_V1_TEMPLATE_ID = '3b86c956-891a-4a82-9871-d8a5c2981a6d';
+
 export default function ExecucaoVisitaCorretiva() {
   const { visitId } = useParams<{ visitId: string }>();
   const navigate = useNavigate();
@@ -70,6 +73,7 @@ export default function ExecucaoVisitaCorretiva() {
   const [showWarningDialog, setShowWarningDialog] = useState(false);
   const [showResultDialog, setShowResultDialog] = useState(false);
   const [selectedResult, setSelectedResult] = useState<'resolvido' | 'parcial' | 'aguardando_peca' | null>(null);
+  const [contouComoPreventiva, setContouComoPreventiva] = useState(false);
   const [validationResult, setValidationResult] = useState<ValidationResult | null>(null);
   const [checklistStatus, setChecklistStatus] = useState<'not_started' | 'in_progress' | 'completed'>('not_started');
   const [sharingTarget, setSharingTarget] = useState<'produtor' | 'interno' | null>(null);
@@ -161,10 +165,15 @@ export default function ExecucaoVisitaCorretiva() {
 
       const { data: correctiveReport, error: correctiveReportError } = await supabase
         .from('corrective_maintenance')
-        .select('public_token')
+        .select('public_token, preventive_maintenance_id')
         .eq('visit_id', visitData.id)
         .maybeSingle();
       if (correctiveReportError) throw correctiveReportError;
+
+      // Vínculo real passa a ser a fonte preferencial; match por notes fica como fallback legado
+      if (!preventiveId && correctiveReport?.preventive_maintenance_id) {
+        preventiveId = correctiveReport.preventive_maintenance_id;
+      }
 
       const publicToken = correctiveReport?.public_token || null;
 
@@ -274,6 +283,7 @@ export default function ExecucaoVisitaCorretiva() {
             visit_id: visitId,
             client_id: visit?.client_id,
             checklist_template_id: visit?.checklist_template_id || null,
+            preventive_maintenance_id: preventiveId,
             status: 'em_andamento',
             checkin_at: checkinAt,
             checkin_lat: lat,
