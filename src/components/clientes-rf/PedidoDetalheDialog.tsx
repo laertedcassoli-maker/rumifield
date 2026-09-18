@@ -28,6 +28,11 @@ const STATUS_LABELS: Record<string, string> = {
   pendente: 'Pendente',
 };
 
+/** Faturado em verde (mesma paleta de "Resolvido" nos chamados); demais neutros. */
+const STATUS_BADGE_CLASSES: Record<string, string> = {
+  faturado: 'bg-green-500/10 text-green-600 border-green-500/20',
+};
+
 interface PedidoDetalheDialogProps {
   pedidoId: string | null;
   open: boolean;
