@@ -442,6 +442,11 @@ export default function InstalacoesIndex() {
                 )}
                 {(etapaFiltro ? [etapaFiltro] : STAGE_ORDER).map((stageType) => {
                   const stage = inst.stages.find(s => s.stage === stageType);
+                  const isReadOnlyStage = !!stage && ['concluido', 'aguardando_aprovacao'].includes(stage.status);
+                  const preInstalacaoStage = inst.stages.find(s => s.stage === 'pre_instalacao');
+                  // Instalação can only be configured after Pré Instalação is approved
+                  const instalacaoBloqueada =
+                    stageType === 'instalacao' && preInstalacaoStage?.status !== 'concluido';
                   return (
                     <div
                       key={stageType}
@@ -451,11 +456,15 @@ export default function InstalacoesIndex() {
                         <div className="flex flex-wrap items-center gap-2">
                           <span className="font-medium text-sm">{STAGE_LABELS[stageType]}</span>
                           {stage && (
-                            <Badge variant={STAGE_STATUS_VARIANTS[stage.status] || 'secondary'} className="text-xs">
+                            <Badge
+                              variant={STAGE_STATUS_VARIANTS[stage.status] || 'secondary'}
+                              className={cn('text-xs', stage.status === 'aguardando_aprovacao' && AGUARDANDO_APROVACAO_CLASS)}
+                            >
                               {STAGE_STATUS_LABELS[stage.status] || stage.status}
                             </Badge>
                           )}
                         </div>
+
                         {stage ? (
                           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-1 text-xs text-muted-foreground">
                             {(stage.technician_user_id || stage.csm_user_id) && (
