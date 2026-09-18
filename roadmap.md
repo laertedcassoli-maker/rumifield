@@ -56,3 +56,13 @@
 - [x] TrainingChecklistExecution.tsx + CombinarTreinamentoSection.tsx
 - [x] Integrado em corretiva, preventiva e etapa de instalação (apenas stage instalacao)
 - [x] Validado no preview: criação, marcação de itens e conclusão (registros de teste removidos)
+
+## Treinamento — conclusão com checklist obrigatório (plano aprovado, em andamento)
+- [ ] TrainingChecklistExecution: modo existingVisitId (carrega visita, pré-preenche, persiste checklist)
+- [ ] Conclusão exige nome+telefone+todos os itens (só fluxo avulso)
+- [ ] Treinamento.tsx: botão Concluir abre Dialog; remover concluirMutation
+- [ ] Hook: getTrainingVisit (fetch online + cache local)
+
+## Treinamento — Editar/Excluir visitas pendentes (novo pedido; planejar)
+- [ ] NovaVisitaTreinamentoDialog: prop editingVisit (pré-preencher, update em vez de insert)
+- [ ] Treinamento.tsx: botões Editar/Excluir só para canAbrirVisita e status pendente; AlertDialog de exclusão (CASCADE cuida das respostas)
