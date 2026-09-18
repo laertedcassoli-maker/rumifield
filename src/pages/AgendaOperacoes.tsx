@@ -9,6 +9,13 @@ import { CalendarDays } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { useAgendaOperacoes, AGENDA_TIPO_LABELS, type AgendaGrupo } from '@/hooks/useAgendaOperacoes';
 
 type Filtro = 'all' | AgendaGrupo;
@@ -19,30 +26,68 @@ const FILTROS: Array<{ value: Filtro; label: string }> = [
   { value: 'instalacoes_existentes', label: 'Instalações Existentes' },
 ];
 
-const GRUPO_COLORS: Record<AgendaGrupo, string> = {
-  novas_instalacoes: 'hsl(var(--primary))',
-  instalacoes_existentes: 'hsl(var(--accent-foreground))',
-};
+/**
+ * Paleta fixa de cores distintas para técnicos/responsáveis.
+ * São dados visuais por pessoa (não tokens de tema), por isso valores literais.
+ */
+const PALETA_TECNICOS = [
+  'hsl(221, 83%, 53%)', // azul
+  'hsl(142, 71%, 40%)', // verde
+  'hsl(32, 95%, 44%)', // laranja
+  'hsl(328, 80%, 45%)', // magenta
+  'hsl(190, 90%, 38%)', // ciano
+  'hsl(262, 70%, 55%)', // violeta
+  'hsl(0, 74%, 50%)', // vermelho
+  'hsl(85, 65%, 38%)', // verde-lima
+  'hsl(25, 80%, 40%)', // marrom-alaranjado
+  'hsl(300, 60%, 40%)', // roxo
+];
+
+const COR_SEM_RESPONSAVEL = 'hsl(215, 16%, 55%)'; // cinza neutro
+
+/** Cor determinística por nome: mesmo nome -> mesma cor, sempre. */
+function corPorTecnico(nome: string | null): string {
+  if (!nome) return COR_SEM_RESPONSAVEL;
+  let hash = 5381;
+  for (let i = 0; i < nome.length; i++) {
+    hash = (hash * 33) ^ nome.charCodeAt(i);
+  }
+  const idx = Math.abs(hash) % PALETA_TECNICOS.length;
+  return PALETA_TECNICOS[idx];
+}
 
 export default function AgendaOperacoes() {
   const navigate = useNavigate();
   const [filtro, setFiltro] = useState<Filtro>('all');
+  const [filtroTecnico, setFiltroTecnico] = useState<string>('todos');
   const { eventos, isLoading } = useAgendaOperacoes();
+
+  const tecnicos = useMemo(
+    () =>
+      [...new Set(eventos.map(e => e.tecnicoNome).filter((n): n is string => !!n))].sort(
+        (a, b) => a.localeCompare(b, 'pt-BR')
+      ),
+    [eventos]
+  );
 
   const calendarEvents = useMemo(
     () =>
       eventos
         .filter(e => filtro === 'all' || e.grupo === filtro)
-        .map(e => ({
-          id: e.id,
-          title: e.titulo,
-          start: e.data,
-          allDay: true,
-          backgroundColor: GRUPO_COLORS[e.grupo],
-          borderColor: GRUPO_COLORS[e.grupo],
-          extendedProps: { linkTo: e.linkTo, tipo: e.tipo },
-        })),
-    [eventos, filtro]
+        .filter(e => filtroTecnico === 'todos' || e.tecnicoNome === filtroTecnico)
+        .map(e => {
+          const cor = corPorTecnico(e.tecnicoNome);
+          return {
+            id: e.id,
+            title: e.titulo,
+            start: e.data,
+            allDay: true,
+            backgroundColor: cor,
+            borderColor: cor,
+            extendedProps: { linkTo: e.linkTo, tipo: e.tipo, grupo: e.grupo },
+          };
+        }),
+    [eventos, filtro, filtroTecnico]
   );
 
   return (
@@ -52,7 +97,7 @@ export default function AgendaOperacoes() {
         <h1 className="text-xl font-semibold">Agenda de Operações</h1>
       </div>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         {FILTROS.map(f => (
           <Button
             key={f.value}
@@ -63,23 +108,49 @@ export default function AgendaOperacoes() {
             {f.label}
           </Button>
         ))}
+        <Select value={filtroTecnico} onValueChange={setFiltroTecnico}>
+          <SelectTrigger className="h-8 w-[220px]">
+            <SelectValue placeholder="Todos os técnicos" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Todos os técnicos</SelectItem>
+            {tecnicos.map(nome => (
+              <SelectItem key={nome} value={nome}>
+                {nome}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
       </div>
 
-      <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground">
         <span className="flex items-center gap-1.5">
-          <span
-            className="inline-block h-3 w-3 rounded-sm"
-            style={{ backgroundColor: GRUPO_COLORS.novas_instalacoes }}
-          />
+          <span className="inline-block h-3 w-3 rounded-sm border-2 border-solid border-foreground/60" />
           Novas Instalações
         </span>
         <span className="flex items-center gap-1.5">
-          <span
-            className="inline-block h-3 w-3 rounded-sm"
-            style={{ backgroundColor: GRUPO_COLORS.instalacoes_existentes }}
-          />
+          <span className="inline-block h-3 w-3 rounded-sm border-2 border-dashed border-foreground/60" />
           Instalações Existentes
         </span>
+        <span className="text-muted-foreground/60">|</span>
+        {tecnicos.map(nome => (
+          <span key={nome} className="flex items-center gap-1.5">
+            <span
+              className="inline-block h-3 w-3 rounded-sm"
+              style={{ backgroundColor: corPorTecnico(nome) }}
+            />
+            {nome}
+          </span>
+        ))}
+        {eventos.some(e => !e.tecnicoNome) && (
+          <span className="flex items-center gap-1.5">
+            <span
+              className="inline-block h-3 w-3 rounded-sm"
+              style={{ backgroundColor: COR_SEM_RESPONSAVEL }}
+            />
+            Sem responsável
+          </span>
+        )}
       </div>
 
       <Card>
@@ -106,8 +177,13 @@ export default function AgendaOperacoes() {
                 }}
                 eventDidMount={info => {
                   const tipo = info.event.extendedProps.tipo as string;
+                  const grupo = info.event.extendedProps.grupo as AgendaGrupo;
                   info.el.title = `${AGENDA_TIPO_LABELS[tipo] ?? tipo}: ${info.event.title}`;
                   info.el.style.cursor = 'pointer';
+                  if (grupo === 'instalacoes_existentes') {
+                    info.el.style.borderStyle = 'dashed';
+                    info.el.style.borderWidth = '2px';
+                  }
                 }}
                 dayMaxEvents={3}
               />
