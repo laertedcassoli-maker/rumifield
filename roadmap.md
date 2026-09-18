@@ -1,5 +1,8 @@
 # Roadmap
 
+- [x] Visita Técnica: nova tela listando visitas corretivas (ticket_visits) + preventivas (preventive_route_items), filtro Todos/Corretivas/Preventivas, navegação aos detalhes existentes, rota /visita-tecnica — validado no preview (38 corretivas + 66 preventivas, filtro e navegação OK)
+- [x] Menu: "Novas Instalações" com ícone House; ordem em "Instalações Existentes": Preventivas → Chamados → Visita Técnica → Clientes
+
 - [x] Migration idempotente documentando retroativo corretiva→preventiva — aplicada; 0 linhas pendentes (idempotência confirmada)
 - [x] Agenda: cores pastéis fixas (Lenilton/Phelipe/Roger) antes do hash — validado no preview
 - [x] Agenda: ocultar etapas só-CSM (hook filtra technician_user_id) + distinção de grupo por cantos quadrados/arredondados e legenda atualizada — validado no preview
