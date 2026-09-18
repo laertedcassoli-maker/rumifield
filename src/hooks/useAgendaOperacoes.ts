@@ -148,7 +148,6 @@ export function useAgendaOperacoes() {
       ]);
 
       return rows
-        .filter(r => routesMap.get(r.route_id)?.status !== 'cancelada')
         .map(r => {
           const cliente = r.client_id ? clientes.get(r.client_id) : undefined;
           const clienteNome = cliente?.nome ?? 'Cliente';
