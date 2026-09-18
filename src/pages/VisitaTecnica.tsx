@@ -533,6 +533,8 @@ export default function VisitaTecnica() {
           </CardContent>
         </Card>
       )}
+
+      <NovaVisitaTecnicaDialog open={novaVisitaOpen} onOpenChange={setNovaVisitaOpen} />
     </div>
   );
 }
