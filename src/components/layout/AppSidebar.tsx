@@ -459,14 +459,45 @@ export function AppSidebar() {
             <SidebarGroupContent>
               <SidebarMenu>
                 {adminTopItems.map(item => (
-                  <SidebarMenuItem key={item.title}>
-                    <SidebarMenuButton asChild isActive={location.pathname === item.url}>
-                      <Link to={item.url} onClick={handleMenuClick}>
-                        <item.icon className="h-4 w-4" />
-                        <span>{item.title}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
+                  <Fragment key={item.title}>
+                    <SidebarMenuItem>
+                      <SidebarMenuButton asChild isActive={location.pathname === item.url}>
+                        <Link to={item.url} onClick={handleMenuClick}>
+                          <item.icon className="h-4 w-4" />
+                          <span>{item.title}</span>
+                        </Link>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+
+                    {/* Usuários submenu (após Clientes, onde ficava o item solto) */}
+                    {item.title === 'Clientes' && showUsuariosMenu && (
+                      <Collapsible defaultOpen={isAdminUsuariosActive} className="group/collapsible">
+                        <SidebarMenuItem>
+                          <CollapsibleTrigger asChild>
+                            <SidebarMenuButton isActive={isAdminUsuariosActive}>
+                              <Users className="h-4 w-4" />
+                              <span>Usuários</span>
+                              <ChevronDown className="ml-auto h-4 w-4 transition-transform group-data-[state=open]/collapsible:rotate-180" />
+                            </SidebarMenuButton>
+                          </CollapsibleTrigger>
+                          <CollapsibleContent>
+                            <SidebarMenuSub>
+                              {adminUsuariosItems.map(sub => (
+                                <SidebarMenuSubItem key={sub.title}>
+                                  <SidebarMenuSubButton asChild isActive={location.pathname === sub.url}>
+                                    <Link to={sub.url} onClick={handleMenuClick}>
+                                      <sub.icon className="h-4 w-4" />
+                                      <span>{sub.title}</span>
+                                    </Link>
+                                  </SidebarMenuSubButton>
+                                </SidebarMenuSubItem>
+                              ))}
+                            </SidebarMenuSub>
+                          </CollapsibleContent>
+                        </SidebarMenuItem>
+                      </Collapsible>
+                    )}
+                  </Fragment>
                 ))}
 
                 {/* Cadastros submenu */}
