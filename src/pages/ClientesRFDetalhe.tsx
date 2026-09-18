@@ -27,6 +27,11 @@ const STATUS_LABELS: Record<string, string> = {
   pendente: 'Pendente',
 };
 
+/** Faturado em verde (mesma paleta de "Resolvido" nos chamados); demais neutros. */
+const STATUS_BADGE_CLASSES: Record<string, string> = {
+  faturado: 'bg-green-500/10 text-green-600 border-green-500/20',
+};
+
 /** Tela somente leitura: dados básicos do cliente, serviços técnicos e envios/coleta reversa. */
 export default function ClientesRFDetalhe() {
   const { id } = useParams<{ id: string }>();
