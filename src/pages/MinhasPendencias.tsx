@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Calendar, Wrench, RefreshCcw, Truck, ArrowRight, ListTodo, HardHat, ClipboardCheck } from 'lucide-react';
+import { Calendar, Wrench, RefreshCcw, Truck, ArrowRight, ListTodo, HardHat, ClipboardCheck, Ticket } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -7,6 +7,9 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useMinhasPendencias } from '@/hooks/useMinhasPendencias';
 
 const statusLabels: Record<string, string> = {
+  aberto: 'Aberto',
+  em_atendimento: 'Em atendimento',
+  aguardando_peca: 'Aguardando peça',
   planejado: 'Planejado',
   reagendado: 'Reagendado',
   em_andamento: 'Em andamento',
@@ -106,7 +109,7 @@ function Section({ title, icon: Icon, count, isLoading, emptyText, children }: S
 }
 
 export default function MinhasPendencias() {
-  const { preventivas, visitas, coletaReversa, envios, instalacoes, aprovacoesInstalacao, canApproveInstalacao, total, isLoading } = useMinhasPendencias();
+  const { preventivas, visitas, chamados, coletaReversa, envios, instalacoes, aprovacoesInstalacao, canApproveInstalacao, total, isLoading } = useMinhasPendencias();
 
   return (
     <div className="space-y-6 pb-8 animate-fade-in">
@@ -161,6 +164,26 @@ export default function MinhasPendencias() {
               date={formatDate(item.plannedDate)}
               status={item.status}
               to={`/chamados/visita/${item.id}`}
+            />
+          ))}
+        </Section>
+
+        <Section
+          title="Chamados"
+          icon={Ticket}
+          count={chamados.data?.length ?? 0}
+          isLoading={chamados.isLoading}
+          emptyText="Nenhuma pendência em Chamados"
+        >
+          {chamados.data?.map(item => (
+            <PendenciaRow
+              key={item.id}
+              code={item.ticketCode ?? 'Chamado'}
+              cliente={item.clienteNome}
+              fazenda={item.fazenda}
+              date={formatDate(item.createdAt)}
+              status={item.status}
+              to={`/chamados/${item.id}`}
             />
           ))}
         </Section>
