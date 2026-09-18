@@ -265,11 +265,17 @@ export default function InstalacoesIndex() {
   const saveStageMutation = useMutation({
     mutationFn: async () => {
       if (!stageDialog) return;
-      const payload = {
-        technician_user_id: stageTechnicianId || null,
+      // Exactly one responsible: technician OR CSM, never both
+      const payload: Record<string, any> = {
+        technician_user_id: stageResponsavelTipo === 'tecnico' ? (stageTechnicianId || null) : null,
+        csm_user_id: stageResponsavelTipo === 'csm' ? (stageCsmId || null) : null,
         planned_date: stagePlannedDate || null,
         checklist_template_id: stageTemplateId || null,
       };
+
+      if (stageDialog.stage === 'pre_instalacao') {
+        payload.sales_email_attachment_path = stageAnexoPath || null;
+      }
 
       if (stageDialog.existing) {
         const { error } = await (supabase as any)
@@ -302,8 +308,83 @@ export default function InstalacoesIndex() {
   const openStageDialog = (installationId: string, stage: StageType, existing?: StageRow) => {
     setStageDialog({ installationId, stage, existing });
     setStageTechnicianId(existing?.technician_user_id || '');
+    setStageCsmId(existing?.csm_user_id || '');
+    setStageResponsavelTipo(existing?.csm_user_id ? 'csm' : 'tecnico');
     setStagePlannedDate(existing?.planned_date || '');
     setStageTemplateId(existing?.checklist_template_id || '');
+    setStageAnexoPath(existing?.sales_email_attachment_path || null);
+  };
+
+  // --- Sales e-mail attachment (bucket instalacao-anexos, path <stage_id>/<file>) ---
+  const uploadSalesEmail = async (file: File) => {
+    const stageId = stageDialog?.existing?.id;
+    if (!stageId) {
+      toast.error('Salve a etapa antes de anexar o e-mail de venda.');
+      return;
+    }
+    setIsUploadingAnexo(true);
+    try {
+      const safeName = file.name.replace(/[^\w.\-]+/g, '_');
+      const path = `${stageId}/${Date.now()}-${safeName}`;
+      const { error: upErr } = await supabase.storage
+        .from('instalacao-anexos')
+        .upload(path, file, { upsert: false });
+      if (upErr) throw upErr;
+
+      const { data, error } = await (supabase as any)
+        .from('installation_stages')
+        .update({ sales_email_attachment_path: path })
+        .eq('id', stageId)
+        .select('id');
+      if (error) throw error;
+      if (!data || data.length === 0) {
+        throw new Error('O anexo não foi confirmado pelo servidor. Verifique suas permissões.');
+      }
+
+      setStageAnexoPath(path);
+      queryClient.invalidateQueries({ queryKey: ['installations'] });
+      toast.success('E-mail de venda anexado!');
+    } catch (e: any) {
+      toast.error('Erro ao anexar: ' + (e?.message || 'falha no envio'));
+    } finally {
+      setIsUploadingAnexo(false);
+    }
+  };
+
+  const getAnexoSignedUrl = async (path: string) => {
+    const { data, error } = await supabase.storage
+      .from('instalacao-anexos')
+      .createSignedUrl(path, 3600);
+    if (error || !data?.signedUrl) throw error || new Error('Não foi possível abrir o anexo.');
+    return data.signedUrl;
+  };
+
+  // Single click -> inline preview; double click -> new browser tab
+  const handleAnexoClick = (path: string) => {
+    if (anexoClickTimer.current) return;
+    anexoClickTimer.current = setTimeout(async () => {
+      anexoClickTimer.current = null;
+      try {
+        const url = await getAnexoSignedUrl(path);
+        const isImage = /\.(png|jpe?g|gif|webp|bmp|heic)$/i.test(path);
+        setAnexoPreview({ url, path, isImage });
+      } catch (e: any) {
+        toast.error('Erro ao abrir anexo: ' + (e?.message || ''));
+      }
+    }, 260);
+  };
+
+  const handleAnexoDoubleClick = async (path: string) => {
+    if (anexoClickTimer.current) {
+      clearTimeout(anexoClickTimer.current);
+      anexoClickTimer.current = null;
+    }
+    try {
+      const url = await getAnexoSignedUrl(path);
+      window.open(url, '_blank', 'noopener');
+    } catch (e: any) {
+      toast.error('Erro ao abrir anexo: ' + (e?.message || ''));
+    }
   };
 
   return (
