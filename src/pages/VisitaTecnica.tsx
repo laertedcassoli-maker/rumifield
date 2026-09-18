@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import NovaVisitaTecnicaDialog from '@/components/chamados/NovaVisitaTecnicaDialog';
 import {
   Calendar as CalendarIcon,
   CalendarDays,
@@ -109,6 +110,7 @@ export default function VisitaTecnica() {
   const { role } = useAuth();
   const { toast } = useToast();
   const canAbrirVisita = role === 'admin' || role === 'coordenador_servicos' || role === 'coordenador_rplus';
+  const [novaVisitaOpen, setNovaVisitaOpen] = useState(false);
   const [filtroTipo, setFiltroTipo] = useState<'all' | TipoVisita>('all');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -280,9 +282,9 @@ export default function VisitaTecnica() {
           </p>
         </div>
         {canAbrirVisita && (
-          <Button onClick={() => navigate('/chamados/novo', { state: { presetScheduleVisit: true } })}>
+          <Button onClick={() => setNovaVisitaOpen(true)}>
             <Plus className="mr-2 h-4 w-4" />
-            Abrir Visita Técnica
+            Nova Visita
           </Button>
         )}
       </div>
@@ -531,6 +533,8 @@ export default function VisitaTecnica() {
           </CardContent>
         </Card>
       )}
+
+      <NovaVisitaTecnicaDialog open={novaVisitaOpen} onOpenChange={setNovaVisitaOpen} />
     </div>
   );
 }
