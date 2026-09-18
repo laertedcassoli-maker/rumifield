@@ -1,16 +1,20 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
+import { withTimeout } from '@/lib/supabase-helpers';
 import { useAuth } from '@/contexts/AuthContext';
 import NovaVisitaTreinamentoDialog from '@/components/treinamento/NovaVisitaTreinamentoDialog';
+import TrainingChecklistExecution from '@/components/treinamento/TrainingChecklistExecution';
 import {
   CheckCircle2,
   Clock,
   GraduationCap,
   Loader2,
   ListChecks,
+  Pencil,
   Plus,
   Search,
+  Trash2,
   User,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -33,6 +37,16 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 
