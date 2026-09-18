@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useMemo, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -62,6 +62,13 @@ export default function InstalacoesIndex() {
   const { user, role } = useAuth();
   const isTecnicoCampo = role === 'tecnico_campo';
   const canManage = !isTecnicoCampo;
+
+  // Optional stage filter via URL: /instalacoes?etapa=pre_venda|pre_instalacao|instalacao
+  const [searchParams] = useSearchParams();
+  const etapaParam = searchParams.get('etapa');
+  const etapaFiltro = (STAGE_ORDER as string[]).includes(etapaParam || '')
+    ? (etapaParam as StageType)
+    : null;
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [clienteId, setClienteId] = useState<string | null>(null);
