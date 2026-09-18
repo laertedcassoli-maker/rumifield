@@ -42,6 +42,8 @@ import PreventivasNovaRota from "./pages/preventivas/NovaRota";
 import PreventivasDetalheRota from "./pages/preventivas/DetalheRota";
 import PreventivasMinhasRotas from "./pages/preventivas/MinhasRotas";
 import MinhasPendencias from "./pages/MinhasPendencias";
+import InstalacoesIndex from "./pages/instalacoes/Index";
+import InstalacoesExecucaoEtapa from "./pages/instalacoes/ExecucaoEtapa";
 
 import PreventivasExecucaoRota from "./pages/preventivas/ExecucaoRota";
 import PreventivasAtendimento from "./pages/preventivas/AtendimentoPreventivo";
@@ -361,6 +363,22 @@ const App = () => (
               element={
                 <AppLayout>
                   <MinhasPendencias />
+                </AppLayout>
+              }
+            />
+            <Route
+              path="/instalacoes"
+              element={
+                <AppLayout>
+                  <InstalacoesIndex />
+                </AppLayout>
+              }
+            />
+            <Route
+              path="/instalacoes/etapa/:stageId"
+              element={
+                <AppLayout>
+                  <InstalacoesExecucaoEtapa />
                 </AppLayout>
               }
             />
