@@ -169,6 +169,59 @@ export default function ItensOficina() {
     enabled: !!selectedItemForHistory?.id,
   });
 
+  // Fetch pedidos in which this specific asset appeared (history tab)
+  const { data: itemPedidos = [] } = useQuery({
+    queryKey: ['item-pedidos', selectedItemForHistory?.id],
+    queryFn: async () => {
+      if (!selectedItemForHistory?.id) return [];
+      const { data, error } = await supabase
+        .from('pedido_itens')
+        .select('id, quantidade, created_at, pedidos:pedido_id (pedido_code, tipo_solicitacao, status, created_at)')
+        .eq('workshop_item_id', selectedItemForHistory.id)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return data as ItemPedidoHist[];
+    },
+    enabled: !!selectedItemForHistory?.id,
+  });
+
+  // "Por Cliente" view: distinct assets served per client via work orders
+  const { data: clientesResumo = [], isLoading: isLoadingClientesResumo } = useQuery({
+    queryKey: ['workshop-os-por-cliente'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('work_order_items')
+        .select('work_order_id, workshop_item_id, work_orders(cliente_id)')
+        .not('workshop_item_id', 'is', null);
+      if (error) throw error;
+      const acc = new Map<string, { ativos: Set<string>; os: Set<string> }>();
+      (data || []).forEach((r: any) => {
+        const clienteId = r.work_orders?.cliente_id;
+        if (!clienteId || !r.workshop_item_id) return;
+        const entry = acc.get(clienteId) || { ativos: new Set<string>(), os: new Set<string>() };
+        entry.ativos.add(r.workshop_item_id);
+        entry.os.add(r.work_order_id);
+        acc.set(clienteId, entry);
+      });
+      const clienteIds = [...acc.keys()];
+      if (!clienteIds.length) return [];
+      const { data: clientes } = await supabase
+        .from('clientes')
+        .select('id, nome')
+        .in('id', clienteIds);
+      const nomes = new Map((clientes || []).map((c: any) => [c.id, c.nome]));
+      return [...acc.entries()]
+        .map(([clienteId, e]) => ({
+          clienteId,
+          nome: nomes.get(clienteId) || 'Cliente',
+          ativosCount: e.ativos.size,
+          osCount: e.os.size,
+        }))
+        .sort((a, b) => b.ativosCount - a.ativosCount || b.osCount - a.osCount) as ClienteResumo[];
+    },
+    enabled: visualizacao === 'clientes',
+  });
+
   // Create/Update mutation
   const saveMutation = useMutation({
     mutationFn: async (data: typeof formData & { id?: string }) => {
