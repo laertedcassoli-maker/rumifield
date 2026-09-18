@@ -1,5 +1,7 @@
 # Roadmap
 
+- [x] Agenda: cores pastéis fixas (Lenilton/Phelipe/Roger) antes do hash — validado no preview
+- [x] Menu Administração: "Usuários" virou submenu colapsável com Usuários + Permissões (gate por qualquer um dos dois permKeys)
 - [x] Agenda de Operações: cor por técnico + filtro por técnico + legenda (validado no preview)
 - [x] Vínculo corretiva↔preventiva "RumiFlow v1":
   - [x] Template "RumiFlow v1" confirmado (id 3b86c956-...); 28 concluídas, 2 em andamento, 33 placeholders
