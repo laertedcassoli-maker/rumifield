@@ -107,7 +107,9 @@ export function PedidoDetalheDialog({ pedidoId, open, onOpenChange }: PedidoDeta
         ) : (
           <div className="space-y-4">
             <div className="flex flex-wrap gap-2">
-              <Badge variant="outline">{STATUS_LABELS[pedido.status] ?? pedido.status}</Badge>
+              <Badge variant="outline" className={STATUS_BADGE_CLASSES[pedido.status] ?? ''}>
+                {STATUS_LABELS[pedido.status] ?? pedido.status}
+              </Badge>
               <Badge variant="secondary">
                 {TIPO_LABELS[pedido.tipo_solicitacao] ?? pedido.tipo_solicitacao}
               </Badge>
