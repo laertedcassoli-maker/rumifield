@@ -47,6 +47,7 @@ export function AppSidebar() {
     { title: 'Agenda de Operações', icon: CalendarDays, url: '/agenda-operacoes', permKey: 'agenda_operacoes' },
     { title: 'Minhas Pendências', icon: ListTodo, url: '/minhas-pendencias', permKey: 'minhas_pendencias' },
     { title: 'Minhas Rotas', icon: Navigation, url: '/preventivas/minhas-rotas', permKey: 'minhas_rotas' },
+    { title: 'Treinamento', icon: GraduationCap, url: '/treinamento', permKey: 'treinamento' },
   ].filter(item => canAccess(item.permKey));
 
 
@@ -161,7 +162,6 @@ export function AppSidebar() {
     { title: 'Config. CRM', icon: Briefcase, url: '/admin/crm', permKey: 'admin_cadastros' },
     { title: 'Tags', icon: AlertTriangle, url: '/admin/ticket-tags', permKey: 'admin_cadastros' },
     { title: 'Templates Checklist', icon: ClipboardList, url: '/preventivas/checklists', permKey: 'admin_cadastros' },
-    { title: 'Templates Treinamento', icon: GraduationCap, url: '/treinamento/templates', permKey: 'admin_cadastros' },
     { title: 'Atividades Centro de Serviços', icon: ListChecks, url: '/oficina/atividades', permKey: 'oficina_atividades' },
     { title: 'Google Sheets', icon: Sheet, url: '/admin/config/google-sheets', permKey: 'admin_cadastros' },
   ].filter(item => canAccess(item.permKey));
