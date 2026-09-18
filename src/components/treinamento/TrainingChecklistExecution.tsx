@@ -306,7 +306,11 @@ export default function TrainingChecklistExecution({
         {/* Checklist do treinamento */}
         <div className="space-y-2">
           <Label>Checklist do treinamento *</Label>
-          <Select value={templateId} onValueChange={handleSelectTemplate} disabled={creating || completed}>
+          <Select
+            value={templateId}
+            onValueChange={handleSelectTemplate}
+            disabled={creating || completed || loadingVisit}
+          >
             <SelectTrigger>
               <SelectValue
                 placeholder={templatesLoading ? 'Carregando...' : 'Selecione o checklist'}
@@ -350,6 +354,13 @@ export default function TrainingChecklistExecution({
         </div>
 
         {/* Itens do checklist */}
+        {loadingVisit && (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            Carregando treinamento...
+          </div>
+        )}
+
         {creating && (
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" />
