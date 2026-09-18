@@ -138,7 +138,7 @@ export function AppSidebar() {
   const adminTopItems = [
     { title: 'Dashboards', icon: BarChart2, url: '/admin/dashboards', permKey: 'oficina_gestao_os' },
     { title: 'Clientes', icon: Building2, url: '/admin/clientes', permKey: 'admin_clientes' },
-    { title: 'Envios', icon: Truck, url: '/admin/envios', permKey: 'admin_envios' },
+    { title: 'Envios Químicos', icon: Truck, url: '/admin/envios', permKey: 'admin_envios' },
     { title: 'Inteligência', icon: Brain, url: '/crm/inteligencia', permKey: 'crm_inteligencia' },
     { title: 'Analytics', icon: BarChart2, url: '/admin/analytics', permKey: 'admin_analytics' },
 
