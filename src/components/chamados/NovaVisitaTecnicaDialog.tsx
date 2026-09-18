@@ -31,6 +31,8 @@ interface Client {
   cidade: string | null;
 }
 
+type TipoVisita = 'corretiva' | 'preventiva';
+
 interface NovaVisitaTecnicaDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -38,15 +40,16 @@ interface NovaVisitaTecnicaDialogProps {
 
 /**
  * Solicitação de visita técnica em um único passo.
- * O usuário só informa dados da visita; o chamado de suporte é criado
- * nos bastidores para manter a mesma estrutura de dados usada pela
- * execução da visita, relatório público e RPCs de segurança.
+ * Corretiva: cria o chamado nos bastidores + ticket_visits, mantendo a
+ * estrutura esperada pela execução, relatório público e RPCs de segurança.
+ * Preventiva: cria uma rota preventiva enxuta (um cliente, um dia).
  */
 export default function NovaVisitaTecnicaDialog({ open, onOpenChange }: NovaVisitaTecnicaDialogProps) {
   const { user } = useAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  const [tipo, setTipo] = useState<TipoVisita>('corretiva');
   const [clientId, setClientId] = useState('');
   const [clientSearch, setClientSearch] = useState('');
   const [clientPopoverOpen, setClientPopoverOpen] = useState(false);
@@ -54,6 +57,7 @@ export default function NovaVisitaTecnicaDialog({ open, onOpenChange }: NovaVisi
   const [plannedDate, setPlannedDate] = useState<Date | undefined>();
   const [datePopoverOpen, setDatePopoverOpen] = useState(false);
   const [priority, setPriority] = useState('media');
+  const [checklistTemplateId, setChecklistTemplateId] = useState('');
   const [motivo, setMotivo] = useState('');
 
   const { data: clients, isLoading: clientsLoading } = useQuery<Client[]>({
@@ -92,6 +96,21 @@ export default function NovaVisitaTecnicaDialog({ open, onOpenChange }: NovaVisi
     enabled: open,
   });
 
+  // Checklists ativos — mesma query usada na criação de rotas preventivas
+  const { data: checklistTemplates } = useQuery({
+    queryKey: ['active-checklist-templates'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('checklist_templates')
+        .select('id, name, description')
+        .eq('active', true)
+        .order('name');
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: open && tipo === 'preventiva',
+  });
+
   const filteredClients = (clients || []).filter(client => {
     if (!clientSearch) return true;
     const s = clientSearch.toLowerCase();
@@ -105,17 +124,68 @@ export default function NovaVisitaTecnicaDialog({ open, onOpenChange }: NovaVisi
   const selectedClient = clients?.find(c => c.id === clientId);
 
   const handleClose = () => {
+    setTipo('corretiva');
     setClientId('');
     setClientSearch('');
     setTechnicianId('');
     setPlannedDate(undefined);
     setPriority('media');
+    setChecklistTemplateId('');
     setMotivo('');
     onOpenChange(false);
   };
 
   const createVisita = useMutation({
     mutationFn: async () => {
+      const dataPlanejada = format(plannedDate!, 'yyyy-MM-dd');
+
+      if (tipo === 'preventiva') {
+        const { data: routeCode, error: codeError } = await withTimeout(
+          supabase.rpc('generate_preventive_route_code')
+        );
+        if (codeError) throw codeError;
+
+        const { data: route, error: routeError } = await withTimeout(
+          supabase
+            .from('preventive_routes')
+            .insert({
+              route_code: routeCode,
+              start_date: dataPlanejada,
+              end_date: dataPlanejada,
+              field_technician_user_id: technicianId,
+              checklist_template_id: checklistTemplateId,
+              notes: motivo.trim(),
+              created_by_user_id: user!.id,
+              status: 'em_elaboracao',
+            } as any)
+            .select('id')
+            .single()
+        );
+        if (routeError) throw routeError;
+
+        const { error: itemError } = await withTimeout(
+          supabase.from('preventive_route_items').insert({
+            route_id: route.id,
+            client_id: clientId,
+            order_index: 0,
+            suggested_reason: motivo.trim(),
+            status: 'planejado' as const,
+          })
+        );
+
+        if (itemError) {
+          // Limpa a rota órfã para permitir nova tentativa
+          const { error: rbErr } = await supabase
+            .from('preventive_routes')
+            .delete()
+            .eq('id', route.id);
+          if (rbErr) console.error('[NovaVisitaTecnica] Falha ao limpar rota órfã:', rbErr);
+          throw itemError;
+        }
+
+        return route.id;
+      }
+
       const { data: ticketCode, error: codeError } = await withTimeout(
         supabase.rpc('generate_ticket_code')
       );
@@ -159,7 +229,7 @@ export default function NovaVisitaTecnicaDialog({ open, onOpenChange }: NovaVisi
               client_id: clientId,
               field_technician_user_id: technicianId,
               status: 'em_elaboracao',
-              planned_start_date: plannedDate ? format(plannedDate, 'yyyy-MM-dd') : null,
+              planned_start_date: dataPlanejada,
               internal_notes: null,
             })
             .select('id')
@@ -178,9 +248,7 @@ export default function NovaVisitaTecnicaDialog({ open, onOpenChange }: NovaVisi
           ticket_id: ticketId,
           user_id: user!.id,
           event_type: 'visit_created',
-          event_description: plannedDate
-            ? `Visita agendada para ${format(plannedDate, 'dd/MM/yyyy', { locale: ptBR })}`
-            : 'Visita criada (data a definir)',
+          event_description: `Visita agendada para ${format(plannedDate!, 'dd/MM/yyyy', { locale: ptBR })}`,
         });
         if (tl2Error) throw tl2Error;
       } catch (err) {
@@ -198,14 +266,22 @@ export default function NovaVisitaTecnicaDialog({ open, onOpenChange }: NovaVisi
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['visita-tecnica'] });
-      queryClient.invalidateQueries({ queryKey: ['technical-tickets'] });
-      toast({ title: 'Visita técnica solicitada com sucesso!' });
+      if (tipo === 'preventiva') {
+        queryClient.invalidateQueries({ queryKey: ['preventive-routes'] });
+      } else {
+        queryClient.invalidateQueries({ queryKey: ['technical-tickets'] });
+      }
+      toast({
+        title: tipo === 'preventiva'
+          ? 'Visita preventiva solicitada com sucesso!'
+          : 'Visita técnica solicitada com sucesso!',
+      });
       handleClose();
     },
     onError: (error: Error) => {
       toast({
         variant: 'destructive',
-        title: 'Erro ao solicitar visita técnica',
+        title: 'Erro ao solicitar visita',
         description: error.message,
       });
     },
@@ -220,6 +296,14 @@ export default function NovaVisitaTecnicaDialog({ open, onOpenChange }: NovaVisi
       });
       return;
     }
+    if (tipo === 'preventiva' && !checklistTemplateId) {
+      toast({
+        variant: 'destructive',
+        title: 'Checklist obrigatório',
+        description: 'Selecione o checklist da visita preventiva.',
+      });
+      return;
+    }
     createVisita.mutate();
   };
 
@@ -227,7 +311,7 @@ export default function NovaVisitaTecnicaDialog({ open, onOpenChange }: NovaVisi
     <Dialog open={open} onOpenChange={(v) => (v ? onOpenChange(true) : handleClose())}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Abrir Visita Técnica</DialogTitle>
+          <DialogTitle>Nova Visita</DialogTitle>
           <DialogDescription>
             Solicite uma ida do técnico à fazenda.
           </DialogDescription>
@@ -299,6 +383,31 @@ export default function NovaVisitaTecnicaDialog({ open, onOpenChange }: NovaVisi
             </Popover>
           </div>
 
+          {/* Tipo de visita */}
+          <div className="space-y-2">
+            <Label>Tipo de visita *</Label>
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant={tipo === 'corretiva' ? 'default' : 'outline'}
+                size="sm"
+                className="flex-1"
+                onClick={() => setTipo('corretiva')}
+              >
+                Corretiva
+              </Button>
+              <Button
+                type="button"
+                variant={tipo === 'preventiva' ? 'default' : 'outline'}
+                size="sm"
+                className="flex-1"
+                onClick={() => setTipo('preventiva')}
+              >
+                Preventiva
+              </Button>
+            </div>
+          </div>
+
           {/* Técnico */}
           <div className="space-y-2">
             <Label>Técnico *</Label>
@@ -350,21 +459,39 @@ export default function NovaVisitaTecnicaDialog({ open, onOpenChange }: NovaVisi
             </Popover>
           </div>
 
-          {/* Prioridade */}
-          <div className="space-y-2">
-            <Label>Prioridade *</Label>
-            <Select value={priority} onValueChange={setPriority}>
-              <SelectTrigger>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="baixa">Baixa</SelectItem>
-                <SelectItem value="media">Média</SelectItem>
-                <SelectItem value="alta">Alta</SelectItem>
-                <SelectItem value="urgente">Urgente</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          {/* Prioridade (corretiva) ou Checklist (preventiva) */}
+          {tipo === 'corretiva' ? (
+            <div className="space-y-2">
+              <Label>Prioridade *</Label>
+              <Select value={priority} onValueChange={setPriority}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="baixa">Baixa</SelectItem>
+                  <SelectItem value="media">Média</SelectItem>
+                  <SelectItem value="alta">Alta</SelectItem>
+                  <SelectItem value="urgente">Urgente</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <Label>Checklist *</Label>
+              <Select value={checklistTemplateId} onValueChange={setChecklistTemplateId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Selecione o checklist" />
+                </SelectTrigger>
+                <SelectContent>
+                  {checklistTemplates?.map(template => (
+                    <SelectItem key={template.id} value={template.id}>
+                      {template.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           {/* Motivo */}
           <div className="space-y-2">
