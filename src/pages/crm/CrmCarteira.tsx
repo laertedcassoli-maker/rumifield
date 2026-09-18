@@ -23,6 +23,7 @@ export default function CrmCarteira() {
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search, 300);
   const [consultorFilter, setConsultorFilter] = useState<string>('todos');
+  const [produtoFilter, setProdutoFilter] = useState<string>('todos');
   const [actionModal, setActionModal] = useState<{ open: boolean; clientId: string }>({ open: false, clientId: '' });
 
   const clienteData = useMemo(() => {
@@ -85,6 +86,10 @@ export default function CrmCarteira() {
       list = list.filter(c => c.consultor_rplus_id === consultorFilter);
     }
 
+    if (produtoFilter !== 'todos') {
+      list = list.filter(c => c.activeProducts.includes(produtoFilter as ProductCode));
+    }
+
     if (debouncedSearch) {
       const s = debouncedSearch.toLowerCase();
       list = list.filter(c =>
@@ -95,7 +100,7 @@ export default function CrmCarteira() {
     }
 
     return list;
-  }, [clienteData, debouncedSearch, consultorFilter]);
+  }, [clienteData, debouncedSearch, consultorFilter, produtoFilter]);
 
   return (
     <div className="space-y-3 animate-fade-in pb-24 overflow-x-hidden">
@@ -111,6 +116,19 @@ export default function CrmCarteira() {
           className="pl-8 h-9 text-sm"
         />
       </div>
+
+      {/* Product filter */}
+      <Select value={produtoFilter} onValueChange={setProdutoFilter}>
+        <SelectTrigger className="h-9 text-sm">
+          <SelectValue placeholder="Todos os produtos" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="todos">Todos os produtos</SelectItem>
+          {PRODUCT_ORDER.map(code => (
+            <SelectItem key={code} value={code}>{PRODUCT_LABELS[code]}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
 
       {/* Consultant filter (admin only) */}
       {isAdmin && consultores.length > 0 && (

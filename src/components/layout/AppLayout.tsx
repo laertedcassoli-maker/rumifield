@@ -21,7 +21,7 @@ const pageTitles: Record<string, string> = {
   '/estoque/consumo': 'Consumo',
   '/admin/clientes': 'Clientes',
   '/admin/usuarios': 'Usuários',
-  '/admin/envios': 'Envios',
+  '/admin/envios': 'Envios Químicos',
   '/admin/config': 'Cadastros',
 };
 

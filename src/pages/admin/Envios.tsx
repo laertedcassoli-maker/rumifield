@@ -460,7 +460,7 @@ const Envios = () => {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Envios de Produtos</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Envios Químicos</h1>
           <p className="text-muted-foreground">
             Registre os envios de produtos químicos para as fazendas
           </p>
