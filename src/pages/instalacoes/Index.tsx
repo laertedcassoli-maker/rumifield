@@ -562,6 +562,36 @@ export default function InstalacoesIndex() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Delete installation confirmation */}
+      <AlertDialog open={!!instalacaoParaExcluir} onOpenChange={(open) => !open && !deleteInstallationMutation.isPending && setInstalacaoParaExcluir(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir instalação permanentemente?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação é irreversível e remove a instalação de{' '}
+              <strong>{instalacaoParaExcluir?.cliente?.nome || 'cliente'}</strong> junto com{' '}
+              <strong>todas as suas etapas, checklists respondidos e consumo de peças</strong>.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteInstallationMutation.isPending}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteInstallationMutation.isPending}
+              onClick={(e) => {
+                e.preventDefault();
+                if (instalacaoParaExcluir) {
+                  deleteInstallationMutation.mutate(instalacaoParaExcluir.id);
+                }
+              }}
+            >
+              {deleteInstallationMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Confirmar exclusão
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
