@@ -437,6 +437,26 @@ export default function ExecucaoVisitaCorretiva() {
           if (cmError) throw cmError;
         }
 
+        // Promover o placeholder para preventiva concluída — apenas checklist RumiFlow v1 com confirmação explícita
+        if (
+          marcarComoPreventiva &&
+          visit.checklist_template_id === RUMIFLOW_V1_TEMPLATE_ID &&
+          visit.preventiveId
+        ) {
+          const hoje = new Date().toISOString().split('T')[0];
+          const { error: pmPromoError } = await supabase
+            .from('preventive_maintenance')
+            .update({ status: 'concluida', completed_date: hoje })
+            .eq('id', visit.preventiveId);
+          if (pmPromoError) throw pmPromoError;
+
+          const { error: cmFlagError } = await supabase
+            .from('corrective_maintenance')
+            .update({ contou_como_preventiva: true })
+            .eq('visit_id', visit.id);
+          if (cmFlagError) throw cmFlagError;
+        }
+
         // Auto-create pedidos for consumed parts
         if (visit.preventiveId && user) {
           // Resolve trigger peca id once for solenoide_modelo persistence
