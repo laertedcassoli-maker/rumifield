@@ -117,6 +117,19 @@ export default function CrmCarteira() {
         />
       </div>
 
+      {/* Product filter */}
+      <Select value={produtoFilter} onValueChange={setProdutoFilter}>
+        <SelectTrigger className="h-9 text-sm">
+          <SelectValue placeholder="Todos os produtos" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="todos">Todos os produtos</SelectItem>
+          {PRODUCT_ORDER.map(code => (
+            <SelectItem key={code} value={code}>{PRODUCT_LABELS[code]}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+
       {/* Consultant filter (admin only) */}
       {isAdmin && consultores.length > 0 && (
         <Select value={consultorFilter} onValueChange={setConsultorFilter}>
