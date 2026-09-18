@@ -58,9 +58,9 @@ function GrupoIcon({ grupo, className }: { grupo: AgendaGrupo; className?: strin
 /** Cores fixas (tons suaves) para os técnicos de campo do fluxo de peças.
  *  O banco guarda nome completo (ex.: "Phelipe Rogerio"), por isso usamos prefixo. */
 const CORES_FIXAS_TECNICOS: Array<[string, string]> = [
-  ['lenilton', 'hsl(32, 70%, 55%)'],  // laranja suave
-  ['phelipe',  'hsl(270, 40%, 65%)'], // lilás suave (antes de "roger": "Phelipe Rogerio")
-  ['roger',    'hsl(142, 45%, 48%)'], // verde suave
+  ['lenilton', 'hsl(217, 55%, 58%)'], // azul suave
+  ['phelipe',  'hsl(38, 55%, 52%)'],  // âmbar suave (antes de "roger": "Phelipe Rogerio")
+  ['roger',    'hsl(158, 45%, 42%)'], // verde esmeralda suave
 ];
 
 /** Cor determinística por nome: mesmo nome -> mesma cor, sempre. */
@@ -146,17 +146,6 @@ export default function AgendaOperacoes() {
       </div>
 
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground">
-        <span className="flex items-center gap-1.5">
-          <span className="inline-block h-3 w-3 rounded-none border-2 border-solid border-foreground/60" />
-          <GearWrenchIcon className="h-3 w-3" wrenchClassName="h-1.5 w-1.5" />
-          Novas Instalações
-        </span>
-        <span className="flex items-center gap-1.5">
-          <span className="inline-block h-3 w-3 rounded-full border-2 border-solid border-foreground/60" />
-          <MapPin className="h-3 w-3" />
-          Instalações Existentes
-        </span>
-        <span className="text-muted-foreground/60">|</span>
         {tecnicos.map(nome => (
           <span key={nome} className="flex items-center gap-1.5">
             <span
