@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -144,10 +144,9 @@ export default function VisitaTecnica() {
         return db.localeCompare(da);
       });
     },
-    meta: { timeoutMs: 15000 },
   });
 
-  useMemo(() => {
+  useEffect(() => {
     if (error) {
       toast({
         title: 'Erro ao carregar visitas',
