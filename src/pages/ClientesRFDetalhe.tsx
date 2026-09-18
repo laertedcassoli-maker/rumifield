@@ -190,14 +190,26 @@ export default function ClientesRFDetalhe() {
                         <span className="text-sm font-medium truncate">
                           {p.pedido_code || 'Sem código'}
                         </span>
-                        <Badge variant="outline" className="text-[10px] px-1.5 py-0 shrink-0">
+                        <Badge
+                          variant="outline"
+                          className={`text-[10px] px-1.5 py-0 shrink-0 ${STATUS_BADGE_CLASSES[p.status] ?? ''}`}
+                        >
                           {STATUS_LABELS[p.status] ?? p.status}
                         </Badge>
                       </div>
                       <p className="text-xs text-muted-foreground truncate">
                         {TIPO_LABELS[p.tipo_solicitacao] ?? p.tipo_solicitacao ?? 'Tipo não informado'}
-                        {' · '}
-                        {format(new Date(p.created_at), "dd/MM/yyyy", { locale: ptBR })}
+                        {p.status === 'entregue' && entregueEm[p.id] ? (
+                          <>
+                            {' - Concluído em '}
+                            {format(new Date(entregueEm[p.id]), 'dd/MM/yyyy', { locale: ptBR })}
+                          </>
+                        ) : (
+                          <>
+                            {' · '}
+                            {format(new Date(p.created_at), 'dd/MM/yyyy', { locale: ptBR })}
+                          </>
+                        )}
                       </p>
                       {(p.codigo_rastreio || p.codigo_postagem) && (
                         <p className="text-xs text-muted-foreground truncate">
