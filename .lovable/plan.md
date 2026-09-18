@@ -29,3 +29,26 @@ Passar a registrar, a partir de agora, a data de cada mudança de status dos ped
 
 ## Fora de escopo
 `Pedidos.tsx`, `ProcessarPedidoDialog.tsx`, `ConcluirPedidoDialog.tsx`, `ProcessarPendenciaDialog.tsx`, cores de badge em `Pedidos.tsx`, RLS existente de `pedidos`/`pedido_itens`, `ClienteHistoricoTab.tsx`.
+
+---
+
+# Visita Técnica no modelo de Chamados
+
+## Objetivo
+Deixar /visita-tecnica com a mesma aparência e os mesmos controles da tela de Chamados, mantendo-a somente leitura (ela apenas agrega e leva ao registro real).
+
+## O que será feito
+- Cabeçalho sem botão de criar.
+- Três cartões clicáveis no topo — Total, Corretivas, Preventivas — com ícone e cor; clicar filtra por tipo, clicar de novo desmarca.
+- Barra de filtros: busca por código, cliente, fazenda ou técnico; seletor de status (juntando os status de corretiva e preventiva); seletor de cliente com busca; e período por data planejada com calendário de intervalo.
+- No lugar dos cartões empilhados, uma tabela: Código, Cliente/Fazenda, Tipo, Técnico, Planejada, Realizada, Status e uma única ação "Ver", que abre o detalhe existente.
+- Paginação de 15 itens por página, no mesmo padrão de Chamados.
+
+## Detalhes técnicos
+- Busca de dados atual preservada: `ticket_visits` + `preventive_route_items`, enriquecimento de cliente/técnico e o tipo `VisitaItem[]` continuam como estão.
+- Filtros e paginação aplicados em memória sobre os itens já carregados (`useMemo`), sem novas queries.
+- Componentes: Card/Table/Select/Popover+Command/Popover+Calendar do shadcn; `Calendar` com `pointer-events-auto`.
+- "Ver" usa `navigate(v.linkTo)`; nenhuma mutação nova é adicionada.
+
+## Fora de escopo
+`src/pages/chamados/Index.tsx` (apenas referência visual), as queries de `ticket_visits`/`preventive_route_items`, qualquer ação de escrita.
