@@ -449,7 +449,7 @@ export default function InstalacoesIndex() {
                 </div>
               </CardHeader>
               <CardContent className="space-y-2">
-                {inst.stages.length === 0 && canManage && (
+                {(inst.allStages ?? inst.stages).length === 0 && canManage && (
                   <div className="flex items-center gap-2 rounded-lg border border-dashed p-3 text-sm text-muted-foreground">
                     <Settings2 className="h-4 w-4 shrink-0" />
                     <span>Nenhuma etapa configurada ainda — configure a primeira etapa desta instalação.</span>
@@ -458,10 +458,11 @@ export default function InstalacoesIndex() {
                 {(etapaFiltro ? [etapaFiltro] : STAGE_ORDER).map((stageType) => {
                   const stage = inst.stages.find(s => s.stage === stageType);
                   const isReadOnlyStage = !!stage && ['concluido', 'aguardando_aprovacao'].includes(stage.status);
-                  const preInstalacaoStage = inst.stages.find(s => s.stage === 'pre_instalacao');
+                  const preInstalacaoStage = (inst.allStages ?? inst.stages).find(s => s.stage === 'pre_instalacao');
                   // Instalação can only be configured after Pré Instalação is approved
                   const instalacaoBloqueada =
                     stageType === 'instalacao' && preInstalacaoStage?.status !== 'concluido';
+
                   return (
                     <div
                       key={stageType}
