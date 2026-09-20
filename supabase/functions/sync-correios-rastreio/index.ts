@@ -182,17 +182,13 @@ export function extrairPares(html: string): Array<{ nf: string; rastreio: string
     const rastreios = cells.filter((c) => TRACKING_RE.test(c));
     if (rastreios.length === 0) continue;
 
-    // NFs candidatas: células puramente numéricas (1 a 12 dígitos)
-    const nfs = cells.filter((c) => /^\d{1,12}$/.test(c));
-    if (nfs.length === 0) continue;
-
-    // A NF da remessa é a última célula numérica antes do código de rastreio.
+    // A NF da remessa é a célula imediatamente seguinte ao código de rastreio
+    // (ordem fixa das colunas do relatório: Qtd./Reg. vem antes de N.Fiscal).
     for (const rastreio of rastreios) {
       const idxRastreio = cells.indexOf(rastreio);
-      const nfAntes = cells
-        .slice(0, idxRastreio)
-        .filter((c) => /^\d{1,12}$/.test(c));
-      const nf = (nfAntes.length > 0 ? nfAntes[nfAntes.length - 1] : nfs[0]).replace(/^0+/, "");
+      const nfCell = cells[idxRastreio + 1];
+      if (!nfCell || !/^\d{1,12}$/.test(nfCell)) continue;
+      const nf = nfCell.replace(/^0+/, "");
       if (!nf) continue;
       const key = `${nf}|${rastreio}`;
       if (seen.has(key)) continue;
