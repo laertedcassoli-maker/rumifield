@@ -2998,6 +2998,20 @@ export default function Pedidos() {
                     </div>
                   )}
                 </div>
+                <div className="text-sm p-3 rounded-lg bg-muted/50 border">
+                  <span className="text-muted-foreground">Código de Rastreio: </span>
+                  {viewingPedido.codigo_rastreio ? (
+                    <span className="font-medium font-mono break-all">{viewingPedido.codigo_rastreio}</span>
+                  ) : (
+                    <span className="font-medium">
+                      {viewingPedido.omie_data_faturamento &&
+                      new Date(viewingPedido.omie_data_faturamento) >= new Date('2026-09-01T00:00:00')
+                        ? 'Em separação'
+                        : 'Não disponível'}
+                    </span>
+                  )}
+                </div>
+                </>
               )}
 
               {/* Coleta(s) reversa(s) vinculada(s) */}
