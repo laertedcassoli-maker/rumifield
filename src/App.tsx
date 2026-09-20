@@ -570,6 +570,15 @@ const App = () => (
               }
             />
             <Route
+              path="/admin/rastreio-correios"
+              element={
+                <AppLayout>
+                  <RelatorioCorreios />
+                </AppLayout>
+              }
+            />
+
+            <Route
               path="/admin/ticket-tags"
               element={
                 <AppLayout>
