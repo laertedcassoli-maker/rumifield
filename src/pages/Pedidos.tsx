@@ -2980,6 +2980,7 @@ export default function Pedidos() {
 
               {/* NF Info if exists */}
               {viewingPedido.omie_nf_numero && (
+                <>
                 <div className="flex items-center gap-4 text-sm p-3 rounded-lg bg-success/10 border border-success/20">
                   <div>
                     <span className="text-muted-foreground">NF: </span>
