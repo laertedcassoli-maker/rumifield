@@ -66,3 +66,5 @@
 ## Treinamento — Editar/Excluir visitas pendentes (novo pedido; planejar)
 - [ ] NovaVisitaTreinamentoDialog: prop editingVisit (pré-preencher, update em vez de insert)
 - [ ] Treinamento.tsx: botões Editar/Excluir só para canAbrirVisita e status pendente; AlertDialog de exclusão (CASCADE cuida das respostas)
+- [ ] Confirmar cron 'sync-correios-rastreio-diario' (0 22 * * *, active) ou aplicar migration vault+cron.schedule
+- [ ] Validar extrairPares nova (NF = célula pós-rastreio) com arquivo real: 17 remessas corretas + idempotência
