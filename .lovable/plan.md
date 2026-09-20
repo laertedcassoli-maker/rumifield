@@ -19,7 +19,7 @@ Uma nova rotina no backend (`sync-correios-rastreio`) que:
 - Devolve um resumo: arquivos processados, códigos preenchidos, NFs sem pedido e casos ambíguos (com os números das NFs).
 
 ### 2. Execução automática diária
-- A rotina roda todo dia às 09:00 (horário UTC), sem ninguém precisar clicar.
+- A rotina roda todo dia às 19:00 de Brasília (22:00 UTC), depois de o relatório dos Correios chegar (por volta das 17h), sem ninguém precisar clicar.
 - A chamada automática é protegida por uma senha interna dedicada, gerada aleatoriamente na hora de aplicar e guardada em cofre. Chamadas sem essa senha são recusadas sem executar nada. A senha nunca aparece em log nem em mensagem de erro.
 - Um agendamento por dia, uma vez ao dia — é o mínimo necessário para o relatório diário dos Correios, e o atraso máximo entre o relatório chegar e o código aparecer é de até 24h.
 
@@ -35,7 +35,7 @@ Na tela de detalhe do pedido, logo abaixo da caixa "NF / Faturado em" (e só qua
 - Extração: varredura das linhas de remessa por regex; NF = coluna "N.Fiscal" (numérica), rastreio = coluna "Qtd./Reg." validada por `^[A-Z]{2}\d{9}[A-Z]{2}$`.
 - Atualização com service role: `update pedidos set codigo_rastreio` filtrando `codigo_rastreio is null` e `or(omie_nf_numero.eq.NF,omie_nf_numero_2.eq.NF)`; contagem prévia decide único/nenhum/ambíguo. Sem mudança em `pedido_status`, triggers ou RLS.
 - `supabase/config.toml`: `[functions.sync-correios-rastreio] verify_jwt = false`; validação em código do header `X-Sync-Secret` contra `SYNC_CORREIOS_SECRET`.
-- Agendamento por `cron.schedule` + `net.http_post`, com o segredo lido de `vault.decrypted_secrets` (`sync_correios_secret`), aplicado com o valor real gerado na hora (sem placeholder).
+- Agendamento por `cron.schedule` (`0 22 * * *`) + `net.http_post`, com o segredo lido de `vault.decrypted_secrets` (`sync_correios_secret`), aplicado com o valor real gerado na hora (sem placeholder).
 - UI: bloco novo em `src/pages/Pedidos.tsx` dentro do mesmo `viewingPedido.omie_nf_numero &&`; nada mais da tela, filtros, Kanban ou diálogos é alterado.
 
 ## Ponto de atenção
