@@ -19,7 +19,7 @@ Uma nova rotina no backend (`sync-correios-rastreio`) que:
 - Devolve um resumo: arquivos processados, códigos preenchidos, NFs sem pedido e casos ambíguos (com os números das NFs).
 
 ### 2. Execução automática diária
-- A rotina roda todo dia às 09:00 (horário UTC), sem ninguém precisar clicar.
+- A rotina roda todo dia às 19:00 de Brasília (22:00 UTC), depois de o relatório dos Correios chegar (por volta das 17h), sem ninguém precisar clicar.
 - A chamada automática é protegida por uma senha interna dedicada, gerada aleatoriamente na hora de aplicar e guardada em cofre. Chamadas sem essa senha são recusadas sem executar nada. A senha nunca aparece em log nem em mensagem de erro.
 - Um agendamento por dia, uma vez ao dia — é o mínimo necessário para o relatório diário dos Correios, e o atraso máximo entre o relatório chegar e o código aparecer é de até 24h.
 
