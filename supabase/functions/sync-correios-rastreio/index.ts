@@ -202,15 +202,30 @@ export function extrairPares(html: string): Array<{ nf: string; rastreio: string
 
 /* ---------- Handler ---------- */
 
+const ALLOWED_ROLES = ["admin", "coordenador_servicos", "coordenador_logistica"];
+
+async function isAuthorizedUser(req: Request, admin: ReturnType<typeof createClient>): Promise<boolean> {
+  const authHeader = req.headers.get("Authorization") ?? req.headers.get("authorization");
+  if (!authHeader || !authHeader.toLowerCase().startsWith("bearer ")) return false;
+  const token = authHeader.slice(7).trim();
+  if (!token) return false;
+  try {
+    const { data, error } = await admin.auth.getUser(token);
+    if (error || !data?.user) return false;
+    const { data: roles, error: rolesError } = await admin
+      .from("user_roles")
+      .select("role")
+      .eq("user_id", data.user.id);
+    if (rolesError) return false;
+    return (roles ?? []).some((r: { role: string }) => ALLOWED_ROLES.includes(r.role));
+  } catch {
+    return false;
+  }
+}
+
 serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
-  }
-
-  const expectedSecret = Deno.env.get("SYNC_CORREIOS_SECRET");
-  const providedSecret = req.headers.get("x-sync-secret");
-  if (!expectedSecret || !providedSecret || providedSecret !== expectedSecret) {
-    return json(401, { success: false, error: "Não autorizado" });
   }
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL");
@@ -220,11 +235,22 @@ serve(async (req) => {
   }
   const admin = createClient(supabaseUrl, serviceRoleKey);
 
+  const expectedSecret = Deno.env.get("SYNC_CORREIOS_SECRET");
+  const providedSecret = req.headers.get("x-sync-secret");
+  const secretOk = !!expectedSecret && !!providedSecret && providedSecret === expectedSecret;
+  if (!secretOk && !(await isAuthorizedUser(req, admin))) {
+    return json(401, { success: false, error: "Não autorizado" });
+  }
+
   let folderId = DEFAULT_FOLDER_ID;
+  let storagePath: string | null = null;
   try {
     const body = await req.json();
     if (body && typeof body.folderId === "string" && body.folderId.trim()) {
       folderId = body.folderId.trim();
+    }
+    if (body && typeof body.storagePath === "string" && body.storagePath.trim()) {
+      storagePath = body.storagePath.trim();
     }
   } catch (_e) {
     // corpo vazio (chamada do cron) — usa o default
@@ -243,37 +269,56 @@ serve(async (req) => {
   };
 
   try {
-    const { client_email, private_key } = parseCredential();
-    if (!client_email || !private_key) {
-      throw new Error("Credencial da conta de serviço inválida");
-    }
-    const jwt = await createSignedJWT(
-      client_email,
-      private_key,
-      "https://www.googleapis.com/auth/drive.readonly",
-    );
-    const accessToken = await getAccessToken(jwt);
-
-    const files = await listFolderFiles(accessToken, folderId);
-    console.log(`Arquivos .htm/.html encontrados na pasta: ${files.length}`);
-
     const processados = new Map<string, string>(); // nf -> rastreio
 
-    for (const file of files) {
-      try {
-        const html = await downloadFileAsWindows1252(accessToken, file.id);
-        const pares = extrairPares(html);
-        resumo.arquivos_processados += 1;
-        resumo.pares_encontrados += pares.length;
-        for (const { nf, rastreio } of pares) {
-          if (!processados.has(nf)) processados.set(nf, rastreio);
+    if (storagePath) {
+      // Modo upload manual: lê o relatório do bucket privado correios-relatorios
+      const { data: blob, error: downloadError } = await admin.storage
+        .from("correios-relatorios")
+        .download(storagePath);
+      if (downloadError || !blob) {
+        throw new Error(`Falha ao baixar o arquivo enviado: ${downloadError?.message ?? "arquivo não encontrado"}`);
+      }
+      const html = new TextDecoder("windows-1252").decode(new Uint8Array(await blob.arrayBuffer()));
+      const pares = extrairPares(html);
+      resumo.arquivos_processados += 1;
+      resumo.pares_encontrados += pares.length;
+      for (const { nf, rastreio } of pares) {
+        if (!processados.has(nf)) processados.set(nf, rastreio);
+      }
+    } else {
+      // Modo Google Drive (mantido para quando o acesso ao Google Cloud for liberado)
+      const { client_email, private_key } = parseCredential();
+      if (!client_email || !private_key) {
+        throw new Error("Credencial da conta de serviço inválida");
+      }
+      const jwt = await createSignedJWT(
+        client_email,
+        private_key,
+        "https://www.googleapis.com/auth/drive.readonly",
+      );
+      const accessToken = await getAccessToken(jwt);
+
+      const files = await listFolderFiles(accessToken, folderId);
+      console.log(`Arquivos .htm/.html encontrados na pasta: ${files.length}`);
+
+      for (const file of files) {
+        try {
+          const html = await downloadFileAsWindows1252(accessToken, file.id);
+          const pares = extrairPares(html);
+          resumo.arquivos_processados += 1;
+          resumo.pares_encontrados += pares.length;
+          for (const { nf, rastreio } of pares) {
+            if (!processados.has(nf)) processados.set(nf, rastreio);
+          }
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : "erro desconhecido";
+          console.error(`Falha ao processar ${file.name}: ${msg}`);
+          resumo.arquivos_com_erro.push({ arquivo: file.name, erro: msg });
         }
-      } catch (e) {
-        const msg = e instanceof Error ? e.message : "erro desconhecido";
-        console.error(`Falha ao processar ${file.name}: ${msg}`);
-        resumo.arquivos_com_erro.push({ arquivo: file.name, erro: msg });
       }
     }
+
 
     for (const [nf, rastreio] of processados) {
       try {
