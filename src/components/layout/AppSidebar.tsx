@@ -1,5 +1,5 @@
 import { Fragment } from 'react';
-import { Home, MapPin, ShoppingCart, Users, Settings, LogOut, Beaker, Truck, RefreshCcw, ChevronDown, ClipboardCheck, TrendingDown, Play, Building2, History, Package, FlaskConical, Shield, Wrench, ListChecks, ListTodo, Box, FileText, Calendar, Route, CalendarDays, ClipboardList, AlertTriangle, Navigation, BookOpen, Bot, Contact, Briefcase, BarChart3, BarChart2, Eye, Brain, Sheet, GraduationCap } from 'lucide-react';
+import { Home, MapPin, ShoppingCart, Users, Settings, LogOut, Beaker, Truck, RefreshCcw, ChevronDown, ClipboardCheck, TrendingDown, Play, Building2, History, Package, FlaskConical, Shield, Wrench, ListChecks, ListTodo, Box, FileText, Calendar, Route, CalendarDays, ClipboardList, AlertTriangle, Navigation, BookOpen, Bot, Contact, Briefcase, BarChart3, BarChart2, Eye, Brain, Sheet, GraduationCap, Upload } from 'lucide-react';
 import { GearWrenchIcon } from '@/components/icons/GearWrenchIcon';
 import { useAuth } from '@/contexts/AuthContext';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarMenuSub, SidebarMenuSubItem, SidebarMenuSubButton } from '@/components/ui/sidebar';
@@ -164,11 +164,13 @@ export function AppSidebar() {
     { title: 'Templates Checklist', icon: ClipboardList, url: '/preventivas/checklists', permKey: 'admin_cadastros' },
     { title: 'Atividades Centro de Serviços', icon: ListChecks, url: '/oficina/atividades', permKey: 'oficina_atividades' },
     { title: 'Google Sheets', icon: Sheet, url: '/admin/config/google-sheets', permKey: 'admin_cadastros' },
+    { title: 'Rastreio Correios', icon: Upload, url: '/admin/rastreio-correios', permKey: 'admin_cadastros' },
   ].filter(item => canAccess(item.permKey));
 
-  const isAdminCadastrosActive = ['/admin/config', '/admin/crm', '/admin/ticket-tags', '/preventivas/checklists', '/oficina/atividades', '/admin/config/google-sheets'].some(
+  const isAdminCadastrosActive = ['/admin/config', '/admin/crm', '/admin/ticket-tags', '/preventivas/checklists', '/oficina/atividades', '/admin/config/google-sheets', '/admin/rastreio-correios'].some(
     p => location.pathname === p || location.pathname.startsWith(p + '/')
   ) || location.search.includes('tab=quimicos') || location.search.includes('tab=pecas');
+
 
   // Admin > Configurações submenu
   const adminConfigItems = [

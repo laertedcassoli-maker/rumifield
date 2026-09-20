@@ -86,6 +86,7 @@ import CrmAcoes from "./pages/crm/CrmAcoes";
 import CrmDashboard from "./pages/crm/CrmDashboard";
 import CrmInteligencia from "./pages/crm/CrmInteligencia";
 import GoogleSheetsConfig from "./pages/admin/GoogleSheetsConfig";
+import RelatorioCorreios from "./pages/admin/RelatorioCorreios";
 import OAuthConsent from "./pages/OAuthConsent";
 import { AnalyticsBootstrap } from "./components/AnalyticsBootstrap";
 
@@ -568,6 +569,15 @@ const App = () => (
                 </AppLayout>
               }
             />
+            <Route
+              path="/admin/rastreio-correios"
+              element={
+                <AppLayout>
+                  <RelatorioCorreios />
+                </AppLayout>
+              }
+            />
+
             <Route
               path="/admin/ticket-tags"
               element={
