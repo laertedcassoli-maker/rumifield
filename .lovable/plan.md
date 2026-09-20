@@ -35,7 +35,7 @@ Na tela de detalhe do pedido, logo abaixo da caixa "NF / Faturado em" (e só qua
 - Extração: varredura das linhas de remessa por regex; NF = coluna "N.Fiscal" (numérica), rastreio = coluna "Qtd./Reg." validada por `^[A-Z]{2}\d{9}[A-Z]{2}$`.
 - Atualização com service role: `update pedidos set codigo_rastreio` filtrando `codigo_rastreio is null` e `or(omie_nf_numero.eq.NF,omie_nf_numero_2.eq.NF)`; contagem prévia decide único/nenhum/ambíguo. Sem mudança em `pedido_status`, triggers ou RLS.
 - `supabase/config.toml`: `[functions.sync-correios-rastreio] verify_jwt = false`; validação em código do header `X-Sync-Secret` contra `SYNC_CORREIOS_SECRET`.
-- Agendamento por `cron.schedule` + `net.http_post`, com o segredo lido de `vault.decrypted_secrets` (`sync_correios_secret`), aplicado com o valor real gerado na hora (sem placeholder).
+- Agendamento por `cron.schedule` (`0 22 * * *`) + `net.http_post`, com o segredo lido de `vault.decrypted_secrets` (`sync_correios_secret`), aplicado com o valor real gerado na hora (sem placeholder).
 - UI: bloco novo em `src/pages/Pedidos.tsx` dentro do mesmo `viewingPedido.omie_nf_numero &&`; nada mais da tela, filtros, Kanban ou diálogos é alterado.
 
 ## Ponto de atenção
