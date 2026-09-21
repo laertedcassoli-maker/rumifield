@@ -266,6 +266,9 @@ export default function ExecucaoEtapa() {
               <span className="flex items-center gap-1.5">
                 <CalendarDays className="h-4 w-4 shrink-0" />
                 {new Date(stage.planned_date + 'T12:00:00').toLocaleDateString('pt-BR')}
+                {stage.planned_date_end
+                  ? ` – ${new Date(stage.planned_date_end + 'T12:00:00').toLocaleDateString('pt-BR')}`
+                  : ''}
               </span>
             )}
           </div>
