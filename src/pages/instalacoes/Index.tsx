@@ -656,6 +656,17 @@ export default function InstalacoesIndex() {
                             </Button>
                           )
                         )}
+                        {stage && (stageType === 'pre_instalacao' ? podeGerenciarPreInstalacao : podeExcluirEtapaInstalacao) && (
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                            aria-label={`Excluir etapa ${STAGE_LABELS[stageType]}`}
+                            onClick={() => setEtapaParaExcluir({ stage, clienteNome: inst.cliente?.nome || 'cliente' })}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
 
                     </div>
