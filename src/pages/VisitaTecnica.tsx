@@ -72,6 +72,7 @@ interface VisitaItem {
   dataRealizada: string | null;
   status: string;
   linkTo: string;
+  checklistTemplateId?: string | null;
 }
 
 const CONCLUIDO_STATUS = ['finalizada', 'executado'];
