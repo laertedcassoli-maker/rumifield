@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { CheckCircle2, CloudOff, GraduationCap, Loader2 } from 'lucide-react';
+import { CheckCircle2, CloudOff, GraduationCap, Loader2, Plus, Trash2 } from 'lucide-react';
 import { useOfflineTrainingChecklist } from '@/hooks/useOfflineTrainingChecklist';
 import type { OfflineTrainingTemplate } from '@/lib/offline-checklist-db';
 
@@ -48,6 +48,9 @@ export default function TrainingChecklistExecution({
     updateTrainingVisit,
     setResponse,
     getResponses,
+    addAttendee,
+    removeAttendee,
+    getAttendees,
     getTrainingVisit,
     completeTraining,
     cacheTemplates,
