@@ -2011,46 +2011,79 @@ export type Database = {
         Row: {
           approved_at: string | null
           approved_by: string | null
+          aprovacao_data_fim: string | null
+          aprovacao_data_inicio: string | null
           checklist_template_id: string | null
           created_at: string
           csm_user_id: string | null
           id: string
+          install_kit_em_estoque: string | null
           installation_id: string
+          mangueira_em_estoque: string | null
+          nome_equipamento: string | null
+          pistolas_em_estoque: string | null
           planned_date: string | null
+          qtd_install_kit: number | null
+          qtd_mangueira_ft: number | null
+          qtd_pistolas: number | null
           sales_email_attachment_path: string | null
           stage: string
           status: string
           technician_user_id: string | null
+          tem_equipamento: string | null
+          tem_quimico: string | null
           updated_at: string
         }
         Insert: {
           approved_at?: string | null
           approved_by?: string | null
+          aprovacao_data_fim?: string | null
+          aprovacao_data_inicio?: string | null
           checklist_template_id?: string | null
           created_at?: string
           csm_user_id?: string | null
           id?: string
+          install_kit_em_estoque?: string | null
           installation_id: string
+          mangueira_em_estoque?: string | null
+          nome_equipamento?: string | null
+          pistolas_em_estoque?: string | null
           planned_date?: string | null
+          qtd_install_kit?: number | null
+          qtd_mangueira_ft?: number | null
+          qtd_pistolas?: number | null
           sales_email_attachment_path?: string | null
           stage: string
           status?: string
           technician_user_id?: string | null
+          tem_equipamento?: string | null
+          tem_quimico?: string | null
           updated_at?: string
         }
         Update: {
           approved_at?: string | null
           approved_by?: string | null
+          aprovacao_data_fim?: string | null
+          aprovacao_data_inicio?: string | null
           checklist_template_id?: string | null
           created_at?: string
           csm_user_id?: string | null
           id?: string
+          install_kit_em_estoque?: string | null
           installation_id?: string
+          mangueira_em_estoque?: string | null
+          nome_equipamento?: string | null
+          pistolas_em_estoque?: string | null
           planned_date?: string | null
+          qtd_install_kit?: number | null
+          qtd_mangueira_ft?: number | null
+          qtd_pistolas?: number | null
           sales_email_attachment_path?: string | null
           stage?: string
           status?: string
           technician_user_id?: string | null
+          tem_equipamento?: string | null
+          tem_quimico?: string | null
           updated_at?: string
         }
         Relationships: [

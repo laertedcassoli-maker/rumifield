@@ -89,6 +89,13 @@ export default function InstalacoesIndex() {
   const { user, role } = useAuth();
   const isTecnicoCampo = role === 'tecnico_campo';
   const canManage = !isTecnicoCampo;
+  // Exclusão por etapa (adicional à exclusão da instalação inteira)
+  const podeExcluirEtapaInstalacao = role === 'admin' || role === 'coordenador_servicos';
+  const podeGerenciarPreInstalacao =
+    role === 'admin' ||
+    role === 'coordenador_servicos' ||
+    role === 'coordenador_rplus' ||
+    role === 'consultor_rplus';
 
   // Optional stage filter via URL: /instalacoes?etapa=pre_venda|pre_instalacao|instalacao
   const [searchParams] = useSearchParams();
@@ -112,6 +119,7 @@ export default function InstalacoesIndex() {
     existing?: StageRow;
   } | null>(null);
   const [instalacaoParaExcluir, setInstalacaoParaExcluir] = useState<InstallationRow | null>(null);
+  const [etapaParaExcluir, setEtapaParaExcluir] = useState<{ stage: StageRow; clienteNome: string } | null>(null);
   const [stageTechnicianId, setStageTechnicianId] = useState<string>('');
   const [stageCsmId, setStageCsmId] = useState<string>('');
   const [stageResponsavelTipo, setStageResponsavelTipo] = useState<'tecnico' | 'csm'>('tecnico');
@@ -327,6 +335,31 @@ export default function InstalacoesIndex() {
     },
     onError: (error) => {
       toast.error('Erro ao excluir instalação: ' + error.message);
+    },
+  });
+
+  // Exclusão de uma etapa isolada (não da instalação inteira)
+  const deleteStageMutation = useMutation({
+    mutationFn: async (stageId: string) => {
+      const { data, error } = await (supabase as any)
+        .from('installation_stages')
+        .delete()
+        .eq('id', stageId)
+        .select('id');
+      if (error) throw error;
+      if (!data || data.length === 0) {
+        throw new Error('A exclusão não foi confirmada pelo servidor. Verifique suas permissões e tente novamente.');
+      }
+      return data;
+    },
+    onSuccess: () => {
+      track('installation_stage_deleted', { stage: etapaParaExcluir?.stage.stage }, { entity: 'installation_stage', entity_id: etapaParaExcluir?.stage.id });
+      queryClient.invalidateQueries({ queryKey: ['installations'] });
+      toast.success('Etapa excluída!');
+      setEtapaParaExcluir(null);
+    },
+    onError: (error: any) => {
+      toast.error('Erro ao excluir etapa: ' + (error?.message || ''));
     },
   });
 
@@ -606,7 +639,7 @@ export default function InstalacoesIndex() {
                             {isReadOnlyStage ? 'Ver' : 'Executar'}
                           </Button>
                         )}
-                        {canManage && (
+                        {(stageType === 'pre_instalacao' ? podeGerenciarPreInstalacao : canManage) && (
                           instalacaoBloqueada ? (
                             <span className="flex items-center gap-1 text-xs text-muted-foreground">
                               <Lock className="h-3.5 w-3.5 shrink-0" />
@@ -622,6 +655,17 @@ export default function InstalacoesIndex() {
                               {stage ? 'Editar' : 'Configurar'}
                             </Button>
                           )
+                        )}
+                        {stage && (stageType === 'pre_instalacao' ? podeGerenciarPreInstalacao : podeExcluirEtapaInstalacao) && (
+                          <Button
+                            size="icon"
+                            variant="ghost"
+                            className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                            aria-label={`Excluir etapa ${STAGE_LABELS[stageType]}`}
+                            onClick={() => setEtapaParaExcluir({ stage, clienteNome: inst.cliente?.nome || 'cliente' })}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         )}
                       </div>
 
@@ -890,6 +934,38 @@ export default function InstalacoesIndex() {
               }}
             >
               {deleteInstallationMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Confirmar exclusão
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Delete single stage confirmation */}
+      <AlertDialog open={!!etapaParaExcluir} onOpenChange={(open) => !open && !deleteStageMutation.isPending && setEtapaParaExcluir(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir esta etapa?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação é irreversível e remove a etapa{' '}
+              <strong>{etapaParaExcluir ? (STAGE_LABELS[etapaParaExcluir.stage.stage] || etapaParaExcluir.stage.stage) : ''}</strong>{' '}
+              de <strong>{etapaParaExcluir?.clienteNome}</strong>, junto com{' '}
+              <strong>o checklist respondido e o consumo de peças desta etapa</strong>. A instalação e as demais
+              etapas continuam existindo.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteStageMutation.isPending}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteStageMutation.isPending}
+              onClick={(e) => {
+                e.preventDefault();
+                if (etapaParaExcluir) {
+                  deleteStageMutation.mutate(etapaParaExcluir.stage.id);
+                }
+              }}
+            >
+              {deleteStageMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
               Confirmar exclusão
             </AlertDialogAction>
           </AlertDialogFooter>

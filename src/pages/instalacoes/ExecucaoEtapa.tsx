@@ -20,6 +20,7 @@ import {
 import { toast } from "sonner";
 import { ArrowLeft, Loader2, Building2, CalendarDays, User, Paperclip, CheckCircle2, Clock } from "lucide-react";
 import InstallationChecklistExecution from "@/components/instalacoes/ChecklistExecution";
+import AprovacaoPreInstalacaoForm, { criteriosPendentes } from "@/components/instalacoes/AprovacaoPreInstalacaoForm";
 import CombinarTreinamentoSection from "@/components/treinamento/CombinarTreinamentoSection";
 import { useAnexoPreview } from "@/hooks/useAnexoPreview";
 import AnexoPreviewDialog from "@/components/instalacoes/AnexoPreviewDialog";
@@ -46,6 +47,13 @@ export default function ExecucaoEtapa() {
   const queryClient = useQueryClient();
   const { user, role } = useAuth();
   const canApprove = role === 'coordenador_servicos' || role === 'admin';
+  // Critérios de aprovação: admin/coord. serviços editam; coordenadores e consultor R+ apenas leem
+  const podeEditarCriterios = role === 'admin' || role === 'coordenador_servicos';
+  const podeVerCriterios =
+    podeEditarCriterios ||
+    role === 'coordenador_logistica' ||
+    role === 'coordenador_rplus' ||
+    role === 'consultor_rplus';
 
   const [confirmApprove, setConfirmApprove] = useState(false);
   const [isUploadingAnexo, setIsUploadingAnexo] = useState(false);
@@ -70,6 +78,17 @@ export default function ExecucaoEtapa() {
           sales_email_attachment_path,
           planned_date,
           checklist_template_id,
+          tem_equipamento,
+          nome_equipamento,
+          tem_quimico,
+          qtd_pistolas,
+          pistolas_em_estoque,
+          qtd_install_kit,
+          install_kit_em_estoque,
+          qtd_mangueira_ft,
+          mangueira_em_estoque,
+          aprovacao_data_inicio,
+          aprovacao_data_fim,
           installation:installations(
             id,
             status,
@@ -193,6 +212,20 @@ export default function ExecucaoEtapa() {
 
   const cliente = stage.installation?.cliente;
   const aguardandoAprovacao = stage.stage === 'pre_instalacao' && stage.status === 'aguardando_aprovacao';
+  const criterios = {
+    tem_equipamento: stage.tem_equipamento ?? null,
+    nome_equipamento: stage.nome_equipamento ?? null,
+    tem_quimico: stage.tem_quimico ?? null,
+    qtd_pistolas: stage.qtd_pistolas ?? null,
+    pistolas_em_estoque: stage.pistolas_em_estoque ?? null,
+    qtd_install_kit: stage.qtd_install_kit ?? null,
+    install_kit_em_estoque: stage.install_kit_em_estoque ?? null,
+    qtd_mangueira_ft: stage.qtd_mangueira_ft ?? null,
+    mangueira_em_estoque: stage.mangueira_em_estoque ?? null,
+    aprovacao_data_inicio: stage.aprovacao_data_inicio ?? null,
+    aprovacao_data_fim: stage.aprovacao_data_fim ?? null,
+  };
+  const criteriosIncompletos = criteriosPendentes(criterios);
 
   return (
     <div className="space-y-4 p-4 sm:p-6 max-w-3xl mx-auto">
@@ -277,13 +310,34 @@ export default function ExecucaoEtapa() {
             </div>
           )}
 
+          {stage.stage === 'pre_instalacao' && podeVerCriterios && (
+            <AprovacaoPreInstalacaoForm
+              key={stage.id}
+              stageId={stage.id}
+              criterios={criterios}
+              canEdit={podeEditarCriterios && stage.status !== 'concluido'}
+              responsavelNome={responsavelNome}
+            />
+          )}
+
           {aguardandoAprovacao && (
             canApprove ? (
               <div className="pt-3 flex flex-wrap items-center justify-between gap-2 border-t">
                 <p className="text-sm text-muted-foreground pt-3">
                   Revise os dados e o e-mail de venda antes de aprovar esta Pré Instalação.
                 </p>
-                <Button className="mt-3" onClick={() => setConfirmApprove(true)}>
+                <Button
+                  className="mt-3"
+                  onClick={() => {
+                    if (criteriosIncompletos.length > 0) {
+                      toast.error(
+                        'Ajuste os critérios antes de aprovar: ' + criteriosIncompletos.join(', '),
+                      );
+                      return;
+                    }
+                    setConfirmApprove(true);
+                  }}
+                >
                   <CheckCircle2 className="h-4 w-4 mr-1.5" />
                   Aprovar Pré Instalação
                 </Button>
