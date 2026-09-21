@@ -27,6 +27,8 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 
+const DEFAULT_CHECKLIST_TEMPLATE_ID = '3b86c956-891a-4a82-9871-d8a5c2981a6d';
+
 interface NovaVisitaDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -47,7 +49,10 @@ export default function NovaVisitaDialog({
   const [technicianId, setTechnicianId] = useState<string>('');
   const [plannedDate, setPlannedDate] = useState<Date | undefined>();
   const [notes, setNotes] = useState('');
-  const [checklistTemplateId, setChecklistTemplateId] = useState<string>('');
+  // Template padrão para visitas corretivas: RumiFlow v1 (usuário pode trocar)
+  const [checklistTemplateId, setChecklistTemplateId] = useState<string>(
+    DEFAULT_CHECKLIST_TEMPLATE_ID
+  );
   const [datePopoverOpen, setDatePopoverOpen] = useState(false);
 
   // Fetch field technicians
@@ -92,7 +97,9 @@ export default function NovaVisitaDialog({
   // Create visit mutation
   const createVisit = useMutation({
     mutationFn: async () => {
-      if (!technicianId) throw new Error('Selecione um técnico');
+      if (!technicianId) throw new Error('Selecione um técnico de campo');
+      if (!checklistTemplateId) throw new Error('Selecione o template de checklist');
+      if (!plannedDate) throw new Error('Selecione a data planejada da visita');
 
       const { data: visit, error } = await withTimeout(
         supabase
@@ -102,8 +109,8 @@ export default function NovaVisitaDialog({
             client_id: clientId,
             field_technician_user_id: technicianId,
             status: 'em_elaboracao',
-            planned_start_date: plannedDate ? format(plannedDate, 'yyyy-MM-dd') : null,
-            checklist_template_id: checklistTemplateId || null,
+            planned_start_date: format(plannedDate, 'yyyy-MM-dd'),
+            checklist_template_id: checklistTemplateId,
             internal_notes: notes || null,
           })
           .select('id')
@@ -166,7 +173,7 @@ export default function NovaVisitaDialog({
     setTechnicianId('');
     setPlannedDate(undefined);
     setNotes('');
-    setChecklistTemplateId('');
+    setChecklistTemplateId(DEFAULT_CHECKLIST_TEMPLATE_ID);
     onOpenChange(false);
   };
 
@@ -203,7 +210,7 @@ export default function NovaVisitaDialog({
 
           {/* Data Planejada */}
           <div className="space-y-2">
-            <Label>Data Planejada</Label>
+            <Label>Data Planejada *</Label>
             <Popover open={datePopoverOpen} onOpenChange={setDatePopoverOpen}>
               <PopoverTrigger asChild>
                 <Button
@@ -238,10 +245,10 @@ export default function NovaVisitaDialog({
 
           {/* Checklist Template */}
           <div className="space-y-2">
-            <Label>Template de Checklist</Label>
+            <Label>Template de Checklist *</Label>
             <Select value={checklistTemplateId} onValueChange={setChecklistTemplateId}>
               <SelectTrigger>
-                <SelectValue placeholder="Selecione um template (opcional)" />
+                <SelectValue placeholder="Selecione um template" />
               </SelectTrigger>
               <SelectContent>
                 {checklistTemplates?.map(template => (
@@ -271,7 +278,7 @@ export default function NovaVisitaDialog({
           </Button>
           <Button 
             onClick={() => createVisit.mutate()}
-            disabled={!technicianId || createVisit.isPending}
+            disabled={createVisit.isPending}
           >
             {createVisit.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Agendar Visita
