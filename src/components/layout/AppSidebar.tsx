@@ -46,7 +46,7 @@ export function AppSidebar() {
     { title: 'Início', icon: Home, url: '/', permKey: 'inicio' },
     { title: 'Agenda de Operações', icon: CalendarDays, url: '/agenda-operacoes', permKey: 'agenda_operacoes' },
     { title: 'Minhas Pendências', icon: ListTodo, url: '/minhas-pendencias', permKey: 'minhas_pendencias' },
-    { title: 'Treinamento', icon: GraduationCap, url: '/treinamento', permKey: 'treinamento' },
+    { title: 'Treinamentos', icon: GraduationCap, url: '/treinamento', permKey: 'treinamento' },
   ].filter(item => canAccess(item.permKey));
 
 
