@@ -3053,7 +3053,9 @@ export default function Pedidos() {
                 </div>
                 <div className="text-sm p-3 rounded-lg bg-muted/50 border">
                   <span className="text-muted-foreground">Código de Rastreio: </span>
-                  {viewingPedido.codigo_rastreio ? (
+                  {viewingPedido.tipo_envio === 'apenas_nf' || viewingPedido.tipo_envio === 'envio_pelo_tecnico' ? (
+                    <span className="font-medium">N/A</span>
+                  ) : viewingPedido.codigo_rastreio ? (
                     <span className="font-medium font-mono break-all">{viewingPedido.codigo_rastreio}</span>
                   ) : (
                     <span className="font-medium">
