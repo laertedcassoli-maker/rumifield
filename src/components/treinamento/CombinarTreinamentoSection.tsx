@@ -32,10 +32,10 @@ export default function CombinarTreinamentoSection({
             <GraduationCap className="h-4 w-4 text-muted-foreground shrink-0" />
             <div className="min-w-0">
               <Label htmlFor="combinar-treinamento" className="cursor-pointer">
-                Combinar com Treinamento
+                Combinar com Treinamento de Manutenção
               </Label>
               <p className="text-sm text-muted-foreground">
-                Registre um treinamento realizado neste mesmo atendimento.
+                Registre um Treinamento de Manutenção realizado neste mesmo atendimento.
               </p>
             </div>
           </div>

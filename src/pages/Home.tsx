@@ -52,7 +52,7 @@ export default function Home() {
       permKey: 'minhas_rotas',
     },
     {
-      title: 'Treinamentos',
+      title: 'Treinamento de Manutenção',
       icon: GraduationCap,
       url: '/treinamento',
       color: 'text-fuchsia-600',

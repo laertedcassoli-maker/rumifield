@@ -107,7 +107,7 @@ export default function TrainingChecklistExecution({
           toast.error(
             error instanceof Error && error.message.includes('offline')
               ? error.message
-              : 'Não foi possível carregar a visita de treinamento.'
+              : 'Não foi possível carregar a visita de Treinamento de Manutenção.'
           );
         }
       } finally {
@@ -215,7 +215,7 @@ export default function TrainingChecklistExecution({
         );
       } catch (error) {
         console.error(error);
-        toast.error('Não foi possível iniciar o treinamento.');
+        toast.error('Não foi possível iniciar o Treinamento de Manutenção.');
       } finally {
         setCreating(false);
       }
@@ -248,7 +248,7 @@ export default function TrainingChecklistExecution({
 
   const handleComplete = async () => {
     if (!visitId) {
-      toast.error('Selecione o checklist do treinamento.');
+      toast.error('Selecione o checklist do Treinamento de Manutenção.');
       return;
     }
     if (!contactName.trim() || !contactPhone.trim()) {
@@ -289,13 +289,13 @@ export default function TrainingChecklistExecution({
       queryClient.invalidateQueries({ queryKey: ['training-visits'] });
       toast.success(
         isOnline
-          ? 'Treinamento concluído!'
-          : 'Treinamento salvo no aparelho. Será enviado quando houver conexão.'
+          ? 'Treinamento de Manutenção concluído!'
+          : 'Treinamento de Manutenção salvo no aparelho. Será enviado quando houver conexão.'
       );
       onCompleted?.();
     } catch (error) {
       console.error(error);
-      toast.error('Não foi possível concluir o treinamento.');
+      toast.error('Não foi possível concluir o Treinamento de Manutenção.');
     } finally {
       setCompleting(false);
     }
@@ -310,7 +310,7 @@ export default function TrainingChecklistExecution({
         <div className="flex flex-wrap items-center justify-between gap-2">
           <CardTitle className="flex items-center gap-2 text-base">
             <GraduationCap className="h-4 w-4" />
-            Treinamento
+            Treinamento de Manutenção
           </CardTitle>
           <div className="flex items-center gap-2">
             {!isOnline && (
@@ -335,7 +335,7 @@ export default function TrainingChecklistExecution({
       <CardContent className="space-y-4">
         {/* Checklist do treinamento */}
         <div className="space-y-2">
-          <Label>Checklist do treinamento *</Label>
+          <Label>Checklist do Treinamento de Manutenção *</Label>
           <Select
             value={templateId}
             onValueChange={handleSelectTemplate}
@@ -497,7 +497,7 @@ export default function TrainingChecklistExecution({
 
         <Button onClick={handleComplete} disabled={completing || completed} className="w-full sm:w-auto">
           {completing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          Concluir Treinamento
+          Concluir Treinamento de Manutenção
         </Button>
       </CardContent>
     </Card>
