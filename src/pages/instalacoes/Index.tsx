@@ -101,6 +101,10 @@ export default function InstalacoesIndex() {
   const [clienteId, setClienteId] = useState<string | null>(null);
   const [clientePopoverOpen, setClientePopoverOpen] = useState(false);
   const [filtroSituacao, setFiltroSituacao] = useState<'all' | SituacaoInstalacao>('all');
+  const podeAlternarEscopo = !isTecnicoCampo;
+  const [ownerFilter, setOwnerFilter] = useState<'meu' | 'todos'>(() =>
+    searchParams.get('meu') === '1' || role === 'tecnico_oficina' ? 'meu' : 'todos',
+  );
 
   const [stageDialog, setStageDialog] = useState<{
     installationId: string;
@@ -175,6 +179,11 @@ export default function InstalacoesIndex() {
     if (filtroSituacao !== 'all') {
       list = list.filter(inst => classificarSituacao(inst) === filtroSituacao);
     }
+    if (podeAlternarEscopo && ownerFilter === 'meu') {
+      list = list.filter(inst =>
+        inst.stages.some(s => s.technician_user_id === user?.id || s.csm_user_id === user?.id)
+      );
+    }
     return list.map(inst => ({
       ...inst,
       // keep the Pré Instalação row out of the Instalação view, but preserve it
@@ -182,7 +191,7 @@ export default function InstalacoesIndex() {
       stages: inst.stages.filter(s => !etapaFiltro || s.stage === etapaFiltro),
       allStages: inst.stages,
     }));
-  }, [installations, etapaFiltro, canManage, filtroSituacao]);
+  }, [installations, etapaFiltro, canManage, filtroSituacao, ownerFilter, podeAlternarEscopo, user?.id]);
 
   // Resumo por situação — usa os dados já carregados (recorte de acesso do usuário,
   // incluindo o filtro de técnico/CSM para tecnico_campo) e IGNORA o filtro ?etapa= da URL.
@@ -437,6 +446,28 @@ export default function InstalacoesIndex() {
 
       {(installations && installations.length > 0) && (
         <div className="flex flex-wrap gap-2">
+          {podeAlternarEscopo && (
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant={ownerFilter === 'meu' ? 'default' : 'outline'}
+                onClick={() => setOwnerFilter('meu')}
+                className="h-auto rounded-full gap-1.5 px-3 py-1 text-xs"
+              >
+                <span className="font-semibold">Meu</span>
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={ownerFilter === 'todos' ? 'default' : 'outline'}
+                onClick={() => setOwnerFilter('todos')}
+                className="h-auto rounded-full gap-1.5 px-3 py-1 text-xs"
+              >
+                <span className="font-semibold">Todos</span>
+              </Button>
+            </div>
+          )}
           {([
             { label: 'Total', value: resumo.total, key: 'all' as const },
             { label: 'Concluídas', value: resumo.concluidas, key: 'concluida' as const },
