@@ -752,6 +752,44 @@ export default function VisitaTecnica() {
       )}
 
       <NovaVisitaTecnicaDialog open={novaVisitaOpen} onOpenChange={setNovaVisitaOpen} />
+
+      {visitaParaEditar && (
+        <EditarVisitaCorretivaDialog
+          open={!!visitaParaEditar}
+          onOpenChange={(open) => !open && setVisitaParaEditar(null)}
+          visitId={visitaParaEditar.id}
+          plannedDate={visitaParaEditar.dataPlanejada}
+          technicianId={visitaParaEditar.tecnicoUserId}
+          checklistTemplateId={visitaParaEditar.checklistTemplateId ?? null}
+        />
+      )}
+
+      <AlertDialog open={!!visitaParaExcluir} onOpenChange={(open) => !open && setVisitaParaExcluir(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir visita?</AlertDialogTitle>
+            <AlertDialogDescription>
+              A visita <span className="font-mono font-semibold">{visitaParaExcluir?.codigo}</span> do cliente{' '}
+              {visitaParaExcluir?.clienteNome} será removida permanentemente. Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteVisitaMutation.isPending}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={deleteVisitaMutation.isPending}
+              onClick={(e) => {
+                e.preventDefault();
+                if (visitaParaExcluir) deleteVisitaMutation.mutate(visitaParaExcluir);
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteVisitaMutation.isPending ? (
+                <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Excluindo...</>
+              ) : 'Excluir'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
