@@ -301,6 +301,18 @@ export default function VisitaTecnica() {
       .sort((a, b) => a.label.localeCompare(b.label));
   }, [lista]);
 
+  const uniqueTechnicians = useMemo(() => {
+    const map = new Map<string, string>();
+    lista.forEach(v => {
+      if (v.tecnicoUserId && !map.has(v.tecnicoUserId)) {
+        map.set(v.tecnicoUserId, v.tecnicoNome ?? 'Técnico');
+      }
+    });
+    return [...map.entries()]
+      .map(([id, label]) => ({ id, label }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [lista]);
+
   const selectedClientLabel = clientFilter === 'all'
     ? 'Todos os produtores'
     : uniqueClients.find(c => c.id === clientFilter)?.label ?? 'Todos os produtores';
@@ -311,6 +323,13 @@ export default function VisitaTecnica() {
       if (filtroTipo !== 'all' && v.tipo !== filtroTipo) return false;
       if (statusFilter !== 'all' && v.status !== statusFilter) return false;
       if (clientFilter !== 'all' && v.clienteId !== clientFilter) return false;
+      if (ownerFilter === 'minhas' && v.tecnicoUserId !== user?.id) return false;
+      if (ownerFilter === 'todas' && tecnicoFilter !== 'all' && v.tecnicoUserId !== tecnicoFilter) return false;
+      if (situacaoFilter !== 'todas') {
+        const concluida = CONCLUIDO_STATUS.includes(v.status);
+        if (situacaoFilter === 'concluidas' && !concluida) return false;
+        if (situacaoFilter === 'pendentes' && concluida) return false;
+      }
       if (termo) {
         const alvo = [v.codigo, v.clienteNome, v.fazenda ?? '', v.tecnicoNome ?? '']
           .join(' ')
@@ -329,7 +348,8 @@ export default function VisitaTecnica() {
       }
       return true;
     });
-  }, [lista, filtroTipo, statusFilter, clientFilter, search, dateRange]);
+  }, [lista, filtroTipo, statusFilter, clientFilter, search, dateRange, ownerFilter, tecnicoFilter, situacaoFilter, user?.id]);
+
 
   const totalPages = Math.max(1, Math.ceil(filtradas.length / ITEMS_PER_PAGE));
   const paginadas = useMemo(
