@@ -289,6 +289,13 @@ export default function ChamadosIndex() {
         : null;
 
     return tickets.filter(ticket => {
+      if (ownerFilter === 'meus' && ticket.assigned_technician_id !== user?.id) return false;
+      if (situacaoFilter !== 'todos') {
+        const concluido = ticket.status === 'resolvido' || ticket.status === 'cancelado';
+        if (situacaoFilter === 'concluidos' && !concluido) return false;
+        if (situacaoFilter === 'pendentes' && concluido) return false;
+      }
+
       const searchableText = [
         ticket.ticket_code,
         ticket.title,
@@ -312,7 +319,7 @@ export default function ChamadosIndex() {
 
       return matchesSearch && matchesStatus && matchesPriority && matchesClient && matchesDate;
     });
-  }, [tickets, search, statusFilter, priorityFilter, clientFilter, dateRange]);
+  }, [tickets, search, statusFilter, priorityFilter, clientFilter, dateRange, ownerFilter, situacaoFilter, user?.id]);
 
   const totalPages = Math.ceil(filteredTickets.length / ITEMS_PER_PAGE);
   const paginatedTickets = filteredTickets.slice(
