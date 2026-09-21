@@ -908,6 +908,24 @@ export default function InstalacoesIndex() {
                   toast.error('Selecione o CSM responsável pela etapa.');
                   return;
                 }
+                if (!stagePlannedDate) {
+                  toast.error('Informe a data planejada da etapa.');
+                  return;
+                }
+                if (stageDialog?.stage === 'instalacao') {
+                  if (!stagePlannedDateEnd) {
+                    toast.error('Informe a data fim planejada da Instalação.');
+                    return;
+                  }
+                  if (stagePlannedDateEnd < stagePlannedDate) {
+                    toast.error('A data fim não pode ser anterior à data início.');
+                    return;
+                  }
+                }
+                if (!effectiveStageTemplateId) {
+                  toast.error('Selecione o template de checklist da etapa.');
+                  return;
+                }
                 saveStageMutation.mutate();
               }}
               disabled={saveStageMutation.isPending}
