@@ -3205,6 +3205,35 @@ export default function Pedidos() {
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* Aviso não bloqueante de possível duplicidade */}
+      <AlertDialog open={!!duplicateWarning} onOpenChange={(open) => !open && setDuplicateWarning(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Possível duplicidade</AlertDialogTitle>
+            <AlertDialogDescription>
+              Estes itens já foram solicitados para este cliente nos últimos 7 dias:
+              <span className="mt-2 block space-y-1">
+                {(duplicateWarning || []).map((c) => (
+                  <span key={c} className="block font-medium">• {c}</span>
+                ))}
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Revisar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                setDuplicateWarning(null);
+                setShowConfirmation(true);
+              }}
+            >
+              Continuar mesmo assim
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <ProcessarPendenciaDialog
         open={!!pendenciaPedido}
         onOpenChange={(open) => !open && setPendenciaPedido(null)}
