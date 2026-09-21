@@ -19,7 +19,21 @@
 - Dentro do bloco, os campos manuais de início e fim da janela de aprovação são removidos. No lugar, uma linha só de leitura com a **data da aprovação** (registrada automaticamente quando a etapa é aprovada), exibida para histórico; quando ainda não houver aprovação, mostra "Ainda não aprovada".
 - Quando a etapa é Instalação, a listagem e a tela da etapa mostram o período (início – fim) em vez de uma data única.
 
+## 4. Pedidos: aviso de possível duplicidade
+
+- Ao enviar uma solicitação, depois de todas as validações atuais e antes da confirmação final, o sistema procura, para cada peça do pedido, outro pedido do mesmo cliente com a mesma peça criado nos últimos 7 dias (ignorando rascunhos e itens cancelados).
+- Se encontrar, aparece um aviso "Possível duplicidade" listando as peças em conflito, com "Revisar" (fecha e não envia) e "Continuar mesmo assim" (segue para a confirmação normal). O aviso nunca bloqueia o envio; se a checagem falhar, o fluxo segue normalmente.
+
+## 5. Visita Técnica: excluir e editar na lista
+
+- Na coluna "Ações", além de visualizar, Admin e Coordenador de Serviços passam a ver:
+  - **Excluir** (lixeira, com confirmação): remove a visita corretiva ou o item de rota preventiva da linha; a lista recarrega.
+  - **Editar**: em corretiva abre o diálogo já existente (data, técnico, checklist); em preventiva leva direto para a tela de atendimento, onde a edição já existe.
+- Outros papéis continuam vendo apenas o ícone de visualizar.
+
 ## Detalhes técnicos
+
+
 
 - Migration: `ALTER TABLE public.installation_stages ADD COLUMN planned_date_end date;` (sem mudança de RLS/grants).
 - `Index.tsx`: novo estado `stagePlannedDateEnd`; incluído em `openStageDialog` (a partir de `existing?.planned_date_end`), no `payload` de `saveStageMutation` (`planned_date_end: stageDialog.stage === 'instalacao' ? (stagePlannedDateEnd || null) : null`), no `select` da query `['installations']` e no tipo `StageRow`. Validação no `onClick` do Salvar: responsável (atual) + `!stagePlannedDate` + `!stageTemplateId` + para `instalacao` `!stagePlannedDateEnd` e `stagePlannedDateEnd < stagePlannedDate`, cada caso com `toast.error` específico.
