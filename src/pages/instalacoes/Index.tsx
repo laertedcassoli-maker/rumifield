@@ -125,6 +125,7 @@ export default function InstalacoesIndex() {
   const [stageCsmId, setStageCsmId] = useState<string>('');
   const [stageResponsavelTipo, setStageResponsavelTipo] = useState<'tecnico' | 'csm'>('tecnico');
   const [stagePlannedDate, setStagePlannedDate] = useState<string>('');
+  const [stagePlannedDateEnd, setStagePlannedDateEnd] = useState<string>('');
   const [stageTemplateId, setStageTemplateId] = useState<string>('');
   const [stageAnexoPath, setStageAnexoPath] = useState<string | null>(null);
   const [isUploadingAnexo, setIsUploadingAnexo] = useState(false);
