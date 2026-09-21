@@ -257,6 +257,7 @@ export default function VisitaTecnica() {
           dataPlanejada: r.planned_start_date ?? null,
           dataRealizada: r.checkout_at ?? null,
           status: r.status,
+          checklistTemplateId: (r as any).checklist_template_id ?? null,
           linkTo: `/chamados/visita/${r.id}`,
         };
       });
