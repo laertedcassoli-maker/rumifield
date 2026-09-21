@@ -611,6 +611,8 @@ export default function VisitaTecnica() {
                   <TableHead>Planejada</TableHead>
                   <TableHead>Realizada</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Mapa</TableHead>
+
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
