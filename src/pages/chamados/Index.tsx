@@ -424,6 +424,41 @@ export default function ChamadosIndex() {
         </Card>
       </div>
 
+      {/* Owner / situação */}
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          variant={ownerFilter === 'meus' ? 'default' : 'outline'}
+          size="sm"
+          className="shrink-0 gap-1"
+          onClick={() => { setOwnerFilter('meus'); setCurrentPage(1); }}
+        >
+          <User className="h-3 w-3" />
+          Meus
+        </Button>
+        <Button
+          variant={ownerFilter === 'todos' ? 'default' : 'outline'}
+          size="sm"
+          className="shrink-0"
+          onClick={() => { setOwnerFilter('todos'); setCurrentPage(1); }}
+        >
+          Todos os chamados
+        </Button>
+
+        <div className="flex items-center gap-2 sm:ml-auto">
+          {(['pendentes', 'concluidos', 'todos'] as const).map(opt => (
+            <Button
+              key={opt}
+              variant={situacaoFilter === opt ? 'default' : 'outline'}
+              size="sm"
+              className="shrink-0"
+              onClick={() => { setSituacaoFilter(opt); setCurrentPage(1); }}
+            >
+              {opt === 'pendentes' ? 'Pendentes' : opt === 'concluidos' ? 'Concluídos' : 'Todos'}
+            </Button>
+          ))}
+        </div>
+      </div>
+
       {/* Filters */}
       <div className="flex flex-col md:flex-row gap-4">
         <div className="relative flex-1">
