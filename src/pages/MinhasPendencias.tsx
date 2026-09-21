@@ -280,7 +280,7 @@ export default function MinhasPendencias() {
               fazenda={item.fazenda}
               date={formatDate(item.plannedDate)}
               status={item.status}
-              to="/treinamento"
+              to="/treinamento?meu=1&status=pendente"
             />
           ))}
         </Section>
@@ -300,7 +300,7 @@ export default function MinhasPendencias() {
               cliente={item.atividade ?? '—'}
               date={formatDate(item.createdAt)}
               status={item.status}
-              to="/oficina/os"
+              to="/oficina/os?meu=1&status=pendente"
             />
           ))}
         </Section>
