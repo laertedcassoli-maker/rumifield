@@ -194,15 +194,16 @@ export default function AprovacaoPreInstalacaoForm({ stageId, criterios, canEdit
         </div>
         <TriToggle value={mangueiraEstoque} onChange={setMangueiraEstoque} label="Mangueira em estoque?" />
 
-        <div className="space-y-1.5">
-          <Label className="text-xs">Início da janela de aprovação</Label>
-          <Input type="date" value={dataInicio} disabled={!canEdit} onChange={(e) => setDataInicio(e.target.value)} />
-        </div>
-        <div className="space-y-1.5">
-          <Label className="text-xs">Fim da janela de aprovação</Label>
-          <Input type="date" value={dataFim} disabled={!canEdit} onChange={(e) => setDataFim(e.target.value)} />
-        </div>
       </div>
+
+      <p className="text-xs text-muted-foreground">
+        Data da aprovação:{' '}
+        <strong>
+          {approvedAt
+            ? new Date(approvedAt).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })
+            : 'Ainda não aprovada'}
+        </strong>
+      </p>
 
       {pendentes.length > 0 && (
         <div className="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-700">
