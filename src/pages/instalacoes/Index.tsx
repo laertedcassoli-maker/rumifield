@@ -383,7 +383,8 @@ export default function InstalacoesIndex() {
         technician_user_id: stageResponsavelTipo === 'tecnico' ? (stageTechnicianId || null) : null,
         csm_user_id: stageResponsavelTipo === 'csm' ? (stageCsmId || null) : null,
         planned_date: stagePlannedDate || null,
-        checklist_template_id: stageTemplateId || null,
+        planned_date_end: stageDialog.stage === 'instalacao' ? (stagePlannedDateEnd || null) : null,
+        checklist_template_id: effectiveStageTemplateId || null,
       };
 
       if (stageDialog.stage === 'pre_instalacao') {
