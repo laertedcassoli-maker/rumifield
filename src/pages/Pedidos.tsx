@@ -900,8 +900,13 @@ export default function Pedidos() {
   const requiresAssetsOnCreate =
     !editingPedido &&
     (form.tipo_solicitacao === 'coleta_reversa' ||
-      (form.tipo_solicitacao === 'envio' && form.gera_coleta_reversa)) &&
+      (form.tipo_solicitacao === 'envio' && geraColetaReversaAtivo)) &&
     assetItens.length > 0;
+  // Envio com ativo controlado (pecas.is_asset) sempre gera coleta reversa automática
+  const coletaReversaObrigatoria =
+    !editingPedido && form.tipo_solicitacao === 'envio' && assetItens.length > 0;
+  const geraColetaReversaAtivo =
+    form.tipo_solicitacao === 'envio' && (form.gera_coleta_reversa || coletaReversaObrigatoria);
   const missingAssetItem = assetItens.find(entry => (itemAssets[entry.index] || []).filter(Boolean).length === 0);
 
   const assetsByPecaId = () => {
@@ -967,7 +972,7 @@ export default function Pedidos() {
         return;
       }
     }
-    if (form.tipo_solicitacao === 'envio' && form.gera_coleta_reversa && !editingPedido) {
+    if (geraColetaReversaAtivo && !editingPedido) {
       if (!form.coleta_auto_tipo) {
         toast({ variant: 'destructive', title: 'Selecione o Tipo de Coleta da coleta reversa automática' });
         return;
@@ -1032,7 +1037,7 @@ export default function Pedidos() {
 
         toast({ title: 'Pedido atualizado!' });
       } else {
-        const geraColetaReversa = form.tipo_solicitacao === 'envio' && form.gera_coleta_reversa;
+        const geraColetaReversa = geraColetaReversaAtivo;
 
         // Create new pedido
         const { data: pedido, error: pedidoError } = await supabase
@@ -1426,7 +1431,7 @@ export default function Pedidos() {
                     <Badge variant="secondary">
                       {form.tipo_solicitacao === 'coleta_reversa' ? 'Coleta Reversa' : 'Envio'}
                     </Badge>
-                    {form.tipo_solicitacao === 'envio' && form.gera_coleta_reversa && (
+                    {geraColetaReversaAtivo && (
                       <Badge variant="outline">Gera coleta reversa automática</Badge>
                     )}
                   </div>
@@ -1464,7 +1469,7 @@ export default function Pedidos() {
                           <span className="font-medium truncate min-w-0">{getUserName(form.csm_responsavel_user_id)}</span>
                         </p>
                       )}
-                      {form.tipo_solicitacao === 'envio' && form.gera_coleta_reversa && form.coleta_auto_tipo && (
+                      {geraColetaReversaAtivo && form.coleta_auto_tipo && (
                         <p className="flex items-center justify-between gap-2">
                           <span className="text-muted-foreground shrink-0">Coleta reversa automática</span>
                           <span className="font-medium truncate min-w-0">
@@ -1505,7 +1510,7 @@ export default function Pedidos() {
                         <span className="font-medium">{form.quantidade_volumes}</span>
                       </p>
                     )}
-                    {form.tipo_solicitacao === 'envio' && form.gera_coleta_reversa && form.coleta_auto_volumes !== '' && (
+                    {geraColetaReversaAtivo && form.coleta_auto_volumes !== '' && (
                       <p className="flex items-center justify-between gap-2">
                         <span className="text-muted-foreground shrink-0">Volumes (coleta reversa automática)</span>
                         <span className="font-medium">{form.coleta_auto_volumes}</span>
@@ -1982,7 +1987,16 @@ export default function Pedidos() {
                   )}
 
                   {/* Gera automaticamente coleta reversa? (apenas Envio) */}
-                  {form.tipo_solicitacao === 'envio' && !editingPedido && (
+                  {form.tipo_solicitacao === 'envio' && !editingPedido && coletaReversaObrigatoria && (
+                    <div className="space-y-1">
+                      <Label>Gera automaticamente coleta reversa?</Label>
+                      <p className="text-xs text-muted-foreground">
+                        Obrigatória: o pedido contém ativo controlado, então a coleta reversa é sempre gerada.
+                      </p>
+                    </div>
+                  )}
+
+                  {form.tipo_solicitacao === 'envio' && !editingPedido && !coletaReversaObrigatoria && (
                     <div className="space-y-2">
                       <Label>Gera automaticamente coleta reversa?</Label>
                       <ToggleGroup
@@ -2038,7 +2052,7 @@ export default function Pedidos() {
                   )}
 
                   {/* Tipo de Coleta da coleta reversa automática (Envio + geração automática) */}
-                  {form.tipo_solicitacao === 'envio' && form.gera_coleta_reversa && !editingPedido && (
+                  {geraColetaReversaAtivo && !editingPedido && (
                     <div className="space-y-2">
                       <Label>Tipo de Coleta <span className="text-muted-foreground font-normal">(coleta reversa automática)</span></Label>
                       <ToggleGroup
@@ -2062,7 +2076,7 @@ export default function Pedidos() {
                       </ToggleGroup>
                     </div>
                   )}
-                  {form.tipo_solicitacao === 'envio' && form.gera_coleta_reversa && !editingPedido && form.coleta_auto_tipo === 'coleta_tecnico_csm' && (
+                  {geraColetaReversaAtivo && !editingPedido && form.coleta_auto_tipo === 'coleta_tecnico_csm' && (
                     <ResponsavelColetaPicker
                       respTipo={form.coleta_auto_responsavel_tipo}
                       tecnicoId={form.coleta_auto_tecnico_id}
@@ -2101,7 +2115,7 @@ export default function Pedidos() {
                   )}
 
                   {/* Quantidade de Volumes da coleta reversa automática */}
-                  {form.tipo_solicitacao === 'envio' && form.gera_coleta_reversa && !editingPedido && (
+                  {geraColetaReversaAtivo && !editingPedido && (
                     <div className="space-y-2">
                       <Label>Quantidade de Volumes: <span className="text-muted-foreground font-normal">(coleta reversa automática)</span> <span className="text-destructive">*</span></Label>
                       <Input
