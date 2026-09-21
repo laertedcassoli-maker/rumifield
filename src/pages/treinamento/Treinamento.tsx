@@ -591,6 +591,12 @@ export default function Treinamento() {
                     )}
                   </div>
                 )}
+                {attendeesPorVisita?.get(v.id)?.map(a => (
+                  <div key={a.id} className="text-sm">
+                    {a.nome}
+                    {a.telefone && <span className="text-muted-foreground"> — {a.telefone}</span>}
+                  </div>
+                ))}
               </div>
             ))}
           </div>
