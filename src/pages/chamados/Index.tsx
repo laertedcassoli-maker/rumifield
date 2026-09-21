@@ -28,6 +28,7 @@ import {
   Pencil,
   Trash2,
   Ticket,
+  User,
   AlertTriangle,
   Clock,
   CheckCircle,
@@ -40,7 +41,7 @@ import {
 } from 'lucide-react';
 import { format, differenceInSeconds } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useMenuPermissions } from '@/hooks/useMenuPermissions';
 import { toast } from 'sonner';
 import {
@@ -123,6 +124,9 @@ interface TicketWithDetails {
 
 const ITEMS_PER_PAGE = 15;
 
+type OwnerFilter = 'meus' | 'todos';
+type SituacaoFilter = 'pendentes' | 'concluidos' | 'todos';
+
 export default function ChamadosIndex() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -140,7 +144,16 @@ export default function ChamadosIndex() {
   const [datePopoverOpen, setDatePopoverOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
 
+  const [searchParams] = useSearchParams();
+  const isTecnico = role === 'tecnico_campo' || role === 'tecnico_oficina';
   const isAdminOrCoordinator = role === 'admin' || role === 'coordenador_servicos';
+
+  const [ownerFilter, setOwnerFilter] = useState<OwnerFilter>(() =>
+    searchParams.get('meu') === '1' || isTecnico ? 'meus' : 'todos',
+  );
+  const [situacaoFilter, setSituacaoFilter] = useState<SituacaoFilter>(() =>
+    searchParams.get('status') === 'pendente' ? 'pendentes' : 'todos',
+  );
 
   // Fetch tickets online (single source of truth via React Query)
   const { data: tickets, isLoading } = useQuery<TicketWithDetails[]>({
@@ -276,6 +289,13 @@ export default function ChamadosIndex() {
         : null;
 
     return tickets.filter(ticket => {
+      if (ownerFilter === 'meus' && ticket.assigned_technician_id !== user?.id) return false;
+      if (situacaoFilter !== 'todos') {
+        const concluido = ticket.status === 'resolvido' || ticket.status === 'cancelado';
+        if (situacaoFilter === 'concluidos' && !concluido) return false;
+        if (situacaoFilter === 'pendentes' && concluido) return false;
+      }
+
       const searchableText = [
         ticket.ticket_code,
         ticket.title,
@@ -299,7 +319,7 @@ export default function ChamadosIndex() {
 
       return matchesSearch && matchesStatus && matchesPriority && matchesClient && matchesDate;
     });
-  }, [tickets, search, statusFilter, priorityFilter, clientFilter, dateRange]);
+  }, [tickets, search, statusFilter, priorityFilter, clientFilter, dateRange, ownerFilter, situacaoFilter, user?.id]);
 
   const totalPages = Math.ceil(filteredTickets.length / ITEMS_PER_PAGE);
   const paginatedTickets = filteredTickets.slice(
@@ -402,6 +422,41 @@ export default function ChamadosIndex() {
             <div className="text-sm text-muted-foreground">Resolvidos</div>
           </CardContent>
         </Card>
+      </div>
+
+      {/* Owner / situação */}
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          variant={ownerFilter === 'meus' ? 'default' : 'outline'}
+          size="sm"
+          className="shrink-0 gap-1"
+          onClick={() => { setOwnerFilter('meus'); setCurrentPage(1); }}
+        >
+          <User className="h-3 w-3" />
+          Meus
+        </Button>
+        <Button
+          variant={ownerFilter === 'todos' ? 'default' : 'outline'}
+          size="sm"
+          className="shrink-0"
+          onClick={() => { setOwnerFilter('todos'); setCurrentPage(1); }}
+        >
+          Todos os chamados
+        </Button>
+
+        <div className="flex items-center gap-2 sm:ml-auto">
+          {(['pendentes', 'concluidos', 'todos'] as const).map(opt => (
+            <Button
+              key={opt}
+              variant={situacaoFilter === opt ? 'default' : 'outline'}
+              size="sm"
+              className="shrink-0"
+              onClick={() => { setSituacaoFilter(opt); setCurrentPage(1); }}
+            >
+              {opt === 'pendentes' ? 'Pendentes' : opt === 'concluidos' ? 'Concluídos' : 'Todos'}
+            </Button>
+          ))}
+        </div>
       </div>
 
       {/* Filters */}
