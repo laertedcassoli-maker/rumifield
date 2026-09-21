@@ -107,8 +107,8 @@ export interface ChecklistSyncQueueItem {
 /** Fila dedicada ao treinamento combinado (separada para não colidir com o dispatch do checklist) */
 export interface TrainingSyncQueueItem {
   id?: number;
-  table: 'training_visits' | 'training_checklist_responses';
-  operation: 'insert' | 'update';
+  table: 'training_visits' | 'training_checklist_responses' | 'training_visit_attendees';
+  operation: 'insert' | 'update' | 'delete';
   data: Record<string, unknown>;
   createdAt: string;
   retryCount: number;
@@ -151,6 +151,15 @@ export interface OfflineTrainingChecklistResponse {
   notes: string | null;
   _pendingSync?: boolean;
   _localId?: string;
+}
+
+/** Pessoa treinada em uma visita (espelha public.training_visit_attendees) */
+export interface OfflineTrainingAttendee {
+  id: string;
+  training_visit_id: string;
+  nome: string;
+  telefone: string | null;
+  _pendingSync?: boolean;
 }
 
 /** Cache do modelo de checklist (template + blocos + itens) para uso sem sinal */
