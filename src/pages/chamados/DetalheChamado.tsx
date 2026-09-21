@@ -674,6 +674,16 @@ export default function DetalheChamado() {
               Agendar Visita
             </Button>
           )}
+          {podeExcluirChamado && !isEditMode && (
+            <Button
+              variant="outline"
+              className="text-destructive hover:text-destructive border-destructive/40 hover:bg-destructive/10"
+              onClick={() => setShowDeleteTicket(true)}
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Excluir Chamado
+            </Button>
+          )}
         </div>
       </div>
 
