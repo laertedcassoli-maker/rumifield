@@ -101,6 +101,10 @@ export default function InstalacoesIndex() {
   const [clienteId, setClienteId] = useState<string | null>(null);
   const [clientePopoverOpen, setClientePopoverOpen] = useState(false);
   const [filtroSituacao, setFiltroSituacao] = useState<'all' | SituacaoInstalacao>('all');
+  const podeAlternarEscopo = !isTecnicoCampo;
+  const [ownerFilter, setOwnerFilter] = useState<'meu' | 'todos'>(() =>
+    searchParams.get('meu') === '1' || role === 'tecnico_oficina' ? 'meu' : 'todos',
+  );
 
   const [stageDialog, setStageDialog] = useState<{
     installationId: string;
@@ -175,6 +179,11 @@ export default function InstalacoesIndex() {
     if (filtroSituacao !== 'all') {
       list = list.filter(inst => classificarSituacao(inst) === filtroSituacao);
     }
+    if (podeAlternarEscopo && ownerFilter === 'meu') {
+      list = list.filter(inst =>
+        inst.stages.some(s => s.technician_user_id === user?.id || s.csm_user_id === user?.id)
+      );
+    }
     return list.map(inst => ({
       ...inst,
       // keep the Pré Instalação row out of the Instalação view, but preserve it
@@ -182,7 +191,7 @@ export default function InstalacoesIndex() {
       stages: inst.stages.filter(s => !etapaFiltro || s.stage === etapaFiltro),
       allStages: inst.stages,
     }));
-  }, [installations, etapaFiltro, canManage, filtroSituacao]);
+  }, [installations, etapaFiltro, canManage, filtroSituacao, ownerFilter, podeAlternarEscopo, user?.id]);
 
   // Resumo por situação — usa os dados já carregados (recorte de acesso do usuário,
   // incluindo o filtro de técnico/CSM para tecnico_campo) e IGNORA o filtro ?etapa= da URL.
