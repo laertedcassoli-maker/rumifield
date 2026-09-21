@@ -229,6 +229,8 @@ export default function Pedidos() {
   const [solicitanteFilter, setSolicitanteFilter] = useState<string>('all');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
+  // Aviso não bloqueante de possível duplicidade (mesmo cliente + peça nos últimos 7 dias)
+  const [duplicateWarning, setDuplicateWarning] = useState<string[] | null>(null);
   const [imagePreview, setImagePreview] = useState<{ url: string; nome: string } | null>(null);
   const [isProcessingAction, setIsProcessingAction] = useState(false);
   const [editingAssetItemId, setEditingAssetItemId] = useState<string | null>(null);
