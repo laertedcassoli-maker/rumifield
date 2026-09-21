@@ -101,6 +101,7 @@ export default function Treinamento() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const canAbrirVisita = role === 'admin' || role === 'coordenador_servicos' || role === 'coordenador_rplus';
+  const canExcluirVisita = role === 'admin' || role === 'coordenador_servicos';
   const isTecnico = role === 'tecnico_campo' || role === 'tecnico_oficina';
   const [searchParams] = useSearchParams();
   const [ownerFilter, setOwnerFilter] = useState<'meu' | 'todos'>(() =>
@@ -127,6 +128,25 @@ export default function Treinamento() {
         .order('planned_date', { ascending: false, nullsFirst: false });
       if (error) throw error;
       return (data ?? []) as TreinamentoItem[];
+    },
+  });
+
+  // Pessoas treinadas adicionais, agrupadas por visita
+  const { data: attendeesPorVisita } = useQuery({
+    queryKey: ['training-visit-attendees'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('training_visit_attendees')
+        .select('id, training_visit_id, nome, telefone')
+        .order('created_at');
+      if (error) throw error;
+      const map = new Map<string, { id: string; nome: string; telefone: string | null }[]>();
+      (data ?? []).forEach(a => {
+        const list = map.get(a.training_visit_id) ?? [];
+        list.push({ id: a.id, nome: a.nome, telefone: a.telefone });
+        map.set(a.training_visit_id, list);
+      });
+      return map;
     },
   });
 
@@ -283,8 +303,11 @@ export default function Treinamento() {
     v.status === 'pendente' &&
     (canAbrirVisita || user?.id === v.technician_user_id || user?.id === v.csm_user_id);
 
-  // Editar/excluir: só gestores e apenas enquanto a visita estiver pendente
+  // Editar: só gestores e apenas enquanto a visita estiver pendente
   const podeGerenciar = (v: TreinamentoItem) => canAbrirVisita && v.status === 'pendente';
+
+  // Excluir: restrito a admin e coordenador de serviços, apenas em visitas pendentes
+  const podeExcluir = (v: TreinamentoItem) => canExcluirVisita && v.status === 'pendente';
 
   const responsavelNome = (v: TreinamentoItem) => {
     const id = v.technician_user_id ?? v.csm_user_id;
@@ -297,15 +320,18 @@ export default function Treinamento() {
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold">Treinamentos</h1>
+          <h1 className="text-2xl font-bold">Treinamento de Manutenção</h1>
           <p className="text-muted-foreground">
-            Solicitação e acompanhamento de visitas de treinamento.
+            Treinamento de Capacitação Técnica para as Fazendas
+          </p>
+          <p className="text-sm text-muted-foreground">
+            Solicitação e acompanhamento de visitas de Treinamento de Manutenção.
           </p>
         </div>
         {canAbrirVisita && (
           <Button onClick={() => setNovaVisitaOpen(true)}>
             <Plus className="mr-2 h-4 w-4" />
-            Nova Visita de Treinamento
+            Nova Visita de Treinamento de Manutenção
           </Button>
         )}
       </div>
@@ -333,7 +359,7 @@ export default function Treinamento() {
       </div>
       <Tabs defaultValue="treinamentos">
         <TabsList>
-          <TabsTrigger value="treinamentos">Treinamentos</TabsTrigger>
+          <TabsTrigger value="treinamentos">Treinamento de Manutenção</TabsTrigger>
           <TabsTrigger value="clientes">Clientes</TabsTrigger>
         </TabsList>
 
@@ -450,25 +476,25 @@ export default function Treinamento() {
                               </Button>
                             )}
                             {podeGerenciar(v) && (
-                              <>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => setEditingVisita(v)}
-                                >
-                                  <Pencil className="h-4 w-4 mr-1.5" />
-                                  Editar
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="text-destructive hover:text-destructive"
-                                  onClick={() => setExcluindoVisita(v)}
-                                >
-                                  <Trash2 className="h-4 w-4 mr-1.5" />
-                                  Excluir
-                                </Button>
-                              </>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setEditingVisita(v)}
+                              >
+                                <Pencil className="h-4 w-4 mr-1.5" />
+                                Editar
+                              </Button>
+                            )}
+                            {podeExcluir(v) && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-destructive hover:text-destructive"
+                                onClick={() => setExcluindoVisita(v)}
+                              >
+                                <Trash2 className="h-4 w-4 mr-1.5" />
+                                Excluir
+                              </Button>
                             )}
                           </div>
                         </TableCell>
@@ -565,6 +591,12 @@ export default function Treinamento() {
                     )}
                   </div>
                 )}
+                {attendeesPorVisita?.get(v.id)?.map(a => (
+                  <div key={a.id} className="text-sm">
+                    {a.nome}
+                    {a.telefone && <span className="text-muted-foreground"> — {a.telefone}</span>}
+                  </div>
+                ))}
               </div>
             ))}
           </div>
@@ -578,7 +610,7 @@ export default function Treinamento() {
       >
         <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Concluir Treinamento</DialogTitle>
+            <DialogTitle>Concluir Treinamento de Manutenção</DialogTitle>
             <DialogDescription>
               {concluindoVisita
                 ? `${clientesMap?.get(concluindoVisita.cliente_id)?.nome ?? 'Cliente'} — marque todos os itens e informe quem recebeu o treinamento.`
@@ -606,7 +638,7 @@ export default function Treinamento() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Excluir visita de treinamento?</AlertDialogTitle>
+            <AlertDialogTitle>Excluir visita de Treinamento de Manutenção?</AlertDialogTitle>
             <AlertDialogDescription>
               Esta ação não pode ser desfeita. As respostas de checklist vinculadas, se houver,
               serão excluídas junto.

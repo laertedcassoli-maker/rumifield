@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { CheckCircle2, CloudOff, GraduationCap, Loader2 } from 'lucide-react';
+import { CheckCircle2, CloudOff, GraduationCap, Loader2, Plus, Trash2 } from 'lucide-react';
 import { useOfflineTrainingChecklist } from '@/hooks/useOfflineTrainingChecklist';
 import type { OfflineTrainingTemplate } from '@/lib/offline-checklist-db';
 
@@ -48,6 +48,9 @@ export default function TrainingChecklistExecution({
     updateTrainingVisit,
     setResponse,
     getResponses,
+    addAttendee,
+    removeAttendee,
+    getAttendees,
     getTrainingVisit,
     completeTraining,
     cacheTemplates,
@@ -66,6 +69,8 @@ export default function TrainingChecklistExecution({
   const [cachedTemplates, setCachedTemplates] = useState<OfflineTrainingTemplate[]>([]);
   const [loadingVisit, setLoadingVisit] = useState(false);
   const [visitHadTemplate, setVisitHadTemplate] = useState(false);
+  /** Pessoas treinadas adicionais (além da primeira, que fica em contact_name/phone) */
+  const [extras, setExtras] = useState<{ id?: string; nome: string; telefone: string }[]>([]);
 
   // Modo "visita existente": carrega a visita, pré-preenche contato/checklist e respostas
   useEffect(() => {
@@ -91,13 +96,18 @@ export default function TrainingChecklistExecution({
             return acc;
           }, {})
         );
+        const savedAttendees = await getAttendees(visit.id);
+        if (!active) return;
+        setExtras(
+          savedAttendees.map(a => ({ id: a.id, nome: a.nome, telefone: a.telefone ?? '' }))
+        );
       } catch (error) {
         console.error(error);
         if (active) {
           toast.error(
             error instanceof Error && error.message.includes('offline')
               ? error.message
-              : 'Não foi possível carregar a visita de treinamento.'
+              : 'Não foi possível carregar a visita de Treinamento de Manutenção.'
           );
         }
       } finally {
@@ -107,7 +117,7 @@ export default function TrainingChecklistExecution({
     return () => {
       active = false;
     };
-  }, [existingVisitId, getTrainingVisit, getResponses]);
+  }, [existingVisitId, getTrainingVisit, getResponses, getAttendees]);
 
   // Templates ativos com blocos e itens. Quando online, alimenta o cache offline.
   const { data: templates, isLoading: templatesLoading } = useQuery({
@@ -205,7 +215,7 @@ export default function TrainingChecklistExecution({
         );
       } catch (error) {
         console.error(error);
-        toast.error('Não foi possível iniciar o treinamento.');
+        toast.error('Não foi possível iniciar o Treinamento de Manutenção.');
       } finally {
         setCreating(false);
       }
@@ -238,7 +248,7 @@ export default function TrainingChecklistExecution({
 
   const handleComplete = async () => {
     if (!visitId) {
-      toast.error('Selecione o checklist do treinamento.');
+      toast.error('Selecione o checklist do Treinamento de Manutenção.');
       return;
     }
     if (!contactName.trim() || !contactPhone.trim()) {
@@ -254,8 +264,18 @@ export default function TrainingChecklistExecution({
       toast.error(`Marque todos os itens do checklist (${markedItems} de ${totalItems}).`);
       return;
     }
+    if (extras.some(e => !e.id && !e.nome.trim())) {
+      toast.error('Informe o nome das pessoas treinadas adicionadas ou remova as linhas vazias.');
+      return;
+    }
     setCompleting(true);
     try {
+      // Pessoas adicionais ainda não gravadas
+      for (const extra of extras) {
+        if (!extra.id && extra.nome.trim()) {
+          await addAttendee(visitId, extra.nome.trim(), extra.telefone.trim() || null);
+        }
+      }
       await completeTraining(visitId, {
         contactName: contactName.trim(),
         contactPhone: contactPhone.trim(),
@@ -267,15 +287,16 @@ export default function TrainingChecklistExecution({
       }
       setCompleted(true);
       queryClient.invalidateQueries({ queryKey: ['training-visits'] });
+      queryClient.invalidateQueries({ queryKey: ['training-visit-attendees'] });
       toast.success(
         isOnline
-          ? 'Treinamento concluído!'
-          : 'Treinamento salvo no aparelho. Será enviado quando houver conexão.'
+          ? 'Treinamento de Manutenção concluído!'
+          : 'Treinamento de Manutenção salvo no aparelho. Será enviado quando houver conexão.'
       );
       onCompleted?.();
     } catch (error) {
       console.error(error);
-      toast.error('Não foi possível concluir o treinamento.');
+      toast.error('Não foi possível concluir o Treinamento de Manutenção.');
     } finally {
       setCompleting(false);
     }
@@ -290,7 +311,7 @@ export default function TrainingChecklistExecution({
         <div className="flex flex-wrap items-center justify-between gap-2">
           <CardTitle className="flex items-center gap-2 text-base">
             <GraduationCap className="h-4 w-4" />
-            Treinamento
+            Treinamento de Manutenção
           </CardTitle>
           <div className="flex items-center gap-2">
             {!isOnline && (
@@ -315,7 +336,7 @@ export default function TrainingChecklistExecution({
       <CardContent className="space-y-4">
         {/* Checklist do treinamento */}
         <div className="space-y-2">
-          <Label>Checklist do treinamento *</Label>
+          <Label>Checklist do Treinamento de Manutenção *</Label>
           <Select
             value={templateId}
             onValueChange={handleSelectTemplate}
@@ -342,25 +363,91 @@ export default function TrainingChecklistExecution({
         </div>
 
         {/* Dados de quem recebeu o treinamento */}
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div className="space-y-2 min-w-0">
-            <Label>Nome do responsável treinado *</Label>
-            <Input
-              value={contactName}
-              onChange={e => setContactName(e.target.value)}
-              placeholder="Quem recebeu o treinamento"
-              disabled={completed}
-            />
+        <div className="space-y-3">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-2 min-w-0">
+              <Label>Nome do responsável treinado *</Label>
+              <Input
+                value={contactName}
+                onChange={e => setContactName(e.target.value)}
+                placeholder="Quem recebeu o treinamento"
+                disabled={completed}
+              />
+            </div>
+            <div className="space-y-2 min-w-0">
+              <Label>Telefone *</Label>
+              <Input
+                value={contactPhone}
+                onChange={e => setContactPhone(e.target.value)}
+                placeholder="(00) 00000-0000"
+                disabled={completed}
+              />
+            </div>
           </div>
-          <div className="space-y-2 min-w-0">
-            <Label>Telefone *</Label>
-            <Input
-              value={contactPhone}
-              onChange={e => setContactPhone(e.target.value)}
-              placeholder="(00) 00000-0000"
-              disabled={completed}
-            />
-          </div>
+
+          {extras.map((extra, index) => (
+            <div key={extra.id ?? `novo-${index}`} className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-2 min-w-0">
+                <Label>Nome da pessoa treinada *</Label>
+                <Input
+                  value={extra.nome}
+                  onChange={e =>
+                    setExtras(prev =>
+                      prev.map((p, i) => (i === index ? { ...p, nome: e.target.value } : p))
+                    )
+                  }
+                  placeholder="Outra pessoa treinada"
+                  disabled={completed || !!extra.id}
+                />
+              </div>
+              <div className="flex items-end gap-2 min-w-0">
+                <div className="space-y-2 min-w-0 flex-1">
+                  <Label>Telefone</Label>
+                  <Input
+                    value={extra.telefone}
+                    onChange={e =>
+                      setExtras(prev =>
+                        prev.map((p, i) => (i === index ? { ...p, telefone: e.target.value } : p))
+                      )
+                    }
+                    placeholder="(00) 00000-0000"
+                    disabled={completed || !!extra.id}
+                  />
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  disabled={completed}
+                  onClick={async () => {
+                    if (extra.id) {
+                      try {
+                        await removeAttendee(extra.id);
+                      } catch (error) {
+                        console.error(error);
+                        toast.error('Não foi possível remover a pessoa treinada.');
+                        return;
+                      }
+                    }
+                    setExtras(prev => prev.filter((_, i) => i !== index));
+                  }}
+                >
+                  <Trash2 className="h-4 w-4 text-destructive" />
+                </Button>
+              </div>
+            </div>
+          ))}
+
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={completed}
+            onClick={() => setExtras(prev => [...prev, { nome: '', telefone: '' }])}
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Adicionar pessoa treinada
+          </Button>
         </div>
 
         {/* Itens do checklist */}
@@ -411,7 +498,7 @@ export default function TrainingChecklistExecution({
 
         <Button onClick={handleComplete} disabled={completing || completed} className="w-full sm:w-auto">
           {completing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          Concluir Treinamento
+          Concluir Treinamento de Manutenção
         </Button>
       </CardContent>
     </Card>

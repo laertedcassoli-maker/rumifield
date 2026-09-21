@@ -6,6 +6,7 @@ import {
   OfflineTrainingVisit,
   OfflineTrainingChecklistResponse,
   OfflineTrainingTemplate,
+  OfflineTrainingAttendee,
 } from "@/lib/offline-checklist-db";
 import { reportDeadLetter } from "@/lib/reportDeadLetter";
 import { toast } from "sonner";
@@ -80,6 +81,18 @@ export function useOfflineTrainingChecklist() {
           });
         if (error && error.code !== "23505") throw error;
         await offlineChecklistDb.trainingChecklistResponses.update(id, { _pendingSync: false });
+      } else if (table === "training_visit_attendees") {
+        const id = cleanData.id as string;
+        if (operation === "delete") {
+          const { error } = await supabase.from("training_visit_attendees").delete().eq("id", id);
+          if (error) throw error;
+        } else {
+          const { error } = await supabase
+            .from("training_visit_attendees")
+            .upsert(cleanData as never, { onConflict: "id" });
+          if (error && error.code !== "23505") throw error;
+          await offlineChecklistDb.trainingAttendees.update(id, { _pendingSync: false });
+        }
       } else {
         throw new Error(`Tabela sem handler no treinamento: ${table}`);
       }
@@ -287,6 +300,34 @@ export function useOfflineTrainingChecklist() {
     return offlineChecklistDb.getTrainingResponses(visitId);
   }, []);
 
+  /** Adiciona uma pessoa treinada (offline-first) e devolve o registro local */
+  const addAttendee = useCallback(
+    async (visitId: string, nome: string, telefone: string | null) => {
+      const record: OfflineTrainingAttendee = {
+        id: crypto.randomUUID(),
+        training_visit_id: visitId,
+        nome,
+        telefone: telefone || null,
+      };
+      await offlineChecklistDb.addTrainingAttendeeLocally(record);
+      await afterLocalWrite();
+      return record;
+    },
+    [afterLocalWrite]
+  );
+
+  const removeAttendee = useCallback(
+    async (attendeeId: string) => {
+      await offlineChecklistDb.removeTrainingAttendeeLocally(attendeeId);
+      await afterLocalWrite();
+    },
+    [afterLocalWrite]
+  );
+
+  const getAttendees = useCallback(async (visitId: string) => {
+    return offlineChecklistDb.getTrainingAttendees(visitId);
+  }, []);
+
   /**
    * Carrega uma visita já existente (fluxo avulso). Online: busca no servidor,
    * cacheia localmente e traz também as respostas já salvas. Offline: lê o cache.
@@ -314,6 +355,13 @@ export function useOfflineTrainingChecklist() {
         await offlineChecklistDb.cacheTrainingResponses(
           (resp ?? []) as OfflineTrainingChecklistResponse[]
         );
+
+        const { data: att, error: attError } = await supabase
+          .from("training_visit_attendees")
+          .select("id, training_visit_id, nome, telefone")
+          .eq("training_visit_id", visitId);
+        if (attError) throw attError;
+        await offlineChecklistDb.cacheTrainingAttendees((att ?? []) as OfflineTrainingAttendee[]);
         return visit;
       }
 
@@ -352,6 +400,9 @@ export function useOfflineTrainingChecklist() {
     createTrainingVisit,
     updateTrainingVisit,
     setResponse,
+    addAttendee,
+    removeAttendee,
+    getAttendees,
     getResponses,
     getTrainingVisit,
     completeTraining,
