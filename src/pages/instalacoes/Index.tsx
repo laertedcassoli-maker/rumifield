@@ -289,6 +289,16 @@ export default function InstalacoesIndex() {
     enabled: !!stageDialog,
   });
 
+  // Pré Instalação sempre usa o mesmo checklist — pré-selecionado pelo nome do catálogo
+  const preInstalacaoTemplateId =
+    (templates as any[] | undefined)?.find(t => t.name === 'CheckList - Pré Instalação')?.id ?? '';
+  const effectiveStageTemplateId =
+    stageTemplateId ||
+    (stageDialog?.stage === 'pre_instalacao' && !stageDialog?.existing?.checklist_template_id
+      ? preInstalacaoTemplateId
+      : '');
+
+
   const createInstallationMutation = useMutation({
     mutationFn: async (clientId: string) => {
       const { data, error } = await (supabase as any)
