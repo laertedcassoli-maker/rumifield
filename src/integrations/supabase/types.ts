@@ -3887,6 +3887,38 @@ export type Database = {
           },
         ]
       }
+      training_visit_attendees: {
+        Row: {
+          created_at: string
+          id: string
+          nome: string
+          telefone: string | null
+          training_visit_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          nome: string
+          telefone?: string | null
+          training_visit_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          nome?: string
+          telefone?: string | null
+          training_visit_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "training_visit_attendees_training_visit_id_fkey"
+            columns: ["training_visit_id"]
+            isOneToOne: false
+            referencedRelation: "training_visits"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       training_visits: {
         Row: {
           checklist_template_id: string | null
