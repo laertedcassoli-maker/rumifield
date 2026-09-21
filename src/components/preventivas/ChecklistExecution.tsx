@@ -965,9 +965,46 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
       let removedParts = false;
 
       try {
-        // Local-first write (queues for sync when offline)
-        await offlineToggleAction(itemId, actionId, actionLabel, isSelected);
-        if (online) await syncPendingChanges();
+        if (online) {
+          if (isSelected) {
+            const { error: delErr } = await supabase
+              .from('preventive_checklist_item_actions')
+              .delete()
+              .eq('exec_item_id', itemId)
+              .eq('template_action_id', actionId);
+            if (delErr) throw delErr;
+            try {
+              await offlineChecklistDb.checklistActions
+                .where('exec_item_id').equals(itemId)
+                .filter(a => a.template_action_id === actionId)
+                .delete();
+            } catch (e) { console.warn('[ChecklistExecution] cache local (ação)', e); }
+          } else {
+            const { data: insData, error: insErr } = await supabase
+              .from('preventive_checklist_item_actions')
+              .insert({
+                exec_item_id: itemId,
+                template_action_id: actionId,
+                action_label_snapshot: actionLabel
+              } as never)
+              .select('id');
+            if (insErr) throw insErr;
+            if (!insData || insData.length === 0) throw new Error('Ação não salva — verifique permissões');
+            try {
+              await offlineChecklistDb.checklistActions.put({
+                id: insData[0].id,
+                exec_item_id: itemId,
+                template_action_id: actionId,
+                action_label_snapshot: actionLabel,
+                selected_at: new Date().toISOString(),
+                _pendingSync: false,
+              });
+            } catch (e) { console.warn('[ChecklistExecution] cache local (ação)', e); }
+          }
+        } else {
+          // Offline: local write + sync queue
+          await offlineToggleAction(itemId, actionId, actionLabel, isSelected);
+        }
 
         // Part consumption side-effects (online only — parts require connection)
         const isTrocaAction = actionLabel.toLowerCase().includes('troca');
