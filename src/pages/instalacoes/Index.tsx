@@ -89,6 +89,13 @@ export default function InstalacoesIndex() {
   const { user, role } = useAuth();
   const isTecnicoCampo = role === 'tecnico_campo';
   const canManage = !isTecnicoCampo;
+  // Exclusão por etapa (adicional à exclusão da instalação inteira)
+  const podeExcluirEtapaInstalacao = role === 'admin' || role === 'coordenador_servicos';
+  const podeGerenciarPreInstalacao =
+    role === 'admin' ||
+    role === 'coordenador_servicos' ||
+    role === 'coordenador_rplus' ||
+    role === 'consultor_rplus';
 
   // Optional stage filter via URL: /instalacoes?etapa=pre_venda|pre_instalacao|instalacao
   const [searchParams] = useSearchParams();
