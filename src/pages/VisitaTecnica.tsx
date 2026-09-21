@@ -292,6 +292,34 @@ export default function VisitaTecnica() {
     },
   });
 
+  // Exclusão direta da lista — delete simples conforme o tipo da visita
+  const deleteVisitaMutation = useMutation({
+    mutationFn: async (visita: VisitaItem) => {
+      const table = visita.tipo === 'corretiva' ? 'ticket_visits' : 'preventive_route_items';
+      const { data, error: delError } = await supabase
+        .from(table)
+        .delete()
+        .eq('id', visita.id)
+        .select('id');
+      if (delError) throw delError;
+      if (!data || data.length === 0) {
+        throw new Error('Nenhum registro removido. Verifique suas permissões.');
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['visita-tecnica'] });
+      setVisitaParaExcluir(null);
+      toast({ title: 'Visita excluída' });
+    },
+    onError: (err: any) => {
+      toast({
+        title: 'Erro ao excluir visita',
+        description: err?.message || 'Tente novamente.',
+        variant: 'destructive',
+      });
+    },
+  });
+
   useEffect(() => {
     if (error) {
       toast({
