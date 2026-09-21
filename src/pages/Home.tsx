@@ -45,7 +45,7 @@ export default function Home() {
     {
       title: 'Minhas Rotas',
       icon: Navigation,
-      url: '/preventivas/minhas-rotas',
+      url: '/visita-tecnica?meu=1&status=pendente',
       color: 'text-emerald-600',
       bgColor: 'bg-emerald-100 dark:bg-emerald-900/30',
       permKey: 'minhas_rotas',

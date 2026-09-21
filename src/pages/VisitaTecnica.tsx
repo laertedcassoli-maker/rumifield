@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -12,8 +12,10 @@ import {
   ChevronRight,
   Eye,
   Loader2,
+  Map as MapIcon,
   Plus,
   Search,
+  User,
   Wrench,
   XCircle,
 } from 'lucide-react';
@@ -25,6 +27,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   Table,
   TableBody,
@@ -40,6 +43,8 @@ import { ptBR } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
 
 type TipoVisita = 'corretiva' | 'preventiva';
+type OwnerFilter = 'minhas' | 'todas';
+type SituacaoFilter = 'pendentes' | 'concluidas' | 'todas';
 
 interface VisitaItem {
   id: string;
@@ -48,12 +53,19 @@ interface VisitaItem {
   clienteId: string | null;
   clienteNome: string;
   fazenda: string | null;
+  tecnicoUserId: string | null;
   tecnicoNome: string | null;
+  clienteLat: number | null;
+  clienteLon: number | null;
   dataPlanejada: string | null;
   dataRealizada: string | null;
   status: string;
   linkTo: string;
 }
+
+const CONCLUIDO_STATUS = ['finalizada', 'executado'];
+const DEFAULT_ORIGIN = { lat: -22.7249, lon: -47.6476, name: 'Piracicaba/SP' };
+
 
 const STATUS_LABELS: Record<string, string> = {
   em_elaboracao: 'Em elaboração',
@@ -93,12 +105,33 @@ async function fetchProfilesMap(ids: string[]) {
   return new Map<string, string>((data ?? []).map(p => [p.id as string, p.nome as string]));
 }
 
+interface ClienteInfo {
+  nome: string;
+  fazenda: string | null;
+  latitude: number | null;
+  longitude: number | null;
+}
+
 async function fetchClientesMap(ids: string[]) {
   const unique = [...new Set(ids.filter(Boolean))];
-  if (!unique.length) return new Map<string, { nome: string; fazenda: string | null }>();
-  const { data } = await supabase.from('clientes').select('id, nome, fazenda').in('id', unique);
-  return new Map((data ?? []).map(c => [c.id, { nome: c.nome, fazenda: c.fazenda ?? null }]));
+  if (!unique.length) return new Map<string, ClienteInfo>();
+  const { data } = await supabase
+    .from('clientes')
+    .select('id, nome, fazenda, latitude, longitude')
+    .in('id', unique);
+  return new Map<string, ClienteInfo>(
+    (data ?? []).map(c => [
+      c.id,
+      {
+        nome: c.nome,
+        fazenda: c.fazenda ?? null,
+        latitude: c.latitude ?? null,
+        longitude: c.longitude ?? null,
+      },
+    ]),
+  );
 }
+
 
 /**
  * Visita Técnica — leitura/navegação das idas presenciais à fazenda:
@@ -107,9 +140,12 @@ async function fetchClientesMap(ids: string[]) {
  */
 export default function VisitaTecnica() {
   const navigate = useNavigate();
-  const { role } = useAuth();
+  const { role, user } = useAuth();
   const { toast } = useToast();
+  const [searchParams] = useSearchParams();
   const canAbrirVisita = role === 'admin' || role === 'coordenador_servicos' || role === 'coordenador_rplus';
+  const isTecnico = role === 'tecnico_campo' || role === 'tecnico_oficina';
+  const podeFiltrarPorTecnico = canAbrirVisita;
   const [novaVisitaOpen, setNovaVisitaOpen] = useState(false);
   const [filtroTipo, setFiltroTipo] = useState<'all' | TipoVisita>('all');
   const [search, setSearch] = useState('');
@@ -119,6 +155,38 @@ export default function VisitaTecnica() {
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [datePopoverOpen, setDatePopoverOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const [ownerFilter, setOwnerFilter] = useState<OwnerFilter>(() =>
+    searchParams.get('meu') === '1' || isTecnico ? 'minhas' : 'todas',
+  );
+  const [tecnicoFilter, setTecnicoFilter] = useState('all');
+  const [situacaoFilter, setSituacaoFilter] = useState<SituacaoFilter>(() =>
+    searchParams.get('status') === 'pendente' ? 'pendentes' : 'todas',
+  );
+
+  const { data: userProfile } = useQuery({
+    queryKey: ['user-profile-cidade-base', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return null;
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('cidade_base, cidade_base_lat, cidade_base_lon')
+        .eq('id', user.id)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user?.id,
+  });
+
+  const userOrigin = userProfile?.cidade_base_lat && userProfile?.cidade_base_lon
+    ? { lat: userProfile.cidade_base_lat, lon: userProfile.cidade_base_lon, name: userProfile.cidade_base || 'Minha cidade' }
+    : userProfile?.cidade_base
+      ? { ...DEFAULT_ORIGIN, name: userProfile.cidade_base }
+      : DEFAULT_ORIGIN;
+
+  const buildSingleDestinationUrl = (lat: number, lon: number) =>
+    `https://www.google.com/maps/dir/${userOrigin.lat},${userOrigin.lon}/${lat},${lon}`;
+
 
   const { data: visitas, isLoading, error } = useQuery({
     queryKey: ['visita-tecnica'],
@@ -162,7 +230,11 @@ export default function VisitaTecnica() {
           clienteId: r.client_id ?? null,
           clienteNome: cliente?.nome ?? 'Cliente',
           fazenda: cliente?.fazenda ?? null,
+          clienteLat: cliente?.latitude ?? null,
+          clienteLon: cliente?.longitude ?? null,
+          tecnicoUserId: r.field_technician_user_id ?? null,
           tecnicoNome: r.field_technician_user_id ? profiles.get(r.field_technician_user_id) ?? null : null,
+
           dataPlanejada: r.planned_start_date ?? null,
           dataRealizada: r.checkout_at ?? null,
           status: r.status,
@@ -180,7 +252,11 @@ export default function VisitaTecnica() {
           clienteId: r.client_id ?? null,
           clienteNome: cliente?.nome ?? 'Cliente',
           fazenda: cliente?.fazenda ?? null,
+          clienteLat: cliente?.latitude ?? null,
+          clienteLon: cliente?.longitude ?? null,
+          tecnicoUserId: techId,
           tecnicoNome: techId ? profiles.get(techId) ?? null : null,
+
           dataPlanejada: r.planned_date ?? null,
           dataRealizada: r.checkin_at ?? null,
           status: r.status,
@@ -225,6 +301,18 @@ export default function VisitaTecnica() {
       .sort((a, b) => a.label.localeCompare(b.label));
   }, [lista]);
 
+  const uniqueTechnicians = useMemo(() => {
+    const map = new Map<string, string>();
+    lista.forEach(v => {
+      if (v.tecnicoUserId && !map.has(v.tecnicoUserId)) {
+        map.set(v.tecnicoUserId, v.tecnicoNome ?? 'Técnico');
+      }
+    });
+    return [...map.entries()]
+      .map(([id, label]) => ({ id, label }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+  }, [lista]);
+
   const selectedClientLabel = clientFilter === 'all'
     ? 'Todos os produtores'
     : uniqueClients.find(c => c.id === clientFilter)?.label ?? 'Todos os produtores';
@@ -235,6 +323,13 @@ export default function VisitaTecnica() {
       if (filtroTipo !== 'all' && v.tipo !== filtroTipo) return false;
       if (statusFilter !== 'all' && v.status !== statusFilter) return false;
       if (clientFilter !== 'all' && v.clienteId !== clientFilter) return false;
+      if (ownerFilter === 'minhas' && v.tecnicoUserId !== user?.id) return false;
+      if (ownerFilter === 'todas' && tecnicoFilter !== 'all' && v.tecnicoUserId !== tecnicoFilter) return false;
+      if (situacaoFilter !== 'todas') {
+        const concluida = CONCLUIDO_STATUS.includes(v.status);
+        if (situacaoFilter === 'concluidas' && !concluida) return false;
+        if (situacaoFilter === 'pendentes' && concluida) return false;
+      }
       if (termo) {
         const alvo = [v.codigo, v.clienteNome, v.fazenda ?? '', v.tecnicoNome ?? '']
           .join(' ')
@@ -253,7 +348,8 @@ export default function VisitaTecnica() {
       }
       return true;
     });
-  }, [lista, filtroTipo, statusFilter, clientFilter, search, dateRange]);
+  }, [lista, filtroTipo, statusFilter, clientFilter, search, dateRange, ownerFilter, tecnicoFilter, situacaoFilter, user?.id]);
+
 
   const totalPages = Math.max(1, Math.ceil(filtradas.length / ITEMS_PER_PAGE));
   const paginadas = useMemo(
@@ -332,7 +428,65 @@ export default function VisitaTecnica() {
         </Card>
       </div>
 
+      {/* Owner / técnico / situação */}
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          variant={ownerFilter === 'minhas' ? 'default' : 'outline'}
+          size="sm"
+          className="shrink-0 gap-1"
+          onClick={() => { setOwnerFilter('minhas'); setCurrentPage(1); }}
+        >
+          <User className="h-3 w-3" />
+          Minhas
+        </Button>
+        <Button
+          variant={ownerFilter === 'todas' ? 'default' : 'outline'}
+          size="sm"
+          className="shrink-0"
+          onClick={() => { setOwnerFilter('todas'); setCurrentPage(1); }}
+        >
+          Todas as visitas
+        </Button>
+
+        {podeFiltrarPorTecnico && (
+          <Select
+            value={tecnicoFilter}
+            onValueChange={v => { setTecnicoFilter(v); setCurrentPage(1); }}
+            disabled={ownerFilter === 'minhas'}
+          >
+            <SelectTrigger className="w-full sm:w-[220px]">
+              <SelectValue placeholder="Técnico" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os técnicos</SelectItem>
+              {uniqueTechnicians.map(t => (
+                <SelectItem key={t.id} value={t.id}>{t.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+
+        <div className="flex items-center gap-2 sm:ml-auto">
+          {([
+            { key: 'pendentes', label: 'Pendentes' },
+            { key: 'concluidas', label: 'Concluídas' },
+            { key: 'todas', label: 'Todas' },
+          ] as const).map(opt => (
+            <Button
+              key={opt.key}
+              variant={situacaoFilter === opt.key ? 'default' : 'outline'}
+              size="sm"
+              className="shrink-0"
+              onClick={() => { setSituacaoFilter(opt.key); setCurrentPage(1); }}
+            >
+              {opt.label}
+            </Button>
+          ))}
+        </div>
+      </div>
+
       {/* Filters */}
+
       <div className="flex flex-col md:flex-row gap-4">
         <div className="relative flex-1 min-w-0">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
@@ -457,6 +611,8 @@ export default function VisitaTecnica() {
                   <TableHead>Planejada</TableHead>
                   <TableHead>Realizada</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Mapa</TableHead>
+
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
@@ -485,6 +641,39 @@ export default function VisitaTecnica() {
                         {STATUS_LABELS[v.status] ?? v.status}
                       </Badge>
                     </TableCell>
+                    <TableCell>
+                      {v.clienteLat && v.clienteLon ? (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <a
+                              href={buildSingleDestinationUrl(v.clienteLat, v.clienteLon)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 rounded-md p-1 hover:bg-muted transition-colors"
+                            >
+                              <MapIcon className="h-4 w-4 text-primary" />
+                            </a>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Ver no Google Maps</p>
+                            <p className="text-xs text-muted-foreground">Saindo de {userOrigin.name}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      ) : (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="inline-flex items-center gap-1 rounded-md p-1 cursor-not-allowed">
+                              <MapIcon className="h-4 w-4 text-muted-foreground/40" />
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Mapa indisponível</p>
+                            <p className="text-xs text-muted-foreground">Cliente sem coordenadas cadastradas</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
+                    </TableCell>
+
                     <TableCell className="text-right">
                       <Button variant="ghost" size="sm" onClick={() => navigate(v.linkTo)}>
                         <Eye className="h-4 w-4" />
