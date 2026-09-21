@@ -635,6 +635,9 @@ export default function InstalacoesIndex() {
                               <span className="flex items-center gap-1">
                                 <CalendarDays className="h-3 w-3" />
                                 {new Date(stage.planned_date + 'T12:00:00').toLocaleDateString('pt-BR')}
+                                {stage.planned_date_end
+                                  ? ` – ${new Date(stage.planned_date_end + 'T12:00:00').toLocaleDateString('pt-BR')}`
+                                  : ''}
                               </span>
                             )}
                           </div>
