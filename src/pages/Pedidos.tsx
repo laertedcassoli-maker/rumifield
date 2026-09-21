@@ -895,18 +895,17 @@ export default function Pedidos() {
   const assetItens = itens
     .map((item, index) => ({ index, item, peca: pecas?.find(p => p.id === item.peca_id) }))
     .filter(entry => !!entry.peca?.is_asset);
-  // Ativos exigidos na criação: Coleta Reversa (manual) e Envio com coleta reversa automática —
-  // Envio comum vincula ativo só no Processar
-  const requiresAssetsOnCreate =
-    !editingPedido &&
-    (form.tipo_solicitacao === 'coleta_reversa' ||
-      (form.tipo_solicitacao === 'envio' && geraColetaReversaAtivo)) &&
-    assetItens.length > 0;
   // Envio com ativo controlado (pecas.is_asset) sempre gera coleta reversa automática
   const coletaReversaObrigatoria =
     !editingPedido && form.tipo_solicitacao === 'envio' && assetItens.length > 0;
   const geraColetaReversaAtivo =
     form.tipo_solicitacao === 'envio' && (form.gera_coleta_reversa || coletaReversaObrigatoria);
+  // Ativos exigidos na criação: Coleta Reversa (manual) e Envio com coleta reversa automática —
+  // Envio comum vincula ativo só no Processar
+  const requiresAssetsOnCreate =
+    !editingPedido &&
+    (form.tipo_solicitacao === 'coleta_reversa' || geraColetaReversaAtivo) &&
+    assetItens.length > 0;
   const missingAssetItem = assetItens.find(entry => (itemAssets[entry.index] || []).filter(Boolean).length === 0);
 
   const assetsByPecaId = () => {
