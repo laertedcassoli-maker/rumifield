@@ -873,12 +873,14 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
 
           // Local-first removal (queues the delete when offline)
           await offlineToggleNonconformity(itemId, nonconformityId, nonconformityLabel, true);
+          if (online) await syncPendingChanges();
         } else {
           // Local-first insert (queues when offline)
           await offlineToggleNonconformity(itemId, nonconformityId, nonconformityLabel, false);
 
           // NC being ADDED → create part consumption if Troca active (online only)
           if (online) {
+            await syncPendingChanges();
             const { data: inserted } = await supabase
               .from('preventive_checklist_item_nonconformities')
               .select('id')
