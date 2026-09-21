@@ -43,12 +43,20 @@ export default function Home() {
   // All possible menu items with permission keys
   const allMainMenuItems: MenuItem[] = [
     {
-      title: 'Minhas Rotas',
+      title: 'Minhas Visitas',
       icon: Navigation,
       url: '/visita-tecnica?meu=1&status=pendente',
       color: 'text-emerald-600',
       bgColor: 'bg-emerald-100 dark:bg-emerald-900/30',
       permKey: 'minhas_rotas',
+    },
+    {
+      title: 'Treinamentos',
+      icon: GraduationCap,
+      url: '/treinamento',
+      color: 'text-fuchsia-600',
+      bgColor: 'bg-fuchsia-100 dark:bg-fuchsia-900/30',
+      permKey: 'treinamento',
     },
     {
       title: 'Chamados',
@@ -180,7 +188,7 @@ export default function Home() {
       permKey: 'admin_permissoes',
     },
     {
-      title: 'Envios',
+      title: 'Envios Químicos',
       icon: Truck,
       url: '/admin/envios',
       color: 'text-orange-600',
@@ -188,19 +196,11 @@ export default function Home() {
       permKey: 'admin_envios',
     },
     {
-      title: 'Cadastros',
+      title: 'Configurações Gerais',
       icon: Settings,
       url: '/admin/config',
       color: 'text-gray-600',
       bgColor: 'bg-gray-100 dark:bg-gray-900/30',
-      permKey: 'admin_cadastros',
-    },
-    {
-      title: 'Configurações',
-      icon: Settings,
-      url: '/admin/config?tab=config',
-      color: 'text-slate-600',
-      bgColor: 'bg-slate-100 dark:bg-slate-900/30',
       permKey: 'admin_cadastros',
     },
     {
