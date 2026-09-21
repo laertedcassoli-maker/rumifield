@@ -19,6 +19,8 @@ import ChecklistBlockNav from "./ChecklistBlockNav";
 import ChecklistItemNotes from "./ChecklistItemNotes";
 import { useCanEditCompletedChecklist } from "@/hooks/useCanEditCompletedChecklist";
 import { useMenuPermissions } from "@/hooks/useMenuPermissions";
+import { useOfflineChecklist } from "@/hooks/useOfflineChecklist";
+import { offlineChecklistDb } from "@/lib/offline-checklist-db";
 
 interface ChecklistExecutionProps {
   preventiveId: string;
@@ -115,6 +117,20 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
       window.removeEventListener('offline', handleOffline);
     };
   }, []);
+
+  // Offline-first persistence for item answers, actions and nonconformities
+  const {
+    updateItem: offlineUpdateItem,
+    toggleAction: offlineToggleAction,
+    toggleNonconformity: offlineToggleNonconformity,
+    cacheChecklistData,
+    syncPendingChanges,
+    triggerSync,
+    pendingCount,
+    syncStatus,
+  } = useOfflineChecklist();
+
+
 
   // Get existing checklist for this preventive
   const { data: existingChecklist, isLoading: loadingChecklist } = useQuery({
