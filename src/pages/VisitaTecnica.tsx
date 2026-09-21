@@ -641,6 +641,39 @@ export default function VisitaTecnica() {
                         {STATUS_LABELS[v.status] ?? v.status}
                       </Badge>
                     </TableCell>
+                    <TableCell>
+                      {v.clienteLat && v.clienteLon ? (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <a
+                              href={buildSingleDestinationUrl(v.clienteLat, v.clienteLon)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex items-center gap-1 rounded-md p-1 hover:bg-muted transition-colors"
+                            >
+                              <MapIcon className="h-4 w-4 text-primary" />
+                            </a>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Ver no Google Maps</p>
+                            <p className="text-xs text-muted-foreground">Saindo de {userOrigin.name}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      ) : (
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="inline-flex items-center gap-1 rounded-md p-1 cursor-not-allowed">
+                              <MapIcon className="h-4 w-4 text-muted-foreground/40" />
+                            </span>
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Mapa indisponível</p>
+                            <p className="text-xs text-muted-foreground">Cliente sem coordenadas cadastradas</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
+                    </TableCell>
+
                     <TableCell className="text-right">
                       <Button variant="ghost" size="sm" onClick={() => navigate(v.linkTo)}>
                         <Eye className="h-4 w-4" />
