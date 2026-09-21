@@ -117,7 +117,7 @@ export default function TrainingChecklistExecution({
     return () => {
       active = false;
     };
-  }, [existingVisitId, getTrainingVisit, getResponses]);
+  }, [existingVisitId, getTrainingVisit, getResponses, getAttendees]);
 
   // Templates ativos com blocos e itens. Quando online, alimenta o cache offline.
   const { data: templates, isLoading: templatesLoading } = useQuery({
