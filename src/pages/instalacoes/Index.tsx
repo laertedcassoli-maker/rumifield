@@ -338,6 +338,31 @@ export default function InstalacoesIndex() {
     },
   });
 
+  // Exclusão de uma etapa isolada (não da instalação inteira)
+  const deleteStageMutation = useMutation({
+    mutationFn: async (stageId: string) => {
+      const { data, error } = await (supabase as any)
+        .from('installation_stages')
+        .delete()
+        .eq('id', stageId)
+        .select('id');
+      if (error) throw error;
+      if (!data || data.length === 0) {
+        throw new Error('A exclusão não foi confirmada pelo servidor. Verifique suas permissões e tente novamente.');
+      }
+      return data;
+    },
+    onSuccess: () => {
+      track('installation_stage_deleted', { stage: etapaParaExcluir?.stage.stage }, { entity: 'installation_stage', entity_id: etapaParaExcluir?.stage.id });
+      queryClient.invalidateQueries({ queryKey: ['installations'] });
+      toast.success('Etapa excluída!');
+      setEtapaParaExcluir(null);
+    },
+    onError: (error: any) => {
+      toast.error('Erro ao excluir etapa: ' + (error?.message || ''));
+    },
+  });
+
   const saveStageMutation = useMutation({
     mutationFn: async () => {
       if (!stageDialog) return;
