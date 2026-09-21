@@ -787,6 +787,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
       }
     },
     onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['preventive-checklist-offline', preventiveId] });
       queryClient.setQueryData(['preventive-checklist', preventiveId], (old: any) => {
         if (!old) return old;
         return {
@@ -1037,6 +1038,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
       return { createdParts, removedParts };
     },
     onSuccess: (result, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['preventive-checklist-offline', preventiveId] });
       // Update checklist cache in-place
       queryClient.setQueryData(['preventive-checklist', preventiveId], (old: any) => {
         if (!old) return old;
@@ -1236,6 +1238,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
       return { createdParts, removedNcId };
     },
     onSuccess: (result, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['preventive-checklist-offline', preventiveId] });
       // Update checklist cache in-place
       queryClient.setQueryData(['preventive-checklist', preventiveId], (old: any) => {
         if (!old) return old;
