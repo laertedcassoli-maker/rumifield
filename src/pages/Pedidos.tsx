@@ -937,7 +937,7 @@ export default function Pedidos() {
     }
   };
 
-  const handleShowConfirmation = (e: React.FormEvent) => {
+  const handleShowConfirmation = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.cliente_id) {
       toast({ variant: 'destructive', title: 'Selecione um cliente' });
