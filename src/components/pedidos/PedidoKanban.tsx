@@ -216,18 +216,34 @@ export default function PedidoKanban({
       bgColor: 'bg-amber-50 dark:bg-amber-950/20',
       items: pendentes,
       // Processar pendência: admin/coordenador OU o responsável definido na criação
-      renderAction: (pedido: PedidoComItens) =>
-        onProcessarPendencia && (canManage || isResponsavelPendencia?.(pedido)) ? (
-          <Button
-            size="sm"
-            className="h-7 text-xs flex-1 gap-1"
-            onClick={() => setPendenciaPedidoId(pedido.id)}
-            disabled={isProcessing}
-          >
-            <ArrowRight className="h-3 w-3" />
-            Processar
-          </Button>
-        ) : null,
+      renderAction: (pedido: PedidoComItens) => (
+        <div className="flex items-center gap-1 flex-1">
+          {onProcessarPendencia && (canManage || isResponsavelPendencia?.(pedido)) && (
+            <Button
+              size="sm"
+              className="h-7 text-xs flex-1 gap-1"
+              onClick={() => setPendenciaPedidoId(pedido.id)}
+              disabled={isProcessing}
+            >
+              <ArrowRight className="h-3 w-3" />
+              Processar
+            </Button>
+          )}
+          {canDeleteAny && onDelete && (
+            <Button
+              size="icon"
+              variant="outline"
+              className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
+              onClick={() => onDelete(pedido)}
+              disabled={isProcessing}
+              title="Excluir pedido"
+              aria-label="Excluir pedido"
+            >
+              <Trash2 className="h-3 w-3" />
+            </Button>
+          )}
+        </div>
+      ),
     },
     {
       title: 'Em Processamento',
@@ -235,18 +251,35 @@ export default function PedidoKanban({
       color: 'text-orange-600',
       bgColor: 'bg-orange-50 dark:bg-orange-950/20',
       items: emProcessamento,
-      renderAction: (pedido: PedidoComItens) => canManage ? (
-        <Button
-          size="sm"
-          variant="default"
-          className="h-7 text-xs flex-1 gap-1 bg-green-600 hover:bg-green-700"
-          onClick={() => setConcluirPedidoId(pedido.id)}
-          disabled={isProcessing}
-        >
-          <CheckCircle2 className="h-3 w-3" />
-          Concluir
-        </Button>
-      ) : null,
+      renderAction: (pedido: PedidoComItens) => (
+        <div className="flex items-center gap-1 flex-1">
+          {canManage && (
+            <Button
+              size="sm"
+              variant="default"
+              className="h-7 text-xs flex-1 gap-1 bg-green-600 hover:bg-green-700"
+              onClick={() => setConcluirPedidoId(pedido.id)}
+              disabled={isProcessing}
+            >
+              <CheckCircle2 className="h-3 w-3" />
+              Concluir
+            </Button>
+          )}
+          {canDeleteAny && onDelete && (
+            <Button
+              size="icon"
+              variant="outline"
+              className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
+              onClick={() => onDelete(pedido)}
+              disabled={isProcessing}
+              title="Excluir pedido"
+              aria-label="Excluir pedido"
+            >
+              <Trash2 className="h-3 w-3" />
+            </Button>
+          )}
+        </div>
+      ),
     },
     {
       title: 'Concluído',
@@ -254,7 +287,21 @@ export default function PedidoKanban({
       color: 'text-green-600',
       bgColor: 'bg-green-50 dark:bg-green-950/20',
       items: concluidos,
-      renderAction: undefined,
+      renderAction: (pedido: PedidoComItens) => canDeleteAny && onDelete ? (
+        <div className="flex items-center gap-1 flex-1">
+          <Button
+            size="icon"
+            variant="outline"
+            className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
+            onClick={() => onDelete(pedido)}
+            disabled={isProcessing}
+            title="Excluir pedido"
+            aria-label="Excluir pedido"
+          >
+            <Trash2 className="h-3 w-3" />
+          </Button>
+        </div>
+      ) : null,
     },
   ];
 
