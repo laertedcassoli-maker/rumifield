@@ -1402,6 +1402,22 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
   };
 
   const getSyncStatusDisplay = () => {
+    if (!isOnline) {
+      return (
+        <div className="flex items-center gap-1.5 text-orange-500">
+          <WifiOff className="h-3 w-3" />
+          <span>Offline — respostas salvas no aparelho</span>
+        </div>
+      );
+    }
+    if (syncStatus === 'syncing') {
+      return (
+        <div className="flex items-center gap-1.5 text-muted-foreground">
+          <RefreshCw className="h-3 w-3 animate-spin" />
+          <span>Sincronizando...</span>
+        </div>
+      );
+    }
     if (isSavingNow) {
       return (
         <div className="flex items-center gap-1.5 text-muted-foreground">
