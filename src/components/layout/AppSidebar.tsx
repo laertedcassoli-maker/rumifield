@@ -156,8 +156,7 @@ export function AppSidebar() {
 
   // Admin > Cadastros submenu
   const adminCadastrosItems = [
-    { title: 'Produtos Químicos', icon: FlaskConical, url: '/admin/config?tab=quimicos', permKey: 'admin_cadastros' },
-    { title: 'Catálogo de Peças', icon: Box, url: '/admin/config?tab=pecas', permKey: 'admin_cadastros' },
+    { title: 'Configurações Gerais', icon: Settings, url: '/admin/config', permKey: 'admin_cadastros' },
     { title: 'Config. CRM', icon: Briefcase, url: '/admin/crm', permKey: 'admin_cadastros' },
     { title: 'Tags', icon: AlertTriangle, url: '/admin/ticket-tags', permKey: 'admin_cadastros' },
     { title: 'Templates Checklist', icon: ClipboardList, url: '/preventivas/checklists', permKey: 'admin_cadastros' },

@@ -1,3 +1,5 @@
+&nbsp;
+
 # Menu Cadastros: substituir "Produtos Químicos" + "Catálogo de Peças" por "Configurações Gerais"
 
 Em `src/components/layout/AppSidebar.tsx`, no submenu Admin > Cadastros (`adminCadastrosItems`, linhas 158-167):
