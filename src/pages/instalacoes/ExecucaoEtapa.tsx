@@ -211,6 +211,20 @@ export default function ExecucaoEtapa() {
 
   const cliente = stage.installation?.cliente;
   const aguardandoAprovacao = stage.stage === 'pre_instalacao' && stage.status === 'aguardando_aprovacao';
+  const criterios = {
+    tem_equipamento: stage.tem_equipamento ?? null,
+    nome_equipamento: stage.nome_equipamento ?? null,
+    tem_quimico: stage.tem_quimico ?? null,
+    qtd_pistolas: stage.qtd_pistolas ?? null,
+    pistolas_em_estoque: stage.pistolas_em_estoque ?? null,
+    qtd_install_kit: stage.qtd_install_kit ?? null,
+    install_kit_em_estoque: stage.install_kit_em_estoque ?? null,
+    qtd_mangueira_ft: stage.qtd_mangueira_ft ?? null,
+    mangueira_em_estoque: stage.mangueira_em_estoque ?? null,
+    aprovacao_data_inicio: stage.aprovacao_data_inicio ?? null,
+    aprovacao_data_fim: stage.aprovacao_data_fim ?? null,
+  };
+  const criteriosIncompletos = criteriosPendentes(criterios);
 
   return (
     <div className="space-y-4 p-4 sm:p-6 max-w-3xl mx-auto">
