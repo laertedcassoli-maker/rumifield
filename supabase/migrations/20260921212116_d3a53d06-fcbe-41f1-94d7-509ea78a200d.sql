@@ -1,0 +1,1 @@
+ALTER TABLE public.installation_stages ADD COLUMN IF NOT EXISTS planned_date_end date;
