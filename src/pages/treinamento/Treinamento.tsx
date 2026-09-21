@@ -301,15 +301,18 @@ export default function Treinamento() {
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold">Treinamentos</h1>
+          <h1 className="text-2xl font-bold">Treinamento de Manutenção</h1>
           <p className="text-muted-foreground">
-            Solicitação e acompanhamento de visitas de treinamento.
+            Treinamento de Capacitação Técnica para as Fazendas
+          </p>
+          <p className="text-sm text-muted-foreground">
+            Solicitação e acompanhamento de visitas de Treinamento de Manutenção.
           </p>
         </div>
         {canAbrirVisita && (
           <Button onClick={() => setNovaVisitaOpen(true)}>
             <Plus className="mr-2 h-4 w-4" />
-            Nova Visita de Treinamento
+            Nova Visita de Treinamento de Manutenção
           </Button>
         )}
       </div>
@@ -337,7 +340,7 @@ export default function Treinamento() {
       </div>
       <Tabs defaultValue="treinamentos">
         <TabsList>
-          <TabsTrigger value="treinamentos">Treinamentos</TabsTrigger>
+          <TabsTrigger value="treinamentos">Treinamento de Manutenção</TabsTrigger>
           <TabsTrigger value="clientes">Clientes</TabsTrigger>
         </TabsList>
 
@@ -582,7 +585,7 @@ export default function Treinamento() {
       >
         <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Concluir Treinamento</DialogTitle>
+            <DialogTitle>Concluir Treinamento de Manutenção</DialogTitle>
             <DialogDescription>
               {concluindoVisita
                 ? `${clientesMap?.get(concluindoVisita.cliente_id)?.nome ?? 'Cliente'} — marque todos os itens e informe quem recebeu o treinamento.`
@@ -610,7 +613,7 @@ export default function Treinamento() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Excluir visita de treinamento?</AlertDialogTitle>
+            <AlertDialogTitle>Excluir visita de Treinamento de Manutenção?</AlertDialogTitle>
             <AlertDialogDescription>
               Esta ação não pode ser desfeita. As respostas de checklist vinculadas, se houver,
               serão excluídas junto.
