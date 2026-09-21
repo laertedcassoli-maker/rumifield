@@ -265,17 +265,17 @@ export default function MinhasPendencias() {
         </Section>
 
         <Section
-          title="Treinamentos"
+          title="Treinamento de Manutenção"
           icon={GraduationCap}
           count={treinamentos.data?.length ?? 0}
           isLoading={treinamentos.isLoading}
-          emptyText="Nenhuma pendência em Treinamentos"
+          emptyText="Nenhuma pendência em Treinamento de Manutenção"
           to="/treinamento?meu=1&status=pendente"
         >
           {treinamentos.data?.map(item => (
             <PendenciaRow
               key={item.id}
-              code="Treinamento"
+              code="Treinamento de Manutenção"
               cliente={item.clienteNome}
               fazenda={item.fazenda}
               date={formatDate(item.plannedDate)}
