@@ -101,6 +101,7 @@ export default function Treinamento() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const canAbrirVisita = role === 'admin' || role === 'coordenador_servicos' || role === 'coordenador_rplus';
+  const canExcluirVisita = role === 'admin' || role === 'coordenador_servicos';
   const isTecnico = role === 'tecnico_campo' || role === 'tecnico_oficina';
   const [searchParams] = useSearchParams();
   const [ownerFilter, setOwnerFilter] = useState<'meu' | 'todos'>(() =>
@@ -283,8 +284,11 @@ export default function Treinamento() {
     v.status === 'pendente' &&
     (canAbrirVisita || user?.id === v.technician_user_id || user?.id === v.csm_user_id);
 
-  // Editar/excluir: só gestores e apenas enquanto a visita estiver pendente
+  // Editar: só gestores e apenas enquanto a visita estiver pendente
   const podeGerenciar = (v: TreinamentoItem) => canAbrirVisita && v.status === 'pendente';
+
+  // Excluir: restrito a admin e coordenador de serviços, apenas em visitas pendentes
+  const podeExcluir = (v: TreinamentoItem) => canExcluirVisita && v.status === 'pendente';
 
   const responsavelNome = (v: TreinamentoItem) => {
     const id = v.technician_user_id ?? v.csm_user_id;
@@ -450,25 +454,25 @@ export default function Treinamento() {
                               </Button>
                             )}
                             {podeGerenciar(v) && (
-                              <>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => setEditingVisita(v)}
-                                >
-                                  <Pencil className="h-4 w-4 mr-1.5" />
-                                  Editar
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="text-destructive hover:text-destructive"
-                                  onClick={() => setExcluindoVisita(v)}
-                                >
-                                  <Trash2 className="h-4 w-4 mr-1.5" />
-                                  Excluir
-                                </Button>
-                              </>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setEditingVisita(v)}
+                              >
+                                <Pencil className="h-4 w-4 mr-1.5" />
+                                Editar
+                              </Button>
+                            )}
+                            {podeExcluir(v) && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-destructive hover:text-destructive"
+                                onClick={() => setExcluindoVisita(v)}
+                              >
+                                <Trash2 className="h-4 w-4 mr-1.5" />
+                                Excluir
+                              </Button>
                             )}
                           </div>
                         </TableCell>
