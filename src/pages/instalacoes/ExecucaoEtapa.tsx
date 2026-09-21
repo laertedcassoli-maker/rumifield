@@ -77,6 +77,8 @@ export default function ExecucaoEtapa() {
           csm_user_id,
           sales_email_attachment_path,
           planned_date,
+          planned_date_end,
+          approved_at,
           checklist_template_id,
           tem_equipamento,
           nome_equipamento,
@@ -222,8 +224,6 @@ export default function ExecucaoEtapa() {
     install_kit_em_estoque: stage.install_kit_em_estoque ?? null,
     qtd_mangueira_ft: stage.qtd_mangueira_ft ?? null,
     mangueira_em_estoque: stage.mangueira_em_estoque ?? null,
-    aprovacao_data_inicio: stage.aprovacao_data_inicio ?? null,
-    aprovacao_data_fim: stage.aprovacao_data_fim ?? null,
   };
   const criteriosIncompletos = criteriosPendentes(criterios);
 
@@ -266,6 +266,9 @@ export default function ExecucaoEtapa() {
               <span className="flex items-center gap-1.5">
                 <CalendarDays className="h-4 w-4 shrink-0" />
                 {new Date(stage.planned_date + 'T12:00:00').toLocaleDateString('pt-BR')}
+                {stage.planned_date_end
+                  ? ` – ${new Date(stage.planned_date_end + 'T12:00:00').toLocaleDateString('pt-BR')}`
+                  : ''}
               </span>
             )}
           </div>
@@ -310,15 +313,18 @@ export default function ExecucaoEtapa() {
             </div>
           )}
 
-          {stage.stage === 'pre_instalacao' && podeVerCriterios && (
-            <AprovacaoPreInstalacaoForm
-              key={stage.id}
-              stageId={stage.id}
-              criterios={criterios}
-              canEdit={podeEditarCriterios && stage.status !== 'concluido'}
-              responsavelNome={responsavelNome}
-            />
-          )}
+          {stage.stage === 'pre_instalacao' &&
+            podeVerCriterios &&
+            ['aguardando_aprovacao', 'concluido'].includes(stage.status) && (
+              <AprovacaoPreInstalacaoForm
+                key={stage.id}
+                stageId={stage.id}
+                criterios={criterios}
+                canEdit={podeEditarCriterios && stage.status !== 'concluido'}
+                responsavelNome={responsavelNome}
+                approvedAt={stage.approved_at}
+              />
+            )}
 
           {aguardandoAprovacao && (
             canApprove ? (

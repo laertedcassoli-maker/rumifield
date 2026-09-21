@@ -57,6 +57,7 @@ interface StageRow {
   csm_user_id: string | null;
   sales_email_attachment_path: string | null;
   planned_date: string | null;
+  planned_date_end: string | null;
   checklist_template_id: string | null;
 }
 
@@ -124,6 +125,7 @@ export default function InstalacoesIndex() {
   const [stageCsmId, setStageCsmId] = useState<string>('');
   const [stageResponsavelTipo, setStageResponsavelTipo] = useState<'tecnico' | 'csm'>('tecnico');
   const [stagePlannedDate, setStagePlannedDate] = useState<string>('');
+  const [stagePlannedDateEnd, setStagePlannedDateEnd] = useState<string>('');
   const [stageTemplateId, setStageTemplateId] = useState<string>('');
   const [stageAnexoPath, setStageAnexoPath] = useState<string | null>(null);
   const [isUploadingAnexo, setIsUploadingAnexo] = useState(false);
@@ -146,7 +148,7 @@ export default function InstalacoesIndex() {
           status,
           created_at,
           cliente:clientes(nome, fazenda),
-          stages:installation_stages(id, stage, status, technician_user_id, csm_user_id, sales_email_attachment_path, planned_date, checklist_template_id)
+          stages:installation_stages(id, stage, status, technician_user_id, csm_user_id, sales_email_attachment_path, planned_date, planned_date_end, checklist_template_id)
         `)
         .order('created_at', { ascending: false });
 
@@ -287,6 +289,16 @@ export default function InstalacoesIndex() {
     enabled: !!stageDialog,
   });
 
+  // Pré Instalação sempre usa o mesmo checklist — pré-selecionado pelo nome do catálogo
+  const preInstalacaoTemplateId =
+    (templates as any[] | undefined)?.find(t => t.name === 'CheckList - Pré Instalação')?.id ?? '';
+  const effectiveStageTemplateId =
+    stageTemplateId ||
+    (stageDialog?.stage === 'pre_instalacao' && !stageDialog?.existing?.checklist_template_id
+      ? preInstalacaoTemplateId
+      : '');
+
+
   const createInstallationMutation = useMutation({
     mutationFn: async (clientId: string) => {
       const { data, error } = await (supabase as any)
@@ -371,7 +383,8 @@ export default function InstalacoesIndex() {
         technician_user_id: stageResponsavelTipo === 'tecnico' ? (stageTechnicianId || null) : null,
         csm_user_id: stageResponsavelTipo === 'csm' ? (stageCsmId || null) : null,
         planned_date: stagePlannedDate || null,
-        checklist_template_id: stageTemplateId || null,
+        planned_date_end: stageDialog.stage === 'instalacao' ? (stagePlannedDateEnd || null) : null,
+        checklist_template_id: effectiveStageTemplateId || null,
       };
 
       if (stageDialog.stage === 'pre_instalacao') {
@@ -414,6 +427,7 @@ export default function InstalacoesIndex() {
     setStageResponsavelTipo(stage !== 'instalacao' && existing?.csm_user_id ? 'csm' : 'tecnico');
 
     setStagePlannedDate(existing?.planned_date || '');
+    setStagePlannedDateEnd(existing?.planned_date_end || '');
     setStageTemplateId(existing?.checklist_template_id || '');
     setStageAnexoPath(existing?.sales_email_attachment_path || null);
   };
@@ -621,6 +635,9 @@ export default function InstalacoesIndex() {
                               <span className="flex items-center gap-1">
                                 <CalendarDays className="h-3 w-3" />
                                 {new Date(stage.planned_date + 'T12:00:00').toLocaleDateString('pt-BR')}
+                                {stage.planned_date_end
+                                  ? ` – ${new Date(stage.planned_date_end + 'T12:00:00').toLocaleDateString('pt-BR')}`
+                                  : ''}
                               </span>
                             )}
                           </div>
@@ -822,16 +839,27 @@ export default function InstalacoesIndex() {
               </div>
             )}
             <div className="space-y-2">
-              <Label>Data planejada</Label>
+              <Label>{stageDialog?.stage === 'instalacao' ? 'Data início planejada *' : 'Data planejada *'}</Label>
               <Input
                 type="date"
                 value={stagePlannedDate}
                 onChange={(e) => setStagePlannedDate(e.target.value)}
               />
             </div>
+            {stageDialog?.stage === 'instalacao' && (
+              <div className="space-y-2">
+                <Label>Data fim planejada *</Label>
+                <Input
+                  type="date"
+                  value={stagePlannedDateEnd}
+                  min={stagePlannedDate || undefined}
+                  onChange={(e) => setStagePlannedDateEnd(e.target.value)}
+                />
+              </div>
+            )}
             <div className="space-y-2">
-              <Label>Template de checklist</Label>
-              <Select value={stageTemplateId} onValueChange={setStageTemplateId}>
+              <Label>Template de checklist *</Label>
+              <Select value={effectiveStageTemplateId} onValueChange={setStageTemplateId}>
                 <SelectTrigger>
                   <SelectValue placeholder="Selecione o template" />
                 </SelectTrigger>
@@ -893,6 +921,24 @@ export default function InstalacoesIndex() {
                 }
                 if (stageResponsavelTipo === 'csm' && !stageCsmId) {
                   toast.error('Selecione o CSM responsável pela etapa.');
+                  return;
+                }
+                if (!stagePlannedDate) {
+                  toast.error('Informe a data planejada da etapa.');
+                  return;
+                }
+                if (stageDialog?.stage === 'instalacao') {
+                  if (!stagePlannedDateEnd) {
+                    toast.error('Informe a data fim planejada da Instalação.');
+                    return;
+                  }
+                  if (stagePlannedDateEnd < stagePlannedDate) {
+                    toast.error('A data fim não pode ser anterior à data início.');
+                    return;
+                  }
+                }
+                if (!effectiveStageTemplateId) {
+                  toast.error('Selecione o template de checklist da etapa.');
                   return;
                 }
                 saveStageMutation.mutate();

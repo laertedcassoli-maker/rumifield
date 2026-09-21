@@ -1,9 +1,20 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import NovaVisitaTecnicaDialog from '@/components/chamados/NovaVisitaTecnicaDialog';
+import EditarVisitaCorretivaDialog from '@/components/chamados/EditarVisitaCorretivaDialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import {
   Calendar as CalendarIcon,
   CalendarDays,
@@ -13,8 +24,10 @@ import {
   Eye,
   Loader2,
   Map as MapIcon,
-  Plus,
-  Search,
+   Pencil,
+   Plus,
+   Search,
+   Trash2,
   User,
   Wrench,
   XCircle,
@@ -61,6 +74,7 @@ interface VisitaItem {
   dataRealizada: string | null;
   status: string;
   linkTo: string;
+  checklistTemplateId?: string | null;
 }
 
 const CONCLUIDO_STATUS = ['finalizada', 'executado'];
@@ -141,6 +155,11 @@ async function fetchClientesMap(ids: string[]) {
 export default function VisitaTecnica() {
   const navigate = useNavigate();
   const { role, user } = useAuth();
+  const queryClient = useQueryClient();
+  const podeGerenciarVisita = role === 'admin' || role === 'coordenador_servicos';
+  const [visitaParaExcluir, setVisitaParaExcluir] = useState<VisitaItem | null>(null);
+  const [visitaParaEditar, setVisitaParaEditar] = useState<VisitaItem | null>(null);
+
   const { toast } = useToast();
   const [searchParams] = useSearchParams();
   const canAbrirVisita = role === 'admin' || role === 'coordenador_servicos' || role === 'coordenador_rplus';
@@ -195,7 +214,7 @@ export default function VisitaTecnica() {
         supabase
           .from('ticket_visits')
           .select(
-            'id, visit_code, status, planned_start_date, checkout_at, ticket_id, client_id, field_technician_user_id, technical_tickets(ticket_code)'
+            'id, visit_code, status, planned_start_date, checkout_at, ticket_id, client_id, field_technician_user_id, checklist_template_id, technical_tickets(ticket_code)'
           )
           .neq('status', 'cancelada'),
         supabase
@@ -238,6 +257,7 @@ export default function VisitaTecnica() {
           dataPlanejada: r.planned_start_date ?? null,
           dataRealizada: r.checkout_at ?? null,
           status: r.status,
+          checklistTemplateId: (r as any).checklist_template_id ?? null,
           linkTo: `/chamados/visita/${r.id}`,
         };
       });
@@ -268,6 +288,34 @@ export default function VisitaTecnica() {
         const da = a.dataPlanejada ?? '';
         const db = b.dataPlanejada ?? '';
         return db.localeCompare(da);
+      });
+    },
+  });
+
+  // Exclusão direta da lista — delete simples conforme o tipo da visita
+  const deleteVisitaMutation = useMutation({
+    mutationFn: async (visita: VisitaItem) => {
+      const table = visita.tipo === 'corretiva' ? 'ticket_visits' : 'preventive_route_items';
+      const { data, error: delError } = await supabase
+        .from(table)
+        .delete()
+        .eq('id', visita.id)
+        .select('id');
+      if (delError) throw delError;
+      if (!data || data.length === 0) {
+        throw new Error('Nenhum registro removido. Verifique suas permissões.');
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['visita-tecnica'] });
+      setVisitaParaExcluir(null);
+      toast({ title: 'Visita excluída' });
+    },
+    onError: (err: any) => {
+      toast({
+        title: 'Erro ao excluir visita',
+        description: err?.message || 'Tente novamente.',
+        variant: 'destructive',
       });
     },
   });
@@ -675,9 +723,32 @@ export default function VisitaTecnica() {
                     </TableCell>
 
                     <TableCell className="text-right">
-                      <Button variant="ghost" size="sm" onClick={() => navigate(v.linkTo)}>
-                        <Eye className="h-4 w-4" />
-                      </Button>
+                      <div className="inline-flex items-center justify-end gap-1">
+                        <Button variant="ghost" size="sm" onClick={() => navigate(v.linkTo)}>
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        {podeGerenciarVisita && (
+                          <>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => {
+                                if (v.tipo === 'corretiva') setVisitaParaEditar(v);
+                                else navigate(v.linkTo);
+                              }}
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setVisitaParaExcluir(v)}
+                            >
+                              <Trash2 className="h-4 w-4 text-destructive" />
+                            </Button>
+                          </>
+                        )}
+                      </div>
                     </TableCell>
                   </TableRow>
                 ))}
@@ -724,6 +795,44 @@ export default function VisitaTecnica() {
       )}
 
       <NovaVisitaTecnicaDialog open={novaVisitaOpen} onOpenChange={setNovaVisitaOpen} />
+
+      {visitaParaEditar && (
+        <EditarVisitaCorretivaDialog
+          open={!!visitaParaEditar}
+          onOpenChange={(open) => !open && setVisitaParaEditar(null)}
+          visitId={visitaParaEditar.id}
+          plannedDate={visitaParaEditar.dataPlanejada}
+          technicianId={visitaParaEditar.tecnicoUserId}
+          checklistTemplateId={visitaParaEditar.checklistTemplateId ?? null}
+        />
+      )}
+
+      <AlertDialog open={!!visitaParaExcluir} onOpenChange={(open) => !open && setVisitaParaExcluir(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir visita?</AlertDialogTitle>
+            <AlertDialogDescription>
+              A visita <span className="font-mono font-semibold">{visitaParaExcluir?.codigo}</span> do cliente{' '}
+              {visitaParaExcluir?.clienteNome} será removida permanentemente. Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteVisitaMutation.isPending}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={deleteVisitaMutation.isPending}
+              onClick={(e) => {
+                e.preventDefault();
+                if (visitaParaExcluir) deleteVisitaMutation.mutate(visitaParaExcluir);
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {deleteVisitaMutation.isPending ? (
+                <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Excluindo...</>
+              ) : 'Excluir'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

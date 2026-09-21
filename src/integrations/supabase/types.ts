@@ -2023,6 +2023,7 @@ export type Database = {
           nome_equipamento: string | null
           pistolas_em_estoque: string | null
           planned_date: string | null
+          planned_date_end: string | null
           qtd_install_kit: number | null
           qtd_mangueira_ft: number | null
           qtd_pistolas: number | null
@@ -2049,6 +2050,7 @@ export type Database = {
           nome_equipamento?: string | null
           pistolas_em_estoque?: string | null
           planned_date?: string | null
+          planned_date_end?: string | null
           qtd_install_kit?: number | null
           qtd_mangueira_ft?: number | null
           qtd_pistolas?: number | null
@@ -2075,6 +2077,7 @@ export type Database = {
           nome_equipamento?: string | null
           pistolas_em_estoque?: string | null
           planned_date?: string | null
+          planned_date_end?: string | null
           qtd_install_kit?: number | null
           qtd_mangueira_ft?: number | null
           qtd_pistolas?: number | null

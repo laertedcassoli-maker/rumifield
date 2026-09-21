@@ -229,6 +229,8 @@ export default function Pedidos() {
   const [solicitanteFilter, setSolicitanteFilter] = useState<string>('all');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
+  // Aviso não bloqueante de possível duplicidade (mesmo cliente + peça nos últimos 7 dias)
+  const [duplicateWarning, setDuplicateWarning] = useState<string[] | null>(null);
   const [imagePreview, setImagePreview] = useState<{ url: string; nome: string } | null>(null);
   const [isProcessingAction, setIsProcessingAction] = useState(false);
   const [editingAssetItemId, setEditingAssetItemId] = useState<string | null>(null);
@@ -935,7 +937,7 @@ export default function Pedidos() {
     }
   };
 
-  const handleShowConfirmation = (e: React.FormEvent) => {
+  const handleShowConfirmation = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.cliente_id) {
       toast({ variant: 'destructive', title: 'Selecione um cliente' });
@@ -993,6 +995,35 @@ export default function Pedidos() {
       });
       return;
     }
+    // Aviso (não bloqueante) de possível duplicidade: mesma peça, mesmo cliente,
+    // em pedido não-rascunho criado nos últimos 7 dias.
+    try {
+      const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      const { data: dups } = await supabase
+        .from('pedido_itens')
+        .select('peca_id, pedidos!inner(id, pedido_code, cliente_id, status, created_at)')
+        .in('peca_id', itens.map(i => i.peca_id))
+        .is('cancelled_at', null)
+        .eq('pedidos.cliente_id', form.cliente_id)
+        .neq('pedidos.status', 'rascunho')
+        .gte('pedidos.created_at', since);
+
+      const conflitos = (dups || [])
+        .filter((d: any) => !editingPedido || d.pedidos?.id !== editingPedido.id)
+        .map((d: any) => {
+          const peca = pecas?.find(p => p.id === d.peca_id);
+          const nome = [peca?.codigo, peca?.descricao].filter(Boolean).join(' — ') || 'Peça';
+          return `${nome} (pedido ${d.pedidos?.pedido_code || 's/ código'})`;
+        });
+
+      if (conflitos.length > 0) {
+        setDuplicateWarning(Array.from(new Set(conflitos)));
+        return;
+      }
+    } catch {
+      // Falha na checagem nunca bloqueia o envio
+    }
+
     setShowConfirmation(true);
   };
 
@@ -3169,6 +3200,35 @@ export default function Pedidos() {
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {isDeletingPedido ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Excluindo...</> : 'Excluir'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Aviso não bloqueante de possível duplicidade */}
+      <AlertDialog open={!!duplicateWarning} onOpenChange={(open) => !open && setDuplicateWarning(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Possível duplicidade</AlertDialogTitle>
+            <AlertDialogDescription>
+              Estes itens já foram solicitados para este cliente nos últimos 7 dias:
+              <span className="mt-2 block space-y-1">
+                {(duplicateWarning || []).map((c) => (
+                  <span key={c} className="block font-medium">• {c}</span>
+                ))}
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Revisar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                setDuplicateWarning(null);
+                setShowConfirmation(true);
+              }}
+            >
+              Continuar mesmo assim
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
