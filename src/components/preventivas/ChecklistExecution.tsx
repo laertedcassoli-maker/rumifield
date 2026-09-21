@@ -1023,7 +1023,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
   });
 
   // Show loading while fetching or auto-creating checklist
-  if (loadingChecklist || (routeTemplateId && !existingChecklist && isOnline && (autoStartState === 'pending' || createChecklistMutation.isPending))) {
+  if ((loadingChecklist && !checklistData) || (loadingCachedChecklist && !checklistData) || (routeTemplateId && !checklistData && isOnline && (autoStartState === 'pending' || createChecklistMutation.isPending))) {
     return (
       <Card>
         <CardContent className="p-6">
@@ -1039,7 +1039,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
   }
 
   // Offline and no checklist available
-  if (!isOnline && !existingChecklist && !loadingChecklist) {
+  if (!isOnline && !checklistData && !loadingChecklist && !loadingCachedChecklist) {
     return (
       <Card>
         <CardContent className="p-6">
@@ -1055,7 +1055,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
   }
 
   // Auto-start attempted but checklist didn't appear
-  if (routeTemplateId && !existingChecklist && autoStartAttempted.current && autoStartState !== 'pending') {
+  if (routeTemplateId && !checklistData && autoStartAttempted.current && autoStartState !== 'pending') {
     return (
       <Card>
         <CardHeader className="pb-3">
@@ -1083,7 +1083,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
   }
 
   // No checklist started - show template selection
-  if (!existingChecklist) {
+  if (!checklistData) {
     return (
       <>
         <Card>
@@ -1149,7 +1149,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
   }
 
   // Calculate progress — read directly from server data
-  const blocks: ExecBlock[] = existingChecklist.blocks?.map((block: any) => ({
+  const blocks: ExecBlock[] = checklistData.blocks?.map((block: any) => ({
     ...block,
     items: block.items?.map((item: any) => ({
       ...item,
@@ -1167,7 +1167,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
     0
   );
   const progress = totalItems > 0 ? (answeredItems / totalItems) * 100 : 0;
-  const isCompleted = existingChecklist.status === 'concluido';
+  const isCompleted = checklistData.status === 'concluido';
   const isReadOnly = forceReadOnly || (isCompleted && !canEditCompleted);
   const allAnswered = answeredItems === totalItems;
 
@@ -1375,10 +1375,6 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
                           <ChecklistItemStatusButtons
                             value={item.status}
                             onChange={(status) => {
-                              if (!navigator.onLine) {
-                                toast.error('Sem conexão. Conecte-se à internet para registrar o checklist.');
-                                return;
-                              }
                               const hasSelections = item.selectedNonconformities.length > 0 || item.selectedActions.length > 0;
                               if (item.status === 'N' && (status === 'S' || status === 'NA') && hasSelections) {
                                 setPendingStatusChange({
@@ -1524,7 +1520,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
                             Não conformidades identificadas:
                           </p>
                           <ul className="text-sm list-disc list-inside">
-                            {existingChecklist.blocks
+                            {checklistData.blocks
                               ?.find((b: any) => b.id === block.id)
                               ?.items?.find((i: any) => i.id === item.id)
                               ?.selected_nonconformities?.map((nc: any) => (
@@ -1540,7 +1536,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
                             Ações corretivas realizadas:
                           </p>
                           <ul className="text-sm list-disc list-inside">
-                            {existingChecklist.blocks
+                            {checklistData.blocks
                               ?.find((b: any) => b.id === block.id)
                               ?.items?.find((i: any) => i.id === item.id)
                               ?.selected_actions?.map((action: any) => (
