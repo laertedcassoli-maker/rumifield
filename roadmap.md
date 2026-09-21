@@ -7,4 +7,4 @@
 - [x] Consolidar Minhas Rotas dentro de Visita Técnica (filtro Minhas/Todas, técnico para admin/coord. serviços/coord. R+, Pendentes/Concluídas, link de mapa, remoção do menu e da tela antiga)
 - [x] Minhas Pendências: "Ver todas" + seção unificada Visitas Técnicas + Treinamentos/OS
 - [x] Pedidos.tsx: tipo_envio apenas_nf/envio_pelo_tecnico mostra "N/A" no Código de Rastreio
-- [ ] Instalações: exclusão/edição por etapa + formulário de critérios de aprovação da Pré Instalação (editar: admin/coord. serviços; leitura: + coord. logística/coord. R+/consultor R+)
+- [x] Instalações: exclusão/edição por etapa + formulário de critérios de aprovação da Pré Instalação (editar: admin/coord. serviços; leitura: + coord. logística/coord. R+/consultor R+)
