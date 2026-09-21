@@ -119,6 +119,7 @@ export default function InstalacoesIndex() {
     existing?: StageRow;
   } | null>(null);
   const [instalacaoParaExcluir, setInstalacaoParaExcluir] = useState<InstallationRow | null>(null);
+  const [etapaParaExcluir, setEtapaParaExcluir] = useState<{ stage: StageRow; clienteNome: string } | null>(null);
   const [stageTechnicianId, setStageTechnicianId] = useState<string>('');
   const [stageCsmId, setStageCsmId] = useState<string>('');
   const [stageResponsavelTipo, setStageResponsavelTipo] = useState<'tecnico' | 'csm'>('tecnico');
