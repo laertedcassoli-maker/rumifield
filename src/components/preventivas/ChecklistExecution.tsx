@@ -628,7 +628,92 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
     }
   }, [existingChecklist?.blocks, existingChecklist?.status]);
 
-  // Update item status — direct Supabase
+  // Keep the local cache fresh whenever the server data loads
+  useEffect(() => {
+    if (!existingChecklist?.blocks) return;
+
+    (async () => {
+      try {
+        await cacheChecklistData(existingChecklist.blocks);
+        await offlineChecklistDb.checklists.put({
+          id: existingChecklist.id,
+          preventive_id: preventiveId,
+          template_id: (existingChecklist as any).template_id,
+          status: existingChecklist.status,
+          template_name: (existingChecklist as any).template?.name ?? '',
+        });
+        await offlineChecklistDb.checklistBlocks.bulkPut(
+          existingChecklist.blocks.map((b: any) => ({
+            id: b.id,
+            checklist_id: existingChecklist.id,
+            block_name_snapshot: b.block_name_snapshot,
+            order_index: b.order_index,
+          }))
+        );
+
+        const actions: any[] = [];
+        const ncs: any[] = [];
+        existingChecklist.blocks.forEach((block: any) => {
+          block.items?.forEach((item: any) => {
+            item.selected_actions?.forEach((a: any) => actions.push({
+              id: a.id,
+              exec_item_id: item.id,
+              template_action_id: a.template_action_id,
+              action_label_snapshot: a.action_label_snapshot,
+              selected_at: new Date().toISOString(),
+              _pendingSync: false,
+            }));
+            item.selected_nonconformities?.forEach((nc: any) => ncs.push({
+              id: nc.id,
+              exec_item_id: item.id,
+              template_nonconformity_id: nc.template_nonconformity_id,
+              nonconformity_label_snapshot: nc.nonconformity_label_snapshot,
+              selected_at: new Date().toISOString(),
+              _pendingSync: false,
+            }));
+          });
+        });
+        if (actions.length > 0) await offlineChecklistDb.checklistActions.bulkPut(actions);
+        if (ncs.length > 0) await offlineChecklistDb.checklistNonconformities.bulkPut(ncs);
+      } catch (e) {
+        console.warn('[ChecklistExecution] Falha ao cachear checklist localmente', e);
+      }
+    })();
+  }, [existingChecklist, preventiveId, cacheChecklistData]);
+
+  // Helper: find the exec nonconformity id of a selection using the current cache
+  const findSelectedNcId = useCallback((itemId: string, templateNcId: string): string | null => {
+    for (const block of checklistData?.blocks || []) {
+      for (const item of block.items || []) {
+        if (item.id === itemId) {
+          const found = item.selected_nonconformities?.find((nc: any) => nc.template_nonconformity_id === templateNcId);
+          return found?.id ?? null;
+        }
+      }
+    }
+    return null;
+  }, [checklistData]);
+
+  // Helper (offline): queue removal of every action/nonconformity selected on an item
+  const removeSelectionsLocally = useCallback(async (itemId: string) => {
+    for (const block of checklistData?.blocks || []) {
+      for (const item of block.items || []) {
+        if (item.id !== itemId) continue;
+        for (const a of item.selected_actions || []) {
+          if (a.template_action_id) {
+            await offlineToggleAction(itemId, a.template_action_id, a.action_label_snapshot ?? '', true);
+          }
+        }
+        for (const nc of item.selected_nonconformities || []) {
+          if (nc.template_nonconformity_id) {
+            await offlineToggleNonconformity(itemId, nc.template_nonconformity_id, nc.nonconformity_label_snapshot ?? '', true);
+          }
+        }
+      }
+    }
+  }, [checklistData, offlineToggleAction, offlineToggleNonconformity]);
+
+  // Update item status — offline-first (local write + sync queue)
   const updateItemMutation = useMutation({
     mutationFn: async ({ 
       itemId, 
