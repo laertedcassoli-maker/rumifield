@@ -995,6 +995,35 @@ export default function Pedidos() {
       });
       return;
     }
+    // Aviso (não bloqueante) de possível duplicidade: mesma peça, mesmo cliente,
+    // em pedido não-rascunho criado nos últimos 7 dias.
+    try {
+      const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      const { data: dups } = await supabase
+        .from('pedido_itens')
+        .select('peca_id, pedidos!inner(id, pedido_code, cliente_id, status, created_at)')
+        .in('peca_id', itens.map(i => i.peca_id))
+        .is('cancelled_at', null)
+        .eq('pedidos.cliente_id', form.cliente_id)
+        .neq('pedidos.status', 'rascunho')
+        .gte('pedidos.created_at', since);
+
+      const conflitos = (dups || [])
+        .filter((d: any) => !editingPedido || d.pedidos?.id !== editingPedido.id)
+        .map((d: any) => {
+          const peca = pecas?.find(p => p.id === d.peca_id);
+          const nome = [peca?.codigo, peca?.descricao].filter(Boolean).join(' — ') || 'Peça';
+          return `${nome} (pedido ${d.pedidos?.pedido_code || 's/ código'})`;
+        });
+
+      if (conflitos.length > 0) {
+        setDuplicateWarning(Array.from(new Set(conflitos)));
+        return;
+      }
+    } catch {
+      // Falha na checagem nunca bloqueia o envio
+    }
+
     setShowConfirmation(true);
   };
 
