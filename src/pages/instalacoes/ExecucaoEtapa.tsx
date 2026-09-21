@@ -20,6 +20,7 @@ import {
 import { toast } from "sonner";
 import { ArrowLeft, Loader2, Building2, CalendarDays, User, Paperclip, CheckCircle2, Clock } from "lucide-react";
 import InstallationChecklistExecution from "@/components/instalacoes/ChecklistExecution";
+import AprovacaoPreInstalacaoForm, { criteriosPendentes } from "@/components/instalacoes/AprovacaoPreInstalacaoForm";
 import CombinarTreinamentoSection from "@/components/treinamento/CombinarTreinamentoSection";
 import { useAnexoPreview } from "@/hooks/useAnexoPreview";
 import AnexoPreviewDialog from "@/components/instalacoes/AnexoPreviewDialog";
