@@ -306,8 +306,8 @@ export default function Treinamento() {
   // Editar: só gestores e apenas enquanto a visita estiver pendente
   const podeGerenciar = (v: TreinamentoItem) => canAbrirVisita && v.status === 'pendente';
 
-  // Excluir: restrito a admin e coordenador de serviços, apenas em visitas pendentes
-  const podeExcluir = (v: TreinamentoItem) => canExcluirVisita && v.status === 'pendente';
+  // Excluir: restrito a admin e coordenador de serviços, em qualquer status
+  const podeExcluir = (_v: TreinamentoItem) => canExcluirVisita;
 
   const responsavelNome = (v: TreinamentoItem) => {
     const id = v.technician_user_id ?? v.csm_user_id;
