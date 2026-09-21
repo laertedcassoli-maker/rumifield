@@ -272,6 +272,7 @@ export default function NovaVisitaTreinamentoDialog({ open, onOpenChange, editin
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['training-visits'] });
+      queryClient.invalidateQueries({ queryKey: ['training-visit-attendees'] });
       toast({
         title: editingVisit
           ? 'Visita de Treinamento de Manutenção atualizada com sucesso!'

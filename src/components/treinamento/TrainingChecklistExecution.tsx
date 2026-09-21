@@ -287,6 +287,7 @@ export default function TrainingChecklistExecution({
       }
       setCompleted(true);
       queryClient.invalidateQueries({ queryKey: ['training-visits'] });
+      queryClient.invalidateQueries({ queryKey: ['training-visit-attendees'] });
       toast.success(
         isOnline
           ? 'Treinamento de Manutenção concluído!'
