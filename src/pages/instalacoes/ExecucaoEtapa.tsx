@@ -313,15 +313,18 @@ export default function ExecucaoEtapa() {
             </div>
           )}
 
-          {stage.stage === 'pre_instalacao' && podeVerCriterios && (
-            <AprovacaoPreInstalacaoForm
-              key={stage.id}
-              stageId={stage.id}
-              criterios={criterios}
-              canEdit={podeEditarCriterios && stage.status !== 'concluido'}
-              responsavelNome={responsavelNome}
-            />
-          )}
+          {stage.stage === 'pre_instalacao' &&
+            podeVerCriterios &&
+            ['aguardando_aprovacao', 'concluido'].includes(stage.status) && (
+              <AprovacaoPreInstalacaoForm
+                key={stage.id}
+                stageId={stage.id}
+                criterios={criterios}
+                canEdit={podeEditarCriterios && stage.status !== 'concluido'}
+                responsavelNome={responsavelNome}
+                approvedAt={stage.approved_at}
+              />
+            )}
 
           {aguardandoAprovacao && (
             canApprove ? (
