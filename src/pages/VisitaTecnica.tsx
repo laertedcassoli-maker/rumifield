@@ -428,7 +428,65 @@ export default function VisitaTecnica() {
         </Card>
       </div>
 
+      {/* Owner / técnico / situação */}
+      <div className="flex flex-wrap items-center gap-2">
+        <Button
+          variant={ownerFilter === 'minhas' ? 'default' : 'outline'}
+          size="sm"
+          className="shrink-0 gap-1"
+          onClick={() => { setOwnerFilter('minhas'); setCurrentPage(1); }}
+        >
+          <User className="h-3 w-3" />
+          Minhas
+        </Button>
+        <Button
+          variant={ownerFilter === 'todas' ? 'default' : 'outline'}
+          size="sm"
+          className="shrink-0"
+          onClick={() => { setOwnerFilter('todas'); setCurrentPage(1); }}
+        >
+          Todas as visitas
+        </Button>
+
+        {podeFiltrarPorTecnico && (
+          <Select
+            value={tecnicoFilter}
+            onValueChange={v => { setTecnicoFilter(v); setCurrentPage(1); }}
+            disabled={ownerFilter === 'minhas'}
+          >
+            <SelectTrigger className="w-full sm:w-[220px]">
+              <SelectValue placeholder="Técnico" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos os técnicos</SelectItem>
+              {uniqueTechnicians.map(t => (
+                <SelectItem key={t.id} value={t.id}>{t.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+
+        <div className="flex items-center gap-2 sm:ml-auto">
+          {([
+            { key: 'pendentes', label: 'Pendentes' },
+            { key: 'concluidas', label: 'Concluídas' },
+            { key: 'todas', label: 'Todas' },
+          ] as const).map(opt => (
+            <Button
+              key={opt.key}
+              variant={situacaoFilter === opt.key ? 'default' : 'outline'}
+              size="sm"
+              className="shrink-0"
+              onClick={() => { setSituacaoFilter(opt.key); setCurrentPage(1); }}
+            >
+              {opt.label}
+            </Button>
+          ))}
+        </div>
+      </div>
+
       {/* Filters */}
+
       <div className="flex flex-col md:flex-row gap-4">
         <div className="relative flex-1 min-w-0">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
