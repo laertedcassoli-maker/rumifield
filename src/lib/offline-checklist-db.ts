@@ -192,6 +192,7 @@ class OfflineChecklistDatabase extends Dexie {
   trainingChecklistResponses!: Table<OfflineTrainingChecklistResponse, string>;
   trainingTemplates!: Table<OfflineTrainingTemplate, string>;
   trainingSyncQueue!: Table<TrainingSyncQueueItem, number>;
+  trainingAttendees!: Table<OfflineTrainingAttendee, string>;
 
   constructor() {
     super("RumiFieldChecklistDB");
@@ -248,6 +249,44 @@ class OfflineChecklistDatabase extends Dexie {
       trainingTemplates: "id",
       trainingSyncQueue: "++id, table, operation, createdAt",
     });
+
+    // Version 7: pessoas treinadas (múltiplos participantes por visita)
+    this.version(7).stores({
+      trainingAttendees: "id, training_visit_id, _pendingSync",
+    });
+  }
+
+  // ============ Pessoas treinadas ============
+
+  /** Grava uma pessoa treinada localmente e enfileira o envio */
+  async addTrainingAttendeeLocally(attendee: OfflineTrainingAttendee): Promise<void> {
+    await this.trainingAttendees.put({ ...attendee, _pendingSync: true });
+    await this.addToTrainingSyncQueue('training_visit_attendees', 'insert', {
+      id: attendee.id,
+      training_visit_id: attendee.training_visit_id,
+      nome: attendee.nome,
+      telefone: attendee.telefone,
+    });
+  }
+
+  /** Remove uma pessoa treinada localmente e enfileira a exclusão */
+  async removeTrainingAttendeeLocally(id: string): Promise<void> {
+    await this.trainingAttendees.delete(id);
+    await this.addToTrainingSyncQueue('training_visit_attendees', 'delete', { id });
+  }
+
+  async getTrainingAttendees(visitId: string): Promise<OfflineTrainingAttendee[]> {
+    return this.trainingAttendees.where('training_visit_id').equals(visitId).toArray();
+  }
+
+  /** Cacheia pessoas vindas do servidor (não sobrescreve pendências locais) */
+  async cacheTrainingAttendees(attendees: OfflineTrainingAttendee[]): Promise<void> {
+    for (const a of attendees) {
+      const existing = await this.trainingAttendees.get(a.id);
+      if (!existing) {
+        await this.trainingAttendees.put({ ...a, _pendingSync: false });
+      }
+    }
   }
 
   // ============ Treinamento combinado ============
