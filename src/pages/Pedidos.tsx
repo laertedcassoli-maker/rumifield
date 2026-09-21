@@ -424,6 +424,12 @@ export default function Pedidos() {
   const [tipoSolicitacaoFilter, setTipoSolicitacaoFilter] = useState<'all' | 'envio' | 'coleta_reversa'>(
     () => (tipoParam === 'envio' || tipoParam === 'coleta_reversa' ? tipoParam : 'all')
   );
+  const [responsavelFilter, setResponsavelFilter] = useState<'meus' | 'todos'>(() =>
+    searchParams.get('meu') === '1' ? 'meus' : 'todos',
+  );
+  const [situacaoFilter, setSituacaoFilter] = useState<'pendentes' | 'concluidos' | 'todos'>(() =>
+    searchParams.get('status') === 'pendente' ? 'pendentes' : 'todos',
+  );
 
   // Sincroniza o filtro quando apenas a query string muda (navegação pelo submenu)
   useEffect(() => {
@@ -544,7 +550,15 @@ export default function Pedidos() {
         // UI-only ownership filter (does not restrict what is read from the database)
         const matchesOwner = viewAll || pedido.solicitante_id === user?.id;
 
-        return matchesSearch && matchesStatus && matchesDate && matchesTipoEnvio && matchesTipoLogistica && matchesTipoSolicitacao && matchesSolicitante && matchesOwner;
+        const matchesResponsavel = responsavelFilter === 'todos'
+          || pedido.tecnico_responsavel_user_id === user?.id
+          || pedido.csm_responsavel_user_id === user?.id;
+        const concluido = pedido.status === 'entregue';
+        const matchesSituacao = situacaoFilter === 'todos'
+          || (situacaoFilter === 'concluidos' && concluido)
+          || (situacaoFilter === 'pendentes' && !concluido);
+
+        return matchesSearch && matchesStatus && matchesDate && matchesTipoEnvio && matchesTipoLogistica && matchesTipoSolicitacao && matchesSolicitante && matchesOwner && matchesResponsavel && matchesSituacao;
       });
     
     filtered.sort((a, b) => {
@@ -563,7 +577,7 @@ export default function Pedidos() {
     });
     
     return filtered;
-  }, [pedidos, rascunhos, pedidosTransmitidos, pendenciasVisiveis, activeTab, searchTerm, statusFilter, dateFilter, tipoEnvioFilter, tipoLogisticaFilter, tipoSolicitacaoFilter, solicitanteFilter, sortField, sortOrder, viewAll, user?.id]);
+  }, [pedidos, rascunhos, pedidosTransmitidos, pendenciasVisiveis, activeTab, searchTerm, statusFilter, dateFilter, tipoEnvioFilter, tipoLogisticaFilter, tipoSolicitacaoFilter, solicitanteFilter, sortField, sortOrder, viewAll, user?.id, responsavelFilter, situacaoFilter]);
 
   // Paginated data (only for Transmitidos tab)
   const paginatedPedidos = useMemo(() => {
@@ -2411,6 +2425,45 @@ export default function Pedidos() {
                   >
                     Apenas os meus
                   </Button>
+                </div>
+              </div>
+
+              {/* Responsabilidade (técnico/CSM responsável - filtro apenas de UI) */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-sm text-muted-foreground">Responsabilidade:</span>
+                <div className="flex gap-1">
+                  <Button
+                    variant={responsavelFilter === 'todos' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setResponsavelFilter('todos')}
+                    className="h-7 text-xs"
+                  >
+                    Todos
+                  </Button>
+                  <Button
+                    variant={responsavelFilter === 'meus' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setResponsavelFilter('meus')}
+                    className="h-7 text-xs"
+                  >
+                    Sob minha responsabilidade
+                  </Button>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-sm text-muted-foreground">Situação:</span>
+                <div className="flex gap-1">
+                  {(['pendentes', 'concluidos', 'todos'] as const).map(opt => (
+                    <Button
+                      key={opt}
+                      variant={situacaoFilter === opt ? 'default' : 'outline'}
+                      size="sm"
+                      onClick={() => setSituacaoFilter(opt)}
+                      className="h-7 text-xs"
+                    >
+                      {opt === 'pendentes' ? 'Pendentes' : opt === 'concluidos' ? 'Concluídos' : 'Todos'}
+                    </Button>
+                  ))}
                 </div>
               </div>
 
