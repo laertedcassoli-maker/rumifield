@@ -160,6 +160,74 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
     refetchOnWindowFocus: false,
   });
 
+  // Offline fallback: rebuild the checklist tree from the local cache
+  const { data: cachedChecklist, isLoading: loadingCachedChecklist } = useQuery({
+    queryKey: ['preventive-checklist-offline', preventiveId],
+    queryFn: async () => {
+      const record = await offlineChecklistDb.checklists
+        .where('preventive_id')
+        .equals(preventiveId)
+        .first();
+      if (!record) return null;
+
+      const cachedBlocks = await offlineChecklistDb.checklistBlocks
+        .where('checklist_id')
+        .equals(record.id)
+        .toArray();
+
+      const blocks: any[] = [];
+      for (const block of cachedBlocks) {
+        const items = await offlineChecklistDb.checklistItems
+          .where('exec_block_id')
+          .equals(block.id)
+          .toArray();
+
+        const itemsWithSelections: any[] = [];
+        for (const item of items) {
+          const actions = (await offlineChecklistDb.checklistActions
+            .where('exec_item_id')
+            .equals(item.id)
+            .toArray()).filter(a => a._operation !== 'delete');
+          const ncs = (await offlineChecklistDb.checklistNonconformities
+            .where('exec_item_id')
+            .equals(item.id)
+            .toArray()).filter(nc => nc._operation !== 'delete');
+
+          itemsWithSelections.push({
+            ...item,
+            selected_actions: actions.map(a => ({
+              id: a.id,
+              template_action_id: a.template_action_id,
+              action_label_snapshot: a.action_label_snapshot,
+            })),
+            selected_nonconformities: ncs.map(nc => ({
+              id: nc.id,
+              template_nonconformity_id: nc.template_nonconformity_id,
+              nonconformity_label_snapshot: nc.nonconformity_label_snapshot,
+            })),
+          });
+        }
+
+        blocks.push({ ...block, items: itemsWithSelections });
+      }
+
+      return {
+        id: record.id,
+        preventive_id: record.preventive_id,
+        template_id: record.template_id,
+        status: record.status,
+        template: { name: record.template_name },
+        blocks,
+        _fromCache: true,
+      } as any;
+    },
+    staleTime: 0,
+    refetchOnWindowFocus: false,
+  });
+
+  // Server data wins; the local cache keeps the screen usable offline
+  const checklistData: any = existingChecklist ?? cachedChecklist ?? null;
+
   // Get available templates
   const { data: templates } = useQuery({
     queryKey: ['active-checklist-templates'],
@@ -173,19 +241,35 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
       if (error) throw error;
       return data;
     },
-    enabled: (!existingChecklist && !routeTemplateId) || isSelectTemplateOpen
+    enabled: (!checklistData && !routeTemplateId) || isSelectTemplateOpen
   });
 
   // Helper: extract template item IDs from checklist
-  const templateItemIds = existingChecklist?.blocks?.flatMap((block: any) =>
+  const templateItemIds = checklistData?.blocks?.flatMap((block: any) =>
     block.items?.filter((item: any) => item.template_item_id).map((item: any) => item.template_item_id) || []
   ) || [];
 
   // Get corrective actions for template items
   const { data: templateActions } = useQuery<Record<string, any[]>>({
-    queryKey: ['template-corrective-actions', existingChecklist?.id],
+    queryKey: ['template-corrective-actions', checklistData?.id, navigator.onLine],
     queryFn: async () => {
-      if (!existingChecklist || templateItemIds.length === 0) return {};
+      if (!checklistData || templateItemIds.length === 0) return {};
+
+      const groupFromCache = async () => {
+        const cached = await offlineChecklistDb.templateActions
+          .where('item_id')
+          .anyOf(templateItemIds)
+          .toArray();
+        const grouped: Record<string, any[]> = {};
+        cached.forEach(action => {
+          if (!grouped[action.item_id]) grouped[action.item_id] = [];
+          grouped[action.item_id].push(action);
+        });
+        Object.values(grouped).forEach(list => list.sort((a, b) => a.order_index - b.order_index));
+        return grouped;
+      };
+
+      if (!navigator.onLine) return groupFromCache();
 
       const { data, error } = await supabase
         .from('checklist_item_corrective_actions')
@@ -194,7 +278,22 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
         .eq('active', true)
         .order('order_index');
 
-      if (error) throw error;
+      if (error) return groupFromCache();
+
+      // Keep the local cache fresh for offline reads
+      try {
+        await offlineChecklistDb.templateActions.bulkPut(
+          (data || []).map((a: any) => ({
+            id: a.id,
+            item_id: a.item_id,
+            action_label: a.action_label,
+            order_index: a.order_index,
+            active: a.active,
+          }))
+        );
+      } catch (e) {
+        console.warn('[ChecklistExecution] Falha ao cachear ações do template', e);
+      }
 
       const grouped: Record<string, typeof data> = {};
       data?.forEach(action => {
@@ -203,16 +302,32 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
       });
       return grouped;
     },
-    enabled: !!existingChecklist,
+    enabled: !!checklistData,
     staleTime: 300_000,
     refetchOnWindowFocus: false,
   });
 
   // Get nonconformities for template items
   const { data: templateNonconformities } = useQuery<Record<string, any[]>>({
-    queryKey: ['template-nonconformities', existingChecklist?.id],
+    queryKey: ['template-nonconformities', checklistData?.id, navigator.onLine],
     queryFn: async () => {
-      if (!existingChecklist || templateItemIds.length === 0) return {};
+      if (!checklistData || templateItemIds.length === 0) return {};
+
+      const groupFromCache = async () => {
+        const cached = await offlineChecklistDb.templateNonconformities
+          .where('item_id')
+          .anyOf(templateItemIds)
+          .toArray();
+        const grouped: Record<string, any[]> = {};
+        cached.forEach(nc => {
+          if (!grouped[nc.item_id]) grouped[nc.item_id] = [];
+          grouped[nc.item_id].push(nc);
+        });
+        Object.values(grouped).forEach(list => list.sort((a, b) => a.order_index - b.order_index));
+        return grouped;
+      };
+
+      if (!navigator.onLine) return groupFromCache();
 
       const { data, error } = await supabase
         .from('checklist_item_nonconformities')
@@ -221,7 +336,21 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
         .eq('active', true)
         .order('order_index');
 
-      if (error) throw error;
+      if (error) return groupFromCache();
+
+      try {
+        await offlineChecklistDb.templateNonconformities.bulkPut(
+          (data || []).map((nc: any) => ({
+            id: nc.id,
+            item_id: nc.item_id,
+            nonconformity_label: nc.nonconformity_label,
+            order_index: nc.order_index,
+            active: nc.active,
+          }))
+        );
+      } catch (e) {
+        console.warn('[ChecklistExecution] Falha ao cachear não conformidades do template', e);
+      }
 
       const grouped: Record<string, typeof data> = {};
       data?.forEach(nc => {
@@ -230,7 +359,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
       });
       return grouped;
     },
-    enabled: !!existingChecklist,
+    enabled: !!checklistData,
     staleTime: 300_000,
     refetchOnWindowFocus: false,
   });
