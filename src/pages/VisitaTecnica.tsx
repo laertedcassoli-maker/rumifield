@@ -140,9 +140,12 @@ async function fetchClientesMap(ids: string[]) {
  */
 export default function VisitaTecnica() {
   const navigate = useNavigate();
-  const { role } = useAuth();
+  const { role, user } = useAuth();
   const { toast } = useToast();
+  const [searchParams] = useSearchParams();
   const canAbrirVisita = role === 'admin' || role === 'coordenador_servicos' || role === 'coordenador_rplus';
+  const isTecnico = role === 'tecnico_campo' || role === 'tecnico_oficina';
+  const podeFiltrarPorTecnico = canAbrirVisita;
   const [novaVisitaOpen, setNovaVisitaOpen] = useState(false);
   const [filtroTipo, setFiltroTipo] = useState<'all' | TipoVisita>('all');
   const [search, setSearch] = useState('');
@@ -152,6 +155,38 @@ export default function VisitaTecnica() {
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [datePopoverOpen, setDatePopoverOpen] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
+  const [ownerFilter, setOwnerFilter] = useState<OwnerFilter>(() =>
+    searchParams.get('meu') === '1' || isTecnico ? 'minhas' : 'todas',
+  );
+  const [tecnicoFilter, setTecnicoFilter] = useState('all');
+  const [situacaoFilter, setSituacaoFilter] = useState<SituacaoFilter>(() =>
+    searchParams.get('status') === 'pendente' ? 'pendentes' : 'todas',
+  );
+
+  const { data: userProfile } = useQuery({
+    queryKey: ['user-profile-cidade-base', user?.id],
+    queryFn: async () => {
+      if (!user?.id) return null;
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('cidade_base, cidade_base_lat, cidade_base_lon')
+        .eq('id', user.id)
+        .maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!user?.id,
+  });
+
+  const userOrigin = userProfile?.cidade_base_lat && userProfile?.cidade_base_lon
+    ? { lat: userProfile.cidade_base_lat, lon: userProfile.cidade_base_lon, name: userProfile.cidade_base || 'Minha cidade' }
+    : userProfile?.cidade_base
+      ? { ...DEFAULT_ORIGIN, name: userProfile.cidade_base }
+      : DEFAULT_ORIGIN;
+
+  const buildSingleDestinationUrl = (lat: number, lon: number) =>
+    `https://www.google.com/maps/dir/${userOrigin.lat},${userOrigin.lon}/${lat},${lon}`;
+
 
   const { data: visitas, isLoading, error } = useQuery({
     queryKey: ['visita-tecnica'],
