@@ -20,7 +20,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
-import { Loader2, CalendarIcon, Check, ChevronsUpDown } from 'lucide-react';
+import { Loader2, CalendarIcon, Check, ChevronsUpDown, Plus, Trash2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
@@ -40,7 +40,6 @@ interface Responsavel {
 
 const ROLE_LABELS: Record<string, string> = {
   tecnico_campo: 'Técnico de Campo',
-  tecnico_oficina: 'Técnico de Oficina',
   consultor_rplus: 'Consultor R+',
   coordenador_rplus: 'Coordenador R+',
 };
@@ -84,6 +83,9 @@ export default function NovaVisitaTreinamentoDialog({ open, onOpenChange, editin
   const [contactName, setContactName] = useState('');
   const [contactPhone, setContactPhone] = useState('');
   const [notes, setNotes] = useState('');
+  /** Pessoas treinadas adicionais (além da primeira, em contact_name/contact_phone) */
+  const [extras, setExtras] = useState<{ id?: string; nome: string; telefone: string }[]>([]);
+  const [removedExtraIds, setRemovedExtraIds] = useState<string[]>([]);
 
   // Modo edição: pré-preenche todos os campos a partir da visita existente
   useEffect(() => {
@@ -97,6 +99,15 @@ export default function NovaVisitaTreinamentoDialog({ open, onOpenChange, editin
     setContactName(editingVisit.contact_name ?? '');
     setContactPhone(editingVisit.contact_phone ?? '');
     setNotes(editingVisit.notes ?? '');
+    setRemovedExtraIds([]);
+    (async () => {
+      const { data } = await supabase
+        .from('training_visit_attendees')
+        .select('id, nome, telefone')
+        .eq('training_visit_id', editingVisit.id)
+        .order('created_at');
+      setExtras((data ?? []).map(a => ({ id: a.id, nome: a.nome, telefone: a.telefone ?? '' })));
+    })();
   }, [open, editingVisit]);
 
   const { data: clients, isLoading: clientsLoading } = useQuery<Client[]>({
@@ -113,21 +124,21 @@ export default function NovaVisitaTreinamentoDialog({ open, onOpenChange, editin
     enabled: open,
   });
 
-  // Responsável: técnicos (campo/oficina) ou CSMs (consultor/coordenador R+)
+  // Responsável: técnicos de campo ou CSMs (consultor/coordenador R+)
   const { data: responsaveis } = useQuery<Responsavel[]>({
     queryKey: ['training-responsaveis'],
     queryFn: async () => {
       const { data: roles, error } = await supabase
         .from('user_roles')
         .select('user_id, role')
-        .in('role', ['tecnico_campo', 'tecnico_oficina', 'consultor_rplus', 'coordenador_rplus']);
+        .in('role', ['tecnico_campo', 'consultor_rplus', 'coordenador_rplus']);
       if (error) throw error;
       if (!roles?.length) return [];
 
       const tipoPorUser = new Map<string, 'tecnico' | 'csm'>();
       const rolePorUser = new Map<string, string>();
       roles.forEach(r => {
-        const isTecnico = r.role === 'tecnico_campo' || r.role === 'tecnico_oficina';
+        const isTecnico = r.role === 'tecnico_campo';
         // Se o usuário tem mais de um papel, técnico prevalece
         if (!tipoPorUser.has(r.user_id) || isTecnico) {
           tipoPorUser.set(r.user_id, isTecnico ? 'tecnico' : 'csm');
@@ -186,7 +197,31 @@ export default function NovaVisitaTreinamentoDialog({ open, onOpenChange, editin
     setContactName('');
     setContactPhone('');
     setNotes('');
+    setExtras([]);
+    setRemovedExtraIds([]);
     onOpenChange(false);
+  };
+
+  /** Grava as pessoas treinadas adicionais da visita */
+  const persistAttendees = async (visitId: string) => {
+    if (removedExtraIds.length > 0) {
+      const { error } = await supabase
+        .from('training_visit_attendees')
+        .delete()
+        .in('id', removedExtraIds);
+      if (error) throw error;
+    }
+    const novos = extras
+      .filter(e => !e.id && e.nome.trim())
+      .map(e => ({
+        training_visit_id: visitId,
+        nome: e.nome.trim(),
+        telefone: e.telefone.trim() || null,
+      }));
+    if (novos.length > 0) {
+      const { error } = await supabase.from('training_visit_attendees').insert(novos);
+      if (error) throw error;
+    }
   };
 
   const createVisita = useMutation({
@@ -215,6 +250,7 @@ export default function NovaVisitaTreinamentoDialog({ open, onOpenChange, editin
         if (!data || data.length === 0) {
           throw new Error('A edição não foi confirmada pelo servidor. Verifique suas permissões.');
         }
+        await persistAttendees(editingVisit.id);
         return editingVisit.id;
       }
 
@@ -231,14 +267,15 @@ export default function NovaVisitaTreinamentoDialog({ open, onOpenChange, editin
       );
       if (error) throw error;
       if (!data) throw new Error('A visita de treinamento não foi confirmada pelo servidor.');
+      await persistAttendees(data.id);
       return data.id;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['training-visits'] });
       toast({
         title: editingVisit
-          ? 'Visita de treinamento atualizada com sucesso!'
-          : 'Visita de treinamento solicitada com sucesso!',
+          ? 'Visita de Treinamento de Manutenção atualizada com sucesso!'
+          : 'Visita de Treinamento de Manutenção solicitada com sucesso!',
       });
       handleClose();
     },
@@ -270,11 +307,13 @@ export default function NovaVisitaTreinamentoDialog({ open, onOpenChange, editin
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>
-            {editingVisit ? 'Editar Visita de Treinamento' : 'Nova Visita de Treinamento'}
+            {editingVisit
+              ? 'Editar Visita de Treinamento de Manutenção'
+              : 'Nova Visita de Treinamento de Manutenção'}
           </DialogTitle>
           <DialogDescription>
             {editingVisit
-              ? 'Atualize os dados da visita de treinamento.'
+              ? 'Atualize os dados da visita de Treinamento de Manutenção.'
               : 'Solicite uma visita para treinar a equipe do cliente.'}
           </DialogDescription>
         </DialogHeader>
@@ -433,6 +472,56 @@ export default function NovaVisitaTreinamentoDialog({ open, onOpenChange, editin
             />
           </div>
 
+          {/* Pessoas treinadas adicionais */}
+          {extras.map((extra, index) => (
+            <div key={extra.id ?? `novo-${index}`} className="space-y-2 rounded-lg border p-3">
+              <div className="flex items-center justify-between gap-2">
+                <Label>Outra pessoa que receberá o treinamento</Label>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => {
+                    if (extra.id) setRemovedExtraIds(prev => [...prev, extra.id!]);
+                    setExtras(prev => prev.filter((_, i) => i !== index));
+                  }}
+                >
+                  <Trash2 className="h-4 w-4 text-destructive" />
+                </Button>
+              </div>
+              <Input
+                value={extra.nome}
+                onChange={e =>
+                  setExtras(prev =>
+                    prev.map((p, i) => (i === index ? { ...p, nome: e.target.value } : p))
+                  )
+                }
+                placeholder="Nome"
+                disabled={!!extra.id}
+              />
+              <Input
+                value={extra.telefone}
+                onChange={e =>
+                  setExtras(prev =>
+                    prev.map((p, i) => (i === index ? { ...p, telefone: e.target.value } : p))
+                  )
+                }
+                placeholder="Telefone (opcional)"
+                disabled={!!extra.id}
+              />
+            </div>
+          ))}
+
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => setExtras(prev => [...prev, { nome: '', telefone: '' }])}
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Adicionar pessoa treinada
+          </Button>
+
           {/* Motivo/observação */}
           <div className="space-y-2">
             <Label>Motivo / observação</Label>
@@ -451,7 +540,7 @@ export default function NovaVisitaTreinamentoDialog({ open, onOpenChange, editin
           </Button>
           <Button onClick={handleSubmit} disabled={createVisita.isPending}>
             {createVisita.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {editingVisit ? 'Salvar Alterações' : 'Solicitar Treinamento'}
+            {editingVisit ? 'Salvar Alterações' : 'Solicitar Treinamento de Manutenção'}
           </Button>
         </DialogFooter>
       </DialogContent>
