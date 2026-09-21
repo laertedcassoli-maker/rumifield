@@ -639,7 +639,7 @@ export default function InstalacoesIndex() {
                             {isReadOnlyStage ? 'Ver' : 'Executar'}
                           </Button>
                         )}
-                        {canManage && (
+                        {(stageType === 'pre_instalacao' ? podeGerenciarPreInstalacao : canManage) && (
                           instalacaoBloqueada ? (
                             <span className="flex items-center gap-1 text-xs text-muted-foreground">
                               <Lock className="h-3.5 w-3.5 shrink-0" />
