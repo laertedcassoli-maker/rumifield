@@ -33,8 +33,20 @@ import {
   Pencil,
   Check,
   X,
-  Save
+  Save,
+  Trash2
 } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { useNavigate } from 'react-router-dom';
 import { format, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -94,6 +106,8 @@ export default function DetalheChamado() {
   const [showNovaVisita, setShowNovaVisita] = useState(false);
   const [showNovaInteracao, setShowNovaInteracao] = useState(false);
   const [showFinalizar, setShowFinalizar] = useState(false);
+  const [showDeleteTicket, setShowDeleteTicket] = useState(false);
+  const navigate = useNavigate();
 
   // Inline editing states
   const [editingDescription, setEditingDescription] = useState(false);
