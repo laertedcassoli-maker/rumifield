@@ -1485,8 +1485,25 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
                   </span>
                 </div>
               )}
-              <div className="flex items-center justify-center text-xs">
+              <div className="flex flex-wrap items-center justify-center gap-2 text-xs">
                 {getSyncStatusDisplay()}
+                {pendingCount > 0 && (
+                  <Badge variant="secondary" className="text-xs">
+                    {pendingCount} pendente{pendingCount > 1 ? 's' : ''} de envio
+                  </Badge>
+                )}
+                {pendingCount > 0 && isOnline && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-6 px-2 text-xs"
+                    onClick={(e) => { e.stopPropagation(); triggerSync(); }}
+                    disabled={syncStatus === 'syncing'}
+                  >
+                    <RefreshCw className={`h-3 w-3 mr-1 ${syncStatus === 'syncing' ? 'animate-spin' : ''}`} />
+                    Enviar agora
+                  </Button>
+                )}
               </div>
 
               <div className="flex items-center gap-3">
