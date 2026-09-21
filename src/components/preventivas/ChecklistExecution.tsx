@@ -702,10 +702,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
       actionLabel: string;
       isSelected: boolean;
     }): Promise<{ createdParts: any[]; removedParts: boolean }> => {
-      if (!navigator.onLine) {
-        throw new Error('Sem conexão. Conecte-se à internet para registrar o checklist.');
-      }
-
+      const online = navigator.onLine;
       const lockKey = `${itemId}-${actionId}`;
       if (processingActionsRef.current.has(lockKey)) {
         console.log('[ChecklistExecution] Action already being processed, skipping:', lockKey);
@@ -719,31 +716,13 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
       let removedParts = false;
 
       try {
-        if (isSelected) {
-          // Remove action
-          const { error: delErr } = await supabase
-            .from('preventive_checklist_item_actions')
-            .delete()
-            .eq('exec_item_id', itemId)
-            .eq('template_action_id', actionId);
-          if (delErr) throw delErr;
-        } else {
-          // Add action
-          const { data: insData, error: insErr } = await supabase
-            .from('preventive_checklist_item_actions')
-            .insert({
-              exec_item_id: itemId,
-              template_action_id: actionId,
-              action_label_snapshot: actionLabel
-            } as never)
-            .select('id');
-          if (insErr) throw insErr;
-          if (!insData || insData.length === 0) throw new Error('Ação não salva — verifique permissões');
-        }
+        // Local-first write (queues for sync when offline)
+        await offlineToggleAction(itemId, actionId, actionLabel, isSelected);
+        if (online) await syncPendingChanges();
 
-        // Part consumption side-effects
+        // Part consumption side-effects (online only — parts require connection)
         const isTrocaAction = actionLabel.toLowerCase().includes('troca');
-        if (isTrocaAction) {
+        if (isTrocaAction && online) {
           if (isSelected) {
             // "Troca" being REMOVED → check if other Troca actions remain
             const { data: remainingActions } = await supabase
