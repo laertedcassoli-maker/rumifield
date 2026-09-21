@@ -69,6 +69,8 @@ export default function TrainingChecklistExecution({
   const [cachedTemplates, setCachedTemplates] = useState<OfflineTrainingTemplate[]>([]);
   const [loadingVisit, setLoadingVisit] = useState(false);
   const [visitHadTemplate, setVisitHadTemplate] = useState(false);
+  /** Pessoas treinadas adicionais (além da primeira, que fica em contact_name/phone) */
+  const [extras, setExtras] = useState<{ id?: string; nome: string; telefone: string }[]>([]);
 
   // Modo "visita existente": carrega a visita, pré-preenche contato/checklist e respostas
   useEffect(() => {
@@ -93,6 +95,11 @@ export default function TrainingChecklistExecution({
             acc[r.checklist_template_item_id] = r.checked;
             return acc;
           }, {})
+        );
+        const savedAttendees = await getAttendees(visit.id);
+        if (!active) return;
+        setExtras(
+          savedAttendees.map(a => ({ id: a.id, nome: a.nome, telefone: a.telefone ?? '' }))
         );
       } catch (error) {
         console.error(error);
