@@ -141,6 +141,11 @@ async function fetchClientesMap(ids: string[]) {
 export default function VisitaTecnica() {
   const navigate = useNavigate();
   const { role, user } = useAuth();
+  const queryClient = useQueryClient();
+  const podeGerenciarVisita = role === 'admin' || role === 'coordenador_servicos';
+  const [visitaParaExcluir, setVisitaParaExcluir] = useState<VisitaItem | null>(null);
+  const [visitaParaEditar, setVisitaParaEditar] = useState<VisitaItem | null>(null);
+
   const { toast } = useToast();
   const [searchParams] = useSearchParams();
   const canAbrirVisita = role === 'admin' || role === 'coordenador_servicos' || role === 'coordenador_rplus';
