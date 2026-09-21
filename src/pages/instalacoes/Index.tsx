@@ -416,6 +416,7 @@ export default function InstalacoesIndex() {
     setStageResponsavelTipo(stage !== 'instalacao' && existing?.csm_user_id ? 'csm' : 'tecnico');
 
     setStagePlannedDate(existing?.planned_date || '');
+    setStagePlannedDateEnd(existing?.planned_date_end || '');
     setStageTemplateId(existing?.checklist_template_id || '');
     setStageAnexoPath(existing?.sales_email_attachment_path || null);
   };
