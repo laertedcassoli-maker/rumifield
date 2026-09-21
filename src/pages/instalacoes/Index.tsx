@@ -446,6 +446,28 @@ export default function InstalacoesIndex() {
 
       {(installations && installations.length > 0) && (
         <div className="flex flex-wrap gap-2">
+          {podeAlternarEscopo && (
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant={ownerFilter === 'meu' ? 'default' : 'outline'}
+                onClick={() => setOwnerFilter('meu')}
+                className="h-auto rounded-full gap-1.5 px-3 py-1 text-xs"
+              >
+                <span className="font-semibold">Meu</span>
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                variant={ownerFilter === 'todos' ? 'default' : 'outline'}
+                onClick={() => setOwnerFilter('todos')}
+                className="h-auto rounded-full gap-1.5 px-3 py-1 text-xs"
+              >
+                <span className="font-semibold">Todos</span>
+              </Button>
+            </div>
+          )}
           {([
             { label: 'Total', value: resumo.total, key: 'all' as const },
             { label: 'Concluídas', value: resumo.concluidas, key: 'concluida' as const },
