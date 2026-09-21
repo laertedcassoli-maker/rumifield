@@ -320,16 +320,41 @@ serve(async (req) => {
     }
 
 
+    // Índice em memória de NF -> pedidos. Os campos omie_nf_numero/omie_nf_numero_2
+    // são texto livre digitado pela logística e podem vir com zeros à esquerda
+    // ("000002974"), então normalizamos os dois lados e comparamos por igualdade
+    // exata (nunca por sufixo, para não colar rastreio em pedido errado).
+    const normalizarNf = (valor: string | null): string | null => {
+      const limpo = (valor ?? "").trim().replace(/^0+/, "");
+      return limpo.length > 0 ? limpo : null;
+    };
+
+    const indiceNf = new Map<string, { id: string; codigo_rastreio: string | null }[]>();
+    {
+      const { data: pedidosNf, error: indiceError } = await admin
+        .from("pedidos")
+        .select("id, codigo_rastreio, omie_nf_numero, omie_nf_numero_2")
+        .or("omie_nf_numero.not.is.null,omie_nf_numero_2.not.is.null");
+
+      if (indiceError) throw indiceError;
+
+      for (const pedido of pedidosNf ?? []) {
+        const registro = { id: pedido.id as string, codigo_rastreio: (pedido.codigo_rastreio ?? null) as string | null };
+        const chaves = new Set(
+          [normalizarNf(pedido.omie_nf_numero as string | null), normalizarNf(pedido.omie_nf_numero_2 as string | null)]
+            .filter((k): k is string => !!k),
+        );
+        for (const chave of chaves) {
+          const lista = indiceNf.get(chave);
+          if (lista) lista.push(registro);
+          else indiceNf.set(chave, [registro]);
+        }
+      }
+    }
+
     for (const [nf, rastreio] of processados) {
       try {
-        const { data: candidatos, error: selectError } = await admin
-          .from("pedidos")
-          .select("id, codigo_rastreio")
-          .or(`omie_nf_numero.eq.${nf},omie_nf_numero_2.eq.${nf}`);
-
-        if (selectError) throw selectError;
-
-        const encontrados = candidatos ?? [];
+        const encontrados = indiceNf.get(nf) ?? [];
         if (encontrados.length === 0) {
           resumo.nfs_sem_pedido.push(nf);
           continue;
@@ -338,6 +363,7 @@ serve(async (req) => {
           resumo.nfs_ambiguas.push(nf);
           continue;
         }
+
 
         const pedido = encontrados[0];
         if (pedido.codigo_rastreio) {
