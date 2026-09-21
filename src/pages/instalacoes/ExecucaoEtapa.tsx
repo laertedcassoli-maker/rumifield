@@ -224,8 +224,6 @@ export default function ExecucaoEtapa() {
     install_kit_em_estoque: stage.install_kit_em_estoque ?? null,
     qtd_mangueira_ft: stage.qtd_mangueira_ft ?? null,
     mangueira_em_estoque: stage.mangueira_em_estoque ?? null,
-    aprovacao_data_inicio: stage.aprovacao_data_inicio ?? null,
-    aprovacao_data_fim: stage.aprovacao_data_fim ?? null,
   };
   const criteriosIncompletos = criteriosPendentes(criterios);
 
