@@ -264,8 +264,18 @@ export default function TrainingChecklistExecution({
       toast.error(`Marque todos os itens do checklist (${markedItems} de ${totalItems}).`);
       return;
     }
+    if (extras.some(e => !e.id && !e.nome.trim())) {
+      toast.error('Informe o nome das pessoas treinadas adicionadas ou remova as linhas vazias.');
+      return;
+    }
     setCompleting(true);
     try {
+      // Pessoas adicionais ainda não gravadas
+      for (const extra of extras) {
+        if (!extra.id && extra.nome.trim()) {
+          await addAttendee(visitId, extra.nome.trim(), extra.telefone.trim() || null);
+        }
+      }
       await completeTraining(visitId, {
         contactName: contactName.trim(),
         contactPhone: contactPhone.trim(),
@@ -352,25 +362,91 @@ export default function TrainingChecklistExecution({
         </div>
 
         {/* Dados de quem recebeu o treinamento */}
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div className="space-y-2 min-w-0">
-            <Label>Nome do responsável treinado *</Label>
-            <Input
-              value={contactName}
-              onChange={e => setContactName(e.target.value)}
-              placeholder="Quem recebeu o treinamento"
-              disabled={completed}
-            />
+        <div className="space-y-3">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div className="space-y-2 min-w-0">
+              <Label>Nome do responsável treinado *</Label>
+              <Input
+                value={contactName}
+                onChange={e => setContactName(e.target.value)}
+                placeholder="Quem recebeu o treinamento"
+                disabled={completed}
+              />
+            </div>
+            <div className="space-y-2 min-w-0">
+              <Label>Telefone *</Label>
+              <Input
+                value={contactPhone}
+                onChange={e => setContactPhone(e.target.value)}
+                placeholder="(00) 00000-0000"
+                disabled={completed}
+              />
+            </div>
           </div>
-          <div className="space-y-2 min-w-0">
-            <Label>Telefone *</Label>
-            <Input
-              value={contactPhone}
-              onChange={e => setContactPhone(e.target.value)}
-              placeholder="(00) 00000-0000"
-              disabled={completed}
-            />
-          </div>
+
+          {extras.map((extra, index) => (
+            <div key={extra.id ?? `novo-${index}`} className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-2 min-w-0">
+                <Label>Nome da pessoa treinada *</Label>
+                <Input
+                  value={extra.nome}
+                  onChange={e =>
+                    setExtras(prev =>
+                      prev.map((p, i) => (i === index ? { ...p, nome: e.target.value } : p))
+                    )
+                  }
+                  placeholder="Outra pessoa treinada"
+                  disabled={completed || !!extra.id}
+                />
+              </div>
+              <div className="flex items-end gap-2 min-w-0">
+                <div className="space-y-2 min-w-0 flex-1">
+                  <Label>Telefone</Label>
+                  <Input
+                    value={extra.telefone}
+                    onChange={e =>
+                      setExtras(prev =>
+                        prev.map((p, i) => (i === index ? { ...p, telefone: e.target.value } : p))
+                      )
+                    }
+                    placeholder="(00) 00000-0000"
+                    disabled={completed || !!extra.id}
+                  />
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  disabled={completed}
+                  onClick={async () => {
+                    if (extra.id) {
+                      try {
+                        await removeAttendee(extra.id);
+                      } catch (error) {
+                        console.error(error);
+                        toast.error('Não foi possível remover a pessoa treinada.');
+                        return;
+                      }
+                    }
+                    setExtras(prev => prev.filter((_, i) => i !== index));
+                  }}
+                >
+                  <Trash2 className="h-4 w-4 text-destructive" />
+                </Button>
+              </div>
+            </div>
+          ))}
+
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={completed}
+            onClick={() => setExtras(prev => [...prev, { nome: '', telefone: '' }])}
+          >
+            <Plus className="mr-2 h-4 w-4" />
+            Adicionar pessoa treinada
+          </Button>
         </div>
 
         {/* Itens do checklist */}
