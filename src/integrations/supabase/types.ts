@@ -3481,6 +3481,36 @@ export type Database = {
           },
         ]
       }
+      technician_absences: {
+        Row: {
+          created_at: string
+          created_by_user_id: string | null
+          description: string
+          end_date: string
+          id: string
+          start_date: string
+          technician_user_id: string
+        }
+        Insert: {
+          created_at?: string
+          created_by_user_id?: string | null
+          description: string
+          end_date: string
+          id?: string
+          start_date: string
+          technician_user_id: string
+        }
+        Update: {
+          created_at?: string
+          created_by_user_id?: string | null
+          description?: string
+          end_date?: string
+          id?: string
+          start_date?: string
+          technician_user_id?: string
+        }
+        Relationships: []
+      }
       tecnico_clientes: {
         Row: {
           cliente_id: string
