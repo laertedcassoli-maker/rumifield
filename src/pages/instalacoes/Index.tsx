@@ -57,6 +57,7 @@ interface StageRow {
   csm_user_id: string | null;
   sales_email_attachment_path: string | null;
   planned_date: string | null;
+  planned_date_end: string | null;
   checklist_template_id: string | null;
 }
 
