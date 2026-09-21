@@ -20,6 +20,7 @@ import {
   AlertTriangle,
   Navigation,
   BookOpen,
+  GraduationCap,
   Briefcase,
   BarChart2
 } from 'lucide-react';
