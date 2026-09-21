@@ -4,6 +4,7 @@
 
 - Data planejada e Template de checklist passam a ser **obrigatórios** nas duas etapas (Pré Instalação e Instalação). Rótulos ganham `*` e o botão Salvar mostra aviso claro quando faltar um deles (sem desabilitar o botão).
 - Na etapa **Instalação**, aparece também um campo **Data fim**, obrigatório junto com a data início. Validação: a data fim não pode ser anterior à data início.
+- Na etapa **Pré Instalação**, o template já vem escolhido como "CheckList - Pré Instalação" (localizado pelo nome no catálogo existente); o usuário pode trocar. Na Instalação continua sem pré-seleção.
 - Nada muda no responsável (Técnico/CSM), no anexo de e-mail de venda, nos filtros ou na listagem.
 
 ## 2. Banco
