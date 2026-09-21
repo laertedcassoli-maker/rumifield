@@ -46,6 +46,13 @@ export default function ExecucaoEtapa() {
   const queryClient = useQueryClient();
   const { user, role } = useAuth();
   const canApprove = role === 'coordenador_servicos' || role === 'admin';
+  // Critérios de aprovação: admin/coord. serviços editam; coordenadores e consultor R+ apenas leem
+  const podeEditarCriterios = role === 'admin' || role === 'coordenador_servicos';
+  const podeVerCriterios =
+    podeEditarCriterios ||
+    role === 'coordenador_logistica' ||
+    role === 'coordenador_rplus' ||
+    role === 'consultor_rplus';
 
   const [confirmApprove, setConfirmApprove] = useState(false);
   const [isUploadingAnexo, setIsUploadingAnexo] = useState(false);
