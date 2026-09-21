@@ -835,16 +835,27 @@ export default function InstalacoesIndex() {
               </div>
             )}
             <div className="space-y-2">
-              <Label>Data planejada</Label>
+              <Label>{stageDialog?.stage === 'instalacao' ? 'Data início planejada *' : 'Data planejada *'}</Label>
               <Input
                 type="date"
                 value={stagePlannedDate}
                 onChange={(e) => setStagePlannedDate(e.target.value)}
               />
             </div>
+            {stageDialog?.stage === 'instalacao' && (
+              <div className="space-y-2">
+                <Label>Data fim planejada *</Label>
+                <Input
+                  type="date"
+                  value={stagePlannedDateEnd}
+                  min={stagePlannedDate || undefined}
+                  onChange={(e) => setStagePlannedDateEnd(e.target.value)}
+                />
+              </div>
+            )}
             <div className="space-y-2">
-              <Label>Template de checklist</Label>
-              <Select value={stageTemplateId} onValueChange={setStageTemplateId}>
+              <Label>Template de checklist *</Label>
+              <Select value={effectiveStageTemplateId} onValueChange={setStageTemplateId}>
                 <SelectTrigger>
                   <SelectValue placeholder="Selecione o template" />
                 </SelectTrigger>
