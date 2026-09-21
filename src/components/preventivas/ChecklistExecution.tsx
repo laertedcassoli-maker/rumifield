@@ -837,10 +837,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
       nonconformityLabel: string;
       isSelected: boolean;
     }): Promise<{ createdParts: any[]; removedNcId: string | null }> => {
-      if (!navigator.onLine) {
-        throw new Error('Sem conexão. Conecte-se à internet para registrar o checklist.');
-      }
-
+      const online = navigator.onLine;
       const lockKey = `${itemId}-${nonconformityId}`;
       if (processingNonconformitiesRef.current.has(lockKey)) {
         console.log('[ChecklistExecution] Nonconformity already being processed, skipping:', lockKey);
@@ -855,79 +852,75 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
 
       try {
         if (isSelected) {
-          // Remove NC
-          const { data: execNc } = await supabase
-            .from('preventive_checklist_item_nonconformities')
-            .select('id')
-            .eq('exec_item_id', itemId)
-            .eq('template_nonconformity_id', nonconformityId)
-            .maybeSingle();
-          
-          if (execNc) {
-            removedNcId = execNc.id;
-            await (supabase as any)
-              .from('preventive_part_consumption')
-              .delete()
-              .eq('exec_nonconformity_id', execNc.id);
+          if (online) {
+            const { data: execNc } = await supabase
+              .from('preventive_checklist_item_nonconformities')
+              .select('id')
+              .eq('exec_item_id', itemId)
+              .eq('template_nonconformity_id', nonconformityId)
+              .maybeSingle();
+
+            if (execNc) {
+              removedNcId = execNc.id;
+              await (supabase as any)
+                .from('preventive_part_consumption')
+                .delete()
+                .eq('exec_nonconformity_id', execNc.id);
+            }
+          } else {
+            removedNcId = findSelectedNcId(itemId, nonconformityId);
           }
 
-          await supabase
-            .from('preventive_checklist_item_nonconformities')
-            .delete()
-            .eq('exec_item_id', itemId)
-            .eq('template_nonconformity_id', nonconformityId);
+          // Local-first removal (queues the delete when offline)
+          await offlineToggleNonconformity(itemId, nonconformityId, nonconformityLabel, true);
         } else {
-          // Add NC
-          const { data: inserted, error: ncInsertErr } = await supabase
-            .from('preventive_checklist_item_nonconformities')
-            .insert({
-              exec_item_id: itemId,
-              template_nonconformity_id: nonconformityId,
-              nonconformity_label_snapshot: nonconformityLabel
-            } as never)
-            .select('id')
-            .single();
+          // Local-first insert (queues when offline)
+          await offlineToggleNonconformity(itemId, nonconformityId, nonconformityLabel, false);
 
-          if (ncInsertErr) {
-            console.error('[ChecklistExecution] Error inserting NC:', ncInsertErr);
-            throw ncInsertErr;
-          }
+          // NC being ADDED → create part consumption if Troca active (online only)
+          if (online) {
+            const { data: inserted } = await supabase
+              .from('preventive_checklist_item_nonconformities')
+              .select('id')
+              .eq('exec_item_id', itemId)
+              .eq('template_nonconformity_id', nonconformityId)
+              .maybeSingle();
 
-          // NC being ADDED → create part consumption if Troca active
-          if (inserted) {
-            const hasTroca = itemHasTrocaAction(itemId);
-            console.log('[ChecklistExecution] NC added for item', itemId, '- hasTroca:', hasTroca);
-            if (hasTroca) {
-              const ncParts = await getNcParts(nonconformityId);
-              console.log('[ChecklistExecution] Creating parts for NC:', ncParts.length, 'parts');
-              for (const np of ncParts) {
-                const newId = crypto.randomUUID();
-                const record = {
-                  id: newId,
-                  preventive_id: preventiveId,
-                  exec_item_id: itemId,
-                  exec_nonconformity_id: inserted.id,
-                  part_id: np.part_id,
-                  part_code_snapshot: np.part_codigo,
-                  part_name_snapshot: np.part_nome,
-                  quantity: np.default_quantity,
-                  stock_source: null,
-                };
-                const { error: partErr } = await (supabase as any)
-                  .from('preventive_part_consumption')
-                  .insert(record);
-                if (partErr) {
-                  console.error('[ChecklistExecution] Error inserting part from NC:', partErr);
-                } else {
-                  createdParts.push({
-                    ...record,
-                    unit_cost_snapshot: null,
-                    asset_unique_code: null,
-                    notes: null,
-                    is_manual: false,
-                    consumed_at: new Date().toISOString(),
-                    is_asset: false,
-                  });
+            if (inserted) {
+              const hasTroca = itemHasTrocaAction(itemId);
+              console.log('[ChecklistExecution] NC added for item', itemId, '- hasTroca:', hasTroca);
+              if (hasTroca) {
+                const ncParts = await getNcParts(nonconformityId);
+                console.log('[ChecklistExecution] Creating parts for NC:', ncParts.length, 'parts');
+                for (const np of ncParts) {
+                  const newId = crypto.randomUUID();
+                  const record = {
+                    id: newId,
+                    preventive_id: preventiveId,
+                    exec_item_id: itemId,
+                    exec_nonconformity_id: inserted.id,
+                    part_id: np.part_id,
+                    part_code_snapshot: np.part_codigo,
+                    part_name_snapshot: np.part_nome,
+                    quantity: np.default_quantity,
+                    stock_source: null,
+                  };
+                  const { error: partErr } = await (supabase as any)
+                    .from('preventive_part_consumption')
+                    .insert(record);
+                  if (partErr) {
+                    console.error('[ChecklistExecution] Error inserting part from NC:', partErr);
+                  } else {
+                    createdParts.push({
+                      ...record,
+                      unit_cost_snapshot: null,
+                      asset_unique_code: null,
+                      notes: null,
+                      is_manual: false,
+                      consumed_at: new Date().toISOString(),
+                      is_asset: false,
+                    });
+                  }
                 }
               }
             }
@@ -995,7 +988,10 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
   // Complete checklist
   const completeChecklistMutation = useMutation({
     mutationFn: async () => {
-      if (!existingChecklist) throw new Error('Checklist não encontrado');
+      if (!checklistData) throw new Error('Checklist não encontrado');
+
+      // Flush any locally queued answers before closing the checklist
+      await syncPendingChanges();
 
       const { error } = await supabase
         .from('preventive_checklists')
@@ -1003,7 +999,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
           status: 'concluido' as ChecklistStatus,
           completed_at: new Date().toISOString()
         })
-        .eq('id', existingChecklist.id);
+        .eq('id', checklistData.id);
 
       if (error) throw error;
     },
