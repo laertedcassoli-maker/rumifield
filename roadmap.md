@@ -5,3 +5,5 @@
 - [x] Checklist de preventiva funcionando sem sinal (respostas, ações e não-conformidades salvas localmente e sincronizadas)
 
 - [x] Consolidar Minhas Rotas dentro de Visita Técnica (filtro Minhas/Todas, técnico para admin/coord. serviços/coord. R+, Pendentes/Concluídas, link de mapa, remoção do menu e da tela antiga)
+- [ ] Minhas Pendências: "Ver todas" + seção unificada Visitas Técnicas + Treinamentos/OS (em andamento)
+- [ ] Pedidos.tsx: tipo_envio apenas_nf/envio_pelo_tecnico mostra "N/A" no Código de Rastreio
