@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Calendar, Wrench, RefreshCcw, Truck, ArrowRight, ListTodo, HardHat, ClipboardCheck, Ticket } from 'lucide-react';
+import { AlertTriangle, Calendar, Contact, GraduationCap, RefreshCcw, Truck, ArrowRight, ListTodo, HardHat, ClipboardCheck, FileText } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -75,10 +75,11 @@ interface SectionProps {
   count: number;
   isLoading: boolean;
   emptyText: string;
+  to?: string;
   children: React.ReactNode;
 }
 
-function Section({ title, icon: Icon, count, isLoading, emptyText, children }: SectionProps) {
+function Section({ title, icon: Icon, count, isLoading, emptyText, to, children }: SectionProps) {
   return (
     <Card>
       <CardHeader className="pb-3">
@@ -86,9 +87,18 @@ function Section({ title, icon: Icon, count, isLoading, emptyText, children }: S
           <Icon className="h-4 w-4 text-primary" />
           <span>{title}</span>
           {!isLoading && (
-            <Badge variant={count > 0 ? 'default' : 'secondary'} className="ml-auto">
+            <Badge variant={count > 0 ? 'default' : 'secondary'} className={to ? '' : 'ml-auto'}>
               {count}
             </Badge>
+          )}
+          {to && !isLoading && (
+            <Link
+              to={to}
+              className="ml-auto inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+            >
+              Ver todas
+              <ArrowRight className="h-3 w-3" />
+            </Link>
           )}
         </CardTitle>
       </CardHeader>
@@ -109,7 +119,28 @@ function Section({ title, icon: Icon, count, isLoading, emptyText, children }: S
 }
 
 export default function MinhasPendencias() {
-  const { preventivas, visitas, chamados, coletaReversa, envios, instalacoes, aprovacoesInstalacao, canApproveInstalacao, total, isLoading } = useMinhasPendencias();
+  const { preventivas, visitas, chamados, coletaReversa, envios, instalacoes, treinamentos, ordensServico, aprovacoesInstalacao, canApproveInstalacao, total, isLoading } = useMinhasPendencias();
+
+  const visitasUnificadas = [
+    ...(preventivas.data ?? []).map(item => ({
+      key: `prev-${item.id}`,
+      code: item.routeCode ?? 'Rota',
+      cliente: item.clienteNome,
+      fazenda: item.fazenda,
+      date: formatDate(item.plannedDate),
+      status: item.status,
+      to: `/preventivas/execucao/${item.routeId}`,
+    })),
+    ...(visitas.data ?? []).map(item => ({
+      key: `visita-${item.id}`,
+      code: item.visitCode ?? item.ticketCode ?? 'Visita',
+      cliente: item.clienteNome,
+      fazenda: item.fazenda,
+      date: formatDate(item.plannedDate),
+      status: item.status,
+      to: `/chamados/visita/${item.id}`,
+    })),
+  ];
 
   return (
     <div className="space-y-6 pb-8 animate-fade-in">
@@ -129,51 +160,33 @@ export default function MinhasPendencias() {
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Section
-          title="Preventivas"
-          icon={Calendar}
-          count={preventivas.data?.length ?? 0}
-          isLoading={preventivas.isLoading}
-          emptyText="Nenhuma pendência em Preventivas"
-        >
-          {preventivas.data?.map(item => (
-            <PendenciaRow
-              key={item.id}
-              code={item.routeCode ?? 'Rota'}
-              cliente={item.clienteNome}
-              fazenda={item.fazenda}
-              date={formatDate(item.plannedDate)}
-              status={item.status}
-              to={`/preventivas/execucao/${item.routeId}`}
-            />
-          ))}
-        </Section>
-
-        <Section
           title="Visitas Técnicas"
-          icon={Wrench}
-          count={visitas.data?.length ?? 0}
-          isLoading={visitas.isLoading}
+          icon={Contact}
+          count={visitasUnificadas.length}
+          isLoading={preventivas.isLoading || visitas.isLoading}
           emptyText="Nenhuma pendência em Visitas Técnicas"
+          to="/visita-tecnica?meu=1&status=pendente"
         >
-          {visitas.data?.map(item => (
+          {visitasUnificadas.map(item => (
             <PendenciaRow
-              key={item.id}
-              code={item.visitCode ?? item.ticketCode ?? 'Visita'}
-              cliente={item.clienteNome}
+              key={item.key}
+              code={item.code}
+              cliente={item.cliente}
               fazenda={item.fazenda}
-              date={formatDate(item.plannedDate)}
+              date={item.date}
               status={item.status}
-              to={`/chamados/visita/${item.id}`}
+              to={item.to}
             />
           ))}
         </Section>
 
         <Section
           title="Chamados"
-          icon={Ticket}
+          icon={AlertTriangle}
           count={chamados.data?.length ?? 0}
           isLoading={chamados.isLoading}
           emptyText="Nenhuma pendência em Chamados"
+          to="/chamados?meu=1&status=pendente"
         >
           {chamados.data?.map(item => (
             <PendenciaRow
@@ -194,6 +207,7 @@ export default function MinhasPendencias() {
           count={coletaReversa.data?.length ?? 0}
           isLoading={coletaReversa.isLoading}
           emptyText="Nenhuma pendência em Coleta Reversa"
+          to="/pedidos?tipo=coleta_reversa&meu=1&status=pendente"
         >
           {coletaReversa.data?.map(item => (
             <PendenciaRow
@@ -214,6 +228,7 @@ export default function MinhasPendencias() {
           count={envios.data?.length ?? 0}
           isLoading={envios.isLoading}
           emptyText="Nenhuma pendência em Envios"
+          to="/pedidos?tipo=envio&meu=1&status=pendente"
         >
           {envios.data?.map(item => (
             <PendenciaRow
@@ -234,6 +249,7 @@ export default function MinhasPendencias() {
           count={instalacoes.data?.length ?? 0}
           isLoading={instalacoes.isLoading}
           emptyText="Nenhuma pendência em Instalações"
+          to="/instalacoes?meu=1"
         >
           {instalacoes.data?.map(item => (
             <PendenciaRow
@@ -244,6 +260,47 @@ export default function MinhasPendencias() {
               date={formatDate(item.plannedDate)}
               status={item.status}
               to={`/instalacoes/etapa/${item.id}`}
+            />
+          ))}
+        </Section>
+
+        <Section
+          title="Treinamentos"
+          icon={GraduationCap}
+          count={treinamentos.data?.length ?? 0}
+          isLoading={treinamentos.isLoading}
+          emptyText="Nenhuma pendência em Treinamentos"
+          to="/treinamento?meu=1&status=pendente"
+        >
+          {treinamentos.data?.map(item => (
+            <PendenciaRow
+              key={item.id}
+              code="Treinamento"
+              cliente={item.clienteNome}
+              fazenda={item.fazenda}
+              date={formatDate(item.plannedDate)}
+              status={item.status}
+              to="/treinamento"
+            />
+          ))}
+        </Section>
+
+        <Section
+          title="Ordens de Serviço"
+          icon={FileText}
+          count={ordensServico.data?.length ?? 0}
+          isLoading={ordensServico.isLoading}
+          emptyText="Nenhuma pendência em Ordens de Serviço"
+          to="/oficina/os?meu=1&status=pendente"
+        >
+          {ordensServico.data?.map(item => (
+            <PendenciaRow
+              key={item.id}
+              code={item.code}
+              cliente={item.atividade ?? '—'}
+              date={formatDate(item.createdAt)}
+              status={item.status}
+              to="/oficina/os"
             />
           ))}
         </Section>

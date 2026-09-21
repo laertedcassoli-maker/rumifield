@@ -268,6 +268,49 @@ export function useMinhasPendencias() {
     },
   });
 
+  const treinamentos = useQuery({
+    queryKey: ['training-visits', 'pendencias', uid],
+    enabled: !!uid,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('training_visits')
+        .select('id, cliente_id, status, planned_date')
+        .or(`technician_user_id.eq.${uid},csm_user_id.eq.${uid}`)
+        .eq('status', 'pendente')
+        .order('planned_date', { ascending: true });
+      if (error) throw error;
+      const clientesMap = await fetchClientesMap([...new Set((data ?? []).map(t => t.cliente_id).filter(Boolean) as string[])]);
+      return (data ?? []).map(t => ({
+        id: t.id,
+        clienteNome: clientesMap.get(t.cliente_id)?.nome ?? 'Cliente',
+        fazenda: clientesMap.get(t.cliente_id)?.fazenda ?? null,
+        plannedDate: t.planned_date,
+        status: t.status,
+      }));
+    },
+  });
+
+  const ordensServico = useQuery({
+    queryKey: ['work-orders', 'pendencias', uid],
+    enabled: !!uid,
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('work_orders')
+        .select('id, code, status, created_at, activities(name)')
+        .eq('assigned_to_user_id', uid!)
+        .neq('status', 'concluido')
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return (data ?? []).map(o => ({
+        id: o.id,
+        code: o.code,
+        atividade: (o as any).activities?.name ?? null,
+        createdAt: o.created_at,
+        status: o.status,
+      }));
+    },
+  });
+
   const total =
     (preventivas.data?.length ?? 0) +
     (visitas.data?.length ?? 0) +
@@ -275,6 +318,8 @@ export function useMinhasPendencias() {
     (coletaReversa.data?.length ?? 0) +
     (envios.data?.length ?? 0) +
     (instalacoes.data?.length ?? 0) +
+    (treinamentos.data?.length ?? 0) +
+    (ordensServico.data?.length ?? 0) +
     (aprovacoesInstalacao.data?.length ?? 0);
 
   return {
@@ -284,6 +329,8 @@ export function useMinhasPendencias() {
     coletaReversa,
     envios,
     instalacoes,
+    treinamentos,
+    ordensServico,
     aprovacoesInstalacao,
     canApproveInstalacao,
     total,
@@ -294,6 +341,8 @@ export function useMinhasPendencias() {
       coletaReversa.isLoading ||
       envios.isLoading ||
       instalacoes.isLoading ||
+      treinamentos.isLoading ||
+      ordensServico.isLoading ||
       (canApproveInstalacao && aprovacoesInstalacao.isLoading),
   };
 }
