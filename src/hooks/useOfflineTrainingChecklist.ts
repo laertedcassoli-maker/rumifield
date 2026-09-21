@@ -6,6 +6,7 @@ import {
   OfflineTrainingVisit,
   OfflineTrainingChecklistResponse,
   OfflineTrainingTemplate,
+  OfflineTrainingAttendee,
 } from "@/lib/offline-checklist-db";
 import { reportDeadLetter } from "@/lib/reportDeadLetter";
 import { toast } from "sonner";
@@ -297,6 +298,34 @@ export function useOfflineTrainingChecklist() {
 
   const getResponses = useCallback(async (visitId: string) => {
     return offlineChecklistDb.getTrainingResponses(visitId);
+  }, []);
+
+  /** Adiciona uma pessoa treinada (offline-first) e devolve o registro local */
+  const addAttendee = useCallback(
+    async (visitId: string, nome: string, telefone: string | null) => {
+      const record: OfflineTrainingAttendee = {
+        id: crypto.randomUUID(),
+        training_visit_id: visitId,
+        nome,
+        telefone: telefone || null,
+      };
+      await offlineChecklistDb.addTrainingAttendeeLocally(record);
+      await afterLocalWrite();
+      return record;
+    },
+    [afterLocalWrite]
+  );
+
+  const removeAttendee = useCallback(
+    async (attendeeId: string) => {
+      await offlineChecklistDb.removeTrainingAttendeeLocally(attendeeId);
+      await afterLocalWrite();
+    },
+    [afterLocalWrite]
+  );
+
+  const getAttendees = useCallback(async (visitId: string) => {
+    return offlineChecklistDb.getTrainingAttendees(visitId);
   }, []);
 
   /**
