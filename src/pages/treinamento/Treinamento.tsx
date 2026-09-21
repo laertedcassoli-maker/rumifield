@@ -131,6 +131,25 @@ export default function Treinamento() {
     },
   });
 
+  // Pessoas treinadas adicionais, agrupadas por visita
+  const { data: attendeesPorVisita } = useQuery({
+    queryKey: ['training-visit-attendees'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('training_visit_attendees')
+        .select('id, training_visit_id, nome, telefone')
+        .order('created_at');
+      if (error) throw error;
+      const map = new Map<string, { id: string; nome: string; telefone: string | null }[]>();
+      (data ?? []).forEach(a => {
+        const list = map.get(a.training_visit_id) ?? [];
+        list.push({ id: a.id, nome: a.nome, telefone: a.telefone });
+        map.set(a.training_visit_id, list);
+      });
+      return map;
+    },
+  });
+
   useEffect(() => {
     if (error) {
       toast({
