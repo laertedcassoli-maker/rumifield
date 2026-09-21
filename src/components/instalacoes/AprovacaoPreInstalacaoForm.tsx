@@ -20,8 +20,6 @@ export interface AprovacaoCriterios {
   install_kit_em_estoque: string | null;
   qtd_mangueira_ft: number | null;
   mangueira_em_estoque: string | null;
-  aprovacao_data_inicio: string | null;
-  aprovacao_data_fim: string | null;
 }
 
 const TRI_FIELDS: { key: keyof AprovacaoCriterios; label: string }[] = [
