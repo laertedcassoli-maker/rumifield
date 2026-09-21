@@ -939,6 +939,38 @@ export default function InstalacoesIndex() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Delete single stage confirmation */}
+      <AlertDialog open={!!etapaParaExcluir} onOpenChange={(open) => !open && !deleteStageMutation.isPending && setEtapaParaExcluir(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir esta etapa?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Esta ação é irreversível e remove a etapa{' '}
+              <strong>{etapaParaExcluir ? (STAGE_LABELS[etapaParaExcluir.stage.stage] || etapaParaExcluir.stage.stage) : ''}</strong>{' '}
+              de <strong>{etapaParaExcluir?.clienteNome}</strong>, junto com{' '}
+              <strong>o checklist respondido e o consumo de peças desta etapa</strong>. A instalação e as demais
+              etapas continuam existindo.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteStageMutation.isPending}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteStageMutation.isPending}
+              onClick={(e) => {
+                e.preventDefault();
+                if (etapaParaExcluir) {
+                  deleteStageMutation.mutate(etapaParaExcluir.stage.id);
+                }
+              }}
+            >
+              {deleteStageMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Confirmar exclusão
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
