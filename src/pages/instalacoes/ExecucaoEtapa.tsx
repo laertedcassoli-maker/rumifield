@@ -77,6 +77,8 @@ export default function ExecucaoEtapa() {
           csm_user_id,
           sales_email_attachment_path,
           planned_date,
+          planned_date_end,
+          approved_at,
           checklist_template_id,
           tem_equipamento,
           nome_equipamento,
