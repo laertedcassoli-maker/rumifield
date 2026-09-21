@@ -310,13 +310,34 @@ export default function ExecucaoEtapa() {
             </div>
           )}
 
+          {stage.stage === 'pre_instalacao' && podeVerCriterios && (
+            <AprovacaoPreInstalacaoForm
+              key={stage.id}
+              stageId={stage.id}
+              criterios={criterios}
+              canEdit={podeEditarCriterios && stage.status !== 'concluido'}
+              responsavelNome={responsavelNome}
+            />
+          )}
+
           {aguardandoAprovacao && (
             canApprove ? (
               <div className="pt-3 flex flex-wrap items-center justify-between gap-2 border-t">
                 <p className="text-sm text-muted-foreground pt-3">
                   Revise os dados e o e-mail de venda antes de aprovar esta Pré Instalação.
                 </p>
-                <Button className="mt-3" onClick={() => setConfirmApprove(true)}>
+                <Button
+                  className="mt-3"
+                  onClick={() => {
+                    if (criteriosIncompletos.length > 0) {
+                      toast.error(
+                        'Ajuste os critérios antes de aprovar: ' + criteriosIncompletos.join(', '),
+                      );
+                      return;
+                    }
+                    setConfirmApprove(true);
+                  }}
+                >
                   <CheckCircle2 className="h-4 w-4 mr-1.5" />
                   Aprovar Pré Instalação
                 </Button>
