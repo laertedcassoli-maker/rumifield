@@ -357,12 +357,9 @@ const App = () => (
             />
             <Route
               path="/preventivas/minhas-rotas"
-              element={
-                <AppLayout>
-                  <PreventivasMinhasRotas />
-                </AppLayout>
-              }
+              element={<Navigate to="/visita-tecnica" replace />}
             />
+
             <Route
               path="/minhas-pendencias"
               element={
