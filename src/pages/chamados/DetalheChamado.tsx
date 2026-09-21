@@ -575,6 +575,34 @@ export default function DetalheChamado() {
     );
   };
 
+  // Exclusão do chamado — restrita a admin e coordenador de serviços
+  const podeExcluirChamado = role === 'admin' || role === 'coordenador_servicos';
+
+  const deleteTicketMutation = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase
+        .from('technical_tickets')
+        .delete()
+        .eq('id', id!)
+        .select('id');
+      if (error) throw error;
+      if (!data || data.length === 0) {
+        throw new Error('A exclusão não foi confirmada pelo servidor. Verifique suas permissões.');
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['technical-tickets'] });
+      toast({ title: 'Chamado excluído com sucesso!' });
+      setShowDeleteTicket(false);
+      navigate('/chamados');
+    },
+    onError: (error: Error) => {
+      toast({ variant: 'destructive', title: 'Erro ao excluir chamado', description: error.message });
+    },
+  });
+
+
+
   if (isLoading) {
     return (
       <div className="flex justify-center py-12">
