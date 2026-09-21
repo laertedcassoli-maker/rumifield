@@ -725,15 +725,34 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
       notes?: string;
     }) => {
       const online = navigator.onLine;
-
-      // Local-first write (queues for sync when offline)
-      await offlineUpdateItem(itemId, {
-        ...(status !== undefined ? { status } : {}),
-        ...(notes !== undefined ? { notes } : {}),
-      });
+      const answeredAt = new Date().toISOString();
 
       if (online) {
-        await syncPendingChanges();
+        const updateData: any = { answered_at: answeredAt };
+        if (status !== undefined) updateData.status = status;
+        if (notes !== undefined) updateData.notes = notes;
+
+        const { data, error } = await supabase
+          .from('preventive_checklist_items')
+          .update(updateData)
+          .eq('id', itemId)
+          .select('id');
+
+        if (error) throw error;
+        if (!data || data.length === 0) throw new Error('Falha ao salvar — verifique permissões');
+
+        // Keep the local cache aligned with the server
+        try {
+          await offlineChecklistDb.checklistItems.update(itemId, { ...updateData, _pendingSync: false });
+        } catch (e) {
+          console.warn('[ChecklistExecution] Falha ao atualizar cache local do item', e);
+        }
+      } else {
+        // Offline: local write + sync queue
+        await offlineUpdateItem(itemId, {
+          ...(status !== undefined ? { status } : {}),
+          ...(notes !== undefined ? { notes } : {}),
+        });
       }
 
       // If status changed from N to something else, remove selected actions, nonconformities and their consumption records
