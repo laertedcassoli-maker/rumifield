@@ -1,74 +1,26 @@
-# Instalações — exclusão por etapa e formulário de aprovação da Pré Instalação
+# Instalações: campos obrigatórios na configuração + ajustes nos critérios de aprovação
 
-## O que muda para o usuário
+## 1. Configurar etapa (tela de Instalações)
 
-### 1. Excluir/editar por etapa (lista de Instalações)
+- Data planejada e Template de checklist passam a ser **obrigatórios** nas duas etapas (Pré Instalação e Instalação). Rótulos ganham `*` e o botão Salvar mostra aviso claro quando faltar um deles (sem desabilitar o botão).
+- Na etapa **Instalação**, aparece também um campo **Data fim**, obrigatório junto com a data início. Validação: a data fim não pode ser anterior à data início.
+- Nada muda no responsável (Técnico/CSM), no anexo de e-mail de venda, nos filtros ou na listagem.
 
-Cada etapa do cartão ganha suas próprias ações, além do botão já existente de excluir a instalação inteira (que continua igual):
+## 2. Banco
 
-| Etapa | Ação | Quem vê |
-| --- | --- | --- |
-| Instalação | Excluir etapa | Admin, Coordenador de Serviços |
-| Pré Instalação | Excluir etapa | Admin, Coordenador de Serviços, Coordenador R+, Consultor R+ |
-| Pré Instalação | Editar etapa (diálogo já existente) | Admin, Coordenador de Serviços, Coordenador R+, Consultor R+ |
+- Nova coluna `planned_date_end` (date, aceita vazio) em `installation_stages`, usada só pela etapa Instalação.
+- As colunas `aprovacao_data_inicio` / `aprovacao_data_fim` **permanecem** no banco — apenas deixam de ser usadas na interface.
 
-A exclusão pede confirmação e avisa que o checklist e os dados daquela etapa vão junto. O botão "Configurar" de uma etapa que ainda não existe continua com a regra atual.
+## 3. Tela da etapa (critérios de aprovação)
 
-### 2. Formulário de aprovação da Pré Instalação
-
-Na tela da etapa de Pré Instalação, um novo bloco "Critérios de aprovação", visível e editável **apenas para o Coordenador de Serviços**:
-
-- Tem equipamento? (Sim / Não / NA) + Nome do equipamento
-- Tem químico? (Sim / Não / NA)
-- Quantidade de pistolas + Pistolas em estoque? (Sim / Não / NA)
-- Quantidade de install kit + Install kit em estoque? (Sim / Não / NA)
-- Metragem de mangueira (ft) + Mangueira em estoque? (Sim / Não / NA)
-- Janela da aprovação: data de início e data de fim (independente da data planejada da etapa, que continua como está)
-- Técnico responsável pela instalação: reaproveita o responsável já gravado na etapa
-
-Comportamento:
-
-- "Salvar rascunho" grava a qualquer momento e permite voltar e editar depois.
-- Se **todos** os campos Sim/Não/NA estiverem em "Sim" ou "NA", o botão de aprovar a Pré Instalação fica liberado (mantendo a exigência atual de etapa em "Aguardando Aprovação").
-- Se **qualquer** campo estiver em "Não" (ou em branco), os dados são salvos mas a etapa permanece em "Aguardando Aprovação", com aviso explícito de quais itens travam a aprovação.
-
-Os demais papéis continuam vendo a etapa normalmente, sem o formulário; o aviso "aguardando revisão do Coordenador de Serviços" segue como hoje.
-
-## Decisões assumidas
-
-- O formulário fica na tela da etapa (`/instalacoes/etapa/:stageId`), junto do bloco de aprovação já existente — não em um novo diálogo na lista.
-- Hoje quem aprova é Coordenador de Serviços **ou** Admin. Com a mudança, o formulário é só do Coordenador de Serviços; o Admin continua podendo aprovar (sem editar os critérios), para não travar suporte.
-- Campos numéricos aceitam vazio (rascunho) e não bloqueiam a aprovação por si — só os campos Sim/Não/NA travam.
+- O bloco "Critérios de aprovação" passa a aparecer somente quando a etapa está em **Aguardando Aprovação** ou **Concluído**. Durante a execução do checklist, o bloco não aparece.
+- Os três níveis de acesso (editar / apenas ver / não ver) continuam exatamente como hoje.
+- Dentro do bloco, os campos manuais de início e fim da janela de aprovação são removidos. No lugar, uma linha só de leitura com a **data da aprovação** (registrada automaticamente quando a etapa é aprovada), exibida para histórico; quando ainda não houver aprovação, mostra "Ainda não aprovada".
+- Quando a etapa é Instalação, a listagem e a tela da etapa mostram o período (início – fim) em vez de uma data única.
 
 ## Detalhes técnicos
 
-**Migration** (`installation_stages`, todas as colunas anuláveis, preenchidas só quando `stage='pre_instalacao'`):
-
-- `tem_equipamento text`, `nome_equipamento text`
-- `tem_quimico text`
-- `qtd_pistolas integer`, `pistolas_em_estoque text`
-- `qtd_install_kit integer`, `install_kit_em_estoque text`
-- `qtd_mangueira_ft numeric`, `mangueira_em_estoque text`
-- `aprovacao_data_inicio date`, `aprovacao_data_fim date`
-
-Os campos tri-state usam CHECK `in ('sim','nao','na')` (aceitando null). Sem mudança de RLS: as políticas atuais (`can_manage_installations()` para ALL, técnico/CSM responsável para UPDATE) já cobrem admin, coordenadores e consultor R+; os gates novos são de UI. `planned_date` e o fluxo da etapa `instalacao` ficam intocados. Tipos Supabase regenerados após a migration.
-
-**`src/pages/instalacoes/Index.tsx`**
-
-- Novos gates: `podeExcluirEtapaInstalacao = admin || coordenador_servicos`; `podeGerenciarPreInstalacao = admin || coordenador_servicos || coordenador_rplus || consultor_rplus`. `canManage` e `deleteInstallationMutation` ficam como estão.
-- `deleteStageMutation`: `delete().eq('id', stageId).select('id')` com throw explícito quando nenhuma linha volta (RLS silenciosa), invalidando `['installations']`.
-- Novo `AlertDialog` de confirmação por etapa (estado `etapaParaExcluir`), separado do diálogo de exclusão da instalação.
-- No bloco de ações de cada etapa, ícone de lixeira conforme a tabela acima; o botão "Editar" da Pré Instalação passa a usar `podeGerenciarPreInstalacao`.
-
-**`src/pages/instalacoes/ExecucaoEtapa.tsx`**
-
-- Query da etapa passa a selecionar as novas colunas.
-- Novo componente `src/components/instalacoes/AprovacaoPreInstalacaoForm.tsx`: estado local inicializado a partir da etapa (props como valor inicial, sem `useEffect` de sincronização), `ToggleGroup` para os tri-state, `Input` para números e datas, mutation de rascunho com `.select('id')` e timeout padrão, invalidando `['installation-stage', stageId]` e `['installations']`.
-- `criteriosCompletos` = todos os cinco tri-state em `sim`/`na`; o botão "Aprovar Pré Instalação" só habilita quando verdadeiro, e o bloco lista os itens pendentes quando não. O `approveMutation` atual não muda.
-- Botões permanecem clicáveis com toast explicativo quando a validação falha, conforme o padrão do projeto.
-
-## Fora do escopo
-
-- Botão/gate de exclusão da instalação inteira.
-- `planned_date` e seu uso pelas outras etapas.
-- Fluxo de aprovação/execução da etapa de Instalação e o checklist em si.
+- Migration: `ALTER TABLE public.installation_stages ADD COLUMN planned_date_end date;` (sem mudança de RLS/grants).
+- `Index.tsx`: novo estado `stagePlannedDateEnd`; incluído em `openStageDialog` (a partir de `existing?.planned_date_end`), no `payload` de `saveStageMutation` (`planned_date_end: stageDialog.stage === 'instalacao' ? (stagePlannedDateEnd || null) : null`), no `select` da query `['installations']` e no tipo `StageRow`. Validação no `onClick` do Salvar: responsável (atual) + `!stagePlannedDate` + `!stageTemplateId` + para `instalacao` `!stagePlannedDateEnd` e `stagePlannedDateEnd < stagePlannedDate`, cada caso com `toast.error` específico.
+- `ExecucaoEtapa.tsx`: adicionar `planned_date_end` ao select; render do form passa a `stage.stage === 'pre_instalacao' && podeVerCriterios && ['aguardando_aprovacao','concluido'].includes(stage.status)`; passar `approvedAt={stage.approved_at}` ao form; exibir período quando `planned_date_end` existir.
+- `AprovacaoPreInstalacaoForm.tsx`: remover estados/inputs `dataInicio`/`dataFim`, sua validação e as chaves `aprovacao_data_inicio`/`aprovacao_data_fim` do objeto salvo (tipo `AprovacaoCriterios` ajustado); nova prop `approvedAt?: string | null` renderizada como texto somente leitura. `criteriosPendentes` e os gates de edição permanecem inalterados.
