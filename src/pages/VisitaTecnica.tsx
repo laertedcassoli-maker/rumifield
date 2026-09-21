@@ -230,7 +230,11 @@ export default function VisitaTecnica() {
           clienteId: r.client_id ?? null,
           clienteNome: cliente?.nome ?? 'Cliente',
           fazenda: cliente?.fazenda ?? null,
+          clienteLat: cliente?.latitude ?? null,
+          clienteLon: cliente?.longitude ?? null,
+          tecnicoUserId: r.field_technician_user_id ?? null,
           tecnicoNome: r.field_technician_user_id ? profiles.get(r.field_technician_user_id) ?? null : null,
+
           dataPlanejada: r.planned_start_date ?? null,
           dataRealizada: r.checkout_at ?? null,
           status: r.status,
@@ -248,7 +252,11 @@ export default function VisitaTecnica() {
           clienteId: r.client_id ?? null,
           clienteNome: cliente?.nome ?? 'Cliente',
           fazenda: cliente?.fazenda ?? null,
+          clienteLat: cliente?.latitude ?? null,
+          clienteLon: cliente?.longitude ?? null,
+          tecnicoUserId: techId,
           tecnicoNome: techId ? profiles.get(techId) ?? null : null,
+
           dataPlanejada: r.planned_date ?? null,
           dataRealizada: r.checkin_at ?? null,
           status: r.status,
