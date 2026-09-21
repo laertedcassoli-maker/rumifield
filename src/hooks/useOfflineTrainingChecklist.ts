@@ -355,6 +355,13 @@ export function useOfflineTrainingChecklist() {
         await offlineChecklistDb.cacheTrainingResponses(
           (resp ?? []) as OfflineTrainingChecklistResponse[]
         );
+
+        const { data: att, error: attError } = await supabase
+          .from("training_visit_attendees")
+          .select("id, training_visit_id, nome, telefone")
+          .eq("training_visit_id", visitId);
+        if (attError) throw attError;
+        await offlineChecklistDb.cacheTrainingAttendees((att ?? []) as OfflineTrainingAttendee[]);
         return visit;
       }
 
@@ -393,6 +400,9 @@ export function useOfflineTrainingChecklist() {
     createTrainingVisit,
     updateTrainingVisit,
     setResponse,
+    addAttendee,
+    removeAttendee,
+    getAttendees,
     getResponses,
     getTrainingVisit,
     completeTraining,
