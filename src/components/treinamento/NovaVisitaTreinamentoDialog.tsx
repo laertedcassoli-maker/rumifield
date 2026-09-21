@@ -35,14 +35,7 @@ interface Client {
 interface Responsavel {
   id: string;
   nome: string;
-  tipo: 'tecnico' | 'csm';
 }
-
-const ROLE_LABELS: Record<string, string> = {
-  tecnico_campo: 'Técnico de Campo',
-  consultor_rplus: 'Consultor R+',
-  coordenador_rplus: 'Coordenador R+',
-};
 
 export interface EditingTrainingVisit {
   id: string;
@@ -124,40 +117,25 @@ export default function NovaVisitaTreinamentoDialog({ open, onOpenChange, editin
     enabled: open,
   });
 
-  // Responsável: técnicos de campo ou CSMs (consultor/coordenador R+)
+  // Responsável: apenas técnicos de campo
   const { data: responsaveis } = useQuery<Responsavel[]>({
     queryKey: ['training-responsaveis'],
     queryFn: async () => {
       const { data: roles, error } = await supabase
         .from('user_roles')
-        .select('user_id, role')
-        .in('role', ['tecnico_campo', 'consultor_rplus', 'coordenador_rplus']);
+        .select('user_id')
+        .eq('role', 'tecnico_campo');
       if (error) throw error;
       if (!roles?.length) return [];
-
-      const tipoPorUser = new Map<string, 'tecnico' | 'csm'>();
-      const rolePorUser = new Map<string, string>();
-      roles.forEach(r => {
-        const isTecnico = r.role === 'tecnico_campo';
-        // Se o usuário tem mais de um papel, técnico prevalece
-        if (!tipoPorUser.has(r.user_id) || isTecnico) {
-          tipoPorUser.set(r.user_id, isTecnico ? 'tecnico' : 'csm');
-          rolePorUser.set(r.user_id, r.role);
-        }
-      });
 
       const { data: profiles } = await supabase
         .from('profiles')
         .select('id, nome')
-        .in('id', [...tipoPorUser.keys()])
+        .in('id', roles.map(r => r.user_id))
         .eq('is_active', true)
         .order('nome');
 
-      return (profiles || []).map(p => ({
-        id: p.id,
-        nome: `${p.nome} (${ROLE_LABELS[rolePorUser.get(p.id) ?? ''] ?? ''})`,
-        tipo: tipoPorUser.get(p.id) ?? 'csm',
-      }));
+      return (profiles || []).map(p => ({ id: p.id, nome: p.nome }));
     },
     enabled: open,
   });
@@ -226,13 +204,11 @@ export default function NovaVisitaTreinamentoDialog({ open, onOpenChange, editin
 
   const createVisita = useMutation({
     mutationFn: async () => {
-      const responsavel = responsaveis?.find(r => r.id === responsavelId);
       const payload = {
         cliente_id: clientId,
-        checklist_template_id: checklistTemplateId || null,
-        technician_user_id: responsavel?.tipo === 'tecnico' ? responsavelId : null,
-        csm_user_id: responsavel?.tipo === 'csm' ? responsavelId : null,
-        planned_date: plannedDate ? format(plannedDate, 'yyyy-MM-dd') : null,
+        checklist_template_id: checklistTemplateId,
+        technician_user_id: responsavelId,
+        planned_date: format(plannedDate!, 'yyyy-MM-dd'),
         contact_name: contactName.trim() || null,
         contact_phone: contactPhone.trim() || null,
         notes: notes.trim() || null,
@@ -292,11 +268,11 @@ export default function NovaVisitaTreinamentoDialog({ open, onOpenChange, editin
   });
 
   const handleSubmit = () => {
-    if (!clientId || !responsavelId) {
+    if (!clientId || !responsavelId || !checklistTemplateId || !plannedDate) {
       toast({
         variant: 'destructive',
         title: 'Campos obrigatórios',
-        description: 'Informe o cliente e o responsável pela visita.',
+        description: 'Informe o cliente, o técnico responsável, o checklist e a data planejada.',
       });
       return;
     }
@@ -385,9 +361,9 @@ export default function NovaVisitaTreinamentoDialog({ open, onOpenChange, editin
             </Popover>
           </div>
 
-          {/* Técnico ou CSM responsável */}
+          {/* Técnico responsável */}
           <div className="space-y-2">
-            <Label>Técnico ou CSM responsável *</Label>
+            <Label>Técnico responsável *</Label>
             <Select value={responsavelId} onValueChange={setResponsavelId}>
               <SelectTrigger>
                 <SelectValue placeholder="Selecione o responsável" />
@@ -404,10 +380,10 @@ export default function NovaVisitaTreinamentoDialog({ open, onOpenChange, editin
 
           {/* Checklist */}
           <div className="space-y-2">
-            <Label>Checklist</Label>
+            <Label>Checklist *</Label>
             <Select value={checklistTemplateId} onValueChange={setChecklistTemplateId}>
               <SelectTrigger>
-                <SelectValue placeholder="Selecione o checklist (opcional)" />
+                <SelectValue placeholder="Selecione o checklist" />
               </SelectTrigger>
               <SelectContent>
                 {checklistTemplates?.map(template => (
@@ -421,7 +397,7 @@ export default function NovaVisitaTreinamentoDialog({ open, onOpenChange, editin
 
           {/* Data planejada */}
           <div className="space-y-2">
-            <Label>Data Planejada</Label>
+            <Label>Data Planejada *</Label>
             <Popover open={datePopoverOpen} onOpenChange={setDatePopoverOpen}>
               <PopoverTrigger asChild>
                 <Button

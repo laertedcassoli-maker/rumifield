@@ -33,8 +33,20 @@ import {
   Pencil,
   Check,
   X,
-  Save
+  Save,
+  Trash2
 } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+import { useNavigate } from 'react-router-dom';
 import { format, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
@@ -94,6 +106,8 @@ export default function DetalheChamado() {
   const [showNovaVisita, setShowNovaVisita] = useState(false);
   const [showNovaInteracao, setShowNovaInteracao] = useState(false);
   const [showFinalizar, setShowFinalizar] = useState(false);
+  const [showDeleteTicket, setShowDeleteTicket] = useState(false);
+  const navigate = useNavigate();
 
   // Inline editing states
   const [editingDescription, setEditingDescription] = useState(false);
@@ -561,6 +575,34 @@ export default function DetalheChamado() {
     );
   };
 
+  // Exclusão do chamado — restrita a admin e coordenador de serviços
+  const podeExcluirChamado = role === 'admin' || role === 'coordenador_servicos';
+
+  const deleteTicketMutation = useMutation({
+    mutationFn: async () => {
+      const { data, error } = await supabase
+        .from('technical_tickets')
+        .delete()
+        .eq('id', id!)
+        .select('id');
+      if (error) throw error;
+      if (!data || data.length === 0) {
+        throw new Error('A exclusão não foi confirmada pelo servidor. Verifique suas permissões.');
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['technical-tickets'] });
+      toast({ title: 'Chamado excluído com sucesso!' });
+      setShowDeleteTicket(false);
+      navigate('/chamados');
+    },
+    onError: (error: Error) => {
+      toast({ variant: 'destructive', title: 'Erro ao excluir chamado', description: error.message });
+    },
+  });
+
+
+
   if (isLoading) {
     return (
       <div className="flex justify-center py-12">
@@ -630,6 +672,16 @@ export default function DetalheChamado() {
             <Button onClick={() => setShowNovaVisita(true)}>
               <CalendarPlus className="mr-2 h-4 w-4" />
               Agendar Visita
+            </Button>
+          )}
+          {podeExcluirChamado && !isEditMode && (
+            <Button
+              variant="outline"
+              className="text-destructive hover:text-destructive border-destructive/40 hover:bg-destructive/10"
+              onClick={() => setShowDeleteTicket(true)}
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              Excluir Chamado
             </Button>
           )}
         </div>
@@ -1170,6 +1222,31 @@ export default function DetalheChamado() {
         onOpenChange={setShowFinalizar}
         ticketId={id!}
       />
+
+      {/* Excluir Chamado */}
+      <AlertDialog open={showDeleteTicket} onOpenChange={setShowDeleteTicket}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir este chamado?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Todas as visitas, interações e solicitações vinculadas serão removidas junto. Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteTicketMutation.isPending}
+              onClick={(e) => {
+                e.preventDefault();
+                deleteTicketMutation.mutate();
+              }}
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

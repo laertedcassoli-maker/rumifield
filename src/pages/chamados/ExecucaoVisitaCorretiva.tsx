@@ -51,6 +51,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { shareReportWithPdf, buildReportFileName, buildReportShareUrl } from '@/lib/share-report-pdf';
 import SolenoideModeloDialog, { SOLENOIDE_TRIGGER_CODE } from '@/components/pedidos/SolenoideModeloDialog';
+import EditarVisitaCorretivaDialog from '@/components/chamados/EditarVisitaCorretivaDialog';
 
 interface ValidationResult {
   canProceed: boolean;
@@ -85,6 +86,7 @@ export default function ExecucaoVisitaCorretiva() {
   const [isEditMode, setIsEditMode] = useState(false);
   const [showExitEditDialog, setShowExitEditDialog] = useState(false);
   const [showDeleteVisitDialog, setShowDeleteVisitDialog] = useState(false);
+  const [showEditarDadosDialog, setShowEditarDadosDialog] = useState(false);
 
   // Bug #4: Reactive online state
   const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -1060,6 +1062,16 @@ export default function ExecucaoVisitaCorretiva() {
                 Editar Visita
               </Button>
             )}
+            {isAdminOrCoordinator && !isEditMode && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => setShowEditarDadosDialog(true)}
+              >
+                <Pencil className="h-3.5 w-3.5 mr-1.5" />
+                Editar Dados
+              </Button>
+            )}
             {canDeleteVisit && !isEditMode && (
               <Button
                 size="sm"
@@ -1630,6 +1642,16 @@ export default function ExecucaoVisitaCorretiva() {
         </AlertDialogContent>
       </AlertDialog>
 
+      {isAdminOrCoordinator && (
+        <EditarVisitaCorretivaDialog
+          open={showEditarDadosDialog}
+          onOpenChange={setShowEditarDadosDialog}
+          visitId={visitId!}
+          plannedDate={visit.planned_start_date}
+          technicianId={visit.field_technician_user_id}
+          checklistTemplateId={visit.checklist_template_id}
+        />
+      )}
     </div>
   );
 }

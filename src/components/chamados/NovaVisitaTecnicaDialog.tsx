@@ -24,6 +24,9 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 
+/** Template padrão de checklist (RumiFlow v1) — usuário pode trocar */
+const DEFAULT_CHECKLIST_TEMPLATE_ID = '3b86c956-891a-4a82-9871-d8a5c2981a6d';
+
 interface Client {
   id: string;
   nome: string;
@@ -57,7 +60,7 @@ export default function NovaVisitaTecnicaDialog({ open, onOpenChange }: NovaVisi
   const [plannedDate, setPlannedDate] = useState<Date | undefined>();
   const [datePopoverOpen, setDatePopoverOpen] = useState(false);
   const [priority, setPriority] = useState('media');
-  const [checklistTemplateId, setChecklistTemplateId] = useState('');
+  const [checklistTemplateId, setChecklistTemplateId] = useState(DEFAULT_CHECKLIST_TEMPLATE_ID);
   const [motivo, setMotivo] = useState('');
 
   const { data: clients, isLoading: clientsLoading } = useQuery<Client[]>({
@@ -108,7 +111,7 @@ export default function NovaVisitaTecnicaDialog({ open, onOpenChange }: NovaVisi
       if (error) throw error;
       return data || [];
     },
-    enabled: open && tipo === 'preventiva',
+    enabled: open,
   });
 
   const filteredClients = (clients || []).filter(client => {
@@ -130,7 +133,7 @@ export default function NovaVisitaTecnicaDialog({ open, onOpenChange }: NovaVisi
     setTechnicianId('');
     setPlannedDate(undefined);
     setPriority('media');
-    setChecklistTemplateId('');
+    setChecklistTemplateId(DEFAULT_CHECKLIST_TEMPLATE_ID);
     setMotivo('');
     onOpenChange(false);
   };
@@ -230,6 +233,7 @@ export default function NovaVisitaTecnicaDialog({ open, onOpenChange }: NovaVisi
               field_technician_user_id: technicianId,
               status: 'em_elaboracao',
               planned_start_date: dataPlanejada,
+              checklist_template_id: checklistTemplateId,
               internal_notes: null,
             })
             .select('id')
@@ -296,11 +300,11 @@ export default function NovaVisitaTecnicaDialog({ open, onOpenChange }: NovaVisi
       });
       return;
     }
-    if (tipo === 'preventiva' && !checklistTemplateId) {
+    if (!checklistTemplateId) {
       toast({
         variant: 'destructive',
         title: 'Checklist obrigatório',
-        description: 'Selecione o checklist da visita preventiva.',
+        description: 'Selecione o checklist da visita.',
       });
       return;
     }
@@ -459,8 +463,8 @@ export default function NovaVisitaTecnicaDialog({ open, onOpenChange }: NovaVisi
             </Popover>
           </div>
 
-          {/* Prioridade (corretiva) ou Checklist (preventiva) */}
-          {tipo === 'corretiva' ? (
+          {/* Prioridade (apenas corretiva) */}
+          {tipo === 'corretiva' && (
             <div className="space-y-2">
               <Label>Prioridade *</Label>
               <Select value={priority} onValueChange={setPriority}>
@@ -475,23 +479,24 @@ export default function NovaVisitaTecnicaDialog({ open, onOpenChange }: NovaVisi
                 </SelectContent>
               </Select>
             </div>
-          ) : (
-            <div className="space-y-2">
-              <Label>Checklist *</Label>
-              <Select value={checklistTemplateId} onValueChange={setChecklistTemplateId}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Selecione o checklist" />
-                </SelectTrigger>
-                <SelectContent>
-                  {checklistTemplates?.map(template => (
-                    <SelectItem key={template.id} value={template.id}>
-                      {template.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
           )}
+
+          {/* Checklist — obrigatório nos dois tipos */}
+          <div className="space-y-2">
+            <Label>Checklist *</Label>
+            <Select value={checklistTemplateId} onValueChange={setChecklistTemplateId}>
+              <SelectTrigger>
+                <SelectValue placeholder="Selecione o checklist" />
+              </SelectTrigger>
+              <SelectContent>
+                {checklistTemplates?.map(template => (
+                  <SelectItem key={template.id} value={template.id}>
+                    {template.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
           {/* Motivo */}
           <div className="space-y-2">
