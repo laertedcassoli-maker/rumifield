@@ -51,9 +51,11 @@ interface Props {
   /** Quando false, exibe os dados em modo leitura (sem salvar). */
   canEdit: boolean;
   responsavelNome?: string | null;
+  /** Data/hora da aprovação registrada automaticamente (somente leitura). */
+  approvedAt?: string | null;
 }
 
-export default function AprovacaoPreInstalacaoForm({ stageId, criterios, canEdit, responsavelNome }: Props) {
+export default function AprovacaoPreInstalacaoForm({ stageId, criterios, canEdit, responsavelNome, approvedAt }: Props) {
   const queryClient = useQueryClient();
 
   // Props são apenas valores iniciais — nunca sincronizados por useEffect
@@ -66,8 +68,6 @@ export default function AprovacaoPreInstalacaoForm({ stageId, criterios, canEdit
   const [installKitEstoque, setInstallKitEstoque] = useState<string>(criterios.install_kit_em_estoque ?? '');
   const [qtdMangueira, setQtdMangueira] = useState<string>(criterios.qtd_mangueira_ft?.toString() ?? '');
   const [mangueiraEstoque, setMangueiraEstoque] = useState<string>(criterios.mangueira_em_estoque ?? '');
-  const [dataInicio, setDataInicio] = useState<string>(criterios.aprovacao_data_inicio ?? '');
-  const [dataFim, setDataFim] = useState<string>(criterios.aprovacao_data_fim ?? '');
 
   const atual: AprovacaoCriterios = {
     tem_equipamento: temEquipamento || null,
@@ -79,17 +79,12 @@ export default function AprovacaoPreInstalacaoForm({ stageId, criterios, canEdit
     install_kit_em_estoque: installKitEstoque || null,
     qtd_mangueira_ft: toNumberOrNull(qtdMangueira),
     mangueira_em_estoque: mangueiraEstoque || null,
-    aprovacao_data_inicio: dataInicio || null,
-    aprovacao_data_fim: dataFim || null,
   };
 
   const pendentes = criteriosPendentes(atual);
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      if (dataInicio && dataFim && dataFim < dataInicio) {
-        throw new Error('A data final da janela de aprovação não pode ser anterior à inicial.');
-      }
       const { data, error } = await Promise.race([
         (supabase as any).from('installation_stages').update(atual).eq('id', stageId).select('id'),
         new Promise<never>((_, reject) =>
