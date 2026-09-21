@@ -494,47 +494,47 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
       status?: 'S' | 'N' | 'NA' | null;
       notes?: string;
     }) => {
-      if (!navigator.onLine) {
-        throw new Error('Sem conexão');
+      const online = navigator.onLine;
+
+      // Local-first write (queues for sync when offline)
+      await offlineUpdateItem(itemId, {
+        ...(status !== undefined ? { status } : {}),
+        ...(notes !== undefined ? { notes } : {}),
+      });
+
+      if (online) {
+        await syncPendingChanges();
       }
-
-      const updateData: any = { answered_at: new Date().toISOString() };
-      if (status !== undefined) updateData.status = status;
-      if (notes !== undefined) updateData.notes = notes;
-
-      const { data, error } = await supabase
-        .from('preventive_checklist_items')
-        .update(updateData)
-        .eq('id', itemId)
-        .select('id');
-
-      if (error) throw error;
-      if (!data || data.length === 0) throw new Error('Falha ao salvar — verifique permissões');
 
       // If status changed from N to something else, remove selected actions, nonconformities and their consumption records
       if (status && status !== 'N') {
-        const { data: execNonconformities } = await supabase
-          .from('preventive_checklist_item_nonconformities')
-          .select('id')
-          .eq('exec_item_id', itemId);
-        
-        if (execNonconformities && execNonconformities.length > 0) {
-          const ncIds = execNonconformities.map(nc => nc.id);
-          await (supabase as any)
-            .from('preventive_part_consumption')
-            .delete()
-            .in('exec_nonconformity_id', ncIds);
-        }
-        
-        await supabase
-          .from('preventive_checklist_item_actions')
-          .delete()
-          .eq('exec_item_id', itemId);
+        if (online) {
+          const { data: execNonconformities } = await supabase
+            .from('preventive_checklist_item_nonconformities')
+            .select('id')
+            .eq('exec_item_id', itemId);
 
-        await supabase
-          .from('preventive_checklist_item_nonconformities')
-          .delete()
-          .eq('exec_item_id', itemId);
+          if (execNonconformities && execNonconformities.length > 0) {
+            const ncIds = execNonconformities.map(nc => nc.id);
+            await (supabase as any)
+              .from('preventive_part_consumption')
+              .delete()
+              .in('exec_nonconformity_id', ncIds);
+          }
+
+          await supabase
+            .from('preventive_checklist_item_actions')
+            .delete()
+            .eq('exec_item_id', itemId);
+
+          await supabase
+            .from('preventive_checklist_item_nonconformities')
+            .delete()
+            .eq('exec_item_id', itemId);
+        } else {
+          // Offline: queue the removal of every selection of this item
+          await removeSelectionsLocally(itemId);
+        }
       }
     },
     onSuccess: (_, variables) => {
