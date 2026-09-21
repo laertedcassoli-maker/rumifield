@@ -80,6 +80,18 @@ export function useOfflineTrainingChecklist() {
           });
         if (error && error.code !== "23505") throw error;
         await offlineChecklistDb.trainingChecklistResponses.update(id, { _pendingSync: false });
+      } else if (table === "training_visit_attendees") {
+        const id = cleanData.id as string;
+        if (operation === "delete") {
+          const { error } = await supabase.from("training_visit_attendees").delete().eq("id", id);
+          if (error) throw error;
+        } else {
+          const { error } = await supabase
+            .from("training_visit_attendees")
+            .upsert(cleanData as never, { onConflict: "id" });
+          if (error && error.code !== "23505") throw error;
+          await offlineChecklistDb.trainingAttendees.update(id, { _pendingSync: false });
+        }
       } else {
         throw new Error(`Tabela sem handler no treinamento: ${table}`);
       }
