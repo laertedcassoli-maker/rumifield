@@ -132,19 +132,23 @@ export default function AgendaOperacoes() {
     queryKey: ['agenda-tecnicos-ausencia'],
     enabled: podeGerenciarAusencias,
     queryFn: async () => {
-      const { data, error } = await supabase
+      // Sem FK entre user_roles e profiles: duas consultas, mapa montado em JS.
+      const { data: roles, error: rolesError } = await supabase
         .from('user_roles')
-        .select('user_id, role, profiles!inner(id, nome, is_active)')
+        .select('user_id')
         .in('role', ['tecnico_campo', 'tecnico_oficina']);
-      if (error) throw error;
-      const map = new Map<string, string>();
-      for (const row of (data ?? []) as any[]) {
-        const p = row.profiles;
-        if (p?.is_active) map.set(p.id as string, p.nome as string);
-      }
-      return [...map.entries()]
-        .map(([id, nome]) => ({ id, nome }))
-        .sort((a, b) => a.nome.localeCompare(b.nome, 'pt-BR'));
+      if (rolesError) throw rolesError;
+      const ids = [...new Set((roles ?? []).map(r => r.user_id).filter(Boolean))] as string[];
+      if (!ids.length) return [] as Array<{ id: string; nome: string }>;
+
+      const { data: profiles, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, nome')
+        .in('id', ids)
+        .eq('is_active', true)
+        .order('nome');
+      if (profilesError) throw profilesError;
+      return (profiles ?? []).map(p => ({ id: p.id as string, nome: p.nome as string }));
     },
   });
 
