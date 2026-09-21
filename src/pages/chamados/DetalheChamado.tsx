@@ -1222,6 +1222,31 @@ export default function DetalheChamado() {
         onOpenChange={setShowFinalizar}
         ticketId={id!}
       />
+
+      {/* Excluir Chamado */}
+      <AlertDialog open={showDeleteTicket} onOpenChange={setShowDeleteTicket}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir este chamado?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Todas as visitas, interações e solicitações vinculadas serão removidas junto. Esta ação não pode ser desfeita.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deleteTicketMutation.isPending}
+              onClick={(e) => {
+                e.preventDefault();
+                deleteTicketMutation.mutate();
+              }}
+            >
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
