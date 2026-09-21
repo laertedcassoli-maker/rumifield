@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -12,8 +12,10 @@ import {
   ChevronRight,
   Eye,
   Loader2,
+  Map as MapIcon,
   Plus,
   Search,
+  User,
   Wrench,
   XCircle,
 } from 'lucide-react';
@@ -25,6 +27,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import {
   Table,
   TableBody,
@@ -40,6 +43,8 @@ import { ptBR } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
 
 type TipoVisita = 'corretiva' | 'preventiva';
+type OwnerFilter = 'minhas' | 'todas';
+type SituacaoFilter = 'pendentes' | 'concluidas' | 'todas';
 
 interface VisitaItem {
   id: string;
@@ -48,12 +53,19 @@ interface VisitaItem {
   clienteId: string | null;
   clienteNome: string;
   fazenda: string | null;
+  tecnicoUserId: string | null;
   tecnicoNome: string | null;
+  clienteLat: number | null;
+  clienteLon: number | null;
   dataPlanejada: string | null;
   dataRealizada: string | null;
   status: string;
   linkTo: string;
 }
+
+const CONCLUIDO_STATUS = ['finalizada', 'executado'];
+const DEFAULT_ORIGIN = { lat: -22.7249, lon: -47.6476, name: 'Piracicaba/SP' };
+
 
 const STATUS_LABELS: Record<string, string> = {
   em_elaboracao: 'Em elaboração',
