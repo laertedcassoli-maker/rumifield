@@ -214,7 +214,7 @@ export default function VisitaTecnica() {
         supabase
           .from('ticket_visits')
           .select(
-            'id, visit_code, status, planned_start_date, checkout_at, ticket_id, client_id, field_technician_user_id, technical_tickets(ticket_code)'
+            'id, visit_code, status, planned_start_date, checkout_at, ticket_id, client_id, field_technician_user_id, checklist_template_id, technical_tickets(ticket_code)'
           )
           .neq('status', 'cancelada'),
         supabase
