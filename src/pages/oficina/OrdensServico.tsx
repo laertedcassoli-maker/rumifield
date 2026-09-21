@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -94,7 +95,13 @@ export default function OrdensServico() {
   const { user, role } = useAuth();
   const queryClient = useQueryClient();
   const [search, setSearch] = useState('');
-  const [activeTab, setActiveTab] = useState('kanban');
+  const [searchParams] = useSearchParams();
+  const [ownerFilter, setOwnerFilter] = useState<'meu' | 'todos'>(() =>
+    searchParams.get('meu') === '1' || role === 'tecnico_oficina' ? 'meu' : 'todos',
+  );
+  const [activeTab, setActiveTab] = useState(
+    () => searchParams.get('status') === 'pendente' ? 'abertas' : 'kanban',
+  );
   const [viewMode, setViewMode] = useState<'kanban' | 'list'>('kanban');
   const [novaOSDialogOpen, setNovaOSDialogOpen] = useState(false);
   const [selectedOS, setSelectedOS] = useState<WorkOrder | null>(null);
@@ -304,6 +311,8 @@ export default function OrdensServico() {
     
     if (!matchesSearch) return false;
 
+    if (ownerFilter === 'meu' && wo.assigned_to_user_id !== user?.id) return false;
+
     // Filter by creation date
     if (createdFrom) {
       const fromDate = new Date(createdFrom);
@@ -468,6 +477,14 @@ export default function OrdensServico() {
 
       {/* Filters */}
       <div className="flex flex-wrap items-end gap-3">
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-muted-foreground whitespace-nowrap">Responsável:</span>
+          <div className="flex gap-1">
+            <Button variant={ownerFilter === 'meu' ? 'default' : 'outline'} size="sm" onClick={() => setOwnerFilter('meu')} className="h-9 text-xs">Meu</Button>
+            <Button variant={ownerFilter === 'todos' ? 'default' : 'outline'} size="sm" onClick={() => setOwnerFilter('todos')} className="h-9 text-xs">Todos</Button>
+          </div>
+        </div>
+
         <div className="flex items-center gap-2">
           <span className="text-sm text-muted-foreground whitespace-nowrap">Criação:</span>
           <DateFilterButton label="De" date={createdFrom} onChange={setCreatedFrom} />
