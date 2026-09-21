@@ -1136,22 +1136,57 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
             removedNcId = findSelectedNcId(itemId, nonconformityId);
           }
 
-          // Local-first removal (queues the delete when offline)
-          await offlineToggleNonconformity(itemId, nonconformityId, nonconformityLabel, true);
-          if (online) await syncPendingChanges();
-        } else {
-          // Local-first insert (queues when offline)
-          await offlineToggleNonconformity(itemId, nonconformityId, nonconformityLabel, false);
-
-          // NC being ADDED → create part consumption if Troca active (online only)
           if (online) {
-            await syncPendingChanges();
-            const { data: inserted } = await supabase
+            await supabase
               .from('preventive_checklist_item_nonconformities')
-              .select('id')
+              .delete()
               .eq('exec_item_id', itemId)
-              .eq('template_nonconformity_id', nonconformityId)
-              .maybeSingle();
+              .eq('template_nonconformity_id', nonconformityId);
+            try {
+              await offlineChecklistDb.checklistNonconformities
+                .where('exec_item_id').equals(itemId)
+                .filter(nc => nc.template_nonconformity_id === nonconformityId)
+                .delete();
+            } catch (e) { console.warn('[ChecklistExecution] cache local (NC)', e); }
+          } else {
+            // Offline: local removal + sync queue
+            await offlineToggleNonconformity(itemId, nonconformityId, nonconformityLabel, true);
+          }
+        } else {
+          if (!online) {
+            // Offline: local insert + sync queue
+            await offlineToggleNonconformity(itemId, nonconformityId, nonconformityLabel, false);
+          }
+
+          // NC being ADDED → insert on the server and create part consumption if Troca active
+          if (online) {
+            const { data: inserted, error: ncInsertErr } = await supabase
+              .from('preventive_checklist_item_nonconformities')
+              .insert({
+                exec_item_id: itemId,
+                template_nonconformity_id: nonconformityId,
+                nonconformity_label_snapshot: nonconformityLabel
+              } as never)
+              .select('id')
+              .single();
+
+            if (ncInsertErr) {
+              console.error('[ChecklistExecution] Error inserting NC:', ncInsertErr);
+              throw ncInsertErr;
+            }
+
+            if (inserted) {
+              try {
+                await offlineChecklistDb.checklistNonconformities.put({
+                  id: inserted.id,
+                  exec_item_id: itemId,
+                  template_nonconformity_id: nonconformityId,
+                  nonconformity_label_snapshot: nonconformityLabel,
+                  selected_at: new Date().toISOString(),
+                  _pendingSync: false,
+                });
+              } catch (e) { console.warn('[ChecklistExecution] cache local (NC)', e); }
+            }
 
             if (inserted) {
               const hasTroca = itemHasTrocaAction(itemId);
