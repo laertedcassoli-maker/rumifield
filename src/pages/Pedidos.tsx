@@ -2669,9 +2669,11 @@ export default function Pedidos() {
                       </p>
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
-                      {pedido.status === 'solicitado' && (pedido.solicitante_id === user?.id || canDeleteAnyPedido) && (
+                      {(pedido.status === 'solicitado'
+                        ? (pedido.solicitante_id === user?.id || canDeleteAnyPedido)
+                        : canDeleteAnyPedido) && (
                         <>
-                          {(pedido.solicitante_id === user?.id || canManagePedidos) && (
+                          {pedido.status === 'solicitado' && (pedido.solicitante_id === user?.id || canManagePedidos) && (
                             <Button
                               variant="outline" size="icon" className="h-8 w-8"
                               onClick={() => handleEditPedido(pedido)}
