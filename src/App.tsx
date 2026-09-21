@@ -40,7 +40,6 @@ import PreventivasIndex from "./pages/preventivas/Index";
 import PreventivasRotas from "./pages/preventivas/Rotas";
 import PreventivasNovaRota from "./pages/preventivas/NovaRota";
 import PreventivasDetalheRota from "./pages/preventivas/DetalheRota";
-import PreventivasMinhasRotas from "./pages/preventivas/MinhasRotas";
 import MinhasPendencias from "./pages/MinhasPendencias";
 import AgendaOperacoes from "./pages/AgendaOperacoes";
 import VisitaTecnica from "./pages/VisitaTecnica";
