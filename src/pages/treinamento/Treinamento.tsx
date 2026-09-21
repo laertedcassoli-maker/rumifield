@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { withTimeout } from '@/lib/supabase-helpers';
@@ -100,6 +101,11 @@ export default function Treinamento() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const canAbrirVisita = role === 'admin' || role === 'coordenador_servicos' || role === 'coordenador_rplus';
+  const isTecnico = role === 'tecnico_campo' || role === 'tecnico_oficina';
+  const [searchParams] = useSearchParams();
+  const [ownerFilter, setOwnerFilter] = useState<'meu' | 'todos'>(() =>
+    searchParams.get('meu') === '1' || isTecnico ? 'meu' : 'todos',
+  );
 
   const [novaVisitaOpen, setNovaVisitaOpen] = useState(false);
   const [editingVisita, setEditingVisita] = useState<TreinamentoItem | null>(null);
@@ -134,7 +140,11 @@ export default function Treinamento() {
     }
   }, [error, toast]);
 
-  const lista = useMemo(() => visitas ?? [], [visitas]);
+  const lista = useMemo(() => {
+    const base = visitas ?? [];
+    if (ownerFilter === 'todos') return base;
+    return base.filter(v => v.technician_user_id === user?.id || v.csm_user_id === user?.id);
+  }, [visitas, ownerFilter, user?.id]);
 
   const clienteIds = useMemo(() => [...new Set(lista.map(v => v.cliente_id))], [lista]);
   const responsavelIds = useMemo(
@@ -287,7 +297,7 @@ export default function Treinamento() {
     <div className="space-y-6 animate-fade-in">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold">Treinamento</h1>
+          <h1 className="text-2xl font-bold">Treinamentos</h1>
           <p className="text-muted-foreground">
             Solicitação e acompanhamento de visitas de treinamento.
           </p>
@@ -300,6 +310,27 @@ export default function Treinamento() {
         )}
       </div>
 
+      <div className="flex items-center gap-2 flex-wrap mt-2">
+        <span className="text-sm text-muted-foreground">Responsável:</span>
+        <div className="flex gap-1">
+          <Button
+            variant={ownerFilter === 'meu' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setOwnerFilter('meu')}
+            className="h-7 text-xs"
+          >
+            Meu
+          </Button>
+          <Button
+            variant={ownerFilter === 'todos' ? 'default' : 'outline'}
+            size="sm"
+            onClick={() => setOwnerFilter('todos')}
+            className="h-7 text-xs"
+          >
+            Todos
+          </Button>
+        </div>
+      </div>
       <Tabs defaultValue="treinamentos">
         <TabsList>
           <TabsTrigger value="treinamentos">Treinamentos</TabsTrigger>
