@@ -105,12 +105,33 @@ async function fetchProfilesMap(ids: string[]) {
   return new Map<string, string>((data ?? []).map(p => [p.id as string, p.nome as string]));
 }
 
+interface ClienteInfo {
+  nome: string;
+  fazenda: string | null;
+  latitude: number | null;
+  longitude: number | null;
+}
+
 async function fetchClientesMap(ids: string[]) {
   const unique = [...new Set(ids.filter(Boolean))];
-  if (!unique.length) return new Map<string, { nome: string; fazenda: string | null }>();
-  const { data } = await supabase.from('clientes').select('id, nome, fazenda').in('id', unique);
-  return new Map((data ?? []).map(c => [c.id, { nome: c.nome, fazenda: c.fazenda ?? null }]));
+  if (!unique.length) return new Map<string, ClienteInfo>();
+  const { data } = await supabase
+    .from('clientes')
+    .select('id, nome, fazenda, latitude, longitude')
+    .in('id', unique);
+  return new Map<string, ClienteInfo>(
+    (data ?? []).map(c => [
+      c.id,
+      {
+        nome: c.nome,
+        fazenda: c.fazenda ?? null,
+        latitude: c.latitude ?? null,
+        longitude: c.longitude ?? null,
+      },
+    ]),
+  );
 }
+
 
 /**
  * Visita Técnica — leitura/navegação das idas presenciais à fazenda:
