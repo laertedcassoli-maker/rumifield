@@ -6,6 +6,10 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Camera, Loader2, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { useLiveQuery } from 'dexie-react-hooks';
+import { useEffect, useMemo } from 'react';
+import { offlineChecklistDb } from '@/lib/offline-checklist-db';
+import { syncItemPhoto, syncPendingItemPhotos } from '@/lib/checklist-item-photo-sync';
 
 export type ChecklistItemTable = 'preventive_checklist_items' | 'installation_checklist_items';
 const BUCKET = 'preventive-media';
@@ -35,13 +39,15 @@ export async function assertRequiredPhotos(
   checklistId: string,
 ) {
   const sb = supabase as any;
+  // Envia antes as fotos capturadas no aparelho
+  await syncPendingItemPhotos();
   const { data: blocks, error: bErr } = await sb.from(blockTable).select('id').eq('checklist_id', checklistId);
   if (bErr) throw bErr;
   const blockIds = (blocks ?? []).map((b: any) => b.id);
   if (!blockIds.length) return;
   const { data: items, error: iErr } = await sb
     .from(table)
-    .select('item_name_snapshot, template_item_id, photo_path')
+    .select('id, item_name_snapshot, template_item_id, photo_path')
     .in('exec_block_id', blockIds)
     .is('photo_path', null);
   if (iErr) throw iErr;
@@ -55,6 +61,17 @@ export async function assertRequiredPhotos(
   if (rErr) throw rErr;
   const reqSet = new Set((req ?? []).map(r => r.id));
   const faltando = (items ?? []).filter((i: any) => reqSet.has(i.template_item_id));
+  const locais = new Set(
+    (await offlineChecklistDb.checklistItemPhotos.bulkGet(faltando.map((i: any) => i.id)))
+      .filter(Boolean)
+      .map(r => r!.id),
+  );
+  const naoEnviadas = faltando.filter((i: any) => locais.has(i.id));
+  if (naoEnviadas.length) {
+    throw new Error(
+      `Foto ainda não enviada em ${naoEnviadas.length} item(ns). Verifique o sinal e tente novamente.`,
+    );
+  }
   if (faltando.length) {
     const nomes = faltando.slice(0, 3).map((i: any) => i.item_name_snapshot).join(', ');
     throw new Error(
@@ -92,7 +109,28 @@ export default function ChecklistItemPhoto({ table, itemId, templateItemId, read
     },
   });
 
+  const local = useLiveQuery(
+    () => offlineChecklistDb.checklistItemPhotos.get(itemId),
+    [itemId],
+  );
+  const localUrl = useMemo(() => (local ? URL.createObjectURL(local.blob) : null), [local]);
+  useEffect(() => () => { if (localUrl) URL.revokeObjectURL(localUrl); }, [localUrl]);
+
+  // Tenta enviar pendência deste item ao abrir / quando sair do aparelho, recarrega o estado
+  useEffect(() => {
+    if (!local || !navigator.onLine) return;
+    let active = true;
+    syncItemPhoto(itemId).then(ok => {
+      if (ok && active) queryClient.invalidateQueries({ queryKey: key });
+    });
+    return () => { active = false; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [local?.createdAt, itemId]);
+
   if (!isRequired) return null;
+
+  const hasLocal = !!local;
+  const displayUrl = localUrl ?? photo?.url ?? null;
 
   const setPath = async (path: string | null) => {
     const { data, error } = await (supabase as any)
@@ -106,24 +144,26 @@ export default function ChecklistItemPhoto({ table, itemId, templateItemId, read
 
   const handleFile = async (file: File) => {
     if (!user) return;
-    if (!navigator.onLine) {
-      toast.error('Sem conexão. Reconecte para anexar a foto.');
-      return;
-    }
     setBusy(true);
     try {
-      const ext = file.name.split('.').pop() || 'jpg';
-      const path = `${user.id}/checklist-items/${itemId}-${Date.now()}.${ext}`;
-      const { error: upErr } = await supabase.storage.from(BUCKET).upload(path, file, { contentType: file.type });
-      if (upErr) throw upErr;
-      try {
-        await setPath(path);
-      } catch (e) {
-        await supabase.storage.from(BUCKET).remove([path]);
-        throw e;
+      const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+      await offlineChecklistDb.checklistItemPhotos.put({
+        id: itemId,
+        table,
+        blob: file,
+        mimeType: file.type || 'image/jpeg',
+        ext,
+        userId: user.id,
+        createdAt: new Date().toISOString(),
+        _pendingSync: 1,
+      });
+      if (navigator.onLine) {
+        const ok = await syncItemPhoto(itemId);
+        await queryClient.invalidateQueries({ queryKey: key });
+        toast.success(ok ? 'Foto do item anexada.' : 'Foto salva no aparelho. Será enviada quando houver conexão.');
+      } else {
+        toast.success('Foto salva no aparelho. Será enviada quando houver conexão.');
       }
-      await queryClient.invalidateQueries({ queryKey: key });
-      toast.success('Foto do item anexada.');
     } catch (e) {
       console.error(e);
       toast.error('Não foi possível anexar a foto: ' + (e instanceof Error ? e.message : ''));
@@ -136,7 +176,8 @@ export default function ChecklistItemPhoto({ table, itemId, templateItemId, read
   const handleRemove = async () => {
     setBusy(true);
     try {
-      await setPath(null);
+      await offlineChecklistDb.checklistItemPhotos.delete(itemId);
+      if (photo?.path) await setPath(null);
       await queryClient.invalidateQueries({ queryKey: key });
     } catch (e) {
       toast.error('Não foi possível remover a foto.');
@@ -150,15 +191,17 @@ export default function ChecklistItemPhoto({ table, itemId, templateItemId, read
       <div className="flex flex-wrap items-center gap-2">
         <Camera className="h-4 w-4 text-muted-foreground" />
         <span className="text-sm font-medium">Foto obrigatória deste item</span>
-        {photo?.path ? (
+        {hasLocal ? (
+          <Badge variant="outline" className="text-xs border-amber-500 text-amber-600">Aguardando envio</Badge>
+        ) : photo?.path ? (
           <Badge variant="outline" className="text-xs">Anexada</Badge>
         ) : (
           <Badge variant="destructive" className="text-xs">Pendente</Badge>
         )}
       </div>
-      {photo?.url && (
-        <a href={photo.url} target="_blank" rel="noreferrer">
-          <img src={photo.url} alt="Foto do item" className="h-24 w-24 rounded-md object-cover border" />
+      {displayUrl && (
+        <a href={displayUrl} target="_blank" rel="noreferrer">
+          <img src={displayUrl} alt="Foto do item" className="h-24 w-24 rounded-md object-cover border" />
         </a>
       )}
       {!readOnly && (
@@ -176,9 +219,9 @@ export default function ChecklistItemPhoto({ table, itemId, templateItemId, read
           />
           <Button type="button" size="sm" variant="outline" disabled={busy} onClick={() => inputRef.current?.click()}>
             {busy ? <Loader2 className="h-4 w-4 mr-1.5 animate-spin" /> : <Camera className="h-4 w-4 mr-1.5" />}
-            {photo?.path ? 'Trocar foto' : 'Anexar foto'}
+            {photo?.path || hasLocal ? 'Trocar foto' : 'Anexar foto'}
           </Button>
-          {photo?.path && (
+          {(photo?.path || hasLocal) && (
             <Button type="button" size="sm" variant="ghost" disabled={busy} onClick={handleRemove}>
               <Trash2 className="h-4 w-4 text-destructive" />
             </Button>
