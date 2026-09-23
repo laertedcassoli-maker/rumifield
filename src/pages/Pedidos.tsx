@@ -1035,9 +1035,9 @@ export default function Pedidos() {
       return;
     }
     // Aviso (não bloqueante) de possível duplicidade: mesma peça, mesmo cliente,
-    // em pedido não-rascunho criado nos últimos 7 dias.
+    // em pedido não-rascunho criado nos últimos 15 dias.
     try {
-      const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      const since = new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString();
       const { data: dups } = await supabase
         .from('pedido_itens')
         .select('peca_id, pedidos!inner(id, pedido_code, cliente_id, status, created_at)')
