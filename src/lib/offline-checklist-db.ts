@@ -176,7 +176,20 @@ export interface OfflineTrainingTemplate {
   _cachedAt: string;
 }
 
+/** Foto obrigatória de item de checklist capturada no aparelho, aguardando envio */
+export interface OfflineChecklistItemPhoto {
+  id: string; // id do item do checklist
+  table: 'preventive_checklist_items' | 'installation_checklist_items';
+  blob: Blob;
+  mimeType: string;
+  ext: string;
+  userId: string;
+  createdAt: string;
+  _pendingSync: number;
+}
+
 class OfflineChecklistDatabase extends Dexie {
+  checklistItemPhotos!: Table<OfflineChecklistItemPhoto, string>;
   checklistItems!: Table<OfflineChecklistItem, string>;
   checklistActions!: Table<OfflineChecklistAction, string>;
   checklistNonconformities!: Table<OfflineChecklistNonconformity, string>;
@@ -253,6 +266,11 @@ class OfflineChecklistDatabase extends Dexie {
     // Version 7: pessoas treinadas (múltiplos participantes por visita)
     this.version(7).stores({
       trainingAttendees: "id, training_visit_id, _pendingSync",
+    });
+
+    // Version 8: fotos obrigatórias por item capturadas offline
+    this.version(8).stores({
+      checklistItemPhotos: "id, table, _pendingSync",
     });
   }
 
