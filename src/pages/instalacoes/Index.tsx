@@ -575,6 +575,15 @@ export default function InstalacoesIndex() {
                     )}
                   </CardTitle>
                   <div className="flex items-center gap-1.5 shrink-0">
+                    {!etapaFiltro && (() => {
+                      const situacao = classificarSituacao(inst);
+                      const etapaAtual = situacao === 'instalacao' || situacao === 'pre_instalacao' ? situacao : null;
+                      return etapaAtual ? (
+                        <Badge variant="outline" className="text-xs">
+                          {STAGE_LABELS[etapaAtual]}
+                        </Badge>
+                      ) : null;
+                    })()}
                     <Badge variant={inst.status === 'concluido' ? 'outline' : 'secondary'}>
                       {inst.status === 'concluido' ? 'Concluída' : 'Em Andamento'}
                     </Badge>
