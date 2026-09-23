@@ -16,6 +16,7 @@ import { Progress } from "@/components/ui/progress";
 import ChecklistItemStatusButtons from "./ChecklistItemStatusButtons";
 import SelectableOptionCard from "./SelectableOptionCard";
 import ChecklistBlockNav from "./ChecklistBlockNav";
+import ChecklistItemPhoto, { assertRequiredPhotos } from "@/components/checklist/ChecklistItemPhoto";
 import ChecklistItemNotes from "./ChecklistItemNotes";
 import { useCanEditCompletedChecklist } from "@/hooks/useCanEditCompletedChecklist";
 import { useMenuPermissions } from "@/hooks/useMenuPermissions";
@@ -1298,6 +1299,8 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
       // Flush any locally queued answers before closing the checklist
       await syncPendingChanges();
 
+      await assertRequiredPhotos('preventive_checklist_items', 'preventive_checklist_blocks', checklistData.id);
+
       const { error } = await supabase
         .from('preventive_checklists')
         .update({
@@ -1880,6 +1883,7 @@ export default function ChecklistExecution({ preventiveId, routeTemplateId, onSt
                         </div>
                       )}
 
+<ChecklistItemPhoto table="preventive_checklist_items" itemId={item.id} templateItemId={item.template_item_id} readOnly={isReadOnly} />
                       {!isReadOnly ? (
                         <ChecklistItemNotes
                           itemId={item.id}

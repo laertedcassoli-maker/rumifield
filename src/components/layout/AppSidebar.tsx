@@ -54,7 +54,6 @@ export function AppSidebar() {
   const instalacoesItems = [
     { title: 'Pré Instalação', icon: ListChecks, url: '/instalacoes?etapa=pre_instalacao' },
     { title: 'Instalação', icon: GearWrenchIcon, url: '/instalacoes?etapa=instalacao' },
-    { title: 'Todas', icon: HardHat, url: '/instalacoes' },
   ];
 
   const isInstalacoesActive = location.pathname === '/instalacoes';
