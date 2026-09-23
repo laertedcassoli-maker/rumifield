@@ -2006,6 +2006,21 @@ export default function Pedidos() {
                                 Remover
                               </Button>
                             </div>
+
+                            {item.peca_id && requiresVariante(item.peca_id) && (
+                              <div className="space-y-1">
+                                <Label className="text-xs">Variante <span className="text-destructive">*</span></Label>
+                                <ToggleGroup
+                                  type="single"
+                                  value={item.variante || ''}
+                                  onValueChange={(v) => v && updateItem(index, 'variante', v)}
+                                  className="justify-start"
+                                >
+                                  <ToggleGroupItem value="com_carrinho" className="text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">Com carrinho</ToggleGroupItem>
+                                  <ToggleGroupItem value="sem_carrinho" className="text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">Sem carrinho</ToggleGroupItem>
+                                </ToggleGroup>
+                              </div>
+                            )}
                           </div>
                         );
                       })}
