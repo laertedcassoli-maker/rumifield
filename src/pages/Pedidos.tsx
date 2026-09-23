@@ -1229,19 +1229,23 @@ export default function Pedidos() {
               .single();
             if (coletaError) throw coletaError;
 
-            const coletaItens = itens.map(item => ({
+            const coletaItens = coletaAutoEffective.map(item => ({
               pedido_id: coleta.id,
               peca_id: item.peca_id,
               quantidade: item.quantidade,
+              variante: requiresVariante(item.peca_id) ? (item.variante || null) : null,
             }));
-            const { data: insertedColetaItens, error: coletaItensError } = await supabase.from('pedido_itens').insert(coletaItens).select('id, peca_id');
+            const { data: insertedColetaItens, error: coletaItensError } = await supabase.from('pedido_itens').insert(coletaItens as any).select('id, peca_id');
             if (coletaItensError) {
               await supabase.from('pedidos').delete().eq('id', coleta.id);
               throw coletaItensError;
             }
             if (insertedColetaItens) {
               try {
-                await saveAssetsForItems(insertedColetaItens as { id: string; peca_id: string }[]);
+                await saveAssetsForItems(
+                  insertedColetaItens as { id: string; peca_id: string }[],
+                  buildAssetsByPecaId(coletaAutoEffective, coletaAutoAssets),
+                );
               } catch (assetErr: any) {
                 await supabase.from('pedidos').delete().eq('id', coleta.id);
                 throw assetErr;
