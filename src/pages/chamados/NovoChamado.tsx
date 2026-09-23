@@ -249,11 +249,11 @@ export default function NovoChamado() {
 
   const handleSubmit = (e: React.FormEvent, scheduleVisit = false) => {
     e.preventDefault();
-    if (!clientId || !description.trim()) {
+    if (!clientId || !technicianId || !description.trim()) {
       toast({
         variant: 'destructive',
         title: 'Campos obrigatórios',
-        description: 'Selecione um cliente e preencha o relato da fazenda.',
+        description: 'Selecione um cliente, um técnico e preencha o relato da fazenda.',
       });
       return;
     }
@@ -373,10 +373,10 @@ export default function NovoChamado() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label>Técnico</Label>
+                <Label>Técnico *</Label>
                 <Select value={technicianId} onValueChange={setTechnicianId}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Selecione um técnico (opcional)" />
+                    <SelectValue placeholder="Selecione um técnico" />
                   </SelectTrigger>
                   <SelectContent>
                     {technicians?.map(tech => (

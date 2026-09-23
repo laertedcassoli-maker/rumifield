@@ -916,9 +916,9 @@ export default function DetalheChamado() {
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2">
                           {(pr.pedidos as any)?.pedido_code && (
-                            <span className="font-mono font-bold text-sm bg-primary/10 text-primary px-2 py-0.5 rounded">
+                            <Link to={`/pedidos?pedido=${(pr.pedidos as any).id}`} className="font-mono font-bold text-sm bg-primary/10 text-primary px-2 py-0.5 rounded hover:bg-primary/20 transition-colors">
                               {(pr.pedidos as any).pedido_code}
-                            </span>
+                            </Link>
                           )}
                           <span className="text-sm text-muted-foreground">
                             {format(new Date(pr.created_at), "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}

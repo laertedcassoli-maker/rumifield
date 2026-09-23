@@ -221,6 +221,9 @@ export default function Pedidos() {
   }, []);
   const [form, setForm] = useState({ ...emptyForm });
   const [itens, setItens] = useState<{ peca_id: string; quantidade: number; variante?: string }[]>([]);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tipoParam = searchParams.get('tipo');
+  const pedidoParam = searchParams.get('pedido');
   // Ativos vinculados na criação (índice do item em `itens` -> workshop_item_ids)
   const [itemAssets, setItemAssets] = useState<Record<number, string[]>>({});
   // Itens da coleta reversa automática: null = ainda usando a sugestão do envio
@@ -233,7 +236,7 @@ export default function Pedidos() {
   const [solicitanteFilter, setSolicitanteFilter] = useState<string>('all');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showConfirmation, setShowConfirmation] = useState(false);
-  // Aviso não bloqueante de possível duplicidade (mesmo cliente + peça nos últimos 7 dias)
+  // Aviso não bloqueante de possível duplicidade (mesmo cliente + peça nos últimos 15 dias)
   const [duplicateWarning, setDuplicateWarning] = useState<string[] | null>(null);
   const [imagePreview, setImagePreview] = useState<{ url: string; nome: string } | null>(null);
   const [isProcessingAction, setIsProcessingAction] = useState(false);
@@ -358,6 +361,42 @@ export default function Pedidos() {
     refetchOnWindowFocus: true,
   });
 
+  const { data: pedidoDireto } = useQuery({
+    queryKey: ['pedido-direto', pedidoParam],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('pedidos')
+        .select(`
+          *,
+          clientes(nome, fazenda, consultor_rplus_id),
+          pedido_itens(
+            *,
+            pecas(nome, codigo, familia, is_asset, imagem_url),
+            workshop_items:workshop_item_id(id, unique_code),
+            pedido_item_assets(id, pedido_item_id, workshop_item_id, workshop_items:workshop_item_id(id, unique_code))
+          )
+        `)
+        .eq('id', pedidoParam)
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) return null;
+
+      const { data: profiles } = data.solicitante_id
+        ? await supabase.from('profiles').select('id, nome, email').eq('id', data.solicitante_id).maybeSingle()
+        : { data: null as { id: string; nome: string; email: string } | null };
+
+      return {
+        ...data,
+        solicitante: profiles ? { nome: profiles.nome, email: profiles.email } : null,
+        pedido_itens: (data.pedido_itens || []).map((item: any) => ({
+          ...item,
+          workshop_item: item.workshop_items || null,
+        })),
+      } as PedidoComItens;
+    },
+    enabled: !!user && !!pedidoParam && !!pedidos,
+  });
+
   // Pedidos vinculados (envio <-> coleta reversa) do pedido no topo da pilha
   const { data: pedidoVinculos } = useQuery({
     queryKey: ['pedido-vinculos', viewingPedido?.id, viewingPedido?.tipo_solicitacao, viewingPedido?.coleta_reversa_origem_id],
@@ -425,8 +464,6 @@ export default function Pedidos() {
   const [dateFilter, setDateFilter] = useState<'30' | 'all'>('30');
   const [tipoEnvioFilter, setTipoEnvioFilter] = useState<'all' | 'envio' | 'apenas_nf' | 'envio_pelo_tecnico'>('all');
   const [tipoLogisticaFilter, setTipoLogisticaFilter] = useState<'all' | 'correios' | 'entrega_propria'>('all');
-  const [searchParams] = useSearchParams();
-  const tipoParam = searchParams.get('tipo');
   const [tipoSolicitacaoFilter, setTipoSolicitacaoFilter] = useState<'all' | 'envio' | 'coleta_reversa'>(
     () => (tipoParam === 'envio' || tipoParam === 'coleta_reversa' ? tipoParam : 'all')
   );
@@ -441,6 +478,24 @@ export default function Pedidos() {
   useEffect(() => {
     setTipoSolicitacaoFilter(tipoParam === 'envio' || tipoParam === 'coleta_reversa' ? tipoParam : 'all');
   }, [tipoParam]);
+
+  useEffect(() => {
+    if (!pedidoParam || !pedidos) return;
+    const pedido = pedidos.find((p) => p.id === pedidoParam) || pedidoDireto;
+    if (!pedido) return;
+    setIsEditingSolicitado(false);
+    setViewingPedido(pedido);
+    setActiveTab(pedido.status === 'rascunho' ? 'rascunhos' : (pedido.status === 'pendente' ? 'pendentes' : 'pedidos'));
+    setSearchTerm('');
+    setStatusFilter('all');
+    setDateFilter('all');
+    setTipoEnvioFilter('all');
+    setTipoLogisticaFilter('all');
+    setTipoSolicitacaoFilter('all');
+    setResponsavelFilter('todos');
+    setSituacaoFilter('todos');
+    setViewAll(true);
+  }, [pedidoParam, pedidos, pedidoDireto, setViewingPedido]);
   const [sortField, setSortField] = useState<'created_at' | 'cliente' | 'status'>('created_at');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
@@ -914,8 +969,7 @@ export default function Pedidos() {
   // Envio com ativo controlado (pecas.is_asset) sempre gera coleta reversa automática
   const coletaReversaObrigatoria =
     !editingPedido && form.tipo_solicitacao === 'envio' && assetItens.length > 0;
-  const geraColetaReversaAtivo =
-    form.tipo_solicitacao === 'envio' && (form.gera_coleta_reversa || coletaReversaObrigatoria);
+  const geraColetaReversaAtivo = coletaReversaObrigatoria;
   // Coleta Reversa manual: ativos vinculados nos próprios itens do pedido
   const requiresAssetsOnCreate =
     !editingPedido &&
@@ -957,8 +1011,8 @@ export default function Pedidos() {
     return map;
   };
 
-  // Motivo/defeito: somente Coleta Reversa com ativo controlado
-  const mostrarMotivoDefeito = form.tipo_solicitacao === 'coleta_reversa' && assetItens.length > 0;
+  // Motivo/defeito: Coleta Reversa com ativo controlado ou coleta automática do Envio
+  const mostrarMotivoDefeito = (form.tipo_solicitacao === 'coleta_reversa' && assetItens.length > 0) || requiresColetaAutoItens;
 
   const assetsByPecaId = () => buildAssetsByPecaId(itens, itemAssets);
 
@@ -1118,7 +1172,7 @@ export default function Pedidos() {
           tipo_coleta: form.tipo_solicitacao === 'coleta_reversa' ? (form.tipo_coleta || null) : null,
           tecnico_responsavel_user_id: tecnicoRespId,
           csm_responsavel_user_id: csmRespId,
-          motivo_relato: form.motivo_relato || null,
+          motivo_relato: form.tipo_solicitacao === 'coleta_reversa' ? (form.motivo_relato || null) : null,
           quantidade_volumes: form.tipo_solicitacao === 'coleta_reversa' && form.quantidade_volumes !== '' ? Number(form.quantidade_volumes) : null,
         } as any).eq('id', editingPedido.id);
         if (pedidoError) throw pedidoError;
@@ -1164,7 +1218,7 @@ export default function Pedidos() {
               : (form.tipo_coleta === 'coleta_tecnico_csm' && form.coleta_responsavel_tipo === 'tecnico' ? (form.tecnico_responsavel_user_id || null) : null),
             csm_responsavel_user_id: form.tipo_solicitacao === 'coleta_reversa' && form.tipo_coleta === 'coleta_tecnico_csm' && form.coleta_responsavel_tipo === 'csm'
               ? (form.csm_responsavel_user_id || null) : null,
-            motivo_relato: form.motivo_relato || null,
+            motivo_relato: form.tipo_solicitacao === 'coleta_reversa' ? (form.motivo_relato || null) : null,
             quantidade_volumes: form.tipo_solicitacao === 'coleta_reversa' && form.quantidade_volumes !== '' ? Number(form.quantidade_volumes) : null,
           } as any)
           .select('id')
@@ -1276,6 +1330,9 @@ export default function Pedidos() {
       setForm({ ...emptyForm });
       setItens([]);
       setItemAssets({});
+      setColetaAutoItens(null);
+      setColetaAutoAssets({});
+      setColetaAutoPecaSearches({});
       setAutoLinkDismissed(false);
       setShowConfirmation(false);
       setClienteSearch('');
@@ -2111,28 +2168,12 @@ export default function Pedidos() {
                     </div>
                   )}
 
-                  {/* Gera automaticamente coleta reversa? (apenas Envio) */}
+                  {/* Coleta reversa automática (apenas Envio com ativo controlado) */}
                   {form.tipo_solicitacao === 'envio' && !editingPedido && coletaReversaObrigatoria && (
-                    <div className="space-y-1">
-                      <Label>Gera automaticamente coleta reversa?</Label>
+                    <div className="rounded-md border border-primary/20 bg-primary/5 px-3 py-2">
                       <p className="text-xs text-muted-foreground">
-                        Obrigatória: o pedido contém ativo controlado, então a coleta reversa é sempre gerada.
+                        A coleta reversa é gerada de forma automática por ser um ativo controlado.
                       </p>
-                    </div>
-                  )}
-
-                  {form.tipo_solicitacao === 'envio' && !editingPedido && !coletaReversaObrigatoria && (
-                    <div className="space-y-2">
-                      <Label>Gera automaticamente coleta reversa?</Label>
-                      <ToggleGroup
-                        type="single"
-                        value={form.gera_coleta_reversa ? 'sim' : 'nao'}
-                        onValueChange={(v) => v && setForm({ ...form, gera_coleta_reversa: v === 'sim' })}
-                        className="justify-start"
-                      >
-                        <ToggleGroupItem value="nao" className="text-xs data-[state=on]:bg-muted">Não</ToggleGroupItem>
-                        <ToggleGroupItem value="sim" className="text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">Sim</ToggleGroupItem>
-                      </ToggleGroup>
                     </div>
                   )}
 
@@ -2214,10 +2255,10 @@ export default function Pedidos() {
                     />
                   )}
 
-                  {/* Defeito técnico: só Coleta Reversa com ativo controlado */}
-                  {mostrarMotivoDefeito && (
+                  {/* Defeito técnico: Coleta Reversa manual com ativo controlado */}
+                  {form.tipo_solicitacao === 'coleta_reversa' && assetItens.length > 0 && (
                     <div className="space-y-2">
-                      <Label>Descreva o defeito técnico do item <span className="text-destructive">*</span></Label>
+                      <Label>Descreva o defeito técnico do item: <span className="text-destructive">*</span></Label>
                       <Textarea
                         placeholder="Ex.: vazamento na conexão inferior, motor não liga..."
                         value={form.motivo_relato}
@@ -2282,6 +2323,18 @@ export default function Pedidos() {
                   {requiresColetaAutoItens && (
                     <div className="space-y-2">
                       <Label>Peças a coletar <span className="text-muted-foreground font-normal">(coleta reversa automática)</span> <span className="text-destructive">*</span></Label>
+                      <div className="space-y-2">
+                        <Label>Descreva o defeito técnico do item: <span className="text-destructive">*</span></Label>
+                        <Textarea
+                          placeholder="Ex.: vazamento na conexão inferior, motor não liga..."
+                          value={form.motivo_relato}
+                          onChange={(e) => setForm({ ...form, motivo_relato: e.target.value })}
+                          rows={3}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          Evite respostas genéricas como "quebrou" ou "parou de funcionar". Descreva o problema observado (ex.: vazamento, motor não liga, led queimado, etc.)
+                        </p>
+                      </div>
                       {coletaAutoEffective.map((item, index) => {
                         const peca = pecas?.find(p => p.id === item.peca_id);
                         return (
@@ -2987,7 +3040,17 @@ export default function Pedidos() {
       </Tabs>
 
       {/* View Order Dialog (Read-Only) */}
-      <Dialog open={!!viewingPedido} onOpenChange={(open) => { if (!open) { setViewingPedido(null); setIsEditingSolicitado(false); } }}>
+      <Dialog open={!!viewingPedido} onOpenChange={(open) => {
+        if (!open) {
+          setViewingPedido(null);
+          setIsEditingSolicitado(false);
+          if (pedidoParam) {
+            const nextParams = new URLSearchParams(searchParams);
+            nextParams.delete('pedido');
+            setSearchParams(nextParams, { replace: true });
+          }
+        }
+      }}>
         <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
