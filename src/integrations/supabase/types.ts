@@ -2413,6 +2413,7 @@ export type Database = {
           peca_id: string
           pedido_id: string
           quantidade: number
+          variante: string | null
           workshop_item_id: string | null
         }
         Insert: {
@@ -2424,6 +2425,7 @@ export type Database = {
           peca_id: string
           pedido_id: string
           quantidade?: number
+          variante?: string | null
           workshop_item_id?: string | null
         }
         Update: {
@@ -2435,6 +2437,7 @@ export type Database = {
           peca_id?: string
           pedido_id?: string
           quantidade?: number
+          variante?: string | null
           workshop_item_id?: string | null
         }
         Relationships: [

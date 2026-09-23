@@ -220,9 +220,13 @@ export default function Pedidos() {
     setViewingStack((stack) => (stack.length > 1 ? stack.slice(0, -1) : stack));
   }, []);
   const [form, setForm] = useState({ ...emptyForm });
-  const [itens, setItens] = useState<{ peca_id: string; quantidade: number }[]>([]);
+  const [itens, setItens] = useState<{ peca_id: string; quantidade: number; variante?: string }[]>([]);
   // Ativos vinculados na criação (índice do item em `itens` -> workshop_item_ids)
   const [itemAssets, setItemAssets] = useState<Record<number, string[]>>({});
+  // Itens da coleta reversa automática: null = ainda usando a sugestão do envio
+  const [coletaAutoItens, setColetaAutoItens] = useState<{ peca_id: string; quantidade: number; variante?: string }[] | null>(null);
+  const [coletaAutoAssets, setColetaAutoAssets] = useState<Record<number, string[]>>({});
+  const [coletaAutoPecaSearches, setColetaAutoPecaSearches] = useState<Record<number, string>>({});
   const [autoLinkDismissed, setAutoLinkDismissed] = useState(false);
   // UI-only filter: true = all orders (default), false = only mine
   const [viewAll, setViewAll] = useState(true);
@@ -683,11 +687,16 @@ export default function Pedidos() {
   const AUTO_LINK_TARGET_CODE = 'PRD00639';
   const AUTO_LINK_TARGET_QTY = 3;
   const SOLENOIDE_CODE = 'PRD00605';
+  // Peça que exige escolher a variante (Com carrinho / Sem carrinho)
+  const VARIANTE_CODE = 'PRD00617';
 
   const normalizePecaCode = (value?: string | null) => (value || '').trim().toUpperCase();
 
   const findPecaIdByCodigo = (codigo: string) =>
     pecas?.find((p) => normalizePecaCode(p.codigo) === normalizePecaCode(codigo))?.id;
+
+  const requiresVariante = (pecaId: string) =>
+    normalizePecaCode(pecas?.find((p) => p.id === pecaId)?.codigo) === VARIANTE_CODE;
 
   const solenoideId = findPecaIdByCodigo(SOLENOIDE_CODE);
   const hasSolenoide = itens.some((item) => {
@@ -721,10 +730,11 @@ export default function Pedidos() {
     setItens([...itens, { peca_id: '', quantidade: 1 }]);
   };
 
-  const updateItem = (index: number, field: 'peca_id' | 'quantidade', value: string | number) => {
+  const updateItem = (index: number, field: 'peca_id' | 'quantidade' | 'variante', value: string | number) => {
     const newItens = [...itens];
     newItens[index] = { ...newItens[index], [field]: value };
     if (field === 'peca_id') {
+      newItens[index] = { ...newItens[index], variante: undefined };
       setItemAssets((prev) => {
         const next = { ...prev };
         delete next[index];
@@ -810,6 +820,7 @@ export default function Pedidos() {
       pedido.pedido_itens?.map((item: any) => ({
         peca_id: item.peca_id,
         quantidade: item.quantidade,
+        variante: item.variante || undefined,
       })) || []
     );
     setItemAssets(
@@ -883,6 +894,9 @@ export default function Pedidos() {
       setForm({ ...emptyForm });
       setItens([]);
       setItemAssets({});
+      setColetaAutoItens(null);
+      setColetaAutoAssets({});
+      setColetaAutoPecaSearches({});
       setAutoLinkDismissed(false);
       setShowConfirmation(false);
       setClienteSearch('');
@@ -902,25 +916,54 @@ export default function Pedidos() {
     !editingPedido && form.tipo_solicitacao === 'envio' && assetItens.length > 0;
   const geraColetaReversaAtivo =
     form.tipo_solicitacao === 'envio' && (form.gera_coleta_reversa || coletaReversaObrigatoria);
-  // Ativos exigidos na criação: Coleta Reversa (manual) e Envio com coleta reversa automática —
-  // Envio comum vincula ativo só no Processar
+  // Coleta Reversa manual: ativos vinculados nos próprios itens do pedido
   const requiresAssetsOnCreate =
     !editingPedido &&
-    (form.tipo_solicitacao === 'coleta_reversa' || geraColetaReversaAtivo) &&
+    form.tipo_solicitacao === 'coleta_reversa' &&
     assetItens.length > 0;
   const missingAssetItem = assetItens.find(entry => (itemAssets[entry.index] || []).filter(Boolean).length === 0);
+  // Itens da coleta reversa automática: sugestão = peças de ativo do envio, editáveis
+  const coletaAutoEffective =
+    coletaAutoItens ??
+    assetItens.map(entry => ({ peca_id: entry.item.peca_id, quantidade: entry.item.quantidade, variante: entry.item.variante }));
+  const requiresColetaAutoItens = !editingPedido && geraColetaReversaAtivo;
+  const pecasAsset = (pecas || []).filter(p => p.is_asset);
+  // Peças que exigem variante (Com/Sem carrinho)
+  const missingVarianteItem = itens.find(item => item.peca_id && requiresVariante(item.peca_id) && !item.variante);
+  const missingColetaAutoVariante = requiresColetaAutoItens
+    ? coletaAutoEffective.find(item => item.peca_id && requiresVariante(item.peca_id) && !item.variante)
+    : undefined;
 
-  const assetsByPecaId = () => {
+  const updateColetaAutoItem = (index: number, field: 'peca_id' | 'variante', value: string) => {
+    const next = [...coletaAutoEffective];
+    next[index] = { ...next[index], [field]: value };
+    if (field === 'peca_id') {
+      next[index] = { ...next[index], variante: undefined };
+      setColetaAutoAssets((prev) => {
+        const copy = { ...prev };
+        delete copy[index];
+        return copy;
+      });
+    }
+    setColetaAutoItens(next);
+  };
+
+  const buildAssetsByPecaId = (list: { peca_id: string }[], assets: Record<number, string[]>) => {
     const map: Record<string, string[]> = {};
-    itens.forEach((item, index) => {
-      const ids = (itemAssets[index] || []).filter(Boolean);
+    list.forEach((item, index) => {
+      const ids = (assets[index] || []).filter(Boolean);
       if (item.peca_id && ids.length > 0) map[item.peca_id] = ids;
     });
     return map;
   };
 
-  const saveAssetsForItems = async (rows: { id: string; peca_id: string }[]) => {
-    const byPeca = assetsByPecaId();
+  // Motivo/defeito: somente Coleta Reversa com ativo controlado
+  const mostrarMotivoDefeito = form.tipo_solicitacao === 'coleta_reversa' && assetItens.length > 0;
+
+  const assetsByPecaId = () => buildAssetsByPecaId(itens, itemAssets);
+
+  const saveAssetsForItems = async (rows: { id: string; peca_id: string }[], byPecaOverride?: Record<string, string[]>) => {
+    const byPeca = byPecaOverride ?? assetsByPecaId();
     for (const row of rows) {
       const ids = byPeca[row.peca_id];
       if (!ids || ids.length === 0) continue;
@@ -955,8 +998,16 @@ export default function Pedidos() {
       toast({ variant: 'destructive', title: 'Selecione o técnico responsável pelo envio' });
       return;
     }
-    if (!form.motivo_relato.trim()) {
-      toast({ variant: 'destructive', title: 'Informe o motivo da solicitação e o relato da fazenda' });
+    if (mostrarMotivoDefeito && !form.motivo_relato.trim()) {
+      toast({ variant: 'destructive', title: 'Descreva o defeito técnico do item' });
+      return;
+    }
+    if (missingVarianteItem) {
+      toast({
+        variant: 'destructive',
+        title: 'Selecione a variante da peça',
+        description: `Informe "Com carrinho" ou "Sem carrinho" para a peça ${VARIANTE_CODE}.`,
+      });
       return;
     }
     if (form.tipo_solicitacao === 'coleta_reversa') {
@@ -987,6 +1038,29 @@ export default function Pedidos() {
         return;
       }
     }
+    if (requiresColetaAutoItens) {
+      if (coletaAutoEffective.length === 0 || coletaAutoEffective.some(i => !i.peca_id)) {
+        toast({ variant: 'destructive', title: 'Selecione a peça a coletar na coleta reversa' });
+        return;
+      }
+      if (missingColetaAutoVariante) {
+        toast({
+          variant: 'destructive',
+          title: 'Selecione a variante da peça a coletar',
+          description: `Informe "Com carrinho" ou "Sem carrinho" para a peça ${VARIANTE_CODE}.`,
+        });
+        return;
+      }
+      const faltaLacre = coletaAutoEffective.findIndex((_, idx) => (coletaAutoAssets[idx] || []).filter(Boolean).length === 0);
+      if (faltaLacre >= 0) {
+        toast({
+          variant: 'destructive',
+          title: 'Vincule o lacre da coleta reversa',
+          description: 'Cada peça a coletar precisa de ao menos um lacre vinculado.',
+        });
+        return;
+      }
+    }
     if (requiresAssetsOnCreate && missingAssetItem) {
       toast({
         variant: 'destructive',
@@ -996,9 +1070,9 @@ export default function Pedidos() {
       return;
     }
     // Aviso (não bloqueante) de possível duplicidade: mesma peça, mesmo cliente,
-    // em pedido não-rascunho criado nos últimos 7 dias.
+    // em pedido não-rascunho criado nos últimos 15 dias.
     try {
-      const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+      const since = new Date(Date.now() - 15 * 24 * 60 * 60 * 1000).toISOString();
       const { data: dups } = await supabase
         .from('pedido_itens')
         .select('peca_id, pedidos!inner(id, pedido_code, cliente_id, status, created_at)')
@@ -1058,8 +1132,9 @@ export default function Pedidos() {
           pedido_id: editingPedido.id,
           peca_id: item.peca_id,
           quantidade: item.quantidade,
+          variante: requiresVariante(item.peca_id) ? (item.variante || null) : null,
         }));
-        const { data: insertedItens, error: itensError } = await supabase.from('pedido_itens').insert(newItens).select('id, peca_id');
+        const { data: insertedItens, error: itensError } = await supabase.from('pedido_itens').insert(newItens as any).select('id, peca_id');
         if (itensError) throw itensError;
         if (form.tipo_solicitacao === 'coleta_reversa' && insertedItens) {
           await saveAssetsForItems(insertedItens as { id: string; peca_id: string }[]);
@@ -1101,8 +1176,9 @@ export default function Pedidos() {
           pedido_id: pedido.id,
           peca_id: item.peca_id,
           quantidade: item.quantidade,
+          variante: requiresVariante(item.peca_id) ? (item.variante || null) : null,
         }));
-        const { data: insertedItens, error: itensError } = await supabase.from('pedido_itens').insert(newItens).select('id, peca_id');
+        const { data: insertedItens, error: itensError } = await supabase.from('pedido_itens').insert(newItens as any).select('id, peca_id');
         if (itensError) {
           // Rollback: delete orphan pedido
           await supabase.from('pedidos').delete().eq('id', pedido.id);
@@ -1156,19 +1232,23 @@ export default function Pedidos() {
               .single();
             if (coletaError) throw coletaError;
 
-            const coletaItens = itens.map(item => ({
+            const coletaItens = coletaAutoEffective.map(item => ({
               pedido_id: coleta.id,
               peca_id: item.peca_id,
               quantidade: item.quantidade,
+              variante: requiresVariante(item.peca_id) ? (item.variante || null) : null,
             }));
-            const { data: insertedColetaItens, error: coletaItensError } = await supabase.from('pedido_itens').insert(coletaItens).select('id, peca_id');
+            const { data: insertedColetaItens, error: coletaItensError } = await supabase.from('pedido_itens').insert(coletaItens as any).select('id, peca_id');
             if (coletaItensError) {
               await supabase.from('pedidos').delete().eq('id', coleta.id);
               throw coletaItensError;
             }
             if (insertedColetaItens) {
               try {
-                await saveAssetsForItems(insertedColetaItens as { id: string; peca_id: string }[]);
+                await saveAssetsForItems(
+                  insertedColetaItens as { id: string; peca_id: string }[],
+                  buildAssetsByPecaId(coletaAutoEffective, coletaAutoAssets),
+                );
               } catch (assetErr: any) {
                 await supabase.from('pedidos').delete().eq('id', coleta.id);
                 throw assetErr;
@@ -1926,6 +2006,21 @@ export default function Pedidos() {
                                 Remover
                               </Button>
                             </div>
+
+                            {item.peca_id && requiresVariante(item.peca_id) && (
+                              <div className="space-y-1">
+                                <Label className="text-xs">Variante <span className="text-destructive">*</span></Label>
+                                <ToggleGroup
+                                  type="single"
+                                  value={item.variante || ''}
+                                  onValueChange={(v) => v && updateItem(index, 'variante', v)}
+                                  className="justify-start"
+                                >
+                                  <ToggleGroupItem value="com_carrinho" className="text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">Com carrinho</ToggleGroupItem>
+                                  <ToggleGroupItem value="sem_carrinho" className="text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">Sem carrinho</ToggleGroupItem>
+                                </ToggleGroup>
+                              </div>
+                            )}
                           </div>
                         );
                       })}
@@ -2119,16 +2214,21 @@ export default function Pedidos() {
                     />
                   )}
 
-                  {/* Motivo da solicitação (obrigatório em ambos os tipos) */}
-                  <div className="space-y-2">
-                    <Label>Motivo da solicitação e relato da fazenda: <span className="text-destructive">*</span></Label>
-                    <Textarea
-                      placeholder="Descreva o motivo da solicitação e o relato da fazenda..."
-                      value={form.motivo_relato}
-                      onChange={(e) => setForm({ ...form, motivo_relato: e.target.value })}
-                      rows={3}
-                    />
-                  </div>
+                  {/* Defeito técnico: só Coleta Reversa com ativo controlado */}
+                  {mostrarMotivoDefeito && (
+                    <div className="space-y-2">
+                      <Label>Descreva o defeito técnico do item <span className="text-destructive">*</span></Label>
+                      <Textarea
+                        placeholder="Ex.: vazamento na conexão inferior, motor não liga..."
+                        value={form.motivo_relato}
+                        onChange={(e) => setForm({ ...form, motivo_relato: e.target.value })}
+                        rows={3}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Evite respostas genéricas como "quebrou" ou "parou de funcionar". Descreva o problema observado (ex.: vazamento, motor não liga, led queimado, etc.)
+                      </p>
+                    </div>
+                  )}
 
                   {/* Quantidade de Volumes (Coleta Reversa) */}
                   {form.tipo_solicitacao === 'coleta_reversa' && (
@@ -2158,7 +2258,7 @@ export default function Pedidos() {
                     </div>
                   )}
 
-                  {/* Ativos a coletar (qualquer tipo com peças que exigem ativo) */}
+                  {/* Ativos a coletar (Coleta Reversa manual) */}
                   {requiresAssetsOnCreate && (
                     <div className="space-y-2">
                       <Label>Ativos a coletar <span className="text-destructive">*</span></Label>
@@ -2172,6 +2272,63 @@ export default function Pedidos() {
                           onAssetsChange={(assets) => setItemAssets((prev) => ({ ...prev, [index]: assets }))}
                         />
                       ))}
+                      <p className="text-xs text-muted-foreground">
+                        Se o lacre não estiver disponível na lista, entre em contato com a Logística para cadastro.
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Peças a coletar na coleta reversa automática (editáveis) */}
+                  {requiresColetaAutoItens && (
+                    <div className="space-y-2">
+                      <Label>Peças a coletar <span className="text-muted-foreground font-normal">(coleta reversa automática)</span> <span className="text-destructive">*</span></Label>
+                      {coletaAutoEffective.map((item, index) => {
+                        const peca = pecas?.find(p => p.id === item.peca_id);
+                        return (
+                          <div key={index} className="space-y-2 p-3 rounded-lg border bg-muted/30">
+                            <div className="space-y-1">
+                              <Label className="text-xs">Peça</Label>
+                              <Select value={item.peca_id} onValueChange={(v) => updateColetaAutoItem(index, 'peca_id', v)}>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Selecione a peça a coletar" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {pecasAsset.map(p => (
+                                    <SelectItem key={p.id} value={p.id}>{p.codigo} — {p.nome}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <p className="text-xs text-muted-foreground">Sugerido a partir do envio; pode ser trocado.</p>
+                            </div>
+                            {item.peca_id && requiresVariante(item.peca_id) && (
+                              <div className="space-y-1">
+                                <Label className="text-xs">Variante <span className="text-destructive">*</span></Label>
+                                <ToggleGroup
+                                  type="single"
+                                  value={item.variante || ''}
+                                  onValueChange={(v) => v && updateColetaAutoItem(index, 'variante', v)}
+                                  className="justify-start"
+                                >
+                                  <ToggleGroupItem value="com_carrinho" className="text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">Com carrinho</ToggleGroupItem>
+                                  <ToggleGroupItem value="sem_carrinho" className="text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">Sem carrinho</ToggleGroupItem>
+                                </ToggleGroup>
+                              </div>
+                            )}
+                            {item.peca_id && (
+                              <MultiAssetField
+                                pecaId={item.peca_id}
+                                pecaNome={`${peca?.codigo || ''} — ${peca?.nome || ''}`}
+                                quantidade={item.quantidade}
+                                selectedAssets={coletaAutoAssets[index] || []}
+                                onAssetsChange={(assets) => setColetaAutoAssets((prev) => ({ ...prev, [index]: assets }))}
+                              />
+                            )}
+                            <p className="text-xs text-muted-foreground">
+                              Se o lacre não estiver disponível na lista, entre em contato com a Logística para cadastro.
+                            </p>
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
 
