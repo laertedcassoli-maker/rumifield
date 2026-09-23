@@ -2214,16 +2214,21 @@ export default function Pedidos() {
                     />
                   )}
 
-                  {/* Motivo da solicitação (obrigatório em ambos os tipos) */}
-                  <div className="space-y-2">
-                    <Label>Motivo da solicitação e relato da fazenda: <span className="text-destructive">*</span></Label>
-                    <Textarea
-                      placeholder="Descreva o motivo da solicitação e o relato da fazenda..."
-                      value={form.motivo_relato}
-                      onChange={(e) => setForm({ ...form, motivo_relato: e.target.value })}
-                      rows={3}
-                    />
-                  </div>
+                  {/* Defeito técnico: só Coleta Reversa com ativo controlado */}
+                  {mostrarMotivoDefeito && (
+                    <div className="space-y-2">
+                      <Label>Descreva o defeito técnico do item <span className="text-destructive">*</span></Label>
+                      <Textarea
+                        placeholder="Ex.: vazamento na conexão inferior, motor não liga..."
+                        value={form.motivo_relato}
+                        onChange={(e) => setForm({ ...form, motivo_relato: e.target.value })}
+                        rows={3}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        Evite respostas genéricas como "quebrou" ou "parou de funcionar". Descreva o problema observado (ex.: vazamento, motor não liga, led queimado, etc.)
+                      </p>
+                    </div>
+                  )}
 
                   {/* Quantidade de Volumes (Coleta Reversa) */}
                   {form.tipo_solicitacao === 'coleta_reversa' && (
@@ -2253,7 +2258,7 @@ export default function Pedidos() {
                     </div>
                   )}
 
-                  {/* Ativos a coletar (qualquer tipo com peças que exigem ativo) */}
+                  {/* Ativos a coletar (Coleta Reversa manual) */}
                   {requiresAssetsOnCreate && (
                     <div className="space-y-2">
                       <Label>Ativos a coletar <span className="text-destructive">*</span></Label>
@@ -2267,6 +2272,63 @@ export default function Pedidos() {
                           onAssetsChange={(assets) => setItemAssets((prev) => ({ ...prev, [index]: assets }))}
                         />
                       ))}
+                      <p className="text-xs text-muted-foreground">
+                        Se o lacre não estiver disponível na lista, entre em contato com a Logística para cadastro.
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Peças a coletar na coleta reversa automática (editáveis) */}
+                  {requiresColetaAutoItens && (
+                    <div className="space-y-2">
+                      <Label>Peças a coletar <span className="text-muted-foreground font-normal">(coleta reversa automática)</span> <span className="text-destructive">*</span></Label>
+                      {coletaAutoEffective.map((item, index) => {
+                        const peca = pecas?.find(p => p.id === item.peca_id);
+                        return (
+                          <div key={index} className="space-y-2 p-3 rounded-lg border bg-muted/30">
+                            <div className="space-y-1">
+                              <Label className="text-xs">Peça</Label>
+                              <Select value={item.peca_id} onValueChange={(v) => updateColetaAutoItem(index, 'peca_id', v)}>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Selecione a peça a coletar" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {pecasAsset.map(p => (
+                                    <SelectItem key={p.id} value={p.id}>{p.codigo} — {p.nome}</SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <p className="text-xs text-muted-foreground">Sugerido a partir do envio; pode ser trocado.</p>
+                            </div>
+                            {item.peca_id && requiresVariante(item.peca_id) && (
+                              <div className="space-y-1">
+                                <Label className="text-xs">Variante <span className="text-destructive">*</span></Label>
+                                <ToggleGroup
+                                  type="single"
+                                  value={item.variante || ''}
+                                  onValueChange={(v) => v && updateColetaAutoItem(index, 'variante', v)}
+                                  className="justify-start"
+                                >
+                                  <ToggleGroupItem value="com_carrinho" className="text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">Com carrinho</ToggleGroupItem>
+                                  <ToggleGroupItem value="sem_carrinho" className="text-xs data-[state=on]:bg-primary data-[state=on]:text-primary-foreground">Sem carrinho</ToggleGroupItem>
+                                </ToggleGroup>
+                              </div>
+                            )}
+                            {item.peca_id && (
+                              <MultiAssetField
+                                pecaId={item.peca_id}
+                                pecaNome={`${peca?.codigo || ''} — ${peca?.nome || ''}`}
+                                quantidade={item.quantidade}
+                                selectedAssets={coletaAutoAssets[index] || []}
+                                onAssetsChange={(assets) => setColetaAutoAssets((prev) => ({ ...prev, [index]: assets }))}
+                              />
+                            )}
+                            <p className="text-xs text-muted-foreground">
+                              Se o lacre não estiver disponível na lista, entre em contato com a Logística para cadastro.
+                            </p>
+                          </div>
+                        );
+                      })}
                     </div>
                   )}
 
