@@ -687,11 +687,16 @@ export default function Pedidos() {
   const AUTO_LINK_TARGET_CODE = 'PRD00639';
   const AUTO_LINK_TARGET_QTY = 3;
   const SOLENOIDE_CODE = 'PRD00605';
+  // Peça que exige escolher a variante (Com carrinho / Sem carrinho)
+  const VARIANTE_CODE = 'PRD00617';
 
   const normalizePecaCode = (value?: string | null) => (value || '').trim().toUpperCase();
 
   const findPecaIdByCodigo = (codigo: string) =>
     pecas?.find((p) => normalizePecaCode(p.codigo) === normalizePecaCode(codigo))?.id;
+
+  const requiresVariante = (pecaId: string) =>
+    normalizePecaCode(pecas?.find((p) => p.id === pecaId)?.codigo) === VARIANTE_CODE;
 
   const solenoideId = findPecaIdByCodigo(SOLENOIDE_CODE);
   const hasSolenoide = itens.some((item) => {
