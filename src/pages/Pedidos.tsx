@@ -956,6 +956,9 @@ export default function Pedidos() {
     return map;
   };
 
+  // Motivo/defeito: somente Coleta Reversa com ativo controlado
+  const mostrarMotivoDefeito = form.tipo_solicitacao === 'coleta_reversa' && assetItens.length > 0;
+
   const assetsByPecaId = () => buildAssetsByPecaId(itens, itemAssets);
 
   const saveAssetsForItems = async (rows: { id: string; peca_id: string }[], byPecaOverride?: Record<string, string[]>) => {
