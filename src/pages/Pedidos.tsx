@@ -730,10 +730,11 @@ export default function Pedidos() {
     setItens([...itens, { peca_id: '', quantidade: 1 }]);
   };
 
-  const updateItem = (index: number, field: 'peca_id' | 'quantidade', value: string | number) => {
+  const updateItem = (index: number, field: 'peca_id' | 'quantidade' | 'variante', value: string | number) => {
     const newItens = [...itens];
     newItens[index] = { ...newItens[index], [field]: value };
     if (field === 'peca_id') {
+      newItens[index] = { ...newItens[index], variante: undefined };
       setItemAssets((prev) => {
         const next = { ...prev };
         delete next[index];
