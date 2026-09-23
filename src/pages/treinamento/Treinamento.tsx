@@ -112,6 +112,7 @@ export default function Treinamento() {
   const [editingVisita, setEditingVisita] = useState<TreinamentoItem | null>(null);
   const [concluindoVisita, setConcluindoVisita] = useState<TreinamentoItem | null>(null);
   const [excluindoVisita, setExcluindoVisita] = useState<TreinamentoItem | null>(null);
+  const [visualizandoVisita, setVisualizandoVisita] = useState<TreinamentoItem | null>(null);
   const [filtroStatus, setFiltroStatus] = useState<'all' | 'pendente' | 'concluida'>('all');
   const [search, setSearch] = useState('');
   const [clienteDetalhe, setClienteDetalhe] = useState<ClienteResumo | null>(null);
@@ -441,7 +442,11 @@ export default function Treinamento() {
                   {filtradas.map(v => {
                     const cliente = clientesMap?.get(v.cliente_id);
                     return (
-                      <TableRow key={v.id}>
+                      <TableRow
+                        key={v.id}
+                        className={v.status === 'concluida' ? 'cursor-pointer' : undefined}
+                        onClick={v.status === 'concluida' ? () => setVisualizandoVisita(v) : undefined}
+                      >
                         <TableCell>
                           <div className="font-medium">{cliente?.nome ?? 'Cliente'}</div>
                           {cliente?.fazenda && (
@@ -464,7 +469,7 @@ export default function Treinamento() {
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right">
-                          <div className="flex items-center justify-end gap-1">
+                          <div className="flex items-center justify-end gap-1" onClick={e => e.stopPropagation()}>
                             {podeConcluir(v) && (
                               <Button
                                 variant="ghost"
@@ -600,6 +605,33 @@ export default function Treinamento() {
               </div>
             ))}
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Detalhes de treinamento concluído (somente leitura) */}
+      <Dialog
+        open={!!visualizandoVisita}
+        onOpenChange={(open) => !open && setVisualizandoVisita(null)}
+      >
+        <DialogContent className="sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Treinamento de Manutenção concluído</DialogTitle>
+            <DialogDescription>
+              {visualizandoVisita
+                ? `${clientesMap?.get(visualizandoVisita.cliente_id)?.nome ?? 'Cliente'} — concluído em ${formatDate(visualizandoVisita.completed_date)}.`
+                : ''}
+            </DialogDescription>
+          </DialogHeader>
+          {visualizandoVisita && (
+            <TrainingChecklistExecution
+              readOnly
+              existingVisitId={visualizandoVisita.id}
+              clienteId={visualizandoVisita.cliente_id}
+              responsavelUserId={
+                visualizandoVisita.technician_user_id ?? visualizandoVisita.csm_user_id ?? user!.id
+              }
+            />
+          )}
         </DialogContent>
       </Dialog>
 
