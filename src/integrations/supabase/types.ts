@@ -1837,6 +1837,7 @@ export type Database = {
           item_name_snapshot: string
           notes: string | null
           order_index: number
+          photo_path: string | null
           status: Database["public"]["Enums"]["checklist_item_status"] | null
           template_item_id: string | null
         }
@@ -1848,6 +1849,7 @@ export type Database = {
           item_name_snapshot: string
           notes?: string | null
           order_index?: number
+          photo_path?: string | null
           status?: Database["public"]["Enums"]["checklist_item_status"] | null
           template_item_id?: string | null
         }
@@ -1859,6 +1861,7 @@ export type Database = {
           item_name_snapshot?: string
           notes?: string | null
           order_index?: number
+          photo_path?: string | null
           status?: Database["public"]["Enums"]["checklist_item_status"] | null
           template_item_id?: string | null
         }
@@ -2759,6 +2762,7 @@ export type Database = {
           item_name_snapshot: string
           notes: string | null
           order_index: number
+          photo_path: string | null
           status: Database["public"]["Enums"]["checklist_item_status"] | null
           template_item_id: string | null
         }
@@ -2770,6 +2774,7 @@ export type Database = {
           item_name_snapshot: string
           notes?: string | null
           order_index?: number
+          photo_path?: string | null
           status?: Database["public"]["Enums"]["checklist_item_status"] | null
           template_item_id?: string | null
         }
@@ -2781,6 +2786,7 @@ export type Database = {
           item_name_snapshot?: string
           notes?: string | null
           order_index?: number
+          photo_path?: string | null
           status?: Database["public"]["Enums"]["checklist_item_status"] | null
           template_item_id?: string | null
         }
