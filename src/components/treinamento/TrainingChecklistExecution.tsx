@@ -24,6 +24,8 @@ interface TrainingChecklistExecutionProps {
   existingVisitId?: string;
   /** Chamado após a conclusão (ex.: fechar o diálogo) */
   onCompleted?: () => void;
+  /** Modo leitura: exibe o que foi registrado, sem permitir edição */
+  readOnly?: boolean;
 }
 
 /**
@@ -38,6 +40,7 @@ export default function TrainingChecklistExecution({
   responsavelTipo = 'tecnico',
   existingVisitId,
   onCompleted,
+  readOnly = false,
 }: TrainingChecklistExecutionProps) {
   const { user } = useAuth();
   const queryClient = useQueryClient();
@@ -62,7 +65,7 @@ export default function TrainingChecklistExecution({
   const [visitId, setVisitId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [completing, setCompleting] = useState(false);
-  const [completed, setCompleted] = useState(false);
+  const [completed, setCompleted] = useState(readOnly);
   const [contactName, setContactName] = useState('');
   const [contactPhone, setContactPhone] = useState('');
   const [checkedItems, setCheckedItems] = useState<Record<string, boolean>>({});
@@ -414,7 +417,7 @@ export default function TrainingChecklistExecution({
                     disabled={completed || !!extra.id}
                   />
                 </div>
-                <Button
+                {!readOnly && <Button
                   type="button"
                   variant="ghost"
                   size="icon"
@@ -433,12 +436,12 @@ export default function TrainingChecklistExecution({
                   }}
                 >
                   <Trash2 className="h-4 w-4 text-destructive" />
-                </Button>
+                </Button>}
               </div>
             </div>
           ))}
 
-          <Button
+          {!readOnly && <Button
             type="button"
             variant="outline"
             size="sm"
@@ -447,7 +450,7 @@ export default function TrainingChecklistExecution({
           >
             <Plus className="mr-2 h-4 w-4" />
             Adicionar pessoa treinada
-          </Button>
+          </Button>}
         </div>
 
         {/* Itens do checklist */}
@@ -496,10 +499,12 @@ export default function TrainingChecklistExecution({
           </div>
         )}
 
-        <Button onClick={handleComplete} disabled={completing || completed} className="w-full sm:w-auto">
-          {completing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          Concluir Treinamento de Manutenção
-        </Button>
+        {!readOnly && (
+          <Button onClick={handleComplete} disabled={completing || completed} className="w-full sm:w-auto">
+            {completing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Concluir Treinamento de Manutenção
+          </Button>
+        )}
       </CardContent>
     </Card>
   );
