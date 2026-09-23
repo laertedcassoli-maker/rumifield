@@ -994,8 +994,16 @@ export default function Pedidos() {
       toast({ variant: 'destructive', title: 'Selecione o técnico responsável pelo envio' });
       return;
     }
-    if (!form.motivo_relato.trim()) {
-      toast({ variant: 'destructive', title: 'Informe o motivo da solicitação e o relato da fazenda' });
+    if (mostrarMotivoDefeito && !form.motivo_relato.trim()) {
+      toast({ variant: 'destructive', title: 'Descreva o defeito técnico do item' });
+      return;
+    }
+    if (missingVarianteItem) {
+      toast({
+        variant: 'destructive',
+        title: 'Selecione a variante da peça',
+        description: `Informe "Com carrinho" ou "Sem carrinho" para a peça ${VARIANTE_CODE}.`,
+      });
       return;
     }
     if (form.tipo_solicitacao === 'coleta_reversa') {
@@ -1023,6 +1031,29 @@ export default function Pedidos() {
       }
       if (!(Number(form.coleta_auto_volumes) >= 1)) {
         toast({ variant: 'destructive', title: 'Informe a Quantidade de Volumes da coleta reversa automática (mínimo 1)' });
+        return;
+      }
+    }
+    if (requiresColetaAutoItens) {
+      if (coletaAutoEffective.length === 0 || coletaAutoEffective.some(i => !i.peca_id)) {
+        toast({ variant: 'destructive', title: 'Selecione a peça a coletar na coleta reversa' });
+        return;
+      }
+      if (missingColetaAutoVariante) {
+        toast({
+          variant: 'destructive',
+          title: 'Selecione a variante da peça a coletar',
+          description: `Informe "Com carrinho" ou "Sem carrinho" para a peça ${VARIANTE_CODE}.`,
+        });
+        return;
+      }
+      const faltaLacre = coletaAutoEffective.findIndex((_, idx) => (coletaAutoAssets[idx] || []).filter(Boolean).length === 0);
+      if (faltaLacre >= 0) {
+        toast({
+          variant: 'destructive',
+          title: 'Vincule o lacre da coleta reversa',
+          description: 'Cada peça a coletar precisa de ao menos um lacre vinculado.',
+        });
         return;
       }
     }
