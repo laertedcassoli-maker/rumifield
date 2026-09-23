@@ -129,18 +129,22 @@ interface ClienteInfo {
 async function fetchClientesMap(ids: string[]) {
   const unique = [...new Set(ids.filter(Boolean))];
   if (!unique.length) return new Map<string, ClienteInfo>();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from('clientes')
     .select('id, nome, fazenda, latitude, longitude')
     .in('id', unique);
+  if (error) {
+    console.error('[VisitaTecnica] Falha ao buscar clientes:', error);
+    throw error;
+  }
   return new Map<string, ClienteInfo>(
     (data ?? []).map(c => [
       c.id,
       {
         nome: c.nome,
         fazenda: c.fazenda ?? null,
-        latitude: c.latitude ?? null,
-        longitude: c.longitude ?? null,
+        latitude: c.latitude != null && !isNaN(Number(c.latitude)) ? Number(c.latitude) : null,
+        longitude: c.longitude != null && !isNaN(Number(c.longitude)) ? Number(c.longitude) : null,
       },
     ]),
   );
