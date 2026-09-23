@@ -170,6 +170,7 @@ export default function AgendaOperacoes() {
           id: e.id,
           title: e.titulo,
           start: e.data,
+          ...(e.dataFim ? { end: endExclusivo(e.dataFim) } : {}),
           allDay: true,
           backgroundColor: cor,
           borderColor: cor,

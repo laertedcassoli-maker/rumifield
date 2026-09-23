@@ -8,6 +8,8 @@ export interface AgendaEvento {
   id: string;
   titulo: string;
   data: string;
+  /** Último dia (inclusivo) quando o evento cobre um período */
+  dataFim?: string | null;
   tecnicoNome: string | null;
   clienteNome: string;
   fazenda: string | null;
@@ -52,6 +54,11 @@ async function fetchClientesMap(ids: string[]) {
   return new Map((data ?? []).map(c => [c.id, { nome: c.nome, fazenda: c.fazenda ?? null }]));
 }
 
+/** Timestamp -> dia local (America/Sao_Paulo) no formato YYYY-MM-DD */
+function diaLocal(ts: string) {
+  return new Date(ts).toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+}
+
 function buildTitulo(clienteNome: string, fazenda: string | null, tecnicoNome: string | null) {
   const base = fazenda || clienteNome; // fazenda; se não houver, cai pro nome do cliente
   return tecnicoNome ? `${base} — ${tecnicoNome}` : base;
@@ -80,7 +87,7 @@ export function useAgendaOperacoes() {
       const { data, error } = await (supabase as any)
         .from('installation_stages')
         .select(
-          'id, stage, status, planned_date, technician_user_id, csm_user_id, installations(cliente_id, clientes(nome, fazenda))'
+          'id, stage, status, planned_date, planned_date_end, approved_at, technician_user_id, csm_user_id, installations(cliente_id, clientes(nome, fazenda))'
         )
         .not('planned_date', 'is', null)
         .in('stage', ['pre_instalacao', 'instalacao']);
@@ -100,10 +107,12 @@ export function useAgendaOperacoes() {
         const fazenda = cliente?.fazenda ?? null;
         const respId = r.technician_user_id ?? r.csm_user_id ?? null;
         const tecnicoNome = respId ? profiles.get(respId) ?? null : null;
+        const concluida = r.status === 'concluido' && !!r.approved_at;
         return {
           id: `stage-${r.id}`,
           titulo: tituloEvento(clienteNome, fazenda, tecnicoNome),
-          data: r.planned_date as string,
+          data: concluida ? diaLocal(r.approved_at) : (r.planned_date as string),
+          dataFim: concluida ? null : ((r.planned_date_end as string | null) ?? null),
           tecnicoNome,
           clienteNome,
           fazenda,
@@ -120,7 +129,7 @@ export function useAgendaOperacoes() {
     queryFn: async (): Promise<AgendaEvento[]> => {
       const { data, error } = await supabase
         .from('ticket_visits')
-        .select('id, client_id, field_technician_user_id, planned_start_date, status')
+        .select('id, client_id, field_technician_user_id, planned_start_date, status, checkin_at, checkout_at')
         .not('planned_start_date', 'is', null)
         .neq('status', 'cancelada');
       if (error) throw error;
@@ -140,10 +149,14 @@ export function useAgendaOperacoes() {
         const tecnicoNome = r.field_technician_user_id
           ? profiles.get(r.field_technician_user_id) ?? null
           : null;
+        const real = r.status === 'finalizada' && r.checkin_at && r.checkout_at;
+        const ini = real ? diaLocal(r.checkin_at as string) : (r.planned_start_date as string);
+        const fim = real ? diaLocal(r.checkout_at as string) : null;
         return {
           id: `visita-${r.id}`,
           titulo: tituloEvento(clienteNome, fazenda, tecnicoNome),
-          data: r.planned_start_date as string,
+          data: ini,
+          dataFim: fim && fim !== ini ? fim : null,
           tecnicoNome,
           clienteNome,
           fazenda,
@@ -174,6 +187,17 @@ export function useAgendaOperacoes() {
         .in('id', routeIds);
       const routesMap = new Map((routes ?? []).map(r => [r.id, r]));
 
+      // Sem FK direta: junção manual por (route_id, client_id)
+      const { data: manutencoes, error: pmError } = await supabase
+        .from('preventive_maintenance')
+        .select('route_id, client_id, completed_date')
+        .in('route_id', routeIds)
+        .not('completed_date', 'is', null);
+      if (pmError) throw pmError;
+      const concluidas = new Map(
+        (manutencoes ?? []).map(m => [`${m.route_id}|${m.client_id}`, m.completed_date as string])
+      );
+
       const [profiles, clientes] = await Promise.all([
         fetchProfilesMap((routes ?? []).map(r => r.field_technician_user_id).filter(Boolean) as string[]),
         fetchClientesMap(rows.map(r => r.client_id).filter(Boolean) as string[]),
@@ -192,7 +216,7 @@ export function useAgendaOperacoes() {
         return {
           id: `preventiva-${r.id}`,
           titulo: tituloEvento(clienteNome, fazenda, tecnicoNome),
-          data: r.planned_date as string,
+          data: concluidas.get(`${r.route_id}|${r.client_id}`) ?? (r.planned_date as string),
           tecnicoNome,
           clienteNome,
           fazenda,
