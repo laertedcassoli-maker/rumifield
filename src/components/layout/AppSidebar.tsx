@@ -1,5 +1,5 @@
 import { Fragment } from 'react';
-import { Home, MapPin, ShoppingCart, Users, Settings, LogOut, Beaker, Truck, RefreshCcw, ChevronDown, ClipboardCheck, TrendingDown, Play, Building2, History, Package, FlaskConical, Shield, Wrench, ListChecks, ListTodo, Box, FileText, Calendar, Route, CalendarDays, ClipboardList, AlertTriangle, Navigation, BookOpen, Bot, Contact, Briefcase, BarChart3, BarChart2, Eye, Brain, Sheet, GraduationCap, Upload } from 'lucide-react';
+import { Home, MapPin, ShoppingCart, Users, Settings, LogOut, Beaker, Truck, RefreshCcw, ChevronDown, ClipboardCheck, TrendingDown, Play, Building2, History, Package, FlaskConical, Shield, Wrench, ListChecks, ListTodo, Box, FileText, Calendar, Route, CalendarDays, ClipboardList, AlertTriangle, Navigation, BookOpen, Bot, Contact, Briefcase, BarChart3, BarChart2, Eye, Brain, Sheet, GraduationCap, Upload, HardHat } from 'lucide-react';
 import { GearWrenchIcon } from '@/components/icons/GearWrenchIcon';
 import { useAuth } from '@/contexts/AuthContext';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarMenuSub, SidebarMenuSubItem, SidebarMenuSubButton } from '@/components/ui/sidebar';
