@@ -362,6 +362,12 @@ export default function ExecucaoEtapa() {
       <InstallationChecklistExecution
         stageId={stage.id}
         stageTemplateId={stage.checklist_template_id}
+        onStatusChange={(status) => {
+          if (status === 'completed' && stage.stage === 'pre_instalacao') {
+            setEnviadoAprovacao(true);
+            setTimeout(() => navigate('/instalacoes'), 1800);
+          }
+        }}
       />
 
       {/* Treinamento combinado: apenas na etapa de Instalação */}
