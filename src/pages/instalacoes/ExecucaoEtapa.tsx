@@ -56,6 +56,7 @@ export default function ExecucaoEtapa() {
     role === 'consultor_rplus';
 
   const [confirmApprove, setConfirmApprove] = useState(false);
+  const [enviadoAprovacao, setEnviadoAprovacao] = useState(false);
   const [isUploadingAnexo, setIsUploadingAnexo] = useState(false);
   const {
     preview: anexoPreview,
