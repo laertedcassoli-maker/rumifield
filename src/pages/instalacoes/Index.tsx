@@ -99,11 +99,17 @@ export default function InstalacoesIndex() {
     role === 'consultor_rplus';
 
   // Optional stage filter via URL: /instalacoes?etapa=pre_venda|pre_instalacao|instalacao
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const etapaParam = searchParams.get('etapa');
   const etapaFiltro = (STAGE_ORDER as string[]).includes(etapaParam || '')
     ? (etapaParam as StageType)
     : null;
+  const setEtapaFiltro = (etapa: StageType | null) => {
+    const next = new URLSearchParams(searchParams);
+    if (etapa) next.set('etapa', etapa);
+    else next.delete('etapa');
+    setSearchParams(next, { replace: true });
+  };
 
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [clienteId, setClienteId] = useState<string | null>(null);
@@ -493,6 +499,18 @@ export default function InstalacoesIndex() {
             Nova Instalação
           </Button>
         )}
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {([...STAGE_ORDER, null] as (StageType | null)[]).map((etapa) => (
+          <Button
+            key={etapa ?? 'todas'}
+            size="sm"
+            variant={etapaFiltro === etapa ? 'default' : 'outline'}
+            onClick={() => setEtapaFiltro(etapa)}
+          >
+            {etapa ? STAGE_LABELS[etapa] : 'Todas'}
+          </Button>
+        ))}
       </div>
 
       {(installations && installations.length > 0) && (
