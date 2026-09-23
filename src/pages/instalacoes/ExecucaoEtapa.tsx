@@ -56,6 +56,7 @@ export default function ExecucaoEtapa() {
     role === 'consultor_rplus';
 
   const [confirmApprove, setConfirmApprove] = useState(false);
+  const [enviadoAprovacao, setEnviadoAprovacao] = useState(false);
   const [isUploadingAnexo, setIsUploadingAnexo] = useState(false);
   const {
     preview: anexoPreview,
@@ -212,6 +213,27 @@ export default function ExecucaoEtapa() {
     );
   }
 
+  if (enviadoAprovacao) {
+    return (
+      <div className="p-4 sm:p-6 max-w-3xl mx-auto">
+        <Card>
+          <CardContent className="p-8 text-center space-y-3">
+            <CheckCircle2 className="h-10 w-10 text-primary mx-auto" />
+            <p className="text-base font-semibold">Enviado para aprovação</p>
+            <p className="text-sm text-muted-foreground">
+              A Pré Instalação foi enviada para aprovação do Coordenador de Serviços.
+            </p>
+            <Button variant="outline" onClick={() => navigate('/instalacoes')}>
+              <ArrowLeft className="h-4 w-4 mr-1.5" />
+              Voltar para Instalações
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+
   const cliente = stage.installation?.cliente;
   const aguardandoAprovacao = stage.stage === 'pre_instalacao' && stage.status === 'aguardando_aprovacao';
   const criterios = {
@@ -361,6 +383,12 @@ export default function ExecucaoEtapa() {
       <InstallationChecklistExecution
         stageId={stage.id}
         stageTemplateId={stage.checklist_template_id}
+        onStatusChange={(status) => {
+          if (status === 'completed' && stage.stage === 'pre_instalacao') {
+            setEnviadoAprovacao(true);
+            setTimeout(() => navigate('/instalacoes'), 1800);
+          }
+        }}
       />
 
       {/* Treinamento combinado: apenas na etapa de Instalação */}

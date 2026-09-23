@@ -185,7 +185,11 @@ export default function InstalacoesIndex() {
         if (inst.stages.some(s => s.stage === etapaFiltro)) return true;
         return canManage && etapaFiltro === 'instalacao' && inst.stages.some(s => s.stage === 'pre_instalacao');
       });
+    } else if (filtroSituacao !== 'concluida') {
+      // Aba "Todas": lista as instalações em aberto (pré instalação + instalação)
+      list = list.filter(inst => inst.status !== 'concluido');
     }
+
     if (filtroSituacao !== 'all') {
       list = list.filter(inst => classificarSituacao(inst) === filtroSituacao);
     }
@@ -571,6 +575,15 @@ export default function InstalacoesIndex() {
                     )}
                   </CardTitle>
                   <div className="flex items-center gap-1.5 shrink-0">
+                    {!etapaFiltro && (() => {
+                      const situacao = classificarSituacao(inst);
+                      const etapaAtual = situacao === 'instalacao' || situacao === 'pre_instalacao' ? situacao : null;
+                      return etapaAtual ? (
+                        <Badge variant="outline" className="text-xs">
+                          {STAGE_LABELS[etapaAtual]}
+                        </Badge>
+                      ) : null;
+                    })()}
                     <Badge variant={inst.status === 'concluido' ? 'outline' : 'secondary'}>
                       {inst.status === 'concluido' ? 'Concluída' : 'Em Andamento'}
                     </Badge>
