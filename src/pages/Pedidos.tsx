@@ -220,9 +220,13 @@ export default function Pedidos() {
     setViewingStack((stack) => (stack.length > 1 ? stack.slice(0, -1) : stack));
   }, []);
   const [form, setForm] = useState({ ...emptyForm });
-  const [itens, setItens] = useState<{ peca_id: string; quantidade: number }[]>([]);
+  const [itens, setItens] = useState<{ peca_id: string; quantidade: number; variante?: string }[]>([]);
   // Ativos vinculados na criação (índice do item em `itens` -> workshop_item_ids)
   const [itemAssets, setItemAssets] = useState<Record<number, string[]>>({});
+  // Itens da coleta reversa automática: null = ainda usando a sugestão do envio
+  const [coletaAutoItens, setColetaAutoItens] = useState<{ peca_id: string; quantidade: number; variante?: string }[] | null>(null);
+  const [coletaAutoAssets, setColetaAutoAssets] = useState<Record<number, string[]>>({});
+  const [coletaAutoPecaSearches, setColetaAutoPecaSearches] = useState<Record<number, string>>({});
   const [autoLinkDismissed, setAutoLinkDismissed] = useState(false);
   // UI-only filter: true = all orders (default), false = only mine
   const [viewAll, setViewAll] = useState(true);
