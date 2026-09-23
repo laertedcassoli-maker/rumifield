@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import { Plus, Search, Edit, History, Clock, Check, ChevronsUpDown, Wrench, Package, Users } from 'lucide-react';
+import { Plus, Search, Edit, History, Clock, Check, ChevronsUpDown, Wrench, Package } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -71,13 +71,6 @@ interface ItemPedidoHist {
   } | null;
 }
 
-interface ClienteResumo {
-  clienteId: string;
-  nome: string;
-  ativosCount: number;
-  osCount: number;
-}
-
 interface Peca {
   id: string;
   codigo: string;
@@ -103,7 +96,6 @@ export default function ItensOficina() {
   });
 
   const isAdmin = role === 'admin' || role === 'coordenador_rplus' || role === 'coordenador_servicos' || role === 'coordenador_logistica';
-  const [visualizacao, setVisualizacao] = useState<'itens' | 'clientes'>('itens');
 
   // Fetch workshop items
   const { data: items = [], isLoading } = useQuery({
@@ -183,43 +175,6 @@ export default function ItensOficina() {
       return data as ItemPedidoHist[];
     },
     enabled: !!selectedItemForHistory?.id,
-  });
-
-  // "Por Cliente" view: distinct assets served per client via work orders
-  const { data: clientesResumo = [], isLoading: isLoadingClientesResumo } = useQuery({
-    queryKey: ['workshop-os-por-cliente'],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from('work_order_items')
-        .select('work_order_id, workshop_item_id, work_orders(cliente_id)')
-        .not('workshop_item_id', 'is', null);
-      if (error) throw error;
-      const acc = new Map<string, { ativos: Set<string>; os: Set<string> }>();
-      (data || []).forEach((r: any) => {
-        const clienteId = r.work_orders?.cliente_id;
-        if (!clienteId || !r.workshop_item_id) return;
-        const entry = acc.get(clienteId) || { ativos: new Set<string>(), os: new Set<string>() };
-        entry.ativos.add(r.workshop_item_id);
-        entry.os.add(r.work_order_id);
-        acc.set(clienteId, entry);
-      });
-      const clienteIds = [...acc.keys()];
-      if (!clienteIds.length) return [];
-      const { data: clientes } = await supabase
-        .from('clientes')
-        .select('id, nome')
-        .in('id', clienteIds);
-      const nomes = new Map((clientes || []).map((c: any) => [c.id, c.nome]));
-      return [...acc.entries()]
-        .map(([clienteId, e]) => ({
-          clienteId,
-          nome: nomes.get(clienteId) || 'Cliente',
-          ativosCount: e.ativos.size,
-          osCount: e.os.size,
-        }))
-        .sort((a, b) => b.ativosCount - a.ativosCount || b.osCount - a.osCount) as ClienteResumo[];
-    },
-    enabled: visualizacao === 'clientes',
   });
 
   // Create/Update mutation
@@ -466,58 +421,10 @@ export default function ItensOficina() {
               onChange={(e) => setSearch(e.target.value)}
               className="max-w-sm"
             />
-            <div className="flex gap-1 ml-auto">
-              <Button
-                variant={visualizacao === 'itens' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setVisualizacao('itens')}
-              >
-                Itens
-              </Button>
-              <Button
-                variant={visualizacao === 'clientes' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setVisualizacao('clientes')}
-              >
-                <Users className="h-4 w-4 mr-1" />
-                Por Cliente
-              </Button>
-            </div>
           </div>
         </CardHeader>
         <CardContent>
-          {visualizacao === 'clientes' ? (
-            isLoadingClientesResumo ? (
-              <div className="text-center py-8 text-muted-foreground">Carregando...</div>
-            ) : clientesResumo.length === 0 ? (
-              <div className="text-center py-8 text-muted-foreground">
-                Nenhuma OS com ativos vinculados
-              </div>
-            ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Cliente</TableHead>
-                    <TableHead className="text-center">Ativos distintos atendidos</TableHead>
-                    <TableHead className="text-center">OS</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {clientesResumo.map((c) => (
-                    <TableRow key={c.clienteId}>
-                      <TableCell className="font-medium">{c.nome}</TableCell>
-                      <TableCell className="text-center">
-                        <Badge variant="secondary">{c.ativosCount}</Badge>
-                      </TableCell>
-                      <TableCell className="text-center text-sm text-muted-foreground">
-                        {c.osCount}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            )
-          ) : isLoading ? (
+          {isLoading ? (
             <div className="text-center py-8 text-muted-foreground">Carregando...</div>
           ) : filteredItems.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground">

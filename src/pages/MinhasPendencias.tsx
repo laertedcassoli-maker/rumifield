@@ -129,7 +129,7 @@ export default function MinhasPendencias() {
       fazenda: item.fazenda,
       date: formatDate(item.plannedDate),
       status: item.status,
-      to: `/preventivas/execucao/${item.routeId}`,
+      to: `/preventivas/execucao/${item.routeId}/atendimento/${item.id}`,
     })),
     ...(visitas.data ?? []).map(item => ({
       key: `visita-${item.id}`,
