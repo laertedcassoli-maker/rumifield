@@ -15,6 +15,7 @@ import { Progress } from "@/components/ui/progress";
 import ChecklistItemStatusButtons from "@/components/preventivas/ChecklistItemStatusButtons";
 import SelectableOptionCard from "@/components/preventivas/SelectableOptionCard";
 import ChecklistBlockNav from "@/components/preventivas/ChecklistBlockNav";
+import ChecklistItemPhoto, { assertRequiredPhotos } from "@/components/checklist/ChecklistItemPhoto";
 import ChecklistItemNotes from "@/components/preventivas/ChecklistItemNotes";
 import { useCanEditCompletedChecklist } from "@/hooks/useCanEditCompletedChecklist";
 import { useOfflineInstallationChecklist } from "@/hooks/useOfflineInstallationChecklist";
@@ -735,6 +736,8 @@ export default function InstallationChecklistExecution({ stageId, stageTemplateI
         throw new Error('Existem alterações ainda não sincronizadas. Aguarde a sincronização e tente novamente.');
       }
 
+      await assertRequiredPhotos('installation_checklist_items', 'installation_checklist_blocks', existingChecklist.id);
+
       const { error } = await (supabase as any)
         .from('installation_checklists')
         .update({
@@ -1328,6 +1331,7 @@ export default function InstallationChecklistExecution({ stageId, stageTemplateI
                             </div>
                           )}
 
+<ChecklistItemPhoto table="installation_checklist_items" itemId={item.id} templateItemId={item.template_item_id} readOnly={isReadOnly} />
                           {!isReadOnly ? (
                             <ChecklistItemNotes
                               itemId={item.id}
