@@ -893,6 +893,9 @@ export default function Pedidos() {
       setForm({ ...emptyForm });
       setItens([]);
       setItemAssets({});
+      setColetaAutoItens(null);
+      setColetaAutoAssets({});
+      setColetaAutoPecaSearches({});
       setAutoLinkDismissed(false);
       setShowConfirmation(false);
       setClienteSearch('');
@@ -912,25 +915,51 @@ export default function Pedidos() {
     !editingPedido && form.tipo_solicitacao === 'envio' && assetItens.length > 0;
   const geraColetaReversaAtivo =
     form.tipo_solicitacao === 'envio' && (form.gera_coleta_reversa || coletaReversaObrigatoria);
-  // Ativos exigidos na criação: Coleta Reversa (manual) e Envio com coleta reversa automática —
-  // Envio comum vincula ativo só no Processar
+  // Coleta Reversa manual: ativos vinculados nos próprios itens do pedido
   const requiresAssetsOnCreate =
     !editingPedido &&
-    (form.tipo_solicitacao === 'coleta_reversa' || geraColetaReversaAtivo) &&
+    form.tipo_solicitacao === 'coleta_reversa' &&
     assetItens.length > 0;
   const missingAssetItem = assetItens.find(entry => (itemAssets[entry.index] || []).filter(Boolean).length === 0);
+  // Itens da coleta reversa automática: sugestão = peças de ativo do envio, editáveis
+  const coletaAutoEffective =
+    coletaAutoItens ??
+    assetItens.map(entry => ({ peca_id: entry.item.peca_id, quantidade: entry.item.quantidade, variante: entry.item.variante }));
+  const requiresColetaAutoItens = !editingPedido && geraColetaReversaAtivo;
+  const pecasAsset = (pecas || []).filter(p => p.is_asset);
+  // Peças que exigem variante (Com/Sem carrinho)
+  const missingVarianteItem = itens.find(item => item.peca_id && requiresVariante(item.peca_id) && !item.variante);
+  const missingColetaAutoVariante = requiresColetaAutoItens
+    ? coletaAutoEffective.find(item => item.peca_id && requiresVariante(item.peca_id) && !item.variante)
+    : undefined;
 
-  const assetsByPecaId = () => {
+  const updateColetaAutoItem = (index: number, field: 'peca_id' | 'variante', value: string) => {
+    const next = [...coletaAutoEffective];
+    next[index] = { ...next[index], [field]: value };
+    if (field === 'peca_id') {
+      next[index] = { ...next[index], variante: undefined };
+      setColetaAutoAssets((prev) => {
+        const copy = { ...prev };
+        delete copy[index];
+        return copy;
+      });
+    }
+    setColetaAutoItens(next);
+  };
+
+  const buildAssetsByPecaId = (list: { peca_id: string }[], assets: Record<number, string[]>) => {
     const map: Record<string, string[]> = {};
-    itens.forEach((item, index) => {
-      const ids = (itemAssets[index] || []).filter(Boolean);
+    list.forEach((item, index) => {
+      const ids = (assets[index] || []).filter(Boolean);
       if (item.peca_id && ids.length > 0) map[item.peca_id] = ids;
     });
     return map;
   };
 
-  const saveAssetsForItems = async (rows: { id: string; peca_id: string }[]) => {
-    const byPeca = assetsByPecaId();
+  const assetsByPecaId = () => buildAssetsByPecaId(itens, itemAssets);
+
+  const saveAssetsForItems = async (rows: { id: string; peca_id: string }[], byPecaOverride?: Record<string, string[]>) => {
+    const byPeca = byPecaOverride ?? assetsByPecaId();
     for (const row of rows) {
       const ids = byPeca[row.peca_id];
       if (!ids || ids.length === 0) continue;
