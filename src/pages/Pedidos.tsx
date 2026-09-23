@@ -221,6 +221,9 @@ export default function Pedidos() {
   }, []);
   const [form, setForm] = useState({ ...emptyForm });
   const [itens, setItens] = useState<{ peca_id: string; quantidade: number; variante?: string }[]>([]);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tipoParam = searchParams.get('tipo');
+  const pedidoParam = searchParams.get('pedido');
   // Ativos vinculados na criação (índice do item em `itens` -> workshop_item_ids)
   const [itemAssets, setItemAssets] = useState<Record<number, string[]>>({});
   // Itens da coleta reversa automática: null = ainda usando a sugestão do envio
@@ -358,6 +361,42 @@ export default function Pedidos() {
     refetchOnWindowFocus: true,
   });
 
+  const { data: pedidoDireto } = useQuery({
+    queryKey: ['pedido-direto', pedidoParam],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('pedidos')
+        .select(`
+          *,
+          clientes(nome, fazenda, consultor_rplus_id),
+          pedido_itens(
+            *,
+            pecas(nome, codigo, familia, is_asset, imagem_url),
+            workshop_items:workshop_item_id(id, unique_code),
+            pedido_item_assets(id, pedido_item_id, workshop_item_id, workshop_items:workshop_item_id(id, unique_code))
+          )
+        `)
+        .eq('id', pedidoParam)
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) return null;
+
+      const { data: profiles } = data.solicitante_id
+        ? await supabase.from('profiles').select('id, nome, email').eq('id', data.solicitante_id).maybeSingle()
+        : { data: null as { id: string; nome: string; email: string } | null };
+
+      return {
+        ...data,
+        solicitante: profiles ? { nome: profiles.nome, email: profiles.email } : null,
+        pedido_itens: (data.pedido_itens || []).map((item: any) => ({
+          ...item,
+          workshop_item: item.workshop_items || null,
+        })),
+      } as PedidoComItens;
+    },
+    enabled: !!user && !!pedidoParam && !!pedidos,
+  });
+
   // Pedidos vinculados (envio <-> coleta reversa) do pedido no topo da pilha
   const { data: pedidoVinculos } = useQuery({
     queryKey: ['pedido-vinculos', viewingPedido?.id, viewingPedido?.tipo_solicitacao, viewingPedido?.coleta_reversa_origem_id],
@@ -425,9 +464,6 @@ export default function Pedidos() {
   const [dateFilter, setDateFilter] = useState<'30' | 'all'>('30');
   const [tipoEnvioFilter, setTipoEnvioFilter] = useState<'all' | 'envio' | 'apenas_nf' | 'envio_pelo_tecnico'>('all');
   const [tipoLogisticaFilter, setTipoLogisticaFilter] = useState<'all' | 'correios' | 'entrega_propria'>('all');
-  const [searchParams, setSearchParams] = useSearchParams();
-  const tipoParam = searchParams.get('tipo');
-  const pedidoParam = searchParams.get('pedido');
   const [tipoSolicitacaoFilter, setTipoSolicitacaoFilter] = useState<'all' | 'envio' | 'coleta_reversa'>(
     () => (tipoParam === 'envio' || tipoParam === 'coleta_reversa' ? tipoParam : 'all')
   );
@@ -444,12 +480,12 @@ export default function Pedidos() {
   }, [tipoParam]);
 
   useEffect(() => {
-    if (!pedidoParam || !pedidos?.length) return;
-    const pedido = pedidos.find((p) => p.id === pedidoParam);
+    if (!pedidoParam || !pedidos) return;
+    const pedido = pedidos.find((p) => p.id === pedidoParam) || pedidoDireto;
     if (!pedido) return;
     setIsEditingSolicitado(false);
     setViewingPedido(pedido);
-    setActiveTab(pedido.status === 'rascunho' ? 'rascunhos' : (pedido.status === 'pendente' && showPendentesTab ? 'pendentes' : 'pedidos'));
+    setActiveTab(pedido.status === 'rascunho' ? 'rascunhos' : (pedido.status === 'pendente' ? 'pendentes' : 'pedidos'));
     setSearchTerm('');
     setStatusFilter('all');
     setDateFilter('all');
@@ -459,7 +495,7 @@ export default function Pedidos() {
     setResponsavelFilter('todos');
     setSituacaoFilter('todos');
     setViewAll(true);
-  }, [pedidoParam, pedidos, setViewingPedido, showPendentesTab]);
+  }, [pedidoParam, pedidos, pedidoDireto, setViewingPedido]);
   const [sortField, setSortField] = useState<'created_at' | 'cliente' | 'status'>('created_at');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
