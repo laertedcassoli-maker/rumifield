@@ -2021,10 +2021,13 @@ export type Database = {
           csm_user_id: string | null
           id: string
           install_kit_em_estoque: string | null
+          install_kit_previsao_data: string | null
           installation_id: string
           mangueira_em_estoque: string | null
+          mangueira_previsao_data: string | null
           nome_equipamento: string | null
           pistolas_em_estoque: string | null
+          pistolas_previsao_data: string | null
           planned_date: string | null
           planned_date_end: string | null
           qtd_install_kit: number | null
@@ -2035,7 +2038,9 @@ export type Database = {
           status: string
           technician_user_id: string | null
           tem_equipamento: string | null
+          tem_equipamento_previsao_data: string | null
           tem_quimico: string | null
+          tem_quimico_previsao_data: string | null
           updated_at: string
         }
         Insert: {
@@ -2048,10 +2053,13 @@ export type Database = {
           csm_user_id?: string | null
           id?: string
           install_kit_em_estoque?: string | null
+          install_kit_previsao_data?: string | null
           installation_id: string
           mangueira_em_estoque?: string | null
+          mangueira_previsao_data?: string | null
           nome_equipamento?: string | null
           pistolas_em_estoque?: string | null
+          pistolas_previsao_data?: string | null
           planned_date?: string | null
           planned_date_end?: string | null
           qtd_install_kit?: number | null
@@ -2062,7 +2070,9 @@ export type Database = {
           status?: string
           technician_user_id?: string | null
           tem_equipamento?: string | null
+          tem_equipamento_previsao_data?: string | null
           tem_quimico?: string | null
+          tem_quimico_previsao_data?: string | null
           updated_at?: string
         }
         Update: {
@@ -2075,10 +2085,13 @@ export type Database = {
           csm_user_id?: string | null
           id?: string
           install_kit_em_estoque?: string | null
+          install_kit_previsao_data?: string | null
           installation_id?: string
           mangueira_em_estoque?: string | null
+          mangueira_previsao_data?: string | null
           nome_equipamento?: string | null
           pistolas_em_estoque?: string | null
+          pistolas_previsao_data?: string | null
           planned_date?: string | null
           planned_date_end?: string | null
           qtd_install_kit?: number | null
@@ -2089,7 +2102,9 @@ export type Database = {
           status?: string
           technician_user_id?: string | null
           tem_equipamento?: string | null
+          tem_equipamento_previsao_data?: string | null
           tem_quimico?: string | null
+          tem_quimico_previsao_data?: string | null
           updated_at?: string
         }
         Relationships: [

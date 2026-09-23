@@ -101,6 +101,7 @@ export default function ChecklistEditor() {
               item_name,
               order_index,
               active,
+              requires_photo,
               actions:checklist_item_corrective_actions(
                 id,
                 action_label,

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type MutableRefObject } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { toast } from "sonner";
-import { Loader2, Save, ClipboardCheck, AlertTriangle } from "lucide-react";
+import { Loader2, Save, ClipboardCheck } from "lucide-react";
 
 export type TriState = 'sim' | 'nao' | 'na';
 
@@ -20,6 +20,11 @@ export interface AprovacaoCriterios {
   install_kit_em_estoque: string | null;
   qtd_mangueira_ft: number | null;
   mangueira_em_estoque: string | null;
+  tem_equipamento_previsao_data: string | null;
+  tem_quimico_previsao_data: string | null;
+  pistolas_previsao_data: string | null;
+  install_kit_previsao_data: string | null;
+  mangueira_previsao_data: string | null;
 }
 
 const TRI_FIELDS: { key: keyof AprovacaoCriterios; label: string }[] = [
@@ -53,9 +58,11 @@ interface Props {
   responsavelNome?: string | null;
   /** Data/hora da aprovação registrada automaticamente (somente leitura). */
   approvedAt?: string | null;
+  /** Recebe a cada render os valores atuais do formulário (para aprovar sem salvar rascunho antes). */
+  valuesRef?: MutableRefObject<AprovacaoCriterios | null>;
 }
 
-export default function AprovacaoPreInstalacaoForm({ stageId, criterios, canEdit, responsavelNome, approvedAt }: Props) {
+export default function AprovacaoPreInstalacaoForm({ stageId, criterios, canEdit, responsavelNome, approvedAt, valuesRef }: Props) {
   const queryClient = useQueryClient();
 
   // Props são apenas valores iniciais — nunca sincronizados por useEffect
@@ -68,6 +75,11 @@ export default function AprovacaoPreInstalacaoForm({ stageId, criterios, canEdit
   const [installKitEstoque, setInstallKitEstoque] = useState<string>(criterios.install_kit_em_estoque ?? '');
   const [qtdMangueira, setQtdMangueira] = useState<string>(criterios.qtd_mangueira_ft?.toString() ?? '');
   const [mangueiraEstoque, setMangueiraEstoque] = useState<string>(criterios.mangueira_em_estoque ?? '');
+  const [temEquipamentoPrev, setTemEquipamentoPrev] = useState<string>(criterios.tem_equipamento_previsao_data ?? '');
+  const [temQuimicoPrev, setTemQuimicoPrev] = useState<string>(criterios.tem_quimico_previsao_data ?? '');
+  const [pistolasEstoquePrev, setPistolasEstoquePrev] = useState<string>(criterios.pistolas_previsao_data ?? '');
+  const [installKitEstoquePrev, setInstallKitEstoquePrev] = useState<string>(criterios.install_kit_previsao_data ?? '');
+  const [mangueiraEstoquePrev, setMangueiraEstoquePrev] = useState<string>(criterios.mangueira_previsao_data ?? '');
 
   const atual: AprovacaoCriterios = {
     tem_equipamento: temEquipamento || null,
@@ -79,9 +91,13 @@ export default function AprovacaoPreInstalacaoForm({ stageId, criterios, canEdit
     install_kit_em_estoque: installKitEstoque || null,
     qtd_mangueira_ft: toNumberOrNull(qtdMangueira),
     mangueira_em_estoque: mangueiraEstoque || null,
+    tem_equipamento_previsao_data: temEquipamento === 'nao' ? (temEquipamentoPrev || null) : null,
+    tem_quimico_previsao_data: temQuimico === 'nao' ? (temQuimicoPrev || null) : null,
+    pistolas_previsao_data: pistolasEstoque === 'nao' ? (pistolasEstoquePrev || null) : null,
+    install_kit_previsao_data: installKitEstoque === 'nao' ? (installKitEstoquePrev || null) : null,
+    mangueira_previsao_data: mangueiraEstoque === 'nao' ? (mangueiraEstoquePrev || null) : null,
   };
-
-  const pendentes = criteriosPendentes(atual);
+  if (valuesRef) valuesRef.current = atual;
 
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -107,7 +123,12 @@ export default function AprovacaoPreInstalacaoForm({ stageId, criterios, canEdit
     },
   });
 
-  const TriToggle = ({ value, onChange, label }: { value: string; onChange: (v: string) => void; label: string }) => (
+  const TriToggle = ({
+    value, onChange, label, previsao, onPrevisao,
+  }: {
+    value: string; onChange: (v: string) => void; label: string;
+    previsao: string; onPrevisao: (v: string) => void;
+  }) => (
     <div className="space-y-1.5">
       <Label className="text-xs">{label}</Label>
       <ToggleGroup
@@ -121,6 +142,18 @@ export default function AprovacaoPreInstalacaoForm({ stageId, criterios, canEdit
         <ToggleGroupItem value="nao" className="h-8 px-3 text-xs">Não</ToggleGroupItem>
         <ToggleGroupItem value="na" className="h-8 px-3 text-xs">NA</ToggleGroupItem>
       </ToggleGroup>
+      {value === 'nao' && (
+        <div className="space-y-1 pt-1">
+          <Label className="text-xs">Previsão</Label>
+          <Input
+            type="date"
+            value={previsao}
+            disabled={!canEdit}
+            onChange={(e) => onPrevisao(e.target.value)}
+            className="h-8 w-44"
+          />
+        </div>
+      )}
     </div>
   );
 
@@ -138,7 +171,7 @@ export default function AprovacaoPreInstalacaoForm({ stageId, criterios, canEdit
       )}
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <TriToggle value={temEquipamento} onChange={setTemEquipamento} label="Tem equipamento?" />
+        <TriToggle value={temEquipamento} onChange={setTemEquipamento} previsao={temEquipamentoPrev} onPrevisao={setTemEquipamentoPrev} label="Tem equipamento?" />
         <div className="space-y-1.5">
           <Label className="text-xs">Nome do equipamento</Label>
           <Input
@@ -149,7 +182,7 @@ export default function AprovacaoPreInstalacaoForm({ stageId, criterios, canEdit
           />
         </div>
 
-        <TriToggle value={temQuimico} onChange={setTemQuimico} label="Tem químico?" />
+        <TriToggle value={temQuimico} onChange={setTemQuimico} previsao={temQuimicoPrev} onPrevisao={setTemQuimicoPrev} label="Tem químico?" />
         <div />
 
         <div className="space-y-1.5">
@@ -162,7 +195,7 @@ export default function AprovacaoPreInstalacaoForm({ stageId, criterios, canEdit
             onChange={(e) => setQtdPistolas(e.target.value)}
           />
         </div>
-        <TriToggle value={pistolasEstoque} onChange={setPistolasEstoque} label="Pistolas em estoque?" />
+        <TriToggle value={pistolasEstoque} onChange={setPistolasEstoque} previsao={pistolasEstoquePrev} onPrevisao={setPistolasEstoquePrev} label="Pistolas em estoque?" />
 
         <div className="space-y-1.5">
           <Label className="text-xs">Quantidade de install kit</Label>
@@ -174,7 +207,7 @@ export default function AprovacaoPreInstalacaoForm({ stageId, criterios, canEdit
             onChange={(e) => setQtdInstallKit(e.target.value)}
           />
         </div>
-        <TriToggle value={installKitEstoque} onChange={setInstallKitEstoque} label="Install kit em estoque?" />
+        <TriToggle value={installKitEstoque} onChange={setInstallKitEstoque} previsao={installKitEstoquePrev} onPrevisao={setInstallKitEstoquePrev} label="Install kit em estoque?" />
 
         <div className="space-y-1.5">
           <Label className="text-xs">Metragem de mangueira (ft)</Label>
@@ -187,7 +220,7 @@ export default function AprovacaoPreInstalacaoForm({ stageId, criterios, canEdit
             onChange={(e) => setQtdMangueira(e.target.value)}
           />
         </div>
-        <TriToggle value={mangueiraEstoque} onChange={setMangueiraEstoque} label="Mangueira em estoque?" />
+        <TriToggle value={mangueiraEstoque} onChange={setMangueiraEstoque} previsao={mangueiraEstoquePrev} onPrevisao={setMangueiraEstoquePrev} label="Mangueira em estoque?" />
 
       </div>
 
@@ -200,14 +233,6 @@ export default function AprovacaoPreInstalacaoForm({ stageId, criterios, canEdit
         </strong>
       </p>
 
-      {pendentes.length > 0 && (
-        <div className="flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-700">
-          <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
-          <span>
-            Faltam para liberar a aprovação (precisam estar em "Sim" ou "NA"): <strong>{pendentes.join(', ')}</strong>
-          </span>
-        </div>
-      )}
 
       {canEdit && (
         <div className="flex justify-end">

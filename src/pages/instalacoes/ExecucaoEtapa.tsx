@@ -1,5 +1,5 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -20,7 +20,7 @@ import {
 import { toast } from "sonner";
 import { ArrowLeft, Loader2, Building2, CalendarDays, User, Paperclip, CheckCircle2, Clock } from "lucide-react";
 import InstallationChecklistExecution from "@/components/instalacoes/ChecklistExecution";
-import AprovacaoPreInstalacaoForm, { criteriosPendentes } from "@/components/instalacoes/AprovacaoPreInstalacaoForm";
+import AprovacaoPreInstalacaoForm, { type AprovacaoCriterios } from "@/components/instalacoes/AprovacaoPreInstalacaoForm";
 import CombinarTreinamentoSection from "@/components/treinamento/CombinarTreinamentoSection";
 import { useAnexoPreview } from "@/hooks/useAnexoPreview";
 import AnexoPreviewDialog from "@/components/instalacoes/AnexoPreviewDialog";
@@ -90,6 +90,11 @@ export default function ExecucaoEtapa() {
           install_kit_em_estoque,
           qtd_mangueira_ft,
           mangueira_em_estoque,
+          tem_equipamento_previsao_data,
+          tem_quimico_previsao_data,
+          pistolas_previsao_data,
+          install_kit_previsao_data,
+          mangueira_previsao_data,
           aprovacao_data_inicio,
           aprovacao_data_fim,
           installation:installations(
@@ -127,17 +132,25 @@ export default function ExecucaoEtapa() {
     staleTime: 300_000,
   });
 
+  const criteriosRef = useRef<AprovacaoCriterios | null>(null);
   const approveMutation = useMutation({
     mutationFn: async () => {
-      const { data, error } = await (supabase as any)
-        .from('installation_stages')
-        .update({
-          status: 'concluido',
-          approved_by: user?.id,
-          approved_at: new Date().toISOString(),
-        })
-        .eq('id', stageId)
-        .select('id');
+      // Salva os critérios digitados na tela e aprova num único passo
+      const { data, error } = await Promise.race([
+        (supabase as any)
+          .from('installation_stages')
+          .update({
+            ...(criteriosRef.current ?? {}),
+            status: 'concluido',
+            approved_by: user?.id,
+            approved_at: new Date().toISOString(),
+          })
+          .eq('id', stageId)
+          .select('id'),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Tempo esgotado ao aprovar. Verifique sua conexão.')), 15_000),
+        ),
+      ]) as { data: any[] | null; error: any };
       if (error) throw error;
       if (!data || data.length === 0) {
         throw new Error('A aprovação não foi confirmada pelo servidor. Verifique suas permissões.');
@@ -150,6 +163,7 @@ export default function ExecucaoEtapa() {
       queryClient.invalidateQueries({ queryKey: ['installations'] });
       toast.success('Pré Instalação aprovada!');
       setConfirmApprove(false);
+      navigate('/instalacoes');
     },
     onError: (error: any) => {
       toast.error('Erro ao aprovar: ' + (error?.message || ''));
@@ -246,8 +260,12 @@ export default function ExecucaoEtapa() {
     install_kit_em_estoque: stage.install_kit_em_estoque ?? null,
     qtd_mangueira_ft: stage.qtd_mangueira_ft ?? null,
     mangueira_em_estoque: stage.mangueira_em_estoque ?? null,
+    tem_equipamento_previsao_data: stage.tem_equipamento_previsao_data ?? null,
+    tem_quimico_previsao_data: stage.tem_quimico_previsao_data ?? null,
+    pistolas_previsao_data: stage.pistolas_previsao_data ?? null,
+    install_kit_previsao_data: stage.install_kit_previsao_data ?? null,
+    mangueira_previsao_data: stage.mangueira_previsao_data ?? null,
   };
-  const criteriosIncompletos = criteriosPendentes(criterios);
 
   return (
     <div className="space-y-4 p-4 sm:p-6 max-w-3xl mx-auto">
@@ -345,6 +363,7 @@ export default function ExecucaoEtapa() {
                 canEdit={podeEditarCriterios && stage.status !== 'concluido'}
                 responsavelNome={responsavelNome}
                 approvedAt={stage.approved_at}
+                valuesRef={criteriosRef}
               />
             )}
 
@@ -356,15 +375,7 @@ export default function ExecucaoEtapa() {
                 </p>
                 <Button
                   className="mt-3"
-                  onClick={() => {
-                    if (criteriosIncompletos.length > 0) {
-                      toast.error(
-                        'Ajuste os critérios antes de aprovar: ' + criteriosIncompletos.join(', '),
-                      );
-                      return;
-                    }
-                    setConfirmApprove(true);
-                  }}
+                  onClick={() => setConfirmApprove(true)}
                 >
                   <CheckCircle2 className="h-4 w-4 mr-1.5" />
                   Aprovar Pré Instalação
