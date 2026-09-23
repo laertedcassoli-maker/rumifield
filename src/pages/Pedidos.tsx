@@ -1131,8 +1131,9 @@ export default function Pedidos() {
           pedido_id: editingPedido.id,
           peca_id: item.peca_id,
           quantidade: item.quantidade,
+          variante: requiresVariante(item.peca_id) ? (item.variante || null) : null,
         }));
-        const { data: insertedItens, error: itensError } = await supabase.from('pedido_itens').insert(newItens).select('id, peca_id');
+        const { data: insertedItens, error: itensError } = await supabase.from('pedido_itens').insert(newItens as any).select('id, peca_id');
         if (itensError) throw itensError;
         if (form.tipo_solicitacao === 'coleta_reversa' && insertedItens) {
           await saveAssetsForItems(insertedItens as { id: string; peca_id: string }[]);
