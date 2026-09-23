@@ -820,6 +820,7 @@ export default function Pedidos() {
       pedido.pedido_itens?.map((item: any) => ({
         peca_id: item.peca_id,
         quantidade: item.quantidade,
+        variante: item.variante || undefined,
       })) || []
     );
     setItemAssets(
