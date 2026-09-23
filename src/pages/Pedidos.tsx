@@ -1174,8 +1174,9 @@ export default function Pedidos() {
           pedido_id: pedido.id,
           peca_id: item.peca_id,
           quantidade: item.quantidade,
+          variante: requiresVariante(item.peca_id) ? (item.variante || null) : null,
         }));
-        const { data: insertedItens, error: itensError } = await supabase.from('pedido_itens').insert(newItens).select('id, peca_id');
+        const { data: insertedItens, error: itensError } = await supabase.from('pedido_itens').insert(newItens as any).select('id, peca_id');
         if (itensError) {
           // Rollback: delete orphan pedido
           await supabase.from('pedidos').delete().eq('id', pedido.id);
