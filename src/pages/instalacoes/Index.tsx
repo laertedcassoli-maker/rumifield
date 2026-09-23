@@ -185,7 +185,11 @@ export default function InstalacoesIndex() {
         if (inst.stages.some(s => s.stage === etapaFiltro)) return true;
         return canManage && etapaFiltro === 'instalacao' && inst.stages.some(s => s.stage === 'pre_instalacao');
       });
+    } else if (filtroSituacao !== 'concluida') {
+      // Aba "Todas": lista as instalações em aberto (pré instalação + instalação)
+      list = list.filter(inst => inst.status !== 'concluido');
     }
+
     if (filtroSituacao !== 'all') {
       list = list.filter(inst => classificarSituacao(inst) === filtroSituacao);
     }
