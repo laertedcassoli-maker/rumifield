@@ -129,13 +129,19 @@ interface ClienteInfo {
 async function fetchClientesMap(ids: string[]) {
   const unique = [...new Set(ids.filter(Boolean))];
   if (!unique.length) return new Map<string, ClienteInfo>();
-  const { data, error } = await supabase
-    .from('clientes')
-    .select('id, nome, fazenda, latitude, longitude')
-    .in('id', unique);
-  if (error) {
-    console.error('[VisitaTecnica] Falha ao buscar clientes:', error);
-    throw error;
+  // Busca em lotes: .in() com centenas de ids estoura o tamanho da URL
+  const CHUNK = 100;
+  const data: Array<{ id: string; nome: string; fazenda: string | null; latitude: any; longitude: any }> = [];
+  for (let i = 0; i < unique.length; i += CHUNK) {
+    const { data: part, error } = await supabase
+      .from('clientes')
+      .select('id, nome, fazenda, latitude, longitude')
+      .in('id', unique.slice(i, i + CHUNK));
+    if (error) {
+      console.error('[VisitaTecnica] Falha ao buscar clientes:', error);
+      throw error;
+    }
+    data.push(...((part ?? []) as any));
   }
   return new Map<string, ClienteInfo>(
     (data ?? []).map(c => [

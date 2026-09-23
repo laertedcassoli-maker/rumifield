@@ -171,6 +171,7 @@ export default function NovaVisitaTecnicaDialog({ open, onOpenChange }: NovaVisi
             route_id: route.id,
             client_id: clientId,
             order_index: 0,
+            planned_date: dataPlanejada,
             suggested_reason: motivo.trim(),
             status: 'planejado' as const,
           })
@@ -184,6 +185,88 @@ export default function NovaVisitaTecnicaDialog({ open, onOpenChange }: NovaVisi
             .eq('id', route.id);
           if (rbErr) console.error('[NovaVisitaTecnica] Falha ao limpar rota órfã:', rbErr);
           throw itemError;
+        }
+
+        // Finalizar planejamento (mesma lógica de DetalheRota): cria preventive_maintenance
+        // + estrutura do checklist e muda a rota para 'planejada'
+        const rollbackRoute = async () => {
+          await supabase.from('preventive_maintenance').delete().eq('route_id', route.id);
+          await supabase.from('preventive_route_items').delete().eq('route_id', route.id);
+          const { error: rbErr } = await supabase.from('preventive_routes').delete().eq('id', route.id);
+          if (rbErr) console.error('[NovaVisitaTecnica] Falha ao limpar rota:', rbErr);
+        };
+
+        try {
+          const { data: template, error: templateError } = await withTimeout(
+            supabase
+              .from('checklist_templates')
+              .select(`id, blocks:checklist_template_blocks(id, block_name, order_index, items:checklist_template_items(id, item_name, order_index, active))`)
+              .eq('id', checklistTemplateId)
+              .single()
+          );
+          if (templateError) throw templateError;
+
+          const { data: pm, error: pmError } = await withTimeout(
+            supabase
+              .from('preventive_maintenance')
+              .insert({
+                client_id: clientId,
+                route_id: route.id,
+                scheduled_date: dataPlanejada,
+                status: 'planejada' as const,
+                technician_user_id: technicianId,
+                notes: `Planejada na rota ${routeCode}`,
+              })
+              .select('id')
+              .single()
+          );
+          if (pmError) throw pmError;
+
+          const { data: checklist, error: checklistError } = await supabase
+            .from('preventive_checklists')
+            .insert({ preventive_id: pm.id, template_id: template.id })
+            .select('id')
+            .single();
+          if (checklistError) {
+            console.error('[NovaVisitaTecnica] Erro ao criar checklist:', checklistError);
+          } else {
+            for (const block of (template as any).blocks || []) {
+              const { data: execBlock, error: blockError } = await supabase
+                .from('preventive_checklist_blocks')
+                .insert({
+                  checklist_id: checklist.id,
+                  template_block_id: block.id,
+                  block_name_snapshot: block.block_name,
+                  order_index: block.order_index,
+                })
+                .select('id')
+                .single();
+              if (blockError) {
+                console.error('[NovaVisitaTecnica] Erro ao criar bloco:', blockError);
+                continue;
+              }
+              const activeItems = block.items?.filter((it: any) => it.active) || [];
+              if (activeItems.length > 0) {
+                const { error: itemsError } = await supabase
+                  .from('preventive_checklist_items')
+                  .insert(activeItems.map((it: any) => ({
+                    exec_block_id: execBlock.id,
+                    template_item_id: it.id,
+                    item_name_snapshot: it.item_name,
+                    order_index: it.order_index,
+                  })));
+                if (itemsError) console.error('[NovaVisitaTecnica] Erro ao criar itens:', itemsError);
+              }
+            }
+          }
+
+          const { error: statusError } = await withTimeout(
+            supabase.from('preventive_routes').update({ status: 'planejada' } as any).eq('id', route.id)
+          );
+          if (statusError) throw statusError;
+        } catch (e) {
+          await rollbackRoute();
+          throw e;
         }
 
         return route.id;
