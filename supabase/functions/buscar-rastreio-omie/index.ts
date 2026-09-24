@@ -268,7 +268,7 @@ Deno.serve(async (req) => {
       .eq("tipo_logistica", "correios").in("status", ["faturado", "enviado"])
       .is("codigo_rastreio", null).not("omie_nf_numero", "is", null).neq("omie_nf_numero", "")
       .gte("omie_data_faturamento", desde)
-      .order("omie_data_faturamento", { ascending: true }).limit(25);
+      .order("omie_data_faturamento", { ascending: false }).limit(25);
     if (error) return json(500, { error: error.message });
     const inicio = Date.now();
     const resumo = { success: true, dryRun, processados: 0, preenchidos: 0, sem_rastreio: 0, nao_encontrados: 0, ambiguos: 0, erros: 0, restantes: 0, detalhes: [] as unknown[] };
