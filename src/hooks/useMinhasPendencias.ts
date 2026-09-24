@@ -55,6 +55,8 @@ const ROUTE_ITEM_PENDING = ["planejado", "reagendado"] as const;
 const ROUTE_PENDING = ['planejada', 'em_execucao'] as const;
 const VISIT_PENDING = ['em_elaboracao', 'planejada', 'em_execucao'] as const;
 const ENVIO_FINALIZADOS = ['faturado', 'enviado', 'entregue'] as const;
+const LOGISTICS_TEAM_ROLES = ['coordenador_logistica'] as const;
+const PEDIDO_COM_LOGISTICA_STATUS = ['solicitado', 'processamento'] as const;
 
 async function fetchClientesMap(ids: string[]) {
   if (!ids.length) return new Map<string, { nome: string; fazenda: string | null }>();
@@ -73,6 +75,28 @@ export function useMinhasPendencias() {
   const { user, role } = useAuth();
   const uid = user?.id;
   const canApproveInstalacao = role === 'coordenador_servicos' || role === 'admin';
+  const isLogisticsTeam = !!role && (LOGISTICS_TEAM_ROLES as readonly string[]).includes(role);
+
+  const pedidosLogistica = useQuery({
+    queryKey: ['pedidos', 'pendencias-logistica', uid],
+    enabled: !!uid && isLogisticsTeam,
+    queryFn: async (): Promise<PendenciaPedido[]> => {
+      const { data, error } = await supabase
+        .from('pedidos')
+        .select('id, pedido_code, status, created_at, cliente_id, clientes(nome, fazenda)')
+        .in('status', PEDIDO_COM_LOGISTICA_STATUS)
+        .order('created_at', { ascending: true });
+      if (error) throw error;
+      return (data ?? []).map(p => ({
+        id: p.id,
+        pedidoCode: p.pedido_code,
+        clienteNome: (p as any).clientes?.nome ?? 'Cliente',
+        fazenda: (p as any).clientes?.fazenda ?? null,
+        createdAt: p.created_at,
+        status: p.status as string,
+      }));
+    },
+  });
 
   const preventivas = useQuery({
     queryKey: ['my-preventive-routes', 'pendencias', uid],
