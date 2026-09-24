@@ -344,7 +344,8 @@ export function useMinhasPendencias() {
     (instalacoes.data?.length ?? 0) +
     (treinamentos.data?.length ?? 0) +
     (ordensServico.data?.length ?? 0) +
-    (aprovacoesInstalacao.data?.length ?? 0);
+    (aprovacoesInstalacao.data?.length ?? 0) +
+    (pedidosLogistica.data?.length ?? 0);
 
   return {
     preventivas,
@@ -357,6 +358,8 @@ export function useMinhasPendencias() {
     ordensServico,
     aprovacoesInstalacao,
     canApproveInstalacao,
+    pedidosLogistica,
+    isLogisticsTeam,
     total,
     isLoading:
       preventivas.isLoading ||
@@ -367,7 +370,8 @@ export function useMinhasPendencias() {
       instalacoes.isLoading ||
       treinamentos.isLoading ||
       ordensServico.isLoading ||
-      (canApproveInstalacao && aprovacoesInstalacao.isLoading),
+      (canApproveInstalacao && aprovacoesInstalacao.isLoading) ||
+      (isLogisticsTeam && pedidosLogistica.isLoading),
   };
 }
 
