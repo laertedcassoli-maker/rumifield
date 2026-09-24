@@ -61,3 +61,6 @@ verify_jwt = true
 
 [functions.sync-correios-rastreio]
 verify_jwt = false
+
+[functions.buscar-rastreio-omie]
+verify_jwt = false
