@@ -235,9 +235,13 @@ async function processarPedido(
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
-  const expected = Deno.env.get("SYNC_OMIE_RASTREIO_SECRET");
+  const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
   const provided = req.headers.get("x-sync-secret");
-  const secretOk = !!expected && !!provided && provided === expected;
+  let secretOk = false;
+  if (provided) {
+    const { data } = await admin.rpc("check_sync_omie_rastreio_secret", { p_secret: provided });
+    secretOk = data === true;
+  }
   if (!secretOk) {
     const auth = await requireRole(req, ["admin", "coordenador_servicos", "coordenador_logistica"]);
     if (!auth.ok) return auth.response;
@@ -246,8 +250,6 @@ Deno.serve(async (req) => {
   let body: { pedidoId?: unknown; nf?: unknown; dataReferencia?: unknown; dryRun?: unknown; lote?: unknown } = {};
   try { body = await req.json(); } catch { if (!secretOk) return json(400, { error: "Corpo inválido" }); body = { lote: true }; }
   const dryRun = body.dryRun === true;
-
-  const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
   const creds: Creds = {};
   for (const c of CONTAS) {
     const k = Deno.env.get(CHAVES[c][0])?.trim();
