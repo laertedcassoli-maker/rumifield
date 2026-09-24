@@ -6,7 +6,18 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/hooks/use-toast";
 import { useMenuPermissions } from "@/hooks/useMenuPermissions";
-import { Loader2, Upload, ShieldAlert, CheckCircle2, AlertTriangle } from "lucide-react";
+import { Loader2, Upload, ShieldAlert, CheckCircle2, AlertTriangle, Search } from "lucide-react";
+
+interface ResumoOmie {
+  processados: number; preenchidos: number; sem_rastreio: number; nao_encontrados: number;
+  ambiguos: number; erros: number; restantes: number;
+  detalhes: Array<{ pedidoId: string; pedidoCode: string | null; resultado: string; codigo: string | null; mensagem: string }>;
+}
+const ROTULO: Record<string, string> = {
+  preenchido: "Preenchido", ja_tinha_codigo: "Já tinha código", sem_rastreio: "Sem rastreio",
+  nao_encontrado: "Não encontrado", ambiguo: "Ambíguo", multiplos_codigos: "Códigos diferentes", erro: "Erro",
+};
+
 
 interface Resumo {
   success: boolean;
@@ -26,6 +37,22 @@ export default function RelatorioCorreios() {
   const [file, setFile] = useState<File | null>(null);
   const [processing, setProcessing] = useState(false);
   const [resumo, setResumo] = useState<Resumo | null>(null);
+  const [omieRunning, setOmieRunning] = useState(false);
+  const [omieResumo, setOmieResumo] = useState<ResumoOmie | null>(null);
+
+  const handleOmie = async () => {
+    setOmieRunning(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("buscar-rastreio-omie", { body: { lote: true } });
+      if (error) throw new Error(error.message);
+      if (!data?.success) throw new Error(data?.error || "Falha na busca");
+      setOmieResumo(data as ResumoOmie);
+    } catch (e) {
+      toast({ variant: "destructive", title: "Erro ao buscar no Omie", description: e instanceof Error ? e.message : "Erro desconhecido" });
+    } finally {
+      setOmieRunning(false);
+    }
+  };
 
   if (permsLoading) {
     return (
@@ -197,6 +224,55 @@ export default function RelatorioCorreios() {
           </CardContent>
         </Card>
       )}
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Buscar no Omie</CardTitle>
+          <CardDescription>
+            Procura o código de rastreio no Omie para até 25 pedidos Correios faturados nos últimos 45 dias e ainda sem código. Roda sozinho às 8h, 13h e 18h.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <Button onClick={handleOmie} disabled={omieRunning} variant="outline" className="w-full sm:w-auto">
+            {omieRunning ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
+            {omieRunning ? "Buscando..." : "Buscar no Omie agora"}
+          </Button>
+          {omieResumo && (
+            <div className="space-y-3">
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-6">
+                {([
+                  ["Processados", omieResumo.processados],
+                  ["Preenchidos", omieResumo.preenchidos],
+                  ["Sem rastreio", omieResumo.sem_rastreio],
+                  ["Não encontrados", omieResumo.nao_encontrados],
+                  ["Ambíguos", omieResumo.ambiguos],
+                  ["Erros", omieResumo.erros],
+                ] as const).map(([l, v]) => (
+                  <div key={l} className="rounded-lg border bg-muted/50 p-3">
+                    <p className="text-xs text-muted-foreground">{l}</p>
+                    <p className="text-xl font-semibold">{v}</p>
+                  </div>
+                ))}
+              </div>
+              {omieResumo.restantes > 0 && (
+                <p className="text-sm text-muted-foreground">{omieResumo.restantes} pedido(s) ficaram para a próxima execução.</p>
+              )}
+              {omieResumo.detalhes.length > 0 && (
+                <ul className="space-y-1 text-sm">
+                  {omieResumo.detalhes.map((d) => (
+                    <li key={d.pedidoId} className="flex flex-wrap items-center gap-2">
+                      <span className="font-mono">{d.pedidoCode}</span>
+                      <Badge variant={d.resultado === "preenchido" ? "default" : "outline"}>{ROTULO[d.resultado] ?? d.resultado}</Badge>
+                      {d.codigo && <span className="font-mono">{d.codigo}</span>}
+                      <span className="min-w-0 text-muted-foreground">{d.mensagem}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 }

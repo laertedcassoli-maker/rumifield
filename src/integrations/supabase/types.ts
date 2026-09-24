@@ -2574,6 +2574,8 @@ export type Database = {
           cliente_id: string
           codigo_postagem: string | null
           codigo_rastreio: string | null
+          codigo_rastreio_atualizado_em: string | null
+          codigo_rastreio_origem: string | null
           coleta_reversa_origem_id: string | null
           created_at: string
           csm_responsavel_user_id: string | null
@@ -2606,6 +2608,8 @@ export type Database = {
           cliente_id: string
           codigo_postagem?: string | null
           codigo_rastreio?: string | null
+          codigo_rastreio_atualizado_em?: string | null
+          codigo_rastreio_origem?: string | null
           coleta_reversa_origem_id?: string | null
           created_at?: string
           csm_responsavel_user_id?: string | null
@@ -2638,6 +2642,8 @@ export type Database = {
           cliente_id?: string
           codigo_postagem?: string | null
           codigo_rastreio?: string | null
+          codigo_rastreio_atualizado_em?: string | null
+          codigo_rastreio_origem?: string | null
           coleta_reversa_origem_id?: string | null
           created_at?: string
           csm_responsavel_user_id?: string | null
@@ -4781,6 +4787,10 @@ export type Database = {
         Returns: boolean
       }
       can_manage_installations: { Args: never; Returns: boolean }
+      check_sync_omie_rastreio_secret: {
+        Args: { p_secret: string }
+        Returns: boolean
+      }
       duplicate_checklist_template: {
         Args: { p_template_id: string }
         Returns: string

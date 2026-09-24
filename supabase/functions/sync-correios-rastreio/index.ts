@@ -373,7 +373,7 @@ serve(async (req) => {
 
         const { data: updated, error: updateError } = await admin
           .from("pedidos")
-          .update({ codigo_rastreio: rastreio })
+          .update({ codigo_rastreio: rastreio, codigo_rastreio_origem: "relatorio_correios", codigo_rastreio_atualizado_em: new Date().toISOString() })
           .eq("id", pedido.id)
           .is("codigo_rastreio", null)
           .select("id");
