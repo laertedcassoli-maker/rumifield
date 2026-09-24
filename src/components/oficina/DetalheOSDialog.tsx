@@ -1504,7 +1504,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
                     .map((p, idx) => (
                       <div key={idx} className="p-3 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg">
                         <p className="text-sm text-blue-800 dark:text-blue-200">
-                          <span className="font-medium">Motivo do relato do cliente:</span> {p.pedidos!.motivo_relato}
+                          <span className="font-medium">Defeito técnico do item:</span> {p.pedidos!.motivo_relato}
                         </p>
                         <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
                           Pedido {p.pedidos!.pedido_code}

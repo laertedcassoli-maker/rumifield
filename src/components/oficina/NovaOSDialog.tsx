@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -159,6 +160,9 @@ export function NovaOSDialog({ open, onOpenChange, onSuccess }: NovaOSDialogProp
 
   // Pedido vinculado ao ativo selecionado (para mostrar o motivo do relato)
   const { data: pedidoVinculado } = useQuery<{
+    id: string;
+    cliente_id: string | null;
+    clientes: { nome: string; fazenda: string | null } | null;
     pedido_code: string;
     tipo_solicitacao: string | null;
     motivo_relato: string;
@@ -168,16 +172,61 @@ export function NovaOSDialog({ open, onOpenChange, onSuccess }: NovaOSDialogProp
       if (!selectedItemId) return null;
       const { data, error } = await supabase
         .from('pedido_itens')
-        .select('pedidos:pedido_id (pedido_code, tipo_solicitacao, motivo_relato)')
+        .select('pedidos:pedido_id (id, cliente_id, pedido_code, tipo_solicitacao, motivo_relato, clientes(nome, fazenda))')
         .eq('workshop_item_id', selectedItemId)
         .order('created_at', { ascending: false })
         .limit(1);
       if (error) throw error;
       const pedido = (data?.[0] as any)?.pedidos;
-      return pedido?.motivo_relato ? pedido : null;
+      return pedido ?? null;
     },
     enabled: !!selectedItemId,
   });
+
+  // UNIVOCA: pré-preenche o cliente a partir do pedido vinculado (técnico pode trocar)
+  useEffect(() => {
+    if (pedidoVinculado?.cliente_id && !selectedClienteId) {
+      setSelectedClienteId(pedidoVinculado.cliente_id);
+      setClienteSearch(pedidoVinculado.clientes?.nome ?? '');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pedidoVinculado?.id]);
+
+  // LOTE: busca pedidos recentes (30 dias) das peças da atividade
+  const loteProductIds = selectedActivity?.execution_type === 'LOTE'
+    ? activityProducts.filter(ap => ap.activity_id === selectedActivity.id).map(ap => ap.omie_product_id)
+    : [];
+  const { data: loteCandidatos = [] } = useQuery({
+    queryKey: ['os-lote-candidatos', selectedActivityId, loteProductIds.join(',')],
+    enabled: open && loteProductIds.length > 0,
+    queryFn: async () => {
+      const since = new Date(Date.now() - 30 * 86400000).toISOString();
+      const { data, error } = await supabase
+        .from('pedido_itens')
+        .select('pedidos:pedido_id (id, pedido_code, cliente_id, created_at, clientes(nome, fazenda))')
+        .in('peca_id', loteProductIds)
+        .is('cancelled_at', null)
+        .gte('created_at', since)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      const byCliente = new Map<string, { clienteId: string; nome: string; fazenda: string | null; pedidoCode: string }>();
+      for (const row of data ?? []) {
+        const p = (row as any).pedidos;
+        if (p?.cliente_id && !byCliente.has(p.cliente_id)) {
+          byCliente.set(p.cliente_id, { clienteId: p.cliente_id, nome: p.clientes?.nome ?? 'Cliente', fazenda: p.clientes?.fazenda ?? null, pedidoCode: p.pedido_code });
+        }
+      }
+      return [...byCliente.values()];
+    },
+  });
+
+  useEffect(() => {
+    if (loteCandidatos.length === 1 && !selectedClienteId) {
+      setSelectedClienteId(loteCandidatos[0].clienteId);
+      setClienteSearch(loteCandidatos[0].nome);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loteCandidatos]);
 
   // Filter activities based on selected item (via activity_products)
   const filteredActivitiesForItem = activities.filter(activity => {
@@ -570,13 +619,15 @@ export function NovaOSDialog({ open, onOpenChange, onSuccess }: NovaOSDialogProp
         )}
 
         {/* Motivo do relato do cliente (pedido vinculado ao ativo) */}
-        {selectedItem && pedidoVinculado && (
+        {selectedItem && pedidoVinculado?.motivo_relato && (
           <div className="p-3 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded-lg">
             <p className="text-sm text-blue-800 dark:text-blue-200">
-              <span className="font-medium">Motivo do relato do cliente:</span> {pedidoVinculado.motivo_relato}
+              <span className="font-medium">Defeito técnico do item:</span> {pedidoVinculado.motivo_relato}
             </p>
             <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
-              Pedido {pedidoVinculado.pedido_code}
+              <Link to={`/pedidos?pedido=${pedidoVinculado.id}`} className="underline hover:no-underline">
+                Pedido {pedidoVinculado.pedido_code}
+              </Link>
               {pedidoVinculado.tipo_solicitacao
                 ? ` · ${pedidoVinculado.tipo_solicitacao === 'coleta_reversa' ? 'Coleta Reversa' : 'Envio'}`
                 : ''}
@@ -593,6 +644,23 @@ export function NovaOSDialog({ open, onOpenChange, onSuccess }: NovaOSDialogProp
             )}
           </Label>
           <div className="space-y-2">
+            {selectedActivity?.execution_type === 'LOTE' && loteCandidatos.length > 1 && !selectedCliente && (
+              <div className="rounded-lg border p-2 space-y-1">
+                <p className="text-xs text-muted-foreground">Pedidos recentes desta peça — escolha o cliente:</p>
+                {loteCandidatos.map(c => (
+                  <button
+                    key={c.clienteId}
+                    type="button"
+                    className="w-full text-left p-2 rounded hover:bg-muted/50 text-sm"
+                    onClick={() => { setSelectedClienteId(c.clienteId); setClienteSearch(c.nome); }}
+                  >
+                    <span className="font-medium">{c.nome}</span>
+                    {c.fazenda ? ` · ${c.fazenda}` : ''}
+                    <span className="text-xs text-muted-foreground"> · {c.pedidoCode}</span>
+                  </button>
+                ))}
+              </div>
+            )}
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input

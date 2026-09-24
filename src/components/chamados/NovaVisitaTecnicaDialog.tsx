@@ -157,7 +157,7 @@ export default function NovaVisitaTecnicaDialog({ open, onOpenChange }: NovaVisi
               end_date: dataPlanejada,
               field_technician_user_id: technicianId,
               checklist_template_id: checklistTemplateId,
-              notes: motivo.trim(),
+              notes: null,
               created_by_user_id: user!.id,
               status: 'em_elaboracao',
             } as any)
@@ -172,7 +172,7 @@ export default function NovaVisitaTecnicaDialog({ open, onOpenChange }: NovaVisi
             client_id: clientId,
             order_index: 0,
             planned_date: dataPlanejada,
-            suggested_reason: motivo.trim(),
+            suggested_reason: null,
             status: 'planejado' as const,
           })
         );
@@ -375,7 +375,7 @@ export default function NovaVisitaTecnicaDialog({ open, onOpenChange }: NovaVisi
   });
 
   const handleSubmit = () => {
-    if (!clientId || !technicianId || !plannedDate || !motivo.trim()) {
+    if (!clientId || !technicianId || !plannedDate || (tipo === 'corretiva' && !motivo.trim())) {
       toast({
         variant: 'destructive',
         title: 'Campos obrigatórios',
@@ -581,16 +581,18 @@ export default function NovaVisitaTecnicaDialog({ open, onOpenChange }: NovaVisi
             </Select>
           </div>
 
-          {/* Motivo */}
-          <div className="space-y-2">
-            <Label>Motivo da visita *</Label>
-            <Textarea
-              value={motivo}
-              onChange={(e) => setMotivo(e.target.value)}
-              placeholder="Descreva o motivo da visita..."
-              rows={4}
-            />
-          </div>
+          {/* Motivo (apenas corretiva) */}
+          {tipo === 'corretiva' && (
+            <div className="space-y-2">
+              <Label>Motivo da visita *</Label>
+              <Textarea
+                value={motivo}
+                onChange={(e) => setMotivo(e.target.value)}
+                placeholder="Descreva o motivo da visita..."
+                rows={4}
+              />
+            </div>
+          )}
         </div>
 
         <DialogFooter>

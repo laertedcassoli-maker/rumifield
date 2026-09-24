@@ -1,0 +1,2 @@
+ALTER TABLE public.preventive_maintenance DROP CONSTRAINT preventive_maintenance_route_id_fkey;
+ALTER TABLE public.preventive_maintenance ADD CONSTRAINT preventive_maintenance_route_id_fkey FOREIGN KEY (route_id) REFERENCES public.preventive_routes(id) ON DELETE CASCADE;

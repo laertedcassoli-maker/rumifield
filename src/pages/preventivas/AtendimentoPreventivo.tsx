@@ -378,11 +378,24 @@ export default function AtendimentoPreventivo() {
   // Delete visit (route item) mutation
   const deleteVisitMutation = useMutation({
     mutationFn: async () => {
+      const { data: ri } = await supabase
+        .from('preventive_route_items')
+        .select('route_id, client_id')
+        .eq('id', itemId!)
+        .maybeSingle();
       const { error } = await supabase
         .from('preventive_route_items')
         .delete()
         .eq('id', itemId);
       if (error) throw error;
+      if (ri?.client_id && ri?.route_id) {
+        const { error: pmError } = await supabase
+          .from('preventive_maintenance')
+          .delete()
+          .eq('client_id', ri.client_id)
+          .eq('route_id', ri.route_id);
+        if (pmError) console.error('[AtendimentoPreventivo] erro ao limpar preventive_maintenance', pmError);
+      }
     },
     onSuccess: () => {
       toast({ title: 'Visita excluída com sucesso' });
