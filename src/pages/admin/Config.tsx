@@ -99,6 +99,13 @@ export default function AdminConfig() {
   const [connectionStatus, setConnectionStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [connectionMessage, setConnectionMessage] = useState('');
   const [isSavingOmieConfig, setIsSavingOmieConfig] = useState(false);
+  const [fcAppKey, setFcAppKey] = useState('');
+  const [fcAppSecret, setFcAppSecret] = useState('');
+  const [showFcKey, setShowFcKey] = useState(false);
+  const [showFcSecret, setShowFcSecret] = useState(false);
+  const [isTestingFc, setIsTestingFc] = useState(false);
+  const [fcStatus, setFcStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [fcMessage, setFcMessage] = useState('');
 
   // iMilk integration states
   const [isTestingImilk, setIsTestingImilk] = useState(false);
@@ -139,6 +146,8 @@ export default function AdminConfig() {
       const garantiaHoras = allConfigs.find(c => c.chave === 'garantia_motor_horas')?.valor || '400';
       setOmieAppKey(appKey);
       setOmieAppSecret(appSecret);
+      setFcAppKey(allConfigs.find(c => c.chave === 'omie_futurecow_app_key')?.valor || '');
+      setFcAppSecret(allConfigs.find(c => c.chave === 'omie_futurecow_app_secret')?.valor || '');
       setEstoqueMenuEnabled(estoqueEnabled);
       setInicioMenuEnabled(inicioEnabled);
       setVisitasMenuEnabled(visitasEnabled);
@@ -753,6 +762,34 @@ export default function AdminConfig() {
     }
   };
 
+  const handleTestFcConnection = async () => {
+    setIsTestingFc(true);
+    setFcStatus('idle');
+    setFcMessage('');
+    try {
+      const { data, error } = await supabase.functions.invoke('test-omie-connection', { body: { conta: 'futurecow' } });
+      if (error) throw error;
+      if (data.success) {
+        let message = data.message;
+        if (data.empresa?.razao_social) message += `\n\nEmpresa: ${data.empresa.razao_social}`;
+        if (data.empresa?.cnpj) message += `\nCNPJ: ${data.empresa.cnpj}`;
+        setFcStatus('success');
+        setFcMessage(message);
+        toast({ title: 'Conexão OK!', description: data.empresa?.razao_social || data.message });
+      } else {
+        setFcStatus('error');
+        setFcMessage(data.error || 'Falha na conexão');
+        toast({ variant: 'destructive', title: 'Falha na conexão', description: data.error });
+      }
+    } catch (error: any) {
+      setFcStatus('error');
+      setFcMessage(error.message || 'Erro ao testar conexão (salve as credenciais antes)');
+      toast({ variant: 'destructive', title: 'Erro', description: error.message });
+    } finally {
+      setIsTestingFc(false);
+    }
+  };
+
   const handleSaveOmieConfig = async () => {
     setIsSavingOmieConfig(true);
     try {
@@ -770,6 +807,12 @@ export default function AdminConfig() {
         .eq('chave', 'omie_app_secret');
       
       if (error2) throw error2;
+
+      for (const [chave, valor] of [['omie_futurecow_app_key', fcAppKey], ['omie_futurecow_app_secret', fcAppSecret]] as const) {
+        const { data: upd, error: e } = await supabase.from('configuracoes').update({ valor: valor.trim() }).eq('chave', chave).select('id');
+        if (e) throw e;
+        if (!upd?.length) throw new Error('Sem permissão para salvar as credenciais da FutureCow');
+      }
 
       queryClient.invalidateQueries({ queryKey: ['app-config'] });
       toast({ title: 'Credenciais salvas!', description: 'As credenciais do Omie foram salvas com sucesso.' });
@@ -1694,6 +1737,52 @@ export default function AdminConfig() {
                     <span className="text-sm whitespace-pre-line">{connectionMessage}</span>
                   </div>
                 )}
+              </div>
+
+              <div className="space-y-4 pt-4 border-t">
+                <div>
+                  <p className="text-sm font-medium">Conta FutureCow Brasil Ltda</p>
+                  <p className="text-xs text-muted-foreground">CNPJ 55.506.244/0001-32 (a conta acima é a do CNPJ 31.406.714/0001-28)</p>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="omie-fc-app-key">APP KEY</Label>
+                    <div className="relative">
+                      <Input id="omie-fc-app-key" type={showFcKey ? 'text' : 'password'} value={fcAppKey}
+                        onChange={(e) => { setFcAppKey(e.target.value); setFcStatus('idle'); }} placeholder="Digite o APP KEY" />
+                      <Button type="button" variant="ghost" size="icon" className="absolute right-0 top-0 h-full px-3 hover:bg-transparent" onClick={() => setShowFcKey(!showFcKey)}>
+                        {showFcKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </Button>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="omie-fc-app-secret">APP SECRET</Label>
+                    <div className="relative">
+                      <Input id="omie-fc-app-secret" type={showFcSecret ? 'text' : 'password'} value={fcAppSecret}
+                        onChange={(e) => { setFcAppSecret(e.target.value); setFcStatus('idle'); }} placeholder="Digite o APP SECRET" />
+                      <Button type="button" variant="ghost" size="icon" className="absolute right-0 top-0 h-full px-3 hover:bg-transparent" onClick={() => setShowFcSecret(!showFcSecret)}>
+                        {showFcSecret ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </Button>
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center gap-4">
+                  <Button onClick={handleTestFcConnection} disabled={isTestingFc || !fcAppKey.trim() || !fcAppSecret.trim()}>
+                    {isTestingFc ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />Testando...</>) : 'Testar Conexão'}
+                  </Button>
+                  {fcStatus === 'success' && (
+                    <div className="flex items-start gap-2 text-green-600">
+                      <CheckCircle2 className="h-5 w-5 mt-0.5 flex-shrink-0" />
+                      <span className="text-sm whitespace-pre-line">{fcMessage}</span>
+                    </div>
+                  )}
+                  {fcStatus === 'error' && (
+                    <div className="flex items-start gap-2 text-destructive">
+                      <XCircle className="h-5 w-5 mt-0.5 flex-shrink-0" />
+                      <span className="text-sm whitespace-pre-line">{fcMessage}</span>
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div className="flex items-center gap-4 pt-2 border-t">

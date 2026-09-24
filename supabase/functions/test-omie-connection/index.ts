@@ -15,10 +15,18 @@ serve(async (req) => {
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, serviceRoleKey);
 
+    let conta = 'principal';
+    try {
+      const body = await req.json();
+      if (body?.conta === 'futurecow') conta = 'futurecow';
+    } catch { /* sem corpo = principal */ }
+    const keyName = conta === 'futurecow' ? 'omie_futurecow_app_key' : 'omie_app_key';
+    const secretName = conta === 'futurecow' ? 'omie_futurecow_app_secret' : 'omie_app_secret';
+
     const { data: configData, error: configError } = await supabase
       .from('configuracoes')
       .select('chave, valor')
-      .in('chave', ['omie_app_key', 'omie_app_secret']);
+      .in('chave', [keyName, secretName]);
 
     if (configError) {
       return new Response(
@@ -27,8 +35,8 @@ serve(async (req) => {
       );
     }
 
-    const app_key = configData?.find((c) => c.chave === 'omie_app_key')?.valor;
-    const app_secret = configData?.find((c) => c.chave === 'omie_app_secret')?.valor;
+    const app_key = configData?.find((c) => c.chave === keyName)?.valor;
+    const app_secret = configData?.find((c) => c.chave === secretName)?.valor;
 
     if (!app_key || !app_secret) {
       return new Response(
