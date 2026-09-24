@@ -4787,6 +4787,10 @@ export type Database = {
         Returns: boolean
       }
       can_manage_installations: { Args: never; Returns: boolean }
+      check_sync_omie_rastreio_secret: {
+        Args: { p_secret: string }
+        Returns: boolean
+      }
       duplicate_checklist_template: {
         Args: { p_template_id: string }
         Returns: string
