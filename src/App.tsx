@@ -59,6 +59,7 @@ import Instalar from "./pages/Instalar";
 import Nfc from "./pages/Nfc";
 import NotFound from "./pages/NotFound";
 import RelatorioPreventivo from "./pages/preventivas/RelatorioPreventivo";
+import RelatorioInstalacao from "./pages/instalacoes/RelatorioInstalacao";
 import ChamadosIndex from "./pages/chamados/Index";
 
 import NovoChamado from "./pages/chamados/NovoChamado";
@@ -463,6 +464,8 @@ const App = () => (
             {/* Public report routes - no auth required */}
             <Route path="/relatorio/:token" element={<RelatorioPreventivo />} />
             <Route path="/relatorio/:token/:type" element={<RelatorioPreventivo />} />
+            <Route path="/relatorio-instalacao/:token" element={<RelatorioInstalacao />} />
+            <Route path="/relatorio-instalacao/:token/:type" element={<RelatorioInstalacao />} />
             <Route path="/relatorio-corretivo/:token" element={<RelatorioCorretivo />} />
             <Route path="/relatorio-corretivo/:token/:type" element={<RelatorioCorretivo />} />
             <Route path="/docs/public" element={<PublicDocs />} />
