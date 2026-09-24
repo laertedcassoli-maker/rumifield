@@ -605,14 +605,14 @@ export default function AtendimentoPreventivo() {
       blockingErrors.push('Erro ao validar peças vinculadas ao checklist. Tente novamente.');
     }
 
-    // Check for at least one media
+    // Check for media (warning only — requirement is per-item via requires_photo)
     const { count: mediaCount } = await supabase
       .from('preventive_visit_media')
       .select('id', { count: 'exact', head: true })
       .eq('preventive_id', routeItem.preventiveId);
 
     if (!mediaCount || mediaCount === 0) {
-      blockingErrors.push('Nenhuma foto/vídeo anexado');
+      warnings.push('Nenhuma foto/vídeo anexado');
     }
 
     // Check for empty observations (warning only)

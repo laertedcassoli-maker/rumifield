@@ -83,6 +83,7 @@ export default function InstallationChecklistExecution({ stageId, stageTemplateI
   const [isSelectTemplateOpen, setIsSelectTemplateOpen] = useState(false);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
   const [isConfirmCompleteOpen, setIsConfirmCompleteOpen] = useState(false);
+  const [noVisitMedia, setNoVisitMedia] = useState(false);
   const autoStartAttempted = useRef(false);
   const [autoStartState, setAutoStartState] = useState<'idle' | 'pending' | 'failed'>('idle');
   const [autoStartError, setAutoStartError] = useState<string | null>(null);
@@ -983,6 +984,7 @@ export default function InstallationChecklistExecution({ stageId, stageTemplateI
       toast.error('Responda todos os itens para concluir o checklist.');
       return;
     }
+    // Media is warning-only — the hard requirement is per-item via requires_photo
     const { count, error: mediaErr } = await (supabase as any)
       .from('installation_visit_media')
       .select('id', { count: 'exact', head: true })
@@ -991,10 +993,7 @@ export default function InstallationChecklistExecution({ stageId, stageTemplateI
       toast.error('Não foi possível verificar as fotos da visita: ' + mediaErr.message);
       return;
     }
-    if (!count) {
-      toast.error('Adicione pelo menos uma foto em "Fotos da Visita" para encerrar.');
-      return;
-    }
+    setNoVisitMedia(!count);
     setIsConfirmCompleteOpen(true);
   };
 
@@ -1415,7 +1414,7 @@ export default function InstallationChecklistExecution({ stageId, stageTemplateI
         </>
       )}
 
-      <AlertDialog open={isConfirmCompleteOpen} onOpenChange={setIsConfirmCompleteOpen}>
+      <AlertDialog open={isConfirmCompleteOpen} onOpenChange={(open) => { setIsConfirmCompleteOpen(open); if (!open) setNoVisitMedia(false); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
@@ -1429,6 +1428,12 @@ export default function InstallationChecklistExecution({ stageId, stageTemplateI
                 <span className="mt-3 flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-2 text-amber-700">
                   <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
                   As observações estão vazias. Você pode encerrar mesmo assim.
+                </span>
+              )}
+              {noVisitMedia && (
+                <span className="mt-2 flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-2 text-amber-700">
+                  <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                  Nenhuma foto/vídeo anexado em "Fotos da Visita". Você pode encerrar mesmo assim.
                 </span>
               )}
             </AlertDialogDescription>
