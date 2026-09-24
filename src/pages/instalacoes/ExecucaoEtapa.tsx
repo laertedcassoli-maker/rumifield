@@ -18,7 +18,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { ArrowLeft, Loader2, Building2, CalendarDays, User, Paperclip, CheckCircle2, Clock } from "lucide-react";
+import { ArrowLeft, Loader2, Building2, CalendarDays, User, Paperclip, CheckCircle2, Clock, FileText, Link2 } from "lucide-react";
 import InstallationChecklistExecution from "@/components/instalacoes/ChecklistExecution";
 import AprovacaoPreInstalacaoForm, { type AprovacaoCriterios } from "@/components/instalacoes/AprovacaoPreInstalacaoForm";
 import CombinarTreinamentoSection from "@/components/treinamento/CombinarTreinamentoSection";
@@ -80,6 +80,7 @@ export default function ExecucaoEtapa() {
           planned_date,
           planned_date_end,
           approved_at,
+          public_token,
           checklist_template_id,
           tem_equipamento,
           nome_equipamento,
@@ -390,6 +391,43 @@ export default function ExecucaoEtapa() {
           )}
         </CardContent>
       </Card>
+
+      {stage.stage === 'instalacao' && stage.status === 'concluido' && stage.public_token && (() => {
+        const baseUrl = window.location.hostname.includes('lovableproject.com')
+          ? 'https://rumifield.lovable.app'
+          : window.location.origin;
+        const urlProdutor = `${baseUrl}/relatorio-instalacao/${stage.public_token}`;
+        const urlInterno = `${urlProdutor}/interno`;
+        const share = async (url: string, title: string) => {
+          if (navigator.share) {
+            try { await navigator.share({ title, text: title, url }); return; } catch { /* fallback */ }
+          }
+          await navigator.clipboard.writeText(url);
+          toast.success('Link copiado! Cole no WhatsApp para compartilhar.');
+        };
+        return (
+          <Card>
+            <CardContent className="p-4 space-y-4">
+              <div className="flex items-center gap-3">
+                <CheckCircle2 className="h-5 w-5 text-primary" />
+                <span className="font-semibold">Visita Encerrada</span>
+              </div>
+              <p className="text-sm text-muted-foreground">Compartilhe o relatório com o produtor ou sua equipe:</p>
+              <div className="flex flex-wrap gap-2">
+                <Button variant="outline" className="flex-1" onClick={() => share(urlProdutor, 'Relatório de Instalação')}>
+                  <User className="h-4 w-4 mr-2" />Produtor
+                </Button>
+                <Button variant="outline" className="flex-1" onClick={() => share(urlInterno, 'Relatório Interno de Instalação')}>
+                  <FileText className="h-4 w-4 mr-2" />Time Interno
+                </Button>
+              </div>
+              <Button variant="outline" className="w-full" onClick={async () => { await navigator.clipboard.writeText(urlProdutor); toast.success('Link copiado!'); }}>
+                <Link2 className="h-4 w-4 mr-2" />Copiar link
+              </Button>
+            </CardContent>
+          </Card>
+        );
+      })()}
 
       <InstallationChecklistExecution
         stageId={stage.id}

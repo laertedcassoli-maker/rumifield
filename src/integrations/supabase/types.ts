@@ -2026,10 +2026,13 @@ export type Database = {
           mangueira_em_estoque: string | null
           mangueira_previsao_data: string | null
           nome_equipamento: string | null
+          observacao_externa: string | null
+          observacao_interna: string | null
           pistolas_em_estoque: string | null
           pistolas_previsao_data: string | null
           planned_date: string | null
           planned_date_end: string | null
+          public_token: string
           qtd_install_kit: number | null
           qtd_mangueira_ft: number | null
           qtd_pistolas: number | null
@@ -2058,10 +2061,13 @@ export type Database = {
           mangueira_em_estoque?: string | null
           mangueira_previsao_data?: string | null
           nome_equipamento?: string | null
+          observacao_externa?: string | null
+          observacao_interna?: string | null
           pistolas_em_estoque?: string | null
           pistolas_previsao_data?: string | null
           planned_date?: string | null
           planned_date_end?: string | null
+          public_token?: string
           qtd_install_kit?: number | null
           qtd_mangueira_ft?: number | null
           qtd_pistolas?: number | null
@@ -2090,10 +2096,13 @@ export type Database = {
           mangueira_em_estoque?: string | null
           mangueira_previsao_data?: string | null
           nome_equipamento?: string | null
+          observacao_externa?: string | null
+          observacao_interna?: string | null
           pistolas_em_estoque?: string | null
           pistolas_previsao_data?: string | null
           planned_date?: string | null
           planned_date_end?: string | null
+          public_token?: string
           qtd_install_kit?: number | null
           qtd_mangueira_ft?: number | null
           qtd_pistolas?: number | null
@@ -2120,6 +2129,50 @@ export type Database = {
             columns: ["installation_id"]
             isOneToOne: false
             referencedRelation: "installations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      installation_visit_media: {
+        Row: {
+          caption: string | null
+          created_at: string
+          file_name: string
+          file_path: string
+          file_size: number | null
+          file_type: string
+          id: string
+          stage_id: string
+          user_id: string
+        }
+        Insert: {
+          caption?: string | null
+          created_at?: string
+          file_name: string
+          file_path: string
+          file_size?: number | null
+          file_type: string
+          id?: string
+          stage_id: string
+          user_id: string
+        }
+        Update: {
+          caption?: string | null
+          created_at?: string
+          file_name?: string
+          file_path?: string
+          file_size?: number | null
+          file_type?: string
+          id?: string
+          stage_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "installation_visit_media_stage_id_fkey"
+            columns: ["stage_id"]
+            isOneToOne: false
+            referencedRelation: "installation_stages"
             referencedColumns: ["id"]
           },
         ]
@@ -4758,6 +4811,17 @@ export type Database = {
           used_at: string
         }[]
       }
+      get_public_installation_header: {
+        Args: { _token: string }
+        Returns: {
+          cidade: string
+          cliente_nome: string
+          estado: string
+          fazenda: string
+          stage_id: string
+          tecnico_nome: string
+        }[]
+      }
       get_schema_tables: {
         Args: never
         Returns: {
@@ -4768,6 +4832,18 @@ export type Database = {
         }[]
       }
       has_role: { Args: { _role: string; _user_id: string }; Returns: boolean }
+      installation_stage_of_block: {
+        Args: { _block_id: string }
+        Returns: string
+      }
+      installation_stage_of_checklist: {
+        Args: { _checklist_id: string }
+        Returns: string
+      }
+      installation_stage_of_item: {
+        Args: { _item_id: string }
+        Returns: string
+      }
       is_admin_or_coordinator: { Args: { _user_id: string }; Returns: boolean }
       is_corrective_visit_technician: {
         Args: { _user_id: string; _visit_id: string }
@@ -4787,6 +4863,10 @@ export type Database = {
       }
       is_public_corrective_visit: {
         Args: { _visit_id: string }
+        Returns: boolean
+      }
+      is_public_installation_stage: {
+        Args: { _stage_id: string }
         Returns: boolean
       }
       is_route_technician: {
