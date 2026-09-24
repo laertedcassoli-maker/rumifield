@@ -1,0 +1,1 @@
+DROP POLICY "Authenticated users can read config" ON public.configuracoes;
