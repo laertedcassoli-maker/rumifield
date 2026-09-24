@@ -1414,7 +1414,7 @@ export default function InstallationChecklistExecution({ stageId, stageTemplateI
         </>
       )}
 
-      <AlertDialog open={isConfirmCompleteOpen} onOpenChange={setIsConfirmCompleteOpen}>
+      <AlertDialog open={isConfirmCompleteOpen} onOpenChange={(open) => { setIsConfirmCompleteOpen(open); if (!open) setNoVisitMedia(false); }}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
@@ -1428,6 +1428,12 @@ export default function InstallationChecklistExecution({ stageId, stageTemplateI
                 <span className="mt-3 flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-2 text-amber-700">
                   <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
                   As observações estão vazias. Você pode encerrar mesmo assim.
+                </span>
+              )}
+              {noVisitMedia && (
+                <span className="mt-2 flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-2 text-amber-700">
+                  <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                  Nenhuma foto/vídeo anexado em "Fotos da Visita". Você pode encerrar mesmo assim.
                 </span>
               )}
             </AlertDialogDescription>
