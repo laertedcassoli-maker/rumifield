@@ -83,6 +83,7 @@ export default function InstallationChecklistExecution({ stageId, stageTemplateI
   const [isSelectTemplateOpen, setIsSelectTemplateOpen] = useState(false);
   const [selectedTemplateId, setSelectedTemplateId] = useState<string | null>(null);
   const [isConfirmCompleteOpen, setIsConfirmCompleteOpen] = useState(false);
+  const [noVisitMedia, setNoVisitMedia] = useState(false);
   const autoStartAttempted = useRef(false);
   const [autoStartState, setAutoStartState] = useState<'idle' | 'pending' | 'failed'>('idle');
   const [autoStartError, setAutoStartError] = useState<string | null>(null);
