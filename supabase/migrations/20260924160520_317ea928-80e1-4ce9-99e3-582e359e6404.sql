@@ -1,0 +1,1 @@
+DELETE FROM public.configuracoes WHERE chave IN ('omie_app_key','omie_app_secret','omie_futurecow_app_key','omie_futurecow_app_secret');
