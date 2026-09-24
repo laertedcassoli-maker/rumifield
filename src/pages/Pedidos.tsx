@@ -260,13 +260,18 @@ export default function Pedidos() {
       if (error) throw new Error(error.message);
       if (!data?.success) throw new Error(data?.error || 'Falha na busca');
       const res = (data.resultados ?? []) as Array<{ nf: string; conta: string | null; documento: string | null; numeroDocumento: string | null; codigos: string[]; status: string; mensagem: string }>;
-      const linhas = res.length === 0 ? ['Pedido sem NF'] : res.map((r) => {
+      const linhas = res.map((r) => {
         const conta = r.conta === 'futurecow' ? 'FutureCow' : r.conta === 'principal' ? 'Principal' : '-';
         const doc = r.documento === 'remessa' ? `remessa ${r.numeroDocumento ?? '?'}` : r.documento === 'pedido_venda' ? `pedido ${r.numeroDocumento ?? '?'}` : '';
         const cod = r.codigos.length ? r.codigos.join(', ') : r.mensagem;
         return `NF ${r.nf} · ${conta}${doc ? ` · ${doc}` : ''} · ${cod}`;
       });
-      toast({ title: 'Rastreio no Omie (teste, nada foi gravado)', description: linhas.join('\n'), duration: 15000 });
+      const titulo = data.resultado === 'preenchido' ? `Código ${data.codigo} gravado` : 'Rastreio no Omie';
+      toast({ title: titulo, description: [data.mensagem, ...linhas].filter(Boolean).join('\n'), duration: 15000 });
+      if (data.resultado === 'preenchido') {
+        queryClient.invalidateQueries({ queryKey: ['pedidos'] });
+        setViewingPedido((prev: any) => prev && prev.id === pedidoId ? { ...prev, codigo_rastreio: data.codigo, codigo_rastreio_origem: 'omie' } : prev);
+      }
     } catch (e) {
       toast({ variant: 'destructive', title: 'Erro ao buscar no Omie', description: e instanceof Error ? e.message : 'Erro desconhecido' });
     } finally {
@@ -1511,6 +1516,12 @@ export default function Pedidos() {
       if (error) throw error;
 
       queryClient.invalidateQueries({ queryKey: ['pedidos'] });
+      if (tipoLogistica === 'correios') {
+        // Busca o rastreio no Omie em segundo plano; falhas são ignoradas
+        supabase.functions.invoke('buscar-rastreio-omie', { body: { pedidoId } })
+          .then(() => queryClient.invalidateQueries({ queryKey: ['pedidos'] }))
+          .catch(() => {});
+      }
       const nfLabel = nfNumero2 ? `${nfNumero} / ${nfNumero2}` : nfNumero;
       track('pedido_concluded', {
         tipo_logistica: tipoLogistica,
@@ -3344,7 +3355,14 @@ export default function Pedidos() {
                   {viewingPedido.tipo_envio === 'apenas_nf' || viewingPedido.tipo_envio === 'envio_pelo_tecnico' ? (
                     <span className="font-medium">N/A</span>
                   ) : viewingPedido.codigo_rastreio ? (
-                    <span className="font-medium font-mono break-all">{viewingPedido.codigo_rastreio}</span>
+                    <>
+                      <span className="font-medium font-mono break-all">{viewingPedido.codigo_rastreio}</span>
+                      {viewingPedido.codigo_rastreio_origem && (
+                        <Badge variant="outline" className="ml-2 text-[10px]">
+                          {viewingPedido.codigo_rastreio_origem === 'omie' ? 'Omie' : viewingPedido.codigo_rastreio_origem === 'relatorio_correios' ? 'Relatório Correios' : 'Manual'}
+                        </Badge>
+                      )}
+                    </>
                   ) : (
                     <span className="font-medium">
                       {viewingPedido.omie_data_faturamento &&
