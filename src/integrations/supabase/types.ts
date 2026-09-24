@@ -4869,6 +4869,10 @@ export type Database = {
         Args: { _stage_id: string }
         Returns: boolean
       }
+      is_public_preventive_visit: {
+        Args: { _preventive_id: string }
+        Returns: boolean
+      }
       is_route_technician: {
         Args: { _route_id: string; _user_id: string }
         Returns: boolean
@@ -4893,6 +4897,12 @@ export type Database = {
         Args: { p_limit?: number; p_sql: string }
         Returns: Json[]
       }
+      preventive_id_of_block: { Args: { _block_id: string }; Returns: string }
+      preventive_id_of_checklist: {
+        Args: { _checklist_id: string }
+        Returns: string
+      }
+      preventive_id_of_item: { Args: { _item_id: string }; Returns: string }
       reorder_checklist_blocks: {
         Args: { p_ordered_ids: string[]; p_template_id: string }
         Returns: undefined
