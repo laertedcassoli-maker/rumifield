@@ -44,7 +44,7 @@ export default function ClientesRFDetalhe() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('clientes')
-        .select('id, nome, fazenda, cidade, estado')
+        .select('id, nome, fazenda, cidade, estado, imilk_csm, link_maps, latitude, longitude')
         .eq('id', id!)
         .maybeSingle();
       if (error) throw error;
@@ -119,6 +119,20 @@ export default function ClientesRFDetalhe() {
               {cliente.estado ? `/${cliente.estado}` : ''}
             </p>
           )}
+          {cliente?.imilk_csm && (
+            <p className="text-sm font-semibold text-primary">Consultor R+: {cliente.imilk_csm}</p>
+          )}
+          {(() => {
+            const url = cliente?.link_maps
+              || (cliente?.latitude != null && cliente?.longitude != null
+                ? `https://www.google.com/maps?q=${cliente.latitude},${cliente.longitude}`
+                : null);
+            return url ? (
+              <a href={url} target="_blank" rel="noopener noreferrer" className="text-xs text-primary underline inline-flex items-center gap-1">
+                <MapPin className="h-3.5 w-3.5" /> Ver localização no Google Maps
+              </a>
+            ) : null;
+          })()}
         </div>
       )}
 

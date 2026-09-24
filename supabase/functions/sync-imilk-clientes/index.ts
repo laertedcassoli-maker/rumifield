@@ -101,6 +101,19 @@ serve(async (req) => {
           imilk_data_proximo_faturamento: imilkCliente.data_proximo_faturamento ?? null,
         };
 
+        // localizacao: "https://maps.google.com/?q=lat,lon" — só grava se válido (nunca apaga valor anterior)
+        const loc = typeof imilkCliente.localizacao === 'string' ? imilkCliente.localizacao.trim() : '';
+        if (loc) {
+          const m = loc.match(/[?&]q=(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)/);
+          if (m) {
+            const lat = parseFloat(m[1]);
+            const lon = parseFloat(m[2]);
+            if (Number.isFinite(lat) && Number.isFinite(lon) && lat >= -90 && lat <= 90 && lon >= -180 && lon <= 180) {
+              Object.assign(clienteData, { link_maps: loc, latitude: lat, longitude: lon });
+            }
+          }
+        }
+
         if (!clienteData.cod_imilk) {
           console.log('Skipping client without cod_imilk:', imilkCliente);
           continue;
