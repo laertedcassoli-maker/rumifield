@@ -384,11 +384,24 @@ export default function DetalheRota() {
   // Remove item from route
   const removeRouteItem = useMutation({
     mutationFn: async (itemId: string) => {
+      const { data: ri } = await supabase
+        .from('preventive_route_items')
+        .select('route_id, client_id')
+        .eq('id', itemId)
+        .maybeSingle();
       const { error } = await supabase
         .from('preventive_route_items')
         .delete()
         .eq('id', itemId);
       if (error) throw error;
+      if (ri?.client_id && ri?.route_id) {
+        const { error: pmError } = await supabase
+          .from('preventive_maintenance')
+          .delete()
+          .eq('client_id', ri.client_id)
+          .eq('route_id', ri.route_id);
+        if (pmError) console.error('[DetalheRota] erro ao limpar preventive_maintenance', pmError);
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['preventive-route', id] });
