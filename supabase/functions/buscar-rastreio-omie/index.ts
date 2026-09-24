@@ -4,8 +4,8 @@ import { corsHeaders, requireRole } from "../_shared/auth.ts";
 type Conta = "principal" | "futurecow";
 const CONTAS: Conta[] = ["principal", "futurecow"];
 const CHAVES: Record<Conta, [string, string]> = {
-  principal: ["omie_app_key", "omie_app_secret"],
-  futurecow: ["omie_futurecow_app_key", "omie_futurecow_app_secret"],
+  principal: ["OMIE_APP_KEY", "OMIE_APP_SECRET"],
+  futurecow: ["OMIE_FUTURECOW_APP_KEY", "OMIE_FUTURECOW_APP_SECRET"],
 };
 
 type Status = "encontrado" | "sem_rastreio" | "nf_nao_encontrada" | "ambigua" | "multiplos_codigos" | "erro";
@@ -54,14 +54,11 @@ Deno.serve(async (req) => {
 
   const admin = createClient(Deno.env.get("SUPABASE_URL")!, Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!);
 
-  // Credenciais
-  const { data: cfg, error: cfgErr } = await admin.from("configuracoes").select("chave, valor")
-    .in("chave", Object.values(CHAVES).flat());
-  if (cfgErr) return json(500, { error: "Falha ao ler configurações" });
+  // Credenciais (segredos do backend)
   const creds: Partial<Record<Conta, { app_key: string; app_secret: string }>> = {};
   for (const c of CONTAS) {
-    const k = cfg?.find((x) => x.chave === CHAVES[c][0])?.valor?.trim();
-    const s = cfg?.find((x) => x.chave === CHAVES[c][1])?.valor?.trim();
+    const k = Deno.env.get(CHAVES[c][0])?.trim();
+    const s = Deno.env.get(CHAVES[c][1])?.trim();
     if (k && s) creds[c] = { app_key: k, app_secret: s };
   }
   const contasAtivas = CONTAS.filter((c) => creds[c]);

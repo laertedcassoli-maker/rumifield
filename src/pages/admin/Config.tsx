@@ -137,17 +137,11 @@ export default function AdminConfig() {
   // Set form values when config loads
   useEffect(() => {
     if (allConfigs) {
-      const appKey = allConfigs.find(c => c.chave === 'omie_app_key')?.valor || '';
-      const appSecret = allConfigs.find(c => c.chave === 'omie_app_secret')?.valor || '';
       const estoqueEnabled = allConfigs.find(c => c.chave === 'estoque_menu_enabled')?.valor !== 'false';
       const inicioEnabled = allConfigs.find(c => c.chave === 'inicio_menu_enabled')?.valor !== 'false';
       const visitasEnabled = allConfigs.find(c => c.chave === 'visitas_menu_enabled')?.valor === 'true';
       const nfcEnabled = allConfigs.find(c => c.chave === 'nfc_menu_enabled')?.valor !== 'false';
       const garantiaHoras = allConfigs.find(c => c.chave === 'garantia_motor_horas')?.valor || '400';
-      setOmieAppKey(appKey);
-      setOmieAppSecret(appSecret);
-      setFcAppKey(allConfigs.find(c => c.chave === 'omie_futurecow_app_key')?.valor || '');
-      setFcAppSecret(allConfigs.find(c => c.chave === 'omie_futurecow_app_secret')?.valor || '');
       setEstoqueMenuEnabled(estoqueEnabled);
       setInicioMenuEnabled(inicioEnabled);
       setVisitasMenuEnabled(visitasEnabled);
@@ -720,10 +714,6 @@ export default function AdminConfig() {
   };
 
   const handleTestOmieConnection = async () => {
-    if (!omieAppKey.trim() || !omieAppSecret.trim()) {
-      toast({ variant: 'destructive', title: 'Erro', description: 'Preencha APP KEY e APP SECRET' });
-      return;
-    }
 
     setIsTestingConnection(true);
     setConnectionStatus('idle');
@@ -790,38 +780,6 @@ export default function AdminConfig() {
     }
   };
 
-  const handleSaveOmieConfig = async () => {
-    setIsSavingOmieConfig(true);
-    try {
-      // Update both keys
-      const { error: error1 } = await supabase
-        .from('configuracoes')
-        .update({ valor: omieAppKey })
-        .eq('chave', 'omie_app_key');
-      
-      if (error1) throw error1;
-
-      const { error: error2 } = await supabase
-        .from('configuracoes')
-        .update({ valor: omieAppSecret })
-        .eq('chave', 'omie_app_secret');
-      
-      if (error2) throw error2;
-
-      for (const [chave, valor] of [['omie_futurecow_app_key', fcAppKey], ['omie_futurecow_app_secret', fcAppSecret]] as const) {
-        const { data: upd, error: e } = await supabase.from('configuracoes').update({ valor: valor.trim() }).eq('chave', chave).select('id');
-        if (e) throw e;
-        if (!upd?.length) throw new Error('Sem permissão para salvar as credenciais da FutureCow');
-      }
-
-      queryClient.invalidateQueries({ queryKey: ['app-config'] });
-      toast({ title: 'Credenciais salvas!', description: 'As credenciais do Omie foram salvas com sucesso.' });
-    } catch (error: any) {
-      toast({ variant: 'destructive', title: 'Erro ao salvar', description: error.message });
-    } finally {
-      setIsSavingOmieConfig(false);
-    }
-  };
 
   const handleToggleEstoqueMenu = async (enabled: boolean) => {
     setEstoqueMenuEnabled(enabled);
@@ -1665,109 +1623,36 @@ export default function AdminConfig() {
           <Card>
             <CardHeader>
               <CardTitle>Conexão Omie</CardTitle>
-              <CardDescription>Configure as credenciais de API para integração com o Omie ERP</CardDescription>
+              <CardDescription>As credenciais ficam guardadas com segurança no backend e não são exibidas aqui.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label htmlFor="omie-app-key">APP KEY</Label>
-                  <div className="relative">
-                    <Input
-                      id="omie-app-key"
-                      type={showAppKey ? 'text' : 'password'}
-                      value={omieAppKey}
-                      onChange={(e) => { setOmieAppKey(e.target.value); setConnectionStatus('idle'); }}
-                      placeholder="Digite o APP KEY"
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
-                      onClick={() => setShowAppKey(!showAppKey)}
-                    >
-                      {showAppKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </Button>
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="omie-app-secret">APP SECRET</Label>
-                  <div className="relative">
-                    <Input
-                      id="omie-app-secret"
-                      type={showAppSecret ? 'text' : 'password'}
-                      value={omieAppSecret}
-                      onChange={(e) => { setOmieAppSecret(e.target.value); setConnectionStatus('idle'); }}
-                      placeholder="Digite o APP SECRET"
-                    />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
-                      onClick={() => setShowAppSecret(!showAppSecret)}
-                    >
-                      {showAppSecret ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </Button>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-4">
-                <Button onClick={handleTestOmieConnection} disabled={isTestingConnection || !omieAppKey.trim() || !omieAppSecret.trim()}>
-                  {isTestingConnection ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Testando...
-                    </>
-                  ) : (
-                    'Testar Conexão'
-                  )}
-                </Button>
-
-                {connectionStatus === 'success' && (
-                  <div className="flex items-start gap-2 text-green-600">
-                    <CheckCircle2 className="h-5 w-5 mt-0.5 flex-shrink-0" />
-                    <span className="text-sm whitespace-pre-line">{connectionMessage}</span>
-                  </div>
-                )}
-                {connectionStatus === 'error' && (
-                  <div className="flex items-start gap-2 text-destructive">
-                    <XCircle className="h-5 w-5 mt-0.5 flex-shrink-0" />
-                    <span className="text-sm whitespace-pre-line">{connectionMessage}</span>
-                  </div>
-                )}
-              </div>
-
-              <div className="space-y-4 pt-4 border-t">
-                <div>
-                  <p className="text-sm font-medium">Conta FutureCow Brasil Ltda</p>
-                  <p className="text-xs text-muted-foreground">CNPJ 55.506.244/0001-32 (a conta acima é a do CNPJ 31.406.714/0001-28)</p>
-                </div>
-                <div className="grid gap-4 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="omie-fc-app-key">APP KEY</Label>
-                    <div className="relative">
-                      <Input id="omie-fc-app-key" type={showFcKey ? 'text' : 'password'} value={fcAppKey}
-                        onChange={(e) => { setFcAppKey(e.target.value); setFcStatus('idle'); }} placeholder="Digite o APP KEY" />
-                      <Button type="button" variant="ghost" size="icon" className="absolute right-0 top-0 h-full px-3 hover:bg-transparent" onClick={() => setShowFcKey(!showFcKey)}>
-                        {showFcKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </Button>
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="omie-fc-app-secret">APP SECRET</Label>
-                    <div className="relative">
-                      <Input id="omie-fc-app-secret" type={showFcSecret ? 'text' : 'password'} value={fcAppSecret}
-                        onChange={(e) => { setFcAppSecret(e.target.value); setFcStatus('idle'); }} placeholder="Digite o APP SECRET" />
-                      <Button type="button" variant="ghost" size="icon" className="absolute right-0 top-0 h-full px-3 hover:bg-transparent" onClick={() => setShowFcSecret(!showFcSecret)}>
-                        {showFcSecret ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                      </Button>
-                    </div>
-                  </div>
-                </div>
+              <div className="space-y-2">
+                <p className="text-sm font-medium">Conta principal</p>
+                <p className="text-xs text-muted-foreground">CNPJ 31.406.714/0001-28 — Gerenciado via Segredos do Backend</p>
                 <div className="flex items-center gap-4">
-                  <Button onClick={handleTestFcConnection} disabled={isTestingFc || !fcAppKey.trim() || !fcAppSecret.trim()}>
+                  <Button onClick={handleTestOmieConnection} disabled={isTestingConnection}>
+                    {isTestingConnection ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />Testando...</>) : 'Testar Conexão'}
+                  </Button>
+                  {connectionStatus === 'success' && (
+                    <div className="flex items-start gap-2 text-green-600">
+                      <CheckCircle2 className="h-5 w-5 mt-0.5 flex-shrink-0" />
+                      <span className="text-sm whitespace-pre-line">{connectionMessage}</span>
+                    </div>
+                  )}
+                  {connectionStatus === 'error' && (
+                    <div className="flex items-start gap-2 text-destructive">
+                      <XCircle className="h-5 w-5 mt-0.5 flex-shrink-0" />
+                      <span className="text-sm whitespace-pre-line">{connectionMessage}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-2 pt-4 border-t">
+                <p className="text-sm font-medium">Conta FutureCow Brasil Ltda</p>
+                <p className="text-xs text-muted-foreground">CNPJ 55.506.244/0001-32 — Gerenciado via Segredos do Backend</p>
+                <div className="flex items-center gap-4">
+                  <Button onClick={handleTestFcConnection} disabled={isTestingFc}>
                     {isTestingFc ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />Testando...</>) : 'Testar Conexão'}
                   </Button>
                   {fcStatus === 'success' && (
@@ -1785,25 +1670,8 @@ export default function AdminConfig() {
                 </div>
               </div>
 
-              <div className="flex items-center gap-4 pt-2 border-t">
-                <Button 
-                  onClick={handleSaveOmieConfig} 
-                  disabled={isSavingOmieConfig || !omieAppKey.trim() || !omieAppSecret.trim()}
-                  variant="default"
-                >
-                  {isSavingOmieConfig ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Salvando...
-                    </>
-                  ) : (
-                    'Salvar Credenciais'
-                  )}
-                </Button>
-              </div>
-
-              <p className="text-sm text-muted-foreground">
-                As credenciais são usadas para sincronizar peças e clientes do Omie. Obtenha as credenciais no painel da API do Omie.
+              <p className="text-sm text-muted-foreground pt-2 border-t">
+                Para trocar as chaves, peça a um administrador do projeto para atualizar os segredos do backend.
               </p>
             </CardContent>
           </Card>
