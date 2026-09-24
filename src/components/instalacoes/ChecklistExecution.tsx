@@ -983,6 +983,7 @@ export default function InstallationChecklistExecution({ stageId, stageTemplateI
       toast.error('Responda todos os itens para concluir o checklist.');
       return;
     }
+    // Media is warning-only — the hard requirement is per-item via requires_photo
     const { count, error: mediaErr } = await (supabase as any)
       .from('installation_visit_media')
       .select('id', { count: 'exact', head: true })
@@ -991,10 +992,7 @@ export default function InstallationChecklistExecution({ stageId, stageTemplateI
       toast.error('Não foi possível verificar as fotos da visita: ' + mediaErr.message);
       return;
     }
-    if (!count) {
-      toast.error('Adicione pelo menos uma foto em "Fotos da Visita" para encerrar.');
-      return;
-    }
+    setNoVisitMedia(!count);
     setIsConfirmCompleteOpen(true);
   };
 
