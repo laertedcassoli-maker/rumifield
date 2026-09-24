@@ -21,6 +21,9 @@ import { useCanEditCompletedChecklist } from "@/hooks/useCanEditCompletedCheckli
 import { useOfflineInstallationChecklist } from "@/hooks/useOfflineInstallationChecklist";
 import { offlineInstallationDb } from "@/lib/offline-installation-db";
 import { offlineChecklistDb } from "@/lib/offline-checklist-db";
+import InstallationObservationsBlock from "@/components/instalacoes/InstallationObservationsBlock";
+import InstallationVisitMediaUpload from "@/components/instalacoes/InstallationVisitMediaUpload";
+import { LogOut } from "lucide-react";
 
 interface InstallationChecklistExecutionProps {
   stageId: string;
@@ -709,12 +712,12 @@ export default function InstallationChecklistExecution({ stageId, stageTemplateI
   }, [queryClient, queryKey, patchChecklistCache, itemHasTrocaAction, getNcParts, stageId, updatePendingCount, debouncedSync]);
 
   // Stage type — Pré Instalação goes to approval instead of straight to "concluido"
-  const { data: stageInfo } = useQuery<{ stage: string } | null>({
+  const { data: stageInfo } = useQuery<{ stage: string; observacao_interna: string | null; observacao_externa: string | null } | null>({
     queryKey: ['installation-stage-type', stageId],
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .from('installation_stages')
-        .select('stage')
+        .select('stage, observacao_interna, observacao_externa')
         .eq('id', stageId)
         .maybeSingle();
       if (error) throw error;
@@ -722,6 +725,7 @@ export default function InstallationChecklistExecution({ stageId, stageTemplateI
     },
     staleTime: 300_000,
   });
+  const [hasObservations, setHasObservations] = useState<boolean | null>(null);
   const isPreInstalacao = stageInfo?.stage === 'pre_instalacao';
 
   const completeChecklistMutation = useMutation({
@@ -963,7 +967,9 @@ export default function InstallationChecklistExecution({ stageId, stageTemplateI
     totalCount: block.items.length
   }));
 
-  const handleCompleteClick = () => {
+  const observationsFilled = hasObservations ?? !!(stageInfo?.observacao_interna?.trim() || stageInfo?.observacao_externa?.trim());
+
+  const handleCompleteClick = async () => {
     if (!navigator.onLine) {
       toast.error('Sem conexão. Reconecte para concluir o checklist.');
       return;
@@ -975,6 +981,18 @@ export default function InstallationChecklistExecution({ stageId, stageTemplateI
     }
     if (!isAllAnswered) {
       toast.error('Responda todos os itens para concluir o checklist.');
+      return;
+    }
+    const { count, error: mediaErr } = await (supabase as any)
+      .from('installation_visit_media')
+      .select('id', { count: 'exact', head: true })
+      .eq('stage_id', stageId);
+    if (mediaErr) {
+      toast.error('Não foi possível verificar as fotos da visita: ' + mediaErr.message);
+      return;
+    }
+    if (!count) {
+      toast.error('Adicione pelo menos uma foto em "Fotos da Visita" para encerrar.');
       return;
     }
     setIsConfirmCompleteOpen(true);
@@ -1358,6 +1376,45 @@ export default function InstallationChecklistExecution({ stageId, stageTemplateI
         </Card>
       </Collapsible>
 
+      {stageInfo && (
+        <div className="space-y-4 mt-4">
+          <InstallationObservationsBlock
+            stageId={stageId}
+            initialInternalNotes={stageInfo.observacao_interna}
+            initialPublicNotes={stageInfo.observacao_externa}
+            isCompleted={isReadOnly || isCompleted}
+            hasReport={stageInfo.stage === 'instalacao'}
+            onChange={setHasObservations}
+          />
+          <InstallationVisitMediaUpload stageId={stageId} isCompleted={isReadOnly || isCompleted} />
+        </div>
+      )}
+
+      {!isCompleted && !forceReadOnly && (
+        <>
+          <div className="h-28" />
+          <div className="fixed bottom-0 left-0 right-0 z-30 bg-background/95 backdrop-blur border-t p-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
+            <div className="max-w-2xl mx-auto">
+              <Button
+                onClick={handleCompleteClick}
+                disabled={!isAllAnswered || completeChecklistMutation.isPending}
+                variant={isAllAnswered ? 'default' : 'secondary'}
+                className="w-full"
+                size="lg"
+              >
+                <LogOut className="h-4 w-4 mr-2" />
+                Encerrar Visita
+              </Button>
+              {!isAllAnswered && (
+                <p className="text-xs text-center mt-2 text-amber-600 dark:text-amber-400 font-medium">
+                  Conclua o checklist para encerrar a visita
+                </p>
+              )}
+            </div>
+          </div>
+        </>
+      )}
+
       <AlertDialog open={isConfirmCompleteOpen} onOpenChange={setIsConfirmCompleteOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -1368,6 +1425,12 @@ export default function InstallationChecklistExecution({ stageId, stageTemplateI
               {isPreInstalacao
                 ? 'Tem certeza que deseja concluir o checklist desta etapa? A etapa ficará aguardando a aprovação do Coordenador de Serviços.'
                 : 'Tem certeza que deseja concluir o checklist desta etapa? Após a conclusão, a etapa será marcada como concluída.'}
+              {!observationsFilled && (
+                <span className="mt-3 flex items-start gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 p-2 text-amber-700">
+                  <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                  As observações estão vazias. Você pode encerrar mesmo assim.
+                </span>
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
