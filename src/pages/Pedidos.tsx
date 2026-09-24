@@ -252,6 +252,28 @@ export default function Pedidos() {
   // Admin, coord. logística e coord. de serviços podem excluir pedidos de outros usuários
   const canDeleteAnyPedido = role === 'admin' || role === 'coordenador_logistica' || role === 'coordenador_servicos';
 
+  const [isBuscandoOmie, setIsBuscandoOmie] = useState(false);
+  const handleBuscarRastreioOmie = async (pedidoId: string) => {
+    setIsBuscandoOmie(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('buscar-rastreio-omie', { body: { pedidoId } });
+      if (error) throw new Error(error.message);
+      if (!data?.success) throw new Error(data?.error || 'Falha na busca');
+      const res = (data.resultados ?? []) as Array<{ nf: string; conta: string | null; documento: string | null; numeroDocumento: string | null; codigos: string[]; status: string; mensagem: string }>;
+      const linhas = res.length === 0 ? ['Pedido sem NF'] : res.map((r) => {
+        const conta = r.conta === 'futurecow' ? 'FutureCow' : r.conta === 'principal' ? 'Principal' : '-';
+        const doc = r.documento === 'remessa' ? `remessa ${r.numeroDocumento ?? '?'}` : r.documento === 'pedido_venda' ? `pedido ${r.numeroDocumento ?? '?'}` : '';
+        const cod = r.codigos.length ? r.codigos.join(', ') : r.mensagem;
+        return `NF ${r.nf} · ${conta}${doc ? ` · ${doc}` : ''} · ${cod}`;
+      });
+      toast({ title: 'Rastreio no Omie (teste, nada foi gravado)', description: linhas.join('\n'), duration: 15000 });
+    } catch (e) {
+      toast({ variant: 'destructive', title: 'Erro ao buscar no Omie', description: e instanceof Error ? e.message : 'Erro desconhecido' });
+    } finally {
+      setIsBuscandoOmie(false);
+    }
+  };
+
   // Fetch clientes from Supabase
   const { data: clientes } = useQuery({
     queryKey: ['pedidos-clientes'],
@@ -3332,6 +3354,18 @@ export default function Pedidos() {
                     </span>
                   )}
                 </div>
+                {canManagePedidos && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={isBuscandoOmie}
+                    onClick={() => handleBuscarRastreioOmie(viewingPedido.id)}
+                  >
+                    {isBuscandoOmie ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                    Buscar rastreio no Omie
+                  </Button>
+                )}
                 </>
               )}
 
