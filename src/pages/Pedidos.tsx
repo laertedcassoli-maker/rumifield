@@ -1446,7 +1446,7 @@ export default function Pedidos() {
   const handleProcessarPendencia = useCallback(async (pedidoId: string, codigoRastreio: string, anexoFile?: File) => {
     setIsProcessingAction(true);
     try {
-      const updateData: any = { status: 'processamento', codigo_rastreio: codigoRastreio };
+      const updateData: any = { status: 'processamento', codigo_rastreio: codigoRastreio, codigo_rastreio_origem: 'manual', codigo_rastreio_atualizado_em: new Date().toISOString() };
 
       if (anexoFile) {
         const safeName = anexoFile.name.replace(/[^\w.\-]/g, '_');
