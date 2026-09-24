@@ -58,21 +58,11 @@ serve(async (req) => {
     // Initialize Supabase client first to fetch credentials
     const supabase = createClient(supabaseUrl!, supabaseServiceKey!);
 
-    // Fetch Omie credentials from configuracoes table
-    const { data: configData, error: configError } = await supabase
-      .from('configuracoes')
-      .select('chave, valor')
-      .in('chave', ['omie_app_key', 'omie_app_secret']);
-
-    if (configError) {
-      throw new Error(`Error fetching config: ${configError.message}`);
-    }
-
-    const omieAppKey = configData?.find(c => c.chave === 'omie_app_key')?.valor;
-    const omieAppSecret = configData?.find(c => c.chave === 'omie_app_secret')?.valor;
+    const omieAppKey = Deno.env.get('OMIE_APP_KEY')?.trim();
+    const omieAppSecret = Deno.env.get('OMIE_APP_SECRET')?.trim();
 
     if (!omieAppKey || !omieAppSecret) {
-      throw new Error('Credenciais do Omie não configuradas. Acesse Configurações > Integrações para configurar.');
+      throw new Error('Credenciais do Omie não configuradas nos segredos do backend.');
     }
 
     console.log('Fetching parts from Omie API...');

@@ -714,10 +714,6 @@ export default function AdminConfig() {
   };
 
   const handleTestOmieConnection = async () => {
-    if (!omieAppKey.trim() || !omieAppSecret.trim()) {
-      toast({ variant: 'destructive', title: 'Erro', description: 'Preencha APP KEY e APP SECRET' });
-      return;
-    }
 
     setIsTestingConnection(true);
     setConnectionStatus('idle');
@@ -784,38 +780,6 @@ export default function AdminConfig() {
     }
   };
 
-  const handleSaveOmieConfig = async () => {
-    setIsSavingOmieConfig(true);
-    try {
-      // Update both keys
-      const { error: error1 } = await supabase
-        .from('configuracoes')
-        .update({ valor: omieAppKey })
-        .eq('chave', 'omie_app_key');
-      
-      if (error1) throw error1;
-
-      const { error: error2 } = await supabase
-        .from('configuracoes')
-        .update({ valor: omieAppSecret })
-        .eq('chave', 'omie_app_secret');
-      
-      if (error2) throw error2;
-
-      for (const [chave, valor] of [['omie_futurecow_app_key', fcAppKey], ['omie_futurecow_app_secret', fcAppSecret]] as const) {
-        const { data: upd, error: e } = await supabase.from('configuracoes').update({ valor: valor.trim() }).eq('chave', chave).select('id');
-        if (e) throw e;
-        if (!upd?.length) throw new Error('Sem permissão para salvar as credenciais da FutureCow');
-      }
-
-      queryClient.invalidateQueries({ queryKey: ['app-config'] });
-      toast({ title: 'Credenciais salvas!', description: 'As credenciais do Omie foram salvas com sucesso.' });
-    } catch (error: any) {
-      toast({ variant: 'destructive', title: 'Erro ao salvar', description: error.message });
-    } finally {
-      setIsSavingOmieConfig(false);
-    }
-  };
 
   const handleToggleEstoqueMenu = async (enabled: boolean) => {
     setEstoqueMenuEnabled(enabled);

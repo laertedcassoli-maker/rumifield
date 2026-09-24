@@ -11,39 +11,18 @@ serve(async (req) => {
   if (!auth.ok) return auth.response;
 
   try {
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const supabase = createClient(supabaseUrl, serviceRoleKey);
-
     let conta = 'principal';
     try {
       const body = await req.json();
       if (body?.conta === 'futurecow') conta = 'futurecow';
     } catch { /* sem corpo = principal */ }
-    const keyName = conta === 'futurecow' ? 'omie_futurecow_app_key' : 'omie_app_key';
-    const secretName = conta === 'futurecow' ? 'omie_futurecow_app_secret' : 'omie_app_secret';
-
-    const { data: configData, error: configError } = await supabase
-      .from('configuracoes')
-      .select('chave, valor')
-      .in('chave', [keyName, secretName]);
-
-    if (configError) {
-      return new Response(
-        JSON.stringify({ success: false, error: 'Erro ao buscar configurações' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
-      );
-    }
-
-    const app_key = configData?.find((c) => c.chave === keyName)?.valor;
-    const app_secret = configData?.find((c) => c.chave === secretName)?.valor;
+    const prefix = conta === 'futurecow' ? 'OMIE_FUTURECOW' : 'OMIE';
+    const app_key = Deno.env.get(`${prefix}_APP_KEY`)?.trim();
+    const app_secret = Deno.env.get(`${prefix}_APP_SECRET`)?.trim();
 
     if (!app_key || !app_secret) {
       return new Response(
-        JSON.stringify({
-          success: false,
-          error: 'Credenciais do Omie não configuradas. Salve APP KEY e APP SECRET antes de testar.',
-        }),
+        JSON.stringify({ success: false, error: 'Credenciais do Omie não configuradas nos segredos do backend.' }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
       );
     }
