@@ -137,17 +137,11 @@ export default function AdminConfig() {
   // Set form values when config loads
   useEffect(() => {
     if (allConfigs) {
-      const appKey = allConfigs.find(c => c.chave === 'omie_app_key')?.valor || '';
-      const appSecret = allConfigs.find(c => c.chave === 'omie_app_secret')?.valor || '';
       const estoqueEnabled = allConfigs.find(c => c.chave === 'estoque_menu_enabled')?.valor !== 'false';
       const inicioEnabled = allConfigs.find(c => c.chave === 'inicio_menu_enabled')?.valor !== 'false';
       const visitasEnabled = allConfigs.find(c => c.chave === 'visitas_menu_enabled')?.valor === 'true';
       const nfcEnabled = allConfigs.find(c => c.chave === 'nfc_menu_enabled')?.valor !== 'false';
       const garantiaHoras = allConfigs.find(c => c.chave === 'garantia_motor_horas')?.valor || '400';
-      setOmieAppKey(appKey);
-      setOmieAppSecret(appSecret);
-      setFcAppKey(allConfigs.find(c => c.chave === 'omie_futurecow_app_key')?.valor || '');
-      setFcAppSecret(allConfigs.find(c => c.chave === 'omie_futurecow_app_secret')?.valor || '');
       setEstoqueMenuEnabled(estoqueEnabled);
       setInicioMenuEnabled(inicioEnabled);
       setVisitasMenuEnabled(visitasEnabled);
