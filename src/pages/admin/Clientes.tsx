@@ -62,6 +62,7 @@ interface Cliente {
   longitude: number | null;
   link_maps: string | null;
   consultor_rplus_id: string | null;
+  imilk_csm: string | null;
   preventive_frequency_days: number | null;
   modelo_contrato: string | null;
   created_at: string;
@@ -204,7 +205,7 @@ export default function AdminClientes() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('clientes')
-        .select('id, nome, fazenda, cod_imilk, cidade, estado, endereco, telefone, email, observacoes, status, data_ativacao_rumiflow, ordenhas_dia, tipo_painel, tipo_pistola_id, quantidade_pistolas, latitude, longitude, link_maps, consultor_rplus_id, preventive_frequency_days, modelo_contrato, created_at, updated_at')
+        .select('id, nome, fazenda, cod_imilk, cidade, estado, endereco, telefone, email, observacoes, status, data_ativacao_rumiflow, ordenhas_dia, tipo_painel, tipo_pistola_id, quantidade_pistolas, latitude, longitude, link_maps, consultor_rplus_id, imilk_csm, preventive_frequency_days, modelo_contrato, created_at, updated_at')
         .order('nome');
       if (error) throw error;
       return data as unknown as Cliente[];
@@ -1044,7 +1045,7 @@ export default function AdminClientes() {
                             : '-'}
                         </TableCell>
                         <TableCell className="text-muted-foreground">
-                          {getConsultorName(cliente.consultor_rplus_id) || '-'}
+                          {cliente.imilk_csm || '-'}
                         </TableCell>
                         <TableCell className="text-muted-foreground text-xs">
                           {cliente.data_ativacao_rumiflow 
