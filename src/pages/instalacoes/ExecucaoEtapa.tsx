@@ -398,6 +398,8 @@ export default function ExecucaoEtapa() {
           if (status === 'completed' && stage.stage === 'pre_instalacao') {
             setEnviadoAprovacao(true);
             setTimeout(() => navigate('/instalacoes'), 1800);
+          } else if (status === 'completed' && stage.stage !== 'pre_instalacao') {
+            setTimeout(() => navigate('/instalacoes'), 1200);
           }
         }}
       />

@@ -306,6 +306,15 @@ export default function VisitaTecnica() {
   const deleteVisitaMutation = useMutation({
     mutationFn: async (visita: VisitaItem) => {
       const table = visita.tipo === 'corretiva' ? 'ticket_visits' : 'preventive_route_items';
+      let routeInfo: { route_id: string; client_id: string } | null = null;
+      if (visita.tipo === 'preventiva') {
+        const { data: ri } = await supabase
+          .from('preventive_route_items')
+          .select('route_id, client_id')
+          .eq('id', visita.id)
+          .maybeSingle();
+        routeInfo = ri as any;
+      }
       const { data, error: delError } = await supabase
         .from(table)
         .delete()
@@ -314,6 +323,14 @@ export default function VisitaTecnica() {
       if (delError) throw delError;
       if (!data || data.length === 0) {
         throw new Error('Nenhum registro removido. Verifique suas permissões.');
+      }
+      if (routeInfo) {
+        const { error: pmError } = await supabase
+          .from('preventive_maintenance')
+          .delete()
+          .eq('client_id', routeInfo.client_id)
+          .eq('route_id', routeInfo.route_id);
+        if (pmError) console.error('[VisitaTecnica] erro ao limpar preventive_maintenance', pmError);
       }
     },
     onSuccess: () => {
