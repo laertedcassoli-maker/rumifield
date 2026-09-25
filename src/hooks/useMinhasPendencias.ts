@@ -98,6 +98,28 @@ export function useMinhasPendencias() {
     },
   });
 
+  const pedidosRascunho = useQuery({
+    queryKey: ['pedidos', 'pendencias-rascunho', uid],
+    enabled: !!uid,
+    queryFn: async (): Promise<PendenciaPedido[]> => {
+      const { data, error } = await supabase
+        .from('pedidos')
+        .select('id, pedido_code, status, created_at, cliente_id, clientes(nome, fazenda)')
+        .eq('status', 'rascunho')
+        .eq('solicitante_id', uid!)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return (data ?? []).map(p => ({
+        id: p.id,
+        pedidoCode: p.pedido_code,
+        clienteNome: (p as any).clientes?.nome ?? 'Cliente',
+        fazenda: (p as any).clientes?.fazenda ?? null,
+        createdAt: p.created_at,
+        status: p.status as string,
+      }));
+    },
+  });
+
   const preventivas = useQuery({
     queryKey: ['my-preventive-routes', 'pendencias', uid],
     enabled: !!uid,
@@ -345,7 +367,8 @@ export function useMinhasPendencias() {
     (treinamentos.data?.length ?? 0) +
     (ordensServico.data?.length ?? 0) +
     (aprovacoesInstalacao.data?.length ?? 0) +
-    (pedidosLogistica.data?.length ?? 0);
+    (pedidosLogistica.data?.length ?? 0) +
+    (pedidosRascunho.data?.length ?? 0);
 
   return {
     preventivas,
@@ -359,6 +382,7 @@ export function useMinhasPendencias() {
     aprovacoesInstalacao,
     canApproveInstalacao,
     pedidosLogistica,
+    pedidosRascunho,
     isLogisticsTeam,
     total,
     isLoading:
@@ -371,7 +395,8 @@ export function useMinhasPendencias() {
       treinamentos.isLoading ||
       ordensServico.isLoading ||
       (canApproveInstalacao && aprovacoesInstalacao.isLoading) ||
-      (isLogisticsTeam && pedidosLogistica.isLoading),
+      (isLogisticsTeam && pedidosLogistica.isLoading) ||
+      pedidosRascunho.isLoading,
   };
 }
 

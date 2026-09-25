@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { AlertTriangle, Calendar, Contact, GraduationCap, RefreshCcw, Truck, ArrowRight, ListTodo, HardHat, ClipboardCheck, FileText, Package } from 'lucide-react';
+import { AlertTriangle, Calendar, Contact, GraduationCap, RefreshCcw, Truck, ArrowRight, ListTodo, HardHat, ClipboardCheck, FileText, Package, FilePen } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -119,7 +119,7 @@ function Section({ title, icon: Icon, count, isLoading, emptyText, to, children 
 }
 
 export default function MinhasPendencias() {
-  const { preventivas, visitas, chamados, coletaReversa, envios, instalacoes, treinamentos, ordensServico, aprovacoesInstalacao, canApproveInstalacao, pedidosLogistica, isLogisticsTeam, total, isLoading } = useMinhasPendencias();
+  const { preventivas, visitas, chamados, coletaReversa, envios, instalacoes, treinamentos, ordensServico, aprovacoesInstalacao, canApproveInstalacao, pedidosLogistica, pedidosRascunho, isLogisticsTeam, total, isLoading } = useMinhasPendencias();
 
   const visitasUnificadas = [
     ...(preventivas.data ?? []).map(item => ({
@@ -326,6 +326,26 @@ export default function MinhasPendencias() {
             ))}
           </Section>
         )}
+        <Section
+          title="Minhas Solicitações em Rascunho"
+          icon={FilePen}
+          count={pedidosRascunho.data?.length ?? 0}
+          isLoading={pedidosRascunho.isLoading}
+          emptyText="Nenhuma solicitação em rascunho"
+        >
+          {pedidosRascunho.data?.map(item => (
+            <PendenciaRow
+              key={item.id}
+              code={item.pedidoCode ?? 'Solicitação'}
+              cliente={item.clienteNome}
+              fazenda={item.fazenda}
+              date={formatDate(item.createdAt)}
+              status={item.status}
+              to={`/pedidos?pedido=${item.id}`}
+            />
+          ))}
+        </Section>
+
         {isLogisticsTeam && (
           <Section
             title="Pedidos com a Logística"
