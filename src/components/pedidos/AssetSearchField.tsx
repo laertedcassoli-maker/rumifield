@@ -5,6 +5,8 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { X, Search, Plus, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -23,14 +25,21 @@ interface AssetSearchFieldProps {
   onAssetSelected: (workshopItemId: string | null) => void;
   currentAssetId?: string | null;
   disabled?: boolean;
+  /** DD da pistola digitado manualmente (lacre apagado). null = modo busca. */
+  manualCode?: string | null;
+  onManualCodeChange?: (value: string | null) => void;
 }
 
 export default function AssetSearchField({ 
   pecaId, 
   onAssetSelected, 
   currentAssetId, 
-  disabled = false 
+  disabled = false,
+  manualCode = null,
+  onManualCodeChange,
 }: AssetSearchFieldProps) {
+  const lacreApagado = manualCode !== null && manualCode !== undefined;
+  const [ddText, setDdText] = useState(manualCode ?? '');
   const { user } = useAuth();
   const [open, setOpen] = useState(false);
   const [assets, setAssets] = useState<WorkshopItem[]>([]);
@@ -145,6 +154,38 @@ export default function AssetSearchField({
 
   return (
     <div className="space-y-2">
+      {onManualCodeChange && (
+        <label className="flex items-center gap-2 text-sm cursor-pointer">
+          <Checkbox
+            checked={lacreApagado}
+            disabled={disabled}
+            onCheckedChange={(checked) => {
+              if (checked) {
+                setSelectedAsset(null);
+                setDdText('');
+                onManualCodeChange('');
+              } else {
+                setDdText('');
+                onManualCodeChange(null);
+              }
+            }}
+          />
+          Lacre apagado
+        </label>
+      )}
+      {lacreApagado ? (
+        <div className="space-y-2">
+          <Label>DD da Pistola:</Label>
+          <Input
+            value={ddText}
+            placeholder="Digite o DD da pistola"
+            disabled={disabled}
+            onChange={(e) => setDdText(e.target.value)}
+            onBlur={() => onManualCodeChange?.(ddText.trim())}
+          />
+        </div>
+      ) : (
+      <>
       <Label>Número do Lacre:</Label>
       <Popover open={open} onOpenChange={setOpen}>
         <PopoverTrigger asChild>
@@ -221,6 +262,8 @@ export default function AssetSearchField({
           </Command>
         </PopoverContent>
       </Popover>
+      </>
+      )}
       
       <AlertDialog open={confirmDialogOpen} onOpenChange={setConfirmDialogOpen}>
         <AlertDialogContent>
@@ -240,7 +283,7 @@ export default function AssetSearchField({
         </AlertDialogContent>
       </AlertDialog>
       
-      {selectedAsset && (
+      {selectedAsset && !lacreApagado && (
         <div className="flex items-center gap-2 p-2 bg-muted rounded">
           <span className="text-sm flex-1">
             Ativo: <strong>{selectedAsset.unique_code}</strong>
