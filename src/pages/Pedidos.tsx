@@ -27,6 +27,7 @@ import { ptBR } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 import PedidoKanban from '@/components/pedidos/PedidoKanban';
 import MultiAssetField from '@/components/pedidos/MultiAssetField';
+import { isFilledSlot, splitSlots, rowsToSlots } from '@/lib/asset-slots';
 import EditarPedidoSolicitado from '@/components/pedidos/EditarPedidoSolicitado';
 import type { PedidoComItens, PedidoItem } from '@/types/pedidos';
 import { useRealtimePecas } from '@/hooks/useRealtimePecas';
@@ -355,7 +356,7 @@ export default function Pedidos() {
             *,
             pecas(nome, codigo, familia, is_asset, imagem_url),
             workshop_items:workshop_item_id(id, unique_code),
-            pedido_item_assets(id, pedido_item_id, workshop_item_id, workshop_items:workshop_item_id(id, unique_code))
+            pedido_item_assets(id, pedido_item_id, workshop_item_id, dd_pistola_manual, workshop_items:workshop_item_id(id, unique_code))
           )
         `)
         .order('created_at', { ascending: false })
@@ -400,7 +401,7 @@ export default function Pedidos() {
             *,
             pecas(nome, codigo, familia, is_asset, imagem_url),
             workshop_items:workshop_item_id(id, unique_code),
-            pedido_item_assets(id, pedido_item_id, workshop_item_id, workshop_items:workshop_item_id(id, unique_code))
+            pedido_item_assets(id, pedido_item_id, workshop_item_id, dd_pistola_manual, workshop_items:workshop_item_id(id, unique_code))
           )
         `)
         .eq('id', pedidoParam)
@@ -436,7 +437,7 @@ export default function Pedidos() {
           *,
           pecas(nome, codigo, familia, is_asset, imagem_url),
           workshop_items:workshop_item_id(id, unique_code),
-          pedido_item_assets(id, pedido_item_id, workshop_item_id, workshop_items:workshop_item_id(id, unique_code))
+          pedido_item_assets(id, pedido_item_id, workshop_item_id, dd_pistola_manual, workshop_items:workshop_item_id(id, unique_code))
         )
       `;
       const normalize = (p: any) => ({
@@ -909,7 +910,7 @@ export default function Pedidos() {
       Object.fromEntries(
         (pedido.pedido_itens || []).map((item: any, idx: number) => [
           idx,
-          (item.pedido_item_assets || []).map((a: any) => a.workshop_item_id).filter(Boolean),
+          rowsToSlots(item.pedido_item_assets || []),
         ]).filter(([, ids]: any) => (ids as string[]).length > 0)
       ) as Record<number, string[]>
     );
@@ -1002,7 +1003,7 @@ export default function Pedidos() {
     !editingPedido &&
     form.tipo_solicitacao === 'coleta_reversa' &&
     assetItens.length > 0;
-  const missingAssetItem = assetItens.find(entry => (itemAssets[entry.index] || []).filter(Boolean).length === 0);
+  const missingAssetItem = assetItens.find(entry => (itemAssets[entry.index] || []).filter(isFilledSlot).length === 0);
   // Itens da coleta reversa automática: sugestão = peças de ativo do envio, editáveis
   const coletaAutoEffective =
     coletaAutoItens ??
@@ -1032,7 +1033,7 @@ export default function Pedidos() {
   const buildAssetsByPecaId = (list: { peca_id: string }[], assets: Record<number, string[]>) => {
     const map: Record<string, string[]> = {};
     list.forEach((item, index) => {
-      const ids = (assets[index] || []).filter(Boolean);
+      const ids = (assets[index] || []).filter(isFilledSlot);
       if (item.peca_id && ids.length > 0) map[item.peca_id] = ids;
     });
     return map;
@@ -1043,21 +1044,45 @@ export default function Pedidos() {
 
   const assetsByPecaId = () => buildAssetsByPecaId(itens, itemAssets);
 
+  // Grava lacres (workshop_item_id) e DDs manuais (dd_pistola_manual) de um item
+  const persistItemAssetSlots = async (itemId: string, slots: string[], mode: 'upsert' | 'replace') => {
+    const { ids, dds } = splitSlots(slots);
+    if (mode === 'replace') {
+      const { error: delErr } = await supabase.from('pedido_item_assets').delete().eq('pedido_item_id', itemId);
+      if (delErr) throw delErr;
+    } else if (dds.length > 0) {
+      const { error: delDd } = await supabase.from('pedido_item_assets').delete().eq('pedido_item_id', itemId).is('workshop_item_id', null);
+      if (delDd) throw delDd;
+    }
+    if (ids.length > 0) {
+      const { error: itemError } = await supabase.from('pedido_itens').update({ workshop_item_id: ids[0] }).eq('id', itemId);
+      if (itemError) throw itemError;
+      const { error: junctionError } = await supabase
+        .from('pedido_item_assets')
+        .upsert(ids.map(wsId => ({ pedido_item_id: itemId, workshop_item_id: wsId })), { onConflict: 'pedido_item_id,workshop_item_id', ignoreDuplicates: true });
+      if (junctionError) throw junctionError;
+    } else if (mode === 'replace') {
+      await supabase.from('pedido_itens').update({ workshop_item_id: null }).eq('id', itemId);
+    }
+    if (dds.length > 0) {
+      const { error: ddError } = await supabase
+        .from('pedido_item_assets')
+        .insert(dds.map(dd => ({ pedido_item_id: itemId, workshop_item_id: null, dd_pistola_manual: dd })) as any);
+      if (ddError) throw ddError;
+    }
+    const { data: wsItems } = ids.length > 0
+      ? await supabase.from('workshop_items').select('id, unique_code').in('id', ids)
+      : { data: [] as { id: string; unique_code: string }[] };
+    await supabase.from('pedido_itens').update({ asset_codes: (wsItems || []).map(w => w.unique_code) }).eq('id', itemId);
+    return { ids, dds, wsItems: wsItems || [] };
+  };
+
   const saveAssetsForItems = async (rows: { id: string; peca_id: string }[], byPecaOverride?: Record<string, string[]>) => {
     const byPeca = byPecaOverride ?? assetsByPecaId();
     for (const row of rows) {
       const ids = byPeca[row.peca_id];
       if (!ids || ids.length === 0) continue;
-      const { error: itemError } = await supabase.from('pedido_itens').update({ workshop_item_id: ids[0] }).eq('id', row.id);
-      if (itemError) throw itemError;
-      const { error: junctionError } = await supabase
-        .from('pedido_item_assets')
-        .upsert(ids.map(wsId => ({ pedido_item_id: row.id, workshop_item_id: wsId })), { onConflict: 'pedido_item_id,workshop_item_id', ignoreDuplicates: true });
-      if (junctionError) throw junctionError;
-      const { data: wsItems } = await supabase.from('workshop_items').select('unique_code').in('id', ids);
-      if (wsItems) {
-        await supabase.from('pedido_itens').update({ asset_codes: wsItems.map(w => w.unique_code) }).eq('id', row.id);
-      }
+      await persistItemAssetSlots(row.id, ids, 'upsert');
     }
   };
 
@@ -1132,7 +1157,7 @@ export default function Pedidos() {
         });
         return;
       }
-      const faltaLacre = coletaAutoEffective.findIndex((_, idx) => (coletaAutoAssets[idx] || []).filter(Boolean).length === 0);
+      const faltaLacre = coletaAutoEffective.findIndex((_, idx) => (coletaAutoAssets[idx] || []).filter(isFilledSlot).length === 0);
       if (faltaLacre >= 0) {
         toast({
           variant: 'destructive',
@@ -1720,7 +1745,7 @@ export default function Pedidos() {
                       <p key={index} className="flex items-center justify-between gap-2">
                         <span className="text-muted-foreground shrink-0">Ativos — {peca?.codigo}</span>
                         <span className="font-medium">
-                          {(itemAssets[index] || []).filter(Boolean).length} vinculado(s)
+                          {(itemAssets[index] || []).filter(isFilledSlot).length} vinculado(s)
                         </span>
                       </p>
                     ))}
