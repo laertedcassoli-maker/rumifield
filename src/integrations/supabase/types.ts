@@ -2377,21 +2377,24 @@ export type Database = {
       pedido_item_assets: {
         Row: {
           created_at: string
+          dd_pistola_manual: string | null
           id: string
           pedido_item_id: string
-          workshop_item_id: string
+          workshop_item_id: string | null
         }
         Insert: {
           created_at?: string
+          dd_pistola_manual?: string | null
           id?: string
           pedido_item_id: string
-          workshop_item_id: string
+          workshop_item_id?: string | null
         }
         Update: {
           created_at?: string
+          dd_pistola_manual?: string | null
           id?: string
           pedido_item_id?: string
-          workshop_item_id?: string
+          workshop_item_id?: string | null
         }
         Relationships: [
           {
