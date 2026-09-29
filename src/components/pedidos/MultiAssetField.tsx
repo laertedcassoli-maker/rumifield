@@ -1,5 +1,6 @@
 import AssetSearchField from './AssetSearchField';
 import { Label } from '@/components/ui/label';
+import { isManualDD, fromManualDD, toManualDD } from '@/lib/asset-slots';
 
 interface MultiAssetFieldProps {
   pecaId: string;
@@ -18,11 +19,10 @@ export default function MultiAssetField({
   onAssetsChange,
   disabled = false,
 }: MultiAssetFieldProps) {
-  const handleAssetSelected = (index: number, workshopItemId: string | null) => {
+  const setSlot = (index: number, value: string) => {
     const updated = [...selectedAssets];
-    // Ensure array is at least `index + 1` long
     while (updated.length <= index) updated.push('');
-    updated[index] = workshopItemId || '';
+    updated[index] = value;
     onAssetsChange(updated);
   };
 
@@ -32,21 +32,27 @@ export default function MultiAssetField({
         {pecaNome} <span className="text-muted-foreground">(Qtd: {quantidade})</span>
       </Label>
       <div className="space-y-2">
-        {Array.from({ length: quantidade }).map((_, idx) => (
-          <div key={idx}>
-            {quantidade > 1 && (
-              <span className="text-xs text-muted-foreground mb-1 block">
-                Ativo {idx + 1} de {quantidade}
-              </span>
-            )}
-            <AssetSearchField
-              pecaId={pecaId}
-              currentAssetId={selectedAssets[idx] || null}
-              onAssetSelected={(wsId) => handleAssetSelected(idx, wsId)}
-              disabled={disabled}
-            />
-          </div>
-        ))}
+        {Array.from({ length: quantidade }).map((_, idx) => {
+          const slot = selectedAssets[idx] || '';
+          const manual = isManualDD(slot);
+          return (
+            <div key={idx}>
+              {quantidade > 1 && (
+                <span className="text-xs text-muted-foreground mb-1 block">
+                  Ativo {idx + 1} de {quantidade}
+                </span>
+              )}
+              <AssetSearchField
+                pecaId={pecaId}
+                currentAssetId={manual ? null : slot || null}
+                manualCode={manual ? fromManualDD(slot) : null}
+                onAssetSelected={(wsId) => setSlot(idx, wsId || '')}
+                onManualCodeChange={(v) => setSlot(idx, v === null ? '' : toManualDD(v))}
+                disabled={disabled}
+              />
+            </div>
+          );
+        })}
       </div>
     </div>
   );
