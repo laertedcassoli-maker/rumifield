@@ -32,6 +32,7 @@ import EditarPedidoSolicitado from '@/components/pedidos/EditarPedidoSolicitado'
 import type { PedidoComItens, PedidoItem } from '@/types/pedidos';
 import { useRealtimePecas } from '@/hooks/useRealtimePecas';
 import { track } from '@/lib/analytics';
+import { useMenuPermissions } from '@/hooks/useMenuPermissions';
 
 const statusColors: Record<string, string> = {
   rascunho: 'bg-muted text-muted-foreground border-muted-foreground/30',
@@ -249,7 +250,8 @@ export default function Pedidos() {
   const [isDeletingPedido, setIsDeletingPedido] = useState(false);
   
   const isAdmin = role === 'admin' || role === 'coordenador_rplus' || role === 'coordenador_servicos' || role === 'coordenador_logistica';
-  const canManagePedidos = role === 'admin' || role === 'coordenador_logistica' || role === 'coordenador_servicos';
+  const { canEdit: canEditMenu } = useMenuPermissions();
+  const canManagePedidos = canEditMenu('pedidos_envios') || canEditMenu('pedidos_coleta_reversa');
   // Admin, coord. logística e coord. de serviços podem excluir pedidos de outros usuários
   const canDeleteAnyPedido = role === 'admin' || role === 'coordenador_logistica' || role === 'coordenador_servicos';
 
