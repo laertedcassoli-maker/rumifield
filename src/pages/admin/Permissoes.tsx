@@ -90,6 +90,9 @@ const groupActionColumns: Record<string, Array<{ key: keyof Permission; label: s
   principal: [
     { key: 'can_edit_finalized', label: 'Ed. Finalizado' },
   ],
+  pedidos: [
+    { key: 'can_edit', label: 'Editar' },
+  ],
   oficina: [
     { key: 'can_edit', label: 'Editar' },
     { key: 'can_delete', label: 'Excluir' },

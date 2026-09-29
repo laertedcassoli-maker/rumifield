@@ -1,0 +1,1 @@
+REVOKE EXECUTE ON FUNCTION public.can_manage_pedidos(uuid) FROM PUBLIC, anon;
