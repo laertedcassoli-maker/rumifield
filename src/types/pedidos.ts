@@ -19,7 +19,8 @@ export interface PedidoItem {
 export interface PedidoItemAsset {
   id: string;
   pedido_item_id: string;
-  workshop_item_id: string;
+  workshop_item_id: string | null;
+  dd_pistola_manual?: string | null;
   created_at: string;
   workshop_items?: { id: string; unique_code: string } | null;
 }

@@ -1430,23 +1430,8 @@ export default function Pedidos() {
       // Save asset associations into junction table
       if (itemsWithAssets) {
         for (const [itemId, assetIds] of Object.entries(itemsWithAssets)) {
-          const validIds = assetIds.filter(id => !!id);
-          if (validIds.length > 0) {
-            // Set first asset as workshop_item_id for backwards compat
-            const { error: itemError } = await supabase.from('pedido_itens').update({ workshop_item_id: validIds[0] }).eq('id', itemId).neq('workshop_item_id', validIds[0]);
-            if (itemError) throw itemError;
-
-            // Insert all into junction table
-            const rows = validIds.map(wsId => ({ pedido_item_id: itemId, workshop_item_id: wsId }));
-            const { error: junctionError } = await supabase.from('pedido_item_assets').insert(rows);
-            if (junctionError) throw junctionError;
-
-            // Fetch unique_codes for asset_codes array
-            const { data: wsItems } = await supabase.from('workshop_items').select('unique_code').in('id', validIds);
-            if (wsItems) {
-              const codes = wsItems.map(w => w.unique_code);
-              await supabase.from('pedido_itens').update({ asset_codes: codes }).eq('id', itemId);
-            }
+          if (assetIds.some(id => !!id)) {
+            await persistItemAssetSlots(itemId, assetIds, 'upsert');
           }
         }
       }
@@ -1508,22 +1493,8 @@ export default function Pedidos() {
       // Save asset associations BEFORE updating status
       if (itemsWithAssets) {
         for (const [itemId, assetIds] of Object.entries(itemsWithAssets)) {
-          const validIds = assetIds.filter(id => !!id);
-          if (validIds.length > 0) {
-            const { error: itemError } = await supabase.from('pedido_itens').update({ workshop_item_id: validIds[0] }).eq('id', itemId).neq('workshop_item_id', validIds[0]);
-            if (itemError) throw itemError;
-
-            const rows = validIds.map(wsId => ({ pedido_item_id: itemId, workshop_item_id: wsId }));
-            const { error: junctionError } = await supabase
-              .from('pedido_item_assets')
-              .upsert(rows, { onConflict: 'pedido_item_id,workshop_item_id', ignoreDuplicates: true });
-            if (junctionError) throw junctionError;
-
-            const { data: wsItems } = await supabase.from('workshop_items').select('unique_code').in('id', validIds);
-            if (wsItems) {
-              const codes = wsItems.map(w => w.unique_code);
-              await supabase.from('pedido_itens').update({ asset_codes: codes }).eq('id', itemId);
-            }
+          if (assetIds.some(id => !!id)) {
+            await persistItemAssetSlots(itemId, assetIds, 'upsert');
           }
         }
       }
@@ -1563,61 +1534,28 @@ export default function Pedidos() {
   // Vincular ativos diretamente no detalhe do pedido (suporta múltiplos)
   const handleAssetsLinked = useCallback(async (itemId: string, assetIds: string[]) => {
     try {
-      const validIds = assetIds.filter(id => !!id);
-
-      // Clear existing junction rows for this item
-      await supabase.from('pedido_item_assets').delete().eq('pedido_item_id', itemId);
-
-      if (validIds.length > 0) {
-        // Set first asset as workshop_item_id for backwards compat
-        await supabase.from('pedido_itens').update({ workshop_item_id: validIds[0] }).eq('id', itemId);
-
-        // Insert junction rows
-        const rows = validIds.map(wsId => ({ pedido_item_id: itemId, workshop_item_id: wsId }));
-        await supabase.from('pedido_item_assets').insert(rows);
-
-        // Update asset_codes for quick reference
-        const { data: wsItems } = await supabase.from('workshop_items').select('id, unique_code').in('id', validIds);
-        if (wsItems) {
-          const codes = wsItems.map(w => w.unique_code);
-          await supabase.from('pedido_itens').update({ asset_codes: codes }).eq('id', itemId);
-        }
-
-        // Update local state
-        const junctionData = (wsItems || []).map(w => ({
-          id: crypto.randomUUID(),
-          pedido_item_id: itemId,
-          workshop_item_id: w.id,
-          created_at: new Date().toISOString(),
-          workshop_items: { id: w.id, unique_code: w.unique_code },
-        }));
-
-        setViewingPedido((prev: any) => {
-          if (!prev) return prev;
-          return {
-            ...prev,
-            pedido_itens: prev.pedido_itens?.map((it: any) =>
-              it.id === itemId
-                ? { ...it, workshop_item_id: validIds[0], workshop_item: wsItems?.[0] || null, pedido_item_assets: junctionData }
-                : it
-            ),
-          };
-        });
-      } else {
-        // Clear all
-        await supabase.from('pedido_itens').update({ workshop_item_id: null, asset_codes: [] }).eq('id', itemId);
-        setViewingPedido((prev: any) => {
-          if (!prev) return prev;
-          return {
-            ...prev,
-            pedido_itens: prev.pedido_itens?.map((it: any) =>
-              it.id === itemId
-                ? { ...it, workshop_item_id: null, workshop_item: null, pedido_item_assets: [] }
-                : it
-            ),
-          };
-        });
-      }
+      const { ids: validIds, dds, wsItems } = await persistItemAssetSlots(itemId, assetIds, 'replace');
+      const junctionData = [
+        ...wsItems.map(w => ({
+          id: crypto.randomUUID(), pedido_item_id: itemId, workshop_item_id: w.id, dd_pistola_manual: null,
+          created_at: new Date().toISOString(), workshop_items: { id: w.id, unique_code: w.unique_code },
+        })),
+        ...dds.map(dd => ({
+          id: crypto.randomUUID(), pedido_item_id: itemId, workshop_item_id: null, dd_pistola_manual: dd,
+          created_at: new Date().toISOString(), workshop_items: null,
+        })),
+      ];
+      setViewingPedido((prev: any) => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          pedido_itens: prev.pedido_itens?.map((it: any) =>
+            it.id === itemId
+              ? { ...it, workshop_item_id: validIds[0] || null, workshop_item: wsItems[0] || null, pedido_item_assets: junctionData }
+              : it
+          ),
+        };
+      });
 
       setEditingAssetItemId(null);
       toast({ title: 'Ativos vinculados com sucesso!' });
@@ -3238,7 +3176,7 @@ export default function Pedidos() {
 
                             // Build current asset IDs array from junction or legacy field
                             const currentAssetIds = linkedAssets.length > 0
-                              ? linkedAssets.map((a: any) => a.workshop_item_id).filter(Boolean)
+                              ? rowsToSlots(linkedAssets)
                               : item.workshop_item_id ? [item.workshop_item_id] : [];
                             
                             if (hasLinkedAssets) {
@@ -3251,6 +3189,11 @@ export default function Pedidos() {
                                     {assetCodes.map((code: string, idx: number) => (
                                       <Badge key={idx} variant="outline" className="text-[10px] h-5 font-mono border-primary/40 text-primary bg-primary/5">
                                         🏷️ {code}
+                                      </Badge>
+                                    ))}
+                                    {linkedAssets.filter((a: any) => a.dd_pistola_manual).map((a: any, idx: number) => (
+                                      <Badge key={`dd-${idx}`} variant="outline" className="text-[10px] h-5 font-mono border-accent/50 text-accent-foreground bg-accent/20" title="Lacre apagado — DD da pistola informado manualmente">
+                                        🔧 DD: {a.dd_pistola_manual}
                                       </Badge>
                                     ))}
                                     {isEditable && (
