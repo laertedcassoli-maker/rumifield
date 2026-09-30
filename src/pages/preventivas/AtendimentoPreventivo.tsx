@@ -412,6 +412,22 @@ export default function AtendimentoPreventivo() {
     },
   });
 
+  // Visita já executada: cancela (mantém registro) em vez de excluir
+  const cancelVisitMutation = useMutation({
+    mutationFn: (justification: string) => cancelPreventiveRouteItem(itemId!, justification),
+    onSuccess: () => {
+      toast({ title: 'Visita cancelada' });
+      setShowCancelVisit(false);
+      queryClient.invalidateQueries({ queryKey: ['route-execution', routeId] });
+      queryClient.invalidateQueries({ queryKey: ['route-execution-items', routeId] });
+      navigate(`/preventivas/execucao/${routeId}`, { state: { permissionContext } });
+    },
+    onError: (e: Error) => {
+      toast({ variant: 'destructive', title: 'Erro ao cancelar visita', description: e.message });
+    },
+  });
+
+
   const canAccess = isAdminOrCoordinator || routeItem?.route?.field_technician_user_id === user?.id;
   
   // Can only finish visit when checklist is completed
