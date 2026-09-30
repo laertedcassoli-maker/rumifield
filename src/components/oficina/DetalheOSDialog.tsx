@@ -3,6 +3,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { CancelReasonDialog } from '@/components/chamados/CancelReasonDialog';
+import { canHardDeleteWorkOrder, cancelWorkOrder, hardDeleteWorkOrder } from '@/lib/work-order-cancel';
 import { track } from '@/lib/analytics';
 import { Play, Square, Plus, Trash2, Clock, Package, CheckCircle, Wrench, ChevronDown, ChevronRight, History, Search, Pencil, Check, X, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -45,7 +47,7 @@ interface WorkOrder {
   id: string;
   code: string;
   activity_id: string;
-  status: 'aguardando' | 'em_manutencao' | 'concluido';
+  status: 'aguardando' | 'em_manutencao' | 'concluido' | 'cancelada';
   assigned_to_user_id: string | null;
   total_time_seconds: number;
   start_time: string | null;
@@ -155,6 +157,8 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
   const { canEdit: canEditMenu, canDelete: canDeleteMenu, isLoading: permissionsLoading } = useMenuPermissions();
   const canEditOS = canEditMenu('oficina_os') || canEditMenu('oficina');
   const canDeleteOS = !permissionsLoading && canDeleteMenu('oficina_os');
+  // OS concluída ou cancelada fica somente leitura
+  const isClosedOS = workOrder.status === 'concluido' || workOrder.status === 'cancelada';
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const queryClient = useQueryClient();
   const [elapsedTime, setElapsedTime] = useState(workOrder.total_time_seconds);
@@ -254,27 +258,22 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
   });
 
   const deleteWorkOrderMutation = useMutation({
-    mutationFn: async () => {
-      const id = workOrder.id;
-      const t1 = await supabase.from('work_order_tag_links').delete().eq('work_order_id', id);
-      if (t1.error) throw t1.error;
-      const t2 = await supabase.from('work_order_parts_used').delete().eq('work_order_id', id);
-      if (t2.error) throw t2.error;
-      const t3 = await supabase.from('work_order_time_entries').delete().eq('work_order_id', id);
-      if (t3.error) throw t3.error;
-      const t4 = await supabase.from('work_order_items').delete().eq('work_order_id', id);
-      if (t4.error) throw t4.error;
-      const t5 = await supabase.from('work_orders').delete().eq('id', id);
-      if (t5.error) throw t5.error;
+    mutationFn: async (reason?: string): Promise<'deleted' | 'cancelled'> => {
+      if (!canHardDeleteWorkOrder(workOrder.status)) {
+        await cancelWorkOrder(workOrder.id, reason ?? '');
+        return 'cancelled';
+      }
+      await hardDeleteWorkOrder(workOrder.id);
+      return 'deleted';
     },
-    onSuccess: () => {
-      toast.success('OS excluída com sucesso');
+    onSuccess: (result) => {
+      toast.success(result === 'cancelled' ? 'OS cancelada' : 'OS excluída com sucesso');
       queryClient.invalidateQueries({ queryKey: ['work-orders'] });
       setConfirmDeleteOpen(false);
       onOpenChange(false);
       onUpdate();
     },
-    onError: (e: any) => toast.error(e.message || 'Erro ao excluir OS'),
+    onError: (e: any) => toast.error(e.message || 'Erro ao excluir/cancelar OS'),
   });
 
   // FIX 4: Ref to protect localTotalSeconds from stale refetch after Stop
@@ -1246,7 +1245,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
   // reopened before completion): the saved part is the source of truth for the
   // replacement branch in completeOSMutation, so the toggle must reflect it.
   useEffect(() => {
-    if (workOrder.status === 'concluido') return;
+    if (isClosedOS) return;
     if (!motorPartInThisOS) {
       // Motor part was removed: revert UI to the "no replacement" state so
       // motorCodeConfirm (persisted on completion in this branch) doesn't keep
@@ -1269,7 +1268,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
   // Restore the "damaged meter" flag when an unfinished OS is reopened
   const persistedMeterDamaged = workOrderItems.find(item => item.workshop_item_id)?.meter_damaged ?? false;
   useEffect(() => {
-    if (workOrder.status === 'concluido') return;
+    if (isClosedOS) return;
     if (persistedMeterDamaged) {
       setMeterDamaged(true);
       setMeterHoursCurrent('0');
@@ -1289,6 +1288,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
     aguardando: 'Aguardando',
     em_manutencao: 'Em Manutenção',
     concluido: 'Concluído',
+    cancelada: 'Cancelada',
   };
 
   const univocaItem = workOrderItems.find(item => item.workshop_item_id);
@@ -1318,7 +1318,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 flex-wrap">
               <span className="font-mono">{workOrder.code}</span>
-              <Badge variant={workOrder.status === 'concluido' ? 'default' : 'secondary'}>
+              <Badge variant={workOrder.status === 'cancelada' ? 'destructive' : workOrder.status === 'concluido' ? 'default' : 'secondary'}>
                 {statusLabels[workOrder.status]}
               </Badge>
               <Badge variant="outline">
@@ -1434,7 +1434,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
                         <span className="font-mono text-3xl">{formatTime(currentSessionTime)}</span>
                         <p className="text-xs text-muted-foreground mt-0.5">sessão atual</p>
                       </div>
-                      {workOrder.status !== 'concluido' && (
+                      {!isClosedOS && (
                         <Button
                           size="sm"
                           variant="destructive"
@@ -1456,7 +1456,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
                       <span className="font-mono text-3xl">{formatTime(elapsedTime)}</span>
                       <p className="text-xs text-muted-foreground mt-0.5">total</p>
                     </div>
-                    {workOrder.status !== 'concluido' && (
+                    {!isClosedOS && (
                       // FIX 7: Double-click guard on Play
                       <Button
                         size="sm"
@@ -1609,7 +1609,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
                     <span className={`text-muted-foreground ${meterHoursError ? 'text-destructive font-medium' : ''}`}>
                       Atual: {!meterDamaged && <span className="text-destructive">*</span>}
                     </span>
-                    {workOrder.status !== 'concluido' ? (
+                    {!isClosedOS ? (
                       <Input
                         id="meter-hours-input"
                         type="number"
@@ -1643,7 +1643,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
                 </div>
 
                 {/* Damaged meter flag */}
-                {workOrder.status !== 'concluido' ? (
+                {!isClosedOS ? (
                   <label
                     htmlFor="meter-damaged-checkbox"
                     className="flex items-center gap-2 cursor-pointer text-sm"
@@ -1669,7 +1669,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
                 ) : null}
 
                 {/* Motor code confirmation - required */}
-                {workOrder.status !== 'concluido' && univocaItem?.workshop_item_id && !currentMotorCode && (
+                {!isClosedOS && univocaItem?.workshop_item_id && !currentMotorCode && (
                   <div className="pt-2 border-t space-y-1">
                     <span className={`text-sm ${motorCodeConfirmError ? 'text-destructive font-medium' : 'text-muted-foreground'}`}>
                       Nº Motor Atual: {!isEstoqueInterno && <span className="text-destructive">*</span>}
@@ -1697,7 +1697,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
                 )}
 
                 {/* Motor replacement toggle - only when not completed */}
-                {workOrder.status !== 'concluido' && (
+                {!isClosedOS && (
                   <div 
                     className={`mt-3 p-2 border rounded cursor-pointer transition-colors ${
                       isMotorReplacement 
@@ -1758,7 +1758,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
                     <Badge variant="secondary" className="text-xs font-mono">{partsUsed.length}</Badge>
                   )}
                 </p>
-                {workOrder.status !== 'concluido' && (
+                {!isClosedOS && (
                   <Button 
                     size="sm" 
                     onClick={() => setAddPartDialogOpen(true)}
@@ -1802,7 +1802,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
                             </p>
                           </div>
                         </div>
-                        {workOrder.status !== 'concluido' && (
+                        {workOrder.status === 'aguardando' && (
                           <Button
                             size="sm"
                             variant="ghost"
@@ -1885,7 +1885,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
             
 
             {/* Complete Section */}
-            {workOrder.status !== 'concluido' && (
+            {!isClosedOS && (
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="completion-notes" className="text-sm text-muted-foreground">
@@ -2052,14 +2052,14 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
           </div>
 
           <DialogFooter className="gap-2 sm:justify-between">
-            {canDeleteOS ? (
+            {canDeleteOS && workOrder.status !== 'cancelada' ? (
               <Button
                 variant="outline"
                 onClick={() => setConfirmDeleteOpen(true)}
                 className="border-destructive/40 text-destructive hover:text-destructive hover:bg-destructive/10"
               >
                 <Trash2 className="h-4 w-4 mr-2" />
-                Excluir OS
+                {canHardDeleteWorkOrder(workOrder.status) ? 'Excluir OS' : 'Cancelar OS'}
               </Button>
             ) : <span />}
             <Button variant="outline" onClick={() => handleDialogClose(false)}>
@@ -2067,7 +2067,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
             </Button>
           </DialogFooter>
 
-            <AlertDialog open={confirmDeleteOpen && canDeleteOS} onOpenChange={setConfirmDeleteOpen}>
+            <AlertDialog open={confirmDeleteOpen && canDeleteOS && canHardDeleteWorkOrder(workOrder.status)} onOpenChange={setConfirmDeleteOpen}>
             <AlertDialogContent>
               <AlertDialogHeader>
                 <AlertDialogTitleUI>Excluir Ordem de Serviço</AlertDialogTitleUI>
@@ -2078,7 +2078,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
               <AlertDialogFooter>
                 <AlertDialogCancel disabled={deleteWorkOrderMutation.isPending}>Cancelar</AlertDialogCancel>
                 <AlertDialogAction
-                  onClick={(e) => { e.preventDefault(); if (canDeleteOS) deleteWorkOrderMutation.mutate(); }}
+                  onClick={(e) => { e.preventDefault(); if (canDeleteOS) deleteWorkOrderMutation.mutate(undefined); }}
                   disabled={deleteWorkOrderMutation.isPending || !canDeleteOS}
                   className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                 >
@@ -2087,6 +2087,14 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
+          <CancelReasonDialog
+            open={confirmDeleteOpen && canDeleteOS && !canHardDeleteWorkOrder(workOrder.status)}
+            onOpenChange={setConfirmDeleteOpen}
+            title="Cancelar Ordem de Serviço"
+            description={`A OS ${workOrder.code} já foi iniciada, por isso será cancelada (não excluída) e continuará no histórico.`}
+            pending={deleteWorkOrderMutation.isPending}
+            onConfirm={(reason) => deleteWorkOrderMutation.mutate(reason)}
+          />
 
         </DialogContent>
       </Dialog>

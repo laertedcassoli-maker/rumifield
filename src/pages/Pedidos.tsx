@@ -255,7 +255,8 @@ export default function Pedidos() {
   const { canEdit: canEditMenu } = useMenuPermissions();
   const canManagePedidos = canEditMenu('pedidos_envios') || canEditMenu('pedidos_coleta_reversa');
   // Admin, coord. logística e coord. de serviços podem excluir pedidos de outros usuários
-  const canDeleteAnyPedido = role === 'admin' || role === 'coordenador_logistica' || role === 'coordenador_servicos';
+  // Mesma permissão que controla Processar/Concluir (tela de Permissões → can_manage_pedidos no banco)
+  const canDeleteAnyPedido = canManagePedidos;
 
   const [isBuscandoOmie, setIsBuscandoOmie] = useState(false);
   const handleBuscarRastreioOmie = async (pedidoId: string) => {

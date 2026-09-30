@@ -36,7 +36,7 @@ interface MotorSectionProps {
   /** Motor milestone as of this OS (ignores later replacements). */
   motorMilestoneOverride?: number;
   workOrderId?: string;
-  workOrderStatus?: 'aguardando' | 'em_manutencao' | 'concluido';
+  workOrderStatus?: 'aguardando' | 'em_manutencao' | 'concluido' | 'cancelada';
 }
 
 export function MotorSection({ 

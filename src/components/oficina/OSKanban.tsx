@@ -10,7 +10,7 @@ interface WorkOrder {
   id: string;
   code: string;
   activity_id: string;
-  status: 'aguardando' | 'em_manutencao' | 'concluido';
+  status: 'aguardando' | 'em_manutencao' | 'concluido' | 'cancelada';
   assigned_to_user_id: string | null;
   total_time_seconds: number;
   start_time: string | null;
@@ -87,7 +87,7 @@ function KanbanColumn({
   onDeleteOS,
   canDelete,
 }: { 
-  status: 'aguardando' | 'em_manutencao' | 'concluido';
+  status: 'aguardando' | 'em_manutencao' | 'concluido' | 'cancelada';
   orders: WorkOrder[];
   onViewOS: (os: WorkOrder) => void;
   onDeleteOS?: (os: WorkOrder) => void;

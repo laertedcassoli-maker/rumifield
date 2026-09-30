@@ -35,13 +35,15 @@ import { useMenuPermissions } from '@/hooks/useMenuPermissions';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useOffline } from '@/contexts/OfflineContext';
 import { ExportarRelatorioOSDialog } from '@/components/oficina/ExportarRelatorioOSDialog';
+import { CancelReasonDialog } from '@/components/chamados/CancelReasonDialog';
+import { canHardDeleteWorkOrder, cancelWorkOrder, hardDeleteWorkOrder } from '@/lib/work-order-cancel';
 
 
 interface WorkOrder {
   id: string;
   code: string;
   activity_id: string;
-  status: 'aguardando' | 'em_manutencao' | 'concluido';
+  status: 'aguardando' | 'em_manutencao' | 'concluido' | 'cancelada';
   assigned_to_user_id: string | null;
   total_time_seconds: number;
   start_time: string | null;
@@ -123,25 +125,20 @@ export default function OrdensServico() {
   const isAdmin = role === 'admin' || role === 'coordenador_rplus' || role === 'coordenador_servicos';
 
   const deleteOSMutation = useMutation({
-    mutationFn: async (id: string) => {
-      // Delete children in FK-safe order
-      const t1 = await supabase.from('work_order_tag_links').delete().eq('work_order_id', id);
-      if (t1.error) throw t1.error;
-      const t2 = await supabase.from('work_order_parts_used').delete().eq('work_order_id', id);
-      if (t2.error) throw t2.error;
-      const t3 = await supabase.from('work_order_time_entries').delete().eq('work_order_id', id);
-      if (t3.error) throw t3.error;
-      const t4 = await supabase.from('work_order_items').delete().eq('work_order_id', id);
-      if (t4.error) throw t4.error;
-      const t5 = await supabase.from('work_orders').delete().eq('id', id);
-      if (t5.error) throw t5.error;
+    mutationFn: async ({ os, reason }: { os: WorkOrder; reason?: string }): Promise<'deleted' | 'cancelled'> => {
+      if (!canHardDeleteWorkOrder(os.status)) {
+        await cancelWorkOrder(os.id, reason ?? '');
+        return 'cancelled';
+      }
+      await hardDeleteWorkOrder(os.id);
+      return 'deleted';
     },
-    onSuccess: () => {
-      toast.success('OS excluída com sucesso');
+    onSuccess: (result) => {
+      toast.success(result === 'cancelled' ? 'OS cancelada' : 'OS excluída com sucesso');
       queryClient.invalidateQueries({ queryKey: ['work-orders'] });
       setDeleteTarget(null);
     },
-    onError: (e: any) => toast.error(e.message || 'Erro ao excluir OS'),
+    onError: (e: any) => toast.error(e.message || 'Erro ao excluir/cancelar OS'),
   });
 
 
@@ -360,7 +357,7 @@ export default function OrdensServico() {
     if (activeTab === 'kanban') {
       return true;
     } else if (activeTab === 'abertas') {
-      return wo.status !== 'concluido';
+      return wo.status !== 'concluido' && wo.status !== 'cancelada';
     } else if (activeTab === 'concluidas') {
       return wo.status === 'concluido';
     }
@@ -394,12 +391,14 @@ export default function OrdensServico() {
     aguardando: 'Aguardando',
     em_manutencao: 'Em Manutenção',
     concluido: 'Concluído',
+    cancelada: 'Cancelada',
   };
 
   const statusColors: Record<string, string> = {
     aguardando: 'bg-yellow-100 text-yellow-800',
     em_manutencao: 'bg-blue-100 text-blue-800',
     concluido: 'bg-green-100 text-green-800',
+    cancelada: 'bg-destructive/15 text-destructive',
   };
 
   const formatTime = (seconds: number) => {
@@ -456,7 +455,7 @@ export default function OrdensServico() {
               Kanban
             </TabsTrigger>
             <TabsTrigger value="abertas">
-              Abertas ({workOrders.filter(wo => wo.status !== 'concluido').length})
+              Abertas ({workOrders.filter(wo => wo.status !== 'concluido' && wo.status !== 'cancelada').length})
             </TabsTrigger>
             <TabsTrigger value="concluidas">
               Concluídas ({workOrders.filter(wo => wo.status === 'concluido').length})
@@ -806,7 +805,7 @@ export default function OrdensServico() {
         />
       )}
 
-      <AlertDialog open={!!deleteTarget && canDeleteOS} onOpenChange={(o) => !o && setDeleteTarget(null)}>
+      <AlertDialog open={!!deleteTarget && canDeleteOS && canHardDeleteWorkOrder(deleteTarget.status)} onOpenChange={(o) => !o && setDeleteTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir Ordem de Serviço</AlertDialogTitle>
@@ -819,7 +818,7 @@ export default function OrdensServico() {
             <AlertDialogAction
               onClick={(e) => {
                 e.preventDefault();
-                  if (deleteTarget && canDeleteOS) deleteOSMutation.mutate(deleteTarget.id);
+                  if (deleteTarget && canDeleteOS) deleteOSMutation.mutate({ os: deleteTarget });
               }}
               disabled={deleteOSMutation.isPending || !canDeleteOS}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
@@ -829,6 +828,14 @@ export default function OrdensServico() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <CancelReasonDialog
+        open={!!deleteTarget && canDeleteOS && !canHardDeleteWorkOrder(deleteTarget.status)}
+        onOpenChange={(o) => !o && setDeleteTarget(null)}
+        title="Cancelar Ordem de Serviço"
+        description={`A OS ${deleteTarget?.code ?? ''} já foi iniciada, por isso será cancelada (não excluída) e continuará no histórico.`}
+        pending={deleteOSMutation.isPending}
+        onConfirm={(reason) => deleteTarget && deleteOSMutation.mutate({ os: deleteTarget, reason })}
+      />
     </div>
   );
 }
