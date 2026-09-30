@@ -1828,6 +1828,38 @@ export type Database = {
           },
         ]
       }
+      installation_checklist_item_photos: {
+        Row: {
+          created_at: string
+          created_by_user_id: string | null
+          id: string
+          item_id: string
+          photo_path: string
+        }
+        Insert: {
+          created_at?: string
+          created_by_user_id?: string | null
+          id?: string
+          item_id: string
+          photo_path: string
+        }
+        Update: {
+          created_at?: string
+          created_by_user_id?: string | null
+          id?: string
+          item_id?: string
+          photo_path?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "installation_checklist_item_photos_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "installation_checklist_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       installation_checklist_items: {
         Row: {
           answered_at: string | null
@@ -2824,6 +2856,38 @@ export type Database = {
           {
             foreignKeyName: "preventive_checklist_item_nonconformities_exec_item_id_fkey"
             columns: ["exec_item_id"]
+            isOneToOne: false
+            referencedRelation: "preventive_checklist_items"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      preventive_checklist_item_photos: {
+        Row: {
+          created_at: string
+          created_by_user_id: string | null
+          id: string
+          item_id: string
+          photo_path: string
+        }
+        Insert: {
+          created_at?: string
+          created_by_user_id?: string | null
+          id?: string
+          item_id: string
+          photo_path: string
+        }
+        Update: {
+          created_at?: string
+          created_by_user_id?: string | null
+          id?: string
+          item_id?: string
+          photo_path?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "preventive_checklist_item_photos_item_id_fkey"
+            columns: ["item_id"]
             isOneToOne: false
             referencedRelation: "preventive_checklist_items"
             referencedColumns: ["id"]
