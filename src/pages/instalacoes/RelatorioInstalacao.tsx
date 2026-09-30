@@ -47,18 +47,30 @@ async function loadReport(token: string) {
           .in('exec_block_id', blockIds).order('order_index')
       : { data: [] };
     const itemIds = (items || []).map((x: any) => x.id);
-    const [{ data: ncs }, { data: acts }] = itemIds.length
+    const [{ data: ncs }, { data: acts }, { data: photos }] = itemIds.length
       ? await Promise.all([
           sb.from('installation_checklist_item_nonconformities').select('exec_item_id, nonconformity_label_snapshot').in('exec_item_id', itemIds),
           sb.from('installation_checklist_item_actions').select('exec_item_id, action_label_snapshot').in('exec_item_id', itemIds),
+          sb.from('installation_checklist_item_photos').select('id, item_id, photo_path, created_at').in('item_id', itemIds).order('created_at'),
         ])
-      : [{ data: [] }, { data: [] }];
+      : [{ data: [] }, { data: [] }, { data: [] }];
+    const photoRows = (photos || []) as { id: string; item_id: string; photo_path: string }[];
+    const urlByPath = new Map<string, string>();
+    if (photoRows.length) {
+      const { data: signed } = await supabase.storage.from('preventive-media')
+        .createSignedUrls(photoRows.map((p) => p.photo_path), 3600);
+      (signed || []).forEach((s: any) => { if (s?.path && s?.signedUrl) urlByPath.set(s.path, s.signedUrl); });
+    }
     blocks = (b || []).map((blk: any) => ({
       ...blk,
       items: (items || []).filter((i: any) => i.exec_block_id === blk.id).map((i: any) => ({
         ...i,
         ncs: (ncs || []).filter((n: any) => n.exec_item_id === i.id).map((n: any) => n.nonconformity_label_snapshot),
         acts: (acts || []).filter((a: any) => a.exec_item_id === i.id).map((a: any) => a.action_label_snapshot),
+        photos: photoRows
+          .filter((p) => p.item_id === i.id)
+          .map((p) => ({ id: p.id, url: urlByPath.get(p.photo_path) }))
+          .filter((p) => !!p.url) as { id: string; url: string }[],
       })),
     }));
   }
@@ -199,6 +211,13 @@ export default function RelatorioInstalacao() {
                         <p className="pl-6 text-xs text-muted-foreground">Ação: {Array.from(new Set(i.acts)).join(', ')}</p>
                       )}
                       {i.notes && <p className="pl-6 text-xs text-muted-foreground">Obs: {i.notes}</p>}
+                      {i.photos?.length > 0 && (
+                        <div className="pl-6 grid grid-cols-5 gap-1.5 pt-1">
+                          {i.photos.map((p: any) => (
+                            <img key={p.id} src={p.url} alt={`Foto do item ${i.item_name_snapshot}`} className="aspect-square w-full object-cover rounded-md cursor-pointer" onClick={() => setZoom(p.url)} />
+                          ))}
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>

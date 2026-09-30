@@ -87,13 +87,15 @@ export function useAgendaOperacoes() {
       const { data, error } = await (supabase as any)
         .from('installation_stages')
         .select(
-          'id, stage, status, planned_date, planned_date_end, approved_at, technician_user_id, csm_user_id, installations(cliente_id, clientes(nome, fazenda))'
+          'id, stage, status, planned_date, planned_date_end, approved_at, technician_user_id, csm_user_id, installations(cliente_id, status, clientes(nome, fazenda))'
         )
         .not('planned_date', 'is', null)
-        .in('stage', ['pre_instalacao', 'instalacao']);
+        .in('stage', ['pre_instalacao', 'instalacao'])
+        .neq('status', 'cancelado');
       if (error) throw error;
       // Só compromissos de técnico de campo: etapa atribuída apenas a um CSM não entra na agenda.
-      let rows = ((data ?? []) as any[]).filter(r => !!r.technician_user_id);
+      // Instalações canceladas também ficam fora.
+      let rows = ((data ?? []) as any[]).filter(r => !!r.technician_user_id && r.installations?.status !== 'cancelado');
       if (somenteMeus) rows = rows.filter(r => r.technician_user_id === uid);
       if (!rows.length) return [];
 
