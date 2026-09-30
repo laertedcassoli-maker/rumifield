@@ -283,6 +283,7 @@ export async function fetchProdutividadeTecnicos(
         tempo_medio_minutos: null,
         em_atraso_count: 0,
       } as ProdutividadeRow);
+    if (r.status === 'cancelada') { agg.set(r.field_technician_user_id, cur); return; }
     cur.rotas_total += 1;
     if (r.status === 'finalizada') cur.rotas_concluidas += 1;
     if (r.status !== 'finalizada' && r.end_date < today) cur.em_atraso_count += 1;
@@ -327,8 +328,9 @@ export async function fetchAderenciaRotas(
   if (atual.error) throw atual.error;
   if (anterior.error) throw anterior.error;
 
-  const a = atual.data ?? [];
-  const b = anterior.data ?? [];
+  // Rotas canceladas não contam como planejadas
+  const a = (atual.data ?? []).filter((r) => r.status !== 'cancelada');
+  const b = (anterior.data ?? []).filter((r) => r.status !== 'cancelada');
   return {
     concluidas_atual: a.filter((r) => r.status === 'finalizada').length,
     planejadas_atual: a.length,
