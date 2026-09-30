@@ -769,7 +769,7 @@ export default function ExecucaoVisitaCorretiva() {
   const canEditCompletedFn = useCanEditCompletedChecklist();
   const { canEditFinalized, canDelete, canExport } = useMenuPermissions();
   const podeExportar = canExport('chamados_listagem');
-  const canDeleteVisit = canDelete(permissionContext);
+  const canDeleteVisit = canDelete('chamados_listagem');
   const canEditFinalizedVisit = canEditFinalized(permissionContext);
   // Option C: completed visit is read-only by default; "Edit" button opts in
   const effectiveCompleted = isVisitCompleted && !isEditMode;
