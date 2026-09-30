@@ -34,10 +34,7 @@
 - **Index.tsx**: nada muda, já estava certo.
 
 ## Pontos de atenção
-- **Quem mais perde edição**: as regras de admin/coordenador cobrem toda edição, não só o cancelamento.
-  - Hoje `is_admin_or_coordinator` inclui coordenador_rplus e coordenador_logistica.
-  - Depois da troca, esses dois perdem **qualquer** edição de chamados e visitas que não sejam deles. O coordenador R+ tem editar = sim em chamados, então isso muda o que ele faz hoje.
-  - Isso conflita com "nenhuma outra edição muda". Recomendo usar uma regra separada: manter a de admin/coordenador como está, e só impedir o cancelamento para quem não tem a permissão. Posso ajustar o plano se você preferir.
+- **Quem perde edição (intencional)**: coordenador R+ e coordenador de logística deixam de editar chamados e visitas que não são deles. Editar fica só com admin e coordenador de serviços, conforme você confirmou.
 - **Aviso de segurança esperado**: a função gera o mesmo aviso de segurança padrão das anteriores. Ele é necessário para as regras funcionarem.
 
 ## Verificação
