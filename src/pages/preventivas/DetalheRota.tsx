@@ -47,6 +47,15 @@ import {
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
+import { XCircle } from 'lucide-react';
+import { CancelarVisitaDialog } from '@/components/preventivas/CancelarVisitaDialog';
+import { CancelarRotaDialog } from '@/components/preventivas/CancelarRotaDialog';
+import {
+  cancelPreventiveRoute,
+  cancelPreventiveRouteItem,
+  canDeleteRouteItem,
+  canDeleteRoute as canDeleteRouteByStatus,
+} from '@/lib/preventive-cancel';
 import {
   DndContext,
   closestCenter,
@@ -70,6 +79,7 @@ const routeStatusConfig = {
   planejada: { label: 'Planejada', color: 'bg-blue-500/10 text-blue-600 border-blue-500/20' },
   em_execucao: { label: 'Em Execução', color: 'bg-warning/10 text-warning border-warning/20' },
   finalizada: { label: 'Finalizada', color: 'bg-green-500/10 text-green-600 border-green-500/20' },
+  cancelada: { label: 'Cancelada', color: 'bg-destructive/10 text-destructive border-destructive/20' },
 };
 
 const itemStatusConfig = {
@@ -94,6 +104,8 @@ export default function DetalheRota() {
   const { canEdit, canDelete } = useMenuPermissions();
   const canEditRoute = canEdit('minhas_rotas_listagem');
   const canDeleteRoute = canDelete('minhas_rotas_listagem');
+  const [showCancelRoute, setShowCancelRoute] = useState(false);
+  const [itemToCancel, setItemToCancel] = useState<{ id: string; client_name: string } | null>(null);
 
 
   // Fetch route details
@@ -589,6 +601,32 @@ export default function DetalheRota() {
     },
   });
 
+  const cancelRoute = useMutation({
+    mutationFn: (justification: string) => cancelPreventiveRoute(id!, justification),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['preventive-route', id] });
+      queryClient.invalidateQueries({ queryKey: ['preventive-routes'] });
+      setShowCancelRoute(false);
+      toast({ title: 'Rota cancelada' });
+    },
+    onError: (error: Error) => {
+      toast({ variant: 'destructive', title: 'Erro ao cancelar rota', description: error.message });
+    },
+  });
+
+  const cancelItem = useMutation({
+    mutationFn: ({ itemId, justification }: { itemId: string; justification: string }) =>
+      cancelPreventiveRouteItem(itemId, justification),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['preventive-route', id] });
+      setItemToCancel(null);
+      toast({ title: 'Visita cancelada' });
+    },
+    onError: (error: Error) => {
+      toast({ variant: 'destructive', title: 'Erro ao cancelar visita', description: error.message });
+    },
+  });
+
   if (isLoading) {
     return (
       <div className="flex justify-center py-12">
@@ -657,7 +695,12 @@ export default function DetalheRota() {
                 Finalizar Rota
               </Button>
             )}
-            {canDeleteRoute && (
+            {canDeleteRoute && route.status !== 'cancelada' && !canDeleteRouteByStatus(route.status) && (
+              <Button variant="destructive" size="icon" title="Cancelar rota" onClick={() => setShowCancelRoute(true)}>
+                <XCircle className="h-4 w-4" />
+              </Button>
+            )}
+            {canDeleteRoute && canDeleteRouteByStatus(route.status) && (
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button variant="destructive" size="icon">
@@ -680,6 +723,20 @@ export default function DetalheRota() {
                 </AlertDialogContent>
               </AlertDialog>
             )}
+            <CancelarRotaDialog
+              open={showCancelRoute}
+              onOpenChange={setShowCancelRoute}
+              routeCode={route.route_code}
+              onConfirm={(j) => cancelRoute.mutate(j)}
+              isLoading={cancelRoute.isPending}
+            />
+            <CancelarVisitaDialog
+              open={!!itemToCancel}
+              onOpenChange={(o) => !o && !cancelItem.isPending && setItemToCancel(null)}
+              farmName={itemToCancel?.client_name || ''}
+              onConfirm={(j) => itemToCancel && cancelItem.mutate({ itemId: itemToCancel.id, justification: j })}
+              isLoading={cancelItem.isPending}
+            />
           </div>
         )}
       </div>
@@ -909,7 +966,18 @@ export default function DetalheRota() {
                       index={index}
                       isEditable={isEditable}
                       isAdminOrCoordinator={isAdminOrCoordinator}
-                      onRemove={(itemId) => removeRouteItem.mutate(itemId)}
+                      onRemove={(itemId) => {
+                        const it: any = route?.items.find((i: any) => i.id === itemId);
+                        if (it && !canDeleteRouteItem(it.status)) {
+                          if (it.status === 'cancelado') {
+                            toast({ title: 'Esta visita já está cancelada.' });
+                            return;
+                          }
+                          setItemToCancel({ id: it.id, client_name: it.client_name || it.clientes?.nome || '' });
+                          return;
+                        }
+                        removeRouteItem.mutate(itemId);
+                      }}
                       onStatusChange={(itemId, newStatus) => updateItemStatus.mutate({ itemId, newStatus })}
                       isUpdating={updateItemStatus.isPending}
                     />

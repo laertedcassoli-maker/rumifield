@@ -54,6 +54,8 @@ import type { DateRange } from 'react-day-picker';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
+import { CancelarVisitaDialog } from '@/components/preventivas/CancelarVisitaDialog';
+import { cancelPreventiveRouteItem, canDeleteRouteItem } from '@/lib/preventive-cancel';
 
 type TipoVisita = 'corretiva' | 'preventiva';
 type OwnerFilter = 'minhas' | 'todas';
@@ -168,6 +170,7 @@ export default function VisitaTecnica() {
   const queryClient = useQueryClient();
   const podeGerenciarVisita = role === 'admin' || role === 'coordenador_servicos';
   const [visitaParaExcluir, setVisitaParaExcluir] = useState<VisitaItem | null>(null);
+  const [visitaParaCancelar, setVisitaParaCancelar] = useState<VisitaItem | null>(null);
   const [visitaParaEditar, setVisitaParaEditar] = useState<VisitaItem | null>(null);
 
   const { toast } = useToast();
@@ -344,6 +347,20 @@ export default function VisitaTecnica() {
         description: err?.message || 'Tente novamente.',
         variant: 'destructive',
       });
+    },
+  });
+
+  // Visita preventiva já executada: cancela (mantém registro) em vez de excluir
+  const cancelVisitaMutation = useMutation({
+    mutationFn: ({ id, justification }: { id: string; justification: string }) =>
+      cancelPreventiveRouteItem(id, justification),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['visita-tecnica'] });
+      setVisitaParaCancelar(null);
+      toast({ title: 'Visita cancelada' });
+    },
+    onError: (err: any) => {
+      toast({ title: 'Erro ao cancelar visita', description: err?.message || 'Tente novamente.', variant: 'destructive' });
     },
   });
 
@@ -766,13 +783,26 @@ export default function VisitaTecnica() {
                             >
                               <Pencil className="h-4 w-4" />
                             </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setVisitaParaExcluir(v)}
-                            >
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
+                            {v.tipo === 'preventiva' && !canDeleteRouteItem(v.status) ? (
+                              v.status !== 'cancelado' && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  title="Cancelar visita"
+                                  onClick={() => setVisitaParaCancelar(v)}
+                                >
+                                  <XCircle className="h-4 w-4 text-destructive" />
+                                </Button>
+                              )
+                            ) : (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setVisitaParaExcluir(v)}
+                              >
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                            )}
                           </>
                         )}
                       </div>
@@ -833,6 +863,14 @@ export default function VisitaTecnica() {
           checklistTemplateId={visitaParaEditar.checklistTemplateId ?? null}
         />
       )}
+
+      <CancelarVisitaDialog
+        open={!!visitaParaCancelar}
+        onOpenChange={(open) => !open && !cancelVisitaMutation.isPending && setVisitaParaCancelar(null)}
+        farmName={visitaParaCancelar?.clienteNome || ''}
+        onConfirm={(j) => visitaParaCancelar && cancelVisitaMutation.mutate({ id: visitaParaCancelar.id, justification: j })}
+        isLoading={cancelVisitaMutation.isPending}
+      />
 
       <AlertDialog open={!!visitaParaExcluir} onOpenChange={(open) => !open && setVisitaParaExcluir(null)}>
         <AlertDialogContent>
