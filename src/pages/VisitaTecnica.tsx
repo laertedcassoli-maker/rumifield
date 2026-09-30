@@ -54,6 +54,9 @@ import type { DateRange } from 'react-day-picker';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
+import { XCircle } from 'lucide-react';
+import { CancelarVisitaDialog } from '@/components/preventivas/CancelarVisitaDialog';
+import { cancelPreventiveRouteItem, canDeleteRouteItem } from '@/lib/preventive-cancel';
 
 type TipoVisita = 'corretiva' | 'preventiva';
 type OwnerFilter = 'minhas' | 'todas';
