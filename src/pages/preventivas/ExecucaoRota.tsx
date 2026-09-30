@@ -41,6 +41,8 @@ import { ptBR } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
 import { CheckinDialog } from '@/components/preventivas/CheckinDialog';
 import { CancelarVisitaDialog } from '@/components/preventivas/CancelarVisitaDialog';
+import { CancelarRotaDialog } from '@/components/preventivas/CancelarRotaDialog';
+import { cancelPreventiveRoute, canDeleteRoute as canDeleteRouteByStatus } from '@/lib/preventive-cancel';
 import { useOfflineQuery } from '@/hooks/useOfflineQuery';
 import { offlineDb } from '@/lib/offline-db';
 
@@ -118,6 +120,7 @@ export default function ExecucaoRota() {
   const [checkinItem, setCheckinItem] = useState<RouteItem | null>(null);
   const [cancelItem, setCancelItem] = useState<RouteItem | null>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showCancelRoute, setShowCancelRoute] = useState(false);
 
   const isAdminOrCoordinator = role === 'admin' || role === 'coordenador_servicos';
 
@@ -381,6 +384,22 @@ export default function ExecucaoRota() {
     },
   });
 
+  const cancelRouteMutation = useMutation({
+    mutationFn: (justification: string) => cancelPreventiveRoute(id!, justification),
+    onSuccess: () => {
+      toast({ title: 'Rota cancelada' });
+      setShowCancelRoute(false);
+      queryClient.invalidateQueries({ queryKey: ['my-preventive-routes'] });
+      queryClient.invalidateQueries({ queryKey: ['route-execution', id] });
+      queryClient.invalidateQueries({ queryKey: ['route-execution-items', id] });
+      refetchRouteOffline();
+      refetchItemsOffline();
+    },
+    onError: (err: Error) => {
+      toast({ title: 'Erro ao cancelar rota', description: err.message, variant: 'destructive' });
+    },
+  });
+
   const cancelMutation = useMutation({
     mutationFn: async ({ itemId, clientId, justification }: { itemId: string; clientId: string; justification: string }) => {
       // 1. ALWAYS save locally first (instant)
@@ -546,15 +565,15 @@ export default function ExecucaoRota() {
               </span>
             </div>
           </div>
-          {canDeleteRoute && (
+          {canDeleteRoute && route?.status !== 'cancelada' && (
             <Button
               variant="outline"
               size="sm"
               className="shrink-0 text-destructive hover:text-destructive border-destructive/40 hover:bg-destructive/10"
-              onClick={() => setShowDeleteDialog(true)}
+              onClick={() => canDeleteRouteByStatus(route?.status) ? setShowDeleteDialog(true) : setShowCancelRoute(true)}
             >
               <Trash2 className="h-4 w-4 mr-1.5" />
-              Excluir Rota
+              {canDeleteRouteByStatus(route?.status) ? 'Excluir Rota' : 'Cancelar Rota'}
             </Button>
           )}
         </div>
@@ -826,6 +845,14 @@ export default function ExecucaoRota() {
         farmFazenda={cancelItem?.client_fazenda || undefined}
         onConfirm={handleCancelConfirm}
         isLoading={cancelMutation.isPending}
+      />
+
+      <CancelarRotaDialog
+        open={showCancelRoute}
+        onOpenChange={setShowCancelRoute}
+        routeCode={route?.route_code}
+        onConfirm={(j) => cancelRouteMutation.mutate(j)}
+        isLoading={cancelRouteMutation.isPending}
       />
 
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
