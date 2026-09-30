@@ -2048,6 +2048,7 @@ export type Database = {
           approved_by: string | null
           aprovacao_data_fim: string | null
           aprovacao_data_inicio: string | null
+          arquivado: boolean
           checklist_template_id: string | null
           created_at: string
           csm_user_id: string | null
@@ -2083,6 +2084,7 @@ export type Database = {
           approved_by?: string | null
           aprovacao_data_fim?: string | null
           aprovacao_data_inicio?: string | null
+          arquivado?: boolean
           checklist_template_id?: string | null
           created_at?: string
           csm_user_id?: string | null
@@ -2118,6 +2120,7 @@ export type Database = {
           approved_by?: string | null
           aprovacao_data_fim?: string | null
           aprovacao_data_inicio?: string | null
+          arquivado?: boolean
           checklist_template_id?: string | null
           created_at?: string
           csm_user_id?: string | null
@@ -2606,6 +2609,7 @@ export type Database = {
         Row: {
           anexo_postagem_path: string | null
           anexo_rastreio_path: string | null
+          arquivado: boolean
           cliente_id: string
           codigo_postagem: string | null
           codigo_rastreio: string | null
@@ -2640,6 +2644,7 @@ export type Database = {
         Insert: {
           anexo_postagem_path?: string | null
           anexo_rastreio_path?: string | null
+          arquivado?: boolean
           cliente_id: string
           codigo_postagem?: string | null
           codigo_rastreio?: string | null
@@ -2674,6 +2679,7 @@ export type Database = {
         Update: {
           anexo_postagem_path?: string | null
           anexo_rastreio_path?: string | null
+          arquivado?: boolean
           cliente_id?: string
           codigo_postagem?: string | null
           codigo_rastreio?: string | null
@@ -2995,6 +3001,7 @@ export type Database = {
       }
       preventive_maintenance: {
         Row: {
+          arquivado: boolean
           client_id: string
           completed_date: string | null
           created_at: string
@@ -3010,6 +3017,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          arquivado?: boolean
           client_id: string
           completed_date?: string | null
           created_at?: string
@@ -3025,6 +3033,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          arquivado?: boolean
           client_id?: string
           completed_date?: string | null
           created_at?: string
@@ -3148,6 +3157,7 @@ export type Database = {
       }
       preventive_route_items: {
         Row: {
+          arquivado: boolean
           checkin_at: string | null
           checkin_lat: number | null
           checkin_lon: number | null
@@ -3162,6 +3172,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          arquivado?: boolean
           checkin_at?: string | null
           checkin_lat?: number | null
           checkin_lon?: number | null
@@ -3176,6 +3187,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          arquivado?: boolean
           checkin_at?: string | null
           checkin_lat?: number | null
           checkin_lon?: number | null
@@ -3215,6 +3227,7 @@ export type Database = {
       }
       preventive_routes: {
         Row: {
+          arquivado: boolean
           checklist_template_id: string | null
           created_at: string
           created_by_user_id: string
@@ -3228,6 +3241,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          arquivado?: boolean
           checklist_template_id?: string | null
           created_at?: string
           created_by_user_id: string
@@ -3241,6 +3255,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          arquivado?: boolean
           checklist_template_id?: string | null
           created_at?: string
           created_by_user_id?: string
@@ -3587,6 +3602,7 @@ export type Database = {
       }
       technical_tickets: {
         Row: {
+          arquivado: boolean
           assigned_technician_id: string | null
           category_id: string | null
           client_id: string
@@ -3606,6 +3622,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          arquivado?: boolean
           assigned_technician_id?: string | null
           category_id?: string | null
           client_id: string
@@ -3625,6 +3642,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          arquivado?: boolean
           assigned_technician_id?: string | null
           category_id?: string | null
           client_id?: string
@@ -3959,6 +3977,7 @@ export type Database = {
       }
       ticket_visits: {
         Row: {
+          arquivado: boolean
           checkin_at: string | null
           checkin_lat: number | null
           checkin_lon: number | null
@@ -3982,6 +4001,7 @@ export type Database = {
           visit_summary: string | null
         }
         Insert: {
+          arquivado?: boolean
           checkin_at?: string | null
           checkin_lat?: number | null
           checkin_lon?: number | null
@@ -4005,6 +4025,7 @@ export type Database = {
           visit_summary?: string | null
         }
         Update: {
+          arquivado?: boolean
           checkin_at?: string | null
           checkin_lat?: number | null
           checkin_lon?: number | null
@@ -4658,6 +4679,7 @@ export type Database = {
       work_orders: {
         Row: {
           activity_id: string
+          arquivado: boolean
           assigned_to_user_id: string | null
           cliente_id: string | null
           code: string
@@ -4674,6 +4696,7 @@ export type Database = {
         }
         Insert: {
           activity_id: string
+          arquivado?: boolean
           assigned_to_user_id?: string | null
           cliente_id?: string | null
           code: string
@@ -4690,6 +4713,7 @@ export type Database = {
         }
         Update: {
           activity_id?: string
+          arquivado?: boolean
           assigned_to_user_id?: string | null
           cliente_id?: string | null
           code?: string
@@ -5031,6 +5055,7 @@ export type Database = {
         | "enviado"
         | "entregue"
         | "pendente"
+        | "cancelado"
       preventive_maintenance_status: "planejada" | "concluida" | "cancelada"
       preventive_route_item_status:
         | "planejado"
@@ -5042,6 +5067,7 @@ export type Database = {
         | "planejada"
         | "em_execucao"
         | "finalizada"
+        | "cancelada"
       product_code:
         | "ideagri"
         | "rumiflow"
@@ -5064,7 +5090,11 @@ export type Database = {
         | "cancelada"
       time_entry_status: "running" | "paused" | "finished"
       visit_result: "resolvido" | "parcial" | "aguardando_peca"
-      work_order_status: "aguardando" | "em_manutencao" | "concluido"
+      work_order_status:
+        | "aguardando"
+        | "em_manutencao"
+        | "concluido"
+        | "cancelada"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -5231,6 +5261,7 @@ export const Constants = {
         "enviado",
         "entregue",
         "pendente",
+        "cancelado",
       ],
       preventive_maintenance_status: ["planejada", "concluida", "cancelada"],
       preventive_route_item_status: [
@@ -5244,6 +5275,7 @@ export const Constants = {
         "planejada",
         "em_execucao",
         "finalizada",
+        "cancelada",
       ],
       product_code: ["ideagri", "rumiflow", "onfarm", "rumiaction", "insights"],
       proposal_status: ["ativa", "expirada", "aceita", "recusada"],
@@ -5264,7 +5296,12 @@ export const Constants = {
       ],
       time_entry_status: ["running", "paused", "finished"],
       visit_result: ["resolvido", "parcial", "aguardando_peca"],
-      work_order_status: ["aguardando", "em_manutencao", "concluido"],
+      work_order_status: [
+        "aguardando",
+        "em_manutencao",
+        "concluido",
+        "cancelada",
+      ],
     },
   },
 } as const
