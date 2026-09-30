@@ -951,7 +951,7 @@ export default function DetalheRota() {
                   <TableHead>Localização</TableHead>
                   <TableHead>Data Realizada</TableHead>
                   <TableHead>Status</TableHead>
-                  {isAdminOrCoordinator && <TableHead className="text-right">Ações</TableHead>}
+                  {canDeleteRoute && <TableHead className="text-right">Ações</TableHead>}
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -965,7 +965,7 @@ export default function DetalheRota() {
                       item={item}
                       index={index}
                       isEditable={isEditable}
-                      isAdminOrCoordinator={isAdminOrCoordinator}
+                      isAdminOrCoordinator={canDeleteRoute}
                       onRemove={(itemId) => {
                         const it: any = route?.items.find((i: any) => i.id === itemId);
                         if (it && !canDeleteRouteItem(it.status)) {

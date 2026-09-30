@@ -1,3 +1,4 @@
+import { useMenuPermissions } from '@/hooks/useMenuPermissions';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -168,7 +169,8 @@ export default function VisitaTecnica() {
   const navigate = useNavigate();
   const { role, user } = useAuth();
   const queryClient = useQueryClient();
-  const podeGerenciarVisita = role === 'admin' || role === 'coordenador_servicos';
+  const { canDelete: canDeleteMenu } = useMenuPermissions();
+  const podeGerenciarVisita = canDeleteMenu('minhas_rotas_listagem');
   const [visitaParaExcluir, setVisitaParaExcluir] = useState<VisitaItem | null>(null);
   const [visitaParaCancelar, setVisitaParaCancelar] = useState<VisitaItem | null>(null);
   const [visitaParaEditar, setVisitaParaEditar] = useState<VisitaItem | null>(null);
