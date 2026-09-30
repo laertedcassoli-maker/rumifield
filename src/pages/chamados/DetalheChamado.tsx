@@ -578,7 +578,6 @@ export default function DetalheChamado() {
   };
 
   // Exclusão do chamado — restrita a admin e coordenador de serviços
-  const podeExcluirChamado = role === 'admin' || role === 'coordenador_servicos';
 
   const deleteTicketMutation = useMutation({
     mutationFn: async (reason?: string): Promise<'deleted' | 'cancelled'> => {
@@ -687,7 +686,7 @@ export default function DetalheChamado() {
               Agendar Visita
             </Button>
           )}
-          {podeExcluirChamado && !isEditMode && ticket?.status !== 'cancelado' && (
+          {canDeleteTicket && !isEditMode && ticket?.status !== 'cancelado' && (
             <Button
               variant="outline"
               className="text-destructive hover:text-destructive border-destructive/40 hover:bg-destructive/10"
