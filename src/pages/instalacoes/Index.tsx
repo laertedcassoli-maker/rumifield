@@ -1,3 +1,4 @@
+import { useMenuPermissions } from '@/hooks/useMenuPermissions';
 import { useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -98,7 +99,8 @@ export default function InstalacoesIndex() {
   const isTecnicoCampo = role === 'tecnico_campo';
   const canManage = !isTecnicoCampo;
   // Exclusão por etapa (adicional à exclusão da instalação inteira)
-  const podeExcluirEtapaInstalacao = role === 'admin' || role === 'coordenador_servicos';
+  const { canDelete: canDeleteMenu } = useMenuPermissions();
+  const podeExcluirEtapaInstalacao = canDeleteMenu('instalacoes');
   const podeGerenciarPreInstalacao =
     role === 'admin' ||
     role === 'coordenador_servicos' ||
@@ -628,7 +630,7 @@ export default function InstalacoesIndex() {
                         {inst.status === 'concluido' ? 'Concluída' : 'Em Andamento'}
                       </Badge>
                     )}
-                    {canManage && inst.status !== 'cancelado' && (
+                    {podeExcluirEtapaInstalacao && inst.status !== 'cancelado' && (
                       <Button
                         size="icon"
                         variant="ghost"
