@@ -94,6 +94,8 @@ export default function DetalheRota() {
   const { canEdit, canDelete } = useMenuPermissions();
   const canEditRoute = canEdit('minhas_rotas_listagem');
   const canDeleteRoute = canDelete('minhas_rotas_listagem');
+  const [showCancelRoute, setShowCancelRoute] = useState(false);
+  const [itemToCancel, setItemToCancel] = useState<{ id: string; client_name: string } | null>(null);
 
 
   // Fetch route details
@@ -589,6 +591,32 @@ export default function DetalheRota() {
     },
   });
 
+  const cancelRoute = useMutation({
+    mutationFn: (justification: string) => cancelPreventiveRoute(id!, justification),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['preventive-route', id] });
+      queryClient.invalidateQueries({ queryKey: ['preventive-routes'] });
+      setShowCancelRoute(false);
+      toast({ title: 'Rota cancelada' });
+    },
+    onError: (error: Error) => {
+      toast({ variant: 'destructive', title: 'Erro ao cancelar rota', description: error.message });
+    },
+  });
+
+  const cancelItem = useMutation({
+    mutationFn: ({ itemId, justification }: { itemId: string; justification: string }) =>
+      cancelPreventiveRouteItem(itemId, justification),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['preventive-route', id] });
+      setItemToCancel(null);
+      toast({ title: 'Visita cancelada' });
+    },
+    onError: (error: Error) => {
+      toast({ variant: 'destructive', title: 'Erro ao cancelar visita', description: error.message });
+    },
+  });
+
   if (isLoading) {
     return (
       <div className="flex justify-center py-12">
@@ -657,7 +685,12 @@ export default function DetalheRota() {
                 Finalizar Rota
               </Button>
             )}
-            {canDeleteRoute && (
+            {canDeleteRoute && route.status !== 'cancelada' && !canDeleteRouteByStatus(route.status) && (
+              <Button variant="destructive" size="icon" title="Cancelar rota" onClick={() => setShowCancelRoute(true)}>
+                <XCircle className="h-4 w-4" />
+              </Button>
+            )}
+            {canDeleteRoute && canDeleteRouteByStatus(route.status) && (
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button variant="destructive" size="icon">
@@ -680,6 +713,20 @@ export default function DetalheRota() {
                 </AlertDialogContent>
               </AlertDialog>
             )}
+            <CancelarRotaDialog
+              open={showCancelRoute}
+              onOpenChange={setShowCancelRoute}
+              routeCode={route.route_code}
+              onConfirm={(j) => cancelRoute.mutate(j)}
+              isLoading={cancelRoute.isPending}
+            />
+            <CancelarVisitaDialog
+              open={!!itemToCancel}
+              onOpenChange={(o) => !o && !cancelItem.isPending && setItemToCancel(null)}
+              farmName={itemToCancel?.client_name || ''}
+              onConfirm={(j) => itemToCancel && cancelItem.mutate({ itemId: itemToCancel.id, justification: j })}
+              isLoading={cancelItem.isPending}
+            />
           </div>
         )}
       </div>
