@@ -10,6 +10,8 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
+import { CancelReasonDialog } from '@/components/chamados/CancelReasonDialog';
+import { canHardDeleteTicket, cancelTicket } from '@/lib/corrective-cancel';
 import { Checkbox } from '@/components/ui/checkbox';
 import { 
   ArrowLeft, 
@@ -579,7 +581,11 @@ export default function DetalheChamado() {
   const podeExcluirChamado = role === 'admin' || role === 'coordenador_servicos';
 
   const deleteTicketMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (reason?: string): Promise<'deleted' | 'cancelled'> => {
+      if (!canHardDeleteTicket(ticket?.status)) {
+        await cancelTicket(id!, reason ?? '', user!.id);
+        return 'cancelled';
+      }
       const { data, error } = await supabase
         .from('technical_tickets')
         .delete()
@@ -589,15 +595,22 @@ export default function DetalheChamado() {
       if (!data || data.length === 0) {
         throw new Error('A exclusão não foi confirmada pelo servidor. Verifique suas permissões.');
       }
+      return 'deleted';
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['technical-tickets'] });
-      toast({ title: 'Chamado excluído com sucesso!' });
       setShowDeleteTicket(false);
+      if (result === 'cancelled') {
+        queryClient.invalidateQueries({ queryKey: ['ticket', id] });
+        queryClient.invalidateQueries({ queryKey: ['ticket-timeline', id] });
+        toast({ title: 'Chamado cancelado.' });
+        return;
+      }
+      toast({ title: 'Chamado excluído com sucesso!' });
       navigate('/chamados');
     },
     onError: (error: Error) => {
-      toast({ variant: 'destructive', title: 'Erro ao excluir chamado', description: error.message });
+      toast({ variant: 'destructive', title: 'Erro ao excluir/cancelar chamado', description: error.message });
     },
   });
 
@@ -674,14 +687,14 @@ export default function DetalheChamado() {
               Agendar Visita
             </Button>
           )}
-          {podeExcluirChamado && !isEditMode && (
+          {podeExcluirChamado && !isEditMode && ticket?.status !== 'cancelado' && (
             <Button
               variant="outline"
               className="text-destructive hover:text-destructive border-destructive/40 hover:bg-destructive/10"
               onClick={() => setShowDeleteTicket(true)}
             >
               <Trash2 className="mr-2 h-4 w-4" />
-              Excluir Chamado
+              {canHardDeleteTicket(ticket?.status) ? 'Excluir Chamado' : 'Cancelar chamado'}
             </Button>
           )}
         </div>
@@ -1224,7 +1237,7 @@ export default function DetalheChamado() {
       />
 
       {/* Excluir Chamado */}
-      <AlertDialog open={showDeleteTicket} onOpenChange={setShowDeleteTicket}>
+      <AlertDialog open={showDeleteTicket && canHardDeleteTicket(ticket?.status)} onOpenChange={setShowDeleteTicket}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir este chamado?</AlertDialogTitle>
@@ -1239,7 +1252,7 @@ export default function DetalheChamado() {
               disabled={deleteTicketMutation.isPending}
               onClick={(e) => {
                 e.preventDefault();
-                deleteTicketMutation.mutate();
+                deleteTicketMutation.mutate(undefined);
               }}
             >
               Excluir
@@ -1247,6 +1260,14 @@ export default function DetalheChamado() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <CancelReasonDialog
+        open={showDeleteTicket && !canHardDeleteTicket(ticket?.status)}
+        onOpenChange={setShowDeleteTicket}
+        title="Cancelar chamado?"
+        description="O chamado ficará como Cancelado e continuará no histórico. O motivo será registrado na linha do tempo."
+        pending={deleteTicketMutation.isPending}
+        onConfirm={(reason) => deleteTicketMutation.mutate(reason)}
+      />
     </div>
   );
 }
