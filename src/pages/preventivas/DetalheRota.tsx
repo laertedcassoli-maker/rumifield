@@ -47,6 +47,15 @@ import {
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
+import { XCircle } from 'lucide-react';
+import { CancelarVisitaDialog } from '@/components/preventivas/CancelarVisitaDialog';
+import { CancelarRotaDialog } from '@/components/preventivas/CancelarRotaDialog';
+import {
+  cancelPreventiveRoute,
+  cancelPreventiveRouteItem,
+  canDeleteRouteItem,
+  canDeleteRoute as canDeleteRouteByStatus,
+} from '@/lib/preventive-cancel';
 import {
   DndContext,
   closestCenter,
@@ -956,7 +965,18 @@ export default function DetalheRota() {
                       index={index}
                       isEditable={isEditable}
                       isAdminOrCoordinator={isAdminOrCoordinator}
-                      onRemove={(itemId) => removeRouteItem.mutate(itemId)}
+                      onRemove={(itemId) => {
+                        const it: any = route?.items.find((i: any) => i.id === itemId);
+                        if (it && !canDeleteRouteItem(it.status)) {
+                          if (it.status === 'cancelado') {
+                            toast({ title: 'Esta visita já está cancelada.' });
+                            return;
+                          }
+                          setItemToCancel({ id: it.id, client_name: it.client_name || it.clientes?.nome || '' });
+                          return;
+                        }
+                        removeRouteItem.mutate(itemId);
+                      }}
                       onStatusChange={(itemId, newStatus) => updateItemStatus.mutate({ itemId, newStatus })}
                       isUpdating={updateItemStatus.isPending}
                     />
