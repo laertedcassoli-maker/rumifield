@@ -157,6 +157,8 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
   const { canEdit: canEditMenu, canDelete: canDeleteMenu, isLoading: permissionsLoading } = useMenuPermissions();
   const canEditOS = canEditMenu('oficina_os') || canEditMenu('oficina');
   const canDeleteOS = !permissionsLoading && canDeleteMenu('oficina_os');
+  // OS concluída ou cancelada fica somente leitura
+  const isClosedOS = workOrder.status === 'concluido' || workOrder.status === 'cancelada';
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const queryClient = useQueryClient();
   const [elapsedTime, setElapsedTime] = useState(workOrder.total_time_seconds);
@@ -1243,7 +1245,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
   // reopened before completion): the saved part is the source of truth for the
   // replacement branch in completeOSMutation, so the toggle must reflect it.
   useEffect(() => {
-    if (workOrder.status === 'concluido') return;
+    if (isClosedOS) return;
     if (!motorPartInThisOS) {
       // Motor part was removed: revert UI to the "no replacement" state so
       // motorCodeConfirm (persisted on completion in this branch) doesn't keep
@@ -1266,7 +1268,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
   // Restore the "damaged meter" flag when an unfinished OS is reopened
   const persistedMeterDamaged = workOrderItems.find(item => item.workshop_item_id)?.meter_damaged ?? false;
   useEffect(() => {
-    if (workOrder.status === 'concluido') return;
+    if (isClosedOS) return;
     if (persistedMeterDamaged) {
       setMeterDamaged(true);
       setMeterHoursCurrent('0');
@@ -1286,6 +1288,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
     aguardando: 'Aguardando',
     em_manutencao: 'Em Manutenção',
     concluido: 'Concluído',
+    cancelada: 'Cancelada',
   };
 
   const univocaItem = workOrderItems.find(item => item.workshop_item_id);
@@ -1431,7 +1434,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
                         <span className="font-mono text-3xl">{formatTime(currentSessionTime)}</span>
                         <p className="text-xs text-muted-foreground mt-0.5">sessão atual</p>
                       </div>
-                      {workOrder.status !== 'concluido' && (
+                      {!isClosedOS && (
                         <Button
                           size="sm"
                           variant="destructive"
@@ -1453,7 +1456,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
                       <span className="font-mono text-3xl">{formatTime(elapsedTime)}</span>
                       <p className="text-xs text-muted-foreground mt-0.5">total</p>
                     </div>
-                    {workOrder.status !== 'concluido' && (
+                    {!isClosedOS && (
                       // FIX 7: Double-click guard on Play
                       <Button
                         size="sm"
@@ -1606,7 +1609,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
                     <span className={`text-muted-foreground ${meterHoursError ? 'text-destructive font-medium' : ''}`}>
                       Atual: {!meterDamaged && <span className="text-destructive">*</span>}
                     </span>
-                    {workOrder.status !== 'concluido' ? (
+                    {!isClosedOS ? (
                       <Input
                         id="meter-hours-input"
                         type="number"
@@ -1640,7 +1643,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
                 </div>
 
                 {/* Damaged meter flag */}
-                {workOrder.status !== 'concluido' ? (
+                {!isClosedOS ? (
                   <label
                     htmlFor="meter-damaged-checkbox"
                     className="flex items-center gap-2 cursor-pointer text-sm"
@@ -1666,7 +1669,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
                 ) : null}
 
                 {/* Motor code confirmation - required */}
-                {workOrder.status !== 'concluido' && univocaItem?.workshop_item_id && !currentMotorCode && (
+                {!isClosedOS && univocaItem?.workshop_item_id && !currentMotorCode && (
                   <div className="pt-2 border-t space-y-1">
                     <span className={`text-sm ${motorCodeConfirmError ? 'text-destructive font-medium' : 'text-muted-foreground'}`}>
                       Nº Motor Atual: {!isEstoqueInterno && <span className="text-destructive">*</span>}
@@ -1694,7 +1697,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
                 )}
 
                 {/* Motor replacement toggle - only when not completed */}
-                {workOrder.status !== 'concluido' && (
+                {!isClosedOS && (
                   <div 
                     className={`mt-3 p-2 border rounded cursor-pointer transition-colors ${
                       isMotorReplacement 
@@ -1755,7 +1758,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
                     <Badge variant="secondary" className="text-xs font-mono">{partsUsed.length}</Badge>
                   )}
                 </p>
-                {workOrder.status !== 'concluido' && (
+                {!isClosedOS && (
                   <Button 
                     size="sm" 
                     onClick={() => setAddPartDialogOpen(true)}
@@ -1882,7 +1885,7 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
             
 
             {/* Complete Section */}
-            {workOrder.status !== 'concluido' && (
+            {!isClosedOS && (
               <div className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="completion-notes" className="text-sm text-muted-foreground">
