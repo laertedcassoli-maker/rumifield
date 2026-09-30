@@ -3,6 +3,12 @@ import { offlineChecklistDb, type OfflineChecklistItemPhoto } from '@/lib/offlin
 
 const BUCKET = 'preventive-media';
 const TIMEOUT_MS = 15_000;
+export const MAX_ITEM_PHOTOS = 5;
+
+export const PHOTO_TABLE: Record<OfflineChecklistItemPhoto['table'], string> = {
+  preventive_checklist_items: 'preventive_checklist_item_photos',
+  installation_checklist_items: 'installation_checklist_item_photos',
+};
 
 function withTimeout<T>(p: PromiseLike<T>, label: string): Promise<T> {
   return Promise.race([
@@ -11,34 +17,40 @@ function withTimeout<T>(p: PromiseLike<T>, label: string): Promise<T> {
   ]);
 }
 
-/** Envia a foto local de um item. Retorna true se enviou (ou não havia nada). */
+const photos = () => offlineChecklistDb.checklistItemPhotosV2;
+
+/** Envia todas as fotos locais de um item. Retorna true se não sobrou nenhuma pendente. */
 export async function syncItemPhoto(itemId: string): Promise<boolean> {
-  const rec = await offlineChecklistDb.checklistItemPhotos.get(itemId);
-  if (!rec) return true;
+  const recs = await photos().where('itemId').equals(itemId).toArray();
+  if (!recs.length) return true;
   if (!navigator.onLine) return false;
-  try {
-    await uploadRecord(rec);
-    // Só apaga se o registro não foi trocado durante o envio
-    const current = await offlineChecklistDb.checklistItemPhotos.get(itemId);
-    if (current && current.createdAt === rec.createdAt) {
-      await offlineChecklistDb.checklistItemPhotos.delete(itemId);
+  let ok = true;
+  for (const rec of recs) {
+    try {
+      await uploadRecord(rec);
+      await photos().delete(rec.localId!);
+    } catch (e) {
+      console.error('[item-photo-sync]', e);
+      ok = false;
     }
-    return true;
-  } catch (e) {
-    console.error('[item-photo-sync]', e);
-    return false;
   }
+  return ok;
 }
 
 async function uploadRecord(rec: OfflineChecklistItemPhoto) {
-  const path = `${rec.userId}/checklist-items/${rec.id}.${rec.ext}`;
+  const stamp = new Date(rec.createdAt).getTime();
+  const path = `${rec.userId}/checklist-items/${rec.itemId}/${rec.localId}-${stamp}.${rec.ext}`;
   const { error: upErr } = await withTimeout(
     supabase.storage.from(BUCKET).upload(path, rec.blob, { contentType: rec.mimeType, upsert: true }),
     'envio da foto',
   );
   if (upErr) throw upErr;
+  const sb = supabase as any;
+  // Evita duplicar a linha se uma tentativa anterior já gravou
+  const { data: existing } = await sb.from(PHOTO_TABLE[rec.table]).select('id').eq('item_id', rec.itemId).eq('photo_path', path);
+  if (existing?.length) return;
   const { data, error } = await withTimeout(
-    (supabase as any).from(rec.table).update({ photo_path: path }).eq('id', rec.id).select('id'),
+    sb.from(PHOTO_TABLE[rec.table]).insert({ item_id: rec.itemId, photo_path: path, created_by_user_id: rec.userId }).select('id'),
     'gravação da foto',
   ) as { data: any[] | null; error: any };
   if (error) throw error;
@@ -53,9 +65,9 @@ export async function syncPendingItemPhotos(itemIds?: string[]): Promise<void> {
   if (running) await running;
   running = (async () => {
     const all = itemIds
-      ? (await offlineChecklistDb.checklistItemPhotos.bulkGet(itemIds)).filter(Boolean) as OfflineChecklistItemPhoto[]
-      : await offlineChecklistDb.checklistItemPhotos.toArray();
-    for (const rec of all) await syncItemPhoto(rec.id);
+      ? await photos().where('itemId').anyOf(itemIds).toArray()
+      : await photos().toArray();
+    for (const id of [...new Set(all.map(r => r.itemId))]) await syncItemPhoto(id);
   })();
   try {
     await running;

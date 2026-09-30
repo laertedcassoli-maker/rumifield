@@ -176,9 +176,10 @@ export interface OfflineTrainingTemplate {
   _cachedAt: string;
 }
 
-/** Foto obrigatória de item de checklist capturada no aparelho, aguardando envio */
+/** Foto de item de checklist capturada no aparelho, aguardando envio */
 export interface OfflineChecklistItemPhoto {
-  id: string; // id do item do checklist
+  localId?: number;
+  itemId: string; // id do item do checklist
   table: 'preventive_checklist_items' | 'installation_checklist_items';
   blob: Blob;
   mimeType: string;
@@ -189,7 +190,7 @@ export interface OfflineChecklistItemPhoto {
 }
 
 class OfflineChecklistDatabase extends Dexie {
-  checklistItemPhotos!: Table<OfflineChecklistItemPhoto, string>;
+  checklistItemPhotosV2!: Table<OfflineChecklistItemPhoto, number>;
   checklistItems!: Table<OfflineChecklistItem, string>;
   checklistActions!: Table<OfflineChecklistAction, string>;
   checklistNonconformities!: Table<OfflineChecklistNonconformity, string>;
@@ -271,6 +272,25 @@ class OfflineChecklistDatabase extends Dexie {
     // Version 8: fotos obrigatórias por item capturadas offline
     this.version(8).stores({
       checklistItemPhotos: "id, table, _pendingSync",
+    });
+
+    // Version 9: várias fotos por item (chave auto-incremento, indexado por itemId)
+    this.version(9)
+      .stores({
+        checklistItemPhotosV2: "++localId, itemId, table, _pendingSync",
+      })
+      .upgrade(async tx => {
+        const old = await tx.table('checklistItemPhotos').toArray();
+        const target = tx.table('checklistItemPhotosV2');
+        for (const r of old as any[]) {
+          const { id, ...rest } = r;
+          await target.add({ ...rest, itemId: id });
+        }
+      });
+
+    // Version 10: remove a tabela antiga de foto única
+    this.version(10).stores({
+      checklistItemPhotos: null,
     });
   }
 
