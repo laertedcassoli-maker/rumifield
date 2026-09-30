@@ -99,6 +99,18 @@ const groupActionColumns: Record<string, Array<{ key: keyof Permission; label: s
   ],
 };
 
+// Colunas extras por menu específico (quando o grupo inteiro não deve ganhar a coluna)
+const menuExtraColumns: Record<string, Array<{ key: keyof Permission; label: string }>> = {
+  instalacoes: [{ key: 'can_delete', label: 'Excluir' }],
+};
+
+const columnsFor = (group: string, perms: Permission[]) => {
+  const base = groupActionColumns[group] || [];
+  const extras = perms.flatMap(p => menuExtraColumns[p.menu_key] || []);
+  const seen = new Set(base.map(c => c.key));
+  return [...base, ...extras.filter(c => (seen.has(c.key) ? false : (seen.add(c.key), true)))];
+};
+
 
 export default function AdminPermissoes() {
   const { role: currentUserRole } = useAuth();
@@ -298,7 +310,7 @@ export default function AdminPermissoes() {
                               <TableRow>
                                 <TableHead>Menu</TableHead>
                                 <TableHead className="w-20 text-center">Acesso</TableHead>
-                                {(groupActionColumns[group] || []).map(col => (
+                                {columnsFor(group, perms).map(col => (
                                   <TableHead key={col.key} className="w-28 text-center">{col.label}</TableHead>
                                 ))}
                                 <TableHead className="w-24 text-center">Exportar</TableHead>
@@ -315,7 +327,10 @@ export default function AdminPermissoes() {
                                       disabled={updatePermission.isPending || (role === 'admin' && perm.menu_key === 'admin_permissoes')}
                                     />
                                   </TableCell>
-                                  {(groupActionColumns[group] || []).map(col => {
+                                  {columnsFor(group, perms).map(col => {
+                                    const isGroupCol = (groupActionColumns[group] || []).some(c => c.key === col.key);
+                                    const isExtraForThis = (menuExtraColumns[perm.menu_key] || []).some(c => c.key === col.key);
+                                    if (!isGroupCol && !isExtraForThis) return <TableCell key={col.key} />;
                                     const isLocked = perm.menu_key === 'oficina_gestao_os' && (col.key === 'can_edit' || col.key === 'can_delete');
                                     return (
                                       <TableCell key={col.key} className="text-center">
