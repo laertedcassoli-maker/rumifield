@@ -1101,17 +1101,6 @@ export default function InstallationChecklistExecution({ stageId, stageTemplateI
                       </div>
                       <Progress value={progress} className="h-2" />
                     </div>
-                    {!isCompleted && (
-                      <Button
-                        onClick={handleCompleteClick}
-                        disabled={completeChecklistMutation.isPending}
-                        className="shrink-0"
-                        size="default"
-                      >
-                        <CheckCircle2 className="h-4 w-4 mr-1.5" />
-                        Concluir
-                      </Button>
-                    )}
                   </div>
 
                   {!isCompleted && hasIncompleteFailures && isAllAnswered && (

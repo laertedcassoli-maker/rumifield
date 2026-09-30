@@ -19,6 +19,8 @@ import { HardHat, Plus, Loader2, Play, Settings2, Check, ChevronsUpDown, Buildin
 import { cn } from "@/lib/utils";
 import { useAnexoPreview } from "@/hooks/useAnexoPreview";
 import AnexoPreviewDialog from "@/components/instalacoes/AnexoPreviewDialog";
+import { CancelReasonDialog } from "@/components/chamados/CancelReasonDialog";
+import { canHardDeleteInstallation, canHardDeleteStage, cancelInstallation, cancelStage } from "@/lib/installation-cancel";
 
 
 type StageType = 'pre_venda' | 'pre_instalacao' | 'instalacao';
@@ -36,13 +38,15 @@ const STAGE_STATUS_LABELS: Record<string, string> = {
   em_andamento: 'Em Andamento',
   aguardando_aprovacao: 'Aguardando Aprovação',
   concluido: 'Concluído',
+  cancelado: 'Cancelada',
 };
 
-const STAGE_STATUS_VARIANTS: Record<string, 'secondary' | 'default' | 'outline'> = {
+const STAGE_STATUS_VARIANTS: Record<string, 'secondary' | 'default' | 'outline' | 'destructive'> = {
   planejado: 'secondary',
   em_andamento: 'default',
   aguardando_aprovacao: 'outline',
   concluido: 'outline',
+  cancelado: 'destructive',
 };
 
 // Amber emphasis for the "waiting for approval" state
@@ -72,14 +76,17 @@ interface InstallationRow {
 }
 
 
-type SituacaoInstalacao = 'concluida' | 'pre_instalacao' | 'instalacao' | 'sem_etapa';
+type SituacaoInstalacao = 'concluida' | 'cancelada' | 'pre_instalacao' | 'instalacao' | 'sem_etapa';
 
 // Classificação única usada tanto pelo resumo (contagens) quanto pelo filtro clicável
-// — mesma precedência do resumo original: concluída > instalacao > pre_instalacao > sem etapa.
+// — precedência: cancelada > concluída > instalacao > pre_instalacao > sem etapa.
+// Etapas canceladas não contam como etapa ativa.
 function classificarSituacao(inst: InstallationRow): SituacaoInstalacao {
+  if (inst.status === 'cancelado') return 'cancelada';
   if (inst.status === 'concluido') return 'concluida';
-  if (inst.stages.some(s => s.stage === 'instalacao')) return 'instalacao';
-  if (inst.stages.some(s => s.stage === 'pre_instalacao')) return 'pre_instalacao';
+  const ativas = inst.stages.filter(s => s.status !== 'cancelado');
+  if (ativas.some(s => s.stage === 'instalacao')) return 'instalacao';
+  if (ativas.some(s => s.stage === 'pre_instalacao')) return 'pre_instalacao';
   return 'sem_etapa';
 }
 
@@ -191,9 +198,9 @@ export default function InstalacoesIndex() {
         if (inst.stages.some(s => s.stage === etapaFiltro)) return true;
         return canManage && etapaFiltro === 'instalacao' && inst.stages.some(s => s.stage === 'pre_instalacao');
       });
-    } else if (filtroSituacao !== 'concluida') {
+    } else if (filtroSituacao !== 'concluida' && filtroSituacao !== 'cancelada') {
       // Aba "Todas": lista as instalações em aberto (pré instalação + instalação)
-      list = list.filter(inst => inst.status !== 'concluido');
+      list = list.filter(inst => inst.status !== 'concluido' && inst.status !== 'cancelado');
     }
 
     if (filtroSituacao !== 'all') {
@@ -224,6 +231,7 @@ export default function InstalacoesIndex() {
       emPreInstalacao: list.filter(i => classificarSituacao(i) === 'pre_instalacao').length,
       emInstalacao: list.filter(i => classificarSituacao(i) === 'instalacao').length,
       semEtapa: list.filter(i => classificarSituacao(i) === 'sem_etapa').length,
+      canceladas: list.filter(i => classificarSituacao(i) === 'cancelada').length,
     };
   }, [installations]);
 
@@ -337,53 +345,63 @@ export default function InstalacoesIndex() {
   });
 
   const deleteInstallationMutation = useMutation({
-    mutationFn: async (installationId: string) => {
+    mutationFn: async ({ installation, reason }: { installation: InstallationRow; reason?: string }): Promise<'deleted' | 'cancelled'> => {
+      if (!canHardDeleteInstallation(installation.allStages ?? installation.stages)) {
+        await cancelInstallation(installation.id, reason ?? '');
+        return 'cancelled';
+      }
       const { data, error } = await (supabase as any)
         .from('installations')
         .delete()
-        .eq('id', installationId)
+        .eq('id', installation.id)
         .select('id');
       if (error) throw error;
       if (!data || data.length === 0) {
         throw new Error('A exclusão não foi confirmada pelo servidor. Verifique suas permissões e tente novamente.');
       }
-      return data;
+      return 'deleted';
     },
-    onSuccess: () => {
-      track('installation_deleted', {}, { entity: 'installation', entity_id: instalacaoParaExcluir?.id });
+    onSuccess: (result) => {
+      track(result === 'cancelled' ? 'installation_cancelled' : 'installation_deleted', {}, { entity: 'installation', entity_id: instalacaoParaExcluir?.id });
       queryClient.invalidateQueries({ queryKey: ['installations'] });
-      toast.success('Instalação excluída!');
+      toast.success(result === 'cancelled' ? 'Instalação cancelada!' : 'Instalação excluída!');
       setInstalacaoParaExcluir(null);
     },
-    onError: (error) => {
-      toast.error('Erro ao excluir instalação: ' + error.message);
+    onError: (error: any) => {
+      toast.error('Erro ao excluir/cancelar instalação: ' + (error?.message || ''));
     },
   });
 
   // Exclusão de uma etapa isolada (não da instalação inteira)
   const deleteStageMutation = useMutation({
-    mutationFn: async (stageId: string) => {
+    mutationFn: async ({ stage, reason }: { stage: StageRow; reason?: string }): Promise<'deleted' | 'cancelled'> => {
+      if (!canHardDeleteStage(stage.status)) {
+        await cancelStage(stage.id, reason ?? '');
+        return 'cancelled';
+      }
       const { data, error } = await (supabase as any)
         .from('installation_stages')
         .delete()
-        .eq('id', stageId)
+        .eq('id', stage.id)
         .select('id');
       if (error) throw error;
       if (!data || data.length === 0) {
         throw new Error('A exclusão não foi confirmada pelo servidor. Verifique suas permissões e tente novamente.');
       }
-      return data;
+      return 'deleted';
     },
-    onSuccess: () => {
-      track('installation_stage_deleted', { stage: etapaParaExcluir?.stage.stage }, { entity: 'installation_stage', entity_id: etapaParaExcluir?.stage.id });
+    onSuccess: (result) => {
+      track(result === 'cancelled' ? 'installation_stage_cancelled' : 'installation_stage_deleted', { stage: etapaParaExcluir?.stage.stage }, { entity: 'installation_stage', entity_id: etapaParaExcluir?.stage.id });
       queryClient.invalidateQueries({ queryKey: ['installations'] });
-      toast.success('Etapa excluída!');
+      toast.success(result === 'cancelled' ? 'Etapa cancelada!' : 'Etapa excluída!');
       setEtapaParaExcluir(null);
     },
     onError: (error: any) => {
-      toast.error('Erro ao excluir etapa: ' + (error?.message || ''));
+      toast.error('Erro ao excluir/cancelar etapa: ' + (error?.message || ''));
     },
   });
+  const instalacaoPodeExcluir = !!instalacaoParaExcluir &&
+    canHardDeleteInstallation(instalacaoParaExcluir.allStages ?? instalacaoParaExcluir.stages);
 
   const saveStageMutation = useMutation({
     mutationFn: async () => {
@@ -543,8 +561,9 @@ export default function InstalacoesIndex() {
             { label: 'Em Pré Instalação', value: resumo.emPreInstalacao, key: 'pre_instalacao' as const },
             { label: 'Em Instalação', value: resumo.emInstalacao, key: 'instalacao' as const },
             { label: 'Sem etapa', value: resumo.semEtapa, key: 'sem_etapa' as const },
+            { label: 'Canceladas', value: resumo.canceladas, key: 'cancelada' as const },
           ])
-            .filter(r => r.key !== 'sem_etapa' || resumo.semEtapa > 0)
+            .filter(r => (r.key !== 'sem_etapa' || resumo.semEtapa > 0) && (r.key !== 'cancelada' || resumo.canceladas > 0))
             .map(r => (
               <Button
                 key={r.key}
@@ -602,15 +621,19 @@ export default function InstalacoesIndex() {
                         </Badge>
                       ) : null;
                     })()}
-                    <Badge variant={inst.status === 'concluido' ? 'outline' : 'secondary'}>
-                      {inst.status === 'concluido' ? 'Concluída' : 'Em Andamento'}
-                    </Badge>
-                    {canManage && (
+                    {inst.status === 'cancelado' ? (
+                      <Badge variant="destructive">Cancelada</Badge>
+                    ) : (
+                      <Badge variant={inst.status === 'concluido' ? 'outline' : 'secondary'}>
+                        {inst.status === 'concluido' ? 'Concluída' : 'Em Andamento'}
+                      </Badge>
+                    )}
+                    {canManage && inst.status !== 'cancelado' && (
                       <Button
                         size="icon"
                         variant="ghost"
                         className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                        aria-label={`Excluir instalação de ${inst.cliente?.nome || 'cliente'}`}
+                        aria-label={`${canHardDeleteInstallation(inst.allStages ?? inst.stages) ? 'Excluir' : 'Cancelar'} instalação de ${inst.cliente?.nome || 'cliente'}`}
                         onClick={() => setInstalacaoParaExcluir(inst)}
                       >
                         <Trash2 className="h-4 w-4" />
@@ -628,7 +651,7 @@ export default function InstalacoesIndex() {
                 )}
                 {(etapaFiltro ? [etapaFiltro] : STAGE_ORDER).map((stageType) => {
                   const stage = inst.stages.find(s => s.stage === stageType);
-                  const isReadOnlyStage = !!stage && ['concluido', 'aguardando_aprovacao'].includes(stage.status);
+                  const isReadOnlyStage = !!stage && ['concluido', 'aguardando_aprovacao', 'cancelado'].includes(stage.status);
                   const preInstalacaoStage = (inst.allStages ?? inst.stages).find(s => s.stage === 'pre_instalacao');
                   // Instalação can only be configured after Pré Instalação is approved
                   const instalacaoBloqueada =
@@ -704,12 +727,12 @@ export default function InstalacoesIndex() {
                             </Button>
                           )
                         )}
-                        {stage && (stageType === 'pre_instalacao' ? podeGerenciarPreInstalacao : podeExcluirEtapaInstalacao) && (
+                        {stage && stage.status !== 'cancelado' && inst.status !== 'cancelado' && (stageType === 'pre_instalacao' ? podeGerenciarPreInstalacao : podeExcluirEtapaInstalacao) && (
                           <Button
                             size="icon"
                             variant="ghost"
                             className="h-8 w-8 text-muted-foreground hover:text-destructive"
-                            aria-label={`Excluir etapa ${STAGE_LABELS[stageType]}`}
+                            aria-label={`${canHardDeleteStage(stage.status) ? 'Excluir' : 'Cancelar'} etapa ${STAGE_LABELS[stageType]}`}
                             onClick={() => setEtapaParaExcluir({ stage, clienteNome: inst.cliente?.nome || 'cliente' })}
                           >
                             <Trash2 className="h-4 w-4" />
@@ -988,7 +1011,7 @@ export default function InstalacoesIndex() {
 
 
       {/* Delete installation confirmation */}
-      <AlertDialog open={!!instalacaoParaExcluir} onOpenChange={(open) => !open && !deleteInstallationMutation.isPending && setInstalacaoParaExcluir(null)}>
+      <AlertDialog open={!!instalacaoParaExcluir && instalacaoPodeExcluir} onOpenChange={(open) => !open && !deleteInstallationMutation.isPending && setInstalacaoParaExcluir(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir instalação permanentemente?</AlertDialogTitle>
@@ -1006,7 +1029,7 @@ export default function InstalacoesIndex() {
               onClick={(e) => {
                 e.preventDefault();
                 if (instalacaoParaExcluir) {
-                  deleteInstallationMutation.mutate(instalacaoParaExcluir.id);
+                  deleteInstallationMutation.mutate({ installation: instalacaoParaExcluir });
                 }
               }}
             >
@@ -1016,9 +1039,18 @@ export default function InstalacoesIndex() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <CancelReasonDialog
+        open={!!instalacaoParaExcluir && !instalacaoPodeExcluir}
+        onOpenChange={(open) => !open && !deleteInstallationMutation.isPending && setInstalacaoParaExcluir(null)}
+        title="Cancelar esta instalação?"
+        description={`A instalação de ${instalacaoParaExcluir?.cliente?.nome || 'cliente'} já tem etapa iniciada, por isso será cancelada (não excluída). Etapas ainda planejadas também serão canceladas; as em andamento ou concluídas não mudam.`}
+        label="Justificativa do cancelamento *"
+        pending={deleteInstallationMutation.isPending}
+        onConfirm={(reason) => instalacaoParaExcluir && deleteInstallationMutation.mutate({ installation: instalacaoParaExcluir, reason })}
+      />
 
       {/* Delete single stage confirmation */}
-      <AlertDialog open={!!etapaParaExcluir} onOpenChange={(open) => !open && !deleteStageMutation.isPending && setEtapaParaExcluir(null)}>
+      <AlertDialog open={!!etapaParaExcluir && canHardDeleteStage(etapaParaExcluir.stage.status)} onOpenChange={(open) => !open && !deleteStageMutation.isPending && setEtapaParaExcluir(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir esta etapa?</AlertDialogTitle>
@@ -1038,7 +1070,7 @@ export default function InstalacoesIndex() {
               onClick={(e) => {
                 e.preventDefault();
                 if (etapaParaExcluir) {
-                  deleteStageMutation.mutate(etapaParaExcluir.stage.id);
+                  deleteStageMutation.mutate({ stage: etapaParaExcluir.stage });
                 }
               }}
             >
@@ -1048,6 +1080,15 @@ export default function InstalacoesIndex() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <CancelReasonDialog
+        open={!!etapaParaExcluir && !canHardDeleteStage(etapaParaExcluir.stage.status)}
+        onOpenChange={(open) => !open && !deleteStageMutation.isPending && setEtapaParaExcluir(null)}
+        title="Cancelar esta etapa?"
+        description={`A etapa ${etapaParaExcluir ? (STAGE_LABELS[etapaParaExcluir.stage.stage] || etapaParaExcluir.stage.stage) : ''} de ${etapaParaExcluir?.clienteNome ?? ''} já foi iniciada, por isso será cancelada (não excluída) e continuará no histórico.`}
+        label="Justificativa do cancelamento *"
+        pending={deleteStageMutation.isPending}
+        onConfirm={(reason) => etapaParaExcluir && deleteStageMutation.mutate({ stage: etapaParaExcluir.stage, reason })}
+      />
     </div>
   );
 }

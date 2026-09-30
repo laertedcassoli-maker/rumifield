@@ -2214,6 +2214,7 @@ export type Database = {
       }
       installations: {
         Row: {
+          arquivado: boolean
           cliente_id: string
           created_at: string
           id: string
@@ -2221,6 +2222,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          arquivado?: boolean
           cliente_id: string
           created_at?: string
           id?: string
@@ -2228,6 +2230,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          arquivado?: boolean
           cliente_id?: string
           created_at?: string
           id?: string
