@@ -44,6 +44,8 @@ import { ptBR } from 'date-fns/locale';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useMenuPermissions } from '@/hooks/useMenuPermissions';
 import { toast } from 'sonner';
+import { CancelReasonDialog } from '@/components/chamados/CancelReasonDialog';
+import { canHardDeleteTicket, cancelTicket } from '@/lib/corrective-cancel';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -134,7 +136,7 @@ export default function ChamadosIndex() {
   const { canEdit, canDelete } = useMenuPermissions();
   const canEditInList = canEdit('chamados_listagem');
   const canDeleteInList = canDelete('chamados_listagem');
-  const [deleteTarget, setDeleteTarget] = useState(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ id: string; status: string } | null>(null);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [priorityFilter, setPriorityFilter] = useState<string>('all');
@@ -239,17 +241,23 @@ export default function ChamadosIndex() {
   });
 
   const deleteTicketMutation = useMutation({
-    mutationFn: async (ticketId: string) => {
-      const { error } = await supabase.from('technical_tickets').delete().eq('id', ticketId);
+    mutationFn: async ({ target, reason }: { target: { id: string; status: string }; reason?: string }): Promise<'deleted' | 'cancelled'> => {
+      if (!canHardDeleteTicket(target.status)) {
+        await cancelTicket(target.id, reason ?? '', user!.id);
+        return 'cancelled';
+      }
+      const { data, error } = await supabase.from('technical_tickets').delete().eq('id', target.id).select('id');
       if (error) throw error;
+      if (!data || data.length === 0) throw new Error('A exclusão não foi confirmada pelo servidor. Verifique suas permissões.');
+      return 'deleted';
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['technical-tickets'] });
       setDeleteTarget(null);
-      toast.success('Chamado excluído com sucesso');
+      toast.success(result === 'cancelled' ? 'Chamado cancelado' : 'Chamado excluído com sucesso');
     },
     onError: (err: Error) => {
-      toast.error('Erro ao excluir', { description: err.message });
+      toast.error('Erro ao excluir/cancelar', { description: err.message });
     },
   });
 
@@ -657,8 +665,13 @@ export default function ChamadosIndex() {
                             <Pencil className="h-4 w-4" />
                           </Button>
                         )}
-                        {canDeleteInList && (
-                          <Button variant="ghost" size="sm" onClick={() => setDeleteTarget(ticket.id)}>
+                        {canDeleteInList && ticket.status !== 'cancelado' && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            title={canHardDeleteTicket(ticket.status) ? 'Excluir chamado' : 'Cancelar chamado'}
+                            onClick={() => setDeleteTarget({ id: ticket.id, status: ticket.status })}
+                          >
                             <Trash2 className="h-4 w-4 text-destructive" />
                           </Button>
                         )}
@@ -723,7 +736,7 @@ export default function ChamadosIndex() {
         </Card>
       )}
 
-      <AlertDialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+      <AlertDialog open={!!deleteTarget && canHardDeleteTicket(deleteTarget.status)} onOpenChange={(open) => !open && setDeleteTarget(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir chamado?</AlertDialogTitle>
@@ -735,7 +748,7 @@ export default function ChamadosIndex() {
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
               className="bg-destructive hover:bg-destructive/90"
-              onClick={() => deleteTarget && deleteTicketMutation.mutate(deleteTarget)}
+              onClick={() => deleteTarget && deleteTicketMutation.mutate({ target: deleteTarget })}
               disabled={deleteTicketMutation.isPending}
             >
               {deleteTicketMutation.isPending ? 'Excluindo...' : 'Excluir'}
@@ -743,6 +756,14 @@ export default function ChamadosIndex() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <CancelReasonDialog
+        open={!!deleteTarget && !canHardDeleteTicket(deleteTarget.status)}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+        title="Cancelar chamado?"
+        description="O chamado ficará como Cancelado e continuará no histórico. O motivo será registrado na linha do tempo."
+        pending={deleteTicketMutation.isPending}
+        onConfirm={(reason) => deleteTarget && deleteTicketMutation.mutate({ target: deleteTarget, reason })}
+      />
     </div>
   );
 }

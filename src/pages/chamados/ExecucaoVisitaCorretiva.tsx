@@ -3,6 +3,8 @@ import { useParams, Link, useNavigate, useLocation } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { CancelReasonDialog } from '@/components/chamados/CancelReasonDialog';
+import { canHardDeleteCorrectiveVisit, cancelCorrectiveVisit } from '@/lib/corrective-cancel';
 import { track } from '@/lib/analytics';
 import { useMenuPermissions } from '@/hooks/useMenuPermissions';
 import { useCanEditCompletedChecklist } from '@/hooks/useCanEditCompletedChecklist';
@@ -977,13 +979,21 @@ export default function ExecucaoVisitaCorretiva() {
   };
 
   const deleteVisitMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (reason?: string): Promise<'deleted' | 'cancelled'> => {
       if (!visitId) throw new Error('ID da visita inválido');
+      if (!canHardDeleteCorrectiveVisit(visit?.status)) {
+        await cancelCorrectiveVisit(visitId, reason ?? '', (visit as any)?.internal_notes ?? null);
+        return 'cancelled';
+      }
       const { error } = await supabase.from('ticket_visits').delete().eq('id', visitId);
       if (error) throw error;
+      return 'deleted';
     },
-    onSuccess: () => {
-      toast({ title: 'Visita excluída', description: 'A visita foi removida com sucesso.' });
+    onSuccess: (result) => {
+      toast(result === 'cancelled'
+        ? { title: 'Visita cancelada', description: 'A visita foi marcada como cancelada.' }
+        : { title: 'Visita excluída', description: 'A visita foi removida com sucesso.' });
+      queryClient.invalidateQueries({ queryKey: ['preventive-maintenance'] });
       queryClient.invalidateQueries({ queryKey: ['my-corrective-visits'] });
       if (visit?.ticket_id) {
         queryClient.invalidateQueries({ queryKey: ['ticket-timeline', visit.ticket_id] });
@@ -1072,7 +1082,7 @@ export default function ExecucaoVisitaCorretiva() {
                 Editar Dados
               </Button>
             )}
-            {canDeleteVisit && !isEditMode && (
+            {canDeleteVisit && !isEditMode && visit?.status !== 'cancelada' && (
               <Button
                 size="sm"
                 variant="outline"
@@ -1080,7 +1090,7 @@ export default function ExecucaoVisitaCorretiva() {
                 onClick={() => setShowDeleteVisitDialog(true)}
               >
                 <Trash2 className="h-3.5 w-3.5 mr-1.5" />
-                Excluir Visita
+                {canHardDeleteCorrectiveVisit(visit?.status) ? 'Excluir Visita' : 'Cancelar visita'}
               </Button>
             )}
           </div>
@@ -1618,7 +1628,7 @@ export default function ExecucaoVisitaCorretiva() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <AlertDialog open={showDeleteVisitDialog} onOpenChange={setShowDeleteVisitDialog}>
+      <AlertDialog open={showDeleteVisitDialog && canHardDeleteCorrectiveVisit(visit?.status)} onOpenChange={setShowDeleteVisitDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir esta visita corretiva?</AlertDialogTitle>
@@ -1633,7 +1643,7 @@ export default function ExecucaoVisitaCorretiva() {
               disabled={deleteVisitMutation.isPending}
               onClick={(e) => {
                 e.preventDefault();
-                deleteVisitMutation.mutate();
+                deleteVisitMutation.mutate(undefined);
               }}
             >
               Excluir
@@ -1641,6 +1651,15 @@ export default function ExecucaoVisitaCorretiva() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+      <CancelReasonDialog
+        open={showDeleteVisitDialog && !canHardDeleteCorrectiveVisit(visit?.status)}
+        onOpenChange={setShowDeleteVisitDialog}
+        title="Cancelar visita?"
+        description="A visita ficará como Cancelada e continuará no histórico. Se ela contou como preventiva, a preventiva vinculada também será cancelada."
+        label="Justificativa do cancelamento *"
+        pending={deleteVisitMutation.isPending}
+        onConfirm={(reason) => deleteVisitMutation.mutate(reason)}
+      />
 
       {isAdminOrCoordinator && (
         <EditarVisitaCorretivaDialog
