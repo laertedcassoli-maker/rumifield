@@ -90,6 +90,8 @@ export async function fetchChamadosDataset(params: ChamadosParams): Promise<Cham
   const visitsByTicket: ChamadosDataset['visitsByTicket'] = {};
   for (const v of visitsRes.data ?? []) {
     if (!v.ticket_id) continue;
+    // Visitas canceladas não contam como atendimento presencial real
+    if (v.status === 'cancelada') continue;
     (visitsByTicket[v.ticket_id] ??= []).push({
       id: v.id,
       status: v.status as string,
