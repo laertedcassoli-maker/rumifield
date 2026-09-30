@@ -5031,6 +5031,7 @@ export type Database = {
         | "enviado"
         | "entregue"
         | "pendente"
+        | "cancelado"
       preventive_maintenance_status: "planejada" | "concluida" | "cancelada"
       preventive_route_item_status:
         | "planejado"
@@ -5042,6 +5043,7 @@ export type Database = {
         | "planejada"
         | "em_execucao"
         | "finalizada"
+        | "cancelada"
       product_code:
         | "ideagri"
         | "rumiflow"
@@ -5064,7 +5066,11 @@ export type Database = {
         | "cancelada"
       time_entry_status: "running" | "paused" | "finished"
       visit_result: "resolvido" | "parcial" | "aguardando_peca"
-      work_order_status: "aguardando" | "em_manutencao" | "concluido"
+      work_order_status:
+        | "aguardando"
+        | "em_manutencao"
+        | "concluido"
+        | "cancelada"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -5231,6 +5237,7 @@ export const Constants = {
         "enviado",
         "entregue",
         "pendente",
+        "cancelado",
       ],
       preventive_maintenance_status: ["planejada", "concluida", "cancelada"],
       preventive_route_item_status: [
@@ -5244,6 +5251,7 @@ export const Constants = {
         "planejada",
         "em_execucao",
         "finalizada",
+        "cancelada",
       ],
       product_code: ["ideagri", "rumiflow", "onfarm", "rumiaction", "insights"],
       proposal_status: ["ativa", "expirada", "aceita", "recusada"],
@@ -5264,7 +5272,12 @@ export const Constants = {
       ],
       time_entry_status: ["running", "paused", "finished"],
       visit_result: ["resolvido", "parcial", "aguardando_peca"],
-      work_order_status: ["aguardando", "em_manutencao", "concluido"],
+      work_order_status: [
+        "aguardando",
+        "em_manutencao",
+        "concluido",
+        "cancelada",
+      ],
     },
   },
 } as const
