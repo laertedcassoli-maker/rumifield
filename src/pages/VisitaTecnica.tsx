@@ -168,6 +168,7 @@ export default function VisitaTecnica() {
   const queryClient = useQueryClient();
   const podeGerenciarVisita = role === 'admin' || role === 'coordenador_servicos';
   const [visitaParaExcluir, setVisitaParaExcluir] = useState<VisitaItem | null>(null);
+  const [visitaParaCancelar, setVisitaParaCancelar] = useState<VisitaItem | null>(null);
   const [visitaParaEditar, setVisitaParaEditar] = useState<VisitaItem | null>(null);
 
   const { toast } = useToast();
@@ -766,13 +767,26 @@ export default function VisitaTecnica() {
                             >
                               <Pencil className="h-4 w-4" />
                             </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => setVisitaParaExcluir(v)}
-                            >
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
+                            {v.tipo === 'preventiva' && !canDeleteRouteItem(v.status) ? (
+                              v.status !== 'cancelado' && (
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  title="Cancelar visita"
+                                  onClick={() => setVisitaParaCancelar(v)}
+                                >
+                                  <XCircle className="h-4 w-4 text-destructive" />
+                                </Button>
+                              )
+                            ) : (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setVisitaParaExcluir(v)}
+                              >
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                            )}
                           </>
                         )}
                       </div>
@@ -833,6 +847,14 @@ export default function VisitaTecnica() {
           checklistTemplateId={visitaParaEditar.checklistTemplateId ?? null}
         />
       )}
+
+      <CancelarVisitaDialog
+        open={!!visitaParaCancelar}
+        onOpenChange={(open) => !open && !cancelVisitaMutation.isPending && setVisitaParaCancelar(null)}
+        farmName={visitaParaCancelar?.clienteNome || ''}
+        onConfirm={(j) => visitaParaCancelar && cancelVisitaMutation.mutate({ id: visitaParaCancelar.id, justification: j })}
+        isLoading={cancelVisitaMutation.isPending}
+      />
 
       <AlertDialog open={!!visitaParaExcluir} onOpenChange={(open) => !open && setVisitaParaExcluir(null)}>
         <AlertDialogContent>
