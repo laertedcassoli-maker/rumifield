@@ -30,6 +30,9 @@ import {
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useToast } from '@/hooks/use-toast';
+import { XCircle } from 'lucide-react';
+import { CancelarVisitaDialog } from '@/components/preventivas/CancelarVisitaDialog';
+import { cancelPreventiveRouteItem, canDeleteRouteItem } from '@/lib/preventive-cancel';
 import ChecklistExecution from '@/components/preventivas/ChecklistExecution';
 import CombinarTreinamentoSection from '@/components/treinamento/CombinarTreinamentoSection';
 import VisitMediaUpload from '@/components/preventivas/VisitMediaUpload';
@@ -80,6 +83,7 @@ export default function AtendimentoPreventivo() {
   const canEditFinalizedVisit = canEditFinalized(permissionContext);
   const canDeleteVisit = canDelete(permissionContext);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [showCancelVisit, setShowCancelVisit] = useState(false);
 
   // Fetch route item details
   const { data: routeItem, isLoading, error, refetch } = useQuery({
@@ -765,16 +769,28 @@ export default function AtendimentoPreventivo() {
                 Editar Visita
               </Button>
             )}
-            {canDeleteVisit && !isEditMode && (
-              <Button
-                size="sm"
-                variant="outline"
-                className="text-destructive hover:text-destructive border-destructive/40 hover:bg-destructive/10"
-                onClick={() => setShowDeleteDialog(true)}
-              >
-                <Trash2 className="h-3.5 w-3.5 mr-1.5" />
-                Excluir Visita
-              </Button>
+            {canDeleteVisit && !isEditMode && routeItem?.status !== 'cancelado' && (
+              canDeleteRouteItem(routeItem?.status) ? (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="text-destructive hover:text-destructive border-destructive/40 hover:bg-destructive/10"
+                  onClick={() => setShowDeleteDialog(true)}
+                >
+                  <Trash2 className="h-3.5 w-3.5 mr-1.5" />
+                  Excluir Visita
+                </Button>
+              ) : (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="text-destructive hover:text-destructive border-destructive/40 hover:bg-destructive/10"
+                  onClick={() => setShowCancelVisit(true)}
+                >
+                  <XCircle className="h-3.5 w-3.5 mr-1.5" />
+                  Cancelar Visita
+                </Button>
+              )
             )}
           </div>
         </div>
@@ -1156,6 +1172,14 @@ export default function AtendimentoPreventivo() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <CancelarVisitaDialog
+        open={showCancelVisit}
+        onOpenChange={(o) => !o && !cancelVisitMutation.isPending && setShowCancelVisit(false)}
+        farmName={(routeItem as any)?.client?.nome || (routeItem as any)?.client_name || ''}
+        onConfirm={(j) => cancelVisitMutation.mutate(j)}
+        isLoading={cancelVisitMutation.isPending}
+      />
 
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
