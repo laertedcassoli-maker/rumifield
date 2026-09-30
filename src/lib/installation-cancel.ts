@@ -3,10 +3,10 @@ import { supabase } from '@/integrations/supabase/client';
 const TIMEOUT_MS = 12_000;
 const sb = supabase as any;
 
-function withTimeout<T>(p: PromiseLike<T>, ms = TIMEOUT_MS): Promise<T> {
+function withTimeout(p: PromiseLike<any>, ms = TIMEOUT_MS): Promise<any> {
   return Promise.race([
     Promise.resolve(p),
-    new Promise<T>((_, rej) => setTimeout(() => rej(new Error('Tempo esgotado. Verifique sua conexão.')), ms)),
+    new Promise((_, rej) => setTimeout(() => rej(new Error('Tempo esgotado. Verifique sua conexão.')), ms)),
   ]);
 }
 

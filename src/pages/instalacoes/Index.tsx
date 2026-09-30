@@ -231,6 +231,7 @@ export default function InstalacoesIndex() {
       emPreInstalacao: list.filter(i => classificarSituacao(i) === 'pre_instalacao').length,
       emInstalacao: list.filter(i => classificarSituacao(i) === 'instalacao').length,
       semEtapa: list.filter(i => classificarSituacao(i) === 'sem_etapa').length,
+      canceladas: list.filter(i => classificarSituacao(i) === 'cancelada').length,
     };
   }, [installations]);
 
@@ -560,8 +561,9 @@ export default function InstalacoesIndex() {
             { label: 'Em Pré Instalação', value: resumo.emPreInstalacao, key: 'pre_instalacao' as const },
             { label: 'Em Instalação', value: resumo.emInstalacao, key: 'instalacao' as const },
             { label: 'Sem etapa', value: resumo.semEtapa, key: 'sem_etapa' as const },
+            { label: 'Canceladas', value: resumo.canceladas, key: 'cancelada' as const },
           ])
-            .filter(r => r.key !== 'sem_etapa' || resumo.semEtapa > 0)
+            .filter(r => (r.key !== 'sem_etapa' || resumo.semEtapa > 0) && (r.key !== 'cancelada' || resumo.canceladas > 0))
             .map(r => (
               <Button
                 key={r.key}
