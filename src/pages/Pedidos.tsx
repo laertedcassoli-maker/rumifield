@@ -52,6 +52,7 @@ const statusLabels: Record<string, string> = {
   faturado: 'Faturado',
   enviado: 'Enviado',
   entregue: 'Entregue',
+  cancelado: 'Cancelado',
 };
 
 const emptyForm = {
@@ -248,6 +249,7 @@ export default function Pedidos() {
   const [pedidoToDelete, setPedidoToDelete] = useState<PedidoComItens | null>(null);
   const [pendenciaPedido, setPendenciaPedido] = useState<PedidoComItens | null>(null);
   const [isDeletingPedido, setIsDeletingPedido] = useState(false);
+  const [motivoCancelamento, setMotivoCancelamento] = useState('');
   
   const isAdmin = role === 'admin' || role === 'coordenador_rplus' || role === 'coordenador_servicos' || role === 'coordenador_logistica';
   const { canEdit: canEditMenu } = useMenuPermissions();
@@ -917,6 +919,42 @@ export default function Pedidos() {
       ) as Record<number, string[]>
     );
     setOpen(true);
+  };
+
+  const handleCancelarPedido = async () => {
+    if (!pedidoToDelete) return;
+    const motivo = motivoCancelamento.trim();
+    if (!motivo) {
+      toast({ variant: 'destructive', title: 'Motivo obrigatório', description: 'Informe o motivo do cancelamento.' });
+      return;
+    }
+    setIsDeletingPedido(true);
+    try {
+      const { data: atual, error: selErr } = await supabase
+        .from('pedidos').select('observacoes').eq('id', pedidoToDelete.id).maybeSingle();
+      if (selErr) throw selErr;
+      const nota = `[Cancelado em ${format(new Date(), 'dd/MM/yyyy HH:mm')}] Motivo: ${motivo}`;
+      const observacoes = atual?.observacoes ? `${atual.observacoes}\n\n${nota}` : nota;
+      const { data, error } = await supabase
+        .from('pedidos')
+        .update({ status: 'cancelado' as any, observacoes })
+        .eq('id', pedidoToDelete.id)
+        .select('id');
+      if (error) throw error;
+      if (!data?.length) throw new Error('Não foi possível cancelar o pedido. Verifique suas permissões.');
+      await queryClient.invalidateQueries({ queryKey: ['pedidos'] });
+      track('pedido_cancelled', {
+        from_status: pedidoToDelete.status,
+        pedido_code: pedidoToDelete.pedido_code || null,
+      }, { entity: 'pedido', entity_id: pedidoToDelete.id });
+      toast({ title: 'Pedido cancelado', description: `${pedidoToDelete.pedido_code || 'Pedido'} foi cancelado.` });
+      setPedidoToDelete(null);
+      setMotivoCancelamento('');
+    } catch (error: any) {
+      toast({ variant: 'destructive', title: 'Erro ao cancelar', description: error.message });
+    } finally {
+      setIsDeletingPedido(false);
+    }
   };
 
   const handleDeletePedidoSolicitado = async () => {
@@ -3425,23 +3463,48 @@ export default function Pedidos() {
         </DialogContent>
       </Dialog>
 
-      {/* Confirm delete pedido (status solicitado) */}
-      <AlertDialog open={!!pedidoToDelete} onOpenChange={(open) => !open && !isDeletingPedido && setPedidoToDelete(null)}>
+      {/* Confirmar exclusão (rascunho) ou cancelamento (demais status) */}
+      <AlertDialog open={!!pedidoToDelete} onOpenChange={(open) => { if (!open && !isDeletingPedido) { setPedidoToDelete(null); setMotivoCancelamento(''); } }}>
         <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Excluir pedido permanentemente?</AlertDialogTitle>
-            <AlertDialogDescription>
-              O pedido <span className="font-mono font-semibold">{pedidoToDelete?.pedido_code || ''}</span> e todos os seus itens, vínculos e histórico serão removidos. Esta ação não pode ser desfeita.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
+          {pedidoToDelete?.status === 'rascunho' ? (
+            <AlertDialogHeader>
+              <AlertDialogTitle>Excluir pedido permanentemente?</AlertDialogTitle>
+              <AlertDialogDescription>
+                O pedido <span className="font-mono font-semibold">{pedidoToDelete?.pedido_code || ''}</span> e todos os seus itens, vínculos e histórico serão removidos. Esta ação não pode ser desfeita.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+          ) : (
+            <AlertDialogHeader>
+              <AlertDialogTitle>Cancelar pedido?</AlertDialogTitle>
+              <AlertDialogDescription>
+                O pedido <span className="font-mono font-semibold">{pedidoToDelete?.pedido_code || ''}</span> ficará como "Cancelado" e continua no histórico.
+              </AlertDialogDescription>
+              <div className="space-y-1.5 pt-2">
+                <Label htmlFor="motivo-cancelamento">Motivo do cancelamento *</Label>
+                <Textarea
+                  id="motivo-cancelamento"
+                  value={motivoCancelamento}
+                  onChange={(e) => setMotivoCancelamento(e.target.value)}
+                  maxLength={500}
+                  placeholder="Explique por que o pedido está sendo cancelado"
+                />
+              </div>
+            </AlertDialogHeader>
+          )}
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeletingPedido}>Cancelar</AlertDialogCancel>
+            <AlertDialogCancel disabled={isDeletingPedido}>Voltar</AlertDialogCancel>
             <AlertDialogAction
               disabled={isDeletingPedido}
-              onClick={(e) => { e.preventDefault(); handleDeletePedidoSolicitado(); }}
+              onClick={(e) => {
+                e.preventDefault();
+                if (pedidoToDelete?.status === 'rascunho') handleDeletePedidoSolicitado();
+                else handleCancelarPedido();
+              }}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {isDeletingPedido ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Excluindo...</> : 'Excluir'}
+              {isDeletingPedido
+                ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Aguarde...</>
+                : pedidoToDelete?.status === 'rascunho' ? 'Excluir' : 'Cancelar pedido'}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
