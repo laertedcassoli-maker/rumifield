@@ -351,6 +351,20 @@ export default function VisitaTecnica() {
     },
   });
 
+  // Visita preventiva já executada: cancela (mantém registro) em vez de excluir
+  const cancelVisitaMutation = useMutation({
+    mutationFn: ({ id, justification }: { id: string; justification: string }) =>
+      cancelPreventiveRouteItem(id, justification),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['visita-tecnica'] });
+      setVisitaParaCancelar(null);
+      toast({ title: 'Visita cancelada' });
+    },
+    onError: (err: any) => {
+      toast({ title: 'Erro ao cancelar visita', description: err?.message || 'Tente novamente.', variant: 'destructive' });
+    },
+  });
+
   useEffect(() => {
     if (error) {
       toast({
