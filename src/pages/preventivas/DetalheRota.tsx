@@ -79,6 +79,7 @@ const routeStatusConfig = {
   planejada: { label: 'Planejada', color: 'bg-blue-500/10 text-blue-600 border-blue-500/20' },
   em_execucao: { label: 'Em Execução', color: 'bg-warning/10 text-warning border-warning/20' },
   finalizada: { label: 'Finalizada', color: 'bg-green-500/10 text-green-600 border-green-500/20' },
+  cancelada: { label: 'Cancelada', color: 'bg-destructive/10 text-destructive border-destructive/20' },
 };
 
 const itemStatusConfig = {
