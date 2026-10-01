@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
+import { syncMovimentoVisita } from '@/lib/estoque-consumo-visita';
 import { supabase } from "@/integrations/supabase/client";
 import { offlineChecklistDb, ChecklistSyncQueueItem } from "@/lib/offline-checklist-db";
 import { reportDeadLetter } from "@/lib/reportDeadLetter";
@@ -59,6 +60,7 @@ export function useOfflineChecklist() {
     try {
       switch (operation) {
         case "update": {
+          if (table === "estoque_consumo_movimentos") break;
           const id = data.id as string;
           const cleanData = { ...data };
           delete cleanData.id;
@@ -140,6 +142,11 @@ export function useOfflineChecklist() {
           }
           break;
         }
+      }
+
+      // Estoque Uso/Consumo (movimentos da visita) — só insert, idempotente pelo id
+      if (table === "estoque_consumo_movimentos" && operation === "insert") {
+        await syncMovimentoVisita(data);
       }
 
       // Handle preventive_part_consumption inserts
