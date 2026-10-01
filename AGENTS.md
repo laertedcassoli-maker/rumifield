@@ -1,1 +1,1 @@
-- Estoque Uso/Consumo na visita técnica grava movimentos (origem_tipo='visita') offline-first via src/lib/estoque-consumo-visita.ts e a fila do checklist; nunca cria linha em preventive_part_consumption para item sem peca_id — porque part_id é obrigatório e gera NF.
+- Field-visit stock consumption (Estoque Uso/Consumo) writes movements with origem_tipo='visita' offline-first through src/lib/estoque-consumo-visita.ts and the checklist sync queue; items without peca_id never become preventive_part_consumption rows — part_id is required there and drives NF orders.
