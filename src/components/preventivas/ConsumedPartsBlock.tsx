@@ -30,6 +30,11 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/contexts/AuthContext';
+import {
+  refreshEstoqueCache, getSaldoTecnico, findItemByPeca, registrarMovimentoVisita, fetchMovimentosVisita,
+  saidaAtivaDaPeca, itensPurosAtivos, notePeca, noteEstorno, NOTE_PURE, type VisitaMov,
+} from '@/lib/estoque-consumo-visita';
 
 interface ConsumedPart {
   id: string;
@@ -58,6 +63,8 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false, 
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isPartSelectorOpen, setIsPartSelectorOpen] = useState(false);
   const [selectedPartId, setSelectedPartId] = useState<string | null>(null);
+  const [selectedUcItemId, setSelectedUcItemId] = useState<string | null>(null);
+  const [deleteUcMovId, setDeleteUcMovId] = useState<string | null>(null);
   const [quantity, setQuantity] = useState('1');
   const [notes, setNotes] = useState('');
   const [stockSource, setStockSource] = useState<'tecnico' | 'fazenda' | 'novo_pedido'>('tecnico');
@@ -165,6 +172,110 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false, 
     return [...base, ...pendingLocal];
   })();
   const isLoading = onlineLoading && !onlineParts;
+
+  // ============ Estoque Uso/Consumo (estoque pessoal do técnico) ============
+  const { user } = useAuth();
+  const { data: tecnicoId } = useQuery({
+    queryKey: ['preventive-technician', preventiveId],
+    queryFn: async () => {
+      const cacheKey = `prev_tech_${preventiveId}`;
+      try {
+        const { data } = await supabase.from('preventive_maintenance').select('technician_user_id').eq('id', preventiveId).maybeSingle();
+        const t = (data as any)?.technician_user_id as string | null;
+        if (t) { try { localStorage.setItem(cacheKey, t); } catch (_) {} return t; }
+      } catch (_) { /* offline */ }
+      try { return localStorage.getItem(cacheKey) || user?.id || null; } catch (_) { return user?.id || null; }
+    },
+    enabled: !!preventiveId && !!user?.id,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: serverMovs } = useQuery({
+    queryKey: ['visita-estoque-movs', preventiveId],
+    queryFn: () => fetchMovimentosVisita(preventiveId),
+    enabled: !!preventiveId && isOnline,
+    refetchInterval: 15000,
+    retry: 1,
+  });
+  const localMovs = useLiveQuery(
+    () => preventiveId ? offlineChecklistDb.estoqueMovimentosLocais.where('origem_id').equals(preventiveId).toArray() : Promise.resolve([]),
+    [preventiveId],
+  );
+  const ucItemsCache = useLiveQuery(() => offlineChecklistDb.estoqueConsumoItens.toArray(), []);
+  const ucNome = new Map((ucItemsCache || []).map(i => [i.id, i]));
+  const visitMovs: VisitaMov[] = (() => {
+    const base = serverMovs || [];
+    const ids = new Set(base.map(m => m.id));
+    const pend = (localMovs || []).filter(m => !ids.has(m.id) && (m._pendingSync || !serverMovs))
+      .map(m => ({ ...m, item_codigo: ucNome.get(m.item_id)?.codigo, item_descricao: ucNome.get(m.item_id)?.descricao }));
+    return [...base, ...pend].sort((a, b) => a.created_at.localeCompare(b.created_at));
+  })();
+  const ucAtivos = itensPurosAtivos(visitMovs);
+  const pendingMovIds = new Set((localMovs || []).filter(m => m._pendingSync).map(m => m.id));
+  const ucPureItems = (ucItemsCache || []).filter(i => i.ativo && !i.peca_id).sort((a, b) => a.codigo.localeCompare(b.codigo));
+  const selectedUcItem = ucPureItems.find(i => i.id === selectedUcItemId) || null;
+
+  useEffect(() => {
+    if (isAddDialogOpen && isOnline && tecnicoId) refreshEstoqueCache(tecnicoId).catch(e => console.error('[estoque cache]', e));
+  }, [isAddDialogOpen, isOnline, tecnicoId]);
+
+  const invalidateMovs = () => queryClient.invalidateQueries({ queryKey: ['visita-estoque-movs', preventiveId] });
+
+  /** Confere saldo do item rastreado; lança erro se insuficiente. */
+  const assertSaldo = async (itemId: string, q: number) => {
+    if (!tecnicoId) throw new Error('Técnico da visita não identificado.');
+    if (isOnline) { try { await refreshEstoqueCache(tecnicoId); } catch (_) {} }
+    const saldo = await getSaldoTecnico(tecnicoId, itemId);
+    if (q > saldo) throw new Error(`Saldo insuficiente no seu estoque (disponível: ${saldo.toLocaleString('pt-BR')}).`);
+  };
+
+  const darSaidaPeca = async (consumptionId: string, pecaId: string, q: number) => {
+    const item = await findItemByPeca(pecaId);
+    if (!item || !tecnicoId) return;
+    await registrarMovimentoVisita({
+      item_id: item.id, tipo: 'saida', quantidade: q, tecnico_user_id: tecnicoId, origem_id: preventiveId,
+      notes: notePeca(consumptionId), created_by_user_id: user?.id ?? null,
+    }, isOnline);
+    invalidateMovs();
+  };
+
+  const estornarPeca = async (consumptionId: string) => {
+    const saida = saidaAtivaDaPeca(visitMovs, consumptionId);
+    if (!saida) return;
+    await registrarMovimentoVisita({
+      item_id: saida.item_id, tipo: 'entrada', quantidade: saida.quantidade, tecnico_user_id: saida.tecnico_user_id,
+      origem_id: preventiveId, notes: noteEstorno(notePeca(consumptionId)), created_by_user_id: user?.id ?? null,
+    }, isOnline);
+    invalidateMovs();
+  };
+
+  const addUcMutation = useMutation({
+    mutationFn: async () => {
+      if (!selectedUcItem) throw new Error('Selecione um item');
+      const q = parseFloat(quantity.replace(',', '.'));
+      if (!Number.isFinite(q) || q <= 0) throw new Error('Informe uma quantidade maior que zero.');
+      await assertSaldo(selectedUcItem.id, q);
+      await registrarMovimentoVisita({
+        item_id: selectedUcItem.id, tipo: 'saida', quantidade: q, tecnico_user_id: tecnicoId!, origem_id: preventiveId,
+        notes: NOTE_PURE, created_by_user_id: user?.id ?? null,
+      }, isOnline);
+    },
+    onSuccess: () => { invalidateMovs(); setIsExpanded(true); resetAddDialog(); toast({ title: 'Item registrado' }); },
+    onError: (e: Error) => toast({ title: 'Erro ao registrar item', description: e.message, variant: 'destructive' }),
+  });
+
+  const deleteUcMutation = useMutation({
+    mutationFn: async (movId: string) => {
+      const m = visitMovs.find(x => x.id === movId);
+      if (!m) return;
+      await registrarMovimentoVisita({
+        item_id: m.item_id, tipo: 'entrada', quantidade: m.quantidade, tecnico_user_id: m.tecnico_user_id,
+        origem_id: preventiveId, notes: noteEstorno(m.id), created_by_user_id: user?.id ?? null,
+      }, isOnline);
+    },
+    onSuccess: () => { invalidateMovs(); toast({ title: 'Item removido' }); },
+    onError: (e: Error) => toast({ title: 'Erro ao remover item', description: e.message, variant: 'destructive' }),
+  });
 
   // Auto-expand when parts appear for the first time
   useEffect(() => {
@@ -355,6 +466,11 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false, 
   // Update stock source mutation
   const updateStockSourceMutation = useMutation({
     mutationFn: async ({ partId, stockSource }: { partId: string; stockSource: string }) => {
+      const current = parts?.find(p => p.id === partId);
+      if (current && current.stock_source !== 'tecnico' && stockSource === 'tecnico') {
+        const item = await findItemByPeca(current.part_id);
+        if (item) await assertSaldo(item.id, Number(current.quantity) || 0);
+      }
       const updateData: Record<string, unknown> = { stock_source: stockSource };
       if (stockSource !== 'tecnico') {
         updateData.asset_unique_code = null;
@@ -363,14 +479,22 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false, 
       if (!isOnline) {
         await offlineChecklistDb.partConsumptions.update(partId, { stock_source: stockSource, _pendingSync: true });
         await offlineChecklistDb.addToSyncQueue('preventive_part_consumption', 'update', { id: partId, ...updateData });
-        return;
+      } else {
+        const { error } = await supabase
+          .from('preventive_part_consumption')
+          .update(updateData)
+          .eq('id', partId);
+        if (error) throw error;
       }
-
-      const { error } = await supabase
-        .from('preventive_part_consumption')
-        .update(updateData)
-        .eq('id', partId);
-      if (error) throw error;
+      // Estoque Uso/Consumo: acompanha a troca de origem
+      if (current) {
+        try {
+          if (current.stock_source === 'tecnico' && stockSource !== 'tecnico') await estornarPeca(partId);
+          if (current.stock_source !== 'tecnico' && stockSource === 'tecnico') await darSaidaPeca(partId, current.part_id, Number(current.quantity) || 0);
+        } catch (e: any) {
+          toast({ title: 'Origem alterada, mas o estoque do técnico não foi atualizado', description: e.message, variant: 'destructive' });
+        }
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['preventive-consumed-parts', preventiveId] });
@@ -440,6 +564,10 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false, 
 
       const newId = crypto.randomUUID();
       const assetCode = stockSource === 'tecnico' && dialogAssetCode.trim() ? dialogAssetCode.trim() : null;
+      const qtdNum = parseFloat(quantity) || 1;
+      if (qtdNum <= 0) throw new Error('Informe uma quantidade maior que zero.');
+      const trackedItem = stockSource === 'tecnico' ? await findItemByPeca(selectedPartId) : null;
+      if (trackedItem) await assertSaldo(trackedItem.id, qtdNum);
 
       const payload = {
         id: newId,
@@ -465,6 +593,11 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false, 
           .from('preventive_part_consumption')
           .insert(payload);
         if (error) throw error;
+      }
+
+      if (trackedItem) {
+        try { await darSaidaPeca(newId, selectedPartId, qtdNum); }
+        catch (e: any) { toast({ title: 'Peça registrada, mas o estoque do técnico não foi descontado', description: e.message, variant: 'destructive' }); }
       }
 
       return { newId };
@@ -526,6 +659,12 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false, 
         }
       }
 
+      // Estoque Uso/Consumo: devolve ao estoque do técnico se houve saída
+      if (target?.stock_source === 'tecnico') {
+        try { await estornarPeca(partId); }
+        catch (e: any) { throw new Error(`Não foi possível devolver ao estoque do técnico: ${e.message}`); }
+      }
+
       // Always remove from Dexie to prevent stale local records from reappearing
       try {
         await offlineChecklistDb.partConsumptions.delete(partId);
@@ -569,6 +708,7 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false, 
   const resetAddDialog = () => {
     setIsAddDialogOpen(false);
     setSelectedPartId(null);
+    setSelectedUcItemId(null);
     setQuantity('1');
     setNotes('');
     setStockSource('tecnico');
@@ -587,8 +727,8 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false, 
   };
 
   // Calculate totals
-  const totalParts = parts?.length || 0;
-  const totalQuantity = parts?.reduce((sum, p) => sum + (p.quantity || 0), 0) || 0;
+  const totalParts = (parts?.length || 0) + ucAtivos.length;
+  const totalQuantity = (parts?.reduce((sum, p) => sum + (p.quantity || 0), 0) || 0) + ucAtivos.reduce((s, m) => s + m.quantidade, 0);
   const totalCost = parts?.reduce((sum, p) => sum + ((p.quantity || 0) * (p.unit_cost_snapshot || 0)), 0) || 0;
 
   const hasParts = totalParts > 0;
@@ -652,6 +792,27 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false, 
                       onDelete={(partId) => setDeleteConfirmPartId(partId)}
                     />
                   ))}
+                  {ucAtivos.map((m) => (
+                    <div key={m.id} className="rounded-lg border p-3 space-y-1">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="font-mono text-xs text-muted-foreground">{m.item_codigo ?? '—'}</span>
+                            <Badge variant="outline" className="text-xs">Uso/Consumo</Badge>
+                            {pendingMovIds.has(m.id) && <Badge variant="secondary" className="text-xs">Aguardando envio</Badge>}
+                          </div>
+                          <p className="text-sm font-medium break-words">{m.item_descricao ?? 'Item Uso/Consumo'}</p>
+                          <p className="text-xs text-muted-foreground">Qtd: {m.quantidade.toLocaleString('pt-BR')} · Estoque do técnico</p>
+                        </div>
+                        {!isCompleted && (
+                          <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-destructive" aria-label="Remover item"
+                            disabled={deleteUcMutation.isPending} onClick={() => setDeleteUcMovId(m.id)}>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  ))}
                 </div>
 
                 {/* Summary */}
@@ -696,7 +857,11 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false, 
                             role="combobox"
                             className="w-full justify-between h-auto min-h-10 whitespace-normal text-left"
                           >
-                            {selectedPart ? (
+                            {selectedUcItem ? (
+                              <span className="break-words">
+                                {selectedUcItem.codigo} - {selectedUcItem.descricao}
+                              </span>
+                            ) : selectedPart ? (
                               <span className="break-words">
                                 {selectedPart.codigo} - {selectedPart.nome}
                               </span>
@@ -726,6 +891,7 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false, 
                                       value={`${part.codigo} ${part.nome} ${part.familia || ''}`}
                                       onSelect={() => {
                                         setSelectedPartId(part.id);
+                                        setSelectedUcItemId(null);
                                         setIsPartSelectorOpen(false);
                                       }}
                                       className="flex items-center gap-2"
@@ -736,13 +902,34 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false, 
                                           selectedPartId === part.id ? "opacity-100" : "opacity-0"
                                         )}
                                       />
-                                      <span className="truncate">
+                                      <span className="truncate flex-1">
                                         {part.codigo} - {part.nome}
                                       </span>
+                                      {stockSource === 'tecnico' && <Badge variant="secondary" className="text-[10px] shrink-0">Catálogo</Badge>}
                                     </CommandItem>
                                   ))}
                                 </CommandGroup>
                               ))}
+                              {stockSource === 'tecnico' && ucPureItems.length > 0 && (
+                                <CommandGroup heading="Estoque Uso/Consumo">
+                                  {ucPureItems.map(item => (
+                                    <CommandItem
+                                      key={item.id}
+                                      value={`uc ${item.codigo} ${item.descricao}`}
+                                      onSelect={() => {
+                                        setSelectedUcItemId(item.id);
+                                        setSelectedPartId(null);
+                                        setIsPartSelectorOpen(false);
+                                      }}
+                                      className="flex items-center gap-2"
+                                    >
+                                      <Check className={cn("h-4 w-4", selectedUcItemId === item.id ? "opacity-100" : "opacity-0")} />
+                                      <span className="truncate flex-1">{item.codigo} - {item.descricao}</span>
+                                      <Badge variant="outline" className="text-[10px] shrink-0">Uso/Consumo</Badge>
+                                    </CommandItem>
+                                  ))}
+                                </CommandGroup>
+                              )}
                             </CommandList>
                           </Command>
                         </PopoverContent>
@@ -768,7 +955,11 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false, 
                       <ToggleGroup
                         type="single"
                         value={stockSource}
-                        onValueChange={(value) => value && setStockSource(value as 'tecnico' | 'fazenda' | 'novo_pedido')}
+                        onValueChange={(value) => {
+                          if (!value) return;
+                          setStockSource(value as 'tecnico' | 'fazenda' | 'novo_pedido');
+                          if (value !== 'tecnico') setSelectedUcItemId(null);
+                        }}
                         className="justify-start"
                       >
                         <ToggleGroupItem
@@ -847,14 +1038,15 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false, 
                       Cancelar
                     </Button>
                     <Button
-                      onClick={() => addManualPartMutation.mutate()}
+                      onClick={() => (selectedUcItem ? addUcMutation.mutate() : addManualPartMutation.mutate())}
                       disabled={
-                        !selectedPartId ||
+                        (!selectedPartId && !selectedUcItem) ||
                         addManualPartMutation.isPending ||
+                        addUcMutation.isPending ||
                         (selectedPart?.codigo === 'PRD00605' && !dialogSolenoideModelo)
                       }
                     >
-                      {addManualPartMutation.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                      {(addManualPartMutation.isPending || addUcMutation.isPending) && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                       Adicionar
                     </Button>
                   </DialogFooter>
@@ -865,6 +1057,22 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false, 
         </CollapsibleContent>
       </Collapsible>
     </Card>
+
+      <AlertDialog open={!!deleteUcMovId} onOpenChange={(open) => { if (!open) setDeleteUcMovId(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remover item Uso/Consumo?</AlertDialogTitle>
+            <AlertDialogDescription>A quantidade volta para o estoque do técnico.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => { if (deleteUcMovId) deleteUcMutation.mutate(deleteUcMovId); setDeleteUcMovId(null); }}>
+              Remover
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={!!deleteConfirmPartId} onOpenChange={(open) => { if (!open) setDeleteConfirmPartId(null); }}>
