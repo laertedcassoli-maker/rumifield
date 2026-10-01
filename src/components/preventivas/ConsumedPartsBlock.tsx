@@ -500,7 +500,7 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false, 
       queryClient.invalidateQueries({ queryKey: ['preventive-consumed-parts', preventiveId] });
     },
     onError: (error: Error) => {
-      if (!isOnline) return;
+      if (!isOnline && !error.message.startsWith('Saldo insuficiente')) return;
       toast({ title: 'Erro ao atualizar', description: error.message, variant: 'destructive' });
     },
   });
