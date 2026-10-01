@@ -102,13 +102,19 @@ const groupActionColumns: Record<string, Array<{ key: keyof Permission; label: s
 // Colunas extras por menu específico (quando o grupo inteiro não deve ganhar a coluna)
 const menuExtraColumns: Record<string, Array<{ key: keyof Permission; label: string }>> = {
   instalacoes: [{ key: 'can_delete', label: 'Excluir' }],
+  estoque_uso_consumo: [
+    { key: 'can_edit', label: 'Criar item/Dar entrada' },
+    { key: 'can_delete', label: 'Dar saída' },
+  ],
 };
+
+const colId = (c: { key: keyof Permission; label: string }) => `${String(c.key)}|${c.label}`;
 
 const columnsFor = (group: string, perms: Permission[]) => {
   const base = groupActionColumns[group] || [];
   const extras = perms.flatMap(p => menuExtraColumns[p.menu_key] || []);
-  const seen = new Set(base.map(c => c.key));
-  return [...base, ...extras.filter(c => (seen.has(c.key) ? false : (seen.add(c.key), true)))];
+  const seen = new Set(base.map(colId));
+  return [...base, ...extras.filter(c => (seen.has(colId(c)) ? false : (seen.add(colId(c)), true)))];
 };
 
 
