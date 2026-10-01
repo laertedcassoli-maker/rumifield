@@ -1702,6 +1702,100 @@ export type Database = {
           },
         ]
       }
+      estoque_consumo_itens: {
+        Row: {
+          ativo: boolean
+          codigo: string
+          created_at: string
+          created_by_user_id: string | null
+          descricao: string
+          id: string
+          peca_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          ativo?: boolean
+          codigo: string
+          created_at?: string
+          created_by_user_id?: string | null
+          descricao: string
+          id?: string
+          peca_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          ativo?: boolean
+          codigo?: string
+          created_at?: string
+          created_by_user_id?: string | null
+          descricao?: string
+          id?: string
+          peca_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "estoque_consumo_itens_peca_id_fkey"
+            columns: ["peca_id"]
+            isOneToOne: false
+            referencedRelation: "pecas"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      estoque_consumo_movimentos: {
+        Row: {
+          created_at: string
+          created_by_user_id: string | null
+          id: string
+          item_id: string
+          local: string
+          notes: string | null
+          origem_id: string | null
+          origem_tipo: string
+          quantidade: number
+          tecnico_user_id: string | null
+          tipo: string
+          transacao_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          created_by_user_id?: string | null
+          id?: string
+          item_id: string
+          local: string
+          notes?: string | null
+          origem_id?: string | null
+          origem_tipo: string
+          quantidade: number
+          tecnico_user_id?: string | null
+          tipo: string
+          transacao_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          created_by_user_id?: string | null
+          id?: string
+          item_id?: string
+          local?: string
+          notes?: string | null
+          origem_id?: string | null
+          origem_tipo?: string
+          quantidade?: number
+          tecnico_user_id?: string | null
+          tipo?: string
+          transacao_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "estoque_consumo_movimentos_item_id_fkey"
+            columns: ["item_id"]
+            isOneToOne: false
+            referencedRelation: "estoque_consumo_itens"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       installation_checklist_blocks: {
         Row: {
           block_name_snapshot: string
@@ -4884,8 +4978,16 @@ export type Database = {
         Args: { _user_id: string }
         Returns: boolean
       }
+      can_manage_estoque_consumo: {
+        Args: { _user_id: string }
+        Returns: boolean
+      }
       can_manage_installations: { Args: never; Returns: boolean }
       can_manage_pedidos: { Args: { _user_id: string }; Returns: boolean }
+      can_registrar_saida_estoque: {
+        Args: { _user_id: string }
+        Returns: boolean
+      }
       check_sync_omie_rastreio_secret: {
         Args: { p_secret: string }
         Returns: boolean
