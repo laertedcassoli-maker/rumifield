@@ -1,0 +1,1 @@
+UPDATE public.estoque_consumo_itens SET ativo = false WHERE codigo = 'TESTE-EUC-01' AND ativo = true RETURNING id, codigo, descricao, ativo;
