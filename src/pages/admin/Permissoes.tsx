@@ -334,12 +334,12 @@ export default function AdminPermissoes() {
                                     />
                                   </TableCell>
                                   {columnsFor(group, perms).map(col => {
-                                    const isGroupCol = (groupActionColumns[group] || []).some(c => c.key === col.key);
-                                    const isExtraForThis = (menuExtraColumns[perm.menu_key] || []).some(c => c.key === col.key);
-                                    if (!isGroupCol && !isExtraForThis) return <TableCell key={col.key} />;
+                                    const isGroupCol = (groupActionColumns[group] || []).some(c => colId(c) === colId(col));
+                                    const isExtraForThis = (menuExtraColumns[perm.menu_key] || []).some(c => colId(c) === colId(col));
+                                    if (!isGroupCol && !isExtraForThis) return <TableCell key={colId(col)} />;
                                     const isLocked = perm.menu_key === 'oficina_gestao_os' && (col.key === 'can_edit' || col.key === 'can_delete');
                                     return (
-                                      <TableCell key={col.key} className="text-center">
+                                      <TableCell key={colId(col)} className="text-center">
                                         <Switch
                                           checked={isLocked ? false : Boolean(perm[col.key])}
                                           onCheckedChange={(v) => updatePermission.mutate({ id: perm.id, field: col.key as string, value: v })}
