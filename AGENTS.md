@@ -1,0 +1,1 @@
+- Estoque Uso/Consumo na visita técnica grava movimentos (origem_tipo='visita') offline-first via src/lib/estoque-consumo-visita.ts e a fila do checklist; nunca cria linha em preventive_part_consumption para item sem peca_id — porque part_id é obrigatório e gera NF.
