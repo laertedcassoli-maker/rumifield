@@ -24,6 +24,7 @@ import Previsao from "./pages/estoque/Previsao";
 import Historico from "./pages/estoque/Historico";
 import Pedidos from "./pages/Pedidos";
 import EstoqueUsoConsumo from "./pages/EstoqueUsoConsumo";
+import RetirarEstoque from "./pages/RetirarEstoque";
 import AdminClientes from "./pages/admin/Clientes";
 import AdminEnvios from "./pages/admin/Envios";
 import AdminUsuarios from "./pages/admin/Usuarios";
@@ -131,6 +132,14 @@ const App = () => (
               element={
                 <AppLayout>
                   <EstoqueUsoConsumo />
+                </AppLayout>
+              }
+            />
+            <Route
+              path="/estoque-uso-consumo/retirar"
+              element={
+                <AppLayout>
+                  <RetirarEstoque />
                 </AppLayout>
               }
             />
