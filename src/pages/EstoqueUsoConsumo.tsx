@@ -13,9 +13,9 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Box, Loader2, Minus, Plus, Search, Shield } from 'lucide-react';
+import { Box, Loader2, Minus, Pencil, Plus, Search, Shield } from 'lucide-react';
 
-type Item = { id: string; codigo: string; descricao: string; peca_id: string | null; ativo: boolean };
+type Item = { id: string; codigo: string; descricao: string; peca_id: string | null; ativo: boolean; estoque_minimo: number | null };
 type Mov = {
   id: string; item_id: string; tipo: 'entrada' | 'saida'; quantidade: number; local: 'centro_servicos' | 'tecnico';
   tecnico_user_id: string | null; origem_tipo: string; notes: string | null; created_by_user_id: string | null; created_at: string;
@@ -47,6 +47,7 @@ export default function EstoqueUsoConsumo() {
   const [historico, setHistorico] = useState<Row | null>(null);
   const [novoOpen, setNovoOpen] = useState(false);
   const [movOpen, setMovOpen] = useState<null | 'entrada' | 'saida'>(null);
+  const [editItem, setEditItem] = useState<Item | null>(null);
 
   const podeEditar = canEdit('estoque_uso_consumo');
   const podeSaida = canDelete('estoque_uso_consumo');
@@ -54,7 +55,7 @@ export default function EstoqueUsoConsumo() {
   const { data: itens = [], isLoading: l1 } = useQuery({
     queryKey: ['estoque-consumo-itens'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('estoque_consumo_itens').select('id, codigo, descricao, peca_id, ativo').order('codigo');
+      const { data, error } = await supabase.from('estoque_consumo_itens').select('id, codigo, descricao, peca_id, ativo, estoque_minimo').order('codigo');
       if (error) throw error;
       return data as Item[];
     },
@@ -198,26 +199,36 @@ export default function EstoqueUsoConsumo() {
                   <TableHead>Descrição</TableHead>
                   <TableHead>Local</TableHead>
                   <TableHead className="text-right">Quantidade</TableHead>
+                  {podeEditar && <TableHead className="w-10" />}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filtered.length === 0 && (
-                  <TableRow><TableCell colSpan={4} className="text-center text-muted-foreground py-8">Nenhum item encontrado</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={podeEditar ? 5 : 4} className="text-center text-muted-foreground py-8">Nenhum item encontrado</TableCell></TableRow>
                 )}
-                {filtered.map(r => (
-                  <TableRow key={r.key} className="cursor-pointer" onClick={() => setHistorico(r)}>
+                {filtered.map(r => {
+                  const baixo = r.local === 'centro_servicos' && r.item.estoque_minimo != null && r.saldo < Number(r.item.estoque_minimo);
+                  return (
+                  <TableRow key={r.key} className={`cursor-pointer ${baixo ? 'bg-destructive/10 hover:bg-destructive/15' : ''}`} onClick={() => setHistorico(r)}>
                     <TableCell className="font-medium">{r.item.codigo}</TableCell>
                     <TableCell>
                       <div className="flex flex-wrap items-center gap-2">
                         <span>{r.item.descricao}</span>
                         {r.item.peca_id && <Badge variant="outline">Controlado</Badge>}
                         {!r.item.ativo && <Badge variant="secondary">Inativo</Badge>}
+                        {baixo && <Badge variant="destructive">Estoque baixo</Badge>}
                       </div>
                     </TableCell>
                     <TableCell>{localLabel(r)}</TableCell>
                     <TableCell className="text-right font-semibold">{fmt(r.saldo)}</TableCell>
+                    {podeEditar && (
+                      <TableCell onClick={e => e.stopPropagation()}>
+                        <Button size="icon" variant="ghost" aria-label="Editar item" onClick={() => setEditItem(r.item)}><Pencil className="h-4 w-4" /></Button>
+                      </TableCell>
+                    )}
                   </TableRow>
-                ))}
+                  );
+                })}
               </TableBody>
             </Table>
           )}
@@ -261,11 +272,53 @@ export default function EstoqueUsoConsumo() {
       </Dialog>
 
       {novoOpen && <NovoItemDialog onClose={() => setNovoOpen(false)} userId={user?.id} onDone={invalidate} />}
+      {editItem && <EditarItemDialog item={editItem} onClose={() => setEditItem(null)} onDone={invalidate} />}
       {movOpen && (
         <MovimentoDialog tipo={movOpen} itens={itens.filter(i => i.ativo)} saldoCentro={saldoCentro}
           userId={user?.id} onClose={() => setMovOpen(null)} onDone={invalidate} />
       )}
     </div>
+  );
+}
+
+function parseMinimo(v: string): number | null {
+  if (!v.trim()) return null;
+  const n = Number(v.replace(',', '.'));
+  if (!Number.isFinite(n) || n < 0) throw new Error('Estoque mínimo inválido.');
+  return n;
+}
+
+function EditarItemDialog({ item, onClose, onDone }: { item: Item; onClose: () => void; onDone: () => void }) {
+  const { toast } = useToast();
+  const [descricao, setDescricao] = useState(item.descricao);
+  const [minimo, setMinimo] = useState(item.estoque_minimo != null ? String(item.estoque_minimo) : '');
+  const mut = useMutation({
+    mutationFn: async () => {
+      if (!descricao.trim()) throw new Error('Preencha a descrição.');
+      const min = parseMinimo(minimo);
+      const { data, error } = await withTimeout(supabase.from('estoque_consumo_itens')
+        .update({ descricao: descricao.trim(), estoque_minimo: min }).eq('id', item.id).select('id'));
+      if (error) throw error;
+      if (!data?.length) throw new Error('Sem permissão para editar item.');
+    },
+    onSuccess: () => { toast({ title: 'Item atualizado!' }); onDone(); onClose(); },
+    onError: (e: Error) => toast({ variant: 'destructive', title: 'Erro ao editar item', description: e.message }),
+  });
+  return (
+    <Dialog open onOpenChange={o => !o && onClose()}>
+      <DialogContent>
+        <DialogHeader><DialogTitle>Editar item — {item.codigo}</DialogTitle></DialogHeader>
+        <div className="space-y-4">
+          <div className="space-y-1"><Label>Descrição *</Label><Input value={descricao} onChange={e => setDescricao(e.target.value)} /></div>
+          <div className="space-y-1"><Label>Estoque mínimo</Label><Input type="number" min="0" step="any" placeholder="Sem mínimo" value={minimo} onChange={e => setMinimo(e.target.value)} />
+            <p className="text-xs text-muted-foreground">Deixe vazio para não ter alerta.</p></div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Cancelar</Button>
+          <Button onClick={() => mut.mutate()} disabled={mut.isPending}>{mut.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Salvar</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -276,6 +329,7 @@ function NovoItemDialog({ onClose, onDone, userId }: { onClose: () => void; onDo
   const [controlado, setControlado] = useState(false);
   const [buscaPeca, setBuscaPeca] = useState('');
   const [peca, setPeca] = useState<{ id: string; codigo: string; nome: string } | null>(null);
+  const [minimo, setMinimo] = useState('');
 
   const { data: pecas = [] } = useQuery({
     queryKey: ['estoque-consumo-busca-peca', buscaPeca],
@@ -293,8 +347,9 @@ function NovoItemDialog({ onClose, onDone, userId }: { onClose: () => void; onDo
     mutationFn: async () => {
       if (!codigo.trim() || !descricao.trim()) throw new Error('Preencha código e descrição.');
       if (controlado && !peca) throw new Error('Selecione a peça do catálogo para o Item Controlado.');
+      const min = parseMinimo(minimo);
       const { data, error } = await withTimeout(supabase.from('estoque_consumo_itens').insert({
-        codigo: codigo.trim(), descricao: descricao.trim(), peca_id: controlado ? peca!.id : null, created_by_user_id: userId,
+        codigo: codigo.trim(), descricao: descricao.trim(), peca_id: controlado ? peca!.id : null, created_by_user_id: userId, estoque_minimo: min,
       }).select('id'));
       if (error) {
         if (error.code === '23505') throw new Error('Já existe um item com esse código.');
@@ -313,6 +368,7 @@ function NovoItemDialog({ onClose, onDone, userId }: { onClose: () => void; onDo
         <div className="space-y-4">
           <div className="space-y-1"><Label>Código *</Label><Input value={codigo} onChange={e => setCodigo(e.target.value)} /></div>
           <div className="space-y-1"><Label>Descrição *</Label><Input value={descricao} onChange={e => setDescricao(e.target.value)} /></div>
+          <div className="space-y-1"><Label>Estoque mínimo</Label><Input type="number" min="0" step="any" placeholder="Opcional" value={minimo} onChange={e => setMinimo(e.target.value)} /></div>
           <div className="flex flex-wrap gap-2">
             <Button type="button" size="sm" variant={!controlado ? 'default' : 'outline'} onClick={() => { setControlado(false); setPeca(null); }}>Item Uso/Consumo</Button>
             <Button type="button" size="sm" variant={controlado ? 'default' : 'outline'} onClick={() => setControlado(true)}>Item Controlado</Button>
@@ -367,7 +423,7 @@ function MovimentoDialog({ tipo, itens, saldoCentro, userId, onClose, onDone }: 
       if (tipo === 'saida' && q > saldo) throw new Error(`Saldo insuficiente no Centro de Serviços (disponível: ${fmt(saldo)}).`);
       const { data, error } = await withTimeout(supabase.from('estoque_consumo_movimentos').insert({
         item_id: itemId, tipo, quantidade: q, local: 'centro_servicos', tecnico_user_id: null,
-        origem_tipo: 'ajuste', notes: obs.trim() || null, created_by_user_id: userId,
+        origem_tipo: 'ajuste', notes: obs.trim() || null, created_by_user_id: userId, estoque_minimo: min,
       }).select('id'));
       if (error) throw error;
       if (!data?.length) throw new Error('Sem permissão para registrar o movimento.');
