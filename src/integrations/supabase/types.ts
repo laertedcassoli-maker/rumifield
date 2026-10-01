@@ -1709,6 +1709,7 @@ export type Database = {
           created_at: string
           created_by_user_id: string | null
           descricao: string
+          estoque_minimo: number | null
           id: string
           peca_id: string | null
           updated_at: string
@@ -1719,6 +1720,7 @@ export type Database = {
           created_at?: string
           created_by_user_id?: string | null
           descricao: string
+          estoque_minimo?: number | null
           id?: string
           peca_id?: string | null
           updated_at?: string
@@ -1729,6 +1731,7 @@ export type Database = {
           created_at?: string
           created_by_user_id?: string | null
           descricao?: string
+          estoque_minimo?: number | null
           id?: string
           peca_id?: string | null
           updated_at?: string
