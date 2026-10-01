@@ -1,0 +1,1 @@
+ALTER TABLE public.estoque_consumo_itens ADD COLUMN estoque_minimo numeric NULL;

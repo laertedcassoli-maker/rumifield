@@ -30,6 +30,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { MotorSection } from './MotorSection';
+import { EstoqueConsumoOSSection } from './EstoqueConsumoOSSection';
 import { useMenuPermissions } from '@/hooks/useMenuPermissions';
 
 interface TimeEntryWithUser {
@@ -1747,6 +1748,8 @@ export function DetalheOSDialog({ open, onOpenChange, workOrder, onUpdate }: Det
               />
 
             )}
+
+            <EstoqueConsumoOSSection workOrderId={workOrder.id} readOnly={isClosedOS} />
 
             {/* Parts Used Section */}
             <div className="p-3 border rounded-lg bg-card space-y-3">
