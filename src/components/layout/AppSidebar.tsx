@@ -364,6 +364,18 @@ export function AppSidebar() {
                 </Collapsible>
               )}
 
+              {canAccess('estoque_uso_consumo') && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild isActive={location.pathname === '/estoque-uso-consumo'}>
+                    <Link to="/estoque-uso-consumo" onClick={handleMenuClick}>
+                      <Box className="h-4 w-4" />
+                      <span>Estoque Uso/Consumo</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
+
+
               {/* Centro de Serviços com submenu */}
               {showOficinaMenu && (
                 <Collapsible defaultOpen={isOficinaActive} className="group/collapsible">
