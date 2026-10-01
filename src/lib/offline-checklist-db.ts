@@ -95,9 +95,17 @@ export interface OfflinePartConsumption {
   _operation?: 'insert' | 'delete';
 }
 
+export interface OfflineEstoqueItem { id: string; codigo: string; descricao: string; peca_id: string | null; ativo: boolean }
+export interface OfflineEstoqueSaldo { key: string; tecnico_user_id: string; item_id: string; saldo: number }
+export interface OfflineEstoqueMov {
+  id: string; item_id: string; tipo: 'entrada' | 'saida'; quantidade: number; local: 'tecnico';
+  tecnico_user_id: string; origem_tipo: 'visita'; origem_id: string; notes: string | null;
+  created_by_user_id: string | null; created_at: string; _pendingSync: boolean;
+}
+
 export interface ChecklistSyncQueueItem {
   id?: number;
-  table: 'preventive_checklist_items' | 'preventive_checklist_item_actions' | 'preventive_checklist_item_nonconformities' | 'preventive_part_consumption';
+  table: 'preventive_checklist_items' | 'preventive_checklist_item_actions' | 'preventive_checklist_item_nonconformities' | 'preventive_part_consumption' | 'estoque_consumo_movimentos';
   operation: 'update' | 'insert' | 'delete';
   data: Record<string, unknown>;
   createdAt: string;
@@ -191,6 +199,9 @@ export interface OfflineChecklistItemPhoto {
 
 class OfflineChecklistDatabase extends Dexie {
   checklistItemPhotosV2!: Table<OfflineChecklistItemPhoto, number>;
+  estoqueConsumoItens!: Table<OfflineEstoqueItem, string>;
+  estoqueSaldoTecnico!: Table<OfflineEstoqueSaldo, string>;
+  estoqueMovimentosLocais!: Table<OfflineEstoqueMov, string>;
   checklistItems!: Table<OfflineChecklistItem, string>;
   checklistActions!: Table<OfflineChecklistAction, string>;
   checklistNonconformities!: Table<OfflineChecklistNonconformity, string>;
@@ -291,6 +302,13 @@ class OfflineChecklistDatabase extends Dexie {
     // Version 10: remove a tabela antiga de foto única
     this.version(10).stores({
       checklistItemPhotos: null,
+    });
+
+    // Version 11: Estoque Uso/Consumo na visita (cache + lançamentos locais)
+    this.version(11).stores({
+      estoqueConsumoItens: 'id, peca_id',
+      estoqueSaldoTecnico: 'key, tecnico_user_id',
+      estoqueMovimentosLocais: 'id, origem_id',
     });
   }
 
