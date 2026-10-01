@@ -2,6 +2,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { Link } from 'react-router-dom';
 import { 
   ShoppingCart, 
+  PackageMinus,
   Building2, 
   Users, 
   Truck, 
@@ -82,6 +83,14 @@ export default function Home() {
       color: 'text-blue-600',
       bgColor: 'bg-blue-100 dark:bg-blue-900/30',
       permKey: 'pedidos',
+    },
+    {
+      title: 'Retirar estoque',
+      icon: PackageMinus,
+      url: '/estoque-uso-consumo/retirar',
+      color: 'text-blue-600',
+      bgColor: 'bg-blue-100 dark:bg-blue-900/30',
+      permKey: 'estoque_uso_consumo',
     },
     {
       title: 'Preventivas',
