@@ -349,7 +349,7 @@ function NovoItemDialog({ onClose, onDone, userId }: { onClose: () => void; onDo
       if (controlado && !peca) throw new Error('Selecione a peça do catálogo para o Item Controlado.');
       const min = parseMinimo(minimo);
       const { data, error } = await withTimeout(supabase.from('estoque_consumo_itens').insert({
-        codigo: codigo.trim(), descricao: descricao.trim(), peca_id: controlado ? peca!.id : null, created_by_user_id: userId, estoque_minimo: min,
+        codigo: codigo.trim(), descricao: descricao.trim(), peca_id: controlado ? peca!.id : null, created_by_user_id: userId, estoque_minimo: min, estoque_minimo: min,
       }).select('id'));
       if (error) {
         if (error.code === '23505') throw new Error('Já existe um item com esse código.');
@@ -423,7 +423,7 @@ function MovimentoDialog({ tipo, itens, saldoCentro, userId, onClose, onDone }: 
       if (tipo === 'saida' && q > saldo) throw new Error(`Saldo insuficiente no Centro de Serviços (disponível: ${fmt(saldo)}).`);
       const { data, error } = await withTimeout(supabase.from('estoque_consumo_movimentos').insert({
         item_id: itemId, tipo, quantidade: q, local: 'centro_servicos', tecnico_user_id: null,
-        origem_tipo: 'ajuste', notes: obs.trim() || null, created_by_user_id: userId, estoque_minimo: min,
+        origem_tipo: 'ajuste', notes: obs.trim() || null, created_by_user_id: userId,
       }).select('id'));
       if (error) throw error;
       if (!data?.length) throw new Error('Sem permissão para registrar o movimento.');
