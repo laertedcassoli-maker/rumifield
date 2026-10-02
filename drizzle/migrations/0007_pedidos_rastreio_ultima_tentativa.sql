@@ -1,0 +1,1 @@
+ALTER TABLE public.pedidos ADD COLUMN IF NOT EXISTS rastreio_ultima_tentativa_em timestamptz;

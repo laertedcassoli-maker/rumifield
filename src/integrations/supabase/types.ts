@@ -2736,6 +2736,7 @@ export type Database = {
           pedido_code: string | null
           preventive_id: string | null
           quantidade_volumes: number | null
+          rastreio_ultima_tentativa_em: string | null
           solenoide_modelo: string | null
           solicitante_id: string
           status: Database["public"]["Enums"]["pedido_status"]
@@ -2771,6 +2772,7 @@ export type Database = {
           pedido_code?: string | null
           preventive_id?: string | null
           quantidade_volumes?: number | null
+          rastreio_ultima_tentativa_em?: string | null
           solenoide_modelo?: string | null
           solicitante_id: string
           status?: Database["public"]["Enums"]["pedido_status"]
@@ -2806,6 +2808,7 @@ export type Database = {
           pedido_code?: string | null
           preventive_id?: string | null
           quantidade_volumes?: number | null
+          rastreio_ultima_tentativa_em?: string | null
           solenoide_modelo?: string | null
           solicitante_id?: string
           status?: Database["public"]["Enums"]["pedido_status"]
