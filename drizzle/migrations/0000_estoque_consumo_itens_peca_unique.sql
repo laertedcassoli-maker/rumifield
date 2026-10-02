@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX IF NOT EXISTS estoque_consumo_itens_peca_id_unique ON public.estoque_consumo_itens(peca_id) WHERE peca_id IS NOT NULL;

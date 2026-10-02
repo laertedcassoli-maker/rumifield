@@ -339,9 +339,21 @@ function NovoItemDialog({ onClose, onDone, userId }: { onClose: () => void; onDo
       const { data, error } = await supabase.from('pecas').select('id, codigo, nome')
         .eq('ativo', true).or(`codigo.ilike.%${q}%,nome.ilike.%${q}%`).limit(20);
       if (error) throw error;
-      return data;
+      const ids = (data || []).map(p => p.id);
+      let usados = new Set<string>();
+      if (ids.length) {
+        const { data: ex, error: e2 } = await supabase.from('estoque_consumo_itens').select('peca_id').in('peca_id', ids);
+        if (e2) throw e2;
+        usados = new Set((ex || []).map((r: any) => r.peca_id));
+      }
+      return (data || []).map(p => ({ ...p, jaCadastrado: usados.has(p.id) }));
     },
   });
+
+  const selecionarPeca = (p: { id: string; codigo: string; nome: string }) => {
+    setPeca(p); setCodigo(p.codigo); setDescricao(p.nome);
+  };
+  const limparPeca = () => { setPeca(null); setCodigo(''); setDescricao(''); };
 
   const mut = useMutation({
     mutationFn: async () => {
@@ -352,7 +364,10 @@ function NovoItemDialog({ onClose, onDone, userId }: { onClose: () => void; onDo
         codigo: codigo.trim(), descricao: descricao.trim(), peca_id: controlado ? peca!.id : null, created_by_user_id: userId, estoque_minimo: min,
       }).select('id'));
       if (error) {
-        if (error.code === '23505') throw new Error('Já existe um item com esse código.');
+        if (error.code === '23505') {
+          if (`${error.message} ${error.details ?? ''}`.includes('peca_id')) throw new Error('Essa peça já está cadastrada no Estoque Uso/Consumo.');
+          throw new Error('Já existe um item com esse código.');
+        }
         throw error;
       }
       if (!data?.length) throw new Error('Sem permissão para criar item.');
@@ -361,16 +376,18 @@ function NovoItemDialog({ onClose, onDone, userId }: { onClose: () => void; onDo
     onError: (e: Error) => toast({ variant: 'destructive', title: 'Erro ao criar item', description: e.message }),
   });
 
+  const travado = controlado && !!peca;
+
   return (
     <Dialog open onOpenChange={o => !o && onClose()}>
       <DialogContent>
         <DialogHeader><DialogTitle>Novo item</DialogTitle></DialogHeader>
         <div className="space-y-4">
-          <div className="space-y-1"><Label>Código *</Label><Input value={codigo} onChange={e => setCodigo(e.target.value)} /></div>
-          <div className="space-y-1"><Label>Descrição *</Label><Input value={descricao} onChange={e => setDescricao(e.target.value)} /></div>
+          <div className="space-y-1"><Label>Código *</Label><Input value={codigo} readOnly={travado} className={travado ? 'bg-muted' : ''} onChange={e => setCodigo(e.target.value)} /></div>
+          <div className="space-y-1"><Label>Descrição *</Label><Input value={descricao} readOnly={travado} className={travado ? 'bg-muted' : ''} onChange={e => setDescricao(e.target.value)} /></div>
           <div className="space-y-1"><Label>Estoque mínimo</Label><Input type="number" min="0" step="any" placeholder="Opcional" value={minimo} onChange={e => setMinimo(e.target.value)} /></div>
           <div className="flex flex-wrap gap-2">
-            <Button type="button" size="sm" variant={!controlado ? 'default' : 'outline'} onClick={() => { setControlado(false); setPeca(null); }}>Item Uso/Consumo</Button>
+            <Button type="button" size="sm" variant={!controlado ? 'default' : 'outline'} onClick={() => { if (controlado) { setControlado(false); limparPeca(); } }}>Item Uso/Consumo</Button>
             <Button type="button" size="sm" variant={controlado ? 'default' : 'outline'} onClick={() => setControlado(true)}>Item Controlado</Button>
           </div>
           {controlado && (
@@ -379,15 +396,18 @@ function NovoItemDialog({ onClose, onDone, userId }: { onClose: () => void; onDo
               {peca ? (
                 <div className="flex items-center justify-between gap-2 rounded-md border p-2">
                   <span className="min-w-0 truncate text-sm">{peca.codigo} — {peca.nome}</span>
-                  <Button size="sm" variant="ghost" onClick={() => setPeca(null)}>Trocar</Button>
+                  <Button size="sm" variant="ghost" onClick={limparPeca}>Trocar</Button>
                 </div>
               ) : (
                 <>
                   <Input placeholder="Buscar por código ou nome (mín. 2 letras)" value={buscaPeca} onChange={e => setBuscaPeca(e.target.value)} />
                   <div className="max-h-48 overflow-auto rounded-md border">
                     {pecas.map(p => (
-                      <button key={p.id} type="button" className="block w-full px-3 py-2 text-left text-sm hover:bg-muted" onClick={() => setPeca(p)}>
-                        {p.codigo} — {p.nome}
+                      <button key={p.id} type="button" disabled={p.jaCadastrado}
+                        className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-transparent"
+                        onClick={() => selecionarPeca(p)}>
+                        <span className="min-w-0 truncate">{p.codigo} — {p.nome}</span>
+                        {p.jaCadastrado && <Badge variant="secondary">Já cadastrado</Badge>}
                       </button>
                     ))}
                     {buscaPeca.trim().length >= 2 && pecas.length === 0 && <p className="p-3 text-sm text-muted-foreground">Nenhuma peça encontrada</p>}
