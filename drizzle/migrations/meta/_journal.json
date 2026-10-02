@@ -50,6 +50,13 @@
       "when": 1790954549263,
       "tag": "0006_training_visits_update_using_cancelled",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1790960359883,
+      "tag": "0007_pedidos_rastreio_ultima_tentativa",
+      "breakpoints": true
     }
   ]
 }

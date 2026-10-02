@@ -25,6 +25,7 @@ const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+const NAO_ENCONTRADO_RE = /n[aã]o cadastrad|registro n[aã]o encontrad/i;
 const RASTREIO_RE = /\b[A-Z]{2}\s?\d{9}\s?BR\b/gi;
 
 function extrairCodigos(texto: string): string[] {
@@ -91,9 +92,12 @@ async function consultarNFs(
   const fim = new Date(dataRef.getTime() + 5 * 86400000);
   const resultados: ResultadoNF[] = [];
   for (const bruto of nfsBrutas) {
-    const nf = bruto.replace(/\s+/g, "").replace(/^0+(?=\d)/, "");
+    let limpo = bruto.replace(/\s+/g, "");
+    // Ponto como separador de milhar (ex.: 2.939 -> 2939); só esse formato exato
+    if (/^\d{1,3}(\.\d{3})+$/.test(limpo)) limpo = limpo.replace(/\./g, "");
+    const nf = limpo.replace(/^0+(?=\d)/, "");
     const base: ResultadoNF = { nf, conta: null, documento: null, numeroDocumento: null, dataEmissaoNF: null, codigos: [], status: "erro", mensagem: "" };
-    if (!/^\d+$/.test(nf)) { resultados.push({ ...base, nf: bruto, mensagem: "NF em formato inválido" }); continue; }
+    if (!/^\d+$/.test(nf)) { resultados.push({ ...base, nf: bruto, status: "nf_nao_encontrada", mensagem: "Sem NF válida (campo NF contém texto livre)" }); continue; }
 
     try {
       // b) candidatas nas contas, dentro da janela
@@ -127,7 +131,7 @@ async function consultarNFs(
       }
 
       // c/d) documento de origem de cada candidata
-      type Det = Cand & { documento: "remessa" | "pedido_venda" | null; numero: string | null; texto: string; codigos: string[]; erro?: string };
+      type Det = Cand & { documento: "remessa" | "pedido_venda" | null; numero: string | null; texto: string; codigos: string[]; erro?: string; naoEncontrado?: boolean };
       const dets: Det[] = [];
       for (const c of cands) {
         const rem = await omie(c.conta, "produtos/remessa/", "ConsultarRemessa", { nCodRem: Number(c.nIdPedido) });
@@ -135,7 +139,7 @@ async function consultarNFs(
           const texto = `${rem.data?.infAdic?.cDadosAdic ?? ""}\n${rem.data?.obs?.cObs ?? ""}`.replace(/\|/g, "\n");
           const numero = rem.data?.cabec?.cNumeroRemessa ?? rem.data?.cNumeroRemessa ?? null;
           dets.push({ ...c, documento: "remessa", numero: numero != null ? String(numero) : null, texto, codigos: extrairCodigos(texto) });
-        } else if (/n[aã]o cadastrad/i.test(rem.fault ?? "")) {
+        } else if (NAO_ENCONTRADO_RE.test(rem.fault ?? "")) {
           const pv = await omie(c.conta, "produtos/pedido/", "ConsultarPedido", { codigo_pedido: Number(c.nIdPedido) });
           if (pv.ok) {
             const pvp = pv.data?.pedido_venda_produto ?? {};
@@ -144,6 +148,8 @@ async function consultarNFs(
             extrairCodigos(texto).forEach((x) => cods.add(x));
             const numero = pvp?.cabecalho?.numero_pedido ?? null;
             dets.push({ ...c, documento: "pedido_venda", numero: numero != null ? String(numero) : null, texto, codigos: [...cods] });
+          } else if (NAO_ENCONTRADO_RE.test(pv.fault ?? "")) {
+            dets.push({ ...c, documento: null, numero: null, texto: "", codigos: [], naoEncontrado: true });
           } else {
             dets.push({ ...c, documento: null, numero: null, texto: "", codigos: [], erro: pv.fault });
           }
@@ -174,7 +180,8 @@ async function consultarNFs(
         nf, conta: escolhido.conta, documento: escolhido.documento, numeroDocumento: escolhido.numero,
         dataEmissaoNF: escolhido.emissaoStr, codigos: escolhido.codigos, status: "erro", mensagem: "",
       };
-      if (escolhido.erro) { r.status = "erro"; r.mensagem = `Falha ao consultar documento: ${escolhido.erro}`; }
+      if (escolhido.naoEncontrado) { r.status = "nf_nao_encontrada"; r.mensagem = "Documento de origem não encontrado no Omie (remessa nem pedido de venda)"; }
+      else if (escolhido.erro) { r.status = "erro"; r.mensagem = `Falha ao consultar documento: ${escolhido.erro}`; }
       else if (r.codigos.length === 0) { r.status = "sem_rastreio"; r.mensagem = "Documento sem código de rastreio"; }
       else if (r.codigos.length > 1) { r.status = "multiplos_codigos"; r.mensagem = "Mais de um código encontrado"; }
       else { r.status = "encontrado"; r.mensagem = "Código encontrado"; }
@@ -268,6 +275,7 @@ Deno.serve(async (req) => {
       .eq("tipo_logistica", "correios").in("status", ["faturado", "enviado"])
       .is("codigo_rastreio", null).not("omie_nf_numero", "is", null).neq("omie_nf_numero", "")
       .gte("omie_data_faturamento", desde)
+      .order("rastreio_ultima_tentativa_em", { ascending: true, nullsFirst: true })
       .order("omie_data_faturamento", { ascending: false }).limit(25);
     if (error) return json(500, { error: error.message });
     const inicio = Date.now();
@@ -275,6 +283,7 @@ Deno.serve(async (req) => {
     for (const [i, p] of (pedidos ?? []).entries()) {
       if (Date.now() - inicio > 110_000) { resumo.restantes = (pedidos ?? []).length - i; break; }
       const r = await processarPedido(admin, omie, contasAtivas, p.id, dryRun);
+      if (!dryRun) await admin.from("pedidos").update({ rastreio_ultima_tentativa_em: new Date().toISOString() }).eq("id", p.id);
       resumo.processados++;
       if (r.resultado === "preenchido" || r.resultado === "consulta") resumo.preenchidos++;
       else if (r.resultado === "sem_rastreio") resumo.sem_rastreio++;
