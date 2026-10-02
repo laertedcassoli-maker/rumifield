@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
-import { Plus, Search, Eye, Play, Pause, CheckCircle, Clock, Package, LayoutGrid, List, Wrench, Trash2, Download } from 'lucide-react';
+import { Plus, Search, Eye, Play, Pause, CheckCircle, Clock, Package, LayoutGrid, List, Wrench, Trash2, Ban, Download } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader } from '@/components/ui/card';
@@ -663,8 +663,10 @@ export default function OrdensServico() {
                               size="sm"
                               onClick={(e) => { e.stopPropagation(); setDeleteTarget(os); }}
                               className="text-destructive hover:text-destructive"
+                              title={canHardDeleteWorkOrder(os.status) ? 'Excluir OS' : 'Cancelar OS'}
+                              aria-label={canHardDeleteWorkOrder(os.status) ? 'Excluir OS' : 'Cancelar OS'}
                             >
-                              <Trash2 className="h-4 w-4" />
+                              {canHardDeleteWorkOrder(os.status) ? <Trash2 className="h-4 w-4" /> : <Ban className="h-4 w-4" />}
                             </Button>
                           )}
                         </div>
@@ -764,9 +766,11 @@ export default function OrdensServico() {
                           size="sm"
                           onClick={(e) => { e.stopPropagation(); setDeleteTarget(os); }}
                           className="border-destructive/40 text-destructive hover:text-destructive hover:bg-destructive/10"
+                          title={canHardDeleteWorkOrder(os.status) ? 'Excluir OS' : 'Cancelar OS'}
+                          aria-label={canHardDeleteWorkOrder(os.status) ? 'Excluir OS' : 'Cancelar OS'}
                         >
-                          <Trash2 className="h-3.5 w-3.5 mr-1" />
-                          Excluir
+                          {canHardDeleteWorkOrder(os.status) ? <Trash2 className="h-3.5 w-3.5 mr-1" /> : <Ban className="h-3.5 w-3.5 mr-1" />}
+                          {canHardDeleteWorkOrder(os.status) ? 'Excluir' : 'Cancelar'}
                         </Button>
                       </div>
                     )}

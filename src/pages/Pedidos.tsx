@@ -19,7 +19,7 @@ import {
   AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
   AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Plus, Loader2, Trash2, Minus, ArrowUpDown, Search, X, Eye, Pencil, ShoppingCart, Package, ImageIcon, Send, FileText, ChevronLeft, ChevronRight, ArrowLeft, ArrowRight, Truck, HandHelping, AlertTriangle, User, RefreshCcw } from 'lucide-react';
+import { Plus, Loader2, Trash2, Ban, Minus, ArrowUpDown, Search, X, Eye, Pencil, ShoppingCart, Package, ImageIcon, Send, FileText, ChevronLeft, ChevronRight, ArrowLeft, ArrowRight, Truck, HandHelping, AlertTriangle, User, RefreshCcw } from 'lucide-react';
 import ProcessarPendenciaDialog from '@/components/pedidos/ProcessarPendenciaDialog';
 import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
@@ -2978,10 +2978,10 @@ export default function Pedidos() {
                             variant="outline" size="icon"
                             className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
                             onClick={() => setPedidoToDelete(pedido)}
-                            title="Excluir pedido"
-                            aria-label="Excluir pedido"
+                            title={pedido.status === 'rascunho' ? 'Excluir pedido' : 'Cancelar pedido'}
+                            aria-label={pedido.status === 'rascunho' ? 'Excluir pedido' : 'Cancelar pedido'}
                           >
-                            <Trash2 className="h-4 w-4" />
+                            {pedido.status === 'rascunho' ? <Trash2 className="h-4 w-4" /> : <Ban className="h-4 w-4" />}
                           </Button>
                         </>
                       )}
