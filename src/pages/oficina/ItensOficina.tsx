@@ -1,3 +1,4 @@
+import { ListaVerMais } from '@/components/ui/ver-mais';
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -445,7 +446,7 @@ export default function ItensOficina() {
                  </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredItems.map((item) => (
+                {<ListaVerMais inTable items={filteredItems} resetKey={search}>{(__vis) => __vis.map((item) => (
                   <TableRow key={item.id}>
                     <TableCell className="font-mono font-medium">{item.unique_code}</TableCell>
                     <TableCell>
@@ -500,7 +501,7 @@ export default function ItensOficina() {
                       </div>
                     </TableCell>
                   </TableRow>
-                ))}
+                ))}</ListaVerMais>}
               </TableBody>
             </Table>
           )}

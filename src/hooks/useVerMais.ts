@@ -1,5 +1,24 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useIsMobile } from '@/hooks/use-mobile';
+
+const MOBILE_QUERY = '(max-width: 767px)';
+
+/** Leitura síncrona na 1ª renderização (evita mostrar a lista inteira antes de limitar no celular). */
+function useIsMobileSync() {
+  const [isMobile, setIsMobile] = useState<boolean>(() =>
+    typeof window !== 'undefined' && typeof window.matchMedia === 'function'
+      ? window.matchMedia(MOBILE_QUERY).matches
+      : false,
+  );
+  useEffect(() => {
+    if (typeof window === 'undefined' || typeof window.matchMedia !== 'function') return;
+    const mql = window.matchMedia(MOBILE_QUERY);
+    const onChange = () => setIsMobile(mql.matches);
+    onChange();
+    mql.addEventListener('change', onChange);
+    return () => mql.removeEventListener('change', onChange);
+  }, []);
+  return isMobile;
+}
 
 /**
  * Limita a exibição de listas longas no celular (< 768px) a `pageSize` itens,
@@ -10,7 +29,7 @@ export function useVerMais<T>(
   items: readonly T[] | null | undefined,
   { pageSize = 20, resetKey }: { pageSize?: number; resetKey?: unknown } = {},
 ) {
-  const isMobile = useIsMobile();
+  const isMobile = useIsMobileSync();
   const [limite, setLimite] = useState(pageSize);
   const resetSig = JSON.stringify(resetKey ?? null);
 

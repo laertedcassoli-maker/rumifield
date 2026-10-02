@@ -110,7 +110,7 @@ function KanbanColumn({
       </div>
       <ScrollArea className="xl:h-[calc(100vh-320px)] [&>[data-radix-scroll-area-viewport]]:!overflow-visible xl:[&>[data-radix-scroll-area-viewport]]:!overflow-auto">
         <div className="p-2 space-y-2">
-          {<ListaVerMais items={orders}>{(__vis) => __vis.map((os) => (
+          {<ListaVerMais items={orders} resetKey={orders.map(i => i.id).join(',')}>{(__vis) => __vis.map((os) => (
             <Card 
               key={os.id}
               className="cursor-pointer hover:shadow-md transition-shadow bg-card"
