@@ -17,20 +17,40 @@ export const canHardDeleteTicket = (status?: string | null) => status === 'abert
 export const canHardDeleteCorrectiveVisit = (status?: string | null) =>
   status === 'em_elaboracao' || status === 'planejada';
 
+const SUBSTATUS_LABELS: Record<string, string> = {
+  aguardando_visita: 'aguardando visita',
+  aguardando_peca: 'aguardando peça',
+  aguardando_cliente: 'aguardando cliente',
+};
+
 export async function cancelTicket(ticketId: string, reason: string, userId: string) {
   const motivo = reason.trim();
   if (!motivo) throw new Error('Informe o motivo do cancelamento.');
+  // Lê o substatus atual para registrá-lo na linha do tempo (a constraint exige substatus NULL fora de em_atendimento).
+  // Se a leitura falhar, segue com o cancelamento normalmente.
+  let substatusAtual: string | null = null;
+  try {
+    const { data: atual } = await withTimeout(
+      supabase.from('technical_tickets').select('substatus').eq('id', ticketId).maybeSingle(),
+    );
+    substatusAtual = atual?.substatus ?? null;
+  } catch (e) {
+    console.warn('[cancelTicket] falha ao ler substatus atual', e);
+  }
   const { data, error } = await withTimeout(
-    supabase.from('technical_tickets').update({ status: 'cancelado' }).eq('id', ticketId).select('id'),
+    supabase.from('technical_tickets').update({ status: 'cancelado', substatus: null }).eq('id', ticketId).select('id'),
   );
   if (error) throw error;
   if (!data || data.length === 0) throw new Error('O cancelamento não foi confirmado pelo servidor. Verifique suas permissões.');
+  const detalheSubstatus = substatusAtual
+    ? ` (estava em atendimento: ${SUBSTATUS_LABELS[substatusAtual] ?? substatusAtual})`
+    : '';
   const { error: tlError } = await withTimeout(
     supabase.from('ticket_timeline').insert({
       ticket_id: ticketId,
       user_id: userId,
       event_type: 'cancelamento',
-      event_description: `Chamado cancelado em ${stamp()}`,
+      event_description: `Chamado cancelado em ${stamp()}${detalheSubstatus}`,
       notes: motivo,
     }),
   );
