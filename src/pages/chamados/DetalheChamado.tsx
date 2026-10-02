@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Separator } from '@/components/ui/separator';
 import { Textarea } from '@/components/ui/textarea';
 import { CancelReasonDialog } from '@/components/chamados/CancelReasonDialog';
-import { canHardDeleteTicket, cancelTicket } from '@/lib/corrective-cancel';
+import { canHardDeleteTicket, cancelTicket, countOpenTicketVisits, openVisitsDescription } from '@/lib/corrective-cancel';
 import { Checkbox } from '@/components/ui/checkbox';
 import { 
   ArrowLeft, 
@@ -579,6 +579,14 @@ export default function DetalheChamado() {
 
   // Exclusão do chamado — restrita a admin e coordenador de serviços
 
+  const cancelDialogOpen = showDeleteTicket && !canHardDeleteTicket(ticket?.status);
+  const { data: openVisitsCount = 0 } = useQuery({
+    queryKey: ['ticket-open-visits-count', id],
+    queryFn: () => countOpenTicketVisits(id!),
+    enabled: !!cancelDialogOpen && !!id,
+    staleTime: 0,
+  });
+
   const deleteTicketMutation = useMutation({
     mutationFn: async (reason?: string): Promise<'deleted' | 'cancelled'> => {
       if (!canHardDeleteTicket(ticket?.status)) {
@@ -602,6 +610,9 @@ export default function DetalheChamado() {
       if (result === 'cancelled') {
         queryClient.invalidateQueries({ queryKey: ['ticket', id] });
         queryClient.invalidateQueries({ queryKey: ['ticket-timeline', id] });
+        queryClient.invalidateQueries({ queryKey: ['ticket-detail', id] });
+        queryClient.invalidateQueries({ queryKey: ['ticket-visits'] });
+        queryClient.invalidateQueries({ queryKey: ['preventive-maintenance'] });
         toast({ title: 'Chamado cancelado.' });
         return;
       }
@@ -1263,7 +1274,7 @@ export default function DetalheChamado() {
         open={showDeleteTicket && !canHardDeleteTicket(ticket?.status)}
         onOpenChange={setShowDeleteTicket}
         title="Cancelar chamado?"
-        description="O chamado ficará como Cancelado e continuará no histórico. O motivo será registrado na linha do tempo."
+        description={openVisitsDescription("O chamado ficará como Cancelado e continuará no histórico. O motivo será registrado na linha do tempo.", openVisitsCount)}
         pending={deleteTicketMutation.isPending}
         onConfirm={(reason) => deleteTicketMutation.mutate(reason)}
       />

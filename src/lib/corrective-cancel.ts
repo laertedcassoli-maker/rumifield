@@ -81,3 +81,16 @@ export async function cancelCorrectiveVisit(visitId: string, reason: string, cur
     if (pmError) throw pmError;
   }
 }
+
+export async function countOpenTicketVisits(ticketId: string): Promise<number> {
+  const { count, error } = await withTimeout(
+    supabase.from('ticket_visits').select('id', { count: 'exact', head: true })
+      .eq('ticket_id', ticketId).in('status', ['em_elaboracao', 'planejada', 'em_execucao']),
+  );
+  if (error) return 0;
+  return count ?? 0;
+}
+
+export function openVisitsDescription(base: string, n: number) {
+  return n > 0 ? `${base} ${n} visita(s) em aberto também serão canceladas.` : base;
+}
