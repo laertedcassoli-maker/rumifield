@@ -603,17 +603,19 @@ export default function InstalacoesIndex() {
           {visibleInstallations.map((inst) => (
             <Card key={inst.id} className="overflow-hidden">
               <CardHeader className="pb-3">
-                <div className="flex flex-wrap items-center justify-between gap-2 min-w-0">
-                  <CardTitle className="flex items-center gap-2 text-base min-w-0">
+                <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center justify-between gap-2 min-w-0">
+                  <CardTitle className="flex items-start sm:items-center gap-2 text-base min-w-0">
                     <Building2 className="h-5 w-5 text-primary shrink-0" />
-                    <span className="truncate">{inst.cliente?.nome || 'Cliente'}</span>
-                    {inst.cliente?.fazenda && (
-                      <span className="text-sm font-normal text-muted-foreground truncate">
-                        — {inst.cliente.fazenda}
-                      </span>
-                    )}
+                    <span className="min-w-0 line-clamp-2 sm:line-clamp-none break-words">
+                      {inst.cliente?.nome || 'Cliente'}
+                      {inst.cliente?.fazenda && (
+                        <span className="text-sm font-normal text-muted-foreground">
+                          {' '}— {inst.cliente.fazenda}
+                        </span>
+                      )}
+                    </span>
                   </CardTitle>
-                  <div className="flex items-center gap-1.5 shrink-0">
+                  <div className="flex flex-wrap items-center gap-1.5 shrink-0">
                     {!etapaFiltro && (() => {
                       const situacao = classificarSituacao(inst);
                       const etapaAtual = situacao === 'instalacao' || situacao === 'pre_instalacao' ? situacao : null;
@@ -664,9 +666,9 @@ export default function InstalacoesIndex() {
                       key={stageType}
                       className="flex flex-wrap items-center gap-2 rounded-lg border p-3 min-w-0"
                     >
-                      <div className="flex-1 min-w-0">
+                      <div className="basis-full sm:basis-0 sm:flex-1 min-w-0">
                         <div className="flex flex-wrap items-center gap-2">
-                          <span className="font-medium text-sm">{STAGE_LABELS[stageType]}</span>
+                          <span className="font-medium text-sm whitespace-nowrap">{STAGE_LABELS[stageType]}</span>
                           {stage && (
                             <Badge
                               variant={STAGE_STATUS_VARIANTS[stage.status] || 'secondary'}
