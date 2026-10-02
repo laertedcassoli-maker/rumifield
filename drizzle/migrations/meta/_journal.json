@@ -43,6 +43,13 @@
       "when": 1790953955811,
       "tag": "0005_training_cancel_permissions",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1790954549263,
+      "tag": "0006_training_visits_update_using_cancelled",
+      "breakpoints": true
     }
   ]
 }

@@ -1,3 +1,4 @@
+import { ListaVerMais } from '@/components/ui/ver-mais';
 import { useMenuPermissions } from '@/hooks/useMenuPermissions';
 import { useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -600,7 +601,7 @@ export default function InstalacoesIndex() {
         </Card>
       ) : (
         <div className="space-y-4">
-          {visibleInstallations.map((inst) => (
+          {<ListaVerMais items={visibleInstallations} resetKey={[filtroSituacao, ownerFilter, etapaFiltro]}>{(__vis) => __vis.map((inst) => (
             <Card key={inst.id} className="overflow-hidden">
               <CardHeader className="pb-3">
                 <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center justify-between gap-2 min-w-0">
@@ -749,7 +750,7 @@ export default function InstalacoesIndex() {
                 })}
               </CardContent>
             </Card>
-          ))}
+          ))}</ListaVerMais>}
         </div>
       )}
 

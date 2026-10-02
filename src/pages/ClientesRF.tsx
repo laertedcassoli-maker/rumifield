@@ -1,3 +1,4 @@
+import { ListaVerMais } from '@/components/ui/ver-mais';
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
@@ -159,7 +160,7 @@ export default function ClientesRF() {
         </Card>
       ) : (
         <div className="space-y-2">
-          {lista.map((c: any) => (
+          {<ListaVerMais items={lista} resetKey={search}>{(__vis) => __vis.map((c: any) => (
             <Card
               key={c.id}
               className="cursor-pointer hover:bg-accent/40 transition-colors"
@@ -186,7 +187,7 @@ export default function ClientesRF() {
                 <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
               </CardContent>
             </Card>
-          ))}
+          ))}</ListaVerMais>}
         </div>
       )}
     </div>

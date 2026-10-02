@@ -1,3 +1,4 @@
+import { ListaVerMais } from '@/components/ui/ver-mais';
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -496,7 +497,7 @@ export default function Treinamento() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filtradas.map(v => {
+                  {<ListaVerMais inTable items={filtradas} resetKey={[ownerFilter, filtroStatus, search]}>{(__vis) => __vis.map(v => {
                     const cliente = clientesMap?.get(v.cliente_id);
                     return (
                       <TableRow
@@ -564,7 +565,7 @@ export default function Treinamento() {
                         </TableCell>
                       </TableRow>
                     );
-                  })}
+                  })}</ListaVerMais>}
                 </TableBody>
               </Table>
             </Card>
@@ -587,7 +588,7 @@ export default function Treinamento() {
             </div>
           ) : clientesResumo.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {clientesResumo.map(c => (
+              {<ListaVerMais items={clientesResumo} resetKey={search}>{(__vis) => __vis.map(c => (
                 <Card
                   key={c.clienteId}
                   className="cursor-pointer hover:border-primary/50 transition-colors"
@@ -607,7 +608,7 @@ export default function Treinamento() {
                     </div>
                   </CardContent>
                 </Card>
-              ))}
+              ))}</ListaVerMais>}
             </div>
           ) : (
             <Card>

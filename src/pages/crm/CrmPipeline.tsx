@@ -1,3 +1,4 @@
+import { ListaVerMais } from '@/components/ui/ver-mais';
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usePipelineData, STAGE_LABELS, STAGE_COLORS, PRODUCT_LABELS, PRODUCT_ORDER, type CrmStage, type ProductCode } from '@/hooks/useCrmData';
@@ -128,7 +129,7 @@ export default function CrmPipeline() {
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
         {PIPELINE_STAGES.map(stage => (
           <div key={stage} className="space-y-2">
-            {(stageGroups[stage] || []).map((p: any) => {
+            {<ListaVerMais items={(stageGroups[stage] || [])} resetKey={[selectedConsultor, selectedProduct]}>{(__vis) => __vis.map((p: any) => {
               const daysSince = getDaysSince(p.id);
               const isCold = daysSince !== null && daysSince > 15;
               const noInteractions = daysSince === null && p.stage !== 'nao_qualificado';
@@ -210,7 +211,7 @@ export default function CrmPipeline() {
                   </Card>
                 </div>
               );
-            })}
+            })}</ListaVerMais>}
           </div>
         ))}
       </div>

@@ -1,3 +1,4 @@
+import { ListaVerMais } from '@/components/ui/ver-mais';
 import { useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -211,7 +212,7 @@ export default function EstoqueUsoConsumo() {
                 {filtered.length === 0 && (
                   <TableRow><TableCell colSpan={podeEditar || podeSaida ? 5 : 4} className="text-center text-muted-foreground py-8">Nenhum item encontrado</TableCell></TableRow>
                 )}
-                {filtered.map(r => {
+                {<ListaVerMais inTable items={filtered} resetKey={[filtro, tecnicoSel, busca]}>{(__vis) => __vis.map(r => {
                   const baixo = r.local === 'centro_servicos' && r.item.estoque_minimo != null && r.saldo < Number(r.item.estoque_minimo);
                   return (
                   <TableRow key={r.key} className={`cursor-pointer ${baixo ? 'bg-destructive/10 hover:bg-destructive/15' : ''}`} onClick={() => setHistorico(r)}>
@@ -239,7 +240,7 @@ export default function EstoqueUsoConsumo() {
                     )}
                   </TableRow>
                   );
-                })}
+                })}</ListaVerMais>}
               </TableBody>
             </Table>
           )}
@@ -264,7 +265,7 @@ export default function EstoqueUsoConsumo() {
                   </TableHeader>
                   <TableBody>
                     {historicoMovs.length === 0 && <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">Sem movimentos</TableCell></TableRow>}
-                    {historicoMovs.map(m => (
+                    {<ListaVerMais inTable items={historicoMovs} resetKey={historico}>{(__vis) => __vis.map(m => (
                       <TableRow key={m.id}>
                         <TableCell className="whitespace-nowrap">{new Date(m.created_at).toLocaleString('pt-BR')}</TableCell>
                         <TableCell><Badge variant={m.tipo === 'entrada' ? 'default' : 'secondary'}>{m.tipo === 'entrada' ? 'Entrada' : 'Saída'}</Badge></TableCell>
@@ -273,7 +274,7 @@ export default function EstoqueUsoConsumo() {
                         <TableCell>{m.created_by_user_id ? nomes[m.created_by_user_id] || '—' : '—'}</TableCell>
                         <TableCell className="max-w-[260px] whitespace-normal break-words">{m.notes || '—'}</TableCell>
                       </TableRow>
-                    ))}
+                    ))}</ListaVerMais>}
                   </TableBody>
                 </Table>
               </div>

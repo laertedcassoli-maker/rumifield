@@ -1,3 +1,4 @@
+import { ListaVerMais } from '@/components/ui/ver-mais';
 import { Link } from 'react-router-dom';
 import { AlertTriangle, Calendar, Contact, GraduationCap, RefreshCcw, Truck, ArrowRight, ListTodo, HardHat, ClipboardCheck, FileText, Package, FilePen } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -167,7 +168,7 @@ export default function MinhasPendencias() {
           emptyText="Nenhuma pendência em Visitas Técnicas"
           to="/visita-tecnica?meu=1&status=pendente"
         >
-          {visitasUnificadas.map(item => (
+          {<ListaVerMais items={visitasUnificadas}>{(__vis) => __vis.map(item => (
             <PendenciaRow
               key={item.key}
               code={item.code}
@@ -177,7 +178,7 @@ export default function MinhasPendencias() {
               status={item.status}
               to={item.to}
             />
-          ))}
+          ))}</ListaVerMais>}
         </Section>
 
         <Section
@@ -188,7 +189,7 @@ export default function MinhasPendencias() {
           emptyText="Nenhuma pendência em Chamados"
           to="/chamados?meu=1&status=pendente"
         >
-          {chamados.data?.map(item => (
+          {<ListaVerMais items={(chamados.data ?? [])}>{(__vis) => __vis.map(item => (
             <PendenciaRow
               key={item.id}
               code={item.ticketCode ?? 'Chamado'}
@@ -198,7 +199,7 @@ export default function MinhasPendencias() {
               status={item.status}
               to={`/chamados/${item.id}`}
             />
-          ))}
+          ))}</ListaVerMais>}
         </Section>
 
         <Section
@@ -209,7 +210,7 @@ export default function MinhasPendencias() {
           emptyText="Nenhuma pendência em Coleta Reversa"
           to="/pedidos?tipo=coleta_reversa&meu=1&status=pendente"
         >
-          {coletaReversa.data?.map(item => (
+          {<ListaVerMais items={(coletaReversa.data ?? [])}>{(__vis) => __vis.map(item => (
             <PendenciaRow
               key={item.id}
               code={item.pedidoCode ?? 'Solicitação'}
@@ -219,7 +220,7 @@ export default function MinhasPendencias() {
               status={item.status}
               to="/pedidos?tipo=coleta_reversa"
             />
-          ))}
+          ))}</ListaVerMais>}
         </Section>
 
         <Section
@@ -230,7 +231,7 @@ export default function MinhasPendencias() {
           emptyText="Nenhuma pendência em Envios"
           to="/pedidos?tipo=envio&meu=1&status=pendente"
         >
-          {envios.data?.map(item => (
+          {<ListaVerMais items={(envios.data ?? [])}>{(__vis) => __vis.map(item => (
             <PendenciaRow
               key={item.id}
               code={item.pedidoCode ?? 'Solicitação'}
@@ -240,7 +241,7 @@ export default function MinhasPendencias() {
               status={item.status}
               to="/pedidos?tipo=envio"
             />
-          ))}
+          ))}</ListaVerMais>}
         </Section>
 
         <Section
@@ -251,7 +252,7 @@ export default function MinhasPendencias() {
           emptyText="Nenhuma pendência em Instalações"
           to="/instalacoes?meu=1"
         >
-          {instalacoes.data?.map(item => (
+          {<ListaVerMais items={(instalacoes.data ?? [])}>{(__vis) => __vis.map(item => (
             <PendenciaRow
               key={item.id}
               code={STAGE_LABELS[item.stage] ?? item.stage}
@@ -261,7 +262,7 @@ export default function MinhasPendencias() {
               status={item.status}
               to={`/instalacoes/etapa/${item.id}`}
             />
-          ))}
+          ))}</ListaVerMais>}
         </Section>
 
         <Section
@@ -272,7 +273,7 @@ export default function MinhasPendencias() {
           emptyText="Nenhuma pendência em Treinamento de Manutenção"
           to="/treinamento?meu=1&status=pendente"
         >
-          {treinamentos.data?.map(item => (
+          {<ListaVerMais items={(treinamentos.data ?? [])}>{(__vis) => __vis.map(item => (
             <PendenciaRow
               key={item.id}
               code="Treinamento de Manutenção"
@@ -282,7 +283,7 @@ export default function MinhasPendencias() {
               status={item.status}
               to="/treinamento?meu=1&status=pendente"
             />
-          ))}
+          ))}</ListaVerMais>}
         </Section>
 
         <Section
@@ -293,7 +294,7 @@ export default function MinhasPendencias() {
           emptyText="Nenhuma pendência em Ordens de Serviço"
           to="/oficina/os?meu=1&status=pendente"
         >
-          {ordensServico.data?.map(item => (
+          {<ListaVerMais items={(ordensServico.data ?? [])}>{(__vis) => __vis.map(item => (
             <PendenciaRow
               key={item.id}
               code={item.code}
@@ -302,7 +303,7 @@ export default function MinhasPendencias() {
               status={item.status}
               to="/oficina/os?meu=1&status=pendente"
             />
-          ))}
+          ))}</ListaVerMais>}
         </Section>
 
         {canApproveInstalacao && (
@@ -313,7 +314,7 @@ export default function MinhasPendencias() {
             isLoading={aprovacoesInstalacao.isLoading}
             emptyText="Nenhuma aprovação pendente"
           >
-            {aprovacoesInstalacao.data?.map(item => (
+            {<ListaVerMais items={(aprovacoesInstalacao.data ?? [])}>{(__vis) => __vis.map(item => (
               <PendenciaRow
                 key={item.id}
                 code={STAGE_LABELS[item.stage] ?? item.stage}
@@ -323,7 +324,7 @@ export default function MinhasPendencias() {
                 status={item.status}
                 to={`/instalacoes/etapa/${item.id}`}
               />
-            ))}
+            ))}</ListaVerMais>}
           </Section>
         )}
         <Section
@@ -333,7 +334,7 @@ export default function MinhasPendencias() {
           isLoading={pedidosRascunho.isLoading}
           emptyText="Nenhuma solicitação em rascunho"
         >
-          {pedidosRascunho.data?.map(item => (
+          {<ListaVerMais items={(pedidosRascunho.data ?? [])}>{(__vis) => __vis.map(item => (
             <PendenciaRow
               key={item.id}
               code={item.pedidoCode ?? 'Solicitação'}
@@ -343,7 +344,7 @@ export default function MinhasPendencias() {
               status={item.status}
               to={`/pedidos?pedido=${item.id}`}
             />
-          ))}
+          ))}</ListaVerMais>}
         </Section>
 
         {isLogisticsTeam && (
@@ -354,7 +355,7 @@ export default function MinhasPendencias() {
             isLoading={pedidosLogistica.isLoading}
             emptyText="Nenhum pedido aguardando a Logística"
           >
-            {pedidosLogistica.data?.map(item => (
+            {<ListaVerMais items={(pedidosLogistica.data ?? [])}>{(__vis) => __vis.map(item => (
               <PendenciaRow
                 key={item.id}
                 code={item.pedidoCode ?? 'Solicitação'}
@@ -364,7 +365,7 @@ export default function MinhasPendencias() {
                 status={item.status}
                 to={`/pedidos?pedido=${item.id}`}
               />
-            ))}
+            ))}</ListaVerMais>}
           </Section>
         )}
       </div>

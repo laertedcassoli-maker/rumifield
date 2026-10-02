@@ -1,3 +1,4 @@
+import { ListaVerMais } from '@/components/ui/ver-mais';
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -438,7 +439,7 @@ export default function Garantias() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {warrantyMotors.map(motor => (
+                    {<ListaVerMais inTable items={warrantyMotors} resetKey={activeTab}>{(__vis) => __vis.map(motor => (
                       <TableRow key={motor.id}>
                         <TableCell className="font-mono font-medium">
                           {motor.old_motor_code || '(sem cód)'}
@@ -472,7 +473,7 @@ export default function Garantias() {
                           )}
                         </TableCell>
                       </TableRow>
-                    ))}
+                    ))}</ListaVerMais>}
                   </TableBody>
                 </Table>
               </Card>
