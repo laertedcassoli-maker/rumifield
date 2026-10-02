@@ -91,9 +91,12 @@ async function consultarNFs(
   const fim = new Date(dataRef.getTime() + 5 * 86400000);
   const resultados: ResultadoNF[] = [];
   for (const bruto of nfsBrutas) {
-    const nf = bruto.replace(/\s+/g, "").replace(/^0+(?=\d)/, "");
+    let limpo = bruto.replace(/\s+/g, "");
+    // Ponto como separador de milhar (ex.: 2.939 -> 2939); só esse formato exato
+    if (/^\d{1,3}(\.\d{3})+$/.test(limpo)) limpo = limpo.replace(/\./g, "");
+    const nf = limpo.replace(/^0+(?=\d)/, "");
     const base: ResultadoNF = { nf, conta: null, documento: null, numeroDocumento: null, dataEmissaoNF: null, codigos: [], status: "erro", mensagem: "" };
-    if (!/^\d+$/.test(nf)) { resultados.push({ ...base, nf: bruto, mensagem: "NF em formato inválido" }); continue; }
+    if (!/^\d+$/.test(nf)) { resultados.push({ ...base, nf: bruto, status: "nf_nao_encontrada", mensagem: "Sem NF válida (campo NF contém texto livre)" }); continue; }
 
     try {
       // b) candidatas nas contas, dentro da janela
@@ -135,7 +138,7 @@ async function consultarNFs(
           const texto = `${rem.data?.infAdic?.cDadosAdic ?? ""}\n${rem.data?.obs?.cObs ?? ""}`.replace(/\|/g, "\n");
           const numero = rem.data?.cabec?.cNumeroRemessa ?? rem.data?.cNumeroRemessa ?? null;
           dets.push({ ...c, documento: "remessa", numero: numero != null ? String(numero) : null, texto, codigos: extrairCodigos(texto) });
-        } else if (/n[aã]o cadastrad/i.test(rem.fault ?? "")) {
+        } else if (NAO_ENCONTRADO_RE.test(rem.fault ?? "")) {
           const pv = await omie(c.conta, "produtos/pedido/", "ConsultarPedido", { codigo_pedido: Number(c.nIdPedido) });
           if (pv.ok) {
             const pvp = pv.data?.pedido_venda_produto ?? {};
@@ -144,6 +147,8 @@ async function consultarNFs(
             extrairCodigos(texto).forEach((x) => cods.add(x));
             const numero = pvp?.cabecalho?.numero_pedido ?? null;
             dets.push({ ...c, documento: "pedido_venda", numero: numero != null ? String(numero) : null, texto, codigos: [...cods] });
+          } else if (NAO_ENCONTRADO_RE.test(pv.fault ?? "")) {
+            dets.push({ ...c, documento: null, numero: null, texto: "", codigos: [], naoEncontrado: true });
           } else {
             dets.push({ ...c, documento: null, numero: null, texto: "", codigos: [], erro: pv.fault });
           }
