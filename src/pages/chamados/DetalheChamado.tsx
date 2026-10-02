@@ -612,7 +612,10 @@ export default function DetalheChamado() {
         queryClient.invalidateQueries({ queryKey: ['ticket-timeline', id] });
         queryClient.invalidateQueries({ queryKey: ['ticket-detail', id] });
         queryClient.invalidateQueries({ queryKey: ['ticket-visits'] });
-        queryClient.invalidateQueries({ queryKey: ['preventive-maintenance'] });
+        queryClient.invalidateQueries({ queryKey: ['preventive-overview'] });
+        queryClient.invalidateQueries({ queryKey: ['preventive-routes'] });
+        queryClient.invalidateQueries({ queryKey: ['my-preventive-routes'] });
+        queryClient.invalidateQueries({ queryKey: ['calendar-preventives'] });
         toast({ title: 'Chamado cancelado.' });
         return;
       }

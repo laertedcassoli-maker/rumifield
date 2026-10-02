@@ -262,7 +262,10 @@ export default function ChamadosIndex() {
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ['technical-tickets'] });
       queryClient.invalidateQueries({ queryKey: ['ticket-visits'] });
-      queryClient.invalidateQueries({ queryKey: ['preventive-maintenance'] });
+      queryClient.invalidateQueries({ queryKey: ['preventive-overview'] });
+      queryClient.invalidateQueries({ queryKey: ['preventive-routes'] });
+      queryClient.invalidateQueries({ queryKey: ['my-preventive-routes'] });
+      queryClient.invalidateQueries({ queryKey: ['calendar-preventives'] });
       setDeleteTarget(null);
       toast.success(result === 'cancelled' ? 'Chamado cancelado' : 'Chamado excluído com sucesso');
     },
