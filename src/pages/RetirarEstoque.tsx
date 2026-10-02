@@ -8,9 +8,10 @@ import { useToast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
+import { parseQuantidade, fmtQtd } from '@/lib/estoque-unidade';
 import { Loader2, PackageMinus, Plus, Search, Shield, Trash2 } from 'lucide-react';
 
-type Item = { id: string; codigo: string; descricao: string };
+type Item = { id: string; codigo: string; descricao: string; unidade: string; controle_consumo: string };
 
 function withTimeout<T>(p: PromiseLike<T>, ms = 12000): Promise<T> {
   return Promise.race([
@@ -29,13 +30,15 @@ export default function RetirarEstoque() {
   const [busca, setBusca] = useState('');
   const [qtdInput, setQtdInput] = useState<Record<string, string>>({});
   const [carrinho, setCarrinho] = useState<Record<string, number>>({});
+  const [motivoInput, setMotivoInput] = useState<Record<string, string>>({});
+  const [motivos, setMotivos] = useState<Record<string, string>>({});
 
   const { data, isLoading } = useQuery({
     queryKey: ['estoque-retirada-centro'],
     staleTime: 0,
     queryFn: async () => {
       const { data: itens, error } = await supabase.from('estoque_consumo_itens')
-        .select('id, codigo, descricao').eq('ativo', true).order('codigo');
+        .select('id, codigo, descricao, unidade, controle_consumo').eq('ativo', true).order('codigo');
       if (error) throw error;
       const saldo: Record<string, number> = {};
       for (let from = 0; ; from += 1000) {
@@ -60,11 +63,18 @@ export default function RetirarEstoque() {
   const byId = useMemo(() => new Map((data?.itens || []).map(i => [i.id, i])), [data]);
 
   const adicionar = (item: Item) => {
-    const q = Number((qtdInput[item.id] || '1').replace(',', '.'));
+    let q: number;
+    try { q = parseQuantidade(qtdInput[item.id] || '1', item.unidade); }
+    catch (e: any) { return toast({ title: e.message, variant: 'destructive' }); }
     const saldo = data?.saldo[item.id] ?? 0;
     const total = (carrinho[item.id] ?? 0) + q;
-    if (!q || q <= 0) return toast({ title: 'Informe uma quantidade maior que zero.', variant: 'destructive' });
-    if (total > saldo) return toast({ title: 'Saldo insuficiente', description: `Disponível no Centro de Serviços: ${fmt(saldo)}.`, variant: 'destructive' });
+    if (total > saldo) return toast({ title: 'Saldo insuficiente', description: `Disponível no Centro de Serviços: ${fmtQtd(saldo, item.unidade)}.`, variant: 'destructive' });
+    if (item.controle_consumo === 'a_granel') {
+      const m = (motivoInput[item.id] || motivos[item.id] || '').trim();
+      if (m.length < 3 || m.length > 200) return toast({ title: 'Informe o motivo da retirada (3 a 200 caracteres).', variant: 'destructive' });
+      setMotivos(s => ({ ...s, [item.id]: m }));
+      setMotivoInput(s => ({ ...s, [item.id]: '' }));
+    }
     setCarrinho(c => ({ ...c, [item.id]: total }));
     setQtdInput(s => ({ ...s, [item.id]: '' }));
   };
@@ -76,15 +86,18 @@ export default function RetirarEstoque() {
       if (!linhas.length) throw new Error('Carrinho vazio.');
       for (const [id, q] of linhas) {
         if (q > (data?.saldo[id] ?? 0)) throw new Error(`Saldo insuficiente para ${byId.get(id)?.codigo}.`);
+        if (byId.get(id)?.controle_consumo === 'a_granel' && (motivos[id] || '').trim().length < 3) throw new Error(`Informe o motivo para ${byId.get(id)?.codigo}.`);
       }
       for (const [item_id, quantidade] of linhas) {
         const transacao_id = crypto.randomUUID();
+        const granel = byId.get(item_id)?.controle_consumo === 'a_granel';
         const base = { item_id, quantidade, origem_tipo: 'carrinho', transacao_id, created_by_user_id: user.id };
         const { data: d1, error: e1 } = await withTimeout(supabase.from('estoque_consumo_movimentos').insert({
-          ...base, tipo: 'saida', local: 'centro_servicos', tecnico_user_id: null,
+          ...base, tipo: 'saida', local: 'centro_servicos', tecnico_user_id: null, notes: granel ? motivos[item_id].trim() : null,
         }).select('id'));
         if (e1) throw e1;
         if (!d1?.length) throw new Error('Saída não registrada (sem permissão?).');
+        if (granel) { setCarrinho(c => { const n = { ...c }; delete n[item_id]; return n; }); continue; }
         const { data: d2, error: e2 } = await withTimeout(supabase.from('estoque_consumo_movimentos').insert({
           ...base, tipo: 'entrada', local: 'tecnico', tecnico_user_id: user.id,
         }).select('id'));
@@ -116,7 +129,7 @@ export default function RetirarEstoque() {
     <div className="p-4 md:p-6 space-y-4 max-w-5xl mx-auto">
       <div className="flex items-center gap-2">
         <PackageMinus className="h-6 w-6 text-primary" />
-        <h1 className="text-2xl font-bold">Retirar estoque</h1>
+        <h1 className="text-2xl font-bold">Retirar para o meu estoque</h1>
       </div>
       <p className="text-sm text-muted-foreground">Itens do Centro de Serviços vão para o seu estoque pessoal.</p>
 
@@ -136,10 +149,14 @@ export default function RetirarEstoque() {
                 <div key={i.id} className="flex flex-wrap items-center gap-2 border rounded-lg p-2">
                   <div className="min-w-0 flex-1">
                     <p className="font-medium truncate">{i.codigo} — {i.descricao}</p>
-                    <p className="text-xs text-muted-foreground">Saldo: {fmt(saldo)}{noCarrinho > 0 && ` · no carrinho: ${fmt(noCarrinho)}`}</p>
+                    <p className="text-xs text-muted-foreground">Saldo: {fmtQtd(saldo, i.unidade)}{noCarrinho > 0 && ` · no carrinho: ${fmtQtd(noCarrinho, i.unidade)}`}{i.controle_consumo === 'a_granel' && ' · A granel'}</p>
                   </div>
                   <Input className="w-20" type="number" min="0" step="any" placeholder="1"
                     value={qtdInput[i.id] ?? ''} onChange={e => setQtdInput(s => ({ ...s, [i.id]: e.target.value }))} />
+                  {i.controle_consumo === 'a_granel' && (
+                    <Input className="w-full sm:w-56" maxLength={200} placeholder="Ex.: Instalação Fazenda X"
+                      value={motivoInput[i.id] ?? ''} onChange={e => setMotivoInput(s => ({ ...s, [i.id]: e.target.value }))} />
+                  )}
                   <Button size="sm" onClick={() => adicionar(i)}><Plus className="h-4 w-4 mr-1" />Adicionar</Button>
                 </div>
               );
@@ -152,8 +169,13 @@ export default function RetirarEstoque() {
             <h2 className="font-semibold">Carrinho</h2>
             {linhas.length === 0 ? <p className="text-sm text-muted-foreground">Vazio.</p> : linhas.map(([id, q]) => (
               <div key={id} className="flex items-center gap-2">
-                <span className="min-w-0 flex-1 truncate text-sm">{byId.get(id)?.codigo} — {byId.get(id)?.descricao}</span>
-                <span className="font-semibold text-sm">{fmt(q)}</span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm">{byId.get(id)?.codigo} — {byId.get(id)?.descricao}</p>
+                  {byId.get(id)?.controle_consumo === 'a_granel' && (
+                    <p className="text-xs text-muted-foreground">Baixa direta — não vai para o seu estoque · {motivos[id]}</p>
+                  )}
+                </div>
+                <span className="font-semibold text-sm">{fmtQtd(q, byId.get(id)?.unidade)}</span>
                 <Button size="icon" variant="ghost" onClick={() => setCarrinho(c => { const n = { ...c }; delete n[id]; return n; })}>
                   <Trash2 className="h-4 w-4" />
                 </Button>
