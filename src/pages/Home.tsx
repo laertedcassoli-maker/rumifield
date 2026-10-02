@@ -85,7 +85,7 @@ export default function Home() {
       permKey: 'pedidos',
     },
     {
-      title: 'Retirar estoque',
+      title: 'Retirar para o meu estoque',
       icon: PackageMinus,
       url: '/estoque-uso-consumo/retirar',
       color: 'text-blue-600',

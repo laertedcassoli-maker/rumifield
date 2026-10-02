@@ -103,8 +103,8 @@ const groupActionColumns: Record<string, Array<{ key: keyof Permission; label: s
 const menuExtraColumns: Record<string, Array<{ key: keyof Permission; label: string }>> = {
   instalacoes: [{ key: 'can_delete', label: 'Excluir' }],
   estoque_uso_consumo: [
-    { key: 'can_edit', label: 'Criar item/Dar entrada' },
-    { key: 'can_delete', label: 'Dar saída' },
+    { key: 'can_edit', label: 'Incluir item/Receber material' },
+    { key: 'can_delete', label: 'Retirar/Dar baixa' },
   ],
 };
 
