@@ -35,6 +35,8 @@ import {
   refreshEstoqueCache, getSaldoTecnico, findItemByPeca, registrarMovimentoVisita, fetchMovimentosVisita,
   saidaAtivaDaPeca, itensPurosAtivos, notePeca, noteEstorno, NOTE_PURE, type VisitaMov,
 } from '@/lib/estoque-consumo-visita';
+import { parseQuantidade, fmtQtd } from '@/lib/estoque-unidade';
+import { useMenuPermissions } from '@/hooks/useMenuPermissions';
 
 interface ConsumedPart {
   id: string;
@@ -175,6 +177,7 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false, 
 
   // ============ Estoque Uso/Consumo (estoque pessoal do técnico) ============
   const { user } = useAuth();
+  const { canEdit: canEditMenuEstoque } = useMenuPermissions();
   const { data: tecnicoId } = useQuery({
     queryKey: ['preventive-technician', preventiveId],
     queryFn: async () => {
@@ -212,7 +215,7 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false, 
   })();
   const ucAtivos = itensPurosAtivos(visitMovs);
   const pendingMovIds = new Set((localMovs || []).filter(m => m._pendingSync).map(m => m.id));
-  const ucPureItems = (ucItemsCache || []).filter(i => i.ativo && !i.peca_id).sort((a, b) => a.codigo.localeCompare(b.codigo));
+  const ucPureItems = (ucItemsCache || []).filter(i => i.ativo && !i.peca_id && i.controle_consumo !== 'a_granel').sort((a, b) => a.codigo.localeCompare(b.codigo));
   const selectedUcItem = ucPureItems.find(i => i.id === selectedUcItemId) || null;
 
   useEffect(() => {
@@ -221,9 +224,19 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false, 
 
   const invalidateMovs = () => queryClient.invalidateQueries({ queryKey: ['visita-estoque-movs', preventiveId] });
 
+  /** Só o técnico da visita ou quem pode incluir/receber material movimenta o estoque aqui. */
+  const assertPodeBaixar = () => {
+    if (!tecnicoId) throw new Error('Técnico da visita não identificado.');
+    if (tecnicoId !== user?.id && !canEditMenuEstoque('estoque_uso_consumo')) {
+      throw new Error('Só o técnico da visita ou quem tem permissão de incluir/receber material pode dar baixa de estoque nesta visita.');
+    }
+  };
+
   /** Confere saldo do item rastreado; lança erro se insuficiente. */
   const assertSaldo = async (itemId: string, q: number) => {
-    if (!tecnicoId) throw new Error('Técnico da visita não identificado.');
+    assertPodeBaixar();
+    const un = ucNome.get(itemId)?.unidade;
+    parseQuantidade(String(q), un);
     if (isOnline) { try { await refreshEstoqueCache(tecnicoId); } catch (_) {} }
     const saldo = await getSaldoTecnico(tecnicoId, itemId);
     if (q > saldo) throw new Error(`Saldo insuficiente no seu estoque (disponível: ${saldo.toLocaleString('pt-BR')}).`);
@@ -232,6 +245,7 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false, 
   const darSaidaPeca = async (consumptionId: string, pecaId: string, q: number) => {
     const item = await findItemByPeca(pecaId);
     if (!item || !tecnicoId) return;
+    assertPodeBaixar();
     await registrarMovimentoVisita({
       item_id: item.id, tipo: 'saida', quantidade: q, tecnico_user_id: tecnicoId, origem_id: preventiveId,
       notes: notePeca(consumptionId), created_by_user_id: user?.id ?? null,
@@ -242,6 +256,7 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false, 
   const estornarPeca = async (consumptionId: string) => {
     const saida = saidaAtivaDaPeca(visitMovs, consumptionId);
     if (!saida) return;
+    assertPodeBaixar();
     await registrarMovimentoVisita({
       item_id: saida.item_id, tipo: 'entrada', quantidade: saida.quantidade, tecnico_user_id: saida.tecnico_user_id,
       origem_id: preventiveId, notes: noteEstorno(notePeca(consumptionId)), created_by_user_id: user?.id ?? null,
@@ -252,8 +267,7 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false, 
   const addUcMutation = useMutation({
     mutationFn: async () => {
       if (!selectedUcItem) throw new Error('Selecione um item');
-      const q = parseFloat(quantity.replace(',', '.'));
-      if (!Number.isFinite(q) || q <= 0) throw new Error('Informe uma quantidade maior que zero.');
+      const q = parseQuantidade(quantity, selectedUcItem.unidade);
       await assertSaldo(selectedUcItem.id, q);
       await registrarMovimentoVisita({
         item_id: selectedUcItem.id, tipo: 'saida', quantidade: q, tecnico_user_id: tecnicoId!, origem_id: preventiveId,
@@ -268,6 +282,7 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false, 
     mutationFn: async (movId: string) => {
       const m = visitMovs.find(x => x.id === movId);
       if (!m) return;
+      assertPodeBaixar();
       await registrarMovimentoVisita({
         item_id: m.item_id, tipo: 'entrada', quantidade: m.quantidade, tecnico_user_id: m.tecnico_user_id,
         origem_id: preventiveId, notes: noteEstorno(m.id), created_by_user_id: user?.id ?? null,
@@ -802,7 +817,7 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false, 
                             {pendingMovIds.has(m.id) && <Badge variant="secondary" className="text-xs">Aguardando envio</Badge>}
                           </div>
                           <p className="text-sm font-medium break-words">{m.item_descricao ?? 'Item Uso/Consumo'}</p>
-                          <p className="text-xs text-muted-foreground">Qtd: {m.quantidade.toLocaleString('pt-BR')} · Estoque do técnico</p>
+                          <p className="text-xs text-muted-foreground">Qtd: {fmtQtd(m.quantidade, ucNome.get(m.item_id)?.unidade)} · Estoque do técnico</p>
                         </div>
                         {!isCompleted && (
                           <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0 text-destructive" aria-label="Remover item"

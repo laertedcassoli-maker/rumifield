@@ -1706,34 +1706,40 @@ export type Database = {
         Row: {
           ativo: boolean
           codigo: string
+          controle_consumo: string
           created_at: string
           created_by_user_id: string | null
           descricao: string
           estoque_minimo: number | null
           id: string
           peca_id: string | null
+          unidade: string
           updated_at: string
         }
         Insert: {
           ativo?: boolean
           codigo: string
+          controle_consumo?: string
           created_at?: string
           created_by_user_id?: string | null
           descricao: string
           estoque_minimo?: number | null
           id?: string
           peca_id?: string | null
+          unidade?: string
           updated_at?: string
         }
         Update: {
           ativo?: boolean
           codigo?: string
+          controle_consumo?: string
           created_at?: string
           created_by_user_id?: string | null
           descricao?: string
           estoque_minimo?: number | null
           id?: string
           peca_id?: string | null
+          unidade?: string
           updated_at?: string
         }
         Relationships: [

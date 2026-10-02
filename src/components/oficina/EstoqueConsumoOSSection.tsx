@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { format } from 'date-fns';
+import { parseQuantidade, fmtQtd } from '@/lib/estoque-unidade';
 import { Box, Loader2, Plus, Search } from 'lucide-react';
 
 function withTimeout<T>(p: PromiseLike<T>, ms = 12000): Promise<T> {
@@ -20,7 +21,7 @@ function withTimeout<T>(p: PromiseLike<T>, ms = 12000): Promise<T> {
 }
 const fmt = (n: number) => n.toLocaleString('pt-BR', { maximumFractionDigits: 3 });
 
-type Item = { id: string; codigo: string; descricao: string };
+type Item = { id: string; codigo: string; descricao: string; unidade: string };
 
 export function EstoqueConsumoOSSection({ workOrderId, readOnly }: { workOrderId: string; readOnly: boolean }) {
   const { user } = useAuth();
@@ -32,7 +33,7 @@ export function EstoqueConsumoOSSection({ workOrderId, readOnly }: { workOrderId
     queryKey: ['os-estoque-consumo', workOrderId],
     queryFn: async () => {
       const { data, error } = await supabase.from('estoque_consumo_movimentos')
-        .select('id, quantidade, created_at, item:estoque_consumo_itens(codigo, descricao)')
+        .select('id, quantidade, created_at, item:estoque_consumo_itens(codigo, descricao, unidade)')
         .eq('origem_tipo', 'os').eq('origem_id', workOrderId).eq('tipo', 'saida')
         .order('created_at', { ascending: false });
       if (error) throw error;
@@ -60,7 +61,7 @@ export function EstoqueConsumoOSSection({ workOrderId, readOnly }: { workOrderId
           {consumidos.map(m => (
             <li key={m.id} className="flex items-center justify-between gap-2 text-sm">
               <span className="min-w-0 truncate">{m.item?.codigo} — {m.item?.descricao}</span>
-              <span className="shrink-0 text-muted-foreground">{fmt(Number(m.quantidade))} · {format(new Date(m.created_at), 'dd/MM HH:mm')}</span>
+              <span className="shrink-0 text-muted-foreground">{fmtQtd(Number(m.quantidade), m.item?.unidade)} · {format(new Date(m.created_at), 'dd/MM HH:mm')}</span>
             </li>
           ))}
         </ul>
@@ -80,7 +81,7 @@ function ConsumirDialog({ workOrderId, userId, onClose }: { workOrderId: string;
     queryKey: ['os-estoque-consumo-disponiveis'],
     queryFn: async () => {
       const [{ data: itens, error: e1 }, { data: movs, error: e2 }] = await Promise.all([
-        supabase.from('estoque_consumo_itens').select('id, codigo, descricao').eq('ativo', true).order('codigo'),
+        supabase.from('estoque_consumo_itens').select('id, codigo, descricao, unidade').eq('ativo', true).eq('controle_consumo', 'por_uso').order('codigo'),
         supabase.from('estoque_consumo_movimentos').select('item_id, tipo, quantidade').eq('local', 'centro_servicos'),
       ]);
       if (e1) throw e1; if (e2) throw e2;
@@ -99,14 +100,13 @@ function ConsumirDialog({ workOrderId, userId, onClose }: { workOrderId: string;
   const mut = useMutation({
     mutationFn: async () => {
       if (!item) throw new Error('Selecione um item.');
-      const q = Number(qtd.replace(',', '.'));
-      if (!Number.isFinite(q) || q <= 0) throw new Error('Informe uma quantidade maior que zero.');
+      const q = parseQuantidade(qtd, item.unidade);
       // Revalida saldo atual no banco
       const { data: movs, error: e } = await withTimeout(supabase.from('estoque_consumo_movimentos')
         .select('tipo, quantidade').eq('item_id', item.id).eq('local', 'centro_servicos'));
       if (e) throw e;
       const atual = (movs ?? []).reduce((s, m) => s + (m.tipo === 'entrada' ? 1 : -1) * Number(m.quantidade), 0);
-      if (q > atual) throw new Error(`Saldo insuficiente no Centro de Serviços (disponível: ${fmt(atual)}).`);
+      if (q > atual) throw new Error(`Saldo insuficiente no Centro de Serviços (disponível: ${fmtQtd(atual, item.unidade)}).`);
       const { data: ins, error } = await withTimeout(supabase.from('estoque_consumo_movimentos').insert({
         item_id: item.id, tipo: 'saida', quantidade: q, local: 'centro_servicos', tecnico_user_id: null,
         origem_tipo: 'os', origem_id: workOrderId, created_by_user_id: userId,
@@ -145,7 +145,7 @@ function ConsumirDialog({ workOrderId, userId, onClose }: { workOrderId: string;
                 {lista.map(i => (
                   <button key={i.id} type="button" className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm hover:bg-muted" onClick={() => setItem(i)}>
                     <span className="min-w-0 truncate">{i.codigo} — {i.descricao}</span>
-                    <span className="shrink-0 text-xs text-muted-foreground">Saldo {fmt(data?.saldo.get(i.id) ?? 0)}</span>
+                    <span className="shrink-0 text-xs text-muted-foreground">Saldo {fmtQtd(data?.saldo.get(i.id) ?? 0, i.unidade)}</span>
                   </button>
                 ))}
                 {!isLoading && lista.length === 0 && <p className="p-3 text-sm text-muted-foreground">Nenhum item com saldo no Centro de Serviços</p>}
@@ -155,7 +155,7 @@ function ConsumirDialog({ workOrderId, userId, onClose }: { workOrderId: string;
           <div className="space-y-1">
             <Label>Quantidade *</Label>
             <Input type="number" min="0" step="any" value={qtd} onChange={e => setQtd(e.target.value)} />
-            {item && <p className="text-xs text-muted-foreground">Saldo atual: {fmt(saldo)}</p>}
+            {item && <p className="text-xs text-muted-foreground">Saldo atual: {fmtQtd(saldo, item.unidade)}</p>}
           </div>
         </div>
         <DialogFooter>

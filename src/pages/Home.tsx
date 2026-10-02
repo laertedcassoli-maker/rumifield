@@ -40,7 +40,7 @@ interface MenuItem {
 
 export default function Home() {
   const { profile } = useAuth();
-  const { canAccess, isLoading: permissionsLoading } = useMenuPermissions();
+  const { canAccess, canDelete, isLoading: permissionsLoading } = useMenuPermissions();
 
   // All possible menu items with permission keys
   const allMainMenuItems: MenuItem[] = [
@@ -85,7 +85,7 @@ export default function Home() {
       permKey: 'pedidos',
     },
     {
-      title: 'Retirar estoque',
+      title: 'Retirar para o meu estoque',
       icon: PackageMinus,
       url: '/estoque-uso-consumo/retirar',
       color: 'text-blue-600',
@@ -224,7 +224,7 @@ export default function Home() {
   ];
 
   // Filter based on permissions
-  const mainMenuItems = allMainMenuItems.filter(item => canAccess(item.permKey));
+  const mainMenuItems = allMainMenuItems.filter(item => canAccess(item.permKey) && (item.url !== '/estoque-uso-consumo/retirar' || canDelete(item.permKey)));
   const estoqueMenuItems = canAccess('estoque') 
     ? allEstoqueMenuItems.filter(item => canAccess(item.permKey))
     : [];

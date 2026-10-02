@@ -8,6 +8,13 @@
       "when": 1790944402090,
       "tag": "0000_estoque_consumo_itens_peca_unique",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1790945848742,
+      "tag": "0001_estoque_unidade_controle_e_saida_tecnico",
+      "breakpoints": true
     }
   ]
 }
