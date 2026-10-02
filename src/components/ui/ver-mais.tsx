@@ -38,7 +38,10 @@ export function ListaVerMais<T>({
   pageSize,
   children,
   buttonClassName,
+  inTable,
 }: {
+  /** Dentro de <TableBody>: o botão vai numa linha própria da tabela. */
+  inTable?: boolean;
   items: readonly T[] | null | undefined;
   resetKey?: unknown;
   pageSize?: number;
@@ -49,7 +52,17 @@ export function ListaVerMais<T>({
   return (
     <>
       {children(visiveis)}
-      <VerMais mostrados={mostrados} total={total} temMais={temMais} onVerMais={verMais} className={buttonClassName} />
+      {inTable ? (
+        temMais ? (
+          <tr>
+            <td colSpan={100} className="p-2">
+              <VerMais mostrados={mostrados} total={total} temMais={temMais} onVerMais={verMais} className={buttonClassName} />
+            </td>
+          </tr>
+        ) : null
+      ) : (
+        <VerMais mostrados={mostrados} total={total} temMais={temMais} onVerMais={verMais} className={buttonClassName} />
+      )}
     </>
   );
 }

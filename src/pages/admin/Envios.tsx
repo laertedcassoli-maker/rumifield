@@ -783,7 +783,7 @@ const Envios = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {<ListaVerMais items={enviosAgrupados} resetKey={[filters, sortColumn, sortDirection]}>{(__vis) => __vis.map((grupo) => (
+                  {<ListaVerMais inTable items={enviosAgrupados} resetKey={[filters, sortColumn, sortDirection]}>{(__vis) => __vis.map((grupo) => (
                     <TableRow key={grupo.chave}>
                       <TableCell>
                         {format(new Date(grupo.data_envio), "dd/MM/yyyy", {

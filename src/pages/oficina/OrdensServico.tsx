@@ -575,7 +575,7 @@ export default function OrdensServico() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {<ListaVerMais items={filteredOrders} resetKey={[search, ownerFilter, activeTab, viewMode, createdFrom, createdTo, endTimeFrom, endTimeTo, selectedPart]}>{(__vis) => __vis.map((os) => (
+                  {<ListaVerMais inTable items={filteredOrders} resetKey={[search, ownerFilter, activeTab, viewMode, createdFrom, createdTo, endTimeFrom, endTimeTo, selectedPart]}>{(__vis) => __vis.map((os) => (
                     <TableRow key={os.id}>
                       <TableCell className="font-mono font-medium">{os.code}</TableCell>
                       <TableCell>

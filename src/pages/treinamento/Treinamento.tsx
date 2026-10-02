@@ -497,7 +497,7 @@ export default function Treinamento() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {<ListaVerMais items={filtradas} resetKey={[ownerFilter, filtroStatus, search]}>{(__vis) => __vis.map(v => {
+                  {<ListaVerMais inTable items={filtradas} resetKey={[ownerFilter, filtroStatus, search]}>{(__vis) => __vis.map(v => {
                     const cliente = clientesMap?.get(v.cliente_id);
                     return (
                       <TableRow
