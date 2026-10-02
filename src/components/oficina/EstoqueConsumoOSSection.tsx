@@ -126,9 +126,9 @@ function ConsumirDialog({ workOrderId, userId, onClose }: { workOrderId: string;
 
   return (
     <Dialog open onOpenChange={o => !o && onClose()}>
-      <DialogContent>
+      <DialogContent className="overflow-x-hidden">
         <DialogHeader><DialogTitle>Consumir Estoque Uso/Consumo</DialogTitle></DialogHeader>
-        <div className="space-y-4">
+        <div className="min-w-0 space-y-4">
           {item ? (
             <div className="flex items-center justify-between gap-2 rounded-md border p-2">
               <span className="min-w-0 truncate text-sm">{item.codigo} — {item.descricao}</span>
@@ -140,11 +140,11 @@ function ConsumirDialog({ workOrderId, userId, onClose }: { workOrderId: string;
                 <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input className="pl-8" placeholder="Buscar por código ou descrição" value={busca} onChange={e => setBusca(e.target.value)} />
               </div>
-              <div className="max-h-56 overflow-auto rounded-md border">
+              <div className="max-h-56 min-w-0 overflow-y-auto overflow-x-hidden rounded-md border">
                 {isLoading && <p className="p-3 text-sm text-muted-foreground">Carregando...</p>}
                 {lista.map(i => (
-                  <button key={i.id} type="button" className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm hover:bg-muted" onClick={() => setItem(i)}>
-                    <span className="min-w-0 truncate">{i.codigo} — {i.descricao}</span>
+                  <button key={i.id} type="button" className="flex w-full min-w-0 items-center justify-between gap-2 px-3 py-2 text-left text-sm hover:bg-muted" onClick={() => setItem(i)}>
+                    <span className="min-w-0 flex-1 whitespace-normal break-words">{i.codigo} — {i.descricao}</span>
                     <span className="shrink-0 text-xs text-muted-foreground">Saldo {fmtQtd(data?.saldo.get(i.id) ?? 0, i.unidade)}</span>
                   </button>
                 ))}
