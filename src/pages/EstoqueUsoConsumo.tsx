@@ -283,7 +283,7 @@ export default function EstoqueUsoConsumo() {
       </Dialog>
 
       {novoOpen && <NovoItemDialog onClose={() => setNovoOpen(false)} userId={user?.id} onDone={invalidate} />}
-      {editItem && <EditarItemDialog item={editItem} onClose={() => setEditItem(null)} onDone={invalidate} />}
+      {editItem && <EditarItemDialog item={editItem} temMovimentos={movs.some(m => m.item_id === editItem.id)} onClose={() => setEditItem(null)} onDone={invalidate} />}
       {movOpen && (
         <MovimentoDialog tipo={movOpen} itens={itens.filter(i => i.ativo)} saldoCentro={saldoCentro}
           userId={user?.id} onClose={() => setMovOpen(null)} onDone={invalidate} />
@@ -303,17 +303,19 @@ function parseMinimo(v: string): number | null {
   return n;
 }
 
-function UnidadeControleFields({ unidade, setUnidade, controle, setControle }: {
+function UnidadeControleFields({ unidade, setUnidade, controle, setControle, unidadeBloqueada }: {
+  unidadeBloqueada?: boolean;
   unidade: string; setUnidade: (v: string) => void; controle: ControleConsumo; setControle: (v: ControleConsumo) => void;
 }) {
   return (
     <>
       <div className="space-y-1">
         <Label>Unidade *</Label>
-        <Select value={unidade} onValueChange={setUnidade}>
+        <Select value={unidade} onValueChange={setUnidade} disabled={unidadeBloqueada}>
           <SelectTrigger><SelectValue /></SelectTrigger>
           <SelectContent>{UNIDADES.map(u => <SelectItem key={u} value={u}>{u}</SelectItem>)}</SelectContent>
         </Select>
+        {unidadeBloqueada && <p className="text-xs text-muted-foreground">Não é possível trocar a unidade de um item que já tem movimentos</p>}
         <p className="text-xs text-muted-foreground">un, par, pç, cx e rolo aceitam só números inteiros; m, kg e L aceitam decimais.</p>
       </div>
       <div className="space-y-1">
@@ -332,7 +334,7 @@ function UnidadeControleFields({ unidade, setUnidade, controle, setControle }: {
   );
 }
 
-function EditarItemDialog({ item, onClose, onDone }: { item: Item; onClose: () => void; onDone: () => void }) {
+function EditarItemDialog({ item, temMovimentos, onClose, onDone }: { item: Item; temMovimentos: boolean; onClose: () => void; onDone: () => void }) {
   const { toast } = useToast();
   const [descricao, setDescricao] = useState(item.descricao);
   const [minimo, setMinimo] = useState(item.estoque_minimo != null ? String(item.estoque_minimo) : '');
@@ -358,7 +360,7 @@ function EditarItemDialog({ item, onClose, onDone }: { item: Item; onClose: () =
           <div className="space-y-1"><Label>Descrição *</Label><Input value={descricao} onChange={e => setDescricao(e.target.value)} /></div>
           <div className="space-y-1"><Label>Estoque mínimo</Label><Input type="number" min="0" step="any" placeholder="Sem mínimo" value={minimo} onChange={e => setMinimo(e.target.value)} />
             <p className="text-xs text-muted-foreground">Deixe vazio para não ter alerta.</p></div>
-          <UnidadeControleFields unidade={unidade} setUnidade={setUnidade} controle={controle} setControle={setControle} />
+          <UnidadeControleFields unidade={unidade} setUnidade={setUnidade} controle={controle} setControle={setControle} unidadeBloqueada={temMovimentos} />
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancelar</Button>

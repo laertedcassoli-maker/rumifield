@@ -62,18 +62,27 @@ export default function RetirarEstoque() {
 
   const byId = useMemo(() => new Map((data?.itens || []).map(i => [i.id, i])), [data]);
 
+  // Chave da linha: itemId (Por uso) ou itemId|motivo (A granel — uma linha por motivo)
+  const itemDaLinha = (k: string) => k.split('|')[0];
+  const totalDoItem = (itemId: string, c: Record<string, number> = carrinho) =>
+    Object.entries(c).filter(([k]) => itemDaLinha(k) === itemId).reduce((s, [, q]) => s + q, 0);
+
   const adicionar = (item: Item) => {
     let q: number;
     try { q = parseQuantidade(qtdInput[item.id] || '1', item.unidade); }
     catch (e: any) { return toast({ title: e.message, variant: 'destructive' }); }
     const saldo = data?.saldo[item.id] ?? 0;
-    const total = (carrinho[item.id] ?? 0) + q;
+    const total = totalDoItem(item.id) + q;
     if (total > saldo) return toast({ title: 'Saldo insuficiente', description: `Disponível no Centro de Serviços: ${fmtQtd(saldo, item.unidade)}.`, variant: 'destructive' });
     if (item.controle_consumo === 'a_granel') {
-      const m = (motivoInput[item.id] || motivos[item.id] || '').trim();
+      const m = (motivoInput[item.id] || '').trim();
       if (m.length < 3 || m.length > 200) return toast({ title: 'Informe o motivo da retirada (3 a 200 caracteres).', variant: 'destructive' });
-      setMotivos(s => ({ ...s, [item.id]: m }));
+      const key = `${item.id}|${m}`;
+      setMotivos(s => ({ ...s, [key]: m }));
       setMotivoInput(s => ({ ...s, [item.id]: '' }));
+      setCarrinho(c => ({ ...c, [key]: (c[key] ?? 0) + q }));
+      setQtdInput(s => ({ ...s, [item.id]: '' }));
+      return;
     }
     setCarrinho(c => ({ ...c, [item.id]: total }));
     setQtdInput(s => ({ ...s, [item.id]: '' }));
@@ -84,26 +93,28 @@ export default function RetirarEstoque() {
       if (!user) throw new Error('Sessão expirada.');
       const linhas = Object.entries(carrinho);
       if (!linhas.length) throw new Error('Carrinho vazio.');
-      for (const [id, q] of linhas) {
-        if (q > (data?.saldo[id] ?? 0)) throw new Error(`Saldo insuficiente para ${byId.get(id)?.codigo}.`);
-        if (byId.get(id)?.controle_consumo === 'a_granel' && (motivos[id] || '').trim().length < 3) throw new Error(`Informe o motivo para ${byId.get(id)?.codigo}.`);
+      for (const [k] of linhas) {
+        const id = itemDaLinha(k);
+        if (totalDoItem(id) > (data?.saldo[id] ?? 0)) throw new Error(`Saldo insuficiente para ${byId.get(id)?.codigo}.`);
+        if (byId.get(id)?.controle_consumo === 'a_granel' && (motivos[k] || '').trim().length < 3) throw new Error(`Informe o motivo para ${byId.get(id)?.codigo}.`);
       }
-      for (const [item_id, quantidade] of linhas) {
+      for (const [lineKey, quantidade] of linhas) {
+        const item_id = itemDaLinha(lineKey);
         const transacao_id = crypto.randomUUID();
         const granel = byId.get(item_id)?.controle_consumo === 'a_granel';
         const base = { item_id, quantidade, origem_tipo: 'carrinho', transacao_id, created_by_user_id: user.id };
         const { data: d1, error: e1 } = await withTimeout(supabase.from('estoque_consumo_movimentos').insert({
-          ...base, tipo: 'saida', local: 'centro_servicos', tecnico_user_id: null, notes: granel ? motivos[item_id].trim() : null,
+          ...base, tipo: 'saida', local: 'centro_servicos', tecnico_user_id: null, notes: granel ? motivos[lineKey].trim() : null,
         }).select('id'));
         if (e1) throw e1;
         if (!d1?.length) throw new Error('Saída não registrada (sem permissão?).');
-        if (granel) { setCarrinho(c => { const n = { ...c }; delete n[item_id]; return n; }); continue; }
+        if (granel) { setCarrinho(c => { const n = { ...c }; delete n[lineKey]; return n; }); continue; }
         const { data: d2, error: e2 } = await withTimeout(supabase.from('estoque_consumo_movimentos').insert({
           ...base, tipo: 'entrada', local: 'tecnico', tecnico_user_id: user.id,
         }).select('id'));
         if (e2) throw new Error(`Saída de ${byId.get(item_id)?.codigo} gravada, mas a entrada no seu estoque falhou: ${e2.message}`);
         if (!d2?.length) throw new Error(`Saída de ${byId.get(item_id)?.codigo} gravada, mas a entrada no seu estoque não foi registrada.`);
-        setCarrinho(c => { const n = { ...c }; delete n[item_id]; return n; });
+        setCarrinho(c => { const n = { ...c }; delete n[lineKey]; return n; });
       }
     },
     onSuccess: () => {
@@ -144,7 +155,7 @@ export default function RetirarEstoque() {
               <p className="text-sm text-muted-foreground">Nenhum item com saldo no Centro de Serviços.</p>
             ) : disponiveis.map(i => {
               const saldo = data!.saldo[i.id] ?? 0;
-              const noCarrinho = carrinho[i.id] ?? 0;
+              const noCarrinho = totalDoItem(i.id);
               return (
                 <div key={i.id} className="flex flex-wrap items-center gap-2 border rounded-lg p-2">
                   <div className="min-w-0 flex-1">
@@ -167,20 +178,20 @@ export default function RetirarEstoque() {
         <Card className="min-w-0 h-fit">
           <CardContent className="p-4 space-y-3">
             <h2 className="font-semibold">Carrinho</h2>
-            {linhas.length === 0 ? <p className="text-sm text-muted-foreground">Vazio.</p> : linhas.map(([id, q]) => (
-              <div key={id} className="flex items-center gap-2">
+            {linhas.length === 0 ? <p className="text-sm text-muted-foreground">Vazio.</p> : linhas.map(([lk, q]) => { const id = itemDaLinha(lk); return (
+              <div key={lk} className="flex items-center gap-2">
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm">{byId.get(id)?.codigo} — {byId.get(id)?.descricao}</p>
                   {byId.get(id)?.controle_consumo === 'a_granel' && (
-                    <p className="text-xs text-muted-foreground">Baixa direta — não vai para o seu estoque · {motivos[id]}</p>
+                    <p className="text-xs text-muted-foreground">Baixa direta — não vai para o seu estoque · {motivos[lk]}</p>
                   )}
                 </div>
                 <span className="font-semibold text-sm">{fmtQtd(q, byId.get(id)?.unidade)}</span>
-                <Button size="icon" variant="ghost" onClick={() => setCarrinho(c => { const n = { ...c }; delete n[id]; return n; })}>
+                <Button size="icon" variant="ghost" onClick={() => setCarrinho(c => { const n = { ...c }; delete n[lk]; return n; })}>
                   <Trash2 className="h-4 w-4" />
                 </Button>
               </div>
-            ))}
+            ); })}
             <Button className="w-full" disabled={finalizar.isPending} onClick={() => finalizar.mutate()}>
               {finalizar.isPending && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}Finalizar retirada
             </Button>
