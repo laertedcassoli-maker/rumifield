@@ -13,9 +13,11 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Box, Loader2, Minus, Pencil, Plus, Search, Shield } from 'lucide-react';
+import { Box, Loader2, Minus, PackageMinus, Pencil, Plus, Search, Shield } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { UNIDADES, parseQuantidade, fmtQtd, type ControleConsumo } from '@/lib/estoque-unidade';
 
-type Item = { id: string; codigo: string; descricao: string; peca_id: string | null; ativo: boolean; estoque_minimo: number | null };
+type Item = { id: string; codigo: string; descricao: string; peca_id: string | null; ativo: boolean; estoque_minimo: number | null; unidade: string; controle_consumo: ControleConsumo };
 type Mov = {
   id: string; item_id: string; tipo: 'entrada' | 'saida'; quantidade: number; local: 'centro_servicos' | 'tecnico';
   tecnico_user_id: string | null; origem_tipo: string; notes: string | null; created_by_user_id: string | null; created_at: string;
@@ -48,6 +50,8 @@ export default function EstoqueUsoConsumo() {
   const [novoOpen, setNovoOpen] = useState(false);
   const [movOpen, setMovOpen] = useState<null | 'entrada' | 'saida'>(null);
   const [editItem, setEditItem] = useState<Item | null>(null);
+  const [baixaTec, setBaixaTec] = useState<Row | null>(null);
+  const navigate = useNavigate();
 
   const podeEditar = canEdit('estoque_uso_consumo');
   const podeSaida = canDelete('estoque_uso_consumo');
@@ -55,7 +59,7 @@ export default function EstoqueUsoConsumo() {
   const { data: itens = [], isLoading: l1 } = useQuery({
     queryKey: ['estoque-consumo-itens'],
     queryFn: async () => {
-      const { data, error } = await supabase.from('estoque_consumo_itens').select('id, codigo, descricao, peca_id, ativo, estoque_minimo').order('codigo');
+      const { data, error } = await supabase.from('estoque_consumo_itens').select('id, codigo, descricao, peca_id, ativo, estoque_minimo, unidade, controle_consumo').order('codigo');
       if (error) throw error;
       return data as Item[];
     },
@@ -162,9 +166,10 @@ export default function EstoqueUsoConsumo() {
           <p className="text-muted-foreground">Saldo por item no Centro de Serviços e com cada técnico</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          {podeEditar && <Button variant="outline" onClick={() => setNovoOpen(true)}><Box className="mr-2 h-4 w-4" />Novo item</Button>}
-          {podeEditar && <Button onClick={() => setMovOpen('entrada')}><Plus className="mr-2 h-4 w-4" />Dar entrada</Button>}
-          {podeSaida && <Button variant="secondary" onClick={() => setMovOpen('saida')}><Minus className="mr-2 h-4 w-4" />Dar saída</Button>}
+          {podeSaida && <Button variant="outline" onClick={() => navigate('/estoque-uso-consumo/retirar')}><PackageMinus className="mr-2 h-4 w-4" />Retirar para o meu estoque</Button>}
+          {podeEditar && <Button variant="outline" onClick={() => setNovoOpen(true)}><Box className="mr-2 h-4 w-4" />Incluir item no estoque</Button>}
+          {podeEditar && <Button onClick={() => setMovOpen('entrada')}><Plus className="mr-2 h-4 w-4" />Receber material</Button>}
+          {podeSaida && <Button variant="secondary" onClick={() => setMovOpen('saida')}><Minus className="mr-2 h-4 w-4" />Dar baixa</Button>}
         </div>
       </div>
 
@@ -199,12 +204,12 @@ export default function EstoqueUsoConsumo() {
                   <TableHead>Descrição</TableHead>
                   <TableHead>Local</TableHead>
                   <TableHead className="text-right">Quantidade</TableHead>
-                  {podeEditar && <TableHead className="w-10" />}
+                  {(podeEditar || podeSaida) && <TableHead className="w-10" />}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filtered.length === 0 && (
-                  <TableRow><TableCell colSpan={podeEditar ? 5 : 4} className="text-center text-muted-foreground py-8">Nenhum item encontrado</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={podeEditar || podeSaida ? 5 : 4} className="text-center text-muted-foreground py-8">Nenhum item encontrado</TableCell></TableRow>
                 )}
                 {filtered.map(r => {
                   const baixo = r.local === 'centro_servicos' && r.item.estoque_minimo != null && r.saldo < Number(r.item.estoque_minimo);
@@ -215,15 +220,21 @@ export default function EstoqueUsoConsumo() {
                       <div className="flex flex-wrap items-center gap-2">
                         <span>{r.item.descricao}</span>
                         {r.item.peca_id && <Badge variant="outline">Controlado</Badge>}
+                        {r.item.controle_consumo === 'a_granel' && <Badge variant="outline">A granel</Badge>}
                         {!r.item.ativo && <Badge variant="secondary">Inativo</Badge>}
                         {baixo && <Badge variant="destructive">Estoque baixo</Badge>}
                       </div>
                     </TableCell>
                     <TableCell>{localLabel(r)}</TableCell>
-                    <TableCell className="text-right font-semibold">{fmt(r.saldo)}</TableCell>
-                    {podeEditar && (
+                    <TableCell className="text-right font-semibold">{fmtQtd(r.saldo, r.item.unidade)}</TableCell>
+                    {(podeEditar || podeSaida) && (
                       <TableCell onClick={e => e.stopPropagation()}>
-                        <Button size="icon" variant="ghost" aria-label="Editar item" onClick={() => setEditItem(r.item)}><Pencil className="h-4 w-4" /></Button>
+                        <div className="flex items-center gap-1">
+                          {podeSaida && r.local === 'tecnico' && r.saldo > 0 && (r.tecnicoId === user?.id || podeEditar) && (
+                            <Button size="sm" variant="outline" onClick={() => setBaixaTec(r)}>Dar baixa</Button>
+                          )}
+                          {podeEditar && <Button size="icon" variant="ghost" aria-label="Editar item" onClick={() => setEditItem(r.item)}><Pencil className="h-4 w-4" /></Button>}
+                        </div>
                       </TableCell>
                     )}
                   </TableRow>
@@ -242,7 +253,7 @@ export default function EstoqueUsoConsumo() {
           </DialogHeader>
           {historico && (
             <div className="space-y-3">
-              <p className="text-sm text-muted-foreground">{localLabel(historico)} · Saldo atual: <strong>{fmt(historico.saldo)}</strong></p>
+              <p className="text-sm text-muted-foreground">{localLabel(historico)} · Saldo atual: <strong>{fmtQtd(historico.saldo, historico.item.unidade)}</strong></p>
               <div className="max-h-[60vh] overflow-auto">
                 <Table>
                   <TableHeader>
@@ -257,10 +268,10 @@ export default function EstoqueUsoConsumo() {
                       <TableRow key={m.id}>
                         <TableCell className="whitespace-nowrap">{new Date(m.created_at).toLocaleString('pt-BR')}</TableCell>
                         <TableCell><Badge variant={m.tipo === 'entrada' ? 'default' : 'secondary'}>{m.tipo === 'entrada' ? 'Entrada' : 'Saída'}</Badge></TableCell>
-                        <TableCell className="text-right">{fmt(Number(m.quantidade))}</TableCell>
+                        <TableCell className="text-right">{fmtQtd(Number(m.quantidade), historico.item.unidade)}</TableCell>
                         <TableCell>{ORIGEM_LABEL[m.origem_tipo] || m.origem_tipo}</TableCell>
                         <TableCell>{m.created_by_user_id ? nomes[m.created_by_user_id] || '—' : '—'}</TableCell>
-                        <TableCell className="max-w-[200px] truncate">{m.notes || '—'}</TableCell>
+                        <TableCell className="max-w-[260px] whitespace-normal break-words">{m.notes || '—'}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -277,6 +288,10 @@ export default function EstoqueUsoConsumo() {
         <MovimentoDialog tipo={movOpen} itens={itens.filter(i => i.ativo)} saldoCentro={saldoCentro}
           userId={user?.id} onClose={() => setMovOpen(null)} onDone={invalidate} />
       )}
+      {baixaTec && (
+        <BaixaTecnicoDialog row={baixaTec} nome={localLabel(baixaTec)} userId={user?.id}
+          onClose={() => setBaixaTec(null)} onDone={invalidate} />
+      )}
     </div>
   );
 }
@@ -288,16 +303,47 @@ function parseMinimo(v: string): number | null {
   return n;
 }
 
+function UnidadeControleFields({ unidade, setUnidade, controle, setControle }: {
+  unidade: string; setUnidade: (v: string) => void; controle: ControleConsumo; setControle: (v: ControleConsumo) => void;
+}) {
+  return (
+    <>
+      <div className="space-y-1">
+        <Label>Unidade *</Label>
+        <Select value={unidade} onValueChange={setUnidade}>
+          <SelectTrigger><SelectValue /></SelectTrigger>
+          <SelectContent>{UNIDADES.map(u => <SelectItem key={u} value={u}>{u}</SelectItem>)}</SelectContent>
+        </Select>
+        <p className="text-xs text-muted-foreground">un, par, pç, cx e rolo aceitam só números inteiros; m, kg e L aceitam decimais.</p>
+      </div>
+      <div className="space-y-1">
+        <Label>Controle de consumo *</Label>
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" size="sm" variant={controle === 'por_uso' ? 'default' : 'outline'} onClick={() => setControle('por_uso')}>Por uso</Button>
+          <Button type="button" size="sm" variant={controle === 'a_granel' ? 'default' : 'outline'} onClick={() => setControle('a_granel')}>A granel</Button>
+        </div>
+        <p className="text-xs text-muted-foreground">
+          {controle === 'por_uso'
+            ? 'Por uso: o técnico retira para o próprio estoque e dá baixa quando usa na OS ou na visita.'
+            : 'A granel: a baixa é feita direto na retirada, com motivo (ex.: cabo de aço, mangueira). Não vai para o estoque do técnico.'}
+        </p>
+      </div>
+    </>
+  );
+}
+
 function EditarItemDialog({ item, onClose, onDone }: { item: Item; onClose: () => void; onDone: () => void }) {
   const { toast } = useToast();
   const [descricao, setDescricao] = useState(item.descricao);
   const [minimo, setMinimo] = useState(item.estoque_minimo != null ? String(item.estoque_minimo) : '');
+  const [unidade, setUnidade] = useState(item.unidade || 'un');
+  const [controle, setControle] = useState<ControleConsumo>(item.controle_consumo || 'por_uso');
   const mut = useMutation({
     mutationFn: async () => {
       if (!descricao.trim()) throw new Error('Preencha a descrição.');
       const min = parseMinimo(minimo);
       const { data, error } = await withTimeout(supabase.from('estoque_consumo_itens')
-        .update({ descricao: descricao.trim(), estoque_minimo: min }).eq('id', item.id).select('id'));
+        .update({ descricao: descricao.trim(), estoque_minimo: min, unidade, controle_consumo: controle }).eq('id', item.id).select('id'));
       if (error) throw error;
       if (!data?.length) throw new Error('Sem permissão para editar item.');
     },
@@ -312,6 +358,7 @@ function EditarItemDialog({ item, onClose, onDone }: { item: Item; onClose: () =
           <div className="space-y-1"><Label>Descrição *</Label><Input value={descricao} onChange={e => setDescricao(e.target.value)} /></div>
           <div className="space-y-1"><Label>Estoque mínimo</Label><Input type="number" min="0" step="any" placeholder="Sem mínimo" value={minimo} onChange={e => setMinimo(e.target.value)} />
             <p className="text-xs text-muted-foreground">Deixe vazio para não ter alerta.</p></div>
+          <UnidadeControleFields unidade={unidade} setUnidade={setUnidade} controle={controle} setControle={setControle} />
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancelar</Button>
@@ -330,6 +377,8 @@ function NovoItemDialog({ onClose, onDone, userId }: { onClose: () => void; onDo
   const [buscaPeca, setBuscaPeca] = useState('');
   const [peca, setPeca] = useState<{ id: string; codigo: string; nome: string } | null>(null);
   const [minimo, setMinimo] = useState('');
+  const [unidade, setUnidade] = useState('un');
+  const [controle, setControle] = useState<ControleConsumo>('por_uso');
 
   const { data: pecas = [] } = useQuery({
     queryKey: ['estoque-consumo-busca-peca', buscaPeca],
@@ -351,7 +400,7 @@ function NovoItemDialog({ onClose, onDone, userId }: { onClose: () => void; onDo
   });
 
   const selecionarPeca = (p: { id: string; codigo: string; nome: string }) => {
-    setPeca(p); setCodigo(p.codigo); setDescricao(p.nome);
+    setPeca(p); setCodigo(p.codigo); setDescricao(p.nome); setUnidade('un');
   };
   const limparPeca = () => { setPeca(null); setCodigo(''); setDescricao(''); };
 
@@ -361,7 +410,7 @@ function NovoItemDialog({ onClose, onDone, userId }: { onClose: () => void; onDo
       if (controlado && !peca) throw new Error('Selecione a peça do catálogo para o Item Controlado.');
       const min = parseMinimo(minimo);
       const { data, error } = await withTimeout(supabase.from('estoque_consumo_itens').insert({
-        codigo: codigo.trim(), descricao: descricao.trim(), peca_id: controlado ? peca!.id : null, created_by_user_id: userId, estoque_minimo: min,
+        codigo: codigo.trim(), descricao: descricao.trim(), peca_id: controlado ? peca!.id : null, created_by_user_id: userId, estoque_minimo: min, unidade, controle_consumo: controle,
       }).select('id'));
       if (error) {
         if (error.code === '23505') {
@@ -381,11 +430,12 @@ function NovoItemDialog({ onClose, onDone, userId }: { onClose: () => void; onDo
   return (
     <Dialog open onOpenChange={o => !o && onClose()}>
       <DialogContent>
-        <DialogHeader><DialogTitle>Novo item</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle>Incluir item no estoque</DialogTitle></DialogHeader>
         <div className="space-y-4">
           <div className="space-y-1"><Label>Código *</Label><Input value={codigo} readOnly={travado} className={travado ? 'bg-muted' : ''} onChange={e => setCodigo(e.target.value)} /></div>
           <div className="space-y-1"><Label>Descrição *</Label><Input value={descricao} readOnly={travado} className={travado ? 'bg-muted' : ''} onChange={e => setDescricao(e.target.value)} /></div>
           <div className="space-y-1"><Label>Estoque mínimo</Label><Input type="number" min="0" step="any" placeholder="Opcional" value={minimo} onChange={e => setMinimo(e.target.value)} /></div>
+          <UnidadeControleFields unidade={unidade} setUnidade={setUnidade} controle={controle} setControle={setControle} />
           <div className="flex flex-wrap gap-2">
             <Button type="button" size="sm" variant={!controlado ? 'default' : 'outline'} onClick={() => { if (controlado) { setControlado(false); limparPeca(); } }}>Item Uso/Consumo</Button>
             <Button type="button" size="sm" variant={controlado ? 'default' : 'outline'} onClick={() => setControlado(true)}>Item Controlado</Button>
@@ -434,13 +484,14 @@ function MovimentoDialog({ tipo, itens, saldoCentro, userId, onClose, onDone }: 
   const [qtd, setQtd] = useState('');
   const [obs, setObs] = useState('');
   const saldo = itemId ? saldoCentro(itemId) : 0;
+  const sel = itens.find(i => i.id === itemId);
 
   const mut = useMutation({
     mutationFn: async () => {
-      const q = Number(qtd.replace(',', '.'));
       if (!itemId) throw new Error('Selecione o item.');
-      if (!q || q <= 0) throw new Error('Informe uma quantidade maior que zero.');
-      if (tipo === 'saida' && q > saldo) throw new Error(`Saldo insuficiente no Centro de Serviços (disponível: ${fmt(saldo)}).`);
+      const q = parseQuantidade(qtd, sel?.unidade);
+      if (tipo === 'saida' && obs.trim().length < 3) throw new Error('Informe o motivo da baixa (mín. 3 caracteres).');
+      if (tipo === 'saida' && q > saldo) throw new Error(`Saldo insuficiente no Centro de Serviços (disponível: ${fmtQtd(saldo, sel?.unidade)}).`);
       const { data, error } = await withTimeout(supabase.from('estoque_consumo_movimentos').insert({
         item_id: itemId, tipo, quantidade: q, local: 'centro_servicos', tecnico_user_id: null,
         origem_tipo: 'ajuste', notes: obs.trim() || null, created_by_user_id: userId,
@@ -448,14 +499,14 @@ function MovimentoDialog({ tipo, itens, saldoCentro, userId, onClose, onDone }: 
       if (error) throw error;
       if (!data?.length) throw new Error('Sem permissão para registrar o movimento.');
     },
-    onSuccess: () => { toast({ title: tipo === 'entrada' ? 'Entrada registrada!' : 'Saída registrada!' }); onDone(); onClose(); },
+    onSuccess: () => { toast({ title: tipo === 'entrada' ? 'Material recebido!' : 'Baixa registrada!' }); onDone(); onClose(); },
     onError: (e: Error) => toast({ variant: 'destructive', title: 'Erro ao registrar', description: e.message }),
   });
 
   return (
     <Dialog open onOpenChange={o => !o && onClose()}>
       <DialogContent>
-        <DialogHeader><DialogTitle>{tipo === 'entrada' ? 'Dar entrada' : 'Dar saída'} — Centro de Serviços</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle>{tipo === 'entrada' ? 'Receber material' : 'Dar baixa'} — Centro de Serviços</DialogTitle></DialogHeader>
         <div className="space-y-4">
           <div className="space-y-1">
             <Label>Item *</Label>
@@ -465,14 +516,58 @@ function MovimentoDialog({ tipo, itens, saldoCentro, userId, onClose, onDone }: 
                 {itens.map(i => <SelectItem key={i.id} value={i.id}>{i.codigo} — {i.descricao}</SelectItem>)}
               </SelectContent>
             </Select>
-            {itemId && <p className="text-xs text-muted-foreground">Saldo atual: {fmt(saldo)}</p>}
+            {itemId && <p className="text-xs text-muted-foreground">Saldo atual: {fmtQtd(saldo, sel?.unidade)}</p>}
           </div>
           <div className="space-y-1"><Label>Quantidade *</Label><Input inputMode="decimal" value={qtd} onChange={e => setQtd(e.target.value)} /></div>
-          <div className="space-y-1"><Label>Observação</Label><Textarea value={obs} onChange={e => setObs(e.target.value)} /></div>
+          <div className="space-y-1"><Label>{tipo === 'saida' ? 'Motivo *' : 'Observação'}</Label><Textarea maxLength={200} placeholder={tipo === 'saida' ? 'Ex.: Perda, avaria, uso na base' : 'Ex.: nº da NF'} value={obs} onChange={e => setObs(e.target.value)} /></div>
         </div>
         <DialogFooter>
           <Button variant="outline" onClick={onClose}>Cancelar</Button>
           <Button onClick={() => mut.mutate()} disabled={mut.isPending}>{mut.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Registrar</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function BaixaTecnicoDialog({ row, nome, userId, onClose, onDone }: {
+  row: Row; nome: string; userId?: string; onClose: () => void; onDone: () => void;
+}) {
+  const { toast } = useToast();
+  const [qtd, setQtd] = useState('');
+  const [motivo, setMotivo] = useState('');
+  const mut = useMutation({
+    mutationFn: async () => {
+      if (!navigator.onLine) throw new Error('Sem conexão. A baixa precisa de sinal.');
+      const q = parseQuantidade(qtd, row.item.unidade);
+      if (motivo.trim().length < 3) throw new Error('Informe o motivo da baixa (mín. 3 caracteres).');
+      const { data: movs, error: e } = await withTimeout(supabase.from('estoque_consumo_movimentos')
+        .select('tipo, quantidade').eq('item_id', row.item.id).eq('local', 'tecnico').eq('tecnico_user_id', row.tecnicoId!));
+      if (e) throw e;
+      const atual = (movs ?? []).reduce((s, m) => s + (m.tipo === 'entrada' ? 1 : -1) * Number(m.quantidade), 0);
+      if (q > atual) throw new Error(`Saldo insuficiente (disponível: ${fmtQtd(atual, row.item.unidade)}).`);
+      const { data, error } = await withTimeout(supabase.from('estoque_consumo_movimentos').insert({
+        item_id: row.item.id, tipo: 'saida', quantidade: q, local: 'tecnico', tecnico_user_id: row.tecnicoId,
+        origem_tipo: 'ajuste', notes: motivo.trim(), created_by_user_id: userId,
+      }).select('id'));
+      if (error) throw error;
+      if (!data?.length) throw new Error('Sem permissão para dar baixa neste estoque.');
+    },
+    onSuccess: () => { toast({ title: 'Baixa registrada!' }); onDone(); onClose(); },
+    onError: (e: Error) => toast({ variant: 'destructive', title: 'Erro ao dar baixa', description: e.message }),
+  });
+  return (
+    <Dialog open onOpenChange={o => !o && onClose()}>
+      <DialogContent>
+        <DialogHeader><DialogTitle>Dar baixa — {nome}</DialogTitle></DialogHeader>
+        <div className="space-y-4">
+          <p className="text-sm">{row.item.codigo} — {row.item.descricao} · Saldo: <strong>{fmtQtd(row.saldo, row.item.unidade)}</strong></p>
+          <div className="space-y-1"><Label>Quantidade * ({row.item.unidade})</Label><Input inputMode="decimal" value={qtd} onChange={e => setQtd(e.target.value)} /></div>
+          <div className="space-y-1"><Label>Motivo *</Label><Textarea maxLength={200} value={motivo} onChange={e => setMotivo(e.target.value)} /></div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={onClose}>Cancelar</Button>
+          <Button onClick={() => mut.mutate()} disabled={mut.isPending}>{mut.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Dar baixa</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
