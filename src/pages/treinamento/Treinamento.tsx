@@ -16,6 +16,7 @@ import {
   Plus,
   Search,
   Trash2,
+  Ban,
   User,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -50,6 +51,9 @@ import {
 } from '@/components/ui/alert-dialog';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import { useMenuPermissions } from '@/hooks/useMenuPermissions';
+import { CancelReasonDialog } from '@/components/chamados/CancelReasonDialog';
+import { canHardDeleteTrainingVisit, cancelTrainingVisit, hardDeleteTrainingVisit } from '@/lib/training-cancel';
 
 interface TreinamentoItem {
   id: string;
@@ -82,6 +86,7 @@ const STATUS_LABELS: Record<string, string> = {
 function statusBadgeClass(status: string) {
   if (status === 'concluida') return 'bg-green-500/10 text-green-600 border-green-500/20';
   if (status === 'pendente') return 'bg-blue-500/10 text-blue-600 border-blue-500/20';
+  if (status === 'cancelada') return 'bg-destructive/10 text-destructive border-destructive/20';
   return '';
 }
 
@@ -101,7 +106,8 @@ export default function Treinamento() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const canAbrirVisita = role === 'admin' || role === 'coordenador_servicos' || role === 'coordenador_rplus';
-  const canExcluirVisita = role === 'admin' || role === 'coordenador_servicos';
+  const { canDelete: canDeleteMenu } = useMenuPermissions();
+  const canExcluirVisita = canDeleteMenu('treinamento');
   const isTecnico = role === 'tecnico_campo' || role === 'tecnico_oficina';
   const [searchParams] = useSearchParams();
   const [ownerFilter, setOwnerFilter] = useState<'meu' | 'todos'>(() =>
@@ -112,8 +118,9 @@ export default function Treinamento() {
   const [editingVisita, setEditingVisita] = useState<TreinamentoItem | null>(null);
   const [concluindoVisita, setConcluindoVisita] = useState<TreinamentoItem | null>(null);
   const [excluindoVisita, setExcluindoVisita] = useState<TreinamentoItem | null>(null);
+  const [cancelandoVisita, setCancelandoVisita] = useState<TreinamentoItem | null>(null);
   const [visualizandoVisita, setVisualizandoVisita] = useState<TreinamentoItem | null>(null);
-  const [filtroStatus, setFiltroStatus] = useState<'all' | 'pendente' | 'concluida'>('all');
+  const [filtroStatus, setFiltroStatus] = useState<'all' | 'pendente' | 'concluida' | 'cancelada'>('all');
   const [search, setSearch] = useState('');
   const [clienteDetalhe, setClienteDetalhe] = useState<ClienteResumo | null>(null);
 
@@ -125,7 +132,6 @@ export default function Treinamento() {
         .select(
           'id, cliente_id, status, planned_date, completed_date, contact_name, contact_phone, notes, checklist_template_id, technician_user_id, csm_user_id'
         )
-        .neq('status', 'cancelada')
         .order('planned_date', { ascending: false, nullsFirst: false });
       if (error) throw error;
       return (data ?? []) as TreinamentoItem[];
@@ -161,20 +167,45 @@ export default function Treinamento() {
     }
   }, [error, toast]);
 
-  const lista = useMemo(() => {
+  const listaComCanceladas = useMemo(() => {
     const base = visitas ?? [];
     if (ownerFilter === 'todos') return base;
     return base.filter(v => v.technician_user_id === user?.id || v.csm_user_id === user?.id);
   }, [visitas, ownerFilter, user?.id]);
+  // Canceladas ficam fora de tudo, exceto do filtro "Canceladas"
+  const lista = useMemo(() => listaComCanceladas.filter(v => v.status !== 'cancelada'), [listaComCanceladas]);
+  const canceladas = useMemo(() => listaComCanceladas.filter(v => v.status === 'cancelada'), [listaComCanceladas]);
 
-  const clienteIds = useMemo(() => [...new Set(lista.map(v => v.cliente_id))], [lista]);
+  // Quantidade de respostas de checklist por visita pendente (define excluir x cancelar)
+  const pendenteIds = useMemo(() => lista.filter(v => v.status === 'pendente').map(v => v.id), [lista]);
+  const { data: respostasPorVisita } = useQuery({
+    queryKey: ['training-visits-response-counts', pendenteIds],
+    queryFn: async () => {
+      const map = new Map<string, number>();
+      if (!pendenteIds.length) return map;
+      const { data, error } = await supabase
+        .from('training_checklist_responses')
+        .select('training_visit_id')
+        .in('training_visit_id', pendenteIds);
+      if (error) throw error;
+      (data ?? []).forEach(r => map.set(r.training_visit_id, (map.get(r.training_visit_id) ?? 0) + 1));
+      return map;
+    },
+    enabled: canExcluirVisita && pendenteIds.length > 0,
+  });
+  const exclusaoReal = (v: TreinamentoItem) =>
+    respostasPorVisita !== undefined || v.status !== 'pendente'
+      ? canHardDeleteTrainingVisit(v.status, respostasPorVisita?.get(v.id) ?? 0)
+      : false;
+
+  const clienteIds = useMemo(() => [...new Set(listaComCanceladas.map(v => v.cliente_id))], [listaComCanceladas]);
   const responsavelIds = useMemo(
-    () => [...new Set(lista.flatMap(v => [v.technician_user_id, v.csm_user_id]).filter(Boolean) as string[])],
-    [lista],
+    () => [...new Set(listaComCanceladas.flatMap(v => [v.technician_user_id, v.csm_user_id]).filter(Boolean) as string[])],
+    [listaComCanceladas],
   );
   const templateIds = useMemo(
-    () => [...new Set(lista.map(v => v.checklist_template_id).filter(Boolean) as string[])],
-    [lista],
+    () => [...new Set(listaComCanceladas.map(v => v.checklist_template_id).filter(Boolean) as string[])],
+    [listaComCanceladas],
   );
 
   const { data: clientesMap } = useQuery({
@@ -221,16 +252,11 @@ export default function Treinamento() {
 
   const excluirMutation = useMutation({
     mutationFn: async (id: string) => {
-      const { data, error } = await withTimeout(
-        supabase.from('training_visits').delete().eq('id', id).select('id')
-      );
-      if (error) throw error;
-      if (!data || data.length === 0) {
-        throw new Error('A exclusão não foi confirmada pelo servidor. Verifique suas permissões.');
-      }
+      await hardDeleteTrainingVisit(id);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['training-visits'] });
+      queryClient.invalidateQueries({ queryKey: ['minhas-pendencias'] });
       toast({ title: 'Visita de treinamento excluída.' });
       setExcluindoVisita(null);
     },
@@ -239,9 +265,29 @@ export default function Treinamento() {
     },
   });
 
+  const cancelarMutation = useMutation({
+    mutationFn: async ({ v, reason }: { v: TreinamentoItem; reason: string }) => {
+      await cancelTrainingVisit(v.id, reason, v.notes);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['training-visits'] });
+      queryClient.invalidateQueries({ queryKey: ['minhas-pendencias'] });
+      toast({ title: 'Visita de treinamento cancelada.' });
+      setCancelandoVisita(null);
+    },
+    onError: (err: Error) => {
+      toast({ variant: 'destructive', title: 'Erro ao cancelar', description: err.message });
+    },
+  });
+
+  const acionarExclusao = (v: TreinamentoItem) => {
+    if (exclusaoReal(v)) setExcluindoVisita(v);
+    else setCancelandoVisita(v);
+  };
+
   const filtradas = useMemo(() => {
     const termo = search.trim().toLowerCase();
-    return lista.filter(v => {
+    return (filtroStatus === 'cancelada' ? canceladas : lista).filter(v => {
       if (filtroStatus !== 'all' && v.status !== filtroStatus) return false;
       if (termo) {
         const cliente = clientesMap?.get(v.cliente_id);
@@ -257,13 +303,14 @@ export default function Treinamento() {
       }
       return true;
     });
-  }, [lista, filtroStatus, search, clientesMap, responsaveisMap, templatesMap]);
+  }, [lista, canceladas, filtroStatus, search, clientesMap, responsaveisMap, templatesMap]);
 
   const stats = useMemo(() => ({
     total: lista.length,
     pendentes: lista.filter(v => v.status === 'pendente').length,
     concluidos: lista.filter(v => v.status === 'concluida').length,
-  }), [lista]);
+    canceladas: canceladas.length,
+  }), [lista, canceladas]);
 
   const clientesResumo = useMemo<ClienteResumo[]>(() => {
     const map = new Map<string, ClienteResumo>();
@@ -296,7 +343,7 @@ export default function Treinamento() {
       .sort((a, b) => (b.completed_date ?? b.planned_date ?? '').localeCompare(a.completed_date ?? a.planned_date ?? ''));
   }, [lista, clienteDetalhe]);
 
-  const aplicarStatus = (s: 'all' | 'pendente' | 'concluida') => {
+  const aplicarStatus = (s: 'all' | 'pendente' | 'concluida' | 'cancelada') => {
     setFiltroStatus(prev => (s !== 'all' && prev === s ? 'all' : s));
   };
 
@@ -308,7 +355,7 @@ export default function Treinamento() {
   const podeGerenciar = (v: TreinamentoItem) => canAbrirVisita && v.status === 'pendente';
 
   // Excluir: restrito a admin e coordenador de serviços, em qualquer status
-  const podeExcluir = (_v: TreinamentoItem) => canExcluirVisita;
+  const podeExcluir = (v: TreinamentoItem) => canExcluirVisita && v.status !== 'cancelada';
 
   const responsavelNome = (v: TreinamentoItem) => {
     const id = v.technician_user_id ?? v.csm_user_id;
@@ -407,6 +454,16 @@ export default function Treinamento() {
               </CardContent>
             </Card>
           </div>
+          <div>
+            <Button
+              variant={filtroStatus === 'cancelada' ? 'secondary' : 'ghost'}
+              size="sm"
+              onClick={() => aplicarStatus('cancelada')}
+            >
+              <Ban className="h-4 w-4 mr-1.5" />
+              Canceladas ({stats.canceladas})
+            </Button>
+          </div>
 
           {/* Busca */}
           <div className="relative max-w-md">
@@ -495,10 +552,12 @@ export default function Treinamento() {
                                 variant="ghost"
                                 size="sm"
                                 className="text-destructive hover:text-destructive"
-                                onClick={() => setExcluindoVisita(v)}
+                                onClick={() => acionarExclusao(v)}
+                                title={exclusaoReal(v) ? 'Excluir visita' : 'Cancelar visita'}
+                                aria-label={exclusaoReal(v) ? 'Excluir visita' : 'Cancelar visita'}
                               >
-                                <Trash2 className="h-4 w-4 mr-1.5" />
-                                Excluir
+                                {exclusaoReal(v) ? <Trash2 className="h-4 w-4 mr-1.5" /> : <Ban className="h-4 w-4 mr-1.5" />}
+                                {exclusaoReal(v) ? 'Excluir' : 'Cancelar'}
                               </Button>
                             )}
                           </div>
@@ -689,6 +748,15 @@ export default function Treinamento() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <CancelReasonDialog
+        open={!!cancelandoVisita}
+        onOpenChange={(open) => !open && setCancelandoVisita(null)}
+        title="Cancelar visita de Treinamento de Manutenção?"
+        description="A visita ficará como Cancelada e continuará no histórico. As respostas do checklist são mantidas e o motivo fica registrado nas observações."
+        pending={cancelarMutation.isPending}
+        onConfirm={(reason) => cancelandoVisita && cancelarMutation.mutate({ v: cancelandoVisita, reason })}
+      />
 
       <NovaVisitaTreinamentoDialog
         open={novaVisitaOpen || !!editingVisita}

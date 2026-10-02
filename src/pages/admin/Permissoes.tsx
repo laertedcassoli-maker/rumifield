@@ -102,6 +102,7 @@ const groupActionColumns: Record<string, Array<{ key: keyof Permission; label: s
 // Colunas extras por menu específico (quando o grupo inteiro não deve ganhar a coluna)
 const menuExtraColumns: Record<string, Array<{ key: keyof Permission; label: string }>> = {
   instalacoes: [{ key: 'can_delete', label: 'Excluir' }],
+  treinamento: [{ key: 'can_delete', label: 'Cancelar/Excluir' }],
   estoque_uso_consumo: [
     { key: 'can_edit', label: 'Incluir item/Dar entrada' },
     { key: 'can_delete', label: 'Retirar/Dar baixa' },
