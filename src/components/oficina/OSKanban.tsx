@@ -1,4 +1,4 @@
-import { Clock, Eye, Package, Wrench, Trash2, Ban }
+import { Clock, Eye, Package, Wrench, Trash2, Ban } from 'lucide-react';
 import { canHardDeleteWorkOrder } from '@/lib/work-order-cancel'; from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
