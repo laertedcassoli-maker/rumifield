@@ -36,6 +36,13 @@
       "when": 1790952833500,
       "tag": "0004_pedidos_managers_write_assets_itens",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1790953955811,
+      "tag": "0005_training_cancel_permissions",
+      "breakpoints": true
     }
   ]
 }

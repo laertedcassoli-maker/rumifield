@@ -1,3 +1,4 @@
+import { isTrainingVisitCancelledLocally } from "@/lib/training-cancel";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -53,6 +54,12 @@ export function useOfflineTrainingChecklist() {
       const cleanData = { ...data };
       delete cleanData._pendingSync;
       delete cleanData._localId;
+
+      // Visita cancelada: descarta alterações pendentes (não sobem para o servidor)
+      const visitRef = (table === "training_visits" ? data.id : data.training_visit_id) as string | undefined;
+      if (table !== "training_visits" || (data as any).status !== "cancelada") {
+        if (await isTrainingVisitCancelledLocally(visitRef)) return { ok: true };
+      }
 
       if (table === "training_visits") {
         if (operation === "insert") {

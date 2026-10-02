@@ -3,6 +3,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { offlineDb, SyncQueueItem } from "@/lib/offline-db";
 import { offlineChecklistDb } from "@/lib/offline-checklist-db";
 import { reportDeadLetter } from "@/lib/reportDeadLetter";
+import { isTrainingVisitCancelledLocally } from "@/lib/training-cancel";
 
 import { toast } from "sonner";
 
@@ -463,6 +464,8 @@ export function useOfflineSync() {
             .from("training_visits")
             .upsert(cleanData as never, { onConflict: 'id' });
           if (error && (error as any).code !== '23505') throw error;
+        } else if (tableName === "training_checklist_responses" && await isTrainingVisitCancelledLocally((cleanData as any).training_visit_id)) {
+          // visita cancelada: descarta a resposta pendente
         } else if (tableName === "training_checklist_responses") {
           const { error } = await supabase
             .from("training_checklist_responses")
@@ -525,6 +528,8 @@ export function useOfflineSync() {
             .update(cleanData as never)
             .eq("id", id);
           if (error && (error as any).code !== '23505') throw error;
+        } else if (tableName === "training_checklist_responses" && await isTrainingVisitCancelledLocally((cleanData as any).training_visit_id)) {
+          // visita cancelada: descarta a resposta pendente
         } else if (tableName === "training_checklist_responses") {
           const { error } = await supabase
             .from("training_checklist_responses")

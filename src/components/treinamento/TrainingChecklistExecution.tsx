@@ -84,6 +84,11 @@ export default function TrainingChecklistExecution({
       try {
         const visit = await getTrainingVisit(existingVisitId);
         if (!active) return;
+        if (visit.status === 'cancelada') {
+          toast.error('Esta visita de Treinamento de Manutenção foi cancelada e não pode ser executada.');
+          setCompleted(true);
+          return;
+        }
         setVisitId(visit.id);
         if (visit.checklist_template_id) {
           setTemplateId(visit.checklist_template_id);
