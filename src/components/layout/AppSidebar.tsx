@@ -1,5 +1,5 @@
 import { Fragment } from 'react';
-import { Home, MapPin, ShoppingCart, Users, Settings, LogOut, Beaker, Truck, RefreshCcw, ChevronDown, ClipboardCheck, TrendingDown, Play, Building2, History, Package, FlaskConical, Shield, Wrench, ListChecks, ListTodo, Box, FileText, Calendar, Route, CalendarDays, ClipboardList, AlertTriangle, Navigation, BookOpen, Bot, Contact, Briefcase, BarChart3, BarChart2, Eye, Brain, Sheet, GraduationCap, Upload, HardHat } from 'lucide-react';
+import { Home, MapPin, ShoppingCart, Users, Settings, LogOut, Beaker, Truck, RefreshCcw, ChevronDown, ClipboardCheck, TrendingDown, Play, Building2, History, Package, FlaskConical, Shield, Wrench, ListChecks, ListTodo, Box, FileText, Calendar, Route, CalendarDays, ClipboardList, AlertTriangle, Navigation, BookOpen, Bot, Contact, Briefcase, BarChart3, BarChart2, Eye, Brain, Sheet, GraduationCap, Upload, HardHat, PackageMinus } from 'lucide-react';
 import { GearWrenchIcon } from '@/components/icons/GearWrenchIcon';
 import { useAuth } from '@/contexts/AuthContext';
 import { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarMenuSub, SidebarMenuSubItem, SidebarMenuSubButton } from '@/components/ui/sidebar';
@@ -30,7 +30,7 @@ export function AppSidebar() {
   const { profile, role, signOut } = useAuth();
   const location = useLocation();
   const { setOpenMobile, isMobile } = useSidebar();
-  const { canAccess, isLoading } = useMenuPermissions();
+  const { canAccess, canDelete, isLoading } = useMenuPermissions();
   const pendenciasCount = usePendenciasCount();
   const minhasPendenciasCount = useMinhasPendenciasCount();
 
@@ -370,6 +370,16 @@ export function AppSidebar() {
                     <Link to="/estoque-uso-consumo" onClick={handleMenuClick}>
                       <Box className="h-4 w-4" />
                       <span>Estoque Uso/Consumo</span>
+                    </Link>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              )}
+              {canAccess('estoque_uso_consumo') && canDelete('estoque_uso_consumo') && (
+                <SidebarMenuItem>
+                  <SidebarMenuButton asChild isActive={location.pathname === '/estoque-uso-consumo/retirar'} className="pl-8">
+                    <Link to="/estoque-uso-consumo/retirar" onClick={handleMenuClick}>
+                      <PackageMinus className="h-4 w-4" />
+                      <span>Retirar para o meu estoque</span>
                     </Link>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
