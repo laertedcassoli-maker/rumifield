@@ -15,6 +15,13 @@
       "when": 1790945848742,
       "tag": "0001_estoque_unidade_controle_e_saida_tecnico",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790947337629,
+      "tag": "0002_cascade_cancel_ticket_visits",
+      "breakpoints": true
     }
   ]
 }
