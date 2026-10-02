@@ -1,3 +1,4 @@
+import { ListaVerMais } from '@/components/ui/ver-mais';
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -402,7 +403,7 @@ export default function Estoque() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {listaAfericoes.map((afericao, index) => (
+                  {<ListaVerMais items={listaAfericoes} resetKey={[filters, sortColumn, sortDirection]}>{(__vis) => __vis.map((afericao, index) => (
                     <TableRow key={index}>
                       <TableCell className="font-medium">{afericao.cliente_nome}</TableCell>
                       <TableCell>{afericao.cliente_fazenda || '-'}</TableCell>
@@ -443,7 +444,7 @@ export default function Estoque() {
                         </Button>
                       </TableCell>
                     </TableRow>
-                  ))}
+                  ))}</ListaVerMais>}
                 </TableBody>
               </Table>
             </div>

@@ -1,3 +1,4 @@
+import { ListaVerMais } from '@/components/ui/ver-mais';
 import { Clock, Eye, Package, Wrench, Trash2, Ban } from 'lucide-react';
 import { canHardDeleteWorkOrder } from '@/lib/work-order-cancel';
 import { Badge } from '@/components/ui/badge';
@@ -109,7 +110,7 @@ function KanbanColumn({
       </div>
       <ScrollArea className="xl:h-[calc(100vh-320px)] [&>[data-radix-scroll-area-viewport]]:!overflow-visible xl:[&>[data-radix-scroll-area-viewport]]:!overflow-auto">
         <div className="p-2 space-y-2">
-          {orders.map((os) => (
+          {<ListaVerMais items={orders}>{(__vis) => __vis.map((os) => (
             <Card 
               key={os.id}
               className="cursor-pointer hover:shadow-md transition-shadow bg-card"
@@ -213,7 +214,7 @@ function KanbanColumn({
                 )}
               </CardContent>
             </Card>
-          ))}
+          ))}</ListaVerMais>}
           {orders.length === 0 && (
             <div className="text-center py-8 text-muted-foreground text-sm">
               Nenhuma OS

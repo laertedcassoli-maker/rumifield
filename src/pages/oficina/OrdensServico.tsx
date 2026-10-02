@@ -1,3 +1,4 @@
+import { ListaVerMais } from '@/components/ui/ver-mais';
 import { useState, useEffect, useMemo } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -574,7 +575,7 @@ export default function OrdensServico() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredOrders.map((os) => (
+                  {<ListaVerMais items={filteredOrders} resetKey={[search, ownerFilter, activeTab, viewMode, createdFrom, createdTo, endTimeFrom, endTimeTo, selectedPart]}>{(__vis) => __vis.map((os) => (
                     <TableRow key={os.id}>
                       <TableCell className="font-mono font-medium">{os.code}</TableCell>
                       <TableCell>
@@ -672,14 +673,14 @@ export default function OrdensServico() {
                         </div>
                       </TableCell>
                     </TableRow>
-                  ))}
+                  ))}</ListaVerMais>}
                 </TableBody>
               </Table>
             </div>
 
             {/* Mobile Cards */}
             <div className="md:hidden space-y-3">
-              {filteredOrders.map((os) => (
+              {<ListaVerMais items={filteredOrders} resetKey={[search, ownerFilter, activeTab, viewMode, createdFrom, createdTo, endTimeFrom, endTimeTo, selectedPart]}>{(__vis) => __vis.map((os) => (
                 <Card 
                   key={os.id} 
                   className="cursor-pointer hover:shadow-md transition-shadow"
@@ -776,7 +777,7 @@ export default function OrdensServico() {
                     )}
                   </CardContent>
                 </Card>
-              ))}
+              ))}</ListaVerMais>}
             </div>
           </CardContent>
         </Card>

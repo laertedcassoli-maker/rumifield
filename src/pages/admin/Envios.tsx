@@ -1,3 +1,4 @@
+import { ListaVerMais } from '@/components/ui/ver-mais';
 import { useState, useEffect, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -782,7 +783,7 @@ const Envios = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {enviosAgrupados.map((grupo) => (
+                  {<ListaVerMais items={enviosAgrupados} resetKey={[filters, sortColumn, sortDirection]}>{(__vis) => __vis.map((grupo) => (
                     <TableRow key={grupo.chave}>
                       <TableCell>
                         {format(new Date(grupo.data_envio), "dd/MM/yyyy", {
@@ -832,7 +833,7 @@ const Envios = () => {
                         </div>
                       </TableCell>
                     </TableRow>
-                  ))}
+                  ))}</ListaVerMais>}
                 </TableBody>
               </Table>
             </div>

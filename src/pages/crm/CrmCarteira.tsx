@@ -1,3 +1,4 @@
+import { ListaVerMais } from '@/components/ui/ver-mais';
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useCarteiraData, PRODUCT_ORDER, PRODUCT_LABELS, STAGE_LABELS, HEALTH_COLORS } from '@/hooks/useCrmData';
@@ -155,7 +156,7 @@ export default function CrmCarteira() {
         ) : filtered.length === 0 ? (
           <Card><CardContent className="py-6 text-center text-sm text-muted-foreground">Nenhum cliente encontrado</CardContent></Card>
         ) : (
-          filtered.map(c => (
+          <ListaVerMais items={filtered} resetKey={[search, consultorFilter, produtoFilter]}>{(__vis) => __vis.map(c => (
             <Card
               key={c.id}
               className="active:bg-muted/50 transition-colors cursor-pointer hover:border-primary/30"
@@ -242,7 +243,7 @@ export default function CrmCarteira() {
                 </div>
               </CardContent>
             </Card>
-          ))
+          ))}</ListaVerMais>
         )}
       </div>
 

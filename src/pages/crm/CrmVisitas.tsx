@@ -1,3 +1,4 @@
+import { ListaVerMais } from '@/components/ui/ver-mais';
 import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -273,7 +274,7 @@ export default function CrmVisitas() {
         </CardContent></Card>
       ) : (
         <div className="space-y-1.5">
-          {filteredVisitas.map((v: any) => (
+          {<ListaVerMais items={filteredVisitas} resetKey={[search, statusFilter, csmFilter]}>{(__vis) => __vis.map((v: any) => (
             <Card
               key={v.id}
               className="overflow-hidden cursor-pointer hover:border-primary/30 active:bg-muted/50 transition-colors"
@@ -333,7 +334,7 @@ export default function CrmVisitas() {
                 </div>
               </CardContent>
             </Card>
-          ))}
+          ))}</ListaVerMais>}
         </div>
       )}
 

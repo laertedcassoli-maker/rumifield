@@ -1,3 +1,4 @@
+import { ListaVerMais } from '@/components/ui/ver-mais';
 import { useState, useMemo } from 'react';
 import { Link } from 'react-router-dom';
 import { EditarAcaoSheet } from '@/components/crm/EditarAcaoSheet';
@@ -131,7 +132,7 @@ export default function CrmAcoes() {
         </div>
       ) : (
         <div className="space-y-3">
-          {filtered.map((action) => {
+          {<ListaVerMais items={filtered} resetKey={[statusFilter, search, consultorFilter]}>{(__vis) => __vis.map((action) => {
             const overdue = isOverdue(action);
             return (
               <Card
@@ -182,7 +183,7 @@ export default function CrmAcoes() {
                 </CardContent>
               </Card>
             );
-          })}
+          })}</ListaVerMais>}
         </div>
       )}
 

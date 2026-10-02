@@ -1,3 +1,4 @@
+import { ListaVerMais } from '@/components/ui/ver-mais';
 import { useState } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -327,14 +328,14 @@ export default function PedidoKanban({
               {col.items.length === 0 ? (
                 <p className="text-xs text-muted-foreground text-center py-6">Nenhum pedido</p>
               ) : (
-                col.items.map(pedido => (
+                <ListaVerMais items={col.items}>{(__vis) => __vis.map(pedido => (
                   <PedidoCard
                     key={pedido.id}
                     pedido={pedido}
                     onView={() => onViewPedido(pedido)}
                     actionButton={col.renderAction?.(pedido)}
                   />
-                ))
+                ))}</ListaVerMais>
               )}
             </div>
           </div>
