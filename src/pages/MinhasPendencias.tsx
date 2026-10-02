@@ -77,12 +77,48 @@ interface SectionProps {
   isLoading: boolean;
   emptyText: string;
   to?: string;
+  orderClass: string;
   children: React.ReactNode;
 }
 
-function Section({ title, icon: Icon, count, isLoading, emptyText, to, children }: SectionProps) {
+const SECTION_ORDER_CLASSES = [
+  'order-[0]', 'order-[1]', 'order-[2]', 'order-[3]', 'order-[4]',
+  'order-[5]', 'order-[6]', 'order-[7]', 'order-[8]', 'order-[9]',
+  'order-[10]', 'order-[11]', 'order-[12]', 'order-[13]', 'order-[14]',
+  'order-[15]', 'order-[16]', 'order-[17]', 'order-[18]', 'order-[19]',
+];
+
+function getSectionOrder(index: number, count: number, allLoaded: boolean) {
+  const order = allLoaded && count === 0 ? index + 10 : index;
+  return SECTION_ORDER_CLASSES[order] ?? '';
+}
+
+function Section({ title, icon: Icon, count, isLoading, emptyText, to, orderClass, children }: SectionProps) {
+  if (!isLoading && count === 0) {
+    return (
+      <Card className={orderClass}>
+        <div className="flex min-w-0 items-center gap-2 px-4 py-3">
+          <Icon className="h-4 w-4 shrink-0 text-primary" />
+          <span className="min-w-0 truncate text-sm font-semibold">{title}</span>
+          <Badge variant="secondary" className="shrink-0">0</Badge>
+          <span className="ml-auto shrink-0 text-xs text-muted-foreground">Nenhuma pendência</span>
+          {to && (
+            <Link
+              to={to}
+              aria-label={`Ver todas: ${title}`}
+              className="inline-flex shrink-0 items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+            >
+              <span className="hidden sm:inline">Ver todas</span>
+              <ArrowRight className="h-3 w-3" />
+            </Link>
+          )}
+        </div>
+      </Card>
+    );
+  }
+
   return (
-    <Card>
+    <Card className={orderClass}>
       <CardHeader className="pb-3">
         <CardTitle className="flex items-center gap-2 text-base">
           <Icon className="h-4 w-4 text-primary" />
@@ -161,12 +197,14 @@ export default function MinhasPendencias() {
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Section
+          key="visitas-tecnicas"
           title="Visitas Técnicas"
           icon={Contact}
           count={visitasUnificadas.length}
           isLoading={preventivas.isLoading || visitas.isLoading}
           emptyText="Nenhuma pendência em Visitas Técnicas"
           to="/visita-tecnica?meu=1&status=pendente"
+          orderClass={getSectionOrder(0, visitasUnificadas.length, !isLoading)}
         >
           {<ListaVerMais items={visitasUnificadas}>{(__vis) => __vis.map(item => (
             <PendenciaRow
@@ -182,12 +220,14 @@ export default function MinhasPendencias() {
         </Section>
 
         <Section
+          key="chamados"
           title="Chamados"
           icon={AlertTriangle}
           count={chamados.data?.length ?? 0}
           isLoading={chamados.isLoading}
           emptyText="Nenhuma pendência em Chamados"
           to="/chamados?meu=1&status=pendente"
+          orderClass={getSectionOrder(1, chamados.data?.length ?? 0, !isLoading)}
         >
           {<ListaVerMais items={(chamados.data ?? [])}>{(__vis) => __vis.map(item => (
             <PendenciaRow
@@ -203,12 +243,14 @@ export default function MinhasPendencias() {
         </Section>
 
         <Section
+          key="coleta-reversa"
           title="Coleta Reversa"
           icon={RefreshCcw}
           count={coletaReversa.data?.length ?? 0}
           isLoading={coletaReversa.isLoading}
           emptyText="Nenhuma pendência em Coleta Reversa"
           to="/pedidos?tipo=coleta_reversa&meu=1&status=pendente"
+          orderClass={getSectionOrder(2, coletaReversa.data?.length ?? 0, !isLoading)}
         >
           {<ListaVerMais items={(coletaReversa.data ?? [])}>{(__vis) => __vis.map(item => (
             <PendenciaRow
@@ -224,12 +266,14 @@ export default function MinhasPendencias() {
         </Section>
 
         <Section
+          key="envios"
           title="Envios"
           icon={Truck}
           count={envios.data?.length ?? 0}
           isLoading={envios.isLoading}
           emptyText="Nenhuma pendência em Envios"
           to="/pedidos?tipo=envio&meu=1&status=pendente"
+          orderClass={getSectionOrder(3, envios.data?.length ?? 0, !isLoading)}
         >
           {<ListaVerMais items={(envios.data ?? [])}>{(__vis) => __vis.map(item => (
             <PendenciaRow
@@ -245,12 +289,14 @@ export default function MinhasPendencias() {
         </Section>
 
         <Section
+          key="instalacoes"
           title="Instalações"
           icon={HardHat}
           count={instalacoes.data?.length ?? 0}
           isLoading={instalacoes.isLoading}
           emptyText="Nenhuma pendência em Instalações"
           to="/instalacoes?meu=1"
+          orderClass={getSectionOrder(4, instalacoes.data?.length ?? 0, !isLoading)}
         >
           {<ListaVerMais items={(instalacoes.data ?? [])}>{(__vis) => __vis.map(item => (
             <PendenciaRow
@@ -266,12 +312,14 @@ export default function MinhasPendencias() {
         </Section>
 
         <Section
+          key="treinamentos"
           title="Treinamento de Manutenção"
           icon={GraduationCap}
           count={treinamentos.data?.length ?? 0}
           isLoading={treinamentos.isLoading}
           emptyText="Nenhuma pendência em Treinamento de Manutenção"
           to="/treinamento?meu=1&status=pendente"
+          orderClass={getSectionOrder(5, treinamentos.data?.length ?? 0, !isLoading)}
         >
           {<ListaVerMais items={(treinamentos.data ?? [])}>{(__vis) => __vis.map(item => (
             <PendenciaRow
@@ -287,12 +335,14 @@ export default function MinhasPendencias() {
         </Section>
 
         <Section
+          key="ordens-servico"
           title="Ordens de Serviço"
           icon={FileText}
           count={ordensServico.data?.length ?? 0}
           isLoading={ordensServico.isLoading}
           emptyText="Nenhuma pendência em Ordens de Serviço"
           to="/oficina/os?meu=1&status=pendente"
+          orderClass={getSectionOrder(6, ordensServico.data?.length ?? 0, !isLoading)}
         >
           {<ListaVerMais items={(ordensServico.data ?? [])}>{(__vis) => __vis.map(item => (
             <PendenciaRow
@@ -308,11 +358,13 @@ export default function MinhasPendencias() {
 
         {canApproveInstalacao && (
           <Section
+            key="aprovacoes-instalacao"
             title="Aprovações de Instalação"
             icon={ClipboardCheck}
             count={aprovacoesInstalacao.data?.length ?? 0}
             isLoading={aprovacoesInstalacao.isLoading}
             emptyText="Nenhuma aprovação pendente"
+            orderClass={getSectionOrder(7, aprovacoesInstalacao.data?.length ?? 0, !isLoading)}
           >
             {<ListaVerMais items={(aprovacoesInstalacao.data ?? [])}>{(__vis) => __vis.map(item => (
               <PendenciaRow
@@ -328,11 +380,13 @@ export default function MinhasPendencias() {
           </Section>
         )}
         <Section
+          key="pedidos-rascunho"
           title="Minhas Solicitações em Rascunho"
           icon={FilePen}
           count={pedidosRascunho.data?.length ?? 0}
           isLoading={pedidosRascunho.isLoading}
           emptyText="Nenhuma solicitação em rascunho"
+          orderClass={getSectionOrder(8, pedidosRascunho.data?.length ?? 0, !isLoading)}
         >
           {<ListaVerMais items={(pedidosRascunho.data ?? [])}>{(__vis) => __vis.map(item => (
             <PendenciaRow
@@ -349,11 +403,13 @@ export default function MinhasPendencias() {
 
         {isLogisticsTeam && (
           <Section
+            key="pedidos-logistica"
             title="Pedidos com a Logística"
             icon={Package}
             count={pedidosLogistica.data?.length ?? 0}
             isLoading={pedidosLogistica.isLoading}
             emptyText="Nenhum pedido aguardando a Logística"
+            orderClass={getSectionOrder(9, pedidosLogistica.data?.length ?? 0, !isLoading)}
           >
             {<ListaVerMais items={(pedidosLogistica.data ?? [])}>{(__vis) => __vis.map(item => (
               <PendenciaRow
