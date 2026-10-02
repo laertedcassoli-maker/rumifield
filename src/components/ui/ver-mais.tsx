@@ -1,3 +1,5 @@
+import * as React from 'react';
+import { useVerMais } from '@/hooks/useVerMais';
 import { ChevronDown } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -23,5 +25,31 @@ export function VerMais({ mostrados, total, temMais, onVerMais, className }: Ver
         Ver mais
       </Button>
     </div>
+  );
+}
+
+/**
+ * Atalho: aplica useVerMais a uma lista e renderiza o botão "Ver mais" logo abaixo.
+ * `children` recebe só os itens visíveis.
+ */
+export function ListaVerMais<T>({
+  items,
+  resetKey,
+  pageSize,
+  children,
+  buttonClassName,
+}: {
+  items: readonly T[] | null | undefined;
+  resetKey?: unknown;
+  pageSize?: number;
+  children: (visiveis: T[]) => React.ReactNode;
+  buttonClassName?: string;
+}) {
+  const { visiveis, total, mostrados, temMais, verMais } = useVerMais(items, { pageSize, resetKey });
+  return (
+    <>
+      {children(visiveis)}
+      <VerMais mostrados={mostrados} total={total} temMais={temMais} onVerMais={verMais} className={buttonClassName} />
+    </>
   );
 }
