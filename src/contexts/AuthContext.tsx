@@ -132,6 +132,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (profileRes.error) throw profileRes.error;
       if (roleRes.error) throw roleRes.error;
+      loadedRef.current = true;
 
       if (profileRes.data) {
         const p = profileRes.data as Profile;
@@ -151,6 +152,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     } catch (error) {
       console.error('Error fetching user data:', error);
+      // Background revalidation for the same user: keep what's already in memory.
+      if (loadedRef.current) return;
       // Only fall back to cached values when we are actually OFFLINE.
       // When online, a failure means we could not confirm the role — we must
       // NOT reuse the cached role (which is user-writable and untrusted).
