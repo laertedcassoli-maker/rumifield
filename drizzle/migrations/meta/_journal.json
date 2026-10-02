@@ -29,6 +29,13 @@
       "when": 1790949267524,
       "tag": "0003_checklist_item_photos_unique",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1790952833500,
+      "tag": "0004_pedidos_managers_write_assets_itens",
+      "breakpoints": true
     }
   ]
 }
