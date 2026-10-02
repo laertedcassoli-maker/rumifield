@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, ReactNode } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 import { track, rotateSession, getSessionId, getSessionStartedAt } from '@/lib/analytics';
@@ -48,22 +48,43 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [role, setRole] = useState<AppRole | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const currentUserIdRef = useRef<string | null>(null);
+  const currentTokenRef = useRef<string | null>(null);
+  const loadedRef = useRef(false);
+
+  const applySession = (s: Session | null) => {
+    const id = s?.user?.id ?? null;
+    const tok = s?.access_token ?? null;
+    if (id === currentUserIdRef.current && tok === currentTokenRef.current) return;
+    currentTokenRef.current = tok;
+    setSession(s);
+    if (id !== currentUserIdRef.current) setUser(s?.user ?? null);
+    currentUserIdRef.current = id;
+  };
+
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
+        const prevId = currentUserIdRef.current;
+        const newId = session?.user?.id ?? null;
+        applySession(session);
 
         if (session?.user) {
-          if (event === 'SIGNED_IN') {
+          const isNewUser = newId !== prevId;
+          if (event === 'SIGNED_IN' && isNewUser) {
+            loadedRef.current = false;
             setLoading(true);
             setProfile(null);
             setRole(null);
           }
-          setTimeout(() => {
-            fetchUserData(session.user.id);
-          }, 0);
+          // Same user (e.g. tab refocus): revalidate in background without unmounting UI.
+          if (isNewUser || event === 'SIGNED_IN' || event === 'USER_UPDATED') {
+            setTimeout(() => {
+              fetchUserData(session.user.id);
+            }, 0);
+          }
         } else {
+          loadedRef.current = false;
           setProfile(null);
           setRole(null);
           setLoading(false);
@@ -72,8 +93,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     );
 
     supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
+      applySession(session);
       if (session?.user) {
         fetchUserData(session.user.id);
       } else {
@@ -112,6 +132,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (profileRes.error) throw profileRes.error;
       if (roleRes.error) throw roleRes.error;
+      loadedRef.current = true;
 
       if (profileRes.data) {
         const p = profileRes.data as Profile;
@@ -131,6 +152,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
     } catch (error) {
       console.error('Error fetching user data:', error);
+      // Background revalidation for the same user: keep what's already in memory.
+      if (loadedRef.current) return;
       // Only fall back to cached values when we are actually OFFLINE.
       // When online, a failure means we could not confirm the role — we must
       // NOT reuse the cached role (which is user-writable and untrusted).

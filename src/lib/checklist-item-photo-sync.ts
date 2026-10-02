@@ -19,8 +19,19 @@ function withTimeout<T>(p: PromiseLike<T>, label: string): Promise<T> {
 
 const photos = () => offlineChecklistDb.checklistItemPhotosV2;
 
-/** Envia todas as fotos locais de um item. Retorna true se não sobrou nenhuma pendente. */
-export async function syncItemPhoto(itemId: string): Promise<boolean> {
+const inFlight = new Map<string, Promise<boolean>>();
+
+/** Envia todas as fotos locais de um item. Retorna true se não sobrou nenhuma pendente.
+ *  Chamadas simultâneas para o mesmo item reaproveitam o envio em andamento. */
+export function syncItemPhoto(itemId: string): Promise<boolean> {
+  const cur = inFlight.get(itemId);
+  if (cur) return cur;
+  const p = doSyncItemPhoto(itemId).finally(() => inFlight.delete(itemId));
+  inFlight.set(itemId, p);
+  return p;
+}
+
+async function doSyncItemPhoto(itemId: string): Promise<boolean> {
   const recs = await photos().where('itemId').equals(itemId).toArray();
   if (!recs.length) return true;
   if (!navigator.onLine) return false;
@@ -53,6 +64,7 @@ async function uploadRecord(rec: OfflineChecklistItemPhoto) {
     sb.from(PHOTO_TABLE[rec.table]).insert({ item_id: rec.itemId, photo_path: path, created_by_user_id: rec.userId }).select('id'),
     'gravação da foto',
   ) as { data: any[] | null; error: any };
+  if (error?.code === '23505') return; // já gravada (retry idempotente)
   if (error) throw error;
   if (!data?.length) throw new Error('Sem permissão para salvar a foto deste item.');
 }

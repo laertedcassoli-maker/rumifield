@@ -431,9 +431,9 @@ function NovoItemDialog({ onClose, onDone, userId }: { onClose: () => void; onDo
 
   return (
     <Dialog open onOpenChange={o => !o && onClose()}>
-      <DialogContent>
+      <DialogContent className="overflow-x-hidden">
         <DialogHeader><DialogTitle>Incluir item no estoque</DialogTitle></DialogHeader>
-        <div className="space-y-4">
+        <div className="min-w-0 space-y-4">
           <div className="space-y-1"><Label>Código *</Label><Input value={codigo} readOnly={travado} className={travado ? 'bg-muted' : ''} onChange={e => setCodigo(e.target.value)} /></div>
           <div className="space-y-1"><Label>Descrição *</Label><Input value={descricao} readOnly={travado} className={travado ? 'bg-muted' : ''} onChange={e => setDescricao(e.target.value)} /></div>
           <div className="space-y-1"><Label>Estoque mínimo</Label><Input type="number" min="0" step="any" placeholder="Opcional" value={minimo} onChange={e => setMinimo(e.target.value)} /></div>
@@ -453,13 +453,13 @@ function NovoItemDialog({ onClose, onDone, userId }: { onClose: () => void; onDo
               ) : (
                 <>
                   <Input placeholder="Buscar por código ou nome (mín. 2 letras)" value={buscaPeca} onChange={e => setBuscaPeca(e.target.value)} />
-                  <div className="max-h-48 overflow-auto rounded-md border">
+                  <div className="max-h-48 min-w-0 overflow-y-auto overflow-x-hidden rounded-md border">
                     {pecas.map(p => (
                       <button key={p.id} type="button" disabled={p.jaCadastrado}
-                        className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-transparent"
+                        className="flex w-full min-w-0 items-center justify-between gap-2 px-3 py-2 text-left text-sm hover:bg-muted disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:bg-transparent"
                         onClick={() => selecionarPeca(p)}>
-                        <span className="min-w-0 truncate">{p.codigo} — {p.nome}</span>
-                        {p.jaCadastrado && <Badge variant="secondary">Já cadastrado</Badge>}
+                        <span className="min-w-0 flex-1 whitespace-normal break-words">{p.codigo} — {p.nome}</span>
+                        {p.jaCadastrado && <Badge variant="secondary" className="shrink-0">Já cadastrado</Badge>}
                       </button>
                     ))}
                     {buscaPeca.trim().length >= 2 && pecas.length === 0 && <p className="p-3 text-sm text-muted-foreground">Nenhuma peça encontrada</p>}
