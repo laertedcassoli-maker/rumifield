@@ -224,11 +224,12 @@ export default function ConsumedPartsBlock({ preventiveId, isCompleted = false, 
 
   const invalidateMovs = () => queryClient.invalidateQueries({ queryKey: ['visita-estoque-movs', preventiveId] });
 
-  /** Só o técnico da visita ou quem pode incluir/receber material movimenta o estoque aqui. */
+  /** Só o técnico da visita ou quem pode incluir item/dar entrada movimenta o estoque aqui. */
+
   const assertPodeBaixar = () => {
     if (!tecnicoId) throw new Error('Técnico da visita não identificado.');
     if (tecnicoId !== user?.id && !canEditMenuEstoque('estoque_uso_consumo')) {
-      throw new Error('Só o técnico da visita ou quem tem permissão de incluir/receber material pode dar baixa de estoque nesta visita.');
+      throw new Error('Só o técnico da visita ou quem tem permissão de incluir item/dar entrada pode dar baixa de estoque nesta visita.');
     }
   };
 
