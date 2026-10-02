@@ -1,3 +1,4 @@
+import { ListaVerMais } from '@/components/ui/ver-mais';
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -588,7 +589,7 @@ export default function Previsao() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredData.map((item) => {
+                  {<ListaVerMais inTable items={filteredData} resetKey={[selectedProdutoId, search, sortColumn, sortDirection, viewMode]}>{(__vis) => __vis.map((item) => {
                     const status = getValue(item, 'status') as 'critico' | 'atencao' | 'ok';
                     const consumo = getValue(item, 'consumo') as number | null;
                     const dias = getValue(item, 'dias') as number | null;
@@ -635,7 +636,7 @@ export default function Previsao() {
                         </TableCell>
                       </TableRow>
                     );
-                  })}
+                  })}</ListaVerMais>}
                 </TableBody>
               </Table>
             </div>

@@ -1,3 +1,4 @@
+import { ListaVerMais } from '@/components/ui/ver-mais';
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -306,7 +307,7 @@ export default function Historico() {
           <div className="absolute left-6 top-0 bottom-0 w-0.5 bg-border" />
 
           <div className="space-y-4">
-            {timelineEvents.map((event, index) => (
+            {<ListaVerMais items={timelineEvents} resetKey={timelineEvents.length}>{(__vis) => __vis.map((event, index) => (
               <div
                 key={event.id}
                 className="relative pl-14 animate-fade-in"
@@ -422,7 +423,7 @@ export default function Historico() {
                   </Card>
                 )}
               </div>
-            ))}
+            ))}</ListaVerMais>}
           </div>
         </div>
       )}

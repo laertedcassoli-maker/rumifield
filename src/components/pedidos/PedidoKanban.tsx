@@ -328,7 +328,7 @@ export default function PedidoKanban({
               {col.items.length === 0 ? (
                 <p className="text-xs text-muted-foreground text-center py-6">Nenhum pedido</p>
               ) : (
-                <ListaVerMais items={col.items}>{(__vis) => __vis.map(pedido => (
+                <ListaVerMais items={col.items} resetKey={col.items.map(i => i.id).join(',')}>{(__vis) => __vis.map(pedido => (
                   <PedidoCard
                     key={pedido.id}
                     pedido={pedido}
