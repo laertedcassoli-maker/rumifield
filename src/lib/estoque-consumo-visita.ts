@@ -24,7 +24,7 @@ const saldoKey = (tec: string, item: string) => `${tec}|${item}`;
 /** Atualiza cache de itens ativos e saldo do técnico (só com sinal). */
 export async function refreshEstoqueCache(tecnicoId: string): Promise<void> {
   const [{ data: itens, error: e1 }, { data: movs, error: e2 }] = await Promise.all([
-    sb.from('estoque_consumo_itens').select('id, codigo, descricao, peca_id, ativo').eq('ativo', true),
+    sb.from('estoque_consumo_itens').select('id, codigo, descricao, peca_id, ativo, unidade, controle_consumo').eq('ativo', true),
     sb.from('estoque_consumo_movimentos').select('id, item_id, tipo, quantidade')
       .eq('local', 'tecnico').eq('tecnico_user_id', tecnicoId),
   ]);
@@ -55,7 +55,7 @@ export async function getSaldoTecnico(tecnicoId: string, itemId: string): Promis
 }
 
 export async function findItemByPeca(pecaId: string) {
-  return (await offlineChecklistDb.estoqueConsumoItens.where('peca_id').equals(pecaId).toArray()).find(i => i.ativo) ?? null;
+  return (await offlineChecklistDb.estoqueConsumoItens.where('peca_id').equals(pecaId).toArray()).find(i => i.ativo && i.controle_consumo !== 'a_granel') ?? null;
 }
 
 async function bumpCachedSaldo(m: OfflineEstoqueMov) {

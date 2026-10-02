@@ -95,7 +95,7 @@ export interface OfflinePartConsumption {
   _operation?: 'insert' | 'delete';
 }
 
-export interface OfflineEstoqueItem { id: string; codigo: string; descricao: string; peca_id: string | null; ativo: boolean }
+export interface OfflineEstoqueItem { id: string; codigo: string; descricao: string; peca_id: string | null; ativo: boolean; unidade?: string; controle_consumo?: string }
 export interface OfflineEstoqueSaldo { key: string; tecnico_user_id: string; item_id: string; saldo: number }
 export interface OfflineEstoqueMov {
   id: string; item_id: string; tipo: 'entrada' | 'saida'; quantidade: number; local: 'tecnico';
