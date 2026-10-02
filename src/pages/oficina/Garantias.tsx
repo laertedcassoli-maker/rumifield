@@ -1,3 +1,4 @@
+import { ListaVerMais } from '@/components/ui/ver-mais';
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -438,7 +439,7 @@ export default function Garantias() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {warrantyMotors.map(motor => (
+                    {<ListaVerMais items={warrantyMotors} resetKey={activeTab}>{(__vis) => __vis.map(motor => (
                       <TableRow key={motor.id}>
                         <TableCell className="font-mono font-medium">
                           {motor.old_motor_code || '(sem cód)'}
@@ -472,7 +473,7 @@ export default function Garantias() {
                           )}
                         </TableCell>
                       </TableRow>
-                    ))}
+                    ))}</ListaVerMais>}
                   </TableBody>
                 </Table>
               </Card>
@@ -588,12 +589,12 @@ export default function Garantias() {
             <div className="p-3 bg-muted/50 rounded-lg">
               <p className="text-sm font-medium mb-2">Motores a incluir:</p>
               <div className="max-h-40 overflow-y-auto space-y-1">
-                {pendingMotors.map(motor => (
+                {<ListaVerMais items={pendingMotors} resetKey={activeTab}>{(__vis) => __vis.map(motor => (
                   <div key={motor.id} className="text-xs flex items-center justify-between">
                     <span className="font-mono">{motor.old_motor_code || '(sem código)'}</span>
                     <span className="text-muted-foreground">{motor.motor_hours_used.toFixed(0)}h</span>
                   </div>
-                ))}
+                ))}</ListaVerMais>}
               </div>
             </div>
 
