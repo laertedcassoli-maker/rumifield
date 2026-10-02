@@ -168,7 +168,7 @@ export default function EstoqueUsoConsumo() {
         <div className="flex flex-wrap gap-2">
           {podeSaida && <Button variant="outline" onClick={() => navigate('/estoque-uso-consumo/retirar')}><PackageMinus className="mr-2 h-4 w-4" />Retirar para o meu estoque</Button>}
           {podeEditar && <Button variant="outline" onClick={() => setNovoOpen(true)}><Box className="mr-2 h-4 w-4" />Incluir item no estoque</Button>}
-          {podeEditar && <Button onClick={() => setMovOpen('entrada')}><Plus className="mr-2 h-4 w-4" />Receber material</Button>}
+          {podeEditar && <Button onClick={() => setMovOpen('entrada')}><Plus className="mr-2 h-4 w-4" />Dar entrada</Button>}
           {podeSaida && <Button variant="secondary" onClick={() => setMovOpen('saida')}><Minus className="mr-2 h-4 w-4" />Dar baixa</Button>}
         </div>
       </div>
@@ -501,14 +501,14 @@ function MovimentoDialog({ tipo, itens, saldoCentro, userId, onClose, onDone }: 
       if (error) throw error;
       if (!data?.length) throw new Error('Sem permissão para registrar o movimento.');
     },
-    onSuccess: () => { toast({ title: tipo === 'entrada' ? 'Material recebido!' : 'Baixa registrada!' }); onDone(); onClose(); },
+    onSuccess: () => { toast({ title: tipo === 'entrada' ? 'Entrada registrada!' : 'Baixa registrada!' }); onDone(); onClose(); },
     onError: (e: Error) => toast({ variant: 'destructive', title: 'Erro ao registrar', description: e.message }),
   });
 
   return (
     <Dialog open onOpenChange={o => !o && onClose()}>
       <DialogContent>
-        <DialogHeader><DialogTitle>{tipo === 'entrada' ? 'Receber material' : 'Dar baixa'} — Centro de Serviços</DialogTitle></DialogHeader>
+        <DialogHeader><DialogTitle>{tipo === 'entrada' ? 'Dar entrada' : 'Dar baixa'} — Centro de Serviços</DialogTitle></DialogHeader>
         <div className="space-y-4">
           <div className="space-y-1">
             <Label>Item *</Label>
