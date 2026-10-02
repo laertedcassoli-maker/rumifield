@@ -194,3 +194,13 @@
     padding-bottom: 0 !important;
   }
 }
+
+/* Agenda de Operações — celular */
+.agenda-mobile .fc .fc-toolbar.fc-header-toolbar { flex-wrap: wrap; gap: 0.5rem; }
+.agenda-mobile .fc .fc-toolbar-chunk:last-child { width: 100%; display: flex; }
+.agenda-mobile .fc .fc-toolbar-chunk:last-child .fc-button-group { width: 100%; }
+.agenda-mobile .fc .fc-toolbar-title { font-size: 1rem; white-space: nowrap; }
+.agenda-mobile .fc .fc-button { min-height: 40px; }
+.agenda-mobile .fc .fc-daygrid-event-harness { display: inline-block; }
+.agenda-mobile .fc .fc-daygrid-event { border: 0; background: transparent; padding: 0 1px; }
+.agenda-mobile .fc .fc-list-event-title { white-space: normal; }

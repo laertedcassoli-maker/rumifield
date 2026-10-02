@@ -120,6 +120,11 @@ export default function AgendaOperacoes() {
   const { role } = useAuth();
   const [filtro, setFiltro] = useState<Filtro>('all');
   const [filtroTecnico, setFiltroTecnico] = useState<string>('todos');
+  const isMobile = useIsMobile();
+  const calRef = useRef<FullCalendar>(null);
+  // null = padrão (fechada no celular, aberta no desktop)
+  const [legendaAberta, setLegendaAberta] = useState<boolean | null>(null);
+  const legendaVisivel = legendaAberta ?? !isMobile;
   const { eventos, isLoading } = useAgendaOperacoes();
   const { ausencias, criar, remover } = useAgendaAusencias();
 
