@@ -589,12 +589,12 @@ export default function Garantias() {
             <div className="p-3 bg-muted/50 rounded-lg">
               <p className="text-sm font-medium mb-2">Motores a incluir:</p>
               <div className="max-h-40 overflow-y-auto space-y-1">
-                {<ListaVerMais items={pendingMotors} resetKey={activeTab}>{(__vis) => __vis.map(motor => (
+                {pendingMotors.map(motor => (
                   <div key={motor.id} className="text-xs flex items-center justify-between">
                     <span className="font-mono">{motor.old_motor_code || '(sem código)'}</span>
                     <span className="text-muted-foreground">{motor.motor_hours_used.toFixed(0)}h</span>
                   </div>
-                ))}</ListaVerMais>}
+                ))}
               </div>
             </div>
 
