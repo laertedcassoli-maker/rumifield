@@ -542,7 +542,7 @@ export default function InstalacoesIndex() {
                 size="sm"
                 variant={ownerFilter === 'meu' ? 'default' : 'outline'}
                 onClick={() => setOwnerFilter('meu')}
-                className="h-auto rounded-full gap-1.5 px-3 py-1 text-xs"
+                className="h-auto min-h-9 rounded-full gap-1.5 px-3 py-1 text-xs"
               >
                 <span className="font-semibold">Meu</span>
               </Button>
@@ -551,7 +551,7 @@ export default function InstalacoesIndex() {
                 size="sm"
                 variant={ownerFilter === 'todos' ? 'default' : 'outline'}
                 onClick={() => setOwnerFilter('todos')}
-                className="h-auto rounded-full gap-1.5 px-3 py-1 text-xs"
+                className="h-auto min-h-9 rounded-full gap-1.5 px-3 py-1 text-xs"
               >
                 <span className="font-semibold">Todos</span>
               </Button>
@@ -573,7 +573,7 @@ export default function InstalacoesIndex() {
                 size="sm"
                 variant={filtroSituacao === r.key ? 'default' : 'outline'}
                 onClick={() => setFiltroSituacao(prev => (prev === r.key ? 'all' : r.key))}
-                className="h-auto rounded-full gap-1.5 px-3 py-1 text-xs"
+                className="h-auto min-h-9 rounded-full gap-1.5 px-3 py-1 text-xs"
               >
                 <span className="font-semibold">{r.value}</span>
                 <span className={filtroSituacao === r.key ? 'text-primary-foreground/80' : 'text-muted-foreground'}>
@@ -703,7 +703,7 @@ export default function InstalacoesIndex() {
                           <p className="text-xs text-muted-foreground mt-1">Etapa não configurada</p>
                         )}
                       </div>
-                      <div className="flex items-center gap-2 shrink-0">
+                      <div className="flex flex-wrap items-center gap-2 shrink-0">
                         {stage && (
                           <Button
                             size="sm"
