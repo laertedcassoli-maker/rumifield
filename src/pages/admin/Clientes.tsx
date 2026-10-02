@@ -533,13 +533,13 @@ export default function AdminClientes() {
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="min-w-0">
           <h1 className="text-2xl font-bold">Clientes</h1>
           <p className="text-muted-foreground">Gerencie os produtores e fazendas</p>
         </div>
-        <div className="flex gap-2">
-          <div className="flex flex-col items-end">
+        <div className="flex flex-wrap items-start gap-2">
+          <div className="flex flex-col items-start sm:items-end">
             <Button 
               variant="outline" 
               onClick={() => syncIlmilk.mutate()}
@@ -984,7 +984,7 @@ export default function AdminClientes() {
             </span>
           </div>
           <Card>
-            <ScrollArea className="w-full">
+            <div className="w-full overflow-x-auto overscroll-x-contain [-webkit-overflow-scrolling:touch]">
               <div className="min-w-[1400px]">
                 <Table>
                   <TableHeader>
@@ -1111,7 +1111,7 @@ export default function AdminClientes() {
                   </TableBody>
                 </Table>
               </div>
-            </ScrollArea>
+            </div>
           </Card>
 
           {totalPages > 1 && (
