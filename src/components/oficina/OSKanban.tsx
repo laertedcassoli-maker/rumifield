@@ -1,4 +1,5 @@
-import { Clock, Eye, Package, Wrench, Trash2 } from 'lucide-react';
+import { Clock, Eye, Package, Wrench, Trash2, Ban } from 'lucide-react';
+import { canHardDeleteWorkOrder } from '@/lib/work-order-cancel';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -97,7 +98,7 @@ function KanbanColumn({
 
 
   return (
-    <div className={`flex-1 min-w-[280px] max-w-[350px] rounded-lg border ${config.borderColor} ${config.bgColor}`}>
+    <div className={`min-w-0 rounded-lg border ${config.borderColor} ${config.bgColor}`}>
       <div className="p-3 border-b border-border/50">
         <div className="flex items-center justify-between">
           <h3 className="font-semibold text-sm">{config.label}</h3>
@@ -106,7 +107,7 @@ function KanbanColumn({
           </Badge>
         </div>
       </div>
-      <ScrollArea className="h-[calc(100vh-320px)]">
+      <ScrollArea className="xl:h-[calc(100vh-320px)] [&>[data-radix-scroll-area-viewport]]:!overflow-visible xl:[&>[data-radix-scroll-area-viewport]]:!overflow-auto">
         <div className="p-2 space-y-2">
           {orders.map((os) => (
             <Card 
@@ -133,8 +134,10 @@ function KanbanColumn({
                           e.stopPropagation();
                           onDeleteOS(os);
                         }}
+                        title={canHardDeleteWorkOrder(os.status) ? 'Excluir OS' : 'Cancelar OS'}
+                        aria-label={canHardDeleteWorkOrder(os.status) ? 'Excluir OS' : 'Cancelar OS'}
                       >
-                        <Trash2 className="h-3 w-3" />
+                        {canHardDeleteWorkOrder(os.status) ? <Trash2 className="h-3 w-3" /> : <Ban className="h-3 w-3" />}
                       </Button>
                     )}
                   </div>
@@ -228,7 +231,7 @@ export function OSKanban({ workOrders, onViewOS, onDeleteOS, canDelete }: OSKanb
   const concluido = workOrders.filter(wo => wo.status === 'concluido');
 
   return (
-    <div className="flex gap-4 overflow-x-auto pb-4">
+    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 pb-4">
       <KanbanColumn status="aguardando" orders={aguardando} onViewOS={onViewOS} onDeleteOS={onDeleteOS} canDelete={canDelete} />
       <KanbanColumn status="em_manutencao" orders={emManutencao} onViewOS={onViewOS} onDeleteOS={onDeleteOS} canDelete={canDelete} />
       <KanbanColumn status="concluido" orders={concluido} onViewOS={onViewOS} onDeleteOS={onDeleteOS} canDelete={canDelete} />

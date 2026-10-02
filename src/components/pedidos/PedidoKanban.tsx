@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { 
   Truck, HandHelping, FileText, Eye, ArrowRight, CheckCircle2, 
-  User, Calendar, Package, Pencil, Trash2
+  User, Calendar, Package, Pencil, Trash2, Ban
 } from 'lucide-react';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -189,10 +189,10 @@ export default function PedidoKanban({
               className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
               onClick={() => onDelete(pedido)}
               disabled={isProcessing}
-              title="Excluir pedido"
-              aria-label="Excluir pedido"
+              title={pedido.status === 'rascunho' ? 'Excluir pedido' : 'Cancelar pedido'}
+              aria-label={pedido.status === 'rascunho' ? 'Excluir pedido' : 'Cancelar pedido'}
             >
-              <Trash2 className="h-3 w-3" />
+              {pedido.status === 'rascunho' ? <Trash2 className="h-3 w-3" /> : <Ban className="h-3 w-3" />}
             </Button>
           )}
           {canManage && (
@@ -236,10 +236,10 @@ export default function PedidoKanban({
               className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
               onClick={() => onDelete(pedido)}
               disabled={isProcessing}
-              title="Excluir pedido"
-              aria-label="Excluir pedido"
+              title={pedido.status === 'rascunho' ? 'Excluir pedido' : 'Cancelar pedido'}
+              aria-label={pedido.status === 'rascunho' ? 'Excluir pedido' : 'Cancelar pedido'}
             >
-              <Trash2 className="h-3 w-3" />
+              {pedido.status === 'rascunho' ? <Trash2 className="h-3 w-3" /> : <Ban className="h-3 w-3" />}
             </Button>
           )}
         </div>
@@ -272,10 +272,10 @@ export default function PedidoKanban({
               className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
               onClick={() => onDelete(pedido)}
               disabled={isProcessing}
-              title="Excluir pedido"
-              aria-label="Excluir pedido"
+              title={pedido.status === 'rascunho' ? 'Excluir pedido' : 'Cancelar pedido'}
+              aria-label={pedido.status === 'rascunho' ? 'Excluir pedido' : 'Cancelar pedido'}
             >
-              <Trash2 className="h-3 w-3" />
+              {pedido.status === 'rascunho' ? <Trash2 className="h-3 w-3" /> : <Ban className="h-3 w-3" />}
             </Button>
           )}
         </div>
@@ -295,10 +295,10 @@ export default function PedidoKanban({
             className="h-7 w-7 text-destructive hover:text-destructive hover:bg-destructive/10"
             onClick={() => onDelete(pedido)}
             disabled={isProcessing}
-            title="Excluir pedido"
-            aria-label="Excluir pedido"
+            title={pedido.status === 'rascunho' ? 'Excluir pedido' : 'Cancelar pedido'}
+            aria-label={pedido.status === 'rascunho' ? 'Excluir pedido' : 'Cancelar pedido'}
           >
-            <Trash2 className="h-3 w-3" />
+            {pedido.status === 'rascunho' ? <Trash2 className="h-3 w-3" /> : <Ban className="h-3 w-3" />}
           </Button>
         </div>
       ) : null,
