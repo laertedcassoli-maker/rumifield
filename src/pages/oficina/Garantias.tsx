@@ -439,7 +439,7 @@ export default function Garantias() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {<ListaVerMais items={warrantyMotors} resetKey={activeTab}>{(__vis) => __vis.map(motor => (
+                    {<ListaVerMais inTable items={warrantyMotors} resetKey={activeTab}>{(__vis) => __vis.map(motor => (
                       <TableRow key={motor.id}>
                         <TableCell className="font-mono font-medium">
                           {motor.old_motor_code || '(sem cód)'}
