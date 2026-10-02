@@ -1,0 +1,4 @@
+CREATE POLICY "Pedido managers can insert pedido_item_assets" ON public.pedido_item_assets FOR INSERT TO authenticated WITH CHECK (public.can_manage_pedidos(auth.uid()));
+CREATE POLICY "Pedido managers can update pedido_item_assets" ON public.pedido_item_assets FOR UPDATE TO authenticated USING (public.can_manage_pedidos(auth.uid())) WITH CHECK (public.can_manage_pedidos(auth.uid()));
+CREATE POLICY "Pedido managers can delete pedido_item_assets" ON public.pedido_item_assets FOR DELETE TO authenticated USING (public.can_manage_pedidos(auth.uid()));
+CREATE POLICY "Pedido managers can update pedido_itens" ON public.pedido_itens FOR UPDATE TO authenticated USING (public.can_manage_pedidos(auth.uid())) WITH CHECK (public.can_manage_pedidos(auth.uid()));
