@@ -144,7 +144,7 @@ export function AppLayout({ children }: AppLayoutProps) {
             <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
           </Button>
         </header>
-        <main className="flex-1 min-w-0 overflow-x-hidden overflow-y-auto p-4 md:p-6 max-w-full">
+        <main className="flex-1 min-w-0 overflow-x-hidden overflow-y-auto p-4 pb-24 md:p-6 max-w-full">
           <div className="w-full max-w-full overflow-x-hidden">
             {children}
           </div>

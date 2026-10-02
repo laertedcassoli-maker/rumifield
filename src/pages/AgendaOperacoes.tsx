@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { useNavigate } from 'react-router-dom';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
@@ -6,7 +7,7 @@ import timeGridPlugin from '@fullcalendar/timegrid';
 import listPlugin from '@fullcalendar/list';
 import ptBrLocale from '@fullcalendar/core/locales/pt-br';
 import { useQuery } from '@tanstack/react-query';
-import { CalendarDays, Wrench, AlertTriangle, ShieldCheck, Plus, CalendarOff } from 'lucide-react';
+import { ChevronDown, CalendarDays, Wrench, AlertTriangle, ShieldCheck, Plus, CalendarOff } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -119,6 +120,11 @@ export default function AgendaOperacoes() {
   const { role } = useAuth();
   const [filtro, setFiltro] = useState<Filtro>('all');
   const [filtroTecnico, setFiltroTecnico] = useState<string>('todos');
+  const isMobile = useIsMobile();
+  const calRef = useRef<FullCalendar>(null);
+  // null = padrão (fechada no celular, aberta no desktop)
+  const [legendaAberta, setLegendaAberta] = useState<boolean | null>(null);
+  const legendaVisivel = legendaAberta ?? !isMobile;
   const { eventos, isLoading } = useAgendaOperacoes();
   const { ausencias, criar, remover } = useAgendaAusencias();
 
@@ -174,7 +180,7 @@ export default function AgendaOperacoes() {
           allDay: true,
           backgroundColor: cor,
           borderColor: cor,
-          extendedProps: { linkTo: e.linkTo, tipo: e.tipo, grupo: e.grupo, ausenciaId: null },
+          extendedProps: { linkTo: e.linkTo, tipo: e.tipo, grupo: e.grupo, ausenciaId: null, tecnicoNome: e.tecnicoNome ?? null },
         };
       });
 
@@ -232,11 +238,12 @@ export default function AgendaOperacoes() {
 
   return (
     <div className="space-y-4 p-4">
+      {/* legenda e calendário reagem à largura (rotação incluída) */}
       <div className="flex flex-wrap items-center gap-2">
         <CalendarDays className="h-5 w-5 text-primary" />
         <h1 className="text-xl font-semibold">Agenda de Operações</h1>
         {podeGerenciarAusencias && (
-          <Button size="sm" className="ml-auto h-8 text-xs" onClick={() => setDialogOpen(true)}>
+          <Button size="sm" className="ml-auto h-10 md:h-8 text-xs" onClick={() => setDialogOpen(true)}>
             <Plus className="mr-1 h-3.5 w-3.5" />
             Nova Ausência
           </Button>
@@ -255,7 +262,7 @@ export default function AgendaOperacoes() {
           </Button>
         ))}
         <Select value={filtroTecnico} onValueChange={setFiltroTecnico}>
-          <SelectTrigger className="h-8 w-[220px]">
+          <SelectTrigger className="h-10 sm:h-8 w-full sm:w-[220px]">
             <SelectValue placeholder="Todos os técnicos" />
           </SelectTrigger>
           <SelectContent>
@@ -269,6 +276,20 @@ export default function AgendaOperacoes() {
         </Select>
       </div>
 
+      <div>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-9 px-2 text-xs text-muted-foreground"
+          onClick={() => setLegendaAberta(!legendaVisivel)}
+          aria-expanded={legendaVisivel}
+        >
+          Legenda
+          <ChevronDown className={`ml-1 h-3.5 w-3.5 transition-transform ${legendaVisivel ? 'rotate-180' : ''}`} />
+        </Button>
+      </div>
+
+      {legendaVisivel && (<>
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-muted-foreground">
         {(['instalacao', 'corretiva', 'preventiva'] as AgendaGrupo[]).map(g => (
           <span key={g} className="flex items-center gap-1.5">
@@ -302,26 +323,66 @@ export default function AgendaOperacoes() {
           </span>
         )}
       </div>
+      </>)}
 
       <Card>
         <CardContent className="overflow-x-auto p-3">
           {isLoading ? (
             <Skeleton className="h-[520px] w-full" />
           ) : (
-            <div className="agenda-operacoes min-w-0 text-sm">
+            <div className={`agenda-operacoes min-w-0 text-sm ${isMobile ? 'agenda-mobile' : ''}`}>
               <FullCalendar
+                key={isMobile ? 'mobile' : 'desktop'}
+                ref={calRef}
                 plugins={[dayGridPlugin, timeGridPlugin, listPlugin]}
-                initialView="dayGridMonth"
+                initialView={isMobile ? 'listWeek' : 'dayGridMonth'}
                 locale={ptBrLocale}
                 height="auto"
-                headerToolbar={{
+                headerToolbar={isMobile ? {
+                  left: 'prev,next today',
+                  center: 'title',
+                  right: 'listWeek,dayGridMonth',
+                } : {
                   left: 'prev,next today',
                   center: 'title',
                   right: 'dayGridMonth,timeGridWeek,timeGridDay,listWeek',
                 }}
+                navLinks={isMobile}
+                navLinkDayClick={date => calRef.current?.getApi().changeView('listDay', date)}
+                moreLinkClick={isMobile ? 'listDay' : undefined}
                 events={calendarEvents}
                 eventContent={arg => {
                   const grupo = arg.event.extendedProps.grupo as AgendaGrupo | null;
+                  const viewType = arg.view.type;
+                  if (isMobile && viewType === 'dayGridMonth') {
+                    return (
+                      <span
+                        className="mx-auto block h-2 w-2 rounded-full"
+                        style={{ backgroundColor: arg.event.backgroundColor }}
+                        aria-label={arg.event.title}
+                      />
+                    );
+                  }
+                  if (viewType.startsWith('list')) {
+                    const tipo = arg.event.extendedProps.tipo as string;
+                    const tecnico = arg.event.extendedProps.tecnicoNome as string | null;
+                    return (
+                      <span className="flex min-w-0 items-start gap-1.5 whitespace-normal break-words">
+                        {grupo ? (
+                          <GrupoIcon grupo={grupo} className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                        ) : (
+                          <CalendarOff className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                        )}
+                        <span className="min-w-0">
+                          <span className="block">{arg.event.title}</span>
+                          <span className="block text-xs text-muted-foreground">
+                            {AGENDA_TIPO_LABELS[tipo] ?? (tipo === 'ausencia' ? 'Ausência' : tipo)}
+                            {tecnico ? ` · ${tecnico}` : ''}
+                          </span>
+                        </span>
+                      </span>
+                    );
+                  }
                   return (
                     <span className="flex min-w-0 items-center gap-1 overflow-hidden">
                       {grupo ? (
@@ -357,7 +418,7 @@ export default function AgendaOperacoes() {
                   info.el.title = `${AGENDA_TIPO_LABELS[tipo] ?? tipo}: ${info.event.title}`;
                   info.el.style.cursor = 'pointer';
                 }}
-                dayMaxEvents={3}
+                dayMaxEvents={isMobile ? 2 : 3}
               />
             </div>
           )}

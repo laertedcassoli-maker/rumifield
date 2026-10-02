@@ -647,10 +647,12 @@ export default function Pedidos() {
         const matchesResponsavel = responsavelFilter === 'todos'
           || pedido.tecnico_responsavel_user_id === user?.id
           || pedido.csm_responsavel_user_id === user?.id;
-        const concluido = pedido.status === 'entregue';
+        // Concluídos = mesma lista de ENVIO_FINALIZADOS (Minhas Pendências); cancelado e outros só em "Todos"
+        const concluido = ['faturado', 'enviado', 'entregue'].includes(pedido.status);
+        const pendente = ['solicitado', 'pendente', 'processamento'].includes(pedido.status);
         const matchesSituacao = situacaoFilter === 'todos'
           || (situacaoFilter === 'concluidos' && concluido)
-          || (situacaoFilter === 'pendentes' && !concluido);
+          || (situacaoFilter === 'pendentes' && pendente);
 
         return matchesSearch && matchesStatus && matchesDate && matchesTipoEnvio && matchesTipoLogistica && matchesTipoSolicitacao && matchesSolicitante && matchesOwner && matchesResponsavel && matchesSituacao;
       });
