@@ -8,3 +8,5 @@
 - [x] Minhas Pendências: "Ver todas" + seção unificada Visitas Técnicas + Treinamentos/OS
 - [x] Pedidos.tsx: tipo_envio apenas_nf/envio_pelo_tecnico mostra "N/A" no Código de Rastreio
 - [x] Instalações: exclusão/edição por etapa + formulário de critérios de aprovação da Pré Instalação (editar: admin/coord. serviços; leitura: + coord. logística/coord. R+/consultor R+)
+- [x] Estoque Uso/Consumo: unidade, controle a granel, baixa com motivo, renomeações e atalhos para a retirada
+- [x] Visita: só o técnico da visita ou quem pode incluir/receber material dá baixa/estorno de estoque

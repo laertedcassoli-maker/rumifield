@@ -1,1 +1,2 @@
 - Field-visit stock consumption (Estoque Uso/Consumo) writes movements with origem_tipo='visita' offline-first through src/lib/estoque-consumo-visita.ts and the checklist sync queue; items without peca_id never become preventive_part_consumption rows — part_id is required there and drives NF orders.
+- Stock quantity parsing/formatting goes through src/lib/estoque-unidade.ts (integer-only for count units); 'a_granel' items never enter technician stock — why: one rule for every quantity field.
