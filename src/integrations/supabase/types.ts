@@ -4981,6 +4981,7 @@ export type Database = {
       can_cancel_corretiva: { Args: { _user_id: string }; Returns: boolean }
       can_cancel_installation: { Args: { _user_id: string }; Returns: boolean }
       can_cancel_preventiva: { Args: { _user_id: string }; Returns: boolean }
+      can_cancel_treinamento: { Args: { _user_id: string }; Returns: boolean }
       can_cancel_work_order: { Args: { _user_id: string }; Returns: boolean }
       can_delete_peca: { Args: { _peca_id: string }; Returns: boolean }
       can_edit_completed_checklist: {
